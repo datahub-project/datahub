@@ -864,6 +864,25 @@ class TestErrorHandling:
             f.title == "Most queries failed SQL parsing" for f in source.report.failures
         )
 
+    def test_small_all_failing_file_warns(self, pipeline_context, query_file_with):
+        """Too few queries to judge systemically, but silence would be wrong."""
+        path = query_file_with(
+            [
+                json.dumps(
+                    {"query": "}{ not sql", "timestamp": 1640995200 + i, "user": "u"}
+                )
+                for i in range(3)
+            ]
+        )
+        source = _make_source(pipeline_context, path)
+
+        list(source.get_workunits_internal())
+
+        assert any(
+            w.title == "Queries failed SQL parsing" for w in source.report.warnings
+        )
+        assert not source.report.failures
+
     def test_file_not_found_reports_failure(self, pipeline_context):
         source = _make_source(pipeline_context, "/nonexistent/path/queries.jsonl")
 

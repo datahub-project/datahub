@@ -413,12 +413,25 @@ class SqlQueriesSource(Source):
         agg_report = self.aggregator.report
         total = agg_report.num_observed_queries
         failed = agg_report.num_observed_queries_failed
-        # Require a minimum sample: in a handful of queries, one unparseable
-        # statement is a per-query warning, not a systemic failure.
-        if total < MIN_SAMPLE_FOR_FAILURE_RATIO or not failed:
+        if not failed:
             return True
 
         ratio = failed / total
+        context = f"{failed}/{total} queries failed ({ratio:.0%})"
+
+        # Below the minimum sample a ratio is not evidence of a systemic problem
+        # — one bad query out of three is just one bad query. Still say so,
+        # rather than letting an all-failing small file look clean.
+        if total < MIN_SAMPLE_FOR_FAILURE_RATIO:
+            if ratio >= self.config.failure_ratio_threshold:
+                self.report.warning(
+                    title="Queries failed SQL parsing",
+                    message="Most queries failed SQL parsing, but too few were seen "
+                    "to distinguish bad input from a systemic problem",
+                    context=context,
+                )
+            return True
+
         if ratio < self.config.failure_ratio_threshold:
             return True
 
@@ -427,7 +440,7 @@ class SqlQueriesSource(Source):
             message="A high proportion of queries failed during SQL parsing — "
             "likely a systemic issue such as expired credentials or "
             "an unreachable schema resolver",
-            context=f"{failed}/{total} queries failed ({ratio:.0%})",
+            context=context,
         )
         return False
 
