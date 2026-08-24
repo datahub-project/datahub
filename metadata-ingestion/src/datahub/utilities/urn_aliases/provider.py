@@ -57,8 +57,7 @@ def provide_urn_alias_resolver(
             )
     except Exception:
         logger.warning(
-            f"Failed to load URN aliases for {scope} after {count} URNs; references "
-            "there will be resolved one at a time instead.",
+            f"Failed to load URN aliases for {scope} after {count} URNs.",
             exc_info=True,
         )
         resolver.close()

@@ -59,6 +59,7 @@ from datahub.utilities.urn_aliases.resolver import (
     UrnAliasResolver,
     maintains_dataset_aliases,
     pick_match,
+    required_server_version,
 )
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -285,9 +286,12 @@ class AutoResolveLineageUrnsProcessor(
         if not maintains_dataset_aliases(graph):
             ctx.source_report.warning(
                 title="Lineage URN casing resolution disabled",
-                message="This server does not maintain the dataset `aliases` aspect that "
-                "URN casing resolution reads, so lineage is emitted unchanged. Requires "
-                "DataHub Cloud 2.2.0 or DataHub 1.8.0 and later.",
+                message="This DataHub server does not maintain the dataset `aliases` "
+                "aspect that URN casing resolution reads, so lineage is emitted "
+                "unchanged. Upgrade the server to use this feature.",
+                context=f"server version "
+                f"{graph.server_config.service_version or 'unknown'}; requires "
+                f"{required_server_version(graph)} or later",
             )
             return False
         return True
@@ -448,8 +452,8 @@ class AutoResolveLineageUrnsProcessor(
             if alias_resolver is None:
                 self.ctx.source_report.warning(
                     title="Lineage URN casing: upstream URNs not loaded",
-                    message="Failed to load an upstream platform's URNs from DataHub; "
-                    "its references are resolved one at a time instead.",
+                    message="Failed to load an upstream platform's URNs from DataHub, "
+                    "so its references are reconciled without a preloaded catalog.",
                     context=scope,
                 )
             else:
@@ -467,8 +471,8 @@ class AutoResolveLineageUrnsProcessor(
             except Exception as e:
                 self.ctx.source_report.warning(
                     title="Lineage URN casing: upstream catalog not loaded",
-                    message="Failed to bulk-load an upstream platform's catalog from "
-                    "DataHub; its columns are fetched one at a time instead.",
+                    message="Failed to bulk-load an upstream platform's schemas from "
+                    "DataHub, so its columns are reconciled without a preloaded catalog.",
                     context=scope,
                     exc=e,
                 )
@@ -479,10 +483,15 @@ class AutoResolveLineageUrnsProcessor(
             count = schema_resolver.schema_count()
             message = f"Loaded {count} dataset schemas for {scope}."
             if count > _CATALOG_SIZE_WARN_THRESHOLD:
-                logger.warning(
-                    f"{message} Its cache uses significant disk; consider narrowing "
-                    f"upstream_platforms (platform_instance / env) to the assets this "
-                    f"source references."
+                self.ctx.source_report.warning(
+                    title="Lineage URN casing: large upstream catalog preloaded",
+                    message="Preloaded a large upstream catalog, whose cache uses "
+                    "significant disk. Prefer setting resolve_all_platforms: true and "
+                    "dropping this platform from upstream_platforms, so its references "
+                    "are looked up as they are seen rather than preloaded wholesale; "
+                    "otherwise narrow the entry by env to the assets this source "
+                    "references.",
+                    context=f"{scope}; {count} schemas",
                 )
             else:
                 logger.info(message)

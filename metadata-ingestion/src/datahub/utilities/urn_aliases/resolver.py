@@ -115,9 +115,18 @@ def maintains_dataset_aliases(graph: "DataHubGraph") -> bool:
     try:
         return config.is_version_at_least(*minimum)
     except ValueError:
-        logger.warning(
-            f"Cannot read the DataHub server version {config.service_version!r}, so "
-            "whether it maintains the dataset `aliases` aspect is unknown; lineage URN "
-            "casing resolution is disabled and lineage is emitted unchanged."
+        # A build off a git SHA reports an unparseable version, so it is treated as too
+        # old. The caller's report warning carries the version read and the one needed.
+        logger.debug(
+            f"Cannot parse the DataHub server version {config.service_version!r}.",
+            exc_info=True,
         )
         return False
+
+
+def required_server_version(graph: "DataHubGraph") -> str:
+    """The lowest server version that maintains the dataset `aliases` aspect."""
+    config = graph.server_config
+    if config.is_datahub_cloud:
+        return f"DataHub Cloud {'.'.join(map(str, _MIN_CLOUD_VERSION))}"
+    return f"DataHub {'.'.join(map(str, _MIN_OSS_VERSION))}"
