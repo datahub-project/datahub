@@ -1285,6 +1285,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 exc=e,
                 log=False,
             )
+            return None
+
     def _create_empty_result(
         self, dashboard_id: str, start_time: datetime.datetime
     ) -> DashboardProcessingResult:
