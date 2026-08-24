@@ -211,10 +211,5 @@ class DefaultExecutor(Executor):
         return secret_stores
 
     def _create_secret_store(self, config: SecretStoreConfig) -> SecretStore:
-        # `get()` resolves both forms of `type`: a built-in short name ("env",
-        # "datahub", "aws-sm", ...) via the registry, and a dotted/colon import path
-        # ("my_pkg.stores.MyVaultStore") by importing it directly. Pre-registering an
-        # import path is not possible -- SecretStoreRegistry rejects keys containing
-        # "." or ":", so registering one raises KeyError.
         secret_store_class = SecretStoreRegistry().get(config.type)
         return secret_store_class.create(config.config)
