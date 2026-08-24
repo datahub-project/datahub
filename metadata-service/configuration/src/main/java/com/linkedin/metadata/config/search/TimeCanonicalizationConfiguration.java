@@ -33,14 +33,20 @@ public class TimeCanonicalizationConfiguration {
    * Bucket size, in {@link #bucketSizeUnit} units; 1d maximum.
    *
    * <p>Zero, negative or over-1d disables canonicalization rather than failing startup. A
-   * non-numeric value is different: Spring binding rejects it and GMS does not start, so duration
-   * syntax like {@code 5m} goes in {@link #bucketSizeUnit}, not here.
+   * non-numeric value is different: Spring binding rejects it and GMS does not start. A duration is
+   * split across two fields rather than written as one string, so a 5-minute bucket is {@code
+   * bucketSize: 5} with {@code bucketSizeUnit: MINUTES} - neither field takes {@code 5m}.
    */
   private int bucketSize;
 
   /**
    * Unit for {@link #bucketSize}: a {@link java.util.concurrent.TimeUnit} name, e.g. {@code
    * MINUTES}. Omitting it means {@code SECONDS}.
+   *
+   * <p>The clock has millisecond precision, so {@code MICROSECONDS} and {@code NANOSECONDS} are
+   * only accepted when {@link #bucketSize} works out to a whole number of milliseconds. Anything
+   * finer disables canonicalization rather than truncating to a bucket the operator did not ask
+   * for.
    */
   private String bucketSizeUnit;
 

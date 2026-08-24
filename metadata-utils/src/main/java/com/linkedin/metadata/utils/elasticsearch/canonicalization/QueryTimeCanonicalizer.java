@@ -4,6 +4,7 @@ import com.linkedin.metadata.config.search.QueryCanonicalizationConfiguration;
 import com.linkedin.metadata.config.search.TimeCanonicalizationConfiguration;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -77,6 +78,7 @@ public final class QueryTimeCanonicalizer {
 
   private static final long ONE_HOUR_MILLIS = 3_600_000L;
   private static final long ONE_DAY_MILLIS = 86_400_000L;
+  private static final int NANOS_PER_MILLI = 1_000_000;
 
   /**
    * Counts canonicalizations actually performed, i.e. one per {@link #now()} on an enabled
@@ -173,14 +175,19 @@ public final class QueryTimeCanonicalizer {
     }
 
     try {
-      final long bucketMillis = time.getBucketDuration().toMillis();
-      if (bucketMillis <= 0) {
+      final Duration bucketDuration = time.getBucketDuration();
+      // Every bound is an epoch milli, so a sub-millisecond unit would truncate: 1500us silently
+      // becomes a 1ms bucket. Reject rather than round the operator's configuration for them.
+      if (bucketDuration.getNano() % NANOS_PER_MILLI != 0) {
         throw new IllegalArgumentException(
-            "bucketSize must be positive, got: " + time.getBucketDuration());
+            "bucketSize must be a whole number of milliseconds, got: " + bucketDuration);
+      }
+      final long bucketMillis = bucketDuration.toMillis();
+      if (bucketMillis <= 0) {
+        throw new IllegalArgumentException("bucketSize must be positive, got: " + bucketDuration);
       }
       if (bucketMillis > ONE_DAY_MILLIS) {
-        throw new IllegalArgumentException(
-            "bucketSize must not exceed 1d, got: " + time.getBucketDuration());
+        throw new IllegalArgumentException("bucketSize must not exceed 1d, got: " + bucketDuration);
       }
 
       final ZoneId zone = parseZone(time.getTimezone());
