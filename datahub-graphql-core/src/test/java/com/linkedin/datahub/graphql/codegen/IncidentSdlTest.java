@@ -68,6 +68,32 @@ public class IncidentSdlTest {
   }
 
   @Test
+  public void ignoresListWrappedEntityIncidentsResult() {
+    String sdl =
+        """
+        type EntityIncidentsResult { total: Int }
+        extend type Dataset {
+          incidents: [EntityIncidentsResult]
+        }
+        """;
+
+    assertEquals(IncidentSdl.typesDeclaringIncidentsField(sdl), List.of());
+  }
+
+  @Test
+  public void matchesNonNullEntityIncidentsResult() {
+    String sdl =
+        """
+        type EntityIncidentsResult { total: Int }
+        extend type Dataset {
+          incidents: EntityIncidentsResult!
+        }
+        """;
+
+    assertEquals(IncidentSdl.typesDeclaringIncidentsField(sdl), List.of("Dataset"));
+  }
+
+  @Test
   public void ignoresRootOperationTypesEvenIfTheyDeclareIncidents() {
     String sdl =
         """
@@ -83,18 +109,20 @@ public class IncidentSdlTest {
   @Test
   public void generatedArtifactMatchesSdlParse() throws IOException {
     String sdl = readIncidentSdl();
-    assertEquals(
-        new HashSet<>(IncidentEntityTypes.ENTITY_TYPES),
-        new HashSet<>(IncidentSdl.typesDeclaringIncidentsField(sdl)));
-    assertTrue(
-        IncidentEntityTypes.ENTITY_TYPES.contains("Dataset"),
-        IncidentEntityTypes.ENTITY_TYPES.toString());
-    assertTrue(
-        IncidentEntityTypes.ENTITY_TYPES.contains("SchemaFieldEntity"),
-        IncidentEntityTypes.ENTITY_TYPES.toString());
-    assertFalse(IncidentEntityTypes.ENTITY_TYPES.contains("Mutation"));
-    assertFalse(IncidentEntityTypes.ENTITY_TYPES.contains("Incident"));
-    assertFalse(IncidentEntityTypes.ENTITY_TYPES.contains("EntityIncidentsResult"));
+    List<String> parsed = IncidentSdl.typesDeclaringIncidentsField(sdl);
+    assertEquals(new HashSet<>(IncidentEntityTypes.ENTITY_TYPES), new HashSet<>(parsed));
+    assertTrue(parsed.contains("Dataset"), parsed.toString());
+    assertTrue(parsed.contains("DataJob"), parsed.toString());
+    assertTrue(parsed.contains("DataFlow"), parsed.toString());
+    assertTrue(parsed.contains("Dashboard"), parsed.toString());
+    assertTrue(parsed.contains("Chart"), parsed.toString());
+    assertTrue(parsed.contains("MLModel"), parsed.toString());
+    assertTrue(parsed.contains("MLFeature"), parsed.toString());
+    assertTrue(parsed.contains("MLFeatureTable"), parsed.toString());
+    assertTrue(parsed.contains("SchemaFieldEntity"), parsed.toString());
+    assertFalse(parsed.contains("Mutation"), parsed.toString());
+    assertFalse(parsed.contains("Incident"), parsed.toString());
+    assertFalse(parsed.contains("EntityIncidentsResult"), parsed.toString());
   }
 
   private static String readIncidentSdl() throws IOException {
