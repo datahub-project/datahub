@@ -492,3 +492,42 @@ def test_rest_sink_config_accepts_client_config_dump():
     client = DatahubClientConfig(server="http://localhost:8080")
     cfg = DatahubRestSinkConfig(**client.model_dump())
     assert cfg.server == "http://localhost:8080"
+
+
+def test_write_record_async_fails_only_the_invalid_record():
+    """An unreadable urn must not be batched with, or fail, its valid siblings.
+
+    emit_mcps is all-or-nothing and BatchPartitionExecutor attributes a single
+    batch failure to every record in it, so the guard has to run per record in
+    the sink rather than only in the emitter.
+    """
+    from datahub.ingestion.api.common import RecordEnvelope
+    from datahub.utilities.partition_executor import BatchPartitionExecutor
+
+    sink = DatahubRestSink.__new__(DatahubRestSink)
+    sink.config = DatahubRestSinkConfig(
+        server=MOCK_GMS_ENDPOINT, mode=RestSinkMode.ASYNC_BATCH
+    )
+    sink.report = MagicMock()
+    sink.executor = MagicMock(spec=BatchPartitionExecutor)
+    sink._gms_emit_mode = EmitMode.ASYNC
+
+    write_callback = MagicMock()
+
+    bad = MetadataChangeProposalWrapper(
+        entityUrn="urn:li:dashboard:(looker,my_dashboard (copy))",
+        aspect=models.StatusClass(removed=False),
+    )
+    sink.write_record_async(RecordEnvelope(bad, metadata={}), write_callback)
+
+    write_callback.on_failure.assert_called_once()
+    sink.executor.submit.assert_not_called()
+
+    good = MetadataChangeProposalWrapper(
+        entityUrn="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+        aspect=models.StatusClass(removed=False),
+    )
+    sink.write_record_async(RecordEnvelope(good, metadata={}), write_callback)
+
+    sink.executor.submit.assert_called_once()
+    write_callback.on_failure.assert_called_once()

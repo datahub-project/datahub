@@ -25,7 +25,7 @@ from datahub.configuration.env_vars import (
     get_rest_sink_default_max_threads,
     get_rest_sink_default_mode,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, validate_emitted_urn
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.rest_emitter import (
     _DEFAULT_EMIT_MODE,
@@ -57,6 +57,7 @@ from datahub.utilities.partition_executor import (
 )
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.server_config_util import set_gms_config
+from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -448,6 +449,18 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         # should only have a high value if the sink is actually a bottleneck.
         with self.report.main_thread_blocking_timer:
             record = record_envelope.record
+
+            # Validate before the record can be batched with others. emit_mcps is
+            # all-or-nothing, and BatchPartitionExecutor reports one batch failure
+            # against every record in it, so an unreadable urn caught downstream
+            # would fail its valid siblings and mis-attribute their error.
+            try:
+                validate_emitted_urn(_get_urn(record_envelope))
+            except InvalidUrnError as e:
+                self.report.report_failure({"error": str(e)})
+                write_callback.on_failure(record_envelope, e, {})
+                return
+
             if self.config.mode == RestSinkMode.ASYNC:
                 assert isinstance(self.executor, PartitionExecutor)
                 partition_key = _get_partition_key(record_envelope)
