@@ -66,6 +66,8 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     dataTestId?: string;
     visibilityDeps?: React.DependencyList;
     placement?: DropdownProps['placement'];
+    /** Open the dropdown on mount (e.g. after "+ Filter" promotes a control). */
+    defaultOpen?: boolean;
     renderSelectBase?: (props: RenderSelectBaseProps) => React.ReactElement;
     renderOptionsFooter?: () => React.ReactNode;
 }

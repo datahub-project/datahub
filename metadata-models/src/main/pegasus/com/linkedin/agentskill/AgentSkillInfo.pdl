@@ -1,0 +1,88 @@
+namespace com.linkedin.agentskill
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Properties of an AgentSkill — a high-level capability bundle (specialized
+ * prompts/instructions + the tools it relies on). Skills are
+ * higher-level than tools: a skill packages domain expertise and the
+ * low-level tools needed to apply it.
+ */
+@Aspect = {
+  "name": "agentSkillInfo"
+}
+record AgentSkillInfo {
+  /**
+   * Display name of the skill.
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  name: string
+
+  /**
+   * Description of what the skill does and when to use it.
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  /**
+   * Markdown body of the skill's SKILL.md file, excluding YAML frontmatter.
+   * This is the execution guidance loaded when the skill is activated.
+   */
+  instructions: optional string
+
+  /**
+   * Git location where the skill is defined (source of truth).
+   */
+  sourceRepository: optional SkillSourceRepository
+
+  /**
+   * Tools this skill requires to operate.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "SkillRequiresTool",
+      "entityTypes": [ "api" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "requiredTools",
+      "fieldType": "URN",
+      "queryByDefault": false
+    }
+  }
+  requiredTools: optional array[Urn]
+
+  /**
+   * When this skill was registered.
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME",
+      "queryByDefault": false
+    }
+  }
+  created: optional AuditStamp
+
+  /**
+   * When this skill was last modified.
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME",
+      "queryByDefault": false
+    }
+  }
+  lastModified: optional AuditStamp
+}

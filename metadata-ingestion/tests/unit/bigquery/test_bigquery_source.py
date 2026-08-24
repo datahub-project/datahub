@@ -48,6 +48,10 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
     LineageEdgeColumnMapping,
 )
+from datahub.ingestion.source.bigquery_v2.queries import (
+    BigqueryQuery,
+    BigqueryTableType,
+)
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
 from datahub.metadata.schema_classes import (
@@ -1089,7 +1093,7 @@ def test_get_views_for_dataset(
     views = bigquery_data_dictionary.get_views_for_dataset(
         project_id="test-project",
         dataset_name="test-dataset",
-        has_data_read=False,
+        use_legacy_table_stats=False,
         report=BigQueryV2Report(),
     )
     assert list(views) == [bigquery_view_1, bigquery_view_2]
@@ -1193,10 +1197,127 @@ def test_get_snapshots_for_dataset(
     snapshots = bigquery_data_dictionary.get_snapshots_for_dataset(
         project_id="test-project",
         dataset_name="test-dataset",
-        has_data_read=False,
+        use_legacy_table_stats=False,
         report=BigQueryV2Report(),
     )
     assert list(snapshots) == [bigquery_snapshot]
+
+
+@patch.object(BigQuerySchemaApi, "get_query_result")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+@pytest.mark.parametrize(
+    "with_partitions,use_legacy_table_stats,expected_marker,forbidden_marker",
+    [
+        # Default: stats from PARTITIONS, never __TABLES__. `p.total_logical_bytes`
+        # (not the legacy `ts.size_bytes`) is what distinguishes the two templates,
+        # since the legacy query also joins PARTITIONS for partition counts.
+        (True, False, "p.total_logical_bytes as bytes", "__TABLES__"),
+        # Legacy opt-in: stats come from the undocumented __TABLES__ join instead.
+        (True, True, "__TABLES__ as ts", "p.total_logical_bytes"),
+        # No partition data requested: neither stats source is queried.
+        (False, False, "INFORMATION_SCHEMA.TABLES", "INFORMATION_SCHEMA.PARTITIONS"),
+    ],
+)
+def test_get_tables_for_dataset_query_selection(
+    get_projects_client: MagicMock,
+    get_bq_client_mock: Mock,
+    query_mock: Mock,
+    with_partitions: bool,
+    use_legacy_table_stats: bool,
+    expected_marker: str,
+    forbidden_marker: str,
+) -> None:
+    query_mock.return_value = []
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+
+    list(
+        schema_api.get_tables_for_dataset(
+            project_id="test-project",
+            dataset_name="test-dataset",
+            tables={"table1": MagicMock()},
+            report=BigQueryV2Report(),
+            with_partitions=with_partitions,
+            use_legacy_table_stats=use_legacy_table_stats,
+        )
+    )
+
+    executed_query = query_mock.call_args[0][0]
+    assert expected_marker in executed_query
+    assert forbidden_marker not in executed_query
+
+
+@patch.object(BigQuerySchemaApi, "get_query_result")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+@pytest.mark.parametrize("entity", ["views", "snapshots"])
+@pytest.mark.parametrize("use_legacy_table_stats", [False, True])
+def test_get_views_and_snapshots_legacy_tables_selection(
+    get_projects_client: MagicMock,
+    get_bq_client_mock: Mock,
+    query_mock: Mock,
+    entity: str,
+    use_legacy_table_stats: bool,
+) -> None:
+    # Views/snapshots have no PARTITIONS-based query; the legacy __TABLES__ join is
+    # used only when use_legacy_table_stats=True and never otherwise.
+    # use_legacy_table_stats is the sole switch here.
+    query_mock.return_value = []
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+
+    fetch = (
+        schema_api.get_views_for_dataset
+        if entity == "views"
+        else schema_api.get_snapshots_for_dataset
+    )
+    list(
+        fetch(
+            project_id="test-project",
+            dataset_name="test-dataset",
+            use_legacy_table_stats=use_legacy_table_stats,
+            report=BigQueryV2Report(),
+        )
+    )
+
+    executed_query = query_mock.call_args[0][0]
+    assert ("__TABLES__" in executed_query) is use_legacy_table_stats
+
+
+def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() -> None:
+    # _make_bigquery_table reads these columns by name; renaming an alias here would
+    # silently null out row count / size / last-altered rather than raise.
+    query = BigqueryQuery.tables_for_dataset_with_partition_stats
+    assert "p.total_rows as row_count" in query
+    assert "p.total_logical_bytes as bytes" in query
+    assert "p.last_modified_time as last_altered" in query
+    # last_modified_time must stay wrapped in UNIX_MILLIS: PARTITIONS returns a
+    # TIMESTAMP, but the mapper expects epoch millis. Dropping the wrap would
+    # silently feed wrong timestamps rather than raise.
+    assert "UNIX_MILLIS(max(last_modified_time)) as last_modified_time" in query
+
+
+def test_make_bigquery_table_null_partition_stats() -> None:
+    # Tables absent from PARTITIONS get null p.* stats via the LEFT JOIN; the mapper must
+    # keep them None, not default to 0/epoch (documented "empty tables lose lastModified").
+    cols = ["table_name", "table_type", "created", "comment", "ddl"]
+    row = Row(
+        ("my_table", BigqueryTableType.BASE_TABLE, None, None, None),
+        {c: i for i, c in enumerate(cols)},
+    )
+
+    table = BigQuerySchemaApi._make_bigquery_table(row, table_basic=None)
+
+    assert table.last_altered is None
+    assert table.size_in_bytes is None
+    assert table.rows_count is None
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")

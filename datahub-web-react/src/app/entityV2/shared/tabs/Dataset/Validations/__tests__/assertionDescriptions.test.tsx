@@ -10,6 +10,7 @@ import { SchemaAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Va
 import { VolumeAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/VolumeAssertionDescription';
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 import { FreshnessScheduleSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/FreshnessScheduleSummary';
+import { getFieldDescriptionDescriptor } from '@app/entityV2/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
 import themeV2 from '@conf/theme/themeV2';
 import enValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 
@@ -128,7 +129,7 @@ describe('DatasetAssertionDescription', () => {
             parameters,
             nativeType: 'MY_NATIVE',
         } as any;
-        expect(renderText(<DatasetAssertionDescription assertionInfo={info} />)).toBe(expected);
+        expect(renderText(<DatasetAssertionDescription {...info} />)).toBe(expected);
     });
 
     // Each aggregation rendered against a fixed (greater than 5) operator suffix.
@@ -239,13 +240,26 @@ describe('DatasetAssertionDescription', () => {
             operator: AssertionStdOperator.GreaterThan,
             parameters: { value: numberParam(5) },
         } as any;
-        expect(renderText(<DatasetAssertionDescription assertionInfo={info} />)).toBe(expected);
+        expect(renderText(<DatasetAssertionDescription {...info} />)).toBe(expected);
     });
 
     it('renders an explicit description verbatim', () => {
-        expect(
-            renderText(<DatasetAssertionDescription description="My custom description" assertionInfo={{} as any} />),
-        ).toBe('My custom description');
+        expect(renderText(<DatasetAssertionDescription description="My custom description" />)).toBe(
+            'My custom description',
+        );
+    });
+
+    it('joins multiple columns for DatasetColumn scope', () => {
+        const info = {
+            scope: DatasetAssertionScope.DatasetColumn,
+            aggregation: AssertionStdAggregation.Identity,
+            fields: [{ path: 'profile_id' }, { path: 'email' }],
+            operator: AssertionStdOperator.EqualTo,
+            parameters: { value: numberParam(1) },
+        } as any;
+        expect(renderText(<DatasetAssertionDescription {...info} />)).toBe(
+            'Column profile_id, email values are equal to 1',
+        );
     });
 });
 
@@ -285,6 +299,17 @@ describe('VolumeAssertionDescription', () => {
             'Table has between 5 and 10 rows',
         ],
         [
+            'rowCountTotal + equalTo',
+            {
+                type: VolumeAssertionType.RowCountTotal,
+                rowCountTotal: {
+                    operator: AssertionStdOperator.EqualTo,
+                    parameters: { value: numberParam(100) },
+                },
+            },
+            'Table has exactly 100 rows',
+        ],
+        [
             'rowCountChange absolute + atLeast',
             {
                 type: VolumeAssertionType.RowCountChange,
@@ -295,6 +320,18 @@ describe('VolumeAssertionDescription', () => {
                 },
             },
             'Table should grow by at least 100 rows',
+        ],
+        [
+            'rowCountChange absolute + equalTo',
+            {
+                type: VolumeAssertionType.RowCountChange,
+                rowCountChange: {
+                    type: AssertionValueChangeType.Absolute,
+                    operator: AssertionStdOperator.EqualTo,
+                    parameters: { value: numberParam(100) },
+                },
+            },
+            'Table should grow by exactly 100 rows',
         ],
         [
             'rowCountChange percentage + atMost',
@@ -330,6 +367,17 @@ describe('VolumeAssertionDescription', () => {
                 },
             },
             'Table should grow by between 5 and 10 %',
+        ],
+        [
+            'unexpected operator falls back',
+            {
+                type: VolumeAssertionType.RowCountTotal,
+                rowCountTotal: {
+                    operator: AssertionStdOperator.NotEqualTo,
+                    parameters: { value: numberParam(100) },
+                },
+            },
+            'Table has a volume assertion',
         ],
     ];
 
@@ -378,63 +426,42 @@ describe('SchemaAssertionDescription', () => {
 describe('FreshnessAssertionDescription', () => {
     const cron = { cron: '0 0 * * *', timezone: 'UTC' } as any;
 
-    const cases: Array<[string, FreshnessAssertionType, any, any, string]> = [
+    const cases: Array<[string, FreshnessAssertionType, any, string]> = [
         [
-            'datasetChange fixedInterval no monitor',
+            'datasetChange fixedInterval',
             FreshnessAssertionType.DatasetChange,
             { type: FreshnessAssertionScheduleType.FixedInterval, fixedInterval: { multiple: 5, unit: 'HOUR' } },
-            undefined,
             'Table was updated in the past 5 hours',
-        ],
-        [
-            'datasetChange fixedInterval with monitor',
-            FreshnessAssertionType.DatasetChange,
-            { type: FreshnessAssertionScheduleType.FixedInterval, fixedInterval: { multiple: 5, unit: 'HOUR' } },
-            cron,
-            'Table was updated in the past 5 hours, as of 12:00 am (UTC)',
         ],
         [
             'datasetChange cron',
             FreshnessAssertionType.DatasetChange,
             { type: FreshnessAssertionScheduleType.Cron, cron },
-            undefined,
             'Table was updated between cron windows scheduled at 12:00 am (UTC)',
         ],
         [
-            'datasetChange sinceLastCheck no monitor',
+            'datasetChange sinceLastCheck',
             FreshnessAssertionType.DatasetChange,
             { type: FreshnessAssertionScheduleType.SinceTheLastCheck },
-            undefined,
             'Table was updated since the previous check.',
         ],
         [
-            'datasetChange sinceLastCheck with monitor',
-            FreshnessAssertionType.DatasetChange,
-            { type: FreshnessAssertionScheduleType.SinceTheLastCheck },
-            cron,
-            'Table was updated since the previous check, as of 12:00 am (UTC).',
-        ],
-        [
-            'dataJobRun fixedInterval no monitor',
+            'dataJobRun fixedInterval',
             FreshnessAssertionType.DataJobRun,
             { type: FreshnessAssertionScheduleType.FixedInterval, fixedInterval: { multiple: 1, unit: 'DAY' } },
-            undefined,
             'Data Task is run successfully in the past 1 days',
         ],
         [
             'dataJobRun cron',
             FreshnessAssertionType.DataJobRun,
             { type: FreshnessAssertionScheduleType.Cron, cron },
-            undefined,
             'Data Task is run successfully between cron windows scheduled at 12:00 am (UTC)',
         ],
     ];
 
-    it.each(cases)('%s', (_name, type, schedule, monitorSchedule, expected) => {
+    it.each(cases)('%s', (_name, type, schedule, expected) => {
         const info = { type, schedule } as any;
-        expect(
-            renderText(<FreshnessAssertionDescription assertionInfo={info} monitorSchedule={monitorSchedule} />),
-        ).toBe(expected);
+        expect(renderText(<FreshnessAssertionDescription assertionInfo={info} />)).toBe(expected);
     });
 });
 
@@ -531,6 +558,53 @@ describe('FieldAssertionDescription', () => {
             renderText(<FieldAssertionDescription assertionInfo={info} assertionDescription="My field description" />),
         ).toBe('My field description');
     });
+    it('field metric, column tag hidden', () => {
+        const info = {
+            type: FieldAssertionType.FieldMetric,
+            fieldMetricAssertion: {
+                field: { path: 'profileId' },
+                metric: FieldMetricType.NullCount,
+                operator: AssertionStdOperator.LessThan,
+                parameters: { value: numberParam(5) },
+            },
+        } as any;
+        expect(renderText(<FieldAssertionDescription assertionInfo={info} />)).toBe(
+            'Null count of profileId is less than 5',
+        );
+    });
+    it('field values, between', () => {
+        const info = {
+            type: FieldAssertionType.FieldValues,
+            fieldValuesAssertion: {
+                field: { path: 'profileId' },
+                operator: AssertionStdOperator.Between,
+                parameters: { minValue: numberParam(5), maxValue: numberParam(10) },
+            },
+        } as any;
+        expect(renderText(<FieldAssertionDescription assertionInfo={info} />)).toBe(
+            'profileId is within a range 5 and 10',
+        );
+    });
+    it('field values, no-value operator (not null)', () => {
+        const info = {
+            type: FieldAssertionType.FieldValues,
+            fieldValuesAssertion: {
+                field: { path: 'profileId' },
+                operator: AssertionStdOperator.NotNull,
+            },
+        } as any;
+        expect(renderText(<FieldAssertionDescription assertionInfo={info} />)).toBe('profileId is not null');
+    });
+    it('unsupported operator falls back', () => {
+        const info = {
+            type: FieldAssertionType.FieldValues,
+            fieldValuesAssertion: {
+                field: { path: 'myField' },
+                operator: AssertionStdOperator.Native,
+            },
+        } as any;
+        expect(renderText(<FieldAssertionDescription assertionInfo={info} />)).toContain('myField');
+    });
 });
 
 describe('getPlainTextDescriptionFromAssertion (search path)', () => {
@@ -558,12 +632,12 @@ describe('getPlainTextDescriptionFromAssertion (search path)', () => {
             volumeAssertion: {
                 type: VolumeAssertionType.RowCountTotal,
                 rowCountTotal: {
-                    operator: AssertionStdOperator.GreaterThanOrEqualTo,
+                    operator: AssertionStdOperator.EqualTo,
                     parameters: { value: numberParam(100) },
                 },
             },
         } as any;
-        expect(getPlainTextDescriptionFromAssertion(info)).toBe('Table has at least 100 rows');
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('Table has exactly 100 rows');
     });
     it('schema', () => {
         const info = {
@@ -589,7 +663,21 @@ describe('getPlainTextDescriptionFromAssertion (search path)', () => {
                 },
             },
         } as any;
-        expect(getPlainTextDescriptionFromAssertion(info)).toBe(' profileId Values are greater than 5');
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('profileId is greater than 5');
+    });
+    it('field falls back to a generic description on unsupported operator', () => {
+        const info = {
+            type: AssertionType.Field,
+            fieldAssertion: {
+                type: FieldAssertionType.FieldValues,
+                fieldValuesAssertion: {
+                    field: { path: 'profileId' },
+                    operator: AssertionStdOperator.Native,
+                    parameters: { value: numberParam(5) },
+                },
+            },
+        } as any;
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('Custom check on profileId');
     });
     it('freshness', () => {
         const info = {
@@ -602,9 +690,34 @@ describe('getPlainTextDescriptionFromAssertion (search path)', () => {
                 },
             },
         } as any;
-        expect(getPlainTextDescriptionFromAssertion(info, { cron: '0 0 * * *', timezone: 'UTC' } as any)).toBe(
-            'Table was updated in the past 5 hours, as of 12:00 am (UTC)',
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('Table was updated in the past 5 hours');
+    });
+    it('structured custom matches dataset description quality', () => {
+        const info = {
+            type: AssertionType.Custom,
+            customAssertion: {
+                type: 'great_expectations',
+                entityUrn: 'urn:li:dataset:1',
+                scope: DatasetAssertionScope.DatasetColumn,
+                aggregation: AssertionStdAggregation.UniqueCount,
+                fields: [{ path: 'profileId' }],
+                operator: AssertionStdOperator.GreaterThan,
+                parameters: { value: numberParam(5) },
+            },
+        } as any;
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe(
+            'Unique value count for column profileId is greater than 5',
         );
+    });
+    it('unstructured custom falls back to customType', () => {
+        const info = {
+            type: AssertionType.Custom,
+            customAssertion: {
+                type: 'dbt Freshness',
+                entityUrn: 'urn:li:dataset:1',
+            },
+        } as any;
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('dbt Freshness');
     });
 });
 
@@ -658,6 +771,7 @@ describe('description key completeness', () => {
         'changeAtLeastPercent',
         'changeAtMostPercent',
         'changeBetweenPercent',
+        'unknown',
     ];
 
     it('has a key for every Dataset aggregation × operator combination', () => {
@@ -670,5 +784,126 @@ describe('description key completeness', () => {
     it('has a key for every Volume description variant', () => {
         const missing = VOLUME_KEYS.map((k) => `volumeDescription.${k}`).filter((key) => !(key in enValidations));
         expect(missing).toEqual([]);
+    });
+});
+
+describe('field description key completeness', () => {
+    const FIELD_SUBJECT_SHAPES = [
+        'values',
+        'valuesTransform',
+        'metric',
+        'valuesColumn',
+        'valuesTransformColumn',
+        'metricColumn',
+    ];
+    const FIELD_OPERATOR_KEYS = [
+        'between',
+        'equalTo',
+        'notEqualTo',
+        'contains',
+        'regexMatch',
+        'in',
+        'notIn',
+        'null',
+        'notNull',
+        'isTrue',
+        'isFalse',
+        'greaterThan',
+        'greaterThanOrEqualTo',
+        'lessThan',
+        'lessThanOrEqualTo',
+    ];
+    const FIELD_METRIC_LABEL_KEYS = [
+        'nullCount',
+        'nullPercentage',
+        'uniqueCount',
+        'uniquePercentage',
+        'maxLength',
+        'minLength',
+        'emptyCount',
+        'emptyPercentage',
+        'max',
+        'min',
+        'mean',
+        'median',
+        'negativeCount',
+        'negativePercentage',
+        'stddev',
+        'zeroCount',
+        'zeroPercentage',
+    ];
+
+    it('has a key for every field subject shape × operator combination', () => {
+        const missing = FIELD_SUBJECT_SHAPES.flatMap((shape) =>
+            FIELD_OPERATOR_KEYS.map((op) => `fieldDescription.${shape}.${op}`).filter((key) => !(key in enValidations)),
+        );
+        expect(missing).toEqual([]);
+    });
+
+    it('has a label key for every field metric type and transform', () => {
+        const missing = [
+            ...FIELD_METRIC_LABEL_KEYS.map((m) => `fieldDescription.metricLabel.${m}`),
+            'fieldDescription.transformLabel.length',
+        ].filter((key) => !(key in enValidations));
+        expect(missing).toEqual([]);
+    });
+});
+
+describe('getFieldDescriptionDescriptor', () => {
+    it('field values, no transform → values shape', () => {
+        const info = {
+            type: FieldAssertionType.FieldValues,
+            fieldValuesAssertion: {
+                field: { path: 'profileId' },
+                operator: AssertionStdOperator.GreaterThan,
+                parameters: { value: numberParam(5) },
+            },
+        } as any;
+        const d = getFieldDescriptionDescriptor(info);
+        expect(d.shape).toBe('values');
+        expect(d.operatorKey).toBe('greaterThan');
+        expect(d.field).toBe('profileId');
+        expect(d.tokens.value).toBe('5');
+    });
+
+    it('field metric, showColumnTag → metricColumn shape with metric label key', () => {
+        const info = {
+            type: FieldAssertionType.FieldMetric,
+            fieldMetricAssertion: {
+                field: { path: 'profileId' },
+                metric: FieldMetricType.NullCount,
+                operator: AssertionStdOperator.LessThan,
+                parameters: { value: numberParam(5) },
+            },
+        } as any;
+        const d = getFieldDescriptionDescriptor(info, { showColumnTag: true });
+        expect(d.shape).toBe('metricColumn');
+        expect(d.metricLabelKey).toBe('fieldDescription.metricLabel.nullCount');
+    });
+
+    it('between → min/max tokens', () => {
+        const info = {
+            type: FieldAssertionType.FieldValues,
+            fieldValuesAssertion: {
+                field: { path: 'profileId' },
+                operator: AssertionStdOperator.Between,
+                parameters: { minValue: numberParam(5), maxValue: numberParam(10) },
+            },
+        } as any;
+        const d = getFieldDescriptionDescriptor(info);
+        expect(d.operatorKey).toBe('between');
+        expect(d.tokens.minValue).toBe('5');
+        expect(d.tokens.maxValue).toBe('10');
+    });
+
+    it('unsupported operator throws (→ component fallback)', () => {
+        const info = {
+            type: FieldAssertionType.FieldValues,
+            fieldValuesAssertion: {
+                field: { path: 'x' },
+                operator: AssertionStdOperator.Native,
+            },
+        } as any;
+        expect(() => getFieldDescriptionDescriptor(info)).toThrow();
     });
 });

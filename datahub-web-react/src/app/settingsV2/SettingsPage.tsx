@@ -1,3 +1,5 @@
+import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
+import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { Bank } from '@phosphor-icons/react/dist/csr/Bank';
 import { Bell } from '@phosphor-icons/react/dist/csr/Bell';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
@@ -8,7 +10,7 @@ import { ToggleRight } from '@phosphor-icons/react/dist/csr/ToggleRight';
 import { Users } from '@phosphor-icons/react/dist/csr/Users';
 import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import { Wrench } from '@phosphor-icons/react/dist/csr/Wrench';
-import React, { Suspense } from 'react';
+import React, { Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect, Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
 import styled from 'styled-components';
@@ -23,6 +25,8 @@ import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { Button } from '@src/alchemy-components';
 
+const COLLAPSED_NAV_WIDTH = 72;
+
 const PageContainer = styled.div`
     display: flex;
     overflow: auto;
@@ -32,17 +36,22 @@ const PageContainer = styled.div`
     padding: 5px;
 `;
 
-const NavBarContainer = styled.div`
-    padding: 20px 20px;
+const NavBarContainer = styled.div<{ $isCollapsed: boolean }>`
+    box-sizing: border-box;
+    padding: ${(props) => (props.$isCollapsed ? '16px 12px' : '20px 20px')};
     background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
     box-shadow: ${(props) => props.theme.colors.shadowSm};
-    align-items: start;
+    align-items: ${(props) => (props.$isCollapsed ? 'center' : 'start')};
     overflow: auto;
-    width: 20%;
-    min-width: 180px;
+    width: ${(props) => (props.$isCollapsed ? `${COLLAPSED_NAV_WIDTH}px` : '20%')};
+    min-width: ${(props) => (props.$isCollapsed ? `${COLLAPSED_NAV_WIDTH}px` : '180px')};
+    transition:
+        width 180ms ease-out,
+        min-width 180ms ease-out,
+        padding 180ms ease-out;
 `;
 
 const NavBarHeader = styled.div`
@@ -53,10 +62,16 @@ const NavBarHeader = styled.div`
     justify-content: space-between;
 `;
 
+const NavBarHeaderMain = styled.div<{ $isCollapsed: boolean }>`
+    display: ${(props) => (props.$isCollapsed ? 'none' : 'flex')};
+    flex-direction: column;
+`;
+
 const NavBarTitle = styled.div`
     font-size: 16px;
     font-weight: 700;
-    margin-bottom: 4px;
+    color: ${(props) => props.theme.colors.text};
+    margin-bottom: 0;
 `;
 
 const NavBarSubTitle = styled.div`
@@ -65,8 +80,23 @@ const NavBarSubTitle = styled.div`
     margin-bottom: 8px;
 `;
 
-const NavBarMenuContainer = styled.div`
-    padding-bottom: 8px; // Adds space below nav bar items on overflow.
+const NavBarHeaderActions = styled.div<{ $isCollapsed: boolean }>`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: ${(props) => (props.$isCollapsed ? '100%' : 'auto')};
+    justify-content: ${(props) => (props.$isCollapsed ? 'center' : 'flex-end')};
+`;
+
+const NavBarDivider = styled.div`
+    width: 100%;
+    height: 1px;
+    margin: 4px 0 12px 0;
+    background-color: ${(props) => props.theme.colors.border};
+`;
+
+const NavBarMenuContainer = styled.div<{ $isCollapsed: boolean }>`
+    padding-bottom: ${(props) => (props.$isCollapsed ? '0' : '8px')}; // Adds space below nav bar items on overflow.
     width: 100%;
 `;
 
@@ -79,11 +109,14 @@ const ContentContainer = styled.div`
     box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
+const fillIcon = (icon: React.ReactElement) => React.cloneElement(icon, { weight: 'fill' });
+
 const SettingsPageContent = () => {
     const { t } = useTranslation('settings.page');
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
     const history = useHistory();
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const subscriptionsEnabled = false;
     const me = useUserContext();
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -125,6 +158,7 @@ const SettingsPageContent = () => {
                         link: `${url}/views`,
                         isHidden: !showViews,
                         icon: <Funnel />,
+                        selectedIcon: fillIcon(<Funnel />),
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -133,6 +167,7 @@ const SettingsPageContent = () => {
                         link: `${url}/personal-notifications`,
                         isHidden: !subscriptionsEnabled,
                         icon: <Bell />,
+                        selectedIcon: fillIcon(<Bell />),
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -141,6 +176,7 @@ const SettingsPageContent = () => {
                         link: `${url}/personal-subscriptions`,
                         isHidden: !subscriptionsEnabled,
                         icon: <Star />,
+                        selectedIcon: fillIcon(<Star />),
                     },
                 ],
             },
@@ -157,6 +193,7 @@ const SettingsPageContent = () => {
                         link: `${url}/tokens`,
                         isHidden: !showAccessTokens,
                         icon: <ShieldCheck />,
+                        selectedIcon: fillIcon(<ShieldCheck />),
                     },
                 ],
             },
@@ -173,6 +210,7 @@ const SettingsPageContent = () => {
                         link: `${url}/identities`,
                         isHidden: !showUsersGroups,
                         icon: <UsersThree />,
+                        selectedIcon: fillIcon(<UsersThree />),
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -181,6 +219,7 @@ const SettingsPageContent = () => {
                         link: `${url}/permissions`,
                         isHidden: !showPolicies,
                         icon: <Bank />,
+                        selectedIcon: fillIcon(<Bank />),
                     },
                 ],
             },
@@ -197,6 +236,7 @@ const SettingsPageContent = () => {
                         link: `${url}/features`,
                         isHidden: !showFeatures,
                         icon: <ToggleRight />,
+                        selectedIcon: fillIcon(<ToggleRight />),
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -205,6 +245,7 @@ const SettingsPageContent = () => {
                         link: `${url}/posts`,
                         isHidden: !showHomePagePosts,
                         icon: <House />,
+                        selectedIcon: fillIcon(<House />),
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -213,6 +254,7 @@ const SettingsPageContent = () => {
                         link: `${url}/ownership`,
                         isHidden: !showOwnershipTypes,
                         icon: <Users />,
+                        selectedIcon: fillIcon(<Users />),
                     },
                 ],
             },
@@ -228,6 +270,7 @@ const SettingsPageContent = () => {
                         key: 'preferences',
                         link: `${url}/preferences`,
                         icon: <Wrench />,
+                        selectedIcon: fillIcon(<Wrench />),
                     },
                 ],
             },
@@ -235,32 +278,50 @@ const SettingsPageContent = () => {
     };
 
     const handleLogout = useGetLogoutHandler();
+    const handleToggleCollapse = () => {
+        setIsCollapsed((current) => !current);
+    };
+    const toggleSidebarLabel = isCollapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar');
 
     return (
         <PageContainer>
             {/* Sidebar with NavBarMenu */}
-            <NavBarContainer>
+            <NavBarContainer $isCollapsed={isCollapsed}>
                 <NavBarHeader>
-                    <div>
+                    <NavBarHeaderMain $isCollapsed={isCollapsed}>
                         <NavBarTitle>{t('title')}</NavBarTitle>
                         <NavBarSubTitle>{t('subTitle')}</NavBarSubTitle>
-                    </div>
-                    {!isShowNavBarRedesign && (
-                        <a href="/logOut">
-                            <Button
-                                variant="outline"
-                                color="red"
-                                onClick={handleLogout}
-                                data-testid="log-out-menu-item"
-                            >
-                                {t('logOut')}
-                            </Button>
-                        </a>
-                    )}
+                    </NavBarHeaderMain>
+                    <NavBarHeaderActions $isCollapsed={isCollapsed}>
+                        {!isShowNavBarRedesign && !isCollapsed && (
+                            <a href="/logOut">
+                                <Button
+                                    variant="outline"
+                                    color="red"
+                                    onClick={handleLogout}
+                                    data-testid="log-out-menu-item"
+                                >
+                                    {t('logOut')}
+                                </Button>
+                            </a>
+                        )}
+                        <Button
+                            variant="text"
+                            color="gray"
+                            size="lg"
+                            isCircle
+                            type="button"
+                            onClick={handleToggleCollapse}
+                            aria-label={toggleSidebarLabel}
+                            title={toggleSidebarLabel}
+                            icon={{ icon: isCollapsed ? ArrowLineRight : ArrowLineLeft }}
+                        />
+                    </NavBarHeaderActions>
                 </NavBarHeader>
-                <NavBarMenuContainer>
+                <NavBarDivider />
+                <NavBarMenuContainer $isCollapsed={isCollapsed}>
                     <NavBarMenu
-                        isCollapsed={false}
+                        isCollapsed={isCollapsed}
                         selectedKey={activePath}
                         menu={menuItems}
                         iconSize={16}

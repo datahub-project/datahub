@@ -128,7 +128,10 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
               null,
               keepAlive,
               client,
-              opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
+              opContext
+                  .getSearchContext()
+                  .getIndexConvention()
+                  .getIndexName(opContext, INDEX_NAME));
       final String tempPitId = pitId;
 
       for (int sliceId = 0; sliceId < slices; sliceId++) {

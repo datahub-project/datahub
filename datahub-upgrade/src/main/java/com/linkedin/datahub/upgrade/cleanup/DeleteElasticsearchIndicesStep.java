@@ -70,21 +70,23 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
         boolean isOpenSearch = client.getEngineType().isOpenSearch();
 
         // Entity search indices (V2/V3) — enumerate concrete names before deleting
-        for (String pattern : convention.getAllEntityIndicesPatterns()) {
+        for (String pattern : convention.getAllEntityIndicesPatterns(opContext)) {
           deleteIndicesByPattern(opContext, client, pattern);
         }
 
         // Timeseries aspect indices
         deleteIndicesByPattern(
-            opContext, client, convention.getAllTimeseriesAspectIndicesPattern());
+            opContext, client, convention.getAllTimeseriesAspectIndicesPattern(opContext));
 
         // Well-known named indices
         safeDeleteIndex(
-            opContext, client, convention.getIndexName(ElasticSearchGraphService.INDEX_NAME));
+            opContext,
+            client,
+            convention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME));
         safeDeleteIndex(
             opContext,
             client,
-            convention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME));
+            convention.getIndexName(opContext, ElasticSearchSystemMetadataService.INDEX_NAME));
 
         // Usage event resources (data stream/alias, template, ILM/ISM policy)
         deleteUsageEventResources(opContext, client, convention, isOpenSearch);
@@ -148,9 +150,9 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
       SearchClientShim<?> client,
       IndexConvention convention,
       boolean isOpenSearch) {
-    String dataStreamName = convention.getIndexName(DATAHUB_USAGE_EVENT_INDEX);
-    String templateName = convention.getIndexName("datahub_usage_event_index_template");
-    String policyName = convention.getIndexName("datahub_usage_event_policy");
+    String dataStreamName = convention.getIndexName(opContext, DATAHUB_USAGE_EVENT_INDEX);
+    String templateName = convention.getIndexName(opContext, "datahub_usage_event_index_template");
+    String policyName = convention.getIndexName(opContext, "datahub_usage_event_policy");
 
     if (isOpenSearch) {
       safeDeleteLowLevel(opContext, client, "/" + dataStreamName, "usage event alias");
@@ -175,7 +177,7 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
       SearchClientShim<?> client,
       IndexConvention convention,
       boolean isOpenSearch) {
-    String roleName = convention.getIndexName("access");
+    String roleName = convention.getIndexName(opContext, "access");
     String username = EnvironmentUtils.getString("CREATE_USER_ES_USERNAME");
 
     if (isOpenSearch) {

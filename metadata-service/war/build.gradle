@@ -63,9 +63,13 @@ dependencies {
   runtimeOnly externalDependency.log4jCore
   runtimeOnly externalDependency.log4j2Api
   implementation externalDependency.logbackClassic
+  runtimeOnly externalDependency.janino
+  runtimeOnly externalDependency.lokiLogbackAppender
   implementation externalDependency.awsMskIamAuth
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity
+  // kafka-clients OAUTHBEARER JWT validation is compileOnly upstream (KAFKA-20184)
+  runtimeOnly externalDependency.jose4j
   testRuntimeOnly externalDependency.logbackClassic
   implementation externalDependency.charle
 

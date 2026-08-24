@@ -218,6 +218,27 @@ fragment nonSiblingDatasetFields on Dataset {
     activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
         total
     }
+    logicalParent {
+        urn
+        type
+        ...logicalParentOrChildFields
+    }
+    physicalChildren: relationships(
+        input: { types: ["PhysicalInstanceOf"], direction: INCOMING, start: 0, count: 10 }
+    ) {
+        start
+        count
+        total
+        relationships {
+            entity {
+                urn
+                type
+                ...logicalParentOrChildFields
+            }
+            direction
+            type
+        }
+    }
     privileges {
         ...entityPrivileges
     }

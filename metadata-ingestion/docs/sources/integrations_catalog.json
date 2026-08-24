@@ -213,6 +213,18 @@
       "UI Ingestion"
     ]
   },
+  "informix": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "title": "Informix",
+    "description": "Informix is a relational database management system from IBM/HCL used for transactional and analytical workloads.",
+    "img_path": "img/logos/platforms/informix.png",
+    "extra_features": [
+      "Lower Casing",
+      "Status Aspect",
+      "UI Ingestion"
+    ]
+  },
   "json-schema": {
     "platform_type": "Metadata Systems",
     "connection_type": "Pull",
@@ -301,6 +313,13 @@
     "platform_type": "Orchestrator",
     "connection_type": "Pull",
     "description": "NiFi is a data integration tool that allows users to automate the flow of data between systems and applications."
+  },
+  "odcs": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "title": "Open Data Contract Standard",
+    "description": "Open Data Contract Standard (ODCS), governed by the Linux Foundation's Bitol project, is a YAML specification for data contracts. Ingest ODCS files as logical datasets with schema, ownership, tags, and quality rules modeled as assertions.",
+    "img_path": "img/logos/platforms/odcs.png"
   },
   "okta": {
     "platform_type": "Identity Provider",
@@ -467,6 +486,19 @@
       "Status Aspect"
     ]
   },
+  "sqlmesh": {
+    "platform_type": [
+      "ETL/ELT",
+      "Data Quality"
+    ],
+    "connection_type": "Pull",
+    "description": "SQLMesh is an open-source data transformation framework for building and operating versioned, SQL-native model pipelines with built-in data quality audits. DataHub ingests SQLMesh models as datasets with schema, column-level lineage, descriptions, tags, and audit assertions, and stitches each model to its warehouse view as a sibling. Multi-gateway projects are supported, with each model's sibling routed to the correct warehouse platform automatically.",
+    "img_path": "img/logos/platforms/sqlmesh.png",
+    "extra_features": [
+      "Patch Lineage",
+      "Status Aspect"
+    ]
+  },
   "superset": {
     "platform_type": "BI Tool",
     "connection_type": "Pull",
@@ -594,6 +626,12 @@
     "connection_type": "Pull",
     "description": "SAP Analytics Cloud (SAC) is a cloud-based business intelligence and planning platform that provides analytics and planning capabilities.",
     "title": "SAC"
+  },
+  "sap-datasphere": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "title": "SAP Datasphere",
+    "description": "SAP Datasphere is a cloud data warehouse and data-fabric service for integrating, modeling, and governing data across an organization."
   },
   "cassandra": {
     "platform_type": "Database",

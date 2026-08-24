@@ -18,7 +18,7 @@ import javax.annotation.Nullable;
 public class UsageActorClassResolver {
 
   private static final Set<String> KNOWN_SYSTEM_ACTOR_URNS =
-      Set.of(Constants.SYSTEM_ACTOR, Constants.UNKNOWN_ACTOR, Constants.ANONYMOUS_ACTOR);
+      Set.of(Constants.SYSTEM_ACTOR, Constants.ANONYMOUS_ACTOR);
 
   private final CorpUserFlagsProvider corpUserFlagsProvider;
 
@@ -54,8 +54,17 @@ public class UsageActorClassResolver {
     if (usageIdentity != null && KNOWN_SYSTEM_ACTOR_URNS.contains(usageIdentity)) {
       return UsageActorClass.SYSTEM;
     }
+    // System credentials may write attributed usage (ReportedUsage). Classify the
+    // attributed identity when it differs from the system session actor — metering is not access
+    // control.
     if (isSystemAuthentication(authentication)) {
-      return UsageActorClass.SYSTEM;
+      String sessionUrn =
+          authentication.getActor() != null ? authentication.getActor().toUrnStr() : null;
+      boolean attributedIsSystemSession =
+          usageIdentity == null || usageIdentity.isBlank() || usageIdentity.equals(sessionUrn);
+      if (attributedIsSystemSession) {
+        return UsageActorClass.SYSTEM;
+      }
     }
 
     String corpUserUrn = resolveCorpUserUrn(usageIdentity, actorUrn);

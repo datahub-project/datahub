@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getSearchEntityNames;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
 
 import com.linkedin.common.urn.UrnUtils;
@@ -91,10 +91,7 @@ public class GetQuickFiltersResolver
         (input.getViewUrn() != null)
             ? resolveView(opContext, _viewService, UrnUtils.getUrn(input.getViewUrn()))
             : null;
-    final List<String> entityNames =
-        SEARCHABLE_ENTITY_TYPES.stream()
-            .map(EntityTypeMapper::getName)
-            .collect(Collectors.toList());
+    final List<String> entityNames = getSearchEntityNames(opContext);
 
     return _entityClient.searchAcrossEntities(
         opContext.withSearchFlags(flags -> flags.setSkipAggregates(false)),
@@ -153,7 +150,8 @@ public class GetQuickFiltersResolver
       final List<QuickFilter> sourceEntityTypeFilters =
           getQuickFiltersFromList(
               context,
-              SearchUtils.PRIORITIZED_SOURCE_ENTITY_TYPES,
+              SearchUtils.getPrioritizedSourceEntityTypes(
+                  context != null ? context.getOperationContext() : null),
               SOURCE_ENTITY_COUNT,
               entityAggregations.get());
       entityTypes.addAll(sourceEntityTypeFilters);
@@ -161,7 +159,8 @@ public class GetQuickFiltersResolver
       final List<QuickFilter> dataHubEntityTypeFilters =
           getQuickFiltersFromList(
               context,
-              SearchUtils.PRIORITIZED_DATAHUB_ENTITY_TYPES,
+              SearchUtils.getPrioritizedDatahubEntityTypes(
+                  context != null ? context.getOperationContext() : null),
               DATAHUB_ENTITY_COUNT,
               entityAggregations.get());
       entityTypes.addAll(dataHubEntityTypeFilters);
@@ -184,7 +183,7 @@ public class GetQuickFiltersResolver
           if (entityTypes.size() < maxListSize) {
             final Optional<FilterValue> entityFilter =
                 entityAggregations.getFilterValues().stream()
-                    .filter(val -> val.getValue().equals(entityType))
+                    .filter(val -> val.getValue().equalsIgnoreCase(entityType))
                     .findFirst();
             if (entityFilter.isPresent() && entityFilter.get().getFacetCount() > 0) {
               entityTypes.add(mapQuickFilter(context, ENTITY_FILTER_NAME, entityFilter.get()));

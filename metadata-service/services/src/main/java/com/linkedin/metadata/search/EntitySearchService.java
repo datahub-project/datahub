@@ -192,6 +192,19 @@ public interface EntitySearchService {
       @Nullable Integer limit);
 
   /**
+   * For each of {@code entityUrns}, returns the active-incident count and the latest active
+   * incident (by {@code lastUpdated} desc), computed in a single aggregation over the incident
+   * index. Entities with no active incidents are absent from the returned map.
+   *
+   * @param opContext the operation context
+   * @param entityUrns the entities to summarize incidents for
+   * @return map of entity urn -> {@link IncidentStats}; empty when {@code entityUrns} is empty
+   */
+  @Nonnull
+  Map<Urn, IncidentStats> getActiveIncidentStats(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns);
+
+  /**
    * Gets a list of groups/entities that match given browse request.
    *
    * @param entityName type of entity to query
@@ -441,14 +454,16 @@ public interface EntitySearchService {
   }
 
   /**
-   * Validates doc counts match between an alias and a new backing index, then atomically swaps the
-   * alias.
+   * Validates the new backing index's doc count against the source count snapshotted when the
+   * reindex was launched, then atomically swaps the alias.
    *
+   * @param expectedSourceDocCount source doc count snapshotted at reindex submission time
    * @return true if swapped, false if doc counts didn't match
    */
   boolean validateAndSwapAlias(
       @Nonnull OperationContext opContext,
       @Nonnull String aliasName,
-      @Nonnull String newBackingIndex)
+      @Nonnull String newBackingIndex,
+      long expectedSourceDocCount)
       throws Exception;
 }

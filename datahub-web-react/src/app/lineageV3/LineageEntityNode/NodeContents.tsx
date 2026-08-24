@@ -4,19 +4,21 @@ import { Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useHistory, useLocation } from 'react-router-dom';
-import { Handle, Position } from 'reactflow';
+import { Handle, Position, useNodeId } from 'reactflow';
 import styled, { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { LastRunIcon } from '@app/entityV2/dataJob/tabs/RunsTab';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import Columns from '@app/lineageV3/LineageEntityNode/Columns';
-import { ContractLineageButton } from '@app/lineageV3/LineageEntityNode/ContractLineageButton';
+import { ContractLineageControl } from '@app/lineageV3/LineageEntityNode/ContractLineageControl';
 import { ExpandLineageButton } from '@app/lineageV3/LineageEntityNode/ExpandLineageButton';
 import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
 import ManageLineageMenu from '@app/lineageV3/LineageEntityNode/ManageLineageMenu';
+import OutputPortPill from '@app/lineageV3/LineageEntityNode/OutputPortPill';
 import useAvoidIntersections from '@app/lineageV3/LineageEntityNode/useAvoidIntersections';
 import { DisplayedColumns } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import NodeWrapper from '@app/lineageV3/NodeWrapper';
@@ -88,7 +90,9 @@ const ColumnsWrapper = styled.div<{
 }>`
     max-height: ${({ height }) => height}px;
     transition: max-height ${({ transitionDuration }) => transitionDuration}ms ease-in-out;
-    overflow-y: hidden;
+    // Clip, not hidden: hidden on one axis forces the other to auto, which would cut off the
+    // column lineage controls that render outside the node
+    overflow-y: clip;
     width: 100%;
 `;
 
@@ -139,6 +143,8 @@ interface Props {
     rootUrn: string;
     rootType: EntityType;
     parentDataJob?: string;
+    /** Data product lineage: whether this member is an output port of the bounding box it renders in. */
+    isOutputPort?: boolean;
     searchQuery: string;
     setHoveredNode: (urn: string | null) => void;
     showColumns: boolean;
@@ -159,6 +165,9 @@ interface Props {
     ignoreSchemaFieldStatus: boolean;
     numUpstreams?: number;
     numDownstreams?: number;
+    /** Whether the node may be hiding lineage in each direction, i.e. it shows a control saying so. */
+    mayHideUpstreamLineage: boolean;
+    mayHideDownstreamLineage: boolean;
 }
 
 const MemoizedNodeContents = React.memo(NodeContents);
@@ -178,6 +187,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         rootUrn,
         rootType,
         parentDataJob,
+        isOutputPort,
         searchQuery,
         setHoveredNode,
         showColumns,
@@ -203,6 +213,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         ignoreSchemaFieldStatus,
         numUpstreams,
         numDownstreams,
+        mayHideUpstreamLineage,
+        mayHideDownstreamLineage,
     } = props;
 
     const { t } = useTranslation('lineage');
@@ -224,7 +236,9 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         (showColumns && paginatedColumns.length && extraHighlightedColumns.length ? 17 : 0) + // Column divider
         (showColumns && numFilteredColumns > NUM_COLUMNS_PER_PAGE ? 40 : 0); // Pagination
 
-    useAvoidIntersections(urn, columnsHeight + LINEAGE_NODE_HEIGHT, rootType, isVertical);
+    // Data product members have data-product-qualified node ids, distinct from their urn
+    const nodeId = useNodeId() ?? urn;
+    useAvoidIntersections(nodeId, columnsHeight + LINEAGE_NODE_HEIGHT, rootType, !!parentDataJob);
 
     const highlightColor = isSearchedEntity ? theme.colors.bgHighlight : theme.colors.tagsTrueYellowBg;
     const hasUpstreamChildren = !!(numUpstreams ?? !!entity?.numUpstreamChildren);
@@ -330,6 +344,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                     <HomePill showText />
                 </HomeIndicatorWrapper>
             )}
+            {urn !== rootUrn && isOutputPort && (
+                <HomeIndicatorWrapper>
+                    <OutputPortPill showText />
+                </HomeIndicatorWrapper>
+            )}
             <NodeWrapper
                 urn={urn}
                 selected={selected}
@@ -361,6 +380,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                     }
                     extraDetails={extraDetails}
                     properties={properties}
+                    typeIcon={entityRegistry.getIcon(type, 16, IconStyleType.ACCENT)}
                     platformIcons={platformIcons}
                     childrenOpen={showColumns}
                     childrenText={
@@ -418,12 +438,12 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             {fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE &&
                                 isExpandedUpstream &&
                                 hasUpstreamChildren && (
-                                    <ContractLineageButton urn={urn} direction={LineageDirection.Upstream} />
+                                    <ContractLineageControl urn={urn} direction={LineageDirection.Upstream} />
                                 )}
                             {fetchStatus[LineageDirection.Downstream] === FetchStatus.COMPLETE &&
                                 isExpandedDownstream &&
                                 hasDownstreamChildren && (
-                                    <ContractLineageButton urn={urn} direction={LineageDirection.Downstream} />
+                                    <ContractLineageControl urn={urn} direction={LineageDirection.Downstream} />
                                 )}
                             {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
                                 <LoadingWrapper className="nodrag" style={{ left: -30 }}>
@@ -476,6 +496,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             setSelectedColumn={setSelectedColumn}
                             hoveredColumn={hoveredColumn}
                             setHoveredColumn={setHoveredColumn}
+                            mayHideUpstreamLineage={mayHideUpstreamLineage}
+                            mayHideDownstreamLineage={mayHideDownstreamLineage}
                         />
                     )}
                     {entity && (

@@ -14,8 +14,9 @@ from tests.utilities.metadata_operations import get_prometheus_metrics
 
 logger = logging.getLogger(__name__)
 
-# Legacy per-request counter (user_category tags). Aggregation flush also targets this name
-# in Micrometer, but quickstart currently exports aggregation dimensions on byte counters.
+# Legacy per-request counter (user_category tags). When USAGE_AGGREGATION_ENABLED and
+# micrometer export are on, RequestContext skips that legacy Micrometer path so flush
+# can own datahub_request_count with billing tag keys.
 REQUEST_COUNT_METRIC = "datahub_request_count"
 INPUT_BYTES_METRIC = "datahub_usage_input_bytes"
 OUTPUT_BYTES_METRIC = "datahub_usage_output_bytes"
@@ -187,8 +188,12 @@ def wait_for_metric_at_least(
 def generate_graphql_read_traffic(auth_session, *, repeat: int = 3) -> None:
     from tests.utils import execute_graphql
 
+    # _ME_QUERY is a pure read (no mutation) -- there is nothing for
+    # wait_for_writes_to_sync() to wait on, so skip it on every iteration.
+    # Callers poll Prometheus for the resulting metric via wait_for_metric_delta/
+    # wait_for_metric_at_least, which have their own retry/backoff independent of this.
     for _ in range(repeat):
-        execute_graphql(auth_session, _ME_QUERY)
+        execute_graphql(auth_session, _ME_QUERY, no_sync_wait=True)
 
 
 def execute_graphql_raw(auth_session, query: str) -> str:
@@ -260,9 +265,11 @@ def graphql_metadata_query_tags(actor_class: str) -> Dict[str, str]:
     )
 
 
-def try_mint_personal_access_token(auth_session, actor_urn: str) -> str | None:
-    """Mint a short-lived PAT for ``actor_urn`` when the session is authorized."""
-    from tests.utils import execute_graphql
+def try_mint_personal_access_token(
+    auth_session, actor_urn: str
+) -> tuple[str, str] | None:
+    """Mint a short-lived PAT for ``actor_urn``. Returns ``(token, token_id)`` or None."""
+    from tests.utils import execute_graphql, unique_suffix
 
     try:
         result = execute_graphql(
@@ -280,7 +287,11 @@ def try_mint_personal_access_token(auth_session, actor_urn: str) -> str | None:
                     "type": "PERSONAL",
                     "actorUrn": actor_urn,
                     "duration": "ONE_HOUR",
-                    "name": "usage-aggregation-pat-probe",
+                    # createAccessToken requires a unique name per actor; a fixed
+                    # name fails when a prior ONE_HOUR PAT with that name still
+                    # exists (leftover run or parallel worker), so mint returns
+                    # None and PAT-auth traffic never runs.
+                    "name": f"usage-aggregation-pat-{unique_suffix()}",
                 }
             },
             expect_errors=True,
@@ -292,7 +303,10 @@ def try_mint_personal_access_token(auth_session, actor_urn: str) -> str | None:
     token_payload = result.get("data", {}).get("createAccessToken")
     if not token_payload or not token_payload.get("accessToken"):
         return None
-    return token_payload["accessToken"]
+    token_id = (token_payload.get("metadata") or {}).get("id")
+    if not token_id:
+        return None
+    return token_payload["accessToken"], token_id
 
 
 def generate_graphql_search_traffic(auth_session, *, repeat: int = 1) -> None:
@@ -305,8 +319,10 @@ def generate_graphql_search_traffic(auth_session, *, repeat: int = 1) -> None:
       }
     }
     """
+    # Pure read (SearchResolver only calls entityClient.search, no writes) -- same
+    # reasoning as generate_graphql_read_traffic: skip the no-op sync wait per call.
     for _ in range(repeat):
-        execute_graphql(auth_session, query)
+        execute_graphql(auth_session, query, no_sync_wait=True)
 
 
 def generate_openapi_metadata_read_traffic(auth_session, *, repeat: int = 1) -> None:
@@ -314,6 +330,20 @@ def generate_openapi_metadata_read_traffic(auth_session, *, repeat: int = 1) -> 
         response = auth_session.get(
             f"{auth_session.gms_url()}/openapi/v3/entity/dataset",
             params={"count": 1, "query": "*"},
+        )
+        response.raise_for_status()
+
+
+def generate_openapi_corpuser_read_traffic(
+    auth_session, corp_user_urn: str, *, repeat: int = 1
+) -> None:
+    """GET a corpuser entity. Dataset list is often empty/chunked for unprivileged
+    users, so output_bytes never increment; a corpuser document does.
+    """
+    encoded = urllib.parse.quote(corp_user_urn, safe="")
+    for _ in range(repeat):
+        response = auth_session.get(
+            f"{auth_session.gms_url()}/openapi/v3/entity/corpuser/{encoded}"
         )
         response.raise_for_status()
 
@@ -361,7 +391,7 @@ def set_corpuser_is_support_user(
             f"{post_resp.text}",
             response=post_resp,
         )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 def make_support_actor_user(admin_session, name: str):

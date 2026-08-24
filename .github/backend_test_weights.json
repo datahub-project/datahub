@@ -1,0 +1,1986 @@
+[
+  {
+    "testId": "com.datahub.auth.authentication.AuthServiceControllerTest",
+    "duration": "3.254s"
+  },
+  {
+    "testId": "com.datahub.auth.authentication.AuthUsageRequestContextTest",
+    "duration": "5.551s"
+  },
+  {
+    "testId": "com.datahub.auth.authentication.AuthenticationEnforcementFilterTest",
+    "duration": "0.784s"
+  },
+  {
+    "testId": "com.datahub.auth.authentication.AuthenticationExtractionFilterTest",
+    "duration": "1.218s"
+  },
+  {
+    "testId": "com.datahub.authentication.LoginDenialReasonTest",
+    "duration": "0.011s"
+  },
+  {
+    "testId": "com.datahub.authentication.authenticator.AuthenticatorChainTest",
+    "duration": "0.451s"
+  },
+  {
+    "testId": "com.datahub.authentication.authenticator.DataHubGuestAuthenticatorTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.datahub.authentication.authenticator.DataHubJwtTokenAuthenticatorTest",
+    "duration": "0.426s"
+  },
+  {
+    "testId": "com.datahub.authentication.authenticator.DataHubOAuthAuthenticatorTest",
+    "duration": "1.007s"
+  },
+  {
+    "testId": "com.datahub.authentication.authenticator.DataHubSystemAuthenticatorTest",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "com.datahub.authentication.authenticator.DataHubTokenAuthenticatorTest",
+    "duration": "0.055s"
+  },
+  {
+    "testId": "com.datahub.authentication.authenticator.JwksUriResolverTest",
+    "duration": "0.084s"
+  },
+  {
+    "testId": "com.datahub.authentication.authenticator.OAuthConfigurationFetcherTest",
+    "duration": "0.093s"
+  },
+  {
+    "testId": "com.datahub.authentication.group.GroupServiceTest",
+    "duration": "0.713s"
+  },
+  {
+    "testId": "com.datahub.authentication.invite.InviteTokenServiceTest",
+    "duration": "0.079s"
+  },
+  {
+    "testId": "com.datahub.authentication.post.PostServiceTest",
+    "duration": "0.025s"
+  },
+  {
+    "testId": "com.datahub.authentication.session.UserSessionEligibilityCheckerTest",
+    "duration": "0.019s"
+  },
+  {
+    "testId": "com.datahub.authentication.token.DataHubJwtSigningKeyResolverTest",
+    "duration": "0.837s"
+  },
+  {
+    "testId": "com.datahub.authentication.token.DataHubOAuthSigningKeyResolverTest",
+    "duration": "0.014s"
+  },
+  {
+    "testId": "com.datahub.authentication.token.StatefulTokenServiceTest",
+    "duration": "0.330s"
+  },
+  {
+    "testId": "com.datahub.authentication.token.StatelessTokenServiceTest",
+    "duration": "0.102s"
+  },
+  {
+    "testId": "com.datahub.authentication.user.NativeUserServiceTest",
+    "duration": "0.198s"
+  },
+  {
+    "testId": "com.datahub.authorization.AuthUtilTest",
+    "duration": "1.075s"
+  },
+  {
+    "testId": "com.datahub.authorization.AuthorizerChainTest",
+    "duration": "0.099s"
+  },
+  {
+    "testId": "com.datahub.authorization.DataHubAuthorizerTest",
+    "duration": "0.844s"
+  },
+  {
+    "testId": "com.datahub.authorization.PolicyEngineTest",
+    "duration": "0.118s"
+  },
+  {
+    "testId": "com.datahub.authorization.RoleServiceTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.datahub.authorization.config.ViewUnrestrictedEntityTypesTest",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "com.datahub.authorization.fieldresolverprovider.ContainerFieldResolverProviderTest",
+    "duration": "0.148s"
+  },
+  {
+    "testId": "com.datahub.authorization.fieldresolverprovider.DataPlatformInstanceFieldResolverProviderTest",
+    "duration": "0.112s"
+  },
+  {
+    "testId": "com.datahub.authorization.fieldresolverprovider.DomainFieldResolverProviderTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.datahub.authorization.fieldresolverprovider.GlossaryFieldResolverProviderTest",
+    "duration": "0.164s"
+  },
+  {
+    "testId": "com.datahub.authorization.fieldresolverprovider.GroupMembershipFieldResolverProviderTest",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "com.datahub.authorization.fieldresolverprovider.TagFieldResolverProviderTest",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "com.datahub.event.PlatformEventProcessorTest",
+    "duration": "0.397s"
+  },
+  {
+    "testId": "com.datahub.event.config.PgQueueMessagingProcessorConditionsTest",
+    "duration": "0.011s"
+  },
+  {
+    "testId": "com.datahub.event.config.PgQueuePePollerSourcesConfigurationTest",
+    "duration": "0.131s"
+  },
+  {
+    "testId": "com.datahub.event.hook.BusinessAttributeUpdateHookTest",
+    "duration": "17.016s"
+  },
+  {
+    "testId": "com.datahub.gms.servlet.ConfigServletPgQueueTest",
+    "duration": "0.036s"
+  },
+  {
+    "testId": "com.datahub.gms.servlet.ConfigServletTest",
+    "duration": "0.363s"
+  },
+  {
+    "testId": "com.datahub.graphql.GraphQLControllerRateLimitOrderTest",
+    "duration": "0.208s"
+  },
+  {
+    "testId": "com.datahub.graphql.GraphQLControllerTest",
+    "duration": "1.909s"
+  },
+  {
+    "testId": "com.datahub.graphql.GraphQLControllerUsageRecordingTest",
+    "duration": "1.217s"
+  },
+  {
+    "testId": "com.datahub.graphql.GraphqlRequestUsageClassifierTest",
+    "duration": "0.264s"
+  },
+  {
+    "testId": "com.datahub.metadata.dao.producer.KafkaEventProducerTest",
+    "duration": "0.357s"
+  },
+  {
+    "testId": "com.datahub.metadata.dao.throttle.KafkaThrottleSensorTest",
+    "duration": "3.966s"
+  },
+  {
+    "testId": "com.datahub.metadata.dao.throttle.PgQueueThrottleSensorTest",
+    "duration": "0.059s"
+  },
+  {
+    "testId": "com.datahub.metadata.ingestion.IngestionSchedulerTest",
+    "duration": "0.012s"
+  },
+  {
+    "testId": "com.datahub.plugins.auth.TestConfig",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "com.datahub.plugins.auth.TestConfigProvider",
+    "duration": "0.939s"
+  },
+  {
+    "testId": "com.datahub.plugins.auth.TestConfigValidationUtils",
+    "duration": "0.012s"
+  },
+  {
+    "testId": "com.datahub.plugins.auth.TestIsolatedClassLoader",
+    "duration": "0.749s"
+  },
+  {
+    "testId": "com.datahub.plugins.auth.TestPluginConfigFactory",
+    "duration": "0.857s"
+  },
+  {
+    "testId": "com.datahub.plugins.auth.TestPluginPermissionManager",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.datahub.plugins.auth.authorization.AuthorizerTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.datahub.plugins.metadata.aspect.SpringPluginFactoryTest",
+    "duration": "5.168s"
+  },
+  {
+    "testId": "com.datahub.plugins.metadata.aspect.SpringPluginLateRegistrationTest",
+    "duration": "5.717s"
+  },
+  {
+    "testId": "com.datahub.telemetry.TrackingServiceTest",
+    "duration": "0.113s"
+  },
+  {
+    "testId": "com.linkedin.common.client.BaseClientTest",
+    "duration": "1.504s"
+  },
+  {
+    "testId": "com.linkedin.common.client.restli.RestliRequestContextResolverTest",
+    "duration": "0.248s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.DatahubUpgradeBlockingPgQueueTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.DatahubUpgradeBlockingTest",
+    "duration": "0.120s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.DatahubUpgradeNoSchemaRegistryTest",
+    "duration": "0.018s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.DatahubUpgradeNonBlockingTest",
+    "duration": "0.433s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.UpgradeCliApplicationTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.UpgradeReportTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.assertions.GenerateAssertionEntityFieldStepTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.assertions.MigrateAssertionNoteToAspectStepTest",
+    "duration": "0.074s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.cleanup.CleanupTest",
+    "duration": "0.057s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.cleanup.CleanupUpgradeConfigTest",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.cleanup.DeleteElasticsearchIndicesStepTest",
+    "duration": "0.023s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.cleanup.DeleteKafkaTopicsStepTest",
+    "duration": "0.137s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.cleanup.DropDatabaseStepTest",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.common.steps.ClearGraphServiceStepTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.common.steps.ClearSearchServiceStepTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.conditions.GeneralUpgradeConditionTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.conditions.SqlSetupConditionTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.config.CDCSetupConfigTest",
+    "duration": "0.062s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.config.ConsistencyServiceBeanTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.config.LoadIndicesConditionTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.config.ReindexDebugConditionTest",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.config.SystemUpdateConfigNonBlockingFilterTest",
+    "duration": "0.115s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.entityconsistency.FixEntityConsistencyStepTest",
+    "duration": "0.441s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.impl.DefaultUpgradeContextTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.kubernetes.KubernetesApiAccessorTest",
+    "duration": "6.223s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.kubernetes.KubernetesApiAccessorValueFromTest",
+    "duration": "1.120s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.kubernetes.KubernetesScaleDownCleanupStepTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.kubernetes.KubernetesScaleDownStepTest",
+    "duration": "0.105s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.kubernetes.ScaleDownEvaluationStepTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.loadindices.LoadIndicesApplicationTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.loadindices.LoadIndicesArgsTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.loadindices.LoadIndicesIndexManagerTest",
+    "duration": "0.072s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.loadindices.LoadIndicesResultTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.loadindices.LoadIndicesStepTest",
+    "duration": "0.303s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.loadindices.LoadIndicesTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.loadindices.config.LoadIndicesConfigTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.restoreindices.SendMAEStepTest",
+    "duration": "0.043s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.shared.ElasticSearchUpgradeUtilsTest",
+    "duration": "0.089s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.sqlsetup.CreateCdcUserStepTest",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.sqlsetup.CreateTablesStepTest",
+    "duration": "0.016s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.sqlsetup.CreateUsersStepTest",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.sqlsetup.DatabaseOperationsTest",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.sqlsetup.DatabaseTypeTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.sqlsetup.JdbcUrlParserTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.sqlsetup.SqlSetupTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupConfigTest",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.sqlsetup.config.SqlSetupEbeanFactoryTest",
+    "duration": "0.077s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.sqlsetup.postgres.PgCronAdminConnectionsTest",
+    "duration": "0.067s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.sqlsetup.postgres.PgCronMaintenanceTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.sqlsetup.postgres.PgQueueSchemaStepExecutableTest",
+    "duration": "0.242s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.sqlsetup.postgres.PostgresDatabaseOperationsTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.aliases.BackfillDatasetAliasesStepTest",
+    "duration": "0.087s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.aliases.BackfillDatasetAliasesTest",
+    "duration": "0.067s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCPUtilTest",
+    "duration": "0.041s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.bootstrapmcps.DataTypesTest",
+    "duration": "0.034s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2StepTest",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.cdc.CDCSourceSetupTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.cdc.debezium.ConfigureDebeziumConnectorStepTest",
+    "duration": "0.117s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.cdc.debezium.DebeziumCDCSourceSetupTest",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.cdc.debezium.WaitForDebeziumReadyStepTest",
+    "duration": "5.225s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.criterion.CriterionFilterAspectsBlockingStepPrepareTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.criterion.CriterionFilterAspectsBlockingStepTest",
+    "duration": "0.018s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.criterion.CriterionFilterAspectsBlockingTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.cron.TweakReplicasStepTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatformInstancesUpgradeStepTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.dataplatforms.IndexDataPlatformsStepTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.elasticsearch.IncrementalReindexFlowTest",
+    "duration": "0.248s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.elasticsearch.IncrementalReindexStateTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesIncrementalStepTest",
+    "duration": "0.032s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.elasticsearch.steps.CleanIndicesStepTest",
+    "duration": "0.213s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.elasticsearch.steps.CreateUsageEventIndicesStepTest",
+    "duration": "0.050s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.elasticsearch.steps.CreateUserStepTest",
+    "duration": "0.135s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.elasticsearch.steps.IncrementalReindexCatchUpStepTest",
+    "duration": "0.232s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.elasticsearch.steps.ReindexDebugStepTest",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexRoleUtilsTest",
+    "duration": "140.243s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtilsTest",
+    "duration": "8.359s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.elasticsearch.util.UsageEventDataStreamTest",
+    "duration": "4.182s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.elasticsearch.util.UsageEventIndexUtilsTest",
+    "duration": "56.236s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdgesTest",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.entityconsistency.ConsistencyCheckCadenceTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.globalsettings.IngestDefaultGlobalSettingsUpgradeStepTest",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.homepagelinks.MigrateHomePageLinksStepTest",
+    "duration": "0.011s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.ingestion.IngestEntityTypesStepTest",
+    "duration": "0.074s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.kafka.ConfluentSchemaRegistryCleanupPolicyStepTest",
+    "duration": "0.349s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.kafka.CreateKafkaTopicsStepTest",
+    "duration": "0.760s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.kafka.WaitForKafkaReadyStepTest",
+    "duration": "15.005s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.lineage.BackfillDatasetLineageIndexFieldsTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.migrations.MigrateAspectsStepTest",
+    "duration": "0.016s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.migrations.MigrateAspectsTest",
+    "duration": "0.063s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.policies.IngestPoliciesUpgradeStepTest",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.restoreindices.RestoreDbtSiblingsIndicesStepTest",
+    "duration": "0.067s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.restoreindices.columnlineage.RestoreColumnLineageIndicesStepTest",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.restoreindices.forminfo.RestoreFormInfoIndicesStepTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.restoreindices.glossary.RestoreGlossaryIndicesStepTest",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.retention.IngestRetentionPoliciesTest",
+    "duration": "0.072s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.retention.IngestRetentionPoliciesUpgradeStepTest",
+    "duration": "0.081s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadataStepTest",
+    "duration": "0.150s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.semanticsearch.CopyDocumentsToSemanticIndexStepTest",
+    "duration": "5.160s"
+  },
+  {
+    "testId": "com.linkedin.datahub.upgrade.system.semanticsearch.CopyDocumentsToSemanticIndicesTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.entity.client.SystemRestliEntityClientTest",
+    "duration": "0.080s"
+  },
+  {
+    "testId": "com.linkedin.gms.CommonApplicationConfigTest",
+    "duration": "0.971s"
+  },
+  {
+    "testId": "com.linkedin.gms.SpringTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.auth.DataHubTokenServiceFactoryTest",
+    "duration": "0.068s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.common.CacheConfigEntityGraphMapConfigTest",
+    "duration": "0.047s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.common.EntityGraphStatusMapConfigTest",
+    "duration": "0.052s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.common.LocalEbeanConfigFactoryAwsTest",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.common.LocalEbeanConfigFactoryGcpTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.common.LocalEbeanConfigFactoryNoCloudTest",
+    "duration": "0.016s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.common.ObjectMapperFactoryTest",
+    "duration": "0.336s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.context.SystemOperationContextFactoryPrimaryStorageTest",
+    "duration": "0.199s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.entity.CassandraReadPoolSessionFactoryTest",
+    "duration": "5.350s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.entity.EbeanReadPoolConfigFactoryTest",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.entity.EntityWriteLockFactoryTest",
+    "duration": "0.295s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.entity.PrimaryStorageResolverFactoryTest",
+    "duration": "0.330s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.entity.update.indices.UpdateIndicesUpgradeStrategyFactoryTest",
+    "duration": "8.573s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.event.KafkaConsumerPoolFactoryTest",
+    "duration": "0.115s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.event.KafkaConsumerPoolFactoryWithoutMetricUtilsTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.event.KafkaExternalEventsPollHandlerConfigurationTest",
+    "duration": "0.103s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.event.PgQueueExternalEventsConfigurationTest",
+    "duration": "0.350s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.event.PgQueueExternalEventsPollHandlerTest",
+    "duration": "0.255s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.graphql.GraphQLEngineFactoryTest",
+    "duration": "0.194s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.http.HttpRequestContextResolverFactoryTest",
+    "duration": "0.092s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.ingestion.IngestionCliVersionMatrixServiceFactoryTest",
+    "duration": "0.044s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.ingestion.ObjectStorageMatrixDocumentReaderTest",
+    "duration": "0.050s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.kafka.CDCConsumerFactoryTest",
+    "duration": "0.011s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactoryRetryTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactoryTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.kafka.KafkaConsumerAuthExceptionGuardTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.kafka.PgQueueConsumersSerdeConfigurationTest",
+    "duration": "0.033s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.kafka.PgQueueProducerFactoriesTest",
+    "duration": "0.097s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactoryTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.kafka.common.KafkaInitializationManagerTest",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.messaging.KafkaConsumerLagPortTest",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.messaging.PgQueueConsumerLagPortTest",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.objectstorage.ObjectStorageClientFactoryTest",
+    "duration": "0.598s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.plugins.AspectMigrationMutatorChainInjectionTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.plugins.StandardPluginConfigurationTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.ratelimit.RateLimitEngineFactoryTest",
+    "duration": "0.029s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.restli.RestliRequestContextResolverFactoryTest",
+    "duration": "0.142s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.s3.StsClientFactoryExceptionTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.search.CacheTest",
+    "duration": "0.358s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.search.DisabledCustomSearchTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.search.ElasticSearchBulkProcessorFactoryTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.search.ElasticSearchIndexBuilderFactoryDefaultsTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.search.ElasticSearchIndexBuilderFactoryEmptyTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.search.ElasticSearchIndexBuilderFactoryOverridesTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.search.ElasticSearchIndexBuilderFactoryTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.search.SearchClientShimFactoryMaeTimeoutMergeTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.search.SearchClientShimFactorySemanticGateTest",
+    "duration": "0.169s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.search.SearchClientShimIterationTest",
+    "duration": "0.593s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.search.SearchClientShimUtilTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactoryTest",
+    "duration": "0.259s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.system_telemetry.CommonForkJoinPoolMetricsFactoryTest",
+    "duration": "0.063s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.system_telemetry.MessagingQueueMetricsConfigurationTest",
+    "duration": "0.141s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.system_telemetry.MetricUtilsFactoryTest",
+    "duration": "0.060s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.system_telemetry.MicrometerMetricsFactoryTest",
+    "duration": "0.118s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.system_telemetry.OpenTelemetryBaseFactoryTest",
+    "duration": "0.279s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.system_telemetry.RequestMetricsConfigurationTest",
+    "duration": "0.039s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.system_telemetry.usage.DataHubUsageSpanExporterTest",
+    "duration": "0.204s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.systemmetadata.EntityCountMetricsFactoryConditionalTest",
+    "duration": "0.095s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.systemmetadata.EntityCountMetricsFactoryPlacementTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.telemetry.DailyReportTest",
+    "duration": "0.559s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.telemetry.TrackingServiceFactoryTest",
+    "duration": "0.028s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.trace.PgQueueTraceReadersFactoryTest",
+    "duration": "0.058s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.usage.UsageAggregationFactoryConditionalTest",
+    "duration": "0.075s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.usage.UsageAggregationFactoryPlacementTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.usage.UsageRecordingFilterTest",
+    "duration": "1.428s"
+  },
+  {
+    "testId": "com.linkedin.gms.factory.usage.mce.MceUsageAggregationFactoryConditionalTest",
+    "duration": "3.330s"
+  },
+  {
+    "testId": "com.linkedin.metadata.EventSchemaConstantsTest",
+    "duration": "1.359s"
+  },
+  {
+    "testId": "com.linkedin.metadata.EventSchemaDataTest",
+    "duration": "0.566s"
+  },
+  {
+    "testId": "com.linkedin.metadata.EventUtilsTests",
+    "duration": "0.463s"
+  },
+  {
+    "testId": "com.linkedin.metadata.SchemaConfigLoaderTest",
+    "duration": "0.023s"
+  },
+  {
+    "testId": "com.linkedin.metadata.SchemaIdOrdinalTest",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.EntityAspectTest",
+    "duration": "0.072s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.EnvelopedSystemAspectTest",
+    "duration": "0.020s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChainTest",
+    "duration": "0.086s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorTest",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.hooks.AssertionInfoMutatorTest",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.hooks.FieldPathMutatorTest",
+    "duration": "0.016s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypeTest",
+    "duration": "0.067s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.hooks.migrations.DomainsMigrationMutatorTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.hooks.migrations.criterion.CriterionFilterMutatorsTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.hooks.migrations.criterion.CriterionFilterSanitizerTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.PatchOperationUtilsTest",
+    "duration": "0.218s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.builder.AssertionRunSummaryPatchBuilderTest",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.builder.DataFlowInfoPatchBuilderTest",
+    "duration": "0.014s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.builder.DataJobInputOutputPatchBuilderTest",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.builder.DocumentationPatchBuilderTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.builder.GlobalTagsPatchBuilderTest",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.builder.GlossaryTermsPatchBuilderTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.builder.IncidentInfoPatchBuilderTest",
+    "duration": "0.065s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.builder.OwnershipPatchBuilderTest",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.builder.PatchBuilderParityTest",
+    "duration": "0.022s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.builder.SiblingsPatchBuilderTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilderTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.builder.StructuredPropertyDefinitionPatchBuilderTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.template.ChartInfoTemplateTest",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.template.DashboardInfoTemplateTest",
+    "duration": "0.029s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.template.DataJobInputOutputTemplateTest",
+    "duration": "0.019s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.template.DataProductPropertiesTemplateTest",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.template.DocumentationTemplateTest",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.template.EditableSchemaMetadataTemplateTest",
+    "duration": "0.021s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.template.GenericPatchTemplateTest",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.template.GlobalTagsTemplateTest",
+    "duration": "0.024s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.template.GlossaryTermsTemplateTest",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.template.OwnershipTemplateTest",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.template.StructuredPropertiesTemplateTest",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.template.TemplateUtilTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.patch.template.UpstreamLineageTemplateTest",
+    "duration": "1.289s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.plugins.PluginFactoryMergeTest",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.plugins.PluginsTest",
+    "duration": "0.081s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffectTest",
+    "duration": "0.019s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.plugins.hooks.MCPObserverResilienceTest",
+    "duration": "0.044s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffectTest",
+    "duration": "0.012s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.plugins.hooks.MutationPluginTest",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.plugins.validation.AspectValidationExceptionTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollectionTest",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.plugins.validation.ValidatorPluginTest",
+    "duration": "0.056s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.utils.AssertionUtilsTest",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.validators.ConditionalWriteValidatorTest",
+    "duration": "0.039s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.validators.CorpUserPrivilegedFlagsValidatorTest",
+    "duration": "0.122s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.validators.CreateIfNotExistsValidatorTest",
+    "duration": "0.048s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.validators.FieldPathValidatorTest",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.validators.SystemPolicyValidatorTest",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "com.linkedin.metadata.aspect.validators.UserDeleteValidatorTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.metadata.boot.BootstrapManagerTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.metadata.boot.kafka.MockSystemUpdateDeserializerTest",
+    "duration": "0.206s"
+  },
+  {
+    "testId": "com.linkedin.metadata.boot.kafka.MockSystemUpdateSerializerTest",
+    "duration": "0.092s"
+  },
+  {
+    "testId": "com.linkedin.metadata.boot.pgqueue.DataHubUpgradePgQueueBootstrapDependencyTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "com.linkedin.metadata.config.hazelcast.HazelcastInstanceBootstrapConditionTest",
+    "duration": "0.209s"
+  },
+  {
+    "testId": "com.linkedin.metadata.config.hazelcast.RateLimitEndpointEnabledConditionTest",
+    "duration": "0.180s"
+  },
+  {
+    "testId": "com.linkedin.metadata.config.messaging.KafkaMessagingConditionsTest",
+    "duration": "0.061s"
+  },
+  {
+    "testId": "com.linkedin.metadata.dao.producer.KafkaUsageEventPublisherTest",
+    "duration": "0.802s"
+  },
+  {
+    "testId": "com.linkedin.metadata.entity.ebean.batch.AspectsBatchImplTest",
+    "duration": "0.659s"
+  },
+  {
+    "testId": "com.linkedin.metadata.entity.ebean.batch.PatchItemImplTest",
+    "duration": "3.797s"
+  },
+  {
+    "testId": "com.linkedin.metadata.entity.validation.DataProductPropertiesRelationshipValidationTest",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "com.linkedin.metadata.entity.validation.ValidationApiUtilsTest",
+    "duration": "0.019s"
+  },
+  {
+    "testId": "com.linkedin.metadata.filter.RestliThrottleResponseFilterTest",
+    "duration": "2.945s"
+  },
+  {
+    "testId": "com.linkedin.metadata.graph.cache.AncestorWalkResultTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.metadata.graph.cache.CacheStatusTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.metadata.graph.cache.EntityGraphCacheNoOpTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.metadata.graph.cache.GraphReadResultTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.metadata.ingestion.validation.ExecutionIngestionAuthSystemUserTest",
+    "duration": "0.770s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.CDCProcessorTest",
+    "duration": "0.774s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.DataHubUsageEventsProcessorTest",
+    "duration": "0.215s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.InboundMetadataEnvelopeTest",
+    "duration": "0.020s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.KafkaConsumerPauseSupportTest",
+    "duration": "2.519s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.KafkaProducerInitializationRetryTest",
+    "duration": "6.613s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.MaeConsumerApplicationTest",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.MceConsumerApplicationTest",
+    "duration": "4.747s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.MetadataChangeEventsProcessorTest",
+    "duration": "0.755s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.MetadataChangeProposalConsumerUsageRecorderTest",
+    "duration": "0.145s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.MetadataChangeProposalsProcessorTest",
+    "duration": "0.239s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.batch.BatchMetadataChangeProposalsProcessorTest",
+    "duration": "0.925s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.batch.MCPBatchKafkaListenerRegistrarTest",
+    "duration": "0.011s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.batch.MCPBatchKafkaListenerTest",
+    "duration": "0.019s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.config.CDCProcessorConditionTest",
+    "duration": "0.012s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.config.MetadataChangeEventsProcessorConditionTest",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorConditionTest",
+    "duration": "0.019s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorConditionsEnvTest",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorConditionsTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.config.PgQueueBatchAccumulatorTest",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.config.PgQueueMaePollerSourcesConfigurationTest",
+    "duration": "1.460s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.config.PgQueueMcePollerSourcesConfigurationTest",
+    "duration": "0.281s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.config.PgQueueMessagingProcessorConditionsTest",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnectorTest",
+    "duration": "0.125s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.hook.GraphIndexUtilsTest",
+    "duration": "0.033s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.hook.UpdateIndicesHookTest",
+    "duration": "2.134s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.hook.assertion.AssertionRunSummaryHookTest",
+    "duration": "0.074s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.hook.event.PlatformEventGeneratorHookTest",
+    "duration": "0.226s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHookTest",
+    "duration": "0.133s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHookTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHookTest",
+    "duration": "0.052s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.hook.spring.MCLGMSSpringTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.hook.spring.MCLMAESpringTest",
+    "duration": "0.023s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.listener.AbstractKafkaListenerTest",
+    "duration": "0.217s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.listener.BatchKafkaListenerEndpointTest",
+    "duration": "0.053s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.listener.mcl.MCLBatchKafkaListenerTest",
+    "duration": "0.189s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.listener.mcl.MCLKafkaListenerRegistrarTest",
+    "duration": "0.014s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.listener.mcl.MCLKafkaListenerTest",
+    "duration": "0.120s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.transformer.DataHubUsageEventTransformerTest",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "com.linkedin.metadata.kafka.usage.UsageQueueIngestRecorderTest",
+    "duration": "5.241s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.ConfigEntitySpecTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.DataSchemaFactoryTest",
+    "duration": "8.735s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.EntitySpecBuilderTest",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.EntitySpecTest",
+    "duration": "0.046s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.OpenApiSpecBuilderTest",
+    "duration": "8.081s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.RelationshipEdgeUniquenessTest",
+    "duration": "0.143s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.SearchableFieldSpecExtractorTest",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.StructuredPropertyUtilsTest",
+    "duration": "0.016s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.TimerseriesFieldAnnotationTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.annotation.EntityAnnotationTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.annotation.SearchableAnnotationExtensionTest",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.annotation.SearchableAnnotationValidatorTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.registry.ConfigEntityRegistrySearchIndexGroupTest",
+    "duration": "0.086s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.registry.ConfigEntityRegistryTest",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.registry.LineageRegistryTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.registry.MergedEntityRegistrySearchGroupTest",
+    "duration": "0.026s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.registry.PatchEntityRegistryTest",
+    "duration": "13.374s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.registry.PluginEntityRegistryLoaderTest",
+    "duration": "87.585s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.registry.PrimaryEntitySearchGroupTest",
+    "duration": "0.366s"
+  },
+  {
+    "testId": "com.linkedin.metadata.models.registry.RelationshipEdgeUniquenessMergeTest",
+    "duration": "6.413s"
+  },
+  {
+    "testId": "com.linkedin.metadata.pgqueue.PgQueuePollContextTest",
+    "duration": "1.743s"
+  },
+  {
+    "testId": "com.linkedin.metadata.pgqueue.PgQueuePollWorkerTest",
+    "duration": "0.945s"
+  },
+  {
+    "testId": "com.linkedin.metadata.pgqueue.PgQueuePollWorkersBootstrapTest",
+    "duration": "0.440s"
+  },
+  {
+    "testId": "com.linkedin.metadata.resources.entity.AspectResourceTest",
+    "duration": "2.591s"
+  },
+  {
+    "testId": "com.linkedin.metadata.resources.entity.EntityResourceTest",
+    "duration": "4.898s"
+  },
+  {
+    "testId": "com.linkedin.metadata.resources.entity.EntityV2ResourceTest",
+    "duration": "0.128s"
+  },
+  {
+    "testId": "com.linkedin.metadata.resources.operations.OperationsResourceTest",
+    "duration": "0.102s"
+  },
+  {
+    "testId": "com.linkedin.metadata.resources.operations.UtilsTest",
+    "duration": "0.482s"
+  },
+  {
+    "testId": "com.linkedin.metadata.resources.restli.RestliUtilsTest",
+    "duration": "0.092s"
+  },
+  {
+    "testId": "com.linkedin.metadata.utils.SystemMetadataUtilsTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.r2.transport.http.server.JakartaServletHelperEnrichmentTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "com.linkedin.r2.transport.http.server.RAPJakartaServletTest",
+    "duration": "23.084s"
+  },
+  {
+    "testId": "datahub.client.file.FileEmitterTest",
+    "duration": "0.442s"
+  },
+  {
+    "testId": "datahub.client.kafka.AvroSerializerTest",
+    "duration": "0.094s"
+  },
+  {
+    "testId": "datahub.client.kafka.KafkaEmitterTest",
+    "duration": "0.097s"
+  },
+  {
+    "testId": "datahub.client.patch.PatchTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "datahub.client.rest.RestEmitterTest",
+    "duration": "20.660s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.CachedAspectTest",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.ChartTest",
+    "duration": "0.045s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.ContainerTest",
+    "duration": "0.019s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.DashboardTest",
+    "duration": "0.044s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.DataFlowTest",
+    "duration": "0.020s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.DataJobTest",
+    "duration": "0.033s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.DatasetTest",
+    "duration": "0.041s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.EntityImmutabilityTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.HasTagsPatchTest",
+    "duration": "0.161s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.MLModelGroupTest",
+    "duration": "0.047s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.MLModelTest",
+    "duration": "0.027s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.RequiresMutableAnnotationTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.RequiresMutableImplementationTest",
+    "duration": "0.024s"
+  },
+  {
+    "testId": "datahub.client.v2.entity.WriteTrackingAspectCacheTest",
+    "duration": "0.607s"
+  },
+  {
+    "testId": "datahub.client.v2.integration.ChartIntegrationTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "datahub.client.v2.integration.DataJobIntegrationTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "datahub.client.v2.integration.EmitModeIntegrationTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "datahub.client.v2.patch.VersionAwarePatchTransformerTest",
+    "duration": "0.024s"
+  },
+  {
+    "testId": "datahub.event.EventFormatterTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "datahub.event.MetadataChangeProposalWrapperTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "datahub.protobuf.ProtobufDatasetTest",
+    "duration": "1.488s"
+  },
+  {
+    "testId": "datahub.protobuf.ProtobufUtilsTest",
+    "duration": "0.903s"
+  },
+  {
+    "testId": "datahub.protobuf.model.ProtobufEnumTest",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "datahub.protobuf.model.ProtobufFieldTest",
+    "duration": "0.294s"
+  },
+  {
+    "testId": "datahub.protobuf.model.ProtobufGraphTest",
+    "duration": "0.070s"
+  },
+  {
+    "testId": "datahub.protobuf.model.ProtobufMessageTest",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "datahub.protobuf.model.ProtobufOneOfFieldTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "datahub.protobuf.visitors.VisitContextTest",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "datahub.protobuf.visitors.dataset.DatasetVisitorTest",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "datahub.protobuf.visitors.dataset.DescriptionVisitorTest",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "datahub.protobuf.visitors.dataset.DomainVisitorTest",
+    "duration": "0.014s"
+  },
+  {
+    "testId": "datahub.protobuf.visitors.dataset.InstitutionalMemoryVisitorTest",
+    "duration": "0.042s"
+  },
+  {
+    "testId": "datahub.protobuf.visitors.dataset.KafkaTopicPropertyVisitorTest",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "datahub.protobuf.visitors.dataset.OwnershipVisitorTest",
+    "duration": "0.109s"
+  },
+  {
+    "testId": "datahub.protobuf.visitors.dataset.PropertyVisitorTest",
+    "duration": "0.029s"
+  },
+  {
+    "testId": "datahub.protobuf.visitors.dataset.TermAssociationVisitorTest",
+    "duration": "0.092s"
+  },
+  {
+    "testId": "datahub.protobuf.visitors.field.ProtobufExtensionFieldVisitorTest",
+    "duration": "0.048s"
+  },
+  {
+    "testId": "datahub.protobuf.visitors.field.SchemaFieldVisitorTest",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "datahub.protobuf.visitors.tag.TagVisitorTest",
+    "duration": "0.021s"
+  },
+  {
+    "testId": "entities.EntitiesControllerTest",
+    "duration": "5.552s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.ActorContextTest",
+    "duration": "4.323s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.AgentClassTest",
+    "duration": "0.033s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.AuthorizationContextTest",
+    "duration": "7.365s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.EnrichmentPropagationTest",
+    "duration": "11.328s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.OperationContextConfigTest",
+    "duration": "3.507s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.OperationContextTest",
+    "duration": "1.254s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.PrimaryStorageContextTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.RequestContextTest",
+    "duration": "2.136s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.RequestContextTraceTest",
+    "duration": "1.994s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.SearchContextTest",
+    "duration": "0.011s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.ServicesRegistryContextTest",
+    "duration": "0.024s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.SystemTelemetryContextTest",
+    "duration": "0.275s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.TraceIdGeneratorTest",
+    "duration": "0.011s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.graphql.GraphqlUsageClassificationRegistryHeuristicTest",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.graphql.GraphqlUsageClassificationRegistryTest",
+    "duration": "0.012s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.http.HttpRequestContextResolverTest",
+    "duration": "0.012s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.kafka.SpanProducerRecordResolverTest",
+    "duration": "0.077s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.usage.AttributionTypeTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.usage.UsageActorClassTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.usage.UsageOperationTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.context.usage.instrumentation.CountingHttpServletResponseWrapperTest",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.jobs.common.health.pgqueue.PgQueuePollHealthIndicatorTest",
+    "duration": "0.107s"
+  },
+  {
+    "testId": "io.datahubproject.metadata.services.SecretServiceTest",
+    "duration": "0.456s"
+  },
+  {
+    "testId": "io.datahubproject.models.util.DataHubGuidGeneratorTest",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "io.datahubproject.models.util.DatabaseKeyTest",
+    "duration": "0.709s"
+  },
+  {
+    "testId": "io.datahubproject.models.util.FieldPathTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "io.datahubproject.models.util.SchemaKeyTest",
+    "duration": "0.674s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.analytics.TrackingControllerTest",
+    "duration": "0.089s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.config.GlobalControllerExceptionHandlerTest",
+    "duration": "0.427s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.config.KubernetesClientFactoryTest",
+    "duration": "0.164s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.config.SpringWebConfigTest",
+    "duration": "0.284s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.config.TracingInterceptorTest",
+    "duration": "0.021s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.controller.ScrollUtilsTest",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.delegates.DatahubUsageEventsImplTest",
+    "duration": "2.749s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.health.HealthCheckControllerTest",
+    "duration": "0.340s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.openlineage.config.OpenLineageServletConfigTest$CommonDatasetEnvTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.openlineage.config.OpenLineageServletConfigTest$EmptyEnvTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.openlineage.config.OpenLineageServletConfigTest$NoOrchestratorTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.openlineage.config.OpenLineageServletConfigTest$PlatformInstanceOverrideTest",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.consistency.ConsistencyControllerTest",
+    "duration": "0.328s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.dev.DevToolingControllerTest",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.elastic.ElasticsearchControllerTest",
+    "duration": "0.979s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.elastic.ElasticsearchRawControllerTest",
+    "duration": "1.675s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.k8.KubernetesControllerK8sResponseSerializationTest",
+    "duration": "0.195s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.k8.KubernetesControllerTest",
+    "duration": "0.990s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.k8.models.K8sModelsTest",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.kafka.KafkaControllerTest",
+    "duration": "0.020s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.messaging.MessagingOpenApiMapperTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.messaging.MessagingOperationsControllerTest",
+    "duration": "0.087s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.messaging.PgQueueMessagingOperationsControllerTest",
+    "duration": "0.173s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.ratelimit.RateLimitControllerTest",
+    "duration": "0.024s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.v1.SystemInfoControllerTest",
+    "duration": "0.092s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.operations.v1.TraceControllerTest",
+    "duration": "0.039s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.schema.registry.SchemaRegistryControllerTest",
+    "duration": "2.832s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.test.SchemaRegistryControllerTest",
+    "duration": "1.142s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.util.OpenApiEntitiesUtilTest",
+    "duration": "0.320s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v1.entities.EntitiesControllerTest",
+    "duration": "0.205s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v1.entities.EntityCountsControllerTest",
+    "duration": "0.038s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v1.entities.EntityCountsResponseMapperTest",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v1.event.ExternalEventsControllerTest",
+    "duration": "0.143s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v1.files.FilesControllerTest",
+    "duration": "0.124s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v1.registry.EntityRegistryControllerTest",
+    "duration": "1.488s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v1.registry.LineageRegistryControllerTest",
+    "duration": "0.040s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v1.registry.RegistryDtoMappingTest",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v1.relationships.RelationshipsControllerTest",
+    "duration": "0.075s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v2.delegates.EntityApiDelegateImplDeleteAspectUsageTest",
+    "duration": "22.614s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v2.delegates.EntityApiDelegateImplTest",
+    "duration": "1.369s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v3.OpenAPIV3CustomizerTest",
+    "duration": "0.120s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v3.OpenAPIV3GeneratorTest",
+    "duration": "2.799s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v3.controller.EntityControllerTest",
+    "duration": "0.397s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v3.controller.LineageControllerTest",
+    "duration": "0.095s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v3.controller.LogicalModelControllerTest",
+    "duration": "3.159s"
+  },
+  {
+    "testId": "io.datahubproject.openapi.v3.controller.RelationshipControllerTest",
+    "duration": "0.047s"
+  },
+  {
+    "testId": "io.datahubproject.schematron.SchemaTranslatorTest",
+    "duration": "3.009s"
+  },
+  {
+    "testId": "io.datahubproject.schematron.converters.avro.AvroSchemaConverterTest",
+    "duration": "0.559s"
+  },
+  {
+    "testId": "io.datahubproject.schematron.models.FieldPathTest",
+    "duration": "0.063s"
+  },
+  {
+    "testId": "io.datahubproject.telemetry.TelemetryUtilsTest",
+    "duration": "0.002s"
+  }
+]

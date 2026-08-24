@@ -38,6 +38,8 @@
     "editor.table.insertRowBelow": "Infoga rad nedanför",
     "editor.upload.chooseFile": "Välj fil",
     "editor.upload.failedTitle": "Uppladdning misslyckades",
+    "editor.upload.fileTooLarge": "Din filstorlek ({{sizeGb}}GB) överskred maxgränsen på {{maxGb}}GB",
+    "editor.upload.fileTypeNotSupported": "Filtypen stöds inte{{extensionSuffix}}",
     "editor.upload.notSupported": "Det går för närvarande inte att ladda upp filer i det här sammanhanget",
     "editor.upload.tabUrl": "URL",
     "editor.upload.uploadFile": "Ladda upp fil",

@@ -13,7 +13,7 @@ from datahub.ingestion.source.sql.hana.hana_schema import (
 )
 from datahub.ingestion.source.sql.hana.models import HanaObservedQueryRow
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 
 
 class HanaDataDictionary:

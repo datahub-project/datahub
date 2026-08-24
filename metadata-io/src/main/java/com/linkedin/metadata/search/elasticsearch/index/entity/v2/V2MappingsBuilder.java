@@ -7,6 +7,7 @@ import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsear
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.*;
 import static com.linkedin.metadata.search.utils.ESUtils.ALIAS_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.PATH;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -69,12 +71,21 @@ public class V2MappingsBuilder implements MappingsBuilder {
           WORD_GRAMS_LENGTH_4);
 
   private final EntityIndexConfiguration entityIndexConfiguration;
+  private final int keywordMaxLength;
 
   public V2MappingsBuilder(
       @Nonnull final EntityIndexConfiguration entityIndexConfiguration,
       @Nonnull final Map<String, String> partialNgramConfig) {
+    this(entityIndexConfiguration, partialNgramConfig, ESUtils.KEYWORD_MAXLENGTH);
+  }
+
+  public V2MappingsBuilder(
+      @Nonnull final EntityIndexConfiguration entityIndexConfiguration,
+      @Nonnull final Map<String, String> partialNgramConfig,
+      int keywordMaxLength) {
     this.entityIndexConfiguration = entityIndexConfiguration;
     this.partialNgramConfig = partialNgramConfig;
+    this.keywordMaxLength = keywordMaxLength > 0 ? keywordMaxLength : ESUtils.KEYWORD_MAXLENGTH;
   }
 
   @Override
@@ -94,7 +105,10 @@ public class V2MappingsBuilder implements MappingsBuilder {
                   getIndexMappings(opContext.getEntityRegistry(), entitySpec, structuredProperties);
               return IndexMapping.builder()
                   .indexName(
-                      opContext.getSearchContext().getIndexConvention().getIndexName(entitySpec))
+                      opContext
+                          .getSearchContext()
+                          .getIndexConvention()
+                          .getIndexName(opContext, entitySpec))
                   .mappings(mappings)
                   .build();
             })
@@ -117,7 +131,10 @@ public class V2MappingsBuilder implements MappingsBuilder {
         result.add(
             IndexMapping.builder()
                 .indexName(
-                    opContext.getSearchContext().getIndexConvention().getIndexName(entitySpec))
+                    opContext
+                        .getSearchContext()
+                        .getIndexConvention()
+                        .getIndexName(opContext, entitySpec))
                 .mappings(mappings)
                 .build());
       } else {
@@ -253,36 +270,40 @@ public class V2MappingsBuilder implements MappingsBuilder {
   @Override
   public Map<String, Object> getIndexMappingsForStructuredProperty(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-    return properties.stream()
-        .map(
-            urnProperty -> {
-              StructuredPropertyDefinition property = urnProperty.getSecond();
-              Map<String, Object> mappingForField = new HashMap<>();
-              LogicalValueType logicalType = getLogicalValueType(property.getValueType());
-              switch (logicalType) {
-                case STRING:
-                  mappingForField = getMappingsForKeyword();
-                  break;
-                case RICH_TEXT:
-                  mappingForField = getMappingsForSearchText(FieldType.TEXT_PARTIAL);
-                  break;
-                case DATE:
-                  mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
-                  break;
-                case URN:
-                  mappingForField = getMappingsForUrn();
-                  break;
-                case NUMBER:
-                  mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
-                  break;
-                default:
-                  mappingForField = getMappingsForKeyword();
-                  break;
-              }
-              return Map.entry(
-                  toElasticsearchFieldName(urnProperty.getFirst(), property), mappingForField);
-            })
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    List<StructuredPropertyUtils.StructuredPropertyFieldMapping> entries =
+        properties.stream()
+            .map(
+                urnProperty -> {
+                  StructuredPropertyDefinition property = urnProperty.getSecond();
+                  Map<String, Object> mappingForField = new HashMap<>();
+                  LogicalValueType logicalType = getLogicalValueType(property.getValueType());
+                  switch (logicalType) {
+                    case STRING:
+                      mappingForField = getMappingsForKeywordWithIgnoreAbove();
+                      break;
+                    case RICH_TEXT:
+                      mappingForField = getMappingsForSearchText(FieldType.TEXT_PARTIAL);
+                      break;
+                    case DATE:
+                      mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
+                      break;
+                    case URN:
+                      mappingForField = getMappingsForUrn();
+                      break;
+                    case NUMBER:
+                      mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
+                      break;
+                    default:
+                      mappingForField = getMappingsForKeywordWithIgnoreAbove();
+                      break;
+                  }
+                  return new StructuredPropertyUtils.StructuredPropertyFieldMapping(
+                      toElasticsearchFieldName(urnProperty.getFirst(), property),
+                      urnProperty.getFirst(),
+                      mappingForField);
+                })
+            .collect(Collectors.toList());
+    return StructuredPropertyUtils.resolveStructuredPropertyMappingCollisions(entries);
   }
 
   private Map<String, Object> getMappingsForField(
@@ -379,11 +400,28 @@ public class V2MappingsBuilder implements MappingsBuilder {
     return mappingForField;
   }
 
+  private static Map<String, Object> getMappingsForKeywordWithIgnoreAbove(int keywordMaxLength) {
+    Map<String, Object> mappingForField = getMappingsForKeyword();
+    // ignore_above is character-based; convert configured byte limit to a byte-safe char threshold
+    mappingForField.put(IGNORE_ABOVE, ESUtils.keywordIgnoreAboveForMaxBytes(keywordMaxLength));
+    return mappingForField;
+  }
+
+  /**
+   * Keyword mapping for structured property STRING values. {@code ignore_above} is derived from the
+   * configured keyword max length (bytes → byte-safe characters) so pre-existing oversized values
+   * skip inverted-index terms instead of failing document indexing; write-time validation in {@code
+   * StructuredPropertiesValidator} rejects new oversized values.
+   */
+  private Map<String, Object> getMappingsForKeywordWithIgnoreAbove() {
+    return getMappingsForKeywordWithIgnoreAbove(keywordMaxLength);
+  }
+
   private Map<String, Object> getMappingsForSearchText(FieldType fieldType) {
     Map<String, Object> mappingForField = new HashMap<>();
     mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
-    mappingForField.put("ignore_above", ESUtils.KEYWORD_MAXLENGTH);
+    mappingForField.put(IGNORE_ABOVE, ESUtils.KEYWORD_MAXLENGTH);
     Map<String, Object> subFields = new HashMap<>();
     if (fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
       subFields.put(
@@ -409,8 +447,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
             ANALYZER, TEXT_ANALYZER,
             SEARCH_ANALYZER, TEXT_SEARCH_ANALYZER,
             SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER));
-    subFields.put(
-        KEYWORD, ImmutableMap.of(TYPE, KEYWORD, "ignore_above", ESUtils.KEYWORD_MAXLENGTH));
+    subFields.put(KEYWORD, ImmutableMap.of(TYPE, KEYWORD, IGNORE_ABOVE, ESUtils.KEYWORD_MAXLENGTH));
     mappingForField.put(FIELDS, subFields);
     return mappingForField;
   }

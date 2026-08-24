@@ -42,10 +42,18 @@ public class PageModuleService {
           "urn:li:dataHubPageModule:output_ports",
           "urn:li:dataHubPageModule:child_hierarchy",
           "urn:li:dataHubPageModule:data_products",
+          "urn:li:dataHubPageModule:sub_data_products",
           "urn:li:dataHubPageModule:related_terms",
           "urn:li:dataHubPageModule:platforms",
           "urn:li:dataHubPageModule:lineage",
-          "urn:li:dataHubPageModule:columns");
+          "urn:li:dataHubPageModule:columns",
+          "urn:li:dataHubPageModule:semantic_model_datasets",
+          "urn:li:dataHubPageModule:semantic_model_metrics",
+          "urn:li:dataHubPageModule:semantic_model_relationships",
+          "urn:li:dataHubPageModule:semantic_model_dimensions",
+          "urn:li:dataHubPageModule:ai_context",
+          "urn:li:dataHubPageModule:sql",
+          "urn:li:dataHubPageModule:related_metrics");
 
   public PageModuleService(@Nonnull EntityClient entityClient) {
     this.entityClient = entityClient;

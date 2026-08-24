@@ -22,6 +22,9 @@ const TYPE_RUNBOOK = 'Runbook';
 test.use({ featureName: 'documents' });
 
 test.describe('Document Management', () => {
+  // Create → move → verify (and cascade delete) need more than the default 60s.
+  test.setTimeout(120000);
+
   let documentPage: DocumentPage;
 
   test.beforeEach(async ({ apiMock, page }) => {
@@ -93,6 +96,7 @@ test.describe('Document Management', () => {
     cleanup.track(docUrn);
     await documentPage.clickEditorAndType(testContent);
     await page.keyboard.press(KEYS.ESCAPE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.OPERATION);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
@@ -147,10 +151,12 @@ test.describe('Document Management', () => {
     await documentPage.expectSidebarContains('Documents');
 
     await documentPage.clickCollapseButton();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.QUICK);
     await documentPage.expectCreateButtonHidden();
 
     await documentPage.clickCollapseButton();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.QUICK);
     await documentPage.expectSidebarContains('Documents');
     await documentPage.expectCreateButtonEnabled();
@@ -165,6 +171,7 @@ test.describe('Document Management', () => {
     cleanup.track(docUrn);
     await documentPage.expectSidebarVisible();
 
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.OPERATION);
 
     await documentPage.searchForDocument(searchTitle);
@@ -203,6 +210,7 @@ test.describe('Document Management', () => {
     await documentPage.clickDeleteMenuItem();
     await documentPage.confirmDelete();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
     await documentPage.navigateToDocuments();
@@ -229,6 +237,7 @@ test.describe('Document Management', () => {
     await documentPage.clickDeleteMenuItem();
     await documentPage.confirmDelete();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
     await documentPage.navigateToDocuments();

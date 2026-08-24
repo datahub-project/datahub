@@ -9,7 +9,7 @@ description: >
 
 inputs:
   test_strategy:
-    description: "Test strategy: 'cypress' or 'pytests'"
+    description: "Test strategy: 'pytests'"
     required: true
   batch:
     description: "Current batch number (used for artifact name lookup)"
@@ -24,10 +24,10 @@ inputs:
 outputs:
   parse_result:
     description: "One of: has_failures, all_passed, no_artifacts, error."
-    value: ${{ steps.parse-cypress-failures.outputs.parse_result || steps.parse-pytest-failures.outputs.parse_result || steps.download-artifacts.outputs.parse_result || '' }}
+    value: ${{ steps.parse-pytest-failures.outputs.parse_result || steps.download-artifacts.outputs.parse_result || '' }}
   filtered_tests_file:
     description: "Path to file listing failed tests. Only set when parse_result is 'has_failures'."
-    value: ${{ steps.parse-cypress-failures.outputs.filtered_tests_file || steps.parse-pytest-failures.outputs.filtered_tests_file || '' }}
+    value: ${{ steps.parse-pytest-failures.outputs.filtered_tests_file || '' }}
 
 runs:
   using: composite
@@ -69,66 +69,14 @@ runs:
         gh api "repos/${REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > artifact.zip
         unzip -q artifact.zip
 
-        if [[ "${TEST_STRATEGY}" == "cypress" ]]; then
-          if find . -path "*/smoke-test-results/cypress-test-*.xml" -print -quit | grep -q .; then
-            echo "Successfully downloaded cypress test results"
-            echo "download_success=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No cypress test XML files found in artifact"
-            echo "download_success=false" >> "$GITHUB_OUTPUT"
-            echo "parse_result=no_artifacts" >> "$GITHUB_OUTPUT"
-          fi
+        if find . -path "*/junit*.xml" -print -quit | grep -q .; then
+          echo "Successfully downloaded pytest test results"
+          echo "download_success=true" >> "$GITHUB_OUTPUT"
         else
-          if find . -path "*/junit*.xml" -print -quit | grep -q .; then
-            echo "Successfully downloaded pytest test results"
-            echo "download_success=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No pytest XML files found in artifact"
-            echo "download_success=false" >> "$GITHUB_OUTPUT"
-            echo "parse_result=no_artifacts" >> "$GITHUB_OUTPUT"
-          fi
+          echo "No pytest XML files found in artifact"
+          echo "download_success=false" >> "$GITHUB_OUTPUT"
+          echo "parse_result=no_artifacts" >> "$GITHUB_OUTPUT"
         fi
-
-    - name: Parse failed Cypress tests
-      if: |
-        inputs.test_strategy == 'cypress' &&
-        steps.download-artifacts.outputs.download_success == 'true'
-      id: parse-cypress-failures
-      shell: bash
-      env:
-        BATCH: ${{ inputs.batch }}
-      run: |
-
-        OUTPUT_FILE="${GITHUB_WORKSPACE}/failed-tests-batch-${BATCH}.txt"
-
-        # The parser uses non-zero exit codes as signals (1=error, 2=all_passed,
-        # 3=no_artifacts), not failures. GitHub runs composite bash steps with
-        # `-eo pipefail`, so capture the code via `|| EXIT_CODE=$?` to keep
-        # errexit from aborting the step before the case below can read it.
-        EXIT_CODE=0
-        python3 .github/scripts/parse_failed_cypress_tests.py \
-          --input-dir "${GITHUB_WORKSPACE}/previous-test-results" \
-          --output "${OUTPUT_FILE}" || EXIT_CODE=$?
-
-        case $EXIT_CODE in
-          0)
-            echo "parse_result=has_failures" >> "$GITHUB_OUTPUT"
-            echo "filtered_tests_file=${OUTPUT_FILE}" >> "$GITHUB_OUTPUT"
-            echo "Will retry $(wc -l < ${OUTPUT_FILE}) failed test(s)"
-            ;;
-          2)
-            echo "parse_result=all_passed" >> "$GITHUB_OUTPUT"
-            echo "All tests passed in previous attempt - will skip batch"
-            ;;
-          3)
-            echo "parse_result=no_artifacts" >> "$GITHUB_OUTPUT"
-            echo "No test results found - will run all tests"
-            ;;
-          *)
-            echo "parse_result=error" >> "$GITHUB_OUTPUT"
-            echo "Error parsing test results - will run all tests"
-            ;;
-        esac
 
     - name: Parse failed pytest modules
       if: |
@@ -142,8 +90,10 @@ runs:
 
         OUTPUT_FILE="${GITHUB_WORKSPACE}/failed-modules-batch-${BATCH}.txt"
 
-        # See the cypress parse step: capture the parser's signal exit code via
-        # `|| EXIT_CODE=$?` so `bash -e` doesn't abort the step before the case.
+        # The parser uses non-zero exit codes as signals (1=error, 2=all_passed,
+        # 3=no_artifacts), not failures. GitHub runs composite bash steps with
+        # `-eo pipefail`, so capture the code via `|| EXIT_CODE=$?` to keep
+        # errexit from aborting the step before the case below can read it.
         EXIT_CODE=0
         python3 .github/scripts/parse_failed_pytest_tests.py \
           --input-dir "${GITHUB_WORKSPACE}/previous-test-results" \

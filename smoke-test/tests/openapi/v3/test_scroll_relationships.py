@@ -8,8 +8,11 @@ from conftest import _ingest_cleanup_data_impl
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RawSearchFilter
 from datahub.ingestion.graph.openapi import RelationshipDirection
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 ALPHA = "urn:li:dataset:(urn:li:dataPlatform:scrolltest,alpha,PROD)"
 ZETA = "urn:li:dataset:(urn:li:dataPlatform:scrolltest,zeta,PROD)"
