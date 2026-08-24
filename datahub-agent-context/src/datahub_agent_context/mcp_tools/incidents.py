@@ -13,6 +13,7 @@ Configuration via environment variables:
 
 import logging
 import os
+import pathlib
 from typing import Any, Literal, Optional, get_args
 
 from datahub_agent_context.context import get_graph
@@ -36,96 +37,10 @@ IncidentType = Literal[
 ]
 IncidentPriority = Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
-# incident.graphql extends each entity type individually (no shared interface
-# for the `incidents` field), so each type needs its own inline fragment.
-LIST_INCIDENTS_QUERY = """
-query listEntityIncidents(
-    $urn: String!,
-    $state: IncidentState,
-    $start: Int!,
-    $count: Int!
-) {
-    entity(urn: $urn) {
-        urn
-        type
-        ... on Dataset {
-            incidents(state: $state, start: $start, count: $count) {
-                ...entityIncidentsResultFields
-            }
-        }
-        ... on DataJob {
-            incidents(state: $state, start: $start, count: $count) {
-                ...entityIncidentsResultFields
-            }
-        }
-        ... on DataFlow {
-            incidents(state: $state, start: $start, count: $count) {
-                ...entityIncidentsResultFields
-            }
-        }
-        ... on Dashboard {
-            incidents(state: $state, start: $start, count: $count) {
-                ...entityIncidentsResultFields
-            }
-        }
-        ... on Chart {
-            incidents(state: $state, start: $start, count: $count) {
-                ...entityIncidentsResultFields
-            }
-        }
-        ... on MLModel {                                                #[NEWER_GMS]
-            incidents(state: $state, start: $start, count: $count) {   #[NEWER_GMS]
-                ...entityIncidentsResultFields                         #[NEWER_GMS]
-            }                                                          #[NEWER_GMS]
-        }                                                              #[NEWER_GMS]
-        ... on MLFeature {                                              #[NEWER_GMS]
-            incidents(state: $state, start: $start, count: $count) {   #[NEWER_GMS]
-                ...entityIncidentsResultFields                         #[NEWER_GMS]
-            }                                                          #[NEWER_GMS]
-        }                                                              #[NEWER_GMS]
-        ... on MLFeatureTable {                                         #[NEWER_GMS]
-            incidents(state: $state, start: $start, count: $count) {   #[NEWER_GMS]
-                ...entityIncidentsResultFields                         #[NEWER_GMS]
-            }                                                          #[NEWER_GMS]
-        }                                                              #[NEWER_GMS]
-        ... on SchemaFieldEntity {                                      #[NEWER_GMS]
-            incidents(state: $state, start: $start, count: $count) {   #[NEWER_GMS]
-                ...entityIncidentsResultFields                         #[NEWER_GMS]
-            }                                                          #[NEWER_GMS]
-        }                                                              #[NEWER_GMS]
-    }
-}
-
-fragment entityIncidentsResultFields on EntityIncidentsResult {
-    start
-    count
-    total
-    incidents {
-        urn
-        incidentType
-        customType
-        title
-        description
-        priority
-        incidentStatus {
-            state
-            stage
-            message
-            lastUpdated {
-                time
-                actor
-            }
-        }
-        source {
-            type
-        }
-        created {
-            time
-            actor
-        }
-    }
-}
-"""
+# Loaded from gql/list_entity_incidents.gql (generated from incident.graphql).
+LIST_INCIDENTS_QUERY = (
+    pathlib.Path(__file__).parent / "gql/list_entity_incidents.gql"
+).read_text()
 
 RAISE_INCIDENT_MUTATION = """
 mutation raiseIncident($input: RaiseIncidentInput!) {
