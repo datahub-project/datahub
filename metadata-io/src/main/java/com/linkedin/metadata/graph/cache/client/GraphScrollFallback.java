@@ -14,9 +14,11 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,6 +33,43 @@ public final class GraphScrollFallback {
       @Nonnull OperationContext opContext,
       @Nonnull HierarchyReadSpec spec,
       @Nonnull Urn parentUrn) {
+    return childrenOf(opContext, spec, Set.of(parentUrn));
+  }
+
+  /**
+   * Expand all descendants under {@code rootUrn} via level-batched graph scroll.
+   *
+   * <p>Each frontier level issues one (paginated) scroll with an OR filter over every parent in
+   * that level — O(depth) scroll rounds instead of one round-trip per node. Matches the pre-cache
+   * domain BFS used for hierarchy expansion when the entity graph cache is disabled or misses.
+   */
+  @Nonnull
+  public static Set<Urn> allDescendants(
+      @Nonnull OperationContext opContext, @Nonnull HierarchyReadSpec spec, @Nonnull Urn rootUrn) {
+    Set<Urn> descendants = new LinkedHashSet<>();
+    Set<Urn> frontier = new LinkedHashSet<>(Set.of(rootUrn));
+    while (!frontier.isEmpty()) {
+      DirectChildrenResult level = childrenOf(opContext, spec, frontier);
+      Set<Urn> nextFrontier = new LinkedHashSet<>();
+      for (Urn child : level.getChildUrns()) {
+        if (descendants.add(child)) {
+          nextFrontier.add(child);
+        }
+      }
+      frontier = nextFrontier;
+    }
+    return descendants;
+  }
+
+  @Nonnull
+  private static DirectChildrenResult childrenOf(
+      @Nonnull OperationContext opContext,
+      @Nonnull HierarchyReadSpec spec,
+      @Nonnull Collection<Urn> parentUrns) {
+    if (parentUrns.isEmpty()) {
+      return new DirectChildrenResult(Set.of(), false);
+    }
+
     GraphRetriever graphRetriever = opContext.getRetrieverContext().getGraphRetriever();
     if (graphRetriever == GraphRetriever.EMPTY
         || spec.getScrollSourceEntityTypes().isEmpty()
@@ -39,17 +78,7 @@ public final class GraphScrollFallback {
     }
 
     try {
-      Filter destinationFilter =
-          new Filter()
-              .setOr(
-                  new ConjunctiveCriterionArray(
-                      new ConjunctiveCriterion()
-                          .setAnd(
-                              new CriterionArray(
-                                  List.of(
-                                      CriterionUtils.buildCriterion(
-                                          "urn", Condition.EQUAL, parentUrn.toString()))))));
-
+      Filter destinationFilter = urnEqualsFilter(parentUrns);
       Set<Urn> children = new LinkedHashSet<>();
       RelatedEntitiesScrollResult result = null;
       while (result == null || result.getScrollId() != null) {
@@ -78,8 +107,8 @@ public final class GraphScrollFallback {
       return new DirectChildrenResult(children, false);
     } catch (Exception e) {
       log.error(
-          "Failed to scroll direct children for {} on graph {}",
-          parentUrn,
+          "Failed to scroll direct children for {} parent(s) on graph {}",
+          parentUrns.size(),
           spec.getBinding().getGraphId(),
           e);
       return new DirectChildrenResult(Set.of(), true);
@@ -87,23 +116,20 @@ public final class GraphScrollFallback {
   }
 
   @Nonnull
-  public static Set<Urn> allDescendants(
-      @Nonnull OperationContext opContext, @Nonnull HierarchyReadSpec spec, @Nonnull Urn rootUrn) {
-    Set<Urn> descendants = new LinkedHashSet<>();
-    collectDescendants(opContext, spec, rootUrn, descendants);
-    return descendants;
-  }
-
-  private static void collectDescendants(
-      @Nonnull OperationContext opContext,
-      @Nonnull HierarchyReadSpec spec,
-      @Nonnull Urn parentUrn,
-      @Nonnull Set<Urn> descendants) {
-    DirectChildrenResult directChildren = directChildren(opContext, spec, parentUrn);
-    for (Urn child : directChildren.getChildUrns()) {
-      if (descendants.add(child)) {
-        collectDescendants(opContext, spec, child, descendants);
-      }
-    }
+  private static Filter urnEqualsFilter(@Nonnull Collection<Urn> urns) {
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                urns.stream()
+                    .map(Urn::toString)
+                    .map(
+                        urn ->
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        List.of(
+                                            CriterionUtils.buildCriterion(
+                                                "urn", Condition.EQUAL, urn)))))
+                    .collect(Collectors.toList())));
   }
 }
