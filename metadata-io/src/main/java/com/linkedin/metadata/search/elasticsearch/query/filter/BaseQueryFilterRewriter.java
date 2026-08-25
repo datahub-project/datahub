@@ -273,8 +273,12 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
 
     Set<Urn> nextUrns = new HashSet<>();
 
-    Supplier<Boolean> earlyExitCriteria =
-        () -> (queryUrns.size() + visitedUrns.size() + nextUrns.size()) >= limit;
+    // Mark visited before scrolling: the budget below has to count each urn once, and the current
+    // frontier is already part of the expanded set. Counting queryUrns separately charged them
+    // twice, which cost a multi-urn filter its whole expansion budget.
+    visitedUrns.addAll(queryUrns);
+
+    Supplier<Boolean> earlyExitCriteria = () -> (visitedUrns.size() + nextUrns.size()) >= limit;
 
     Function<RelatedEntitiesScrollResult, Boolean> consumer =
         result -> {
@@ -304,14 +308,17 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
         null,
         null);
 
-    // mark visited
-    visitedUrns.addAll(queryUrns);
-
     if (cascade != null && !nextUrns.isEmpty()) {
       cascade.recordEntitiesProcessed(nextUrns.size());
     }
     if (earlyExitCriteria.get()) {
       visitedUrns.addAll(nextUrns);
+      log.warn(
+          "{} truncated filter expansion for {} at limit {}; the filter is incomplete and results "
+              + "may be missing. Raise the expansion limit for this rewriter if this is expected.",
+          getClass().getSimpleName(),
+          getRewriterFieldNames(),
+          limit);
     } else if (!nextUrns.isEmpty()) {
       // next hop
       scrollGraph(
