@@ -1284,6 +1284,7 @@ postgres = [
     { name = "sqlparse" },
 ]
 powerbi = [
+    { name = "cryptography" },
     { name = "mini-racer" },
     { name = "more-itertools" },
     { name = "msal" },
@@ -1840,6 +1841,7 @@ requires-dist = [
     { name = "cryptography", marker = "extra == 'dev'", specifier = ">=49.0.0,<51.0.0" },
     { name = "cryptography", marker = "extra == 'docs'", specifier = ">=49.0.0,<51.0.0" },
     { name = "cryptography", marker = "extra == 'fivetran'", specifier = ">=49.0.0,<51.0.0" },
+    { name = "cryptography", marker = "extra == 'powerbi'", specifier = ">=49.0.0,<51.0.0" },
     { name = "cryptography", marker = "extra == 'snowflake'", specifier = ">=49.0.0,<51.0.0" },
     { name = "cryptography", marker = "extra == 'snowflake-queries'", specifier = ">=49.0.0,<51.0.0" },
     { name = "cryptography", marker = "extra == 'snowflake-slim'", specifier = ">=49.0.0,<51.0.0" },

@@ -72,3 +72,24 @@ If you have granted your Entra application permissions to the Admin APIs, then t
 - Reports
 - Report Pages
 - App
+
+#### Authentication
+
+The source authenticates as the Entra application (service principal) using either a client secret or a certificate:
+
+- **Client secret**: set `client_secret` to a client secret created under your Entra application's `Certificates & secrets`.
+- **Certificate**: upload the certificate's public key to your Entra application under `Certificates & secrets` -> `Certificates`, then configure one of:
+  - `certificate_path`: path to a PEM file readable by the ingestion process, or
+  - `certificate_data`: the PEM content inline, typically referencing a secret, e.g. `certificate_data: "${POWERBI_CERTIFICATE_PEM}"`.
+
+The PEM must contain both the private key and the certificate. If the private key is encrypted, set `certificate_password`. When storing the PEM in a DataHub secret or environment variable, you can keep it as-is (multi-line) or collapse it to a single line with literal `\n` escapes — both forms are accepted.
+
+For example, to generate a self-signed certificate and prepare it for use:
+
+```shell
+openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=datahub-powerbi-ingestion"
+# Upload cert.pem to the Entra application, then combine both files into the PEM used by the recipe:
+cat key.pem cert.pem > powerbi.pem
+```
+
+Configure exactly one of `client_secret` or the certificate options — not both.

@@ -11,6 +11,7 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.ingestion.source.powerbi.auth import MsalClientCredential
 from datahub.ingestion.source.powerbi.config import Constant, PowerBiEnvironment
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     App,
@@ -91,7 +92,7 @@ class DataResolverBase(ABC):
     def __init__(
         self,
         client_id: str,
-        client_secret: str,
+        client_credential: MsalClientCredential,
         tenant_id: str,
         metadata_api_timeout: int,
         environment: PowerBiEnvironment = PowerBiEnvironment.COMMERCIAL,
@@ -115,10 +116,10 @@ class DataResolverBase(ABC):
         self._tenant_id = tenant_id
         # Test connection by generating access token
         logger.info(f"Trying to connect to {self._get_authority_url()}")
-        # Power-Bi Auth (Service Principal Auth)
+        # Power-Bi Auth (Service Principal Auth, via client secret or certificate)
         self._msal_client = msal.ConfidentialClientApplication(
             client_id,
-            client_credential=client_secret,
+            client_credential=client_credential,
             authority=self._authority + tenant_id,
         )
         self.get_access_token()
@@ -208,11 +209,27 @@ class DataResolverBase(ABC):
         auth_response = self._msal_client.acquire_token_for_client(scopes=[self._scope])
 
         if not auth_response.get(Constant.ACCESS_TOKEN):
-            logger.warning(
-                "Failed to generate the PowerBi access token. Please check input configuration"
+            # Surface Entra ID's own diagnostics: the AADSTS code in
+            # error_description is the only detail that distinguishes an
+            # unregistered thumbprint from a bad assertion or an expired
+            # certificate. Only allow-listed fields are echoed so that a
+            # response field we don't know about can never leak a token, and
+            # each value is whitespace-collapsed because Entra returns
+            # error_description as a multi-line (CRLF) blob.
+            error_details = " ".join(
+                f"{key}={' '.join(str(auth_response[key]).split())}"
+                for key in (
+                    Constant.AUTH_ERROR,
+                    Constant.AUTH_ERROR_CODES,
+                    Constant.AUTH_ERROR_DESCRIPTION,
+                    Constant.AUTH_TRACE_ID,
+                    Constant.AUTH_CORRELATION_ID,
+                )
+                if auth_response.get(key)
             )
             raise ConfigurationError(
-                "Failed to retrieve access token for PowerBI principal. Please verify your configuration values"
+                "Failed to retrieve access token for PowerBI principal. Please verify "
+                f"your configuration values. {error_details}".strip()
             )
 
         logger.info("Generated PowerBi access token")

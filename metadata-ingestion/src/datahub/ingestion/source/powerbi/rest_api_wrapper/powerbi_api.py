@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Literal, MutableMapping, Optional, Set, cast
 
 import requests
 
+from datahub.ingestion.source.powerbi.auth import build_msal_client_credential
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
@@ -73,9 +74,11 @@ class PowerBiAPI:
         self.__config: PowerBiDashboardSourceConfig = config
         self.__reporter = reporter
 
+        client_credential = build_msal_client_credential(self.__config)
+
         self.__regular_api_resolver = RegularAPIResolver(
             client_id=self.__config.client_id,
-            client_secret=self.__config.client_secret.get_secret_value(),
+            client_credential=client_credential,
             tenant_id=self.__config.tenant_id,
             metadata_api_timeout=self.__config.metadata_api_timeout,
             environment=self.__config.environment,
@@ -83,7 +86,7 @@ class PowerBiAPI:
 
         self.__admin_api_resolver = AdminAPIResolver(
             client_id=self.__config.client_id,
-            client_secret=self.__config.client_secret.get_secret_value(),
+            client_credential=client_credential,
             tenant_id=self.__config.tenant_id,
             metadata_api_timeout=self.__config.metadata_api_timeout,
             environment=self.__config.environment,
