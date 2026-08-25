@@ -1,196 +1,114 @@
-import { Select, Tag, Typography } from 'antd';
-import React, { useState } from 'react';
+import { Input, Text } from '@components';
+import React, { useCallback } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import GlossaryBrowser from '@app/glossaryV2/GlossaryBrowser/GlossaryBrowser';
+import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
+import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
+import { FIELD_TYPES } from '@app/permissions/policy/constants';
 import { createCriterionValueWithEntity, getFieldValues, setFieldValues } from '@app/permissions/policy/policyUtils';
-import ClickOutside from '@app/shared/ClickOutside';
-import useDebouncedCallback from '@app/shared/hooks/useDebouncedCallback';
-import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import GlossarySelect from '@app/sharedV2/glossary/GlossarySelect';
 
-import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
-import { Entity, EntityType, PolicyMatchCriterionValue, ResourceFilter } from '@types';
+import { PolicyMatchCondition, PolicyMatchCriterionValue, ResourceFilter } from '@types';
 
-const SearchResultContainer = styled.div`
+const FieldWithConditionWrapper = styled.div`
     display: flex;
-    justify-content: space-between;
+    gap: 8px;
     align-items: center;
-    padding: 4px;
+    width: 100%;
+    min-width: 0;
 `;
 
-const StyledBrowserWrapper = styled(BrowserWrapper)`
-    bottom: 36px;
+const SelectContainer = styled.div`
+    flex: 1;
+    min-width: 0;
+`;
+
+const DescriptionText = styled(Text)`
+    display: block;
+    margin-bottom: 8px;
+`;
+
+const StyledInput = styled(Input)`
+    width: 100%;
 `;
 
 type Props = {
     resources: ResourceFilter;
     setResources: (resources: ResourceFilter) => void;
+    glossaryCondition: PolicyMatchCondition;
+    setGlossaryCondition: (condition: PolicyMatchCondition) => void;
 };
 
-export default function GlossarySelector({ resources, setResources }: Props) {
+export default function GlossarySelector({ resources, setResources, glossaryCondition, setGlossaryCondition }: Props) {
     const { t } = useTranslation('settings.permissions');
-    const entityRegistry = useEntityRegistry();
-    const [glossaryInputValue, setGlossaryInputValue] = useState('');
-    const [isFocusedOnGlossaryInput, setIsFocusedOnGlossaryInput] = useState(false);
 
-    const [searchGlossaryEntities, { data: glossarySearchData }] = useGetSearchResultsForMultipleLazyQuery();
-    const glossarySearchResults = glossarySearchData?.searchAcrossEntities?.searchResults;
-
-    const glossaryEntities = getFieldValues(resources.filter, 'GLOSSARY') || [];
-    const glossaryUrnToDisplayName = new Map();
-    glossaryEntities.forEach((glossaryEntity) => {
-        const displayName = glossaryEntity.entity
-            ? entityRegistry.getDisplayName(glossaryEntity.entity.type, glossaryEntity.entity)
-            : glossaryEntity.value;
-        glossaryUrnToDisplayName[glossaryEntity.value] = displayName;
-    });
-
+    const glossaryEntities = getFieldValues(resources.filter, FIELD_TYPES.GLOSSARY) || [];
     const glossarySelectValue = glossaryEntities.map((criterionValue) => criterionValue.value);
-    const isShowingGlossaryBrowser = !glossaryInputValue && isFocusedOnGlossaryInput;
 
-    const onSelectGlossaryEntity = (glossaryUrn: string, glossaryEntity?: Entity) => {
+    const handleGlossaryUpdate = (urns: string[]) => {
         const filter = resources.filter || {
             criteria: [],
         };
-        const entity =
-            glossaryEntity ||
-            glossarySearchResults?.find((result) => result.entity.urn === glossaryUrn)?.entity ||
-            null;
 
-        const isGlossaryEntityAlreadyAdded = glossaryEntities.some((item) => item.value === glossaryUrn);
+        const updatedGlossaryEntities: PolicyMatchCriterionValue[] = urns.map((urn) =>
+            createCriterionValueWithEntity(urn, null),
+        );
 
-        let updatedGlossaryEntities: PolicyMatchCriterionValue[] = [];
-
-        // Toggle selected glossary
-        if (isGlossaryEntityAlreadyAdded) {
-            updatedGlossaryEntities = glossaryEntities.filter((item) => item.value !== glossaryUrn);
-        } else {
-            updatedGlossaryEntities = [...glossaryEntities, createCriterionValueWithEntity(glossaryUrn, entity)];
-        }
-
-        const updatedFilter = setFieldValues(filter, 'GLOSSARY', updatedGlossaryEntities);
+        const updatedFilter = setFieldValues(filter, FIELD_TYPES.GLOSSARY, updatedGlossaryEntities, glossaryCondition);
         setResources({
             ...resources,
             filter: updatedFilter,
         });
     };
 
-    function selectGlossaryTermFromBrowser(urn: string, displayName: string) {
-        const entity =
-            glossarySearchResults?.find((result) => result.entity.urn === urn)?.entity ||
-            ({ urn, type: EntityType.GlossaryTerm, properties: { name: displayName } } as Entity);
-        onSelectGlossaryEntity(urn, entity);
-        setIsFocusedOnGlossaryInput(false);
-    }
+    const isStartsWithCondition = glossaryCondition === PolicyMatchCondition.StartsWith;
+    const startsWithValue = isStartsWithCondition && glossarySelectValue.length > 0 ? glossarySelectValue[0] : '';
 
-    function selectGlossaryNodeFromBrowser(urn: string, displayName: string) {
-        const entity =
-            glossarySearchResults?.find((result) => result.entity.urn === urn)?.entity ||
-            ({ urn, type: EntityType.GlossaryNode, properties: { name: displayName } } as Entity);
-        onSelectGlossaryEntity(urn, entity);
-        setIsFocusedOnGlossaryInput(false);
-    }
-
-    const onDeselectGlossaryEntity = (glossaryUrn: string) => {
-        const filter = resources.filter || {
-            criteria: [],
-        };
-        setResources({
-            ...resources,
-            filter: setFieldValues(
-                filter,
-                'GLOSSARY',
-                glossaryEntities?.filter((criterionValue) => criterionValue.value !== glossaryUrn),
-            ),
-        });
-    };
-
-    const searchGlossaryEntitiesDebounced = useDebouncedCallback((trimmedText: string) => {
-        searchGlossaryEntities({
-            variables: {
-                input: {
-                    types: [EntityType.GlossaryTerm, EntityType.GlossaryNode],
-                    query: trimmedText.length > 2 ? trimmedText : '*',
-                    start: 0,
-                    count: 10,
-                },
+    const handleConditionChange = useClearOnConditionChange(
+        glossaryCondition,
+        FIELD_TYPES.GLOSSARY,
+        useCallback(
+            (newCondition: PolicyMatchCondition, updatedResources: ResourceFilter) => {
+                setGlossaryCondition(newCondition);
+                setResources(updatedResources);
             },
-        });
-    });
-
-    const handleGlossarySearch = (text: string) => {
-        const trimmedText: string = text.trim();
-        // Kept synchronous: this drives whether the glossary browser or the search dropdown shows.
-        setGlossaryInputValue(trimmedText);
-        searchGlossaryEntitiesDebounced(trimmedText);
-    };
-
-    const renderSearchResult = (result) => {
-        return (
-            <SearchResultContainer>
-                {entityRegistry.getDisplayName(result.entity.type, result.entity)}
-            </SearchResultContainer>
-        );
-    };
-
-    const displayStringWithMaxLength = (displayStr, length) => {
-        return displayStr.length > length
-            ? `${displayStr.substring(0, Math.min(length, displayStr.length))}...`
-            : displayStr;
-    };
-
-    function handleBlurGlossary() {
-        setGlossaryInputValue('');
-    }
-
-    function handleClickOutsideGlossary() {
-        setTimeout(() => setIsFocusedOnGlossaryInput(false), 0);
-    }
+            [setGlossaryCondition, setResources],
+        ),
+    );
 
     return (
         <>
-            <Typography.Paragraph>
+            <DescriptionText type="p" color="textSecondary">
                 <Trans t={t} i18nKey="glossarySelectorDescription" components={{ bold: <b /> }} />
-            </Typography.Paragraph>
-            <ClickOutside onClickOutside={handleClickOutsideGlossary}>
-                <Select
-                    showSearch
-                    value={glossarySelectValue}
-                    mode="multiple"
-                    filterOption={false}
-                    placeholder={t('glossarySelectorPlaceholder')}
-                    onSelect={(value) => onSelectGlossaryEntity(value)}
-                    onDeselect={onDeselectGlossaryEntity}
-                    onSearch={handleGlossarySearch}
-                    onFocus={() => setIsFocusedOnGlossaryInput(true)}
-                    onBlur={handleBlurGlossary}
-                    tagRender={(tagProps) => (
-                        <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                            {displayStringWithMaxLength(
-                                glossaryUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
-                                75,
-                            )}
-                        </Tag>
+            </DescriptionText>
+            <FieldWithConditionWrapper>
+                <ConditionSelectDropdown
+                    condition={glossaryCondition}
+                    onConditionChange={handleConditionChange}
+                    fieldType={FIELD_TYPES.GLOSSARY}
+                    hasValues={glossaryEntities && glossaryEntities.length > 0}
+                    resources={resources}
+                />
+                <SelectContainer>
+                    {isStartsWithCondition ? (
+                        <StyledInput
+                            placeholder={t('privilegeForm.glossaryPrefixPlaceholder')}
+                            value={startsWithValue}
+                            onChange={(e) => handleGlossaryUpdate([e.target.value])}
+                        />
+                    ) : (
+                        <GlossarySelect
+                            selectedUrns={glossarySelectValue}
+                            onUpdate={handleGlossaryUpdate}
+                            placeholder={t('glossarySelectorPlaceholder')}
+                            width="full"
+                            showSearch
+                            areNodesSelectable
+                        />
                     )}
-                    dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
-                >
-                    {glossarySearchResults?.map((result) => (
-                        <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                            {renderSearchResult(result)}
-                        </Select.Option>
-                    ))}
-                </Select>
-                <StyledBrowserWrapper isHidden={!isShowingGlossaryBrowser} width="100%" maxHeight={350}>
-                    <GlossaryBrowser
-                        isSelecting
-                        selectTerm={selectGlossaryTermFromBrowser}
-                        selectNode={selectGlossaryNodeFromBrowser}
-                        selectedUrns={glossarySelectValue}
-                    />
-                </StyledBrowserWrapper>
-            </ClickOutside>
+                </SelectContainer>
+            </FieldWithConditionWrapper>
         </>
     );
 }

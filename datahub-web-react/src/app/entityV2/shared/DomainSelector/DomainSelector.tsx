@@ -30,6 +30,7 @@ type DomainSelectorProps = {
     placeholder?: string;
     label?: string;
     isMultiSelect?: boolean;
+    selectChildrenWithParent?: boolean;
     isRequired?: boolean;
 };
 
@@ -50,6 +51,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     placeholder,
     label,
     isMultiSelect = false,
+    selectChildrenWithParent = true,
     isRequired = false,
 }) => {
     const { t } = useTranslation('entity.shared.selectors');
@@ -255,12 +257,14 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             isRequired={isRequired}
             showSearch
             implicitlySelectChildren={false}
+            selectChildrenWithParent={selectChildrenWithParent}
             areParentsSelectable
             shouldAlwaysSyncParentValues
             hideParentCheckbox={false}
             renderCustomOptionText={renderDomainOptionText}
             renderCustomSelectedValue={renderDomainSelectedValue}
             selectLabelProps={{ variant: 'custom' }}
+            showClear
         />
     );
 };

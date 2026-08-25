@@ -1,8 +1,11 @@
+import { MockedProvider } from '@apollo/client/testing';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
+import { ThemeProvider } from 'styled-components';
 
 import PolicyDetailsModal from '@app/permissions/policy/PolicyDetailsModal';
+import themeV2 from '@conf/theme/themeV2';
 
 import { EntityType, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
 
@@ -141,14 +144,18 @@ describe('PolicyDetailsModal', () => {
 
     it('renders policy details correctly', () => {
         render(
-            <BrowserRouter>
-                <PolicyDetailsModal
-                    policy={mockPolicy}
-                    open
-                    onClose={() => {}}
-                    privileges={[{ type: 'view', name: 'View' }]}
-                />
-            </BrowserRouter>,
+            <MockedProvider mocks={[]} addTypename={false}>
+                <ThemeProvider theme={themeV2}>
+                    <BrowserRouter>
+                        <PolicyDetailsModal
+                            policy={mockPolicy}
+                            open
+                            onClose={() => {}}
+                            privileges={[{ type: 'view', name: 'View' }]}
+                        />
+                    </BrowserRouter>
+                </ThemeProvider>
+            </MockedProvider>,
         );
 
         // Check the modal has rendered correctly
@@ -165,14 +172,18 @@ describe('PolicyDetailsModal', () => {
 
     it('renders containers when provided', () => {
         render(
-            <BrowserRouter>
-                <PolicyDetailsModal
-                    policy={mockPolicyWithContainers}
-                    open
-                    onClose={() => {}}
-                    privileges={[{ type: 'view', name: 'View' }]}
-                />
-            </BrowserRouter>,
+            <MockedProvider mocks={[]} addTypename={false}>
+                <ThemeProvider theme={themeV2}>
+                    <BrowserRouter>
+                        <PolicyDetailsModal
+                            policy={mockPolicyWithContainers}
+                            open
+                            onClose={() => {}}
+                            privileges={[{ type: 'view', name: 'View' }]}
+                        />
+                    </BrowserRouter>
+                </ThemeProvider>
+            </MockedProvider>,
         );
 
         // Check that "Containers" section is rendered
@@ -181,14 +192,18 @@ describe('PolicyDetailsModal', () => {
 
     it('renders ownership types correctly', () => {
         render(
-            <BrowserRouter>
-                <PolicyDetailsModal
-                    policy={mockPolicyWithResourceOwners}
-                    open
-                    onClose={() => {}}
-                    privileges={[{ type: 'view', name: 'View' }]}
-                />
-            </BrowserRouter>,
+            <MockedProvider mocks={[]} addTypename={false}>
+                <ThemeProvider theme={themeV2}>
+                    <BrowserRouter>
+                        <PolicyDetailsModal
+                            policy={mockPolicyWithResourceOwners}
+                            open
+                            onClose={() => {}}
+                            privileges={[{ type: 'view', name: 'View' }]}
+                        />
+                    </BrowserRouter>
+                </ThemeProvider>
+            </MockedProvider>,
         );
 
         // Check the ownership types section

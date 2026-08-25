@@ -1,16 +1,16 @@
-import { Steps } from 'antd';
+import { Button, Modal } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import PolicyActorForm from '@app/permissions/policy/PolicyActorForm';
 import PolicyPrivilegeForm from '@app/permissions/policy/PolicyPrivilegeForm';
+import PolicyStepper from '@app/permissions/policy/PolicyStepper';
 import PolicyTypeForm from '@app/permissions/policy/PolicyTypeForm';
 import { EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import { Button, Modal } from '@src/alchemy-components';
 
 import { ActorFilter, Policy, PolicyType, ResourceFilter } from '@types';
 
@@ -66,7 +66,6 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
     const { t: tc } = useTranslation('common.actions');
     // Step control-flow.
     const [activeStepIndex, setActiveStepIndex] = useState(0);
-    const [selectedTags, setSelectedTags] = useState<any[]>([]);
     const [isEditState, setEditState] = useState(true);
 
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -89,10 +88,13 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
     // Change the type of policy, either Metadata or Platform
     const setPolicyType = (type: PolicyType) => {
         // Important: If the policy type itself is changing, we need to clear policy state.
-        if (type === PolicyType.Platform) {
-            setPolicy({ ...policy, type, resources: EMPTY_POLICY.resources, privileges: [] });
-        }
-        setPolicy({ ...policy, type, privileges: [] });
+        // Platform policies require empty resources, other types preserve theirs.
+        setPolicy({
+            ...policy,
+            type,
+            privileges: [],
+            ...(type === PolicyType.Platform && { resources: EMPTY_POLICY.resources }),
+        });
     };
 
     // Step 1: Choose Policy Type
@@ -125,8 +127,6 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                 setResources={(resources: ResourceFilter) => {
                     setPolicy({ ...policy, resources });
                 }}
-                setSelectedTags={setSelectedTags}
-                selectedTags={selectedTags}
                 setEditState={setEditState}
                 isEditState={isEditState}
                 privileges={policy.privileges}
@@ -179,18 +179,14 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                 wrapClassName="PolicyBuilderModal"
                 title={isEditing ? t('editPolicyModalTitle') : t('createPolicyModalTitle')}
                 open={open}
-                onCancel={onClose}
+                onCancel={() => setShowConfirmationModal(true)}
                 closable
-                width={750}
+                width={950}
                 buttons={[]}
                 bodyStyle={MODAL_BODY_STYLE}
             >
                 <StepsWrapper>
-                    <Steps current={activeStepIndex}>
-                        {policySteps.map((item) => (
-                            <Steps.Step key={item.title} title={item.title} />
-                        ))}
-                    </Steps>
+                    <PolicyStepper steps={policySteps} currentStepIndex={activeStepIndex} />
                 </StepsWrapper>
                 <StepContent>{activeStep.content}</StepContent>
                 <StepsControls>
