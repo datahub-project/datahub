@@ -11,6 +11,7 @@ import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
@@ -78,6 +79,45 @@ public class TestUtils {
         TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
     when(mockContext.getOperationContext()).thenReturn(operationContext);
 
+    return mockContext;
+  }
+
+  /**
+   * Returns a context that allows a single privilege on a single resource URN and denies everything
+   * else. Lets a test assert which URN a check was actually made against, rather than only whether
+   * it passed.
+   */
+  public static QueryContext getMockAllowContextForResource(
+      @Nonnull final String actorUrn,
+      @Nonnull final String privilege,
+      @Nonnull final Urn allowedResourceUrn) {
+    Authorizer mockAuthorizer = mock(Authorizer.class);
+    when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            args -> {
+              AuthorizationRequest request = args.getArgument(0);
+              boolean allowed =
+                  privilege.equals(request.getPrivilege())
+                      && request
+                          .getResourceSpec()
+                          .map(spec -> allowedResourceUrn.toString().equals(spec.getEntity()))
+                          .orElse(false);
+              return new AuthorizationResult(
+                  request,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  "");
+            });
+
+    Authentication authentication =
+        new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
+
+    QueryContext mockContext = mock(QueryContext.class);
+    when(mockContext.getActorUrn()).thenReturn(actorUrn);
+    when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
+    when(mockContext.getAuthentication()).thenReturn(authentication);
+    OperationContext operationContext =
+        TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
+    when(mockContext.getOperationContext()).thenReturn(operationContext);
     return mockContext;
   }
 

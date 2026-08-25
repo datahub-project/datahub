@@ -3,6 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { safeUrl } from '@app/shared/urlUtils';
 
 const EmbedContainer = styled.div`
     width: 100%;
@@ -25,9 +26,9 @@ export const EmbedTab = () => {
     const embedRenderUrl = entityData?.embed?.renderUrl;
     return (
         <EmbedContainer>
-            {(embedRenderUrl && <StyledIframe src={embedRenderUrl} title={entityData?.urn} frameBorder={0} />) || (
-                <StyledEmpty description="No preview was found." />
-            )}
+            {(embedRenderUrl && (
+                <StyledIframe src={safeUrl(embedRenderUrl)} title={entityData?.urn} frameBorder={0} />
+            )) || <StyledEmpty description="No preview was found." />}
         </EmbedContainer>
     );
 };

@@ -311,11 +311,7 @@ public class OperationContext implements AuthorizationSession {
     return authorizationContext.getAuthorizer().getActorPeers(sessionActorContext.getActorUrn());
   }
 
-  /**
-   * Whether default authentication is system level
-   *
-   * @return
-   */
+  /** Whether default authentication is system level. */
   public boolean isSystemAuth() {
     return operationContextConfig.isAllowSystemAuthentication()
         && sessionActorContext.isSystemAuth();

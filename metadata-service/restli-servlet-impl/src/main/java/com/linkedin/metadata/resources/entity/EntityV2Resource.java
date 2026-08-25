@@ -1,8 +1,8 @@
 package com.linkedin.metadata.resources.entity;
 
-import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 import com.codahale.metrics.MetricRegistry;

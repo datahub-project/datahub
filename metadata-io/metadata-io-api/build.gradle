@@ -8,6 +8,7 @@ dependencies {
   implementation project(':entity-registry')
   implementation project(':metadata-service:services')
   implementation project(':metadata-utils')
+  implementation project(':metadata-operation-context')
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
 

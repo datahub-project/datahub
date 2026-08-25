@@ -827,9 +827,9 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertTrue(result.findAny().isPresent());
   }
 
-  /** Test that system update source items are skipped during validation. */
+  /** A system-auth session skips tag privilege checks (upgrade / system-mediated writes). */
   @Test
-  public void testValidateGlobalTagsWithSystemUpdateSourceSkipped() {
+  public void testValidateGlobalTagsWithSystemAuthSkipped() {
     GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
     TestMCP item =
         TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
@@ -837,24 +837,22 @@ public class PrivilegeConstraintsValidatorTest {
             .findFirst()
             .get();
 
-    // Set system update source in system metadata
-    SystemMetadata systemMetadata = new SystemMetadata();
-    StringMap properties = new StringMap();
-    properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
-    systemMetadata.setProperties(properties);
-    item.setSystemMetadata(systemMetadata);
+    OperationContext systemOpContext = mock(OperationContext.class);
+    when(systemOpContext.isSystemAuth()).thenReturn(true);
 
-    // System update source items should be skipped, no authorization check needed
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            Collections.singletonList(item), retrieverContext, mockAuthSession);
+            Collections.singletonList(item), retrieverContext, systemOpContext);
 
     Assert.assertTrue(result.findAny().isEmpty());
   }
 
-  /** Test that system update source items are skipped even with null session. */
+  /**
+   * Client-supplied appSource=systemUpdate alone must not skip auth (even with null session).
+   * Upgrade paths must pass a system OperationContext as the session.
+   */
   @Test
-  public void testValidateGlobalTagsWithSystemUpdateSourceAndNullSession() {
+  public void testValidateGlobalTagsWithSystemUpdateSourceAndNullSessionFailsClosed() {
     GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
     TestMCP item =
         TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
@@ -862,20 +860,47 @@ public class PrivilegeConstraintsValidatorTest {
             .findFirst()
             .get();
 
-    // Set system update source in system metadata
     SystemMetadata systemMetadata = new SystemMetadata();
     StringMap properties = new StringMap();
     properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
     systemMetadata.setProperties(properties);
     item.setSystemMetadata(systemMetadata);
 
-    // System update source items should be skipped even with null session
-    // This ensures upgrade steps can process tags without failing on auth
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
             Collections.singletonList(item), retrieverContext, null);
 
-    Assert.assertTrue(result.findAny().isEmpty());
+    Assert.assertTrue(result.findAny().isPresent());
+  }
+
+  /** Spoof regression: appSource=systemUpdate with a non-system session still validates. */
+  @Test
+  public void testValidateGlobalTagsWithSpoofedSystemUpdateSourceStillValidated() {
+    GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
+    TestMCP item =
+        TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
+            .map(i -> (TestMCP) i)
+            .findFirst()
+            .get();
+
+    SystemMetadata systemMetadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
+    systemMetadata.setProperties(properties);
+    item.setSystemMetadata(systemMetadata);
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    any(AuthorizationSession.class), any(Urn.class), any(), any()))
+        .thenReturn(false);
+
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            Collections.singletonList(item), retrieverContext, mockAuthSession);
+
+    Assert.assertTrue(result.findAny().isPresent());
   }
 
   /** Test that items without system metadata properties still get validated. */

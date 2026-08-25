@@ -64,6 +64,9 @@ const StyledTable = styled(Table)`
     .usedBy {
         min-width: 100px;
     }
+    .description {
+        min-width: 240px;
+    }
 `;
 
 const LoadingWrapper = styled.div`

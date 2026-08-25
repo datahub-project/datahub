@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.timeline;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -12,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.ChangeCategoryType;
 import com.linkedin.datahub.graphql.generated.GetTimelineInput;
 import com.linkedin.datahub.graphql.generated.GetTimelineResult;
 import com.linkedin.datahub.graphql.types.timeline.mappers.ChangeTransactionMapper;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
@@ -48,7 +48,9 @@ public class GetTimelineResolver implements DataFetcher<CompletableFuture<GetTim
     // Parse URN and enforce view authorization synchronously so errors propagate
     // rather than being swallowed by the generic catch inside supplyAsync.
     final Urn entityUrn = UrnUtils.getUrn(entityUrnString);
-    if (!AuthUtil.canViewEntity(context.getOperationContext(), entityUrn)) {
+    // Explicit GraphQL operation: always evaluate shared entity VIEW privileges, independent of
+    // View Authorization.
+    if (!EntityAuthorizationUtils.canViewEntity(context.getOperationContext(), entityUrn)) {
       throw new AuthorizationException(
           "Unauthorized to view change history for entity: " + entityUrn);
     }
