@@ -9,6 +9,7 @@ import pytest
 from openlineage.client.facet import SqlJobFacet
 
 import datahub_airflow_plugin.airflow3.datahub_listener as listener_mod
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.metadata.schema_classes import QueryPropertiesClass, QuerySubjectsClass
 from datahub.metadata.urns import QueryUrn
 from datahub.sql_parsing.fingerprint_utils import generate_hash
@@ -487,10 +488,11 @@ class TestQueryEntityEmission:
             if isinstance(mcp.aspect, QueryPropertiesClass)
         )
         assert query_properties.statement.value == SQL_STATEMENT
-        # Stamped with the real task-completion time, not a placeholder - keeps
-        # this producer consistent with the Spark producer's use of the real
-        # OpenLineage event time.
-        assert query_properties.created.time == EVENT_TIME_MILLIS
+        # `created` is fixed at epoch-0 (matching the Python SDK's
+        # _empty_audit_stamp) since this URN is reused across re-observations of
+        # the same SQL - a real timestamp would get clobbered on every re-run.
+        # `lastModified` carries the real task-completion time.
+        assert query_properties.created.time == 0
         assert query_properties.lastModified.time == EVENT_TIME_MILLIS
 
         query_subjects = next(
@@ -498,7 +500,15 @@ class TestQueryEntityEmission:
             for mcp in emitted_mcps
             if isinstance(mcp.aspect, QuerySubjectsClass)
         )
-        assert query_subjects.subjects
+        expected_subject_urns = {
+            UPSTREAM_DATASET_URN,
+            DOWNSTREAM_DATASET_URN,
+            make_schema_field_urn(UPSTREAM_DATASET_URN, "col_a"),
+            make_schema_field_urn(DOWNSTREAM_DATASET_URN, "col_a"),
+        }
+        assert {
+            subject.entity for subject in query_subjects.subjects
+        } == expected_subject_urns
 
     def test_no_query_entity_when_flag_disabled(self) -> None:
         stub = _make_query_entity_stub(capture_query_entities=False)
@@ -514,6 +524,34 @@ class TestQueryEntityEmission:
         )
         assert fine_grained_lineages
         assert all(fgl.query is None for fgl in fine_grained_lineages)
+
+        mock_emitter = MagicMock()
+        DataHubListener._emit_query_entity(
+            stub, mock_emitter, statement_text, subject_urns, EVENT_TIME_MILLIS
+        )
+        mock_emitter.emit.assert_not_called()
+
+    def test_no_query_entity_when_no_column_lineage(self) -> None:
+        """DDL and values-only DML parse without column_lineage, so no
+        FineGrainedLineage ever gets the query URN attached. The Query entity
+        must not be emitted in that case either - otherwise it would exist
+        with nothing referencing it.
+        """
+        stub = _make_query_entity_stub(capture_query_entities=True)
+        statement_text = "DROP TABLE my_db.my_schema.src"
+        sql_parsing_result = SqlParsingResult(
+            in_tables=[], out_tables=[UPSTREAM_DATASET_URN], column_lineage=None
+        )
+
+        datajob = MagicMock()
+        datajob.urn = "urn:li:dataJob:(urn:li:dataFlow:(airflow,my_dag,PROD),my_task)"
+        _, _, fine_grained_lineages, subject_urns = (
+            DataHubListener._process_sql_parsing_result(
+                stub, datajob, sql_parsing_result, statement_text
+            )
+        )
+        assert not fine_grained_lineages
+        assert not subject_urns
 
         mock_emitter = MagicMock()
         DataHubListener._emit_query_entity(

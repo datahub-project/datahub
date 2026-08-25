@@ -107,7 +107,9 @@ public class DatahubJob {
   // Query URN -> raw statement text, populated by OpenLineageToDataHub#getFineGrainedLineage when
   // captureQueryEntities is on. Not a builder field: it's plumbing internal to the conversion, not
   // something a caller constructs a DatahubJob with.
-  final Map<Urn, String> queryStatements = new HashMap<>();
+  // Excluded from toString(): captured SQL statements can carry sensitive literal values, and
+  // DatahubEventEmitter logs DatahubJob via its generated toString().
+  @ToString.Exclude final Map<Urn, String> queryStatements = new HashMap<>();
   long startTime;
   long endTime;
   long eventTime;
@@ -246,7 +248,12 @@ public class DatahubJob {
       addQuerySubjects(subjects, fgl.getDownstreams());
     }
 
-    AuditStamp auditStamp =
+    // Query URNs are content-addressed and reused across re-observations of the same SQL, so
+    // `created` must stay fixed (epoch-0, matching the Python SDK's _empty_audit_stamp) rather
+    // than being overwritten by every later sighting; `lastModified` carries the real event time.
+    AuditStamp createdStamp =
+        createAuditStamp(ZonedDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC));
+    AuditStamp lastModifiedStamp =
         createAuditStamp(ZonedDateTime.ofInstant(Instant.ofEpochMilli(eventTime), ZoneOffset.UTC));
 
     for (Urn queryUrn : subjectsByQuery.keySet()) {
@@ -264,8 +271,8 @@ public class DatahubJob {
       queryProperties.setStatement(
           new QueryStatement().setValue(statement).setLanguage(QueryLanguage.SQL));
       queryProperties.setSource(QuerySource.SYSTEM);
-      queryProperties.setCreated(auditStamp);
-      queryProperties.setLastModified(auditStamp);
+      queryProperties.setCreated(createdStamp);
+      queryProperties.setLastModified(lastModifiedStamp);
       addAspectToMcps(queryUrn, QUERY_ENTITY_TYPE, queryProperties, mcps);
 
       QuerySubjectArray subjectArray = new QuerySubjectArray();

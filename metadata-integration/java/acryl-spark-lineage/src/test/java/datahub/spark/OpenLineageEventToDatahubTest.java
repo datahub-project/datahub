@@ -1400,6 +1400,61 @@ public class OpenLineageEventToDatahubTest {
   }
 
   @Test
+  public void testSqlFacetQueryUrnHashesRawTextNotTrimmed() throws URISyntaxException, IOException {
+    // Padding the captured SQL with whitespace, as a producer might, must not change the query
+    // URN relative to what a producer hashing the raw (unpadded) text would compute - otherwise
+    // the same SQL mints different URNs depending on which producer captured it.
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(true);
+    builder.captureQueryEntities(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_with_sql_facet.json"),
+            StandardCharsets.UTF_8);
+    String paddedSql = "   SELECT age, name FROM people WHERE age > 18   ";
+    String paddedEvent =
+        olEvent.replace(
+            "\"query\": \"SELECT age, name FROM people WHERE age > 18\"",
+            "\"query\": \"" + paddedSql + "\"");
+    Urn expectedQueryUrn = QueryUrnUtils.queryUrnForStatement(paddedSql);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(paddedEvent);
+    DatahubOpenlineageConfig config = builder.build();
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, config);
+
+    assertNotNull(datahubJob);
+    DatahubDataset outputDataset = datahubJob.getOutSet().iterator().next();
+    List<FineGrainedLineage> fgls =
+        Objects.requireNonNull(outputDataset.getLineage().getFineGrainedLineages());
+    assertTrue(
+        fgls.stream().anyMatch(fgl -> expectedQueryUrn.equals(fgl.getQuery())),
+        "expected a FineGrainedLineage with query=" + expectedQueryUrn);
+
+    List<MetadataChangeProposal> mcps = datahubJob.toMcps(config);
+    MetadataChangeProposal queryPropertiesMcp =
+        mcps.stream()
+            .filter(mcp -> "queryProperties".equals(mcp.getAspectName()))
+            .filter(mcp -> expectedQueryUrn.equals(mcp.getEntityUrn()))
+            .findFirst()
+            .orElseThrow(
+                () -> new AssertionError("no queryProperties MCP emitted for " + expectedQueryUrn));
+
+    JsonNode statement = readAspectJson(queryPropertiesMcp).get("statement");
+    assertEquals(
+        paddedSql,
+        statement.get("value").asText(),
+        "stored statement must be the raw padded text so the URN is re-derivable from it");
+  }
+
+  @Test
   public void testCaptureQueryEntitiesDefaultsToOff() throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();

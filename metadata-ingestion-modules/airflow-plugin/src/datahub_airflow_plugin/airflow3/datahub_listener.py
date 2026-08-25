@@ -1302,21 +1302,28 @@ class DataHubListener:
         """Emit a Query entity (queryProperties + querySubjects) for a task's SQL
         statement.
 
-        No-ops unless capture_query_entities is on and a statement was captured,
-        so this is a byte-identical no-op with the flag off (the default). Uses
-        the same sha256-of-statement-text URN scheme as the Spark listener and
-        the SDK's lineage client, so a statement shared across producers
-        collapses to one Query entity.
+        No-ops unless capture_query_entities is on, a statement was captured, and
+        at least one fine-grained lineage entry actually references it (a non-empty
+        subject_urns) - otherwise DDL or values-only DML would mint a Query entity
+        that nothing points to. So this is a byte-identical no-op with the flag off
+        (the default). Uses the same sha256-of-statement-text URN scheme as the
+        Spark listener and the SDK's lineage client, so a statement shared across
+        producers collapses to one Query entity.
         """
-        if not self.config.capture_query_entities or not statement_text:
+        if (
+            not self.config.capture_query_entities
+            or not statement_text
+            or not subject_urns
+        ):
             return
 
         query_urn = QueryUrn(generate_hash(statement_text)).urn()
-        # Stamp with the real task-completion time (matching the Spark producer's
-        # use of the OpenLineage event time) rather than a placeholder, so
-        # sort-by-modified and audit display agree across producers of the same
-        # entity type.
-        audit_stamp = AuditStampClass(
+        # This URN is content-addressed and reused across re-observations of the same
+        # SQL, so `created` is fixed at epoch-0 (matching the Python SDK's
+        # _empty_audit_stamp) rather than being overwritten by every later sighting.
+        # `lastModified` carries the real task-completion time.
+        created_stamp = AuditStampClass(time=0, actor=builder.make_user_urn("airflow"))
+        last_modified_stamp = AuditStampClass(
             time=event_time_millis, actor=builder.make_user_urn("airflow")
         )
         for aspect in (
@@ -1325,8 +1332,8 @@ class DataHubListener:
                     value=statement_text, language=QueryLanguageClass.SQL
                 ),
                 source=QuerySourceClass.SYSTEM,
-                created=audit_stamp,
-                lastModified=audit_stamp,
+                created=created_stamp,
+                lastModified=last_modified_stamp,
             ),
             QuerySubjectsClass(
                 subjects=[QuerySubjectClass(entity=urn) for urn in sorted(subject_urns)]

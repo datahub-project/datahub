@@ -82,6 +82,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -626,8 +627,12 @@ public class OpenLineageToDataHub {
           && job.getFacets().getSql() != null
           && job.getFacets().getSql().getQuery() != null) {
         String sqlQuery = job.getFacets().getSql().getQuery();
-        if (!sqlQuery.trim().isEmpty()) {
-          sqlFacetQuery = sqlQuery.trim();
+        if (!StringUtils.isBlank(sqlQuery)) {
+          // Hash and store the RAW statement text, not trimmed: the Airflow listener and the
+          // Python SDK hash the raw text, and the URN must be re-derivable from the stored
+          // statement. Trimming here would mint a different URN for the same SQL depending on
+          // which producer captured it.
+          sqlFacetQuery = sqlQuery;
           if (!combinedTransformations.isEmpty()) {
             combinedTransformations = "-- " + combinedTransformations + "\n" + sqlQuery;
           } else {

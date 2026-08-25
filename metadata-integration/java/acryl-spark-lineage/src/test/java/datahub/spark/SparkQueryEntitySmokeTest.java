@@ -2,10 +2,11 @@ package datahub.spark;
 
 import static datahub.spark.ListenerConf.listener;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.datahubproject.openlineage.utils.QueryUrnUtils;
 import java.nio.file.Path;
+import java.util.Set;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SaveMode;
@@ -48,15 +49,24 @@ public class SparkQueryEntitySmokeTest extends SparkSmokeTestBase {
               spark.sql(SQL).write().mode(SaveMode.Overwrite).csv(out.toString());
             });
 
-    assertTrue(md.hasEntity("query"), "expected a query entity to be emitted:\n" + md.raw);
+    Set<String> queryUrns = md.entityUrns("query");
+    assertEquals(1, queryUrns.size(), "expected exactly one query entity:\n" + md.raw);
+    String emittedQueryUrn = queryUrns.iterator().next();
+
+    String expectedQueryUrn = QueryUrnUtils.queryUrnForStatement(SQL).toString();
+    assertEquals(
+        expectedQueryUrn,
+        emittedQueryUrn,
+        "emitted query entity's URN must match the fingerprint of the captured SQL:\n" + md.raw);
 
     JsonNode fineGrainedLineages =
         md.aspect("dataJobInputOutput").map(io -> io.get("fineGrainedLineages")).orElse(null);
-    assertTrue(
-        fineGrainedLineages != null
-            && fineGrainedLineages.isArray()
-            && anyHasNonNullQuery(fineGrainedLineages),
-        "expected a fineGrainedLineages entry with a non-null query field:\n" + md.raw);
+    assertEquals(
+        emittedQueryUrn,
+        firstNonNullQuery(fineGrainedLineages),
+        "fine-grained lineage's query field must reference the emitted query entity, not some"
+            + " other URN:\n"
+            + md.raw);
 
     // The statement must be the bare SQL. transformOperation carries the same SQL prefixed with
     // OpenLineage transformation tags ("-- DIRECT:TRANSFORMATION\n..."); hashing or storing that
@@ -72,13 +82,16 @@ public class SparkQueryEntitySmokeTest extends SparkSmokeTestBase {
             + md.raw);
   }
 
-  private static boolean anyHasNonNullQuery(JsonNode fineGrainedLineages) {
+  private static String firstNonNullQuery(JsonNode fineGrainedLineages) {
+    if (fineGrainedLineages == null || !fineGrainedLineages.isArray()) {
+      return null;
+    }
     for (JsonNode fgl : fineGrainedLineages) {
       JsonNode query = fgl.get("query");
       if (query != null && !query.isNull()) {
-        return true;
+        return query.asText();
       }
     }
-    return false;
+    return null;
   }
 }
