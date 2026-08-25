@@ -1,7 +1,7 @@
 """Unit tests for platform adapters."""
 
 import re
-from typing import Any
+from typing import Any, Dict
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -1381,7 +1381,7 @@ class TestDatabricksAdapter:
         assert_sql_matches_pattern(sql, pattern)
 
     def test_map_databricks_column_type_variant(self, adapter):
-        from databricks.sqlalchemy.dialect import DatabricksTimestamp
+        from databricks.sqlalchemy.dialect import DatabricksDecimal, DatabricksTimestamp
         from sqlalchemy.sql import sqltypes
 
         from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
@@ -1390,18 +1390,22 @@ class TestDatabricksAdapter:
 
         assert map_databricks_column_type("variant") is sqltypes.NullType
         assert map_databricks_column_type("VARIANT") is sqltypes.NullType
-        assert map_databricks_column_type("decimal(10,2)") is not sqltypes.NullType
+        # ^\w+ strips the precision suffix so "decimal(10,2)" still resolves to decimal.
+        assert map_databricks_column_type("decimal(10,2)") is DatabricksDecimal
         assert map_databricks_column_type("int") is sqltypes.Integer
         assert map_databricks_column_type("timestamp_ntz") is DatabricksTimestamp
         assert map_databricks_column_type("timestamp_ltz") is DatabricksTimestamp
+        # Unparseable / missing type names fall back to NULL instead of raising.
+        assert map_databricks_column_type("") is sqltypes.NullType
+        assert map_databricks_column_type(None) is sqltypes.NullType
 
     def test_get_columns_tolerates_variant(self, adapter, mock_databricks_engine):
         from databricks.sqlalchemy.dialect import DatabricksTimestamp
         from sqlalchemy.sql import sqltypes
 
         dialect = mock_databricks_engine.dialect
-        dialect.catalog = "it_sbx"
-        dialect.schema = "gold"
+        dialect.catalog = "my_catalog"
+        dialect.schema = "my_schema"
 
         class _Col:
             def __init__(self, name: str, type_name: str) -> None:
@@ -1414,9 +1418,11 @@ class TestDatabricksAdapter:
         class _Cursor:
             def __init__(self) -> None:
                 self.calls = 0
+                self.captured_kwargs: Dict[str, Any] = {}
 
             def columns(self, **kwargs: Any) -> "_Cursor":
                 self.calls += 1
+                self.captured_kwargs = kwargs
                 return self
 
             def fetchall(self) -> list:
@@ -1436,6 +1442,12 @@ class TestDatabricksAdapter:
         dialect.get_connection_cursor = lambda connection: cursor
         columns = dialect.get_columns(None, "events_with_variant")
         assert cursor.calls == 1
+        # The patched reflection resolves catalog/schema off the dialect.
+        assert cursor.captured_kwargs == {
+            "catalog_name": "my_catalog",
+            "schema_name": "my_schema",
+            "table_name": "events_with_variant",
+        }
         assert [col["name"] for col in columns] == ["id", "payload", "event_time"]
         assert columns[0]["type"] is sqltypes.Integer
         assert columns[1]["type"] is sqltypes.NullType

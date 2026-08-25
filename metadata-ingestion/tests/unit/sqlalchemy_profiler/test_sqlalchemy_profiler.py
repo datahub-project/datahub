@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import sqlalchemy as sa
+from datahub.metadata.schema_classes import DatasetFieldProfileClass
 from sqlalchemy import Column, Float, Integer, String, create_engine
 
 from datahub.ingestion.source.ge_profiling_config import (
@@ -19,7 +20,6 @@ from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
-from datahub.metadata.schema_classes import DatasetFieldProfileClass
 
 
 @pytest.fixture
@@ -123,6 +123,9 @@ class TestSQLAlchemyProfiler:
         assert not profiler._should_ignore_column(sa.Integer(), "id")
         assert not profiler._should_ignore_column(sa.String(), "name")
         assert not profiler._should_ignore_column(sa.Float(), "value")
+        # NullType stringifies to "NULL"; this is how Databricks VARIANT columns
+        # (reflected as NullType) get skipped for profiling instead of erroring.
+        assert profiler._should_ignore_column(sa.types.NullType(), "payload")
 
     def test_generate_profiles_empty_list(self, profiler):
         """Test generate_profiles with empty request list."""

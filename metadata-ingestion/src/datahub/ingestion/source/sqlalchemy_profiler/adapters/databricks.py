@@ -23,7 +23,14 @@ from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
 
 logger = logging.getLogger(__name__)
 
-# Vendor get_columns _type_map has no VARIANT; KeyError aborts the whole table.
+# Copied from databricks-sqlalchemy 1.0.2 (bundled in databricks-sql-connector
+# >=2.8.0,<3.0.0). The vendor keeps this map as a function local with no VARIANT or
+# TIMESTAMP_NTZ/LTZ entry, so reflection raises KeyError and aborts the whole table.
+# "timestamp_ntz", "timestamp_ltz" and "variant" are DataHub additions.
+# TODO: Drop this patch when moving off databricks-sql-connector <3.0.0 -- v2 of the
+# dialect replaced _type_map with parse_column_info_from_tgetcolumnsresponse.
+# Re-check the copy on any connector bump: get_columns is overwritten
+# unconditionally, so an upstream fix inside the pinned range would be discarded.
 _DATABRICKS_COLUMN_TYPE_MAP: Dict[str, Type[TypeEngine]] = {
     "boolean": sqltypes.Boolean,
     "smallint": sqltypes.SmallInteger,
@@ -48,11 +55,26 @@ _DATABRICKS_COLUMN_TYPE_MAP: Dict[str, Type[TypeEngine]] = {
 }
 
 
-def map_databricks_column_type(type_name: str) -> Type[TypeEngine]:
+def map_databricks_column_type(type_name: Optional[str]) -> Type[TypeEngine]:
     match = re.search(r"^\w+", type_name or "")
     if not match:
+        logger.info(
+            "Databricks returned an unparseable column type %r; reflecting it as NULL, "
+            "so this column will be skipped for profiling.",
+            type_name,
+        )
         return sqltypes.NullType
-    return _DATABRICKS_COLUMN_TYPE_MAP.get(match.group(0).lower(), sqltypes.NullType)
+    base = match.group(0).lower()
+    mapped = _DATABRICKS_COLUMN_TYPE_MAP.get(base)
+    if mapped is None:
+        logger.info(
+            "No SQLAlchemy type mapping for Databricks type %r; reflecting it as NULL, "
+            "so this column will be skipped for profiling. If Databricks has added a "
+            "new type, add it to _DATABRICKS_COLUMN_TYPE_MAP.",
+            base,
+        )
+        return sqltypes.NullType
+    return mapped
 
 
 def _patched_get_columns(
@@ -83,14 +105,7 @@ def _patched_get_columns(
     return columns
 
 
-def _patch_databricks_get_columns() -> None:
-    if getattr(DatabricksDialect.get_columns, "_datahub_unknown_types_patched", False):
-        return
-    _patched_get_columns._datahub_unknown_types_patched = True  # type: ignore[attr-defined]
-    DatabricksDialect.get_columns = _patched_get_columns  # type: ignore[method-assign]
-
-
-_patch_databricks_get_columns()
+DatabricksDialect.get_columns = _patched_get_columns  # type: ignore[method-assign]
 
 
 class DatabricksAdapter(PlatformAdapter):
