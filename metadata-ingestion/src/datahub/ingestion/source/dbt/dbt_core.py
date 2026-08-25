@@ -37,12 +37,14 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBT_EXPOSURE_TYPES,
     DBTColumn,
     DBTCommonConfig,
+    DBTContract,
     DBTExposure,
     DBTModelPerformance,
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
     convert_semantic_model_fields_to_columns,
+    parse_dbt_constraint,
     parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -147,13 +149,48 @@ class DBTCoreConfig(DBTCommonConfig):
         return self
 
 
+def extract_contract_columns(
+    manifest_node: dict,
+    tag_prefix: str,
+) -> List[DBTColumn]:
+    """Return the columns a dbt contract declares, verbatim from the manifest.
+
+    Unlike :func:`get_columns`, this does not consult the catalog — the
+    returned ``data_type`` is whatever the user wrote in YAML (e.g. ``int``,
+    ``varchar(64)``). With ``contract.alias_types: true`` (the dbt default)
+    those values may be generic type names that don't match the warehouse's
+    platform-specific equivalent.
+    """
+    manifest_columns = manifest_node.get("columns") or {}
+    columns: List[DBTColumn] = []
+    for index, (_, manifest_column) in enumerate(manifest_columns.items()):
+        tags = [tag_prefix + tag for tag in manifest_column.get("tags", []) or []]
+        constraints = [
+            parse_dbt_constraint(constraint_dict)
+            for constraint_dict in manifest_column.get("constraints", []) or []
+        ]
+        columns.append(
+            DBTColumn(
+                name=manifest_column["name"],
+                comment="",
+                description=manifest_column.get("description", "") or "",
+                data_type=manifest_column.get("data_type") or "",
+                index=index,
+                meta=manifest_column.get("meta", {}) or {},
+                tags=tags,
+                constraints=constraints,
+            )
+        )
+    return columns
+
+
 def get_columns(
     dbt_name: str,
     catalog_node: Optional[dict],
     manifest_node: dict,
     tag_prefix: str,
 ) -> List[DBTColumn]:
-    manifest_columns = manifest_node.get("columns", {})
+    manifest_columns = manifest_node.get("columns") or {}
     manifest_columns_lower = {k.lower(): v for k, v in manifest_columns.items()}
 
     if catalog_node is not None:
@@ -183,6 +220,11 @@ def get_columns(
         tags = manifest_column.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
 
+        column_constraints = [
+            parse_dbt_constraint(constraint_dict)
+            for constraint_dict in manifest_column.get("constraints") or []
+        ]
+
         dbtCol = DBTColumn(
             name=catalog_column["name"],
             comment=catalog_column.get("comment", ""),
@@ -191,6 +233,7 @@ def get_columns(
             index=catalog_column["index"],
             meta=meta,
             tags=tags,
+            constraints=column_constraints,
         )
         columns.append(dbtCol)
     return columns
@@ -378,6 +421,23 @@ def extract_dbt_entities(
                     kw_args=kw_args,
                 )
 
+            contract = None
+            contract_columns: Optional[List[DBTColumn]] = None
+            contract_config = manifest_node.get("config", {}).get("contract", {})
+            if contract_config.get("enforced"):
+                top_level_contract = manifest_node.get("contract", {})
+                contract = DBTContract(
+                    enforced=True,
+                    alias_types=contract_config.get("alias_types", True),
+                    checksum=top_level_contract.get("checksum"),
+                )
+                contract_columns = extract_contract_columns(manifest_node, tag_prefix)
+
+            model_constraints = [
+                parse_dbt_constraint(constraint_dict)
+                for constraint_dict in manifest_node.get("constraints") or []
+            ]
+
             dbtNode = DBTNode(
                 dbt_name=key,
                 dbt_adapter=manifest_adapter,
@@ -412,6 +472,9 @@ def extract_dbt_entities(
                 freshness_info=freshness_info,
                 row_count=row_count,
                 size_in_bytes=size_in_bytes,
+                contract=contract,
+                model_constraints=model_constraints,
+                contract_columns=contract_columns,
             )
 
             # Load columns from catalog, and override some properties from manifest.
