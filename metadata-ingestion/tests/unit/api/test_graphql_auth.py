@@ -20,6 +20,10 @@ OAUTH = AuthConfig(
     },
 )
 
+# A static provider keeps the token assertions offline — the OIDC config above
+# would need a live token endpoint to prove which credentials arrived.
+STATIC = AuthConfig(type="static", config={"token": "cb-token"})
+
 
 @pytest.fixture(autouse=True)
 def _no_ambient_credentials(monkeypatch):
@@ -77,16 +81,23 @@ def test_token_and_auth_together_are_rejected():
 
 def test_assertion_circuit_breaker_authenticates_the_live_client():
     breaker = AssertionCircuitBreaker(
-        AssertionCircuitBreakerConfig(datahub_host="http://gms", datahub_auth=OAUTH)
+        AssertionCircuitBreakerConfig(datahub_host="http://gms", datahub_auth=STATIC)
     )
-    assert isinstance(breaker.assertion_api.graph._session.auth, TokenProviderAuth)
+    auth = breaker.assertion_api.graph._session.auth
+    # Assert the token from *this* config reached the client, not merely that
+    # some TokenProviderAuth was installed — the latter passes even when the
+    # config is dropped on the floor, which is the defect this PR fixes.
+    assert isinstance(auth, TokenProviderAuth)
+    assert auth._provider.get_token().token == "cb-token"
 
 
 def test_operation_circuit_breaker_authenticates_the_live_client():
     breaker = OperationCircuitBreaker(
-        OperationCircuitBreakerConfig(datahub_host="http://gms", datahub_auth=OAUTH)
+        OperationCircuitBreakerConfig(datahub_host="http://gms", datahub_auth=STATIC)
     )
-    assert isinstance(breaker.operation_api.graph._session.auth, TokenProviderAuth)
+    auth = breaker.operation_api.graph._session.auth
+    assert isinstance(auth, TokenProviderAuth)
+    assert auth._provider.get_token().token == "cb-token"
 
 
 def test_circuit_breaker_static_token_still_bakes_header():
