@@ -127,7 +127,9 @@ enable_multi_statement_sql_parsing = True  # Default: False
 
 ### Query Entities (SQL-only)
 
-By default, a task's SQL lineage is attributed to the task itself. Enable `capture_query_entities` to instead emit the task's captured SQL statement as a DataHub Query entity and reference it from the task's fine-grained lineage, so the lineage graph renders a transformation node whose Logic panel shows the statement rather than attributing the edge to the task.
+By default, a task's SQL survives only as a string field on the lineage itself. Enable `capture_query_entities` to also emit the task's captured SQL statement as a DataHub **Query entity**, referenced from the task's fine-grained lineage. The statement then becomes searchable, gets its own page, and appears on the **Queries** tab of each dataset the task reads or writes. Identical statements de-duplicate across producers.
+
+**What this does not change:** the table-level lineage graph still shows the Airflow task as the intermediate node between datasets — this flag does not place a query node between two tables. That rendering comes from a query reference on a dataset's own `upstreamLineage`, which this plugin does not write. Selecting a column does attribute the column-level transformation to the query rather than to the task.
 
 ```ini title="airflow.cfg"
 [datahub]
