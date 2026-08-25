@@ -2296,9 +2296,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Not supported. If you use Kafka Connect, the kafka-connect source can generate lineage.",
+          "description": "Optionally emits consumer-group-to-topic lineage via `consumer_group_lineage.enabled`. For source/sink lineage to external systems, use the kafka-connect source.",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "TEST_CONNECTION",
