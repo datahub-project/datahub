@@ -1568,7 +1568,9 @@ public class GmsGraphQLEngine {
                   "batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
               .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
               .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
-              .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
+              .dataFetcher(
+                  "batchAssignRole",
+                  new BatchAssignRoleResolver(this.roleService, this.systemEntityClient))
               .dataFetcher(
                   "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
               .dataFetcher(
