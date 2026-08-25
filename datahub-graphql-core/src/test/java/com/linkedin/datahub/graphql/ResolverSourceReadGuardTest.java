@@ -50,7 +50,10 @@ public class ResolverSourceReadGuardTest {
           "IsFormAssignedToMeResolver",
           "source is nested FormActorAssignment, reachable only via Form.info -> formInfo",
           "StatusLifecycleStageResolver",
-          "source is nested Status, populated via the entity's status field annotation");
+          "source is nested Status, populated via the entity's status field annotation",
+          "CancelIngestionExecutionRequestResolver",
+          "reads Pegasus ExecutionRequestInput.getSource() after explicit batchGetV2 of"
+              + " dataHubExecutionRequestInput — not GraphQL environment.getSource()");
 
   /**
    * Wiring-lambda reads where the getter set differs from the wired field, keyed as "field[getterA,
