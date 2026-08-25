@@ -64,6 +64,16 @@ class CategorizedColumns:
     non_date_columns: List[str]
 
 
+@dataclass
+class DateHierarchyResult:
+    # filters for the resolved year/month/day chain. incomplete is True when the
+    # chain started (a year component exists) but a later component could not be
+    # resolved, so the composite key is only partially pinned and direct discovery
+    # must abort rather than profile a broader-than-single-partition scan.
+    filters: List[str]
+    incomplete: bool = False
+
+
 class PartitionDiscovery:
     def __init__(
         self, config: BigQueryV2Config, report: Optional[BigQueryV2Report] = None
@@ -389,15 +399,21 @@ class PartitionDiscovery:
             )
         )
 
-        latest_date_filters.extend(
-            self._process_date_components_hierarchically(
-                categorized.date_component_columns,
-                safe_table_ref,
-                execute_query_func,
-                result_values,
-                column_types,
-            )
+        date_hierarchy = self._process_date_components_hierarchically(
+            categorized.date_component_columns,
+            safe_table_ref,
+            execute_query_func,
+            result_values,
+            column_types,
         )
+        if date_hierarchy.incomplete:
+            # The composite date key is only partially resolved. Any values pinned so
+            # far (regular date columns, the resolved hierarchy prefix) describe less
+            # than a single partition, so abort direct discovery and let the caller
+            # fall back to strategic candidates or skip the table.
+            result_values.clear()
+            return {}
+        latest_date_filters.extend(date_hierarchy.filters)
 
         self._process_non_date_columns(
             categorized.non_date_columns,
@@ -549,13 +565,13 @@ class PartitionDiscovery:
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         result_values: Dict[str, PartitionValue],
         column_types: Dict[str, str],
-    ) -> List[str]:
+    ) -> DateHierarchyResult:
         active = {k: v for k, v in date_component_columns.items() if v is not None}
         # The chain anchors on year: month is constrained to the max year and day to the
         # max year+month, which avoids selecting e.g. month=12 from a previous year when
         # the current year only has months 1-3.
         if "year" not in active:
-            return []
+            return DateHierarchyResult(filters=[])
 
         logger.info(
             f"Found date components: {list(active.keys())} - using hierarchical approach"
@@ -563,7 +579,6 @@ class PartitionDiscovery:
 
         component_filters: List[str] = []
         resolved: List[str] = []
-        resolved_cols: List[str] = []
         # DATE_COMPONENT_COLUMNS is ordered year -> month -> day, so each resolved
         # component constrains the next query.
         for component in DATE_COMPONENT_COLUMNS:
@@ -584,12 +599,10 @@ class PartitionDiscovery:
             # is incomplete (e.g. month failed after year resolved). The components
             # only identify a single partition together, so returning the partial
             # set (year alone) would make the caller treat a year-wide scan as a
-            # precise single-partition selection. Discard the partial key so
-            # discovery is reported as failed and the caller falls back or skips,
-            # rather than silently profiling a much broader scan.
+            # precise single-partition selection. Signal the incomplete hierarchy so
+            # the caller aborts direct discovery (and falls back or skips) rather
+            # than silently profiling a much broader scan.
             if not new_filters:
-                for resolved_col in resolved_cols:
-                    result_values.pop(resolved_col, None)
                 warn(
                     self.report,
                     logger,
@@ -600,12 +613,11 @@ class PartitionDiscovery:
                     context=f"{safe_table_ref}: resolved {resolved or 'nothing'}, "
                     f"could not resolve {component}",
                 )
-                return []
+                return DateHierarchyResult(filters=[], incomplete=True)
             component_filters.extend(new_filters)
             resolved.append(component)
-            resolved_cols.append(col)
 
-        return component_filters
+        return DateHierarchyResult(filters=component_filters)
 
     def _find_max_component_within_constraint(
         self,

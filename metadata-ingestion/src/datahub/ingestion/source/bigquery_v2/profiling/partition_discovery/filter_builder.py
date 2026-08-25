@@ -4,7 +4,6 @@ from typing import Dict, List, Optional
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     BIGQUERY_NUMERIC_TYPES,
     DATE_TIME_TYPES,
-    DATETIME_SECONDS_PATTERN,
     ISO_DATE_PATTERN,
     ISO_DATETIME_FLEX_PATTERN,
     PARTITION_ID_YYYY_PATTERN,
@@ -106,13 +105,21 @@ class FilterBuilder:
         # Normalize BigQuery partition date formats (YYYYMMDD/YYYYMM/YYYYMMDDHH) to YYYY-MM-DD.
         if ISO_DATE_PATTERN.match(val):
             return val
-        if DATETIME_SECONDS_PATTERN.match(val):
-            return val
-        # A TIMESTAMP/DATETIME value sampled with a 'T' separator, fractional seconds,
-        # or a UTC offset is a valid literal BigQuery casts; pass it through so it is
-        # not dropped to an IS NOT NULL fallback.
-        if ISO_DATETIME_FLEX_PATTERN.match(val):
-            return val
+        # A datetime-shaped literal (space or 'T' separator, optional fractional
+        # seconds, optional UTC offset). Only DATETIME and TIMESTAMP columns can hold
+        # one, and a timezone-bearing literal is valid only for TIMESTAMP. A DATE/TIME
+        # column, or a DATETIME column given a tz-bearing value, would build an
+        # uncastable typed comparison (e.g. DATE = '2025-01-01T00:00:00Z'), so reject
+        # it and let create_safe_filter surface the skip instead of emitting an
+        # invalid predicate.
+        datetime_match = ISO_DATETIME_FLEX_PATTERN.match(val)
+        if datetime_match:
+            has_timezone = datetime_match.group(2) is not None
+            if col_type == "TIMESTAMP":
+                return val
+            if col_type == "DATETIME" and not has_timezone:
+                return val
+            return None
 
         if PARTITION_ID_YYYYMMDD_PATTERN.match(val):
             return f"{val[:4]}-{val[4:6]}-{val[6:8]}"
@@ -137,8 +144,17 @@ class FilterBuilder:
     def _full_year_range(col_name: str, year: str, col_type: str) -> str:
         # col_name is already validated by create_safe_filter before this is reached.
         start = f"{year}-01-01"
-        end = f"{int(year) + 1}-01-01"
-        if col_type.upper() == "TIMESTAMP":
+        end_year = int(year) + 1
+        is_timestamp = col_type.upper() == "TIMESTAMP"
+        # BigQuery DATE/DATETIME/TIMESTAMP only accept years up to 9999, so a
+        # year-9999 partition has no representable exclusive upper bound
+        # (10000-01-01). Fall back to a lower-bound-only scan for that final year.
+        if end_year > 9999:
+            if is_timestamp:
+                return f"`{col_name}` >= TIMESTAMP('{start}')"
+            return f"`{col_name}` >= '{start}'"
+        end = f"{end_year}-01-01"
+        if is_timestamp:
             return (
                 f"`{col_name}` >= TIMESTAMP('{start}') "
                 f"AND `{col_name}` < TIMESTAMP('{end}')"

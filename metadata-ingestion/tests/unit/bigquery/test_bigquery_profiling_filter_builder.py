@@ -209,6 +209,16 @@ class TestFilterBuilderYearlyRange:
         filter_expr = FilterBuilder.create_safe_filter("year", "2025", "STRING")
         assert filter_expr == "`year` = '2025'"
 
+    def test_year_9999_date_column_drops_unrepresentable_upper_bound(self):
+        # (YYYY+1)-01-01 for 9999 is 10000-01-01, which BigQuery DATE cannot represent,
+        # so the range degrades to a lower-bound-only scan of the final year.
+        filter_expr = FilterBuilder.create_safe_filter("event_date", "9999", "DATE")
+        assert filter_expr == "`event_date` >= '9999-01-01'"
+
+    def test_year_9999_timestamp_column_drops_unrepresentable_upper_bound(self):
+        filter_expr = FilterBuilder.create_safe_filter("event_ts", "9999", "TIMESTAMP")
+        assert filter_expr == "`event_ts` >= TIMESTAMP('9999-01-01')"
+
 
 class TestFilterBuilderFlexibleTimestamps:
     """A DATETIME/TIMESTAMP value sampled with a 'T' separator, fractional seconds, or a
@@ -232,3 +242,28 @@ class TestFilterBuilderFlexibleTimestamps:
             "ts", "2025-01-15T10:30:00Z", "TIMESTAMP"
         )
         assert filter_expr == "`ts` = TIMESTAMP('2025-01-15T10:30:00Z')"
+
+    def test_datetime_with_t_separator_no_timezone_passes(self):
+        # A DATETIME can hold a 'T'-separated, tz-free datetime literal.
+        filter_expr = FilterBuilder.create_safe_filter(
+            "dt", "2025-01-15T10:30:00", "DATETIME"
+        )
+        assert filter_expr == "`dt` = '2025-01-15T10:30:00'"
+
+    def test_datetime_with_timezone_is_rejected(self):
+        # DATETIME has no timezone; a tz-bearing literal would build an uncastable
+        # comparison, so the value is rejected for the caller to skip/report.
+        with pytest.raises(ValueError, match="Could not format date value"):
+            FilterBuilder.create_safe_filter(
+                "dt", "2025-01-15T10:30:00+00:00", "DATETIME"
+            )
+
+    def test_date_column_rejects_datetime_literal(self):
+        # A DATE column cannot represent a time component; reject rather than emit
+        # an invalid DATE = '...T...' predicate.
+        with pytest.raises(ValueError, match="Could not format date value"):
+            FilterBuilder.create_safe_filter("d", "2025-01-15T10:30:00Z", "DATE")
+
+    def test_date_column_rejects_space_separated_datetime(self):
+        with pytest.raises(ValueError, match="Could not format date value"):
+            FilterBuilder.create_safe_filter("d", "2025-01-15 10:30:00", "DATE")

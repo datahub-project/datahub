@@ -740,10 +740,10 @@ def test_profiler_get_batch_kwargs_security_validation():
 
 
 @patch.object(PartitionDiscovery, "get_required_partition_filters")
-def test_profiler_get_batch_kwargs_sets_partition_key(mock_get_filters):
-    """A table with a real max_partition_id carries a partition key so profile MCPs
-    are typed PARTITION rather than FULL_TABLE, even when no partition WHERE filter
-    was derived."""
+def test_profiler_get_batch_kwargs_no_partition_key_without_filter(mock_get_filters):
+    """A max_partition_id with no derived partition WHERE means a full-table/sample/limit
+    scan, so the profile must not be labeled with that single partition id (that would
+    misdescribe the data scanned as PARTITION rather than QUERY/FULL_TABLE)."""
     config = create_test_config()
     profiler = BigqueryProfiler(config, BigQueryV2Report())
     mock_get_filters.return_value = []
@@ -752,8 +752,7 @@ def test_profiler_get_batch_kwargs_sets_partition_key(mock_get_filters):
 
     result = profiler.get_batch_kwargs(table, "test_dataset", "test-project")
 
-    assert result.get("partition") == "20231225"
-    assert "custom_sql" not in result
+    assert "partition" not in result
 
 
 @patch.object(PartitionDiscovery, "get_required_partition_filters")
@@ -2841,7 +2840,7 @@ def test_hierarchical_date_component_discovery_chains_constraints():
         return []
 
     result_values: dict = {}
-    filters = discovery._process_date_components_hierarchically(
+    result = discovery._process_date_components_hierarchically(
         {"year": "year", "month": "month", "day": "day"},
         "`p`.`d`.`t`",
         mock_execute,
@@ -2849,10 +2848,52 @@ def test_hierarchical_date_component_discovery_chains_constraints():
         {"year": "INT64", "month": "INT64", "day": "INT64"},
     )
 
-    assert filters == ["`year` = 2024", "`month` = 3", "`day` = 7"]
+    assert result.incomplete is False
+    assert result.filters == ["`year` = 2024", "`month` = 3", "`day` = 7"]
     assert "`year` = 2024" in captured["partition component month"]
     assert "`year` = 2024" in captured["partition component day"]
     assert "`month` = 3" in captured["partition component day"]
+
+
+def test_incomplete_date_hierarchy_aborts_composite_discovery():
+    # year resolves but month yields no value: the composite key is only partially
+    # pinned, so direct discovery must abort (return {}) rather than fall through to
+    # non-date columns and profile every month of the year with just a region filter.
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    def mock_execute(query, job_config, context):
+        # INFORMATION_SCHEMA column-type lookups are answered by the categorization
+        # path; here only the year component resolves, month/day and region do not.
+        if context == "partition component year":
+            return [SimpleNamespace(val=2024, record_count=100)]
+        return []
+
+    result = discovery._process_date_components_hierarchically(
+        {"year": "year", "month": "month", "day": "day"},
+        "`p`.`d`.`t`",
+        mock_execute,
+        {},
+        {"year": "INT64", "month": "INT64", "day": "INT64"},
+    )
+    assert result.incomplete is True
+    assert result.filters == []
+
+    # And the coordinator drops any partial values and reports no partition info so the
+    # caller falls back / skips instead of scanning a broader-than-single partition.
+    with patch.object(
+        discovery,
+        "_get_partition_column_types",
+        return_value={"year": "INT64", "month": "INT64", "region": "STRING"},
+    ):
+        values = discovery._get_partition_info_from_table_query(
+            create_test_table("test_table"),
+            "test-project",
+            "test_dataset",
+            ["year", "month", "region"],
+            mock_execute,
+        )
+    assert values == {}
 
 
 def test_date_component_value_zero_pads_month_and_day():

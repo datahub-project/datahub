@@ -503,13 +503,15 @@ class BigqueryProfiler(GenericProfiler):
             and len(bq_table.partition_info.fields) > 1
         ):
             return None
-        # An empty predicate means no partition WHERE was derived; the table keeps its
-        # current partition id label (typed PARTITION, not FULL_TABLE) per the
-        # established contract. A non-empty predicate only keeps the label when it
-        # actually scanned that one partition — a widened multi-partition range drops it.
-        if partition_where and not self._predicate_scans_single_partition(
-            partition_where
-        ):
+        # An empty predicate means no partition WHERE was derived, so the table is
+        # profiled with a full-table / sample / row-limit scan rather than a single
+        # partition. Labeling that with max_partition_id would misdescribe the data
+        # scanned, so drop the label.
+        if not partition_where:
+            return None
+        # A non-empty predicate only keeps the label when it actually scanned that
+        # one partition — a widened multi-partition range drops it.
+        if not self._predicate_scans_single_partition(partition_where):
             return None
         return partition_id
 

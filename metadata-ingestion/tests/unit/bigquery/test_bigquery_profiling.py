@@ -145,6 +145,21 @@ def test_batch_kwargs_partition_spec_classification():
         )
         assert "partition" not in unpartitioned
 
+    # A partition id exists but discovery produced no usable filter, so the profile is
+    # a full-table/sample/limit scan. Labeling it with the partition id would
+    # misdescribe the data, so the key must be omitted.
+    with patch.object(
+        profiler.partition_discovery,
+        "get_required_partition_filters",
+        return_value=[],
+    ):
+        empty_predicate = profiler.get_batch_kwargs(
+            make_table(rows_count=1000, max_partition_id="20231225"),
+            "test_dataset",
+            "test-project-123456",
+        )
+        assert "partition" not in empty_predicate
+
     # Windowing on (default) widens the scan to a range, so labeling it with the single
     # anchor partition id would misdescribe the data — the key must be omitted.
     windowed_config = make_config(partition_datetime_window_days=30)
@@ -160,6 +175,23 @@ def test_batch_kwargs_partition_spec_classification():
             "test-project-123456",
         )
         assert "partition" not in windowed
+
+
+def test_predicate_scans_single_partition_ignores_operators_in_literals():
+    """A range operator (or BETWEEN) that only appears inside a quoted STRING/Hive
+    partition value must not be mistaken for a range predicate, so an exact equality
+    scan keeps its single-partition label."""
+    single = BigqueryProfiler._predicate_scans_single_partition
+    # Equalities whose literal contains a comparison operator / BETWEEN are still one
+    # partition each.
+    assert single("`country` = 'a>b'")
+    assert single("`region` = 'x<y'")
+    assert single("`label` = 'BETWEEN us and them'")
+    # Genuine generated ranges span several partitions.
+    assert not single("`date` >= '2025-01-01' AND `date` < '2026-01-01'")
+    assert not single("`ts` BETWEEN '2025-01-01' AND '2025-02-01'")
+    # A same-day (zero-width) range still scans exactly one partition.
+    assert single("`date` >= '2025-01-01' AND `date` <= '2025-01-01'")
 
 
 def test_sample_percent_guards_zero_sample_size():

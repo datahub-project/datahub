@@ -213,8 +213,14 @@ PARTITION_EQ_LITERAL_RE = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*=\s*(.+?)\s*
 # Range operators in a generated partition predicate. Their presence means the scan
 # may cover more than one partition (date windowing widened an equality to a range,
 # or a yearly partition became a full-year range), so labeling the profile with a
-# single max_partition_id could misdescribe the data scanned.
-PARTITION_RANGE_OPERATOR_RE = re.compile(r">=|<=|>|<|\bBETWEEN\b", re.IGNORECASE)
+# single max_partition_id could misdescribe the data scanned. Anchored on a
+# backtick-quoted column so an operator or the word BETWEEN appearing *inside* a
+# quoted STRING/Hive partition value (e.g. `country` = 'a>b') is not misread as a
+# range and does not strip the label from an exact single-partition equality scan.
+PARTITION_RANGE_OPERATOR_RE = re.compile(
+    r"`[a-zA-Z_][a-zA-Z0-9_]*`\s*(?:>=|<=|>|<)|`[a-zA-Z_][a-zA-Z0-9_]*`\s+BETWEEN\b",
+    re.IGNORECASE,
+)
 
 # Inclusive lower/upper bounds of a `col` >= X / `col` <= Y range, used to recognise
 # a zero-day window whose same-day (X == Y) range still scans exactly one partition.
