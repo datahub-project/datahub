@@ -21,6 +21,15 @@ def test_as_obj_serializes_non_primitive_field_values() -> None:
     ]
 
 
+@dataclass
+class _ReportWithPrivateField(WorkunitProcessorReport):
+    _cache: str = "internal"
+
+
+def test_as_obj_skips_private_fields() -> None:
+    assert _ReportWithPrivateField().as_obj() == {}
+
+
 def test_no_processor_report_declares_a_platform_field() -> None:
     # Report.__post_init__ assigns self.platform, so a subclass field of that name
     # would be silently reset to None at construction.
