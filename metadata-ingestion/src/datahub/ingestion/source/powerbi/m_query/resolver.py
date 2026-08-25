@@ -197,6 +197,21 @@ def _walk(
             )
         return
 
+    # -- ParenthesizedExpression --
+    # Parentheses around an expression carry no semantics, so the navigation
+    # chain continues through them, e.g. `then (Source{[Name=..]}[Data])`.
+    if kind == "ParenthesizedExpression":
+        _walk(
+            node_map,
+            node.get("content"),
+            scopes,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
+        )
+        return
+
     # -- IfExpression (conditional data source selection, e.g. dev/prod switching) --
     if kind == "IfExpression":
         _walk(

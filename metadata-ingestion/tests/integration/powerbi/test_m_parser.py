@@ -230,6 +230,143 @@ def test_databricks_regular_case():
     )
 
 
+# Redundant parentheses around a navigation step. Valid M that Power BI
+# refreshes fine, emitted by hand-edited queries.
+_DATABRICKS_PARENTHESIZED_NAVIGATION_M_QUERY: str = (
+    "let\n"
+    '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", '
+    '"/sql/1.0/endpoints/12345dc91aa25844", [Database=null, Catalog=null]),\n'
+    '    my_catalog_Database = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    "    my_schema_Schema = "
+    'my_catalog_Database{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    "    my_table_Table = "
+    '(my_schema_Schema{[Name="my_table",Kind="Table"]}[Data])\n'
+    "in\n"
+    "    my_table_Table"
+)
+
+# Same redundant parentheses, but wrapping an if-branch -- `then (<nav step>)`.
+_DATABRICKS_PARENTHESIZED_IF_BRANCH_M_QUERY: str = (
+    "let\n"
+    '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", '
+    '"/sql/1.0/endpoints/12345dc91aa25844", [Database=null, Catalog=null]),\n'
+    '    my_catalog_Database = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    "    my_schema_Schema = "
+    'my_catalog_Database{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    "    my_table_Table = if true then "
+    '(my_schema_Schema{[Name="my_table",Kind="Table"]}[Data]) else null\n'
+    "in\n"
+    "    my_table_Table"
+)
+
+_DATABRICKS_EXPECTED_URN: str = (
+    "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.my_table,PROD)"
+)
+
+
+@pytest.mark.integration
+def test_databricks_parenthesized_navigation_step():
+    """Parentheses around a navigation step must not defeat lineage extraction."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_DATABRICKS_PARENTHESIZED_NAVIGATION_M_QUERY,
+        name="my_table",
+        full_name="my_catalog.my_schema.my_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
+
+
+@pytest.mark.integration
+def test_databricks_parenthesized_navigation_step_in_if_branch():
+    """A parenthesized navigation step inside `then (...)` must still resolve."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_DATABRICKS_PARENTHESIZED_IF_BRANCH_M_QUERY,
+        name="my_table",
+        full_name="my_catalog.my_schema.my_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
+
+
+# Leaf navigation step written without Kind="Table". Valid M that Power BI
+# refreshes fine.
+_DATABRICKS_NO_KIND_M_QUERY: str = (
+    "let\n"
+    '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", '
+    '"/sql/1.0/endpoints/12345dc91aa25844", [Database=null, Catalog=null]),\n'
+    '    my_catalog_Database = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    "    my_schema_Schema = "
+    'my_catalog_Database{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    '    my_table_Table = my_schema_Schema{[Name="my_table"]}[Data]\n'
+    "in\n"
+    "    my_table_Table"
+)
+
+
+@pytest.mark.integration
+def test_databricks_navigation_step_without_kind():
+    """A leaf navigation step lacking Kind="Table" must still yield lineage."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_DATABRICKS_NO_KIND_M_QUERY,
+        name="my_table",
+        full_name="my_catalog.my_schema.my_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
+    assert reporter.m_query_resolver_errors == 0
+
+
 @pytest.mark.integration
 def test_oracle_regular_case():
     q: str = M_QUERIES[14]
@@ -1221,6 +1358,33 @@ def test_databricks_native_query():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:databricks,sales_db.public.slae_history,PROD)"
     )
+
+
+# Native SQL on the plain Databricks.Catalogs connector. The MultiCloud variant
+# is covered by test_databricks_native_query above.
+_DATABRICKS_CATALOGS_NATIVE_QUERY_M_QUERY: str = (
+    "let\n"
+    "    Source = Value.NativeQuery(Databricks.Catalogs("
+    '"adb-123.azuredatabricks.net", "/sql/1.0/endpoints/12345dc91aa25844", '
+    '[Catalog="my_catalog", Database=null])'
+    '{[Name="my_catalog",Kind="Database"]}[Data], '
+    '"select a, b from my_schema.my_table", null, [EnableFolding=true])\n'
+    "in\n"
+    "    Source"
+)
+
+
+def test_databricks_catalogs_native_query():
+    """Value.NativeQuery against Databricks.Catalogs resolves to a 3-part URN,
+    taking the catalog from the connector's Catalog argument."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_DATABRICKS_CATALOGS_NATIVE_QUERY_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
 
 
 def test_snowflake_multi_function_call():
