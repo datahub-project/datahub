@@ -1379,6 +1379,40 @@ def test_deferred_external_no_partition_filter_still_limits_scan():
     assert retained.batch_kwargs.get("custom_sql") == "SELECT * FROM t LIMIT 100"
 
 
+def test_deferred_external_unreliable_row_count_cleared_for_bounded_scan():
+    # An external table whose legacy __TABLES__ row_count is an unreliable 0 gets a
+    # bounded custom_sql (LIMIT) but no partition filter. That gives the profile a
+    # QUERY partitionSpec, which makes the shared profiler overwrite the measured
+    # rowCount with request.table.rows_count. Clearing it avoids publishing a false
+    # rowCount=0 for a table that actually holds data.
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    external_table = create_test_table(name="ext_events", external=True, rows_count=0)
+    with patch.object(
+        PartitionDiscovery, "get_required_partition_filters", return_value=[]
+    ):
+        request = profiler.get_profile_request(
+            external_table, "test_dataset", "test-project"
+        )
+    assert request is not None
+    deferred = DeferredExternalTable(
+        request=request,
+        bq_table=external_table,
+        db_name="test-project",
+        schema_name="test_dataset",
+    )
+
+    with patch.object(
+        PartitionDiscovery, "get_required_partition_filters", return_value=[]
+    ):
+        result = profiler._discover_external_partition_filter(deferred)
+
+    assert result is not None
+    assert result.batch_kwargs.get("custom_sql")
+    assert result.table.rows_count is None
+
+
 def test_profiler_external_table_integration():
     config = create_test_config()
     report = BigQueryV2Report()

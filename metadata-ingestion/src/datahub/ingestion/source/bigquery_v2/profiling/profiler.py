@@ -312,6 +312,14 @@ class BigqueryProfiler(GenericProfiler):
 
         return f"{select_all}\n{where_clause}"
 
+    @staticmethod
+    def _row_count_unavailable(bq_table: BigqueryTable) -> bool:
+        # A row count of 0 is a genuinely empty native table, but for external tables
+        # BigQuery's legacy `__TABLES__` reports row_count as 0 even when data exists,
+        # so 0 there means "unknown", not "empty". Treat unknown as unavailable.
+        rows_count = getattr(bq_table, "rows_count", None)
+        return rows_count is None or (bq_table.external and not rows_count)
+
     def _build_custom_sql(
         self, safe_table_ref: str, table_ref: str, bq_table: BigqueryTable
     ) -> Optional[str]:
@@ -334,13 +342,7 @@ class BigqueryProfiler(GenericProfiler):
 
         row_limit = self.config.profiling.profiling_row_limit
 
-        # A row count of 0 is a genuinely empty native table, but for external tables
-        # BigQuery's legacy `__TABLES__` reports row_count as 0 even when data exists,
-        # so 0 there means "unknown", not "empty". Treat unknown as unavailable.
-        row_count_unavailable = rows_count is None or (
-            bq_table.external and not rows_count
-        )
-        if row_count_unavailable:
+        if self._row_count_unavailable(bq_table):
             # Row count unavailable: we can neither size a sample nor decide whether the
             # table fits under the limit, so apply a bounded cap rather than leaving the
             # scan unbounded — a full scan of a large external table is exactly the
@@ -353,6 +355,9 @@ class BigqueryProfiler(GenericProfiler):
             )
             return f"{select_all} {queries.LIMIT_CLAUSE.format(limit=limit)}"
 
+        # The unavailable guard above returns for any None row count, so the remaining
+        # comparisons operate on a known integer.
+        assert rows_count is not None
         if row_limit > 0 and rows_count > row_limit:
             limit = max(1, int(row_limit))
             logger.info(
@@ -775,6 +780,14 @@ class BigqueryProfiler(GenericProfiler):
                 )
             else:
                 custom_sql = self._build_custom_sql(safe_table_ref, table_ref, bq_table)
+                if custom_sql and self._row_count_unavailable(bq_table):
+                    # The bounded fallback profiles a capped slice and gives the profile a
+                    # QUERY partitionSpec, which makes the shared profiler overwrite the
+                    # measured rowCount with request.table.rows_count. For an external table
+                    # that stale value is an unreliable 0 (legacy __TABLES__), so it would
+                    # publish rowCount=0 for a table that actually holds data. Clear it so
+                    # rowCount is reported as unknown rather than a false "empty table".
+                    request.table.rows_count = None
 
             if custom_sql:
                 request.batch_kwargs.update(
