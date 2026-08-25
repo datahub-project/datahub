@@ -446,6 +446,11 @@ def _resolve_in_scopes(
     scopes that value is itself evaluated in. That last part matters: a step
     bound by an outer let cannot see names introduced by a nested one, so the
     chain is truncated at the scope where the name was found.
+
+    Known gap, covered by an xfail test: a plain reference in M is *exclusive*,
+    so a binding is not in scope for its own value and `a = a` reads an
+    enclosing `a`. Preferring the innermost binding unconditionally resolves it
+    to itself instead, which the circular-reference guard then stops.
     """
     for index in range(len(scopes) - 1, -1, -1):
         let_id, let_node = scopes[index]
@@ -478,8 +483,10 @@ def _walk_identifier_name(
         return
     binding_let_id, resolved, binding_scopes = found
 
-    # Circular reference guard: (binding let id, variable name) pair
-    guard_key = (binding_let_id, name)
+    # Circular reference guard: (binding let id, variable name) pair. Casefolded
+    # to match how the name was resolved -- M treats `a` and `A` as one variable,
+    # so a cycle spelled inconsistently has to count as the same visit.
+    guard_key = (binding_let_id, name.casefold())
     if guard_key in seen:
         logger.warning("Circular reference detected for variable '%s', stopping", name)
         return

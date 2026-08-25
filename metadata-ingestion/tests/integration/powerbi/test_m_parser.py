@@ -2140,6 +2140,26 @@ _NESTED_LET_OUTER_SCOPE_M_QUERY: str = (
     "    out"
 )
 
+# A nested let whose own binding initialises from the enclosing binding of the
+# same name. A plain reference in M is exclusive -- the spec evaluates each let
+# variable "with an environment containing each of the variables of the let except
+# the one being initialized" -- so the inner `a` reads the outer `a`.
+_NESTED_SELF_INIT_M_QUERY: str = (
+    "let\n"
+    f"    Source = {_DATABRICKS_CONNECTOR},\n"
+    '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    '    sch = db{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    '    a = sch{[Name="my_table",Kind="Table"]}[Data],\n'
+    "    out = let a = a in a\n"
+    "in\n"
+    "    out"
+)
+
+# The same shape with nothing outside to resolve to, which the spec calls an error.
+_SELF_INIT_UNRESOLVABLE_M_QUERY: str = (
+    f"let\n    Source = {_DATABRICKS_CONNECTOR},\n    out = let a = a in a\nin\n    out"
+)
+
 # A nested let that rebinds a name the enclosing let already uses.
 _NESTED_LET_SHADOWING_M_QUERY: str = (
     "let\n"
@@ -2203,6 +2223,55 @@ def test_outer_step_cannot_see_a_nested_let_binding():
         '    out = let sch = db{[Name="inner_schema",Kind="Schema"]}[Data] in a\n'
         "in\n"
         "    out"
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+def test_cycle_spelled_with_different_casing_is_one_visit():
+    """M variable names are case-insensitive, so `a` and `A` are one variable and
+    a cycle written inconsistently is still a cycle."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=f"let Source = {_DATABRICKS_CONNECTOR}, a = B, b = A, out = a in out"
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+@pytest.mark.xfail(
+    reason="A plain identifier reference in M is exclusive: the spec evaluates each "
+    "let variable with an environment containing every variable of the let except "
+    "the one being initialized, so `a = a` in a nested let reads the enclosing `a`. "
+    "Resolution prefers the innermost binding unconditionally, resolving it to "
+    "itself, and the circular-reference guard then drops the lineage. Left as-is "
+    "here to keep this change to scope-chain resolution; no reported query uses "
+    "the shape.",
+    strict=True,
+)
+def test_nested_self_init_reads_the_enclosing_binding():
+    """`a = a` in a nested let should skip its own binding and read the enclosing
+    `a`. Valid M that Power BI refreshes without complaint."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_NESTED_SELF_INIT_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn == "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "my_catalog.my_schema.my_table,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_self_init_with_nothing_enclosing_it_yields_nothing():
+    """With no enclosing binding the exclusive reference has nothing to resolve to,
+    which the spec calls an error. Report no lineage rather than guess."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_SELF_INIT_UNRESOLVABLE_M_QUERY
     )
 
     assert combine_upstreams_from_lineage(lineages) == []
