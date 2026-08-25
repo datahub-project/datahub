@@ -27,9 +27,18 @@ import javax.annotation.Nullable;
  * one builds its {@code Timer} internally and so cannot publish percentiles, which is the whole
  * point for multi-hour work.
  *
+ * <p><b>Single-threaded.</b> One instance tracks one run. Do not share across threads — {@code
+ * status} is mutated by {@link #failed} / {@link #finish} with no synchronization.
+ *
  * <p>Every method is a no-op when no {@link MetricUtils} was available. Nothing here throws.
  */
 public final class LongRunningOperationMetrics {
+
+  /** Tag key for the operation family (e.g. {@code searchBasedFormAssignment}). */
+  public static final String TAG_OPERATION = "operation_type";
+
+  /** Tag key for a phase within an operation (e.g. {@code assign} / {@code unassign}). */
+  public static final String TAG_PHASE = "phase";
 
   private static final double[] PERCENTILES = {0.5, 0.95, 0.99};
   private static final String TAG_STATUS = "status";
@@ -42,7 +51,6 @@ public final class LongRunningOperationMetrics {
   private final Tags tags;
   private final long startNanos;
 
-  private int pages = 0;
   private String status = STATUS_COMPLETED;
 
   private LongRunningOperationMetrics(
@@ -78,9 +86,15 @@ public final class LongRunningOperationMetrics {
     }
   }
 
-  /** Records one completed page. */
+  /**
+   * Records one completed page. Emits immediately (same pattern as {@link #recordEntities} and
+   * {@link #failed}) so a forgotten call is visible as a missing increment, not a silent zero at
+   * {@link #finish()}.
+   */
   public void recordPage() {
-    pages++;
+    if (registry != null) {
+      registry.counter(prefix + ".pages", tags).increment();
+    }
   }
 
   /**
@@ -96,7 +110,7 @@ public final class LongRunningOperationMetrics {
     }
   }
 
-  /** Records duration and page count. Call from a {@code finally} so a failed run still lands. */
+  /** Records duration. Call from a {@code finally} so a failed run still lands. */
   public void finish() {
     if (registry == null) {
       return;
@@ -116,6 +130,5 @@ public final class LongRunningOperationMetrics {
         .maximumExpectedValue(Duration.ofHours(6))
         .register(registry)
         .record(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS);
-    registry.counter(prefix + ".pages", tags).increment(pages);
   }
 }

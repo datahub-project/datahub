@@ -1,5 +1,8 @@
 package com.linkedin.metadata.service.util;
 
+import static com.linkedin.metadata.utils.metrics.LongRunningOperationMetrics.TAG_OPERATION;
+import static com.linkedin.metadata.utils.metrics.LongRunningOperationMetrics.TAG_PHASE;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -21,8 +24,6 @@ public class SearchBasedFormAssignmentManager {
 
   static final String METRIC_PREFIX = "datahub.forms.assignment";
   static final String OPERATION_TYPE = "searchBasedFormAssignment";
-  static final String TAG_OPERATION = "operation_type";
-  static final String TAG_PHASE = "phase";
   static final String PHASE_ASSIGN = "assign";
 
   private static final ImmutableList<String> ENTITY_TYPES =
@@ -60,7 +61,6 @@ public class SearchBasedFormAssignmentManager {
 
     try {
       int totalResults = 0;
-      int numResults = 0;
       String scrollId = null;
       FormService formService = new FormService(entityClient);
 
@@ -85,34 +85,29 @@ public class SearchBasedFormAssignmentManager {
 
         log.info("Search across entities results: {}.", results);
 
-        if (results.hasEntities()) {
-          final List<Urn> entityUrns =
-              results.getEntities().stream()
-                  .map(SearchEntity::getEntity)
-                  .collect(Collectors.toList());
+        final List<Urn> entityUrns =
+            results.getEntities().stream()
+                .map(SearchEntity::getEntity)
+                .collect(Collectors.toList());
 
-          formService.batchAssignFormToEntities(opContext, entityUrns, formUrn);
+        formService.batchAssignFormToEntities(opContext, entityUrns, formUrn);
 
-          metrics.recordEntities(entityUrns.size());
-          metrics.recordPage();
+        metrics.recordEntities(entityUrns.size());
+        metrics.recordPage();
 
-          if (!entityUrns.isEmpty()) {
-            log.info("Batch assign {} entities to form {}.", entityUrns.size(), formUrn);
-          }
-
-          numResults = results.getEntities().size();
-          totalResults += numResults;
-          scrollId = results.getScrollId();
-
-          log.info(
-              "Starting batch assign forms, count: {} running total: {}, size: {}",
-              batchFormEntityCount,
-              totalResults,
-              results.getEntities().size());
-
-        } else {
-          break;
+        if (!entityUrns.isEmpty()) {
+          log.info("Batch assign {} entities to form {}.", entityUrns.size(), formUrn);
         }
+
+        totalResults += results.getEntities().size();
+        scrollId = results.getScrollId();
+
+        log.info(
+            "Starting batch assign forms, count: {} running total: {}, size: {}",
+            batchFormEntityCount,
+            totalResults,
+            results.getEntities().size());
+
       } while (scrollId != null);
 
       log.info("Successfully assigned {} entities to form {}.", totalResults, formUrn);
@@ -120,6 +115,8 @@ public class SearchBasedFormAssignmentManager {
     } catch (RemoteInvocationException e) {
       metrics.failed("remote_invocation");
       log.error("Error while assigning form to entities.", e);
+      // Wrap preserved: runner + callers treat this path as RuntimeException; inspect getCause()
+      // if the typed RemoteInvocationException is needed upstream.
       throw new RuntimeException(e);
     } catch (Exception e) {
       metrics.failed("unexpected");
