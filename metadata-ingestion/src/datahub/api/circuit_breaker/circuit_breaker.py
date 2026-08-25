@@ -17,7 +17,7 @@ class CircuitBreakerConfig(ConfigModel):
     )
     datahub_auth: Optional[AuthConfig] = Field(
         default=None,
-        description="Declarative auth (e.g. OAuth client credentials), as an alternative to a static token. Mutually exclusive with datahub_token.",
+        description="Declarative auth (e.g. OAuth client credentials), as an alternative to a static token. Mutually exclusive with datahub_token. The Airflow operators build their config from the connection, which cannot express an AuthConfig — set the DATAHUB_AUTH_TYPE environment variables there instead.",
     )
     timeout: Optional[int] = Field(
         default=None,
