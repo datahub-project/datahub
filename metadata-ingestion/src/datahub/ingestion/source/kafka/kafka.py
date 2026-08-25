@@ -606,6 +606,12 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     jobs.extend(
                         KsqlDBLineageExtractor(ksql_client, self.report).extract()
                     )
+                except Exception as e:
+                    self.report.warning(
+                        message="Failed to extract ksqlDB stream-processing lineage",
+                        context="ksqldb-lineage",
+                        exc=e,
+                    )
                 finally:
                     ksql_client.close()
 
@@ -620,6 +626,12 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                             config.flink.compute_pool_id,
                         ).extract()
                     )
+                except Exception as e:
+                    self.report.warning(
+                        message="Failed to extract Flink stream-processing lineage",
+                        context="flink-lineage",
+                        exc=e,
+                    )
                 finally:
                     flink_client.close()
 
@@ -632,14 +644,21 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     context="kafka-streams-lineage",
                 )
             else:
-                jobs.extend(
-                    KafkaStreamsLineageExtractor(
-                        admin_client=self.admin_client,
-                        config=config.kafka_streams,
-                        report=self.report,
-                        timeout_seconds=self.source_config.connection.client_timeout_seconds,
-                    ).extract()
-                )
+                try:
+                    jobs.extend(
+                        KafkaStreamsLineageExtractor(
+                            admin_client=self.admin_client,
+                            config=config.kafka_streams,
+                            report=self.report,
+                            timeout_seconds=self.source_config.connection.client_timeout_seconds,
+                        ).extract()
+                    )
+                except Exception as e:
+                    self.report.warning(
+                        message="Failed to extract Kafka Streams lineage",
+                        context="kafka-streams-lineage",
+                        exc=e,
+                    )
 
         yield from build_stream_processing_workunits(
             jobs=jobs,

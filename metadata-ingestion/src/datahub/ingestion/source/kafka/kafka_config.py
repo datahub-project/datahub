@@ -29,6 +29,29 @@ from datahub.ingestion.source_config.operation_config import is_profiling_enable
 from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 
 
+def _secret_configured(value: Optional[SecretStr]) -> bool:
+    return value is not None and bool(value.get_secret_value().strip())
+
+
+def _require_secret_pair(
+    api_key: Optional[SecretStr],
+    api_secret: Optional[SecretStr],
+    prefix: str,
+    *,
+    required: bool,
+) -> None:
+    key_set = _secret_configured(api_key)
+    secret_set = _secret_configured(api_secret)
+    if required and not (key_set and secret_set):
+        raise ValueError(
+            f"Configuration error: '{prefix}.api_key' and '{prefix}.api_secret' must both be set."
+        )
+    if key_set != secret_set:
+        raise ValueError(
+            f"Configuration error: '{prefix}.api_key' and '{prefix}.api_secret' must be provided together."
+        )
+
+
 class SchemaResolutionFallback(ConfigModel):
     enabled: bool = Field(
         default=False,
@@ -101,7 +124,16 @@ class KsqlDBLineageConfig(ConfigModel):
                 "Configuration error: 'stream_processing_lineage.ksqldb.enabled' is true but "
                 "'stream_processing_lineage.ksqldb.endpoint' is not set."
             )
-        if not self.endpoint.startswith("https://"):
+        _require_secret_pair(
+            self.api_key,
+            self.api_secret,
+            "stream_processing_lineage.ksqldb",
+            required=False,
+        )
+        has_creds = _secret_configured(self.api_key) or _secret_configured(
+            self.api_secret
+        )
+        if has_creds and not self.endpoint.startswith("https://"):
             raise ValueError(
                 "Configuration error: 'stream_processing_lineage.ksqldb.endpoint' must use HTTPS "
                 f"to protect credentials in transit. Got: '{self.endpoint}'."
@@ -180,6 +212,12 @@ class FlinkLineageConfig(ConfigModel):
                 f"{', '.join(repr(f'stream_processing_lineage.flink.{name}') for name in missing)} "
                 f"{'is' if len(missing) == 1 else 'are'} not set."
             )
+        _require_secret_pair(
+            self.api_key,
+            self.api_secret,
+            "stream_processing_lineage.flink",
+            required=True,
+        )
         return self
 
 

@@ -1,7 +1,6 @@
 import logging
 from typing import List, Optional
 
-from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
@@ -50,10 +49,7 @@ def column_lineage_fine_grained(
         downstream_urn = column_lineage.downstream_schema_field_urn()
         if not downstream_urn:
             continue
-        upstreams = [
-            make_schema_field_urn(str(upstream.table), upstream.column)
-            for upstream in column_lineage.upstreams
-        ]
+        upstreams = column_lineage.upstream_schema_field_urns()
         if not upstreams:
             continue
         fine_grained.append(

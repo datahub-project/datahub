@@ -1,5 +1,4 @@
 import logging
-import re
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import requests
@@ -27,6 +26,8 @@ from datahub.ingestion.source.kafka.stream_processing.constants import (
     PROP_STATE,
     StreamProcessingEngine,
     last_identifier_segment,
+    quote_sql_identifier,
+    rewrite_table_identifiers,
 )
 from datahub.ingestion.source.kafka.stream_processing.models import StreamProcessingJob
 
@@ -163,11 +164,10 @@ def _collapse_identifiers(sql: str) -> str:
     # Flink references topics as `catalog`.`database`.`table`; the SQL parser would treat
     # the 3-part name as db.schema.table and never match a topic URN. Reduce each
     # INSERT/FROM/JOIN identifier to its final segment (the topic) for column parsing.
-    def replace(match: "re.Match[str]") -> str:
-        keyword = match.group(0)[: match.start(1) - match.start(0)]
-        return keyword + last_identifier_segment(match.group(1))
+    def replace_ident(identifier: str) -> str:
+        return quote_sql_identifier(last_identifier_segment(identifier))
 
-    return INSERT_INTO_RE.sub(replace, FROM_JOIN_RE.sub(replace, sql))
+    return rewrite_table_identifiers(sql, replace_ident)
 
 
 def _status_properties(statement: Dict[str, object]) -> Dict[str, str]:

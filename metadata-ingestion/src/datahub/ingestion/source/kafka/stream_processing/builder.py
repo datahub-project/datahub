@@ -15,6 +15,7 @@ from datahub.ingestion.source.kafka.stream_processing.constants import (
     ENGINE_FLOW_METADATA,
     MAX_QUERY_PROPERTY_CHARS,
     PROP_ENGINE,
+    PROP_LOW_CONFIDENCE,
     PROP_QUERY,
     StreamProcessingEngine,
 )
@@ -86,7 +87,12 @@ def build_stream_processing_workunits(
         )
 
         fine_grained: List[FineGrainedLineageClass] = []
-        if include_column_lineage and job.parse_query:
+        # Skip CLL when any of the job's topics are denied — the parser cannot
+        # tell allowed from denied identifiers, so mixed jobs would leak edges.
+        job_topics_allowed = all(
+            topic_allowed(topic) for topic in job.input_topics + job.output_topics
+        )
+        if include_column_lineage and job.parse_query and job_topics_allowed:
             fine_grained = column_lineage_fine_grained(
                 query=job.parse_query,
                 platform=platform,
@@ -144,4 +150,6 @@ def _job_properties(job: StreamProcessingJob) -> Dict[str, str]:
     properties[PROP_ENGINE] = job.engine.value
     if job.query:
         properties[PROP_QUERY] = job.query[:MAX_QUERY_PROPERTY_CHARS]
+    if job.low_confidence:
+        properties[PROP_LOW_CONFIDENCE] = "true"
     return properties

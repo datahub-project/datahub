@@ -1,5 +1,4 @@
 import logging
-import re
 from typing import Dict, List, Optional, Tuple
 
 import requests
@@ -25,6 +24,8 @@ from datahub.ingestion.source.kafka.stream_processing.constants import (
     KSQL_STMT_SHOW_QUERIES,
     StreamProcessingEngine,
     last_identifier_segment,
+    quote_sql_identifier,
+    rewrite_table_identifiers,
 )
 from datahub.ingestion.source.kafka.stream_processing.models import StreamProcessingJob
 
@@ -170,26 +171,22 @@ class KsqlDBLineageExtractor:
 class _NameToTopicSubstitution:
     # Rewrites ksqlDB stream/table identifiers in a query to their backing topic names
     # so the SQL parser resolves lineage against the same topic dataset URNs we emit.
-    # The alternation is compiled once per extraction, not per query.
+    # Only CREATE / INSERT / FROM / JOIN identifiers are rewritten so SELECT columns
+    # that share a stream name are left alone.
     def __init__(self, name_to_topic: Dict[str, str]) -> None:
         self._name_to_topic = name_to_topic
-        if name_to_topic:
-            alternation = "|".join(
-                re.escape(name) for name in sorted(name_to_topic, key=len, reverse=True)
-            )
-            self._pattern: Optional["re.Pattern[str]"] = re.compile(
-                rf"\b({alternation})\b", re.IGNORECASE
-            )
-        else:
-            self._pattern = None
 
     def apply(self, query_string: str) -> Optional[str]:
-        if self._pattern is None:
+        if not self._name_to_topic:
             return None
-        return self._pattern.sub(
-            lambda m: self._name_to_topic.get(m.group(1).upper(), m.group(0)),
-            query_string,
-        )
+
+        def replace_ident(identifier: str) -> str:
+            topic = self._name_to_topic.get(last_identifier_segment(identifier).upper())
+            if not topic:
+                return identifier
+            return quote_sql_identifier(topic)
+
+        return rewrite_table_identifiers(query_string, replace_ident)
 
 
 def build_ksqldb_client(

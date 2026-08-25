@@ -1,22 +1,30 @@
 from typing import Dict, List
 
+import pytest
+
 from datahub.emitter.mce_builder import (
     make_data_flow_urn,
     make_data_job_urn_with_flow,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka.consumer_group_lineage import (
     ConsumerGroupInfo,
     ConsumerGroupMember,
 )
-from datahub.ingestion.source.kafka.kafka_config import KafkaStreamsLineageConfig
+from datahub.ingestion.source.kafka.kafka_config import (
+    FlinkLineageConfig,
+    KafkaStreamsLineageConfig,
+    KsqlDBLineageConfig,
+)
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.stream_processing.builder import (
     build_stream_processing_workunits,
 )
 from datahub.ingestion.source.kafka.stream_processing.constants import (
     ENGINE_FLOW_METADATA,
+    PROP_LOW_CONFIDENCE,
     StreamProcessingEngine,
 )
 from datahub.ingestion.source.kafka.stream_processing.flink import FlinkLineageExtractor
@@ -38,6 +46,17 @@ from datahub.metadata.schema_classes import (
 
 PLATFORM = "kafka"
 ENV = "PROD"
+
+
+def _aspect_for_urn(
+    workunits: List[MetadataWorkUnit], urn: str, aspect_cls: type
+) -> object:
+    for wu in workunits:
+        mcp = wu.metadata
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
+        if mcp.entityUrn == urn and isinstance(mcp.aspect, aspect_cls):
+            return mcp.aspect
+    raise AssertionError(f"missing {aspect_cls.__name__} for {urn}")
 
 
 class _FakeKsqlClient:
@@ -281,3 +300,201 @@ def test_column_lineage_parses_explicit_projection_without_graph() -> None:
     edge = fine_grained[0]
     assert edge.downstreams == [f"urn:li:schemaField:({downstream},id)"]
     assert edge.upstreams == [f"urn:li:schemaField:({upstream},id)"]
+
+
+def test_ksqldb_quotes_hyphenated_topic_names_in_parse_query() -> None:
+    report = KafkaSourceReport()
+    client = _FakeKsqlClient(
+        {
+            "SHOW QUERIES;": [
+                {
+                    "@type": "queries",
+                    "queries": [
+                        {
+                            "id": "CSAS_ORDERS",
+                            "queryType": "PERSISTENT",
+                            "queryString": "CREATE STREAM ORDERS AS SELECT id FROM USERS;",
+                            "sinkKafkaTopics": ["orders-enriched"],
+                        }
+                    ],
+                }
+            ],
+            "LIST STREAMS;": [
+                {
+                    "@type": "streams",
+                    "streams": [
+                        {"name": "USERS", "topic": "users-raw"},
+                        {"name": "ORDERS", "topic": "orders-enriched"},
+                    ],
+                }
+            ],
+            "LIST TABLES;": [{"@type": "tables", "tables": []}],
+        }
+    )
+
+    jobs = KsqlDBLineageExtractor(client, report).extract()  # type: ignore[arg-type]
+
+    assert len(jobs) == 1
+    assert jobs[0].parse_query is not None
+    assert '"users-raw"' in jobs[0].parse_query
+    assert '"orders-enriched"' in jobs[0].parse_query
+
+
+def test_flink_quotes_hyphenated_topic_names_in_parse_query() -> None:
+    report = KafkaSourceReport()
+    client = _FakeFlinkClient(
+        [
+            {
+                "name": "enrich-hyphen",
+                "spec": {
+                    "statement": "INSERT INTO `cat`.`db`.`orders-enriched` "
+                    "SELECT id FROM `cat`.`db`.`users-raw`",
+                },
+            }
+        ]
+    )
+
+    jobs = FlinkLineageExtractor(client, report).extract()  # type: ignore[arg-type]
+
+    assert len(jobs) == 1
+    assert jobs[0].parse_query is not None
+    assert '"orders-enriched"' in jobs[0].parse_query
+    assert '"users-raw"' in jobs[0].parse_query
+
+
+def test_build_workunits_emits_column_lineage_when_all_topics_allowed() -> None:
+    report = KafkaSourceReport()
+    jobs = [
+        StreamProcessingJob(
+            engine=StreamProcessingEngine.FLINK,
+            job_id="enrich-cll",
+            name="enrich-cll",
+            input_topics=["src_topic"],
+            output_topics=["sink_topic"],
+            parse_query="INSERT INTO sink_topic SELECT id FROM src_topic",
+            sql_dialect="postgres",
+        )
+    ]
+
+    workunits = build_stream_processing_workunits(
+        jobs=jobs,
+        platform=PLATFORM,
+        platform_instance=None,
+        env=ENV,
+        report=report,
+        topic_allowed=lambda _topic: True,
+        graph=None,
+        include_column_lineage=True,
+    )
+
+    flow_urn = make_data_flow_urn(
+        PLATFORM, ENGINE_FLOW_METADATA[StreamProcessingEngine.FLINK][0], ENV
+    )
+    job_urn = make_data_job_urn_with_flow(flow_urn, "enrich-cll")
+    io = _aspect_for_urn(workunits, job_urn, DataJobInputOutputClass)
+    assert isinstance(io, DataJobInputOutputClass)
+    assert io.fineGrainedLineages
+    assert report.stream_processing_column_lineage_edges == 1
+
+
+def test_build_workunits_skips_column_lineage_when_any_topic_denied() -> None:
+    report = KafkaSourceReport()
+    jobs = [
+        StreamProcessingJob(
+            engine=StreamProcessingEngine.FLINK,
+            job_id="enrich-mixed",
+            name="enrich-mixed",
+            input_topics=["src_topic", "denied_topic"],
+            output_topics=["sink_topic"],
+            parse_query="INSERT INTO sink_topic SELECT id FROM src_topic",
+            sql_dialect="postgres",
+        )
+    ]
+
+    workunits = build_stream_processing_workunits(
+        jobs=jobs,
+        platform=PLATFORM,
+        platform_instance=None,
+        env=ENV,
+        report=report,
+        topic_allowed=lambda topic: topic != "denied_topic",
+        graph=None,
+        include_column_lineage=True,
+    )
+
+    flow_urn = make_data_flow_urn(
+        PLATFORM, ENGINE_FLOW_METADATA[StreamProcessingEngine.FLINK][0], ENV
+    )
+    job_urn = make_data_job_urn_with_flow(flow_urn, "enrich-mixed")
+    io = _aspect_for_urn(workunits, job_urn, DataJobInputOutputClass)
+    assert isinstance(io, DataJobInputOutputClass)
+    assert io.fineGrainedLineages is None
+    assert report.stream_processing_column_lineage_edges == 0
+
+
+def test_build_workunits_emits_low_confidence_on_kafka_streams_jobs() -> None:
+    report = KafkaSourceReport()
+    jobs = [
+        StreamProcessingJob(
+            engine=StreamProcessingEngine.KAFKA_STREAMS,
+            job_id="wordcount",
+            name="wordcount",
+            input_topics=["input-topic"],
+            output_topics=["wordcount-counts-store-changelog"],
+            low_confidence=True,
+        )
+    ]
+
+    workunits = build_stream_processing_workunits(
+        jobs=jobs,
+        platform=PLATFORM,
+        platform_instance=None,
+        env=ENV,
+        report=report,
+        topic_allowed=lambda _topic: True,
+        graph=None,
+        include_column_lineage=False,
+    )
+
+    flow_urn = make_data_flow_urn(
+        PLATFORM, ENGINE_FLOW_METADATA[StreamProcessingEngine.KAFKA_STREAMS][0], ENV
+    )
+    job_urn = make_data_job_urn_with_flow(flow_urn, "wordcount")
+    job_info = _aspect_for_urn(workunits, job_urn, DataJobInfoClass)
+    assert isinstance(job_info, DataJobInfoClass)
+    assert job_info.customProperties[PROP_LOW_CONFIDENCE] == "true"
+
+
+def test_ksqldb_rejects_partial_credentials() -> None:
+    with pytest.raises(ValueError, match="must be provided together"):
+        KsqlDBLineageConfig(
+            enabled=True,
+            endpoint="https://ksql.example:443",
+            api_key="key-only",
+        )
+
+
+def test_ksqldb_allows_http_without_credentials() -> None:
+    config = KsqlDBLineageConfig(enabled=True, endpoint="http://localhost:8088/")
+    assert config.endpoint == "http://localhost:8088"
+
+
+def test_ksqldb_rejects_http_with_credentials() -> None:
+    with pytest.raises(ValueError, match="must use HTTPS"):
+        KsqlDBLineageConfig(
+            enabled=True,
+            endpoint="http://localhost:8088",
+            api_key="k",
+            api_secret="s",
+        )
+
+
+def test_flink_requires_credentials_when_enabled() -> None:
+    with pytest.raises(ValueError, match="must both be set"):
+        FlinkLineageConfig(
+            enabled=True,
+            organization_id="org-1",
+            environment_id="env-1",
+            region="us-east-1",
+            cloud="aws",
+        )

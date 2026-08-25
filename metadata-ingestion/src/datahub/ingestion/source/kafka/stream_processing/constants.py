@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Final, Tuple
+from typing import Callable, Dict, Final, Tuple
 
 from datahub.utilities.str_enum import StrEnum
 
@@ -44,6 +44,7 @@ PROP_QUERY: Final[str] = "query"
 PROP_STATE: Final[str] = "state"
 PROP_APPLICATION_ID: Final[str] = "application_id"
 PROP_CLIENT_IDS: Final[str] = "client_ids"
+PROP_LOW_CONFIDENCE: Final[str] = "low_confidence"
 
 # Keep a single query from bloating a DataJob's custom properties.
 MAX_QUERY_PROPERTY_CHARS: Final[int] = 10_000
@@ -104,6 +105,11 @@ INSERT_INTO_RE: Final["re.Pattern[str]"] = re.compile(
 FROM_JOIN_RE: Final["re.Pattern[str]"] = re.compile(
     r"(?:from|join)\s+([`\"\w.\-]+)", re.IGNORECASE
 )
+CREATE_STREAM_TABLE_RE: Final["re.Pattern[str]"] = re.compile(
+    r"create\s+(?:or\s+replace\s+)?(?:table|stream)\s+([`\"\w.\-]+)",
+    re.IGNORECASE,
+)
+_PLAIN_SQL_IDENT_RE: Final["re.Pattern[str]"] = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def last_identifier_segment(identifier: str) -> str:
@@ -112,3 +118,21 @@ def last_identifier_segment(identifier: str) -> str:
     if "." in cleaned:
         cleaned = cleaned.rsplit(".", 1)[-1]
     return cleaned.strip('`"')
+
+
+def quote_sql_identifier(name: str) -> str:
+    # Topic names with hyphens/dots would otherwise be parsed as arithmetic.
+    if _PLAIN_SQL_IDENT_RE.match(name):
+        return name
+    return '"' + name.replace('"', '""') + '"'
+
+
+def rewrite_table_identifiers(sql: str, replace_ident: Callable[[str], str]) -> str:
+    def replace(match: "re.Match[str]") -> str:
+        keyword = match.group(0)[: match.start(1) - match.start(0)]
+        return keyword + replace_ident(match.group(1))
+
+    rewritten = sql
+    for pattern in (CREATE_STREAM_TABLE_RE, INSERT_INTO_RE, FROM_JOIN_RE):
+        rewritten = pattern.sub(replace, rewritten)
+    return rewritten

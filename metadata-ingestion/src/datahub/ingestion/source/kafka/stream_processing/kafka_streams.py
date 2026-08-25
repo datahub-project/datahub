@@ -35,10 +35,14 @@ class KafkaStreamsLineageExtractor:
     ) -> None:
         # Reuse the consumer-group discovery: a Kafka Streams application.id *is* a
         # consumer group, and the topics it reads are the group's subscribed topics.
+        # Own report so Streams discovery does not inflate consumer_groups_scanned.
         self._groups = ConsumerGroupLineageExtractor(
             admin_client=admin_client,
-            config=KafkaConsumerGroupLineageConfig(enabled=True),
-            report=report,
+            config=KafkaConsumerGroupLineageConfig(
+                enabled=True,
+                consumer_group_patterns=config.application_patterns,
+            ),
+            report=KafkaSourceReport(),
             timeout_seconds=timeout_seconds,
         )
         self.config = config
