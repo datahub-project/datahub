@@ -41,6 +41,15 @@ class ConfluentStreamCatalogConfig(ConfigModel):
         default=DEFAULT_TIMEOUT_SECONDS,
         description="Timeout in seconds for each Stream Catalog GraphQL request.",
     )
+    include_tags: bool = Field(
+        default=True,
+        description="Emit Confluent Cloud tags from the Stream Catalog as DataHub tags.",
+    )
+    include_business_metadata: bool = Field(
+        default=True,
+        description="Emit Confluent Cloud business metadata attributes from the Stream "
+        "Catalog as DataHub custom properties.",
+    )
 
     @model_validator(mode="after")
     def validate_catalog_settings(self) -> "ConfluentStreamCatalogConfig":
