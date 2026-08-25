@@ -14,6 +14,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     QueryStatementType,
     Schema,
     Table,
+    TableReference,
     usage_statement_types,
 )
 from datahub.ingestion.source.unity.query_lineage import QueryLineageResolver
@@ -3211,10 +3212,7 @@ class TestUnityCatalogQueryLinkedLineage:
 
     @staticmethod
     def _build_table_with_upstream() -> Table:
-        from datahub.ingestion.source.unity.proxy_types import (
-            Catalog,
-            TableReference,
-        )
+        from datahub.ingestion.source.unity.proxy_types import Catalog
 
         # metastore=None matches production under _build_source's default
         # include_metastore=False: process_metastores only assigns a real
@@ -3260,6 +3258,22 @@ class TestUnityCatalogQueryLinkedLineage:
         table.upstreams = {upstream_ref: {"col_a": ["col_a"]}}
         return table
 
+    @staticmethod
+    def _build_query(upstream_ref: TableReference, table: Table) -> Query:
+        return Query(
+            query_id="stmt-1",
+            query_text="INSERT INTO c.s.my_table SELECT col_a FROM c.s.upstream_table",
+            statement_type=None,
+            start_time=None,
+            end_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            user_id=None,
+            user_name=None,
+            executed_as_user_id=None,
+            executed_as_user_name=None,
+            source_table_full_names=[upstream_ref.qualified_table_name],
+            target_table_full_names=[table.ref.qualified_table_name],
+        )
+
     def test_lineage_aspect_sets_query_urn_on_upstream(self):
         """Warehouse-attributable edges carry the query URN that renders the ~ node."""
         source = self._build_source()
@@ -3273,21 +3287,7 @@ class TestUnityCatalogQueryLinkedLineage:
             table.ref.qualified_table_name: dataset_urn,
         }
         resolver = QueryLineageResolver(resolve_urn=urn_by_full_name.get)
-        resolver.add_query(
-            Query(
-                query_id="stmt-1",
-                query_text="INSERT INTO c.s.my_table SELECT col_a FROM c.s.upstream_table",
-                statement_type=None,
-                start_time=None,
-                end_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
-                user_id=None,
-                user_name=None,
-                executed_as_user_id=None,
-                executed_as_user_name=None,
-                source_table_full_names=[upstream_ref.qualified_table_name],
-                target_table_full_names=[table.ref.qualified_table_name],
-            )
-        )
+        resolver.add_query(self._build_query(upstream_ref, table))
         expected_query_urn = resolver.query_urn_for(upstream_urn, dataset_urn)
         assert expected_query_urn is not None
 
@@ -3347,21 +3347,7 @@ class TestUnityCatalogQueryLinkedLineage:
             table.ref.qualified_table_name: dataset_urn,
         }
         resolver = QueryLineageResolver(resolve_urn=urn_by_full_name.get)
-        resolver.add_query(
-            Query(
-                query_id="stmt-1",
-                query_text="INSERT INTO c.s.my_table SELECT col_a FROM c.s.upstream_table",
-                statement_type=None,
-                start_time=None,
-                end_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
-                user_id=None,
-                user_name=None,
-                executed_as_user_id=None,
-                executed_as_user_name=None,
-                source_table_full_names=[upstream_ref.qualified_table_name],
-                target_table_full_names=[table.ref.qualified_table_name],
-            )
-        )
+        resolver.add_query(self._build_query(upstream_ref, table))
         expected_query_urn = resolver.query_urn_for(upstream_urn, dataset_urn)
         assert expected_query_urn is not None
 
@@ -3395,8 +3381,10 @@ class TestUnityCatalogQueryLinkedLineage:
         """Drives the real wiring, not a hand-built resolver: stubs
         get_query_history_via_system_tables at the Databricks boundary, then calls
         the real _build_query_lineage_resolver() and process_table()/ingest_lineage()
-        exactly as get_workunits_internal wires them, and inspects the emitted
-        workunits.
+        before _gen_query_entity_workunits, exactly as get_workunits_internal wires
+        them (entities are emitted after process_metastores now that querySubjects
+        depends on the lineage aspects it generates — see subject_urns_for), and
+        inspects the emitted workunits.
 
         This is the test the brief's original (rejected) _lineage_full_name_to_urn
         design — which resolved through the near-empty schema resolver during this
@@ -3410,25 +3398,16 @@ class TestUnityCatalogQueryLinkedLineage:
         doesn't need.
         """
         from datahub.emitter.mcp import MetadataChangeProposalWrapper
-        from datahub.metadata.schema_classes import UpstreamLineageClass
+        from datahub.metadata.schema_classes import (
+            QuerySubjectsClass,
+            UpstreamLineageClass,
+        )
 
         source = self._build_source()
         table = self._build_table_with_upstream()
         upstream_ref = next(iter(table.upstreams))
 
-        query = Query(
-            query_id="stmt-1",
-            query_text="INSERT INTO c.s.my_table SELECT col_a FROM c.s.upstream_table",
-            statement_type=None,
-            start_time=None,
-            end_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
-            user_id=None,
-            user_name=None,
-            executed_as_user_id=None,
-            executed_as_user_name=None,
-            source_table_full_names=[upstream_ref.qualified_table_name],
-            target_table_full_names=[table.ref.qualified_table_name],
-        )
+        query = self._build_query(upstream_ref, table)
         captured: dict = {}
 
         def _stub_history(*args: object, **kwargs: object) -> Iterator[Query]:
@@ -3463,10 +3442,14 @@ class TestUnityCatalogQueryLinkedLineage:
         # must not inflate the usage path's counters or duplicate its warnings.
         assert captured["secondary_fetch"] is True
 
+        # process_table (which calls _generate_lineage_aspect -> query_urn_for
+        # internally) must run before _gen_query_entity_workunits, exactly as
+        # get_workunits_internal orders them, or querySubjects below would be
+        # computed before any edge was consumed.
+        table_workunits = list(source.process_table(table, table.schema))
         entity_workunits = list(
             source._gen_query_entity_workunits(source.query_lineage_resolver)
         )
-        table_workunits = list(source.process_table(table, table.schema))
 
         upstream_urn = source.gen_dataset_urn(upstream_ref)
         dataset_urn = source.gen_dataset_urn(table.ref)
@@ -3492,3 +3475,42 @@ class TestUnityCatalogQueryLinkedLineage:
             if isinstance(wu.metadata, MetadataChangeProposalWrapper)
         }
         assert expected_query_urn in query_entity_urns
+
+        subjects_aspects = [
+            wu.metadata.aspect
+            for wu in entity_workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and wu.metadata.entityUrn == expected_query_urn
+            and isinstance(wu.metadata.aspect, QuerySubjectsClass)
+        ]
+        assert len(subjects_aspects) == 1
+        subject_urns = {s.entity for s in subjects_aspects[0].subjects}
+        assert subject_urns == {upstream_urn, dataset_urn}
+
+    def test_secondary_fetch_false_when_usage_will_not_read_system_tables(
+        self, monkeypatch
+    ):
+        """secondary_fetch must reflect reality, not be hardcoded.
+
+        When usage extraction is off (or forced onto the REST API), the lineage
+        path's fetch is the ONLY read of system.query.history, so it must not
+        silence its own parse/row-read warnings under a fetch that never happens.
+        """
+        source = self._build_source(include_usage_statistics=False)
+
+        captured: dict = {}
+
+        def _stub_history(*args: object, **kwargs: object) -> Iterator[Query]:
+            captured.update(kwargs)
+            return iter([])
+
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy,
+            "get_query_history_via_system_tables",
+            _stub_history,
+        )
+
+        resolver = source._build_query_lineage_resolver()
+
+        assert resolver is not None
+        assert captured["secondary_fetch"] is False

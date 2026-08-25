@@ -233,18 +233,21 @@ def test_edge_lookup_is_case_insensitive():
         _urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")
     )
     assert urn is not None
-    # Only the match *key* is folded: the URNs we emit must stay exactly as
-    # gen_dataset_urn produced them, or querySubjects points at nothing.
+    # subject_urns_for mirrors exactly the URNs this lookup was called with --
+    # the same casing the caller's Upstream edge carries -- not the
+    # system.access casing the candidate was originally matched on.
     assert resolver.subject_urns_for(urn) == sorted(
-        [_urn("My_Catalog.My_Schema.Src"), _urn("My_Catalog.My_Schema.Tgt")]
+        [_urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")]
     )
 
 
-def test_multi_target_urns_match_usage_path_fingerprint():
-    # Companion to test_single_target_urn_matches_usage_path_fingerprint: the
-    # multi-target branch folds the downstream urn into the fingerprint as
-    # usage.py's _to_preparsed_queries does, and only the single-target branch was
-    # pinned before. A divergence here mints a duplicate Query entity per target.
+def test_multi_target_edges_mint_distinct_query_entities():
+    # Companion to test_single_target_urn_matches_usage_path_fingerprint: only the
+    # single-target branch (secondary_id=None) is pinned to the usage path's exact
+    # fingerprint. The multi-target branch folds a *casefolded* downstream urn into
+    # the fingerprint (see test_multi_target_fingerprint_is_stable_across_downstream_casing),
+    # which cannot match usage.py's uncasefolded secondary_id byte-for-byte -- but
+    # it must still disambiguate the two targets from each other.
     query = dataclasses.replace(
         _query(
             "INSERT INTO my_catalog.my_schema.tgt_a SELECT col_a "
@@ -262,24 +265,53 @@ def test_multi_target_urns_match_usage_path_fingerprint():
     resolver = QueryLineageResolver(resolve_urn=_resolve)
     resolver.add_query(query)
 
-    usage_path_stub = SimpleNamespace(
-        platform="databricks",
-        report=SimpleNamespace(num_queries_preparsed_fingerprint_fallback=0),
-    )
-    for target in ("my_catalog.my_schema.tgt_a", "my_catalog.my_schema.tgt_b"):
-        downstream_urn = _urn(target)
-        expected_fingerprint = UnityCatalogUsageExtractor._query_fingerprint(
-            usage_path_stub,  # type: ignore[arg-type]
-            query,
-            secondary_id=downstream_urn,
-        )
-        assert (
-            resolver.query_urn_for(_urn("my_catalog.my_schema.src"), downstream_urn)
-            == f"urn:li:query:{expected_fingerprint}"
-        )
-
+    urns = {
+        resolver.query_urn_for(_urn("my_catalog.my_schema.src"), _urn(target))
+        for target in ("my_catalog.my_schema.tgt_a", "my_catalog.my_schema.tgt_b")
+    }
+    assert None not in urns
     # Two targets must not collapse onto a single Query entity.
+    assert len(urns) == 2
     assert len(resolver.queries_to_emit()) == 2
+
+
+def test_multi_target_fingerprint_is_stable_across_downstream_casing():
+    # secondary_id is casefolded before fingerprinting (mirroring _edge_key), so a
+    # re-run where Databricks reports different casing for the same downstream
+    # table reuses the same Query entity instead of minting a second one. Exact
+    # parity with the usage path's fingerprint isn't achievable here (its
+    # secondary_id comes from the schema-resolver-registered URN, unavailable
+    # during this pass), so this pins self-consistency instead.
+    def _build(downstream_full_name: str) -> QueryLineageResolver:
+        query = dataclasses.replace(
+            _query(
+                "INSERT INTO my_catalog.my_schema.tgt_a SELECT col_a "
+                "FROM my_catalog.my_schema.src",
+                1,
+                "my_catalog.my_schema.src",
+                downstream_full_name,
+            ),
+            target_table_full_names=[
+                downstream_full_name,
+                "my_catalog.my_schema.tgt_b",
+            ],
+        )
+        resolver = QueryLineageResolver(resolve_urn=_resolve)
+        resolver.add_query(query)
+        return resolver
+
+    lower_case_run = _build("my_catalog.my_schema.tgt_a")
+    upper_case_run = _build("MY_CATALOG.MY_SCHEMA.TGT_A")
+
+    lower_case_urn = lower_case_run.query_urn_for(
+        _urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt_a")
+    )
+    upper_case_urn = upper_case_run.query_urn_for(
+        _urn("my_catalog.my_schema.src"), _urn("MY_CATALOG.MY_SCHEMA.TGT_A")
+    )
+
+    assert lower_case_urn is not None
+    assert lower_case_urn == upper_case_urn
 
 
 def test_single_target_urn_matches_usage_path_fingerprint():
@@ -363,33 +395,37 @@ def test_subject_urns_for_returns_all_distinct_datasets_for_a_query():
     )
 
 
-def test_subject_urns_for_reflects_edges_added_after_a_prior_call():
-    # Guards the subjects cache added for perf (avoids an O(edges) scan per
-    # query_urn): a lazily-built cache that isn't invalidated on add_query
-    # would keep serving this pre-mutation subject list forever.
+def test_subject_urns_for_only_includes_confirmed_lookups():
+    """Only edges query_urn_for actually confirmed count as subjects.
+
+    _generate_lineage_aspect calls query_urn_for once per table it actually
+    ingests, so a statement that also joined system.access to a table outside
+    the configured catalog/schema patterns must not leak that (never-ingested)
+    table's URN into querySubjects, even though the resolver knows about the
+    edge.
+    """
     resolver = QueryLineageResolver(resolve_urn=_resolve)
     text = "INSERT INTO my_catalog.my_schema.tgt SELECT col_a FROM my_catalog.my_schema.src"
     resolver.add_query(
         _query(text, 1, "my_catalog.my_schema.src", "my_catalog.my_schema.tgt")
     )
+    # Same query_urn (identical text/id); this edge is never looked up below,
+    # mirroring a table that was never actually ingested.
+    resolver.add_query(
+        _query(text, 1, "my_catalog.my_schema.src2", "my_catalog.my_schema.tgt")
+    )
+
     urn = resolver.query_urn_for(
         _urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")
     )
     assert urn is not None
 
-    resolver.subject_urns_for(urn)  # populate the cache before the mutation below
-
-    resolver.add_query(
-        _query(text, 1, "my_catalog.my_schema.src2", "my_catalog.my_schema.tgt")
-    )
-
     assert resolver.subject_urns_for(urn) == sorted(
-        [
-            _urn("my_catalog.my_schema.src"),
-            _urn("my_catalog.my_schema.src2"),
-            _urn("my_catalog.my_schema.tgt"),
-        ]
+        [_urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")]
     )
+    # The Query entity is still emitted regardless: a query URN is never left
+    # without its own entity just because one of its edges was never confirmed.
+    assert dict(resolver.queries_to_emit())[urn] == text
 
 
 def test_resolver_not_built_when_include_queries_disabled():

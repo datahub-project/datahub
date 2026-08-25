@@ -107,7 +107,7 @@ Requirements:
 
 - **(Metadata Model / Data Products)** `dataProductProperties` now includes an optional `parentDataProduct` URN so Data Products can nest in a parent-child taxonomy (mirroring Domains' `parentDomain`). The field is additive; existing Data Products are unchanged (null parent). No migration or reindex is required. Free-text search may match child products on the parent URN string, the same way `parentDomain` already behaves.
 
-- #19409 **(Ingestion / Unity Catalog)** The Unity Catalog source now links lineage edges to the Query entities it already emits, so a transformation node with the statement's SQL appears in the lineage graph for warehouse-executed statements. **Action:** none — this is active wherever `include_queries` is enabled (the default); set `include_queries: false` to opt out. Lineage produced by Spark code running on a cluster is unaffected, as Databricks does not associate statement text with it.
+- #19409 **(Ingestion / Unity Catalog)** The Unity Catalog source now links lineage edges to the Query entities it already emits, so a transformation node with the statement's SQL appears in the lineage graph for warehouse-executed statements. **Action:** none — this links automatically when `include_queries` and `include_table_lineage` (both default `true`) are on, `include_metastore` (default `false`, deprecated) is off, and a `warehouse_id` is configured; set `include_queries: false` to opt out. Lineage produced by Spark code running on a cluster is unaffected, as Databricks does not associate statement text with it.
 
 ## v1.7.0
 

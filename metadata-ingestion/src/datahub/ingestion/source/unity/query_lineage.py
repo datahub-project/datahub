@@ -62,8 +62,8 @@ class _Candidate:
     query_urn: str
     query_text: str
     end_time: datetime
-    # The unfolded URNs this candidate was matched on, so subject_urns_for can
-    # report real URNs rather than the folded key.
+    # The unfolded URNs this candidate was matched on, so _offer can rebuild its
+    # _by_edge key from a stored candidate (e.g. when comparing to a replacement).
     upstream_urn: str
     downstream_urn: str
 
@@ -84,11 +84,14 @@ class QueryLineageResolver:
     _seen: int = 0
     _skipped: int = 0
     _unresolved: int = 0
-    # Lazily built, invalidated whenever _by_edge changes (see _offer) so it can
-    # never serve a stale subjects list for a query_urn added/replaced since the
-    # last build. Rebuilding costs O(edges) once per generation instead of once
-    # per subject_urns_for() call, which matters at production edge counts.
-    _subjects_by_query: Optional[Dict[str, List[str]]] = None
+    # Populated by query_urn_for as lineage aspects are generated: the URNs a
+    # caller actually asserted for that query_urn, i.e. the ones that end up in an
+    # emitted Upstream/FineGrainedLineage edge. A statement can join system.access
+    # to a table outside the ingested catalog/schema patterns, whose URN then
+    # never appears in any lineage aspect; keying subjects off actual lookups
+    # (rather than every _by_edge candidate for a query_urn) keeps that
+    # never-ingested table out of querySubjects.
+    _consumed_subjects: Dict[str, Set[str]] = field(default_factory=dict)
 
     def add_query(self, query: Query) -> None:
         self._seen += 1
@@ -111,12 +114,19 @@ class QueryLineageResolver:
 
         # Mirrors usage.py's _to_preparsed_queries: a statement that fans out to more
         # than one resolved target gets one Query per downstream, disambiguated by
-        # folding the downstream urn into the fingerprint. This keeps our URNs
-        # identical to the ones the system-tables usage path already emits, so we
-        # reuse its Query entities instead of minting duplicates.
+        # folding the downstream urn into the fingerprint. This keeps single-target
+        # URNs (the common case, secondary_id=None) identical to the ones the
+        # system-tables usage path emits, so we reuse its Query entities instead of
+        # minting duplicates. Multi-target statements cannot reach that same parity:
+        # usage.py folds in the schema-resolver-registered (REST-cased) URN, and that
+        # resolver is near-empty while this runs (see resolve_urn's docstring), so a
+        # multi-target statement may mint a Query entity distinct from usage.py's.
+        # secondary_id is still casefolded like _edge_key, so at least this path is
+        # self-consistent: a re-run where Databricks reports different casing for the
+        # same downstream table reuses the same Query instead of minting a new one.
         multi_target = len(downstream_urns) > 1
         for downstream_urn in downstream_urns:
-            secondary_id = downstream_urn if multi_target else None
+            secondary_id = downstream_urn.casefold() if multi_target else None
             fingerprint = self._fingerprint(text, query.query_id, secondary_id)
             query_urn = QueryUrn(fingerprint).urn()
             end_time = query.end_time or _EPOCH
@@ -165,7 +175,6 @@ class QueryLineageResolver:
         existing = self._by_edge.get(key)
         if existing is None or self._is_newer(candidate, existing):
             self._by_edge[key] = candidate
-            self._subjects_by_query = None
 
     @staticmethod
     def _is_newer(candidate: _Candidate, existing: _Candidate) -> bool:
@@ -177,27 +186,37 @@ class QueryLineageResolver:
 
     def query_urn_for(self, upstream_urn: str, downstream_urn: str) -> Optional[str]:
         candidate = self._by_edge.get(_edge_key(upstream_urn, downstream_urn))
-        return candidate.query_urn if candidate else None
+        if candidate is None:
+            return None
+        # Record the exact URNs this lookup asserted (not the candidate's own
+        # stored URNs, which matched case-insensitively and may differ in case)
+        # so subject_urns_for reports precisely what the caller put in its
+        # emitted lineage edge.
+        subjects = self._consumed_subjects.setdefault(candidate.query_urn, set())
+        subjects.add(upstream_urn)
+        subjects.add(downstream_urn)
+        return candidate.query_urn
 
     def queries_to_emit(self) -> List[Tuple[str, str]]:
-        """Every Query entity that must be emitted before its URN is referenced."""
+        """Every Query entity the resolver resolved, deduped by URN.
+
+        Emitted regardless of subject_urns_for's outcome, so a query URN
+        referenced by a lineage edge is never left without its own entity.
+        """
         deduped: Dict[str, str] = {
             c.query_urn: c.query_text for c in self._by_edge.values()
         }
         return sorted(deduped.items())
 
     def subject_urns_for(self, query_urn: str) -> List[str]:
-        """Every dataset touched by the statement behind this query URN."""
-        if self._subjects_by_query is None:
-            by_query: Dict[str, Set[str]] = {}
-            for candidate in self._by_edge.values():
-                subjects = by_query.setdefault(candidate.query_urn, set())
-                subjects.add(candidate.upstream_urn)
-                subjects.add(candidate.downstream_urn)
-            self._subjects_by_query = {
-                urn: sorted(subjects) for urn, subjects in by_query.items()
-            }
-        return self._subjects_by_query.get(query_urn, [])
+        """Every dataset actually referenced by an emitted lineage edge for this query.
+
+        Only URNs that reached an Upstream/FineGrainedLineage edge via
+        query_urn_for count as subjects, so a statement that also touched a
+        table outside the ingested catalog/schema patterns cannot leak that
+        table's (never-ingested) URN into querySubjects.
+        """
+        return sorted(self._consumed_subjects.get(query_urn, ()))
 
     @property
     def num_edges_linked(self) -> int:
