@@ -8,14 +8,22 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.utils.metrics.LongRunningOperationMetrics;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import io.micrometer.core.instrument.Tags;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class SearchBasedFormAssignmentManager {
+
+  static final String METRIC_PREFIX = "datahub.forms.assignment";
+  static final String OPERATION_TYPE = "searchBasedFormAssignment";
+  static final String TAG_OPERATION = "operation_type";
+  static final String TAG_PHASE = "phase";
+  static final String PHASE_ASSIGN = "assign";
 
   private static final ImmutableList<String> ENTITY_TYPES =
       ImmutableList.of(
@@ -37,13 +45,18 @@ public class SearchBasedFormAssignmentManager {
           Constants.ML_PRIMARY_KEY_ENTITY_NAME,
           Constants.DATA_PRODUCT_ENTITY_NAME);
 
-  public static void apply(
-      OperationContext opContext,
-      DynamicFormAssignment formFilters,
-      Urn formUrn,
-      int batchFormEntityCount,
-      SystemEntityClient entityClient)
-      throws Exception {
+  public static void apply(final FormAssignmentScrollRequest request) throws Exception {
+    final OperationContext opContext = request.getOpContext();
+    final DynamicFormAssignment formFilters = request.getFormFilters();
+    final Urn formUrn = request.getFormUrn();
+    final int batchFormEntityCount = request.getBatchFormEntityCount();
+    final SystemEntityClient entityClient = request.getEntityClient();
+
+    final LongRunningOperationMetrics metrics =
+        LongRunningOperationMetrics.begin(
+            opContext.getMetricUtils().orElse(null),
+            METRIC_PREFIX,
+            Tags.of(TAG_OPERATION, OPERATION_TYPE, TAG_PHASE, PHASE_ASSIGN));
 
     try {
       int totalResults = 0;
@@ -80,6 +93,9 @@ public class SearchBasedFormAssignmentManager {
 
           formService.batchAssignFormToEntities(opContext, entityUrns, formUrn);
 
+          metrics.recordEntities(entityUrns.size());
+          metrics.recordPage();
+
           if (!entityUrns.isEmpty()) {
             log.info("Batch assign {} entities to form {}.", entityUrns.size(), formUrn);
           }
@@ -102,8 +118,14 @@ public class SearchBasedFormAssignmentManager {
       log.info("Successfully assigned {} entities to form {}.", totalResults, formUrn);
 
     } catch (RemoteInvocationException e) {
+      metrics.failed("remote_invocation");
       log.error("Error while assigning form to entities.", e);
       throw new RuntimeException(e);
+    } catch (Exception e) {
+      metrics.failed("unexpected");
+      throw e;
+    } finally {
+      metrics.finish();
     }
   }
 
