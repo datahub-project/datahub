@@ -2458,6 +2458,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return syncIngestStampingEnabled;
   }
 
+  /**
+   * Stamps {@code emitModeMarker=sync} into each item's system metadata. The marker lands in the
+   * DURABLY STORED aspect system metadata, not only the emitted MCL — intentionally: it leaves an
+   * auditable record of sync-origin writes, and matches the long-running fork deployment of this
+   * feature. The marker is only ever interpreted on the MCL → platform-event relay
+   * (PlatformEventGeneratorHook), which is itself gated by the same flag; a stored marker echoed
+   * back in a future MCP's systemMetadata is at most a sync-routing hint to consumers that honor
+   * it, never a correctness input.
+   */
   @VisibleForTesting
   static void stampSyncIngest(@Nonnull final AspectsBatch aspectsBatch) {
     aspectsBatch
