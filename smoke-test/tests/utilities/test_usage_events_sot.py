@@ -132,6 +132,19 @@ def test_product_usage_event_table_derives_from_prefix(monkeypatch):
     importlib.reload(usage_events_sot)
 
 
+def test_validate_postgres_relation_name_rejects_injection():
+    import pytest
+
+    usage_events_sot.validate_postgres_relation_name("metadata_analytics_product_event")
+    usage_events_sot.validate_postgres_relation_name(
+        "public.metadata_analytics_product_event"
+    )
+    with pytest.raises(ValueError):
+        usage_events_sot.validate_postgres_relation_name(
+            "metadata_analytics_product_event; DROP TABLE x"
+        )
+
+
 def test_canonicalize_login_source_enum_and_camel_case():
     assert (
         usage_events_sot.canonicalize_login_source("passwordLogin") == "PASSWORD_LOGIN"

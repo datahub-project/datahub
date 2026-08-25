@@ -125,6 +125,11 @@ public class PropertiesCollectorTest {
         PropertiesCollector.scrubUrlCredentials(
             "jdbc:postgresql://u:p@localhost:5432/datahub?user=u&password=p&ssl=true"),
         "jdbc:postgresql://localhost:5432/datahub?ssl=true");
+    // Non-hierarchical JDBC still carries credentials in query params.
+    assertEquals(
+        PropertiesCollector.scrubUrlCredentials(
+            "jdbc:postgresql:datahub?user=alice&password=s3cret&sslmode=require"),
+        "jdbc:postgresql:datahub?sslmode=require");
     assertEquals(PropertiesCollector.scrubUrlCredentials("not-a-url"), "not-a-url");
     assertEquals(PropertiesCollector.scrubUrlCredentials(42), 42);
   }

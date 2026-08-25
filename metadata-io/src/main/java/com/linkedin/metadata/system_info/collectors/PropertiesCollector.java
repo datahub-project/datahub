@@ -208,8 +208,10 @@ public class PropertiesCollector {
       jdbcPrefix = working.substring(0, 5);
       working = working.substring(5);
     }
+    // Non-hierarchical JDBC (e.g. jdbc:postgresql:db?user=x&password=y) has no :// —
+    // still strip credential query params rather than returning the raw string.
     if (!working.contains("://")) {
-      return original;
+      return jdbcPrefix + scrubCredentialQueryParamsInPlace(working);
     }
     try {
       URI uri = new URI(working);

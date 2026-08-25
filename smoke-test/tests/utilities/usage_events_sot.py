@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -16,15 +17,32 @@ _SYSTEM_INFO_PATH = "/openapi/v1/system-info/properties/simple"
 _USAGE_EVENTS_PROP = "platformAnalytics.usage-events.implementation"
 _SYSTEM_INFO_TIMEOUT_SEC = 10
 
+# Unquoted PostgreSQL identifiers (same rule as PostgresSqlSetupProperties.normalizeTablePrefix).
+_PG_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def validate_postgres_relation_name(name: str) -> str:
+    """Allow ``table`` or ``schema.table``; reject SQL injection via table overrides."""
+    parts = name.split(".")
+    if not (1 <= len(parts) <= 2) or not all(_PG_IDENT.fullmatch(p) for p in parts):
+        raise ValueError(
+            f"Invalid Postgres relation name {name!r}: expected unquoted "
+            "identifier or schema.table (letters, digits, underscore)."
+        )
+    return name
+
+
 # Product-store event table: prefer explicit override, else derive from tablePrefix + "_event"
 # (matches postgres.pgAnalytics.stores.product.tablePrefix).
 _PRODUCT_TABLE_PREFIX = os.getenv(
     "DATAHUB_PGANALYTICS_PRODUCT_TABLE_PREFIX",
     "metadata_analytics_product",
 )
-PRODUCT_USAGE_EVENT_TABLE = os.getenv(
-    "DATAHUB_PGANALYTICS_PRODUCT_EVENT_TABLE",
-    f"{_PRODUCT_TABLE_PREFIX}_event",
+PRODUCT_USAGE_EVENT_TABLE = validate_postgres_relation_name(
+    os.getenv(
+        "DATAHUB_PGANALYTICS_PRODUCT_EVENT_TABLE",
+        f"{_PRODUCT_TABLE_PREFIX}_event",
+    )
 )
 
 # LoginSource enum name ↔ camelCase ``source`` string (see LoginSource.java).

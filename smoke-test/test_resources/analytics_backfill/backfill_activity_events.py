@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import random
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
@@ -584,6 +585,20 @@ def _default_product_event_table() -> str:
     return f"{prefix}_event"
 
 
+_PG_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _validate_postgres_relation_name(name: str) -> str:
+    """Allow ``table`` or ``schema.table``; reject SQL injection via CLI/env overrides."""
+    parts = name.split(".")
+    if not (1 <= len(parts) <= 2) or not all(_PG_IDENT.fullmatch(p) for p in parts):
+        raise ValueError(
+            f"Invalid Postgres relation name {name!r}: expected unquoted "
+            "identifier or schema.table (letters, digits, underscore)."
+        )
+    return name
+
+
 def send_events_to_postgres(
     events: List[Dict],
     postgres_url: str,
@@ -601,6 +616,7 @@ def send_events_to_postgres(
     """
     if table is None:
         table = _default_product_event_table()
+    table = _validate_postgres_relation_name(table)
     import psycopg2
     from psycopg2.extras import execute_batch
 
