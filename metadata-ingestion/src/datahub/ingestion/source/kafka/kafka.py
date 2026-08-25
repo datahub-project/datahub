@@ -104,6 +104,23 @@ from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
     SchemaAndFields,
 )
+from datahub.ingestion.source.kafka.stream_processing.builder import (
+    build_stream_processing_workunits,
+)
+from datahub.ingestion.source.kafka.stream_processing.flink import (
+    FlinkLineageExtractor,
+    build_flink_client,
+)
+from datahub.ingestion.source.kafka.stream_processing.kafka_streams import (
+    KafkaStreamsLineageExtractor,
+)
+from datahub.ingestion.source.kafka.stream_processing.ksqldb import (
+    KsqlDBLineageExtractor,
+    build_ksqldb_client,
+)
+from datahub.ingestion.source.kafka.stream_processing.models import (
+    StreamProcessingJob,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -555,6 +572,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         if collection_tasks:
             yield from self.generate_profiles_in_parallel(collection_tasks)
 
+        yield from self._emit_stream_processing_lineage()
+
         if self.source_config.ingest_schemas_as_entities:
             # Get all subjects from schema registry and ingest them as SCHEMA DatasetSubTypes
             for subject in self.schema_registry_client.get_subjects():
@@ -572,6 +591,66 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         exc=e,
                         log=False,
                     )
+
+    def _emit_stream_processing_lineage(self) -> Iterable[MetadataWorkUnit]:
+        config = self.source_config.stream_processing_lineage
+        if not config.any_enabled():
+            return
+
+        jobs: List[StreamProcessingJob] = []
+
+        if config.ksqldb.enabled:
+            ksql_client = build_ksqldb_client(config.ksqldb, self.report)
+            if ksql_client is not None:
+                try:
+                    jobs.extend(
+                        KsqlDBLineageExtractor(ksql_client, self.report).extract()
+                    )
+                finally:
+                    ksql_client.close()
+
+        if config.flink.enabled:
+            flink_client = build_flink_client(config.flink, self.report)
+            if flink_client is not None:
+                try:
+                    jobs.extend(
+                        FlinkLineageExtractor(
+                            flink_client,
+                            self.report,
+                            config.flink.compute_pool_id,
+                        ).extract()
+                    )
+                finally:
+                    flink_client.close()
+
+        if config.kafka_streams.enabled:
+            if not hasattr(self, "admin_client"):
+                # init_kafka_admin_client already warned when the client could not be built.
+                self.report.warning(
+                    message="Kafka Streams lineage is enabled but no Kafka Admin client is "
+                    "available, so it will be skipped",
+                    context="kafka-streams-lineage",
+                )
+            else:
+                jobs.extend(
+                    KafkaStreamsLineageExtractor(
+                        admin_client=self.admin_client,
+                        config=config.kafka_streams,
+                        report=self.report,
+                        timeout_seconds=self.source_config.connection.client_timeout_seconds,
+                    ).extract()
+                )
+
+        yield from build_stream_processing_workunits(
+            jobs=jobs,
+            platform=self.platform,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+            report=self.report,
+            topic_allowed=self.source_config.topic_patterns.allowed,
+            graph=self.ctx.graph,
+            include_column_lineage=config.include_column_lineage,
+        )
 
     def _locked_warning(self, message: LiteralString, context: str) -> None:
         # report.warning is not thread-safe; serialize the profiling worker calls.

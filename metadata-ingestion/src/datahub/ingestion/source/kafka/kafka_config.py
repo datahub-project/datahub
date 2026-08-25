@@ -69,6 +69,150 @@ class ProfilerConfig(GEProfilingConfig):
     )
 
 
+class KsqlDBLineageConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="Emit topic-to-topic lineage from Confluent Cloud / self-managed ksqlDB "
+        "persistent queries. Each CREATE STREAM/TABLE AS SELECT query is modeled as a DataJob "
+        "whose input datasets are the source topics and whose output dataset is the sink topic.",
+    )
+    endpoint: Optional[str] = Field(
+        default=None,
+        description="ksqlDB server endpoint, e.g. `https://pksqlc-xxxxx.us-east-1.aws.confluent.cloud:443`.",
+    )
+    api_key: Optional[SecretStr] = Field(
+        default=None,
+        description="ksqlDB API key (Basic auth). For Confluent Cloud this is a ksqlDB cluster "
+        "API key, distinct from the Kafka and Schema Registry keys.",
+    )
+    api_secret: Optional[SecretStr] = Field(
+        default=None, description="ksqlDB API secret (Basic auth)."
+    )
+    timeout_seconds: PositiveInt = Field(
+        default=30, description="Timeout in seconds for each ksqlDB REST request."
+    )
+
+    @model_validator(mode="after")
+    def validate_ksqldb(self) -> "KsqlDBLineageConfig":
+        if not self.enabled:
+            return self
+        if not self.endpoint:
+            raise ValueError(
+                "Configuration error: 'stream_processing_lineage.ksqldb.enabled' is true but "
+                "'stream_processing_lineage.ksqldb.endpoint' is not set."
+            )
+        if not self.endpoint.startswith("https://"):
+            raise ValueError(
+                "Configuration error: 'stream_processing_lineage.ksqldb.endpoint' must use HTTPS "
+                f"to protect credentials in transit. Got: '{self.endpoint}'."
+            )
+        self.endpoint = self.endpoint.rstrip("/")
+        return self
+
+
+class FlinkLineageConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="Emit topic-to-topic lineage from Confluent Cloud Flink SQL statements. Each "
+        "`INSERT INTO sink SELECT ... FROM source` statement is modeled as a DataJob mapping the "
+        "source topics to the sink topic. Requires a Confluent Cloud (resource-management) API key.",
+    )
+    organization_id: Optional[str] = Field(
+        default=None, description="Confluent Cloud organization id."
+    )
+    environment_id: Optional[str] = Field(
+        default=None, description="Confluent Cloud environment id, e.g. `env-xxxxx`."
+    )
+    region: Optional[str] = Field(
+        default=None,
+        description="Confluent Cloud region, e.g. `us-east-1`. Used to build the Flink REST host "
+        "`https://flink.<region>.<cloud>.confluent.cloud` unless `endpoint` is set.",
+    )
+    cloud: Optional[str] = Field(
+        default=None, description="Confluent Cloud provider: `aws`, `gcp`, or `azure`."
+    )
+    endpoint: Optional[str] = Field(
+        default=None,
+        description="Optional explicit Flink REST base URL, overriding the region/cloud-derived host.",
+    )
+    compute_pool_id: Optional[str] = Field(
+        default=None,
+        description="Optional Flink compute pool id to restrict statements to a single pool.",
+    )
+    api_key: Optional[SecretStr] = Field(
+        default=None,
+        description="Confluent Cloud resource-management API key (Basic auth against the Flink REST API).",
+    )
+    api_secret: Optional[SecretStr] = Field(
+        default=None, description="Confluent Cloud resource-management API secret."
+    )
+    timeout_seconds: PositiveInt = Field(
+        default=30, description="Timeout in seconds for each Flink REST request."
+    )
+
+    @model_validator(mode="after")
+    def validate_flink(self) -> "FlinkLineageConfig":
+        if not self.enabled:
+            return self
+        if self.endpoint:
+            if not self.endpoint.startswith("https://"):
+                raise ValueError(
+                    "Configuration error: 'stream_processing_lineage.flink.endpoint' must use HTTPS. "
+                    f"Got: '{self.endpoint}'."
+                )
+            self.endpoint = self.endpoint.rstrip("/")
+        elif not (self.region and self.cloud):
+            raise ValueError(
+                "Configuration error: 'stream_processing_lineage.flink.enabled' is true but the "
+                "Flink REST host cannot be resolved. Set either 'endpoint' or both 'region' and 'cloud'."
+            )
+        missing = [
+            name
+            for name, value in (
+                ("organization_id", self.organization_id),
+                ("environment_id", self.environment_id),
+            )
+            if not value
+        ]
+        if missing:
+            raise ValueError(
+                "Configuration error: 'stream_processing_lineage.flink.enabled' is true but "
+                f"{', '.join(repr(f'stream_processing_lineage.flink.{name}') for name in missing)} "
+                f"{'is' if len(missing) == 1 else 'are'} not set."
+            )
+        return self
+
+
+class KafkaStreamsLineageConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="Best-effort lineage for Kafka Streams applications, discovered via the Kafka "
+        "Admin API over the existing broker connection. Detects apps by their internal "
+        "changelog/repartition topics and emits input topics plus those internal topics. True "
+        "downstream output topics require the app topology, which no broker API exposes.",
+    )
+    application_patterns: AllowDenyPattern = Field(
+        default_factory=lambda: AllowDenyPattern(allow=[".*"], deny=["^_.*"]),
+        description="Regex patterns for Kafka Streams application ids (consumer group ids) to include.",
+    )
+
+
+class StreamProcessingLineageConfig(ConfigModel):
+    ksqldb: KsqlDBLineageConfig = Field(default_factory=KsqlDBLineageConfig)
+    flink: FlinkLineageConfig = Field(default_factory=FlinkLineageConfig)
+    kafka_streams: KafkaStreamsLineageConfig = Field(
+        default_factory=KafkaStreamsLineageConfig
+    )
+    include_column_lineage: bool = Field(
+        default=True,
+        description="Parse the transform SQL (ksqlDB/Flink) to emit best-effort column-level "
+        "lineage, resolving topic schemas from DataHub when available.",
+    )
+
+    def any_enabled(self) -> bool:
+        return self.ksqldb.enabled or self.flink.enabled or self.kafka_streams.enabled
+
+
 class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
     cluster_id: Optional[str] = Field(
         default=None,
@@ -171,6 +315,12 @@ class KafkaSourceConfig(
         default_factory=KafkaConfluentCatalogConfig,
         description="Read topic tags and business metadata from the Confluent Cloud Stream Catalog. "
         "Connection details default to the Schema Registry ones already set under `connection`.",
+    )
+    stream_processing_lineage: StreamProcessingLineageConfig = Field(
+        default_factory=StreamProcessingLineageConfig,
+        description="Emit topic-to-topic transform lineage from stream-processing engines "
+        "(ksqlDB persistent queries, Confluent Cloud Flink SQL statements, and Kafka Streams "
+        "applications), each modeled as a DataJob with input and output topics.",
     )
 
     @model_validator(mode="after")
