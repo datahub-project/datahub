@@ -1,6 +1,9 @@
 from typing import Dict, List
+from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
+from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import (
     make_data_flow_urn,
@@ -26,12 +29,19 @@ from datahub.ingestion.source.kafka.stream_processing.constants import (
     ENGINE_FLOW_METADATA,
     PROP_LOW_CONFIDENCE,
     StreamProcessingEngine,
+    from_join_identifiers,
+    last_identifier_segment,
+    strip_sql_noise,
 )
-from datahub.ingestion.source.kafka.stream_processing.flink import FlinkLineageExtractor
+from datahub.ingestion.source.kafka.stream_processing.flink import (
+    FlinkLineageExtractor,
+    FlinkStatementsClient,
+)
 from datahub.ingestion.source.kafka.stream_processing.kafka_streams import (
     KafkaStreamsLineageExtractor,
 )
 from datahub.ingestion.source.kafka.stream_processing.ksqldb import (
+    KsqlDbClient,
     KsqlDBLineageExtractor,
 )
 from datahub.ingestion.source.kafka.stream_processing.models import StreamProcessingJob
@@ -498,3 +508,242 @@ def test_flink_requires_credentials_when_enabled() -> None:
             region="us-east-1",
             cloud="aws",
         )
+
+
+def test_flink_rejects_unknown_cloud() -> None:
+    with pytest.raises(ValueError, match="must be one of"):
+        FlinkLineageConfig(
+            enabled=True,
+            organization_id="org-1",
+            environment_id="env-1",
+            region="us-east-1",
+            cloud="digitalocean",
+            api_key="k",
+            api_secret="s",
+        )
+
+
+def test_flink_normalizes_cloud_case() -> None:
+    config = FlinkLineageConfig(
+        enabled=True,
+        organization_id="org-1",
+        environment_id="env-1",
+        region="us-east-1",
+        cloud="AWS",
+        api_key="k",
+        api_secret="s",
+    )
+    assert config.cloud == "aws"
+
+
+def test_parse_query_requires_sql_dialect() -> None:
+    with pytest.raises(ValidationError, match="sql_dialect"):
+        StreamProcessingJob(
+            engine=StreamProcessingEngine.FLINK,
+            job_id="j",
+            name="j",
+            parse_query="SELECT 1",
+        )
+
+
+def test_last_identifier_segment_keeps_dots_inside_quotes() -> None:
+    assert last_identifier_segment("`customer.events`") == "customer.events"
+    assert last_identifier_segment("`cat`.`db`.`customer.events`") == "customer.events"
+    assert last_identifier_segment("cat.db.table") == "table"
+
+
+def test_from_join_identifiers_splits_comma_from_list() -> None:
+    assert from_join_identifiers("SELECT * FROM t1, t2 JOIN t3") == ["t1", "t2", "t3"]
+
+
+def test_sql_noise_does_not_match_from_in_comments_or_literals() -> None:
+    sql = (
+        "INSERT INTO sink SELECT id FROM src -- FROM decoy\n"
+        " WHERE x = 'from other' /* FROM hidden */"
+    )
+    assert from_join_identifiers(sql) == ["src"]
+    stripped = strip_sql_noise(sql)
+    assert "decoy" not in stripped
+    assert "hidden" not in stripped
+
+
+def test_ksqldb_maps_comma_separated_from_tables() -> None:
+    report = KafkaSourceReport()
+    client = _FakeKsqlClient(
+        {
+            "SHOW QUERIES;": [
+                {
+                    "@type": "queries",
+                    "queries": [
+                        {
+                            "id": "CTAS_JOINED",
+                            "queryType": "PERSISTENT",
+                            "queryString": "CREATE TABLE JOINED AS SELECT * FROM ORDERS, USERS;",
+                            "sinkKafkaTopics": ["joined_topic"],
+                        }
+                    ],
+                }
+            ],
+            "LIST STREAMS;": [
+                {
+                    "@type": "streams",
+                    "streams": [
+                        {"name": "ORDERS", "topic": "orders_topic"},
+                        {"name": "USERS", "topic": "users_topic"},
+                    ],
+                }
+            ],
+            "LIST TABLES;": [{"@type": "tables", "tables": []}],
+        }
+    )
+
+    jobs = KsqlDBLineageExtractor(client, report).extract()  # type: ignore[arg-type]
+
+    assert len(jobs) == 1
+    assert set(jobs[0].input_topics) == {"orders_topic", "users_topic"}
+
+
+def test_flink_filters_compute_pool_and_malformed_statements() -> None:
+    report = KafkaSourceReport()
+    client = _FakeFlinkClient(
+        [
+            {
+                "name": "other-pool",
+                "spec": {
+                    "statement": "INSERT INTO sink SELECT id FROM src",
+                    "compute_pool_id": "pool-2",
+                },
+            },
+            {"name": "no-spec"},
+            {"spec": {"statement": "INSERT INTO sink SELECT id FROM src"}},
+            {
+                "name": "ok",
+                "spec": {
+                    "statement": "INSERT INTO sink SELECT id FROM src",
+                    "compute_pool_id": "pool-1",
+                },
+            },
+        ]
+    )
+
+    jobs = FlinkLineageExtractor(
+        client, report, compute_pool_id="pool-1"
+    ).extract()  # type: ignore[arg-type]
+
+    assert [job.job_id for job in jobs] == ["ok"]
+
+
+def test_flink_extracts_comma_from_and_quoted_dot_topic() -> None:
+    report = KafkaSourceReport()
+    client = _FakeFlinkClient(
+        [
+            {
+                "name": "quoted-dot",
+                "spec": {
+                    "statement": "INSERT INTO `customer.events` "
+                    "SELECT id FROM t1, t2",
+                },
+            }
+        ]
+    )
+
+    jobs = FlinkLineageExtractor(client, report).extract()  # type: ignore[arg-type]
+
+    assert len(jobs) == 1
+    assert jobs[0].output_topics == ["customer.events"]
+    assert jobs[0].input_topics == ["t1", "t2"]
+
+
+def _flink_client_with_session(session: MagicMock) -> FlinkStatementsClient:
+    session.headers = {}
+    return FlinkStatementsClient(
+        statements_url="https://flink.example/sql",
+        credentials=None,
+        timeout_seconds=1,
+        report=KafkaSourceReport(),
+        session=session,
+    )
+
+
+def test_flink_list_statements_reraises_http_errors() -> None:
+    session = MagicMock()
+    session.get.side_effect = requests.ConnectionError("boom")
+    client = _flink_client_with_session(session)
+    with pytest.raises(requests.ConnectionError):
+        client.list_statements()
+
+
+def test_flink_list_statements_reraises_non_dict_payload() -> None:
+    session = MagicMock()
+    response = MagicMock()
+    response.json.return_value = ["not", "a", "dict"]
+    session.get.return_value = response
+    client = _flink_client_with_session(session)
+    with pytest.raises(ValueError, match="payload type"):
+        client.list_statements()
+
+
+def test_flink_list_statements_follows_pagination() -> None:
+    session = MagicMock()
+    page1 = MagicMock()
+    page1.json.return_value = {
+        "data": [
+            {
+                "name": "s1",
+                "spec": {"statement": "INSERT INTO sink SELECT id FROM src"},
+            }
+        ],
+        "metadata": {"next": "https://flink.example/sql?page=2"},
+    }
+    page2 = MagicMock()
+    page2.json.return_value = {
+        "data": [
+            {
+                "name": "s2",
+                "spec": {"statement": "INSERT INTO sink2 SELECT id FROM src2"},
+            }
+        ]
+    }
+    session.get.side_effect = [page1, page2]
+    client = _flink_client_with_session(session)
+
+    jobs = FlinkLineageExtractor(client, KafkaSourceReport()).extract()
+
+    assert [job.job_id for job in jobs] == ["s1", "s2"]
+    assert session.get.call_count == 2
+
+
+def test_flink_close_only_closes_owned_session() -> None:
+    injected = MagicMock()
+    client = _flink_client_with_session(injected)
+    client.close()
+    injected.close.assert_not_called()
+
+    owned_session = MagicMock()
+    owned_session.headers = {}
+    with patch(
+        "datahub.ingestion.source.kafka.stream_processing.flink.requests.Session",
+        return_value=owned_session,
+    ):
+        owned = FlinkStatementsClient(
+            statements_url="https://flink.example/sql",
+            credentials=None,
+            timeout_seconds=1,
+            report=KafkaSourceReport(),
+        )
+    owned.close()
+    owned_session.close.assert_called_once()
+
+
+def test_ksqldb_close_only_closes_owned_session() -> None:
+    injected = MagicMock()
+    injected.headers = {}
+    client = KsqlDbClient(
+        endpoint="https://ksql.example",
+        credentials=None,
+        timeout_seconds=1,
+        report=KafkaSourceReport(),
+        session=injected,
+    )
+    client.close()
+    injected.close.assert_not_called()

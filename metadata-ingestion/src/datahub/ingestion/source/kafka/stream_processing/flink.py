@@ -21,10 +21,10 @@ from datahub.ingestion.source.kafka.stream_processing.constants import (
     FLINK_PAGE_SIZE_PARAM,
     FLINK_SQL_DIALECT,
     FLINK_STATEMENTS_PATH_TEMPLATE,
-    FROM_JOIN_RE,
-    INSERT_INTO_RE,
     PROP_STATE,
     StreamProcessingEngine,
+    from_join_identifiers,
+    insert_into_identifiers,
     last_identifier_segment,
     quote_sql_identifier,
     rewrite_table_identifiers,
@@ -48,6 +48,7 @@ class FlinkStatementsClient:
         self.timeout_seconds = timeout_seconds
         self.report = report
         self.page_size = page_size
+        self._owns_session = session is None
         self.session = session or requests.Session()
         self.session.headers.update(
             {"Accept": "application/json", "Content-Type": "application/json"}
@@ -63,8 +64,6 @@ class FlinkStatementsClient:
         while url and pages < FLINK_MAX_PAGES:
             page = self._fetch(url, params)
             pages += 1
-            if page is None:
-                break
             data = page.get(FLINK_KEY_DATA)
             if isinstance(data, list):
                 statements.extend(item for item in data if isinstance(item, dict))
@@ -73,34 +72,37 @@ class FlinkStatementsClient:
             params = None
         return statements
 
-    def _fetch(
-        self, url: str, params: Optional[Dict[str, int]]
-    ) -> Optional[Dict[str, object]]:
+    def _fetch(self, url: str, params: Optional[Dict[str, int]]) -> Dict[str, object]:
         try:
             response = self.session.get(
                 url, params=params, timeout=self.timeout_seconds
             )
             response.raise_for_status()
             payload = response.json()
-        except Exception as e:
+        except requests.RequestException as e:
             self.report.warning(
                 message="Failed to list Confluent Cloud Flink statements",
                 context=f"url={url}",
                 exc=e,
                 log=False,
             )
-            return None
+            raise
         if not isinstance(payload, dict):
+            exc = ValueError(
+                f"Unexpected Confluent Cloud Flink statements payload type: {type(payload).__name__}"
+            )
             self.report.warning(
                 message="Unexpected Confluent Cloud Flink statements response",
                 context=f"url={url}",
+                exc=exc,
                 log=False,
             )
-            return None
+            raise exc
         return payload
 
     def close(self) -> None:
-        self.session.close()
+        if self._owns_session:
+            self.session.close()
 
 
 class FlinkLineageExtractor:
@@ -136,15 +138,11 @@ class FlinkLineageExtractor:
         if not isinstance(sql, str) or not sql or not isinstance(name, str) or not name:
             return None
 
-        output_topics = _unique(
-            last_identifier_segment(m.group(1)) for m in INSERT_INTO_RE.finditer(sql)
-        )
+        output_topics = _unique(insert_into_identifiers(sql))
         if not output_topics:
             # Only INSERT INTO statements move data between topics; skip DDL/queries.
             return None
-        input_topics = _unique(
-            last_identifier_segment(m.group(1)) for m in FROM_JOIN_RE.finditer(sql)
-        )
+        input_topics = _unique(from_join_identifiers(sql))
 
         self.report.stream_processing_jobs_scanned += 1
         return StreamProcessingJob(

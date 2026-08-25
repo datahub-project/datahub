@@ -6,7 +6,6 @@ import requests
 from datahub.ingestion.source.kafka.kafka_config import KsqlDBLineageConfig
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.stream_processing.constants import (
-    FROM_JOIN_RE,
     KSQL_ENDPOINT_PATH,
     KSQL_KEY_ID,
     KSQL_KEY_NAME,
@@ -23,6 +22,7 @@ from datahub.ingestion.source.kafka.stream_processing.constants import (
     KSQL_STMT_LIST_TABLES,
     KSQL_STMT_SHOW_QUERIES,
     StreamProcessingEngine,
+    from_join_identifiers,
     last_identifier_segment,
     quote_sql_identifier,
     rewrite_table_identifiers,
@@ -48,6 +48,7 @@ class KsqlDbClient:
         self.url = f"{endpoint}{KSQL_ENDPOINT_PATH}"
         self.timeout_seconds = timeout_seconds
         self.report = report
+        self._owns_session = session is None
         self.session = session or requests.Session()
         self.session.headers.update(
             {"Accept": KSQL_MEDIA_TYPE, "Content-Type": KSQL_MEDIA_TYPE}
@@ -82,7 +83,8 @@ class KsqlDbClient:
         return [item for item in payload if isinstance(item, dict)]
 
     def close(self) -> None:
-        self.session.close()
+        if self._owns_session:
+            self.session.close()
 
 
 class KsqlDBLineageExtractor:
@@ -159,8 +161,8 @@ class KsqlDBLineageExtractor:
     ) -> List[str]:
         topics: List[str] = []
         seen = set()
-        for match in FROM_JOIN_RE.finditer(query_string):
-            name = last_identifier_segment(match.group(1)).upper()
+        for ident in from_join_identifiers(query_string):
+            name = ident.upper()
             topic = name_to_topic.get(name)
             if topic and topic not in seen:
                 seen.add(topic)

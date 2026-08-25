@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from datahub.ingestion.source.kafka.stream_processing.constants import (
     StreamProcessingEngine,
@@ -24,3 +24,9 @@ class StreamProcessingJob(BaseModel):
     # True when the edges are heuristic (e.g. Kafka Streams internal topics), so the
     # builder can annotate the job rather than present them as authoritative.
     low_confidence: bool = False
+
+    @model_validator(mode="after")
+    def parse_query_requires_dialect(self) -> "StreamProcessingJob":
+        if self.parse_query and not self.sql_dialect:
+            raise ValueError("sql_dialect is required when parse_query is set")
+        return self

@@ -28,6 +28,17 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 
+_FLINK_CLOUDS = frozenset({"aws", "gcp", "azure"})
+
+
+def _normalize_endpoint(endpoint: str, field: str, *, require_https: bool) -> str:
+    if require_https and not endpoint.lower().startswith("https://"):
+        raise ValueError(
+            f"Configuration error: '{field}' must use HTTPS "
+            f"to protect credentials in transit. Got: '{endpoint}'."
+        )
+    return endpoint.rstrip("/")
+
 
 def _secret_configured(value: Optional[SecretStr]) -> bool:
     return value is not None and bool(value.get_secret_value().strip())
@@ -133,12 +144,11 @@ class KsqlDBLineageConfig(ConfigModel):
         has_creds = _secret_configured(self.api_key) or _secret_configured(
             self.api_secret
         )
-        if has_creds and not self.endpoint.startswith("https://"):
-            raise ValueError(
-                "Configuration error: 'stream_processing_lineage.ksqldb.endpoint' must use HTTPS "
-                f"to protect credentials in transit. Got: '{self.endpoint}'."
-            )
-        self.endpoint = self.endpoint.rstrip("/")
+        self.endpoint = _normalize_endpoint(
+            self.endpoint,
+            "stream_processing_lineage.ksqldb.endpoint",
+            require_https=has_creds,
+        )
         return self
 
 
@@ -187,17 +197,24 @@ class FlinkLineageConfig(ConfigModel):
         if not self.enabled:
             return self
         if self.endpoint:
-            if not self.endpoint.startswith("https://"):
-                raise ValueError(
-                    "Configuration error: 'stream_processing_lineage.flink.endpoint' must use HTTPS. "
-                    f"Got: '{self.endpoint}'."
-                )
-            self.endpoint = self.endpoint.rstrip("/")
+            self.endpoint = _normalize_endpoint(
+                self.endpoint,
+                "stream_processing_lineage.flink.endpoint",
+                require_https=True,
+            )
         elif not (self.region and self.cloud):
             raise ValueError(
                 "Configuration error: 'stream_processing_lineage.flink.enabled' is true but the "
                 "Flink REST host cannot be resolved. Set either 'endpoint' or both 'region' and 'cloud'."
             )
+        else:
+            cloud = self.cloud.lower()
+            if cloud not in _FLINK_CLOUDS:
+                raise ValueError(
+                    "Configuration error: 'stream_processing_lineage.flink.cloud' must be one of "
+                    f"{sorted(_FLINK_CLOUDS)}. Got: '{self.cloud}'."
+                )
+            self.cloud = cloud
         missing = [
             name
             for name, value in (
