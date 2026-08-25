@@ -18,7 +18,7 @@ The capability area is organized around three jobs:
 - **Resolution** — react fast, communicate clearly, and coordinate a fix.
 - **Governance & Improvement** — codify expectations and raise the bar over time.
 
-:::info OSS vs Cloud
+:::info Core vs Cloud
 [**See the feature-by-feature breakdown**](/docs/managed-datahub/managed-datahub-overview.md#data-observability).
 :::
 

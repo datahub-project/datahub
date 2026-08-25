@@ -767,11 +767,11 @@ function clean_mdx_for_serving(content: string): string {
       if (has("saasOnly")) {
         base = "DataHub Cloud only";
       } else if (has("ossOnly")) {
-        base = "Self-Hosted DataHub (open source) only";
+        base = "DataHub Core (OSS) only";
       } else if (has("selfHostedPartial")) {
-        base = "DataHub Cloud (fully) · Self-Hosted (partial)";
+        base = "DataHub Cloud (fully) · DataHub Core (partial)";
       } else {
-        base = "Self-Hosted DataHub & DataHub Cloud";
+        base = "DataHub Core (OSS) & DataHub Cloud";
       }
       const stage_match = attrs.match(/stage=["']([^"']+)["']/);
       let line = `> **Availability:** ${base}`;

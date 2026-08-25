@@ -689,7 +689,7 @@ serviceAccount:
 Security-conscious Remote Executor deployments should keep credentials **local to your environment** rather than in DataHub UI Secrets.
 
 :::note Secure by default
-DataHub ships with `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE`. Browser sessions and user Personal Access Tokens **cannot** call `getSecretValues` or otherwise decrypt secrets through human-facing API paths. On DataHub OSS, scheduled UI ingestion uses [**datahub-actions**](../../actions/actions/executor.md) with system client credentials for the same trusted-worker path. You only need to change this setting for a staged rollout (`AUDIT`) or break-glass incident response (`DISABLED`, administrator approval required).
+DataHub ships with `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE`. Browser sessions and user Personal Access Tokens **cannot** call `getSecretValues` or otherwise decrypt secrets through human-facing API paths. On DataHub Core, scheduled UI ingestion uses [**datahub-actions**](../../actions/actions/executor.md) with system client credentials for the same trusted-worker path. You only need to change this setting for a staged rollout (`AUDIT`) or break-glass incident response (`DISABLED`, administrator approval required).
 :::
 
 :::caution DataHub UI Secrets and Remote Executor
