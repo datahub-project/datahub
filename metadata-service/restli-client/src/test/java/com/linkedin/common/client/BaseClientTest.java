@@ -67,6 +67,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -260,6 +261,10 @@ public class BaseClientTest {
   /**
    * Regression helper: proposalsParam must use the partition, not the full input collection.
    * Sending N on every request of size B multiplies work by ceil(N/B).
+   *
+   * <p>Batch sizes are compared as a sorted multiset — not in capture order — because
+   * batchIngestConcurrency &gt; 1 submits partitions concurrently and ArgumentCaptor order follows
+   * thread scheduling.
    */
   private void assertBatchIngestSendsPartitionsOnly(int total, int batchSize)
       throws RemoteInvocationException {
@@ -291,19 +296,26 @@ public class BaseClientTest {
     int expectedBatches = (total + batchSize - 1) / batchSize;
     assertEquals(requests.size(), expectedBatches);
 
-    int remaining = total;
+    List<Integer> expectedSizes = new ArrayList<>();
+    for (int remaining = total; remaining > 0; remaining -= batchSize) {
+      expectedSizes.add(Math.min(batchSize, remaining));
+    }
+    Collections.sort(expectedSizes);
+
+    List<Integer> actualSizes = new ArrayList<>();
     for (ActionRequest request : requests) {
       // ActionRequest only exposes the Rest.li input as a DataMap; the field name matches
       // AspectsDoIngestProposalBatchRequestBuilder.proposalsParam (generated Rest.li schema).
       DataList proposals = request.getInputRecord().data().getDataList("proposals");
-      int expectedSize = Math.min(batchSize, remaining);
-      assertEquals(
-          proposals.size(),
-          expectedSize,
-          "Each ingest request must carry only its partition, not the full input");
-      remaining -= proposals.size();
+      int size = proposals.size();
+      assertTrue(size > 0 && size <= batchSize, "partition size out of range: " + size);
+      if (total > batchSize) {
+        assertTrue(size < total, "request must not send the full input collection");
+      }
+      actualSizes.add(size);
     }
-    assertEquals(remaining, 0);
+    Collections.sort(actualSizes);
+    assertEquals(actualSizes, expectedSizes);
   }
 
   @Test
