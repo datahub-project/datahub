@@ -9,8 +9,6 @@ from datahub.utilities.lossy_collections import LossySet
 
 @dataclass
 class _ReportWithNonPrimitiveField(WorkunitProcessorReport):
-    # No processor report holds a non-primitive value today, so this stands in for
-    # the next one that does.
     sample: LossySet[str] = field(default_factory=LossySet)
 
 
