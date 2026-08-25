@@ -1442,6 +1442,31 @@ def test_a_failed_schema_fetch_keeps_the_table_level_healing():
     assert processor.report.num_exceptions == 0
 
 
+def test_an_unchecked_column_is_not_reported_exact():
+    # The parent needed no correction, so nothing about the reference changed — but the
+    # schema fetch failed, so nothing compared the column either. EXACT would certify a
+    # column casing that was never looked at, and this is the shape where it shows: with
+    # the parent already stored as referenced, there is no rewrite to make the aggregate
+    # NORMALIZED and hide it.
+    processor, graph, patcher = _processor_for(
+        _widened(), _resolver({}), [LOWER], [_SNOWFLAKE_SLICE]
+    )
+    graph.get_aspect.side_effect = Exception("boom")
+    try:
+        [out] = list(
+            processor.process(iter([_upstream_wu(LOWER, fine_grained_field="AMOUNT")]))
+        )
+    finally:
+        patcher.stop()
+
+    assert _fine_grained(out).upstreams == [make_schema_field_urn(LOWER, "AMOUNT")]
+    assert _fine_grained(out).matchType is None
+    assert processor.report.num_columns_unchecked == 1
+    # The table-level reference was checked, and keeps its verdict.
+    assert _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.EXACT
+    assert processor.report.num_refs_verified_exact == 1
+
+
 def test_a_listed_platform_is_still_answered_locally_when_scope_is_widened():
     # Widening scope must not turn a preloaded catalog back into a stream of questions.
     processor, graph, patcher = _processor_for(

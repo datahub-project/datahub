@@ -108,6 +108,9 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     # A preloaded catalog raised, so DataHub was asked instead: round trips, not casing.
     # A count near the reference total means the catalog is unusable, not flaky.
     num_preloaded_lookups_failed: int = 0
+    # No schema was available for a field reference's parent, so its column casing went
+    # unchecked and no verdict was stamped.
+    num_columns_unchecked: int = 0
     # Lineage aspect emitted as a PATCH (not UPSERT); can't be reconciled, so skipped.
     num_patch_lineage_skipped: int = 0
     num_workunits_with_lineage_aspect: int = 0
@@ -750,6 +753,14 @@ class AutoResolveLineageUrnsProcessor(
 
         # Column-level: we need the parent's schema to correct the column casing.
         res = self._resolve_dataset(parent, with_schema=True)
+        if res.match_type == _EXACT and res.schema is None:
+            # Nothing to do and nothing verified: EXACT means the parent needs no
+            # correction, and without a schema nothing compared the column. Falling
+            # through would stamp the parent's EXACT on the strength of a field path that
+            # was never matched against anything — it is simply the input, unchanged — so
+            # abstain, as a failed lookup does.
+            self.report.num_columns_unchecked += 1
+            return field_urn, None
         new_field_path = field_path
         if res.schema:
             new_field_path = self._match_columns_to_schema(res.schema, [field_path])[0]
