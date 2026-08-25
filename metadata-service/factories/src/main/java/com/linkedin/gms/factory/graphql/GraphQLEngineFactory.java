@@ -223,6 +223,9 @@ public class GraphQLEngineFactory {
   @Qualifier("businessAttributeService")
   private BusinessAttributeService businessAttributeService;
 
+  @Value("${mfe.loadTimeoutMs:5000}")
+  private int mfeLoadTimeoutMs;
+
   @Autowired
   @Qualifier("connectionService")
   private ConnectionService _connectionService;
@@ -299,6 +302,7 @@ public class GraphQLEngineFactory {
     args.setTelemetryConfiguration(configProvider.getTelemetry());
     args.setTestsConfiguration(configProvider.getMetadataTests());
     args.setDatahubConfiguration(configProvider.getDatahub());
+    args.setMfeLoadTimeoutMs(mfeLoadTimeoutMs);
     args.setViewsConfiguration(configProvider.getViews());
     args.setSearchBarConfiguration(configProvider.getSearchBar());
     args.setSearchCardConfiguration(configProvider.getSearchCard());

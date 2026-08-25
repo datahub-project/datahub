@@ -451,6 +451,78 @@ query getDatasetSchema($urn: String!, $skipSiblingsSearch: Boolean = false) {
     }
 }
 
+# Lean fragment: field paths, types, and nullability only -- no descriptions, tags,
+# glossary terms, deprecation, structured properties, or editable metadata. Used by
+# Phase 1 of the two-phase schema fetch so the table renders before the heavy
+# metadata arrives. Descriptions are intentionally excluded to keep Phase 1 small.
+fragment datasetStructuralSchema on Dataset {
+    schemaMetadata(version: 0) {
+        aspectVersion
+        createdAt
+        datasetUrn
+        name
+        platformUrn
+        version
+        cluster
+        hash
+        platformSchema {
+            ... on TableSchema {
+                schema
+            }
+            ... on KeyValueSchema {
+                keySchema
+                valueSchema
+            }
+        }
+        fields {
+            fieldPath
+            label
+            jsonPath
+            nullable
+            type
+            nativeDataType
+            recursive
+            isPartOfKey
+            isPartitioningKey
+        }
+        primaryKeys
+        foreignKeys {
+            name
+            sourceFields {
+                fieldPath
+            }
+            foreignFields {
+                fieldPath
+            }
+            # foreignDataset intentionally excluded: FK target entity data (name, urn,
+            # platform) is part of the full schemaMetadataFields fragment and arrives
+            # in Phase 2. FK popovers may briefly show an empty dataset name during Phase 1.
+        }
+    }
+}
+
+query getDatasetSchemaStructural($urn: String!, $skipSiblingsSearch: Boolean = false) {
+    dataset(urn: $urn) {
+        ...datasetStructuralSchema
+        siblings {
+            isPrimary
+        }
+        siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        ...datasetStructuralSchema
+                    }
+                }
+            }
+        }
+    }
+}
+
 query getExternalRoles($urn: String!) {
     dataset(urn: $urn) {
         access {

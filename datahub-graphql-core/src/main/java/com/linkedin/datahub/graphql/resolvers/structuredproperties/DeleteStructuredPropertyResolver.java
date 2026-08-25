@@ -61,6 +61,14 @@ public class DeleteStructuredPropertyResolver implements DataFetcher<Completable
                 this.getClass().getSimpleName(),
                 "get");
             return true;
+          } catch (AuthorizationException
+              | IllegalArgumentException
+              | com.linkedin.metadata.entity.validation.ValidationException e) {
+            // Rethrow as-is so DataHubDataFetcherExceptionHandler can classify these
+            // correctly (403/400/400) with their own client-safe message. Wrapping them in
+            // the generic RuntimeException below would misclassify them as 500s and bury
+            // the real message under "Failed to perform update against input ...".
+            throw e;
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);

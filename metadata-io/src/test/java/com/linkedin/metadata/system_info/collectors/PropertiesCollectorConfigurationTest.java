@@ -178,6 +178,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].configs.userIdClaim",
           "authentication.authenticators[*].configs.algorithm",
           "authentication.authenticators[*].configs.discoveryUri",
+          // Per-entity mapping limit overrides (e.g. mapping.total_fields.limit) keyed by entity
+          // name (with reserved key `default`) and limit name.
+          "elasticsearch.index.entityMappingLimits.*.*",
           // Shim properties
           "elasticsearch.shim.*",
           // Postgres PgQueue configuration (non-credential settings)
@@ -941,6 +944,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.policyFields.batchSize",
           "systemUpdate.policyFields.enabled",
           "systemUpdate.policyFields.reprocess.enabled",
+          "systemUpdate.viewEntityQueriesPrivilege.batchSize",
+          "systemUpdate.viewEntityQueriesPrivilege.enabled",
+          "systemUpdate.viewEntityQueriesPrivilege.reprocess.enabled",
           "systemUpdate.processInstanceHasRunEvents.batchSize",
           "systemUpdate.processInstanceHasRunEvents.delayMs",
           "systemUpdate.processInstanceHasRunEvents.enabled",
@@ -1006,6 +1012,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.validation.urlValidation.enabled",
           "metadataChangeProposal.validation.urlValidation.extraDenyHosts",
           "metadataTests.enabled",
+          "mfe.loadTimeoutMs",
           "platformAnalytics.enabled",
           "platformAnalytics.usageExport.aspectTypes",
           "platformAnalytics.usageExport.enabled",

@@ -401,6 +401,7 @@ entityService:
     applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
     applyOnPolicyChange: ${ENTITY_SERVICE_RETENTION_APPLY_ON_POLICY_CHANGE:true}
     overwriteNonSystemPolicies: ${ENTITY_SERVICE_RETENTION_OVERWRITE_NON_SYSTEM_POLICIES:false}
+  syncIngestStamping: ${DATAHUB_HONOR_SYNC_INGEST_FLAG:false}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
@@ -1357,6 +1358,13 @@ bootstrap:
   servlets:
     waitTimeout: ${BOOTSTRAP_SERVLETS_WAITTIMEOUT:60} # Total waiting time in seconds for servlets to initialize
 
+# Micro Frontend (MFE) framework config. GMS never acts on these values itself -- it only relays
+# them to the frontend via the appConfig GraphQL query.
+mfe:
+  # How long (in milliseconds) the frontend waits for an MFE remote module to load before giving
+  # up and showing the "not available" error state.
+  loadTimeoutMs: ${MFE_LOAD_TIMEOUT_MS:5000}
+
 systemUpdate:
   initialBackOffMs: ${BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS:5000}
   maxBackOffs: ${BOOTSTRAP_SYSTEM_UPDATE_MAX_BACK_OFFS:50}
@@ -1431,6 +1439,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_POLICY_FIELDS:false}
+  viewEntityQueriesPrivilege:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ENTITY_QUERIES_PRIVILEGE_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ENTITY_QUERIES_PRIVILEGE_BATCH_SIZE:5000}
+    reprocess:
+      enabled: ${REPROCESS_VIEW_ENTITY_QUERIES_PRIVILEGE:false}
   ownershipTypes:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_BATCH_SIZE:1000}

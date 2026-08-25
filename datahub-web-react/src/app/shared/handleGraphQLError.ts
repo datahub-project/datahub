@@ -23,14 +23,24 @@ export default function handleGraphQLError({
     toast.destroy();
     const { graphQLErrors } = error;
     if (graphQLErrors && graphQLErrors.length) {
-        const { extensions } = graphQLErrors[0];
+        const { extensions, message: serverMessage } = graphQLErrors[0];
         const errorCode = extensions && (extensions.code as number);
+        const errorSource = extensions && (extensions.errorSource as string);
         if (errorCode === ErrorCodes.Forbidden) {
             toast.error(permissionMessage);
             return;
         }
-        if (errorCode === ErrorCodes.BadRequest && badRequestMessage) {
-            toast.error(badRequestMessage);
+        if (errorCode === ErrorCodes.BadRequest && errorSource === 'VALIDATION') {
+            // The server marked this BAD_REQUEST as validation-originated: its message is the
+            // specific validator text (rule names, offending values), strictly more useful than
+            // any generic override the caller passed — so the server message takes precedence.
+            toast.error(serverMessage?.trim() || badRequestMessage || defaultMessage);
+            return;
+        }
+        if (errorCode === ErrorCodes.BadRequest) {
+            // Prefer the caller's override, but fall back to the server's own message (e.g. a
+            // validator plugin's rejection reason) rather than the generic defaultMessage below.
+            toast.error(badRequestMessage || graphQLErrors[0].message || defaultMessage);
             return;
         }
         if (errorCode === ErrorCodes.ServerError && serverErrorMessage) {

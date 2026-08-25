@@ -79,6 +79,7 @@ export default function ViewDefinitionTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const logic = baseEntity?.dataset?.viewProperties?.logic || 'UNKNOWN';
     const formattedLogic = baseEntity?.dataset?.viewProperties?.formattedLogic;
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? true; // Default to true for backward compatibility
 
     const materialized = (baseEntity?.dataset?.viewProperties?.materialized && true) || false;
     const language = baseEntity?.dataset?.viewProperties?.language || 'UNKNOWN';
@@ -107,24 +108,31 @@ export default function ViewDefinitionTab() {
                     </InfoItem>
                 </InfoItemContainer>
             </InfoSection>
-            <InfoSection>
-                <Typography.Title level={5}>{t('viewDefinitionTab.logicHeading')}</Typography.Title>
-                <ViewHeader>
-                    {canShowFormatted && (
-                        <ViewTab
-                            formatOptions={formatOptions}
-                            setShowFormatted={setShowFormatted}
-                            showFormatted={showFormatted}
-                        />
-                    )}
-                    <CopyQuery query={showFormatted ? formattedLogic || '' : logic} showCopyText />
-                </ViewHeader>
-                <QueryText>
-                    <NestedSyntax language={language?.toLowerCase() ?? DEFAULT_SYNTAX_LANGUAGE}>
-                        {showFormatted ? formattedLogic : logic}
-                    </NestedSyntax>
-                </QueryText>
-            </InfoSection>
+            {canViewQueries ? (
+                <InfoSection>
+                    <Typography.Title level={5}>{t('viewDefinitionTab.logicHeading')}</Typography.Title>
+                    <ViewHeader>
+                        {canShowFormatted && (
+                            <ViewTab
+                                formatOptions={formatOptions}
+                                setShowFormatted={setShowFormatted}
+                                showFormatted={showFormatted}
+                            />
+                        )}
+                        <CopyQuery query={showFormatted ? formattedLogic || '' : logic} showCopyText />
+                    </ViewHeader>
+                    <QueryText>
+                        <NestedSyntax language={language?.toLowerCase() ?? DEFAULT_SYNTAX_LANGUAGE}>
+                            {showFormatted ? formattedLogic : logic}
+                        </NestedSyntax>
+                    </QueryText>
+                </InfoSection>
+            ) : (
+                <InfoSection>
+                    <Typography.Title level={5}>{t('viewDefinitionTab.logicHeading')}</Typography.Title>
+                    <Typography.Text type="secondary">{t('viewDefinitionTab.noViewPermission')}</Typography.Text>
+                </InfoSection>
+            )}
         </>
     );
 }
