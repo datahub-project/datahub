@@ -363,7 +363,6 @@ async def test_cancellation_terminates_the_subprocess(
     mock_process.terminate.assert_called_once()
 
 
-@pytest.mark.asyncio
 async def test_exec_out_dir_exists_when_the_subprocess_is_launched(
     executor_ctx: ExecutorContext,
     exec_ctx: ExecutionContext,
