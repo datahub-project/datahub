@@ -30,6 +30,7 @@ import glueLogo from '@images/gluelogo.png';
 import googleSheetsLogo from '@images/google-sheets-logo.png';
 import grafanaLogo from '@images/grafana.png';
 import hiveLogo from '@images/hivelogo.png';
+import informixLogo from '@images/informixlogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
@@ -114,6 +115,8 @@ const GRAFANA = 'grafana';
 const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
 const HIVE = 'hive';
 const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
+export const INFORMIX = 'informix';
+export const INFORMIX_URN = `urn:li:dataPlatform:${INFORMIX}`;
 const KAFKA = 'kafka';
 const KAFKA_URN = `urn:li:dataPlatform:${KAFKA}`;
 export const LOOKER = 'looker';
@@ -247,6 +250,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [GLUE_URN]: glueLogo,
     [GRAFANA_URN]: grafanaLogo,
     [HIVE_URN]: hiveLogo,
+    [INFORMIX_URN]: informixLogo,
     [KAFKA_URN]: kafkaLogo,
     [LOOKER_URN]: lookerLogo,
     [MARIA_DB_URN]: mariadbLogo,

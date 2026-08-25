@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.ermodelrelationship;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ER_MODEL_RELATIONSHIP_KEY_ASPECT_NAME;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -31,6 +32,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -100,12 +102,16 @@ public class ERModelRelationshipType
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_RESOLVE, ER_MODEL_RELATIONSHIP_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               ER_MODEL_RELATIONSHIP_ENTITY_NAME,
               new HashSet<>(ermodelrelationUrns),
-              ASPECTS_TO_RESOLVE);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : ermodelrelationUrns) {
