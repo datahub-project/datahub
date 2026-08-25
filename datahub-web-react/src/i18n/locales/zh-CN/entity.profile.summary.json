@@ -10,7 +10,7 @@
     "documentation.aboutTitle": "关于",
     "documentation.editTitle": "编辑描述",
     "documentation.editTooltip": "编辑描述",
-    "documentation.updateError": "更新描述失败：\\n {{error}}",
+    "documentation.updateError": "更新描述失败：\n {{error}}",
     "documentation.viewLess": "收起",
     "documentation.viewMore": "展开",
     "documentation.writePlaceholder": "为此 {{entityName}} 编写描述",

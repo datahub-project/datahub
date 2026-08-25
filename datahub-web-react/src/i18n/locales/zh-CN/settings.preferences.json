@@ -4,7 +4,7 @@
     "language.description": "选择您偏好的显示语言",
     "language.title": "用户界面语言",
     "noSettings": "未找到外观设置。",
-    "showApplications.description": "应用程序是组织数据的另一种方式，类似于业务域。默认隐藏。",
+    "showApplications.description": "应用程序是组织数据的另一种方式，类似于域。默认隐藏。",
     "showApplications.successMessage": "设置已更新！",
     "showApplications.title": "显示应用程序"
 }

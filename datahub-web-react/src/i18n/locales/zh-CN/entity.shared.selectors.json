@@ -1,6 +1,6 @@
 {
     "actorsSearch.placeholder": "搜索用户或组",
-    "domainSelector.label": "业务域",
+    "domainSelector.label": "域",
     "domainSelector.placeholder": "选择域",
     "domainSelector.searchPlaceholder": "搜索所有域...",
     "entitySearch.noEntitiesFound": "未找到实体",
