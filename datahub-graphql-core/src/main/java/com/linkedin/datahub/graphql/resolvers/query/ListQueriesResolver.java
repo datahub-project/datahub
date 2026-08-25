@@ -101,16 +101,19 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
                     .collect(Collectors.toList());
 
             List<Urn> authorizedQueryUrns = queryUrns;
-            // VIEW_ENTITY_QUERIES enforcement is intentionally NOT gated on the
-            // view-authorization flag: query statements are always privilege-protected for
-            // non-system actors.
-            if (!context.getOperationContext().isSystemAuth()) {
+            // Active when query-read authorization is enabled (dedicated flag or the legacy
+            // view-authorization switch); disabled means no subject lookups at all.
+            if (EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(
+                    context.getOperationContext())
+                && !context.getOperationContext().isSystemAuth()) {
               final Set<Urn> viewableQueryUrns =
                   EntityAspectAuthorizationUtils.filterViewableQueryEntities(
                       context.getOperationContext(),
                       context.getOperationContext(),
                       context.getOperationContext().getAspectRetriever(),
-                      queryUrns);
+                      queryUrns,
+                      EntityAspectAuthorizationUtils.requireAllQuerySubjects(
+                          context.getOperationContext()));
               authorizedQueryUrns =
                   queryUrns.stream()
                       .filter(viewableQueryUrns::contains)

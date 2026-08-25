@@ -224,6 +224,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.tokenService.signingAlgorithm",
           "authorization.defaultAuthorizer.enabled",
           "authorization.view.enabled",
+          "authorization.view.queryEntities.enabled",
+          "authorization.view.queryEntities.requireAllSubjects",
           "authorization.view.unrestrictedEntityTypes.value",
           "authorization.view.unrestrictedEntityTypes.add",
           "authorization.view.unrestrictedEntityTypes.remove",

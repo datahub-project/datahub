@@ -643,10 +643,9 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
-   * Documents currently-unenforced behavior: reading a query entity's queryProperties aspect (which
-   * contains the full SQL statement) must require the {@code VIEW_ENTITY_QUERIES} privilege on the
-   * query's subject dataset. The deny case is expected to fail (statement leaks with a 200) until
-   * enforcement is wired in.
+   * Reading a query entity's queryProperties aspect (which contains the full SQL statement)
+   * requires the {@code VIEW_ENTITY_QUERIES} privilege on the query's subject dataset (query-read
+   * authorization is enabled by default).
    */
   @Test(dataProvider = "queryViewEntityQueriesCases")
   public void testGetQueryPropertiesAspectRequiresViewEntityQueries(boolean hasPrivilege)
@@ -691,10 +690,9 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
-   * Documents currently-unenforced behavior: the query entity collection scroll must not return
-   * query entities whose subject datasets do not grant {@code VIEW_ENTITY_QUERIES} to the actor.
-   * The deny case is expected to fail (query entity leaks with a 200) until enforcement is wired
-   * in.
+   * The query entity collection scroll must not return query entities whose subject datasets do not
+   * grant {@code VIEW_ENTITY_QUERIES} to the actor (query-read authorization is enabled by
+   * default).
    */
   @Test(dataProvider = "queryViewEntityQueriesCases")
   public void testScrollQueryEntitiesRequiresViewEntityQueries(boolean hasPrivilege)

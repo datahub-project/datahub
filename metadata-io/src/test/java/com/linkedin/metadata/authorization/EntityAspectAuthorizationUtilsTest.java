@@ -13,6 +13,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -788,6 +789,147 @@ public class EntityAspectAuthorizationUtilsTest {
             OperationFingerprint.EMPTY, mockAuthSession, mockAspectRetriever, List.of(QUERY_URN));
 
     Assert.assertTrue(viewable.isEmpty());
+  }
+
+  @Test
+  public void testFilterViewableQueryEntities_anySubjectModeAllowsPartialGrant() {
+    stubTwoSubjectQuery();
+    stubSubjectGrant(SUBJECT_DATASET, true);
+    stubSubjectGrant(ASSET_URN, false);
+
+    Set<Urn> viewable =
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            OperationFingerprint.EMPTY,
+            mockAuthSession,
+            mockAspectRetriever,
+            List.of(QUERY_URN),
+            /* requireAllSubjects= */ false);
+
+    Assert.assertEquals(
+        viewable, Set.of(QUERY_URN), "any-subject mode: a grant on one subject dataset suffices");
+  }
+
+  @Test
+  public void testFilterViewableQueryEntities_strictModeDeniesPartialGrant() {
+    stubTwoSubjectQuery();
+    stubSubjectGrant(SUBJECT_DATASET, true);
+    stubSubjectGrant(ASSET_URN, false);
+
+    Set<Urn> viewable =
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            OperationFingerprint.EMPTY,
+            mockAuthSession,
+            mockAspectRetriever,
+            List.of(QUERY_URN),
+            /* requireAllSubjects= */ true);
+
+    Assert.assertTrue(
+        viewable.isEmpty(), "strict mode: every subject dataset must grant the privilege");
+  }
+
+  @Test
+  public void testFilterViewableQueryEntities_anySubjectModeStillDeniesQueryWithNoSubjects() {
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(Map.of(QUERY_URN, Map.of()));
+
+    Set<Urn> viewable =
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            OperationFingerprint.EMPTY,
+            mockAuthSession,
+            mockAspectRetriever,
+            List.of(QUERY_URN),
+            /* requireAllSubjects= */ false);
+
+    Assert.assertTrue(viewable.isEmpty(), "no subjects means nothing to grant against, any mode");
+  }
+
+  private void stubTwoSubjectQuery() {
+    QuerySubjects querySubjects = new QuerySubjects();
+    QuerySubject subjectA = new QuerySubject();
+    subjectA.setEntity(SUBJECT_DATASET);
+    QuerySubject subjectB = new QuerySubject();
+    subjectB.setEntity(ASSET_URN);
+    querySubjects.setSubjects(new QuerySubjectArray(subjectA, subjectB));
+    Aspect subjectsAspect = new Aspect(querySubjects.data());
+
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(Map.of(QUERY_URN, Map.of(QUERY_SUBJECTS_ASPECT_NAME, subjectsAspect)));
+  }
+
+  @Test
+  public void testQueryViewAuthorizationEnabled_configResolution() {
+    // Missing config block means the default: enabled, any-subject mode.
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(
+            queryAuthContext(null, false)));
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.requireAllQuerySubjects(queryAuthContext(null, false)));
+
+    // Explicitly disabled with legacy view-auth off: fully inactive (escape valve).
+    ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig disabled =
+        ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
+            .enabled(false)
+            .build();
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(
+            queryAuthContext(disabled, false)));
+
+    // Explicitly disabled but legacy view-auth on: active with the original strict semantics.
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(
+            queryAuthContext(disabled, true)));
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.requireAllQuerySubjects(queryAuthContext(disabled, true)));
+
+    // Enabled with operator-selected mode.
+    ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig strict =
+        ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
+            .enabled(true)
+            .requireAllSubjects(true)
+            .build();
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(
+            queryAuthContext(strict, false)));
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.requireAllQuerySubjects(queryAuthContext(strict, false)));
+
+    ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig anyMode =
+        ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
+            .enabled(true)
+            .requireAllSubjects(false)
+            .build();
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.requireAllQuerySubjects(queryAuthContext(anyMode, false)));
+  }
+
+  private io.datahubproject.metadata.context.OperationContext queryAuthContext(
+      ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig queryEntities,
+      boolean legacyViewAuthEnabled) {
+    io.datahubproject.metadata.context.OperationContext opContext =
+        mock(io.datahubproject.metadata.context.OperationContext.class);
+    io.datahubproject.metadata.context.OperationContextConfig config =
+        mock(io.datahubproject.metadata.context.OperationContextConfig.class);
+    when(opContext.getOperationContextConfig()).thenReturn(config);
+    when(config.getViewAuthorizationConfiguration())
+        .thenReturn(
+            ViewAuthorizationConfiguration.builder()
+                .enabled(legacyViewAuthEnabled)
+                .queryEntities(queryEntities)
+                .build());
+    return opContext;
+  }
+
+  private void stubSubjectGrant(Urn datasetUrn, boolean granted) {
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession),
+                    any(DisjunctivePrivilegeGroup.class),
+                    eq(new EntitySpec(datasetUrn.getEntityType(), datasetUrn.toString()))))
+        .thenReturn(granted);
   }
 
   @Test

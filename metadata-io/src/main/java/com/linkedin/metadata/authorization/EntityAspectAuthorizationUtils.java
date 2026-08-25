@@ -398,16 +398,65 @@ public final class EntityAspectAuthorizationUtils {
   }
 
   /**
-   * Returns Query entity URNs viewable by the actor: every subject dataset must grant {@code
-   * VIEW_ENTITY_QUERIES} (or {@code EDIT_QUERIES} / all privileges, which imply it). Query entities
-   * with no subjects are denied (fail-closed).
+   * Activation gate for query-read authorization: on by default via {@code
+   * authorization.view.queryEntities.enabled} (a missing config block means the default, enabled),
+   * and also active under the legacy view-authorization master switch (which carried the original,
+   * always-strict query filtering). Disabling the flag is the performance escape valve: query reads
+   * then perform no subject lookups at all.
    */
+  public static boolean isQueryViewAuthorizationEnabled(
+      @Nonnull io.datahubproject.metadata.context.OperationContext opContext) {
+    com.datahub.authorization.config.ViewAuthorizationConfiguration view =
+        opContext.getOperationContextConfig().getViewAuthorizationConfiguration();
+    return view.getQueryEntities() == null
+        || view.getQueryEntities().isEnabled()
+        || view.isEnabled();
+  }
+
+  /**
+   * Subject-match mode for query-read authorization. With the dedicated flag enabled (the default),
+   * the operator-configured {@code requireAllSubjects} applies — default false: any single subject
+   * dataset suffices. When active only via the legacy view-authorization switch (dedicated flag
+   * explicitly disabled), the original all-subjects behavior is preserved.
+   */
+  public static boolean requireAllQuerySubjects(
+      @Nonnull io.datahubproject.metadata.context.OperationContext opContext) {
+    com.datahub.authorization.config.ViewAuthorizationConfiguration view =
+        opContext.getOperationContextConfig().getViewAuthorizationConfiguration();
+    if (view.getQueryEntities() == null) {
+      return false;
+    }
+    if (view.getQueryEntities().isEnabled()) {
+      return view.getQueryEntities().isRequireAllSubjects();
+    }
+    return true;
+  }
+
+  /** Strict-mode overload: every subject dataset must grant the privilege. */
   @Nonnull
   public static Set<Urn> filterViewableQueryEntities(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull AuthorizationSession session,
       @Nonnull AspectRetriever aspectRetriever,
       @Nonnull Collection<Urn> queryEntityUrns) {
+    return filterViewableQueryEntities(
+        operationContext, session, aspectRetriever, queryEntityUrns, true);
+  }
+
+  /**
+   * Returns Query entity URNs viewable by the actor. In strict mode ({@code requireAllSubjects}),
+   * every subject dataset must grant {@code VIEW_ENTITY_QUERIES} (or {@code EDIT_QUERIES} / all
+   * privileges, which imply it); otherwise a grant on any single subject dataset suffices. Query
+   * entities with no subjects are denied in both modes (fail-closed): the privilege attaches to
+   * datasets, so a query with no subjects has nothing to grant against.
+   */
+  @Nonnull
+  public static Set<Urn> filterViewableQueryEntities(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AuthorizationSession session,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Collection<Urn> queryEntityUrns,
+      boolean requireAllSubjects) {
     if (queryEntityUrns.isEmpty()) {
       return Set.of();
     }
@@ -440,20 +489,34 @@ public final class EntityAspectAuthorizationUtils {
       if (subjects.isEmpty()) {
         continue;
       }
-      if (readableSubjects.containsAll(subjects)) {
+      boolean viewable =
+          requireAllSubjects
+              ? readableSubjects.containsAll(subjects)
+              : subjects.stream().anyMatch(readableSubjects::contains);
+      if (viewable) {
         viewableQueries.add(queryUrn);
       }
     }
     return viewableQueries;
   }
 
+  /** Strict-mode overload: every subject dataset must grant the privilege. */
   public static boolean canViewQueryEntity(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull AuthorizationSession session,
       @Nonnull AspectRetriever aspectRetriever,
       @Nonnull Urn queryEntityUrn) {
+    return canViewQueryEntity(operationContext, session, aspectRetriever, queryEntityUrn, true);
+  }
+
+  public static boolean canViewQueryEntity(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AuthorizationSession session,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Urn queryEntityUrn,
+      boolean requireAllSubjects) {
     return filterViewableQueryEntities(
-            operationContext, session, aspectRetriever, List.of(queryEntityUrn))
+            operationContext, session, aspectRetriever, List.of(queryEntityUrn), requireAllSubjects)
         .contains(queryEntityUrn);
   }
 
