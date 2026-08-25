@@ -101,12 +101,10 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
                     .collect(Collectors.toList());
 
             List<Urn> authorizedQueryUrns = queryUrns;
-            if (context
-                    .getOperationContext()
-                    .getOperationContextConfig()
-                    .getViewAuthorizationConfiguration()
-                    .isEnabled()
-                && !context.getOperationContext().isSystemAuth()) {
+            // VIEW_ENTITY_QUERIES enforcement is intentionally NOT gated on the
+            // view-authorization flag: query statements are always privilege-protected for
+            // non-system actors.
+            if (!context.getOperationContext().isSystemAuth()) {
               final Set<Urn> viewableQueryUrns =
                   EntityAspectAuthorizationUtils.filterViewableQueryEntities(
                       context.getOperationContext(),
@@ -122,7 +120,10 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
             final ListQueriesResult result = new ListQueriesResult();
             result.setStart(gmsResult.getFrom());
             result.setCount(authorizedQueryUrns.size());
-            result.setTotal(gmsResult.getNumEntities());
+            // Subtract entities redacted from this page so the reported total does not
+            // advertise queries the actor is not authorized to view.
+            result.setTotal(
+                gmsResult.getNumEntities() - (queryUrns.size() - authorizedQueryUrns.size()));
             result.setQueries(mapUnresolvedQueries(authorizedQueryUrns));
             return result;
           } catch (Exception e) {
