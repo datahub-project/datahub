@@ -99,11 +99,20 @@ framework_common = {
     # Snappy-compatible codec for pgQueue payload decompression (Java Snappy); not Kafka-specific.
     "cramjam>=2.8.0,<3.0.0",
     # The ingestion executor bootstraps per-source venvs by shelling out to
-    # `python -m pip download` (see acryl.executor). uv-created venvs omit pip
+    # `python -m pip download` (see datahub.executor). uv-created venvs omit pip
     # by default, so pip must be present in the base environment. This was
     # previously pulled in transitively via the classification extra; declare it
     # explicitly here. No upper bound: pip is a system tool.
     "pip",
+    # Logging backend used by the ingestion executor's subprocess runner
+    # (datahub.executor.execution.runner). Adds no runtime deps on Linux/macOS -
+    # colorama and win32-setctime are win32-only.
+    "loguru>=0.5.0,<1.0.0",
+    # Structured concurrency primitives (task groups, cancel scopes, byte/text
+    # streams) used to supervise ingestion subprocesses in
+    # datahub.executor.execution.runner. Previously only available transitively
+    # via httpx/openai/starlette; declare it explicitly.
+    "anyio>=3.0.0,<5.0.0",
 }
 
 rest_common = {
@@ -688,6 +697,9 @@ plugins: Dict[str, Set[str]] = {
         # (blocks billion-laughs / external-entity attacks).
         "defusedxml>=0.7.1,<0.8.0",
     },
+    # sqlglot_lib: view lineage reuses datahub.sql_parsing (sqlglot), which is not
+    # in the base install; JPype1/jdk4py bridge to the JDBC driver (no SQLAlchemy).
+    "informix": sqlglot_lib | {"JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common
@@ -768,6 +780,14 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowplow": snowplow,
+    # Floor at 0.235.2: first release pinning sqlglot~=30.8.0. Cap at <0.237 after
+    # vetting 0.236. Excluded from the pyproject/uv lock and from the "all" extra
+    # because DataHub pins sqlglot[c]==30.12.0 and no released sqlmesh accepts that
+    # yet — install with ``pip install 'acryl-datahub[sqlmesh]'`` (setuptools path)
+    # in a dedicated environment. Re-vet and restore to the lock when sqlmesh bumps.
+    "sqlmesh": {"sqlmesh>=0.235.2,<0.237", *cachetools_lib}
+    | aws_common
+    | {"GitPython>2,<4.0.0"},
     "sqlalchemy": sql_common,
     "sql-queries": usage_common
     | sqlglot_lib
@@ -866,6 +886,9 @@ all_exclude_plugins: Set[str] = {
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
+    # SQLMesh pins sqlglot~=30.8.0; DataHub pins sqlglot[c]==30.12.0. Until
+    # sqlmesh widens its pin, keep it out of "all" so lock resolution succeeds.
+    "sqlmesh",
     # Debug recording is an optional debugging tool.
     "debug-recording",
 }
@@ -1170,6 +1193,7 @@ entry_points = {
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
         "sap-datasphere = datahub.ingestion.source.sap_datasphere.source:SapDatasphereSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
+        "sqlmesh = datahub.ingestion.source.sqlmesh.sqlmesh_source:SqlmeshSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
@@ -1190,6 +1214,7 @@ entry_points = {
         "powerbi-report-server = datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "informatica = datahub.ingestion.source.informatica.source:InformaticaSource",
+        "informix = datahub.ingestion.source.informix.source:InformixSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         # This is only here for backward compatibility. Use the `hive-metastore` source instead.

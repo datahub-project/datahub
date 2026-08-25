@@ -1,0 +1,10 @@
+{
+    "appearance.subTitle": "外観の設定を管理します。",
+    "appearance.title": "外観",
+    "language.description": "使用する表示言語を選択してください",
+    "language.title": "ユーザーインターフェースの言語",
+    "noSettings": "外観の設定が見つかりません。",
+    "showApplications.description": "アプリケーションは、Domain と同様にデータを整理するための別の方法です。デフォルトでは表示されません。",
+    "showApplications.successMessage": "設定を更新しました!",
+    "showApplications.title": "アプリケーションを表示"
+}

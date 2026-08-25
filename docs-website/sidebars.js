@@ -23,11 +23,6 @@ module.exports = {
           id: "docs/quickstart",
         },
         {
-          type: "doc",
-          label: "Use Docs with AI",
-          id: "docs/use-docs-with-ai",
-        },
-        {
           type: "link",
           label: "Demo",
           href: "https://demo.datahub.com/",
@@ -687,6 +682,11 @@ module.exports = {
         },
       ],
     },
+    {
+      type: "doc",
+      label: "Use Docs with AI Tools",
+      id: "docs/use-docs-with-ai",
+    },
     // DataHub Cloud.
     {
       type: "html",
@@ -1282,6 +1282,12 @@ module.exports = {
         { type: "doc", id: "docs/cli-commands/graphql", label: "graphql" },
         { type: "doc", id: "docs/cli-commands/dataset", label: "dataset" },
         { type: "doc", id: "docs/cli-commands/datapack", label: "datapack" },
+        {
+          type: "doc",
+          id: "docs/cli-commands/evals",
+          label: "evals",
+          className: "saasOnly",
+        },
         { type: "doc", id: "docs/datahub_lite", label: "lite" },
       ],
     },

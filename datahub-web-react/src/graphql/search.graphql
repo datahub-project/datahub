@@ -56,7 +56,8 @@ fragment searchResultCardFields on Entity {
                 }
             }
         }
-        siblingsSearch(input: { query: "*", count: 1 }) @skip(if: $skipSiblingsSearch) {
+        siblingsSearch(input: { query: "*", count: 1, searchFlags: { skipHighlighting: true, skipAggregates: true } })
+            @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
