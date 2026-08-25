@@ -1,0 +1,11 @@
+{
+    "boundary.onPremActionMessage": "ブラウザに表示されたエラーメッセージをDataHub管理者に報告してください",
+    "bulkEditUnauthorized": "一括編集の選択に、更新権限のないエンティティが含まれていました。実行中の一括編集は保存されません。",
+    "fallback.defaultMessage": "この予期しないエラーについてチームに通知され、解決に向けて対応しています。",
+    "fallback.subtitle": "予定通りに進みませんでした。",
+    "fallback.title": "おっと！",
+    "section.description": "予期しないエラーが発生しました。しばらくしてから再度お試しいただくか、管理者にお問い合わせください",
+    "section.needSupport": "<bold>サポートが必要ですか？</bold>以下のリソースをご確認ください:",
+    "section.title": "問題が発生しました。",
+    "unauthorized": "権限がありません。DataHub管理者にお問い合わせください。"
+}
