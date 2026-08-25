@@ -23,9 +23,9 @@ By integrating your external roles into DataHub, teams can reduce access request
 
 ## Configuration
 
-### Self-hosted DataHub
+### DataHub Core
 
-For self-hosted DataHub deployments, the Access Management feature is _disabled_ by default. To enable it,
+For DataHub Core deployments, the Access Management feature is _disabled_ by default. To enable it,
 simply set the `SHOW_ACCESS_MANAGEMENT` environment variable for the `datahub-gms` service container
 to `true`. For example in your `docker/datahub-gms/docker.env`, you'd configure:
 
