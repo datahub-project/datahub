@@ -13,7 +13,7 @@ from datahub.ingestion.source.informix.constants import (
     SQL_TABLES,
     SQL_VIEW_DEF,
 )
-from datahub.ingestion.source.informix.models import InformixTable
+from datahub.ingestion.source.informix.models import ExtendedType, InformixTable
 
 _PASSWORD = "sup3rs3cr3t"
 
@@ -86,11 +86,35 @@ def test_get_columns_marks_primary_keys():
     client = _client_with_rows(
         {
             SQL_PK: [["id"]],
-            SQL_COLUMNS: [["id", 258, 4, 1], ["email", 13, 100, 2]],
+            SQL_COLUMNS: [
+                ["id", 258, 4, 1, None, None, None],
+                ["email", 13, 100, 2, None, None, None],
+            ],
         }
     )
     columns = client.get_columns(_table())
     assert [(c.name, c.is_pk) for c in columns] == [("id", True), ("email", False)]
+
+
+def test_get_columns_carries_extended_type_columns():
+    # extended_id = 0 yields SQL NULLs from the outer join; an extended type
+    # yields its sysxtdtypes name and mode, plus the source type's name when the
+    # column is a DISTINCT declared over another extended type.
+    client = _client_with_rows(
+        {
+            SQL_COLUMNS: [
+                ["plain", 258, 4, 1, None, None, None],
+                ["flag", 41, 1, 2, "  boolean  ", "B", None],
+                ["published", 18473, 1, 3, "flag_type", "D", "  boolean  "],
+            ],
+        }
+    )
+    columns = client.get_columns(_table())
+    assert [c.extended for c in columns] == [
+        None,
+        ExtendedType(name="boolean", mode="B", source_name=None),
+        ExtendedType(name="flag_type", mode="D", source_name="boolean"),
+    ]
 
 
 def test_get_foreign_keys_pairs_single_column_key():
