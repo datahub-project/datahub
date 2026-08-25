@@ -50,6 +50,10 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.source_report.ingestion_stage import (
+    LINEAGE_EXTRACTION,
+    QUERIES_EXTRACTION,
+)
 from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
     AutoIncrementalLineageProcessor,
 )
@@ -240,7 +244,7 @@ class SqlQueriesSource(Source):
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
         logger.info(f"Parsing queries from {os.path.basename(self.config.query_file)}")
 
-        with self.report.new_stage("Parsing and processing queries"):
+        with self.report.new_stage(QUERIES_EXTRACTION):
             for entry in self._parse_query_file():
                 try:
                     self._add_query_to_aggregator(entry)
@@ -258,20 +262,17 @@ class SqlQueriesSource(Source):
 
         self._report_run_health()
 
-        with self.report.new_stage("Generating metadata work units"):
+        with self.report.new_stage(LINEAGE_EXTRACTION):
             logger.info("Generating workunits from SQL parsing aggregator")
             yield from auto_workunit(self.aggregator.gen_metadata())
 
     def _report_run_health(self) -> None:
-        """Decide whether this run produced anything worth emitting.
+        """Report a failure when the run produced nothing usable.
 
-        Returns False only when nothing succeeded at all. Emitting after a
-        wholesale failure is destructive rather than merely useless: with
-        incremental_lineage off (the default) an upstreamLineage aspect is
-        UPSERT-ed, so partial output replaces complete lineage already in
-        DataHub. Partial-failure grading is deliberately left to the report —
-        the aggregator already publishes num_observed_queries_failed and a
-        sample of the failing queries.
+        Without this a run where every entry or every query failed completes
+        green with an empty report, indistinguishable from a healthy run with
+        nothing to do. Reporting is all this does — the pipeline turns a
+        reported failure into a non-zero exit.
         """
         if self.report.num_entries_processed == 0:
             if self.report.num_entries_failed > 0:
@@ -281,14 +282,13 @@ class SqlQueriesSource(Source):
                     "check the file format (expected newline-delimited JSON)",
                     context=f"{self.report.num_entries_failed} entries failed",
                 )
-                return False
-
-            self.report.warning(
-                title="Empty input",
-                message="No query entries found in input file",
-                context=self.config.query_file,
-            )
-            return True
+            else:
+                self.report.warning(
+                    title="Empty input",
+                    message="No query entries found in input file",
+                    context=self.config.query_file,
+                )
+            return
 
         if self.report.num_queries_processed == 0:
             self.report.failure(
@@ -297,9 +297,6 @@ class SqlQueriesSource(Source):
                 "likely a systemic issue (auth, connectivity, config)",
                 context=f"{self.report.num_queries_aggregator_failures} failures",
             )
-            return False
-
-        return True
 
     def _parse_s3_query_file(
         self, aws_config: AwsConnectionConfig

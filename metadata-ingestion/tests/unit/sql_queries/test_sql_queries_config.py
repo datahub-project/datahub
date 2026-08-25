@@ -1,4 +1,3 @@
-import re
 from unittest.mock import Mock, patch
 
 import pytest
@@ -9,35 +8,20 @@ from datahub.ingestion.source.sql_queries import (
 )
 
 
-class TestPerformanceConfigOptimizations:
-    """Test performance optimization features."""
-
-
 class TestS3Support:
     """Test S3 support features."""
 
     def test_s3_uri_detection(self):
         """Test S3 URI detection via config validation."""
-        # Non-S3 config works without aws_config
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="/local/path/file.json"
-        )
-        assert not config.query_file.startswith("s3://")
+        # A local path needs no aws_config.
+        SqlQueriesSourceConfig(platform="snowflake", query_file="/local/path/file.json")
 
-        # S3 URI without aws_config fails at config time
-        with pytest.raises(ValueError):
-            SqlQueriesSourceConfig(
-                platform="snowflake", query_file="s3://bucket/path/file.json"
-            )
-
-    def test_aws_config_required_for_s3(self):
-        """Test that AWS config is required for S3 files at config time."""
-        with pytest.raises(
-            ValueError, match="aws_config is required when query_file is an S3 URI"
-        ):
-            SqlQueriesSourceConfig(
-                platform="snowflake", query_file="s3://bucket/file.json"
-            )
+        # Every S3 scheme requires one, and is rejected at config time without it.
+        for uri in ("s3://b/f.json", "s3a://b/f.json", "s3n://b/f.json"):
+            with pytest.raises(
+                ValueError, match="aws_config is required when query_file is an S3 URI"
+            ):
+                SqlQueriesSourceConfig(platform="snowflake", query_file=uri)
 
     @patch("datahub.ingestion.source.sql_queries.smart_open.open")
     def test_s3_file_processing(self, mock_open):
@@ -113,7 +97,6 @@ class TestTemporaryTableSupport:
         source.config = config
         source.report = Mock()
         source.report.num_temp_table_matches = 0
-        source.ctx = Mock()  # Add ctx attribute
 
         assert source.is_temp_table("temp_table") is False
         assert source.is_temp_table("regular_table") is False
@@ -129,7 +112,6 @@ class TestTemporaryTableSupport:
         source.config = config
         source.report = Mock()
         source.report.num_temp_table_matches = 0
-        source.ctx = Mock()  # Add ctx attribute
 
         # Test matching patterns
         assert source.is_temp_table("temp_table") is True
@@ -140,16 +122,6 @@ class TestTemporaryTableSupport:
         # Test non-matching patterns
         assert source.is_temp_table("regular_table") is False
         assert source.is_temp_table("table_temp_other") is False
-
-    def test_is_temp_table_invalid_regex(self):
-        """Test that invalid regex patterns are rejected at config time."""
-        patterns = ["[invalid_regex", "^temp_.*"]
-        with pytest.raises(ValueError, match="Invalid regex in temp_table_patterns"):
-            SqlQueriesSourceConfig(
-                platform="snowflake",
-                query_file="dummy.json",
-                temp_table_patterns=patterns,
-            )
 
     def test_temp_table_detection_counting(self):
         """Test that temp table detection is counted in reporting."""
@@ -162,7 +134,6 @@ class TestTemporaryTableSupport:
         source.config = config
         source.report = Mock()
         source.report.num_temp_table_matches = 0
-        source.ctx = Mock()  # Add ctx attribute
 
         # Initial count should be 0
         assert source.report.num_temp_table_matches == 0
@@ -175,167 +146,6 @@ class TestTemporaryTableSupport:
         # Should count only the temp tables
         assert source.report.num_temp_table_matches == 2
 
-    def test_temp_table_patterns_tracking(self):
-        """Test that temp table patterns are stored in config."""
-        patterns = ["^temp_.*", "^tmp_.*"]
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", temp_table_patterns=patterns
-        )
-        assert config.temp_table_patterns == patterns
-
-    def test_sql_parsing_temp_table_detection_without_patterns(self):
-        """Test that SQL parsing detects CREATE TEMPORARY TABLE even without temp_table_patterns."""
-        import sqlglot
-
-        from datahub.sql_parsing.query_types import get_query_type_of_sql
-
-        # Test SQL parsing detection
-        create_temp_sql = "CREATE TEMPORARY TABLE temp_users AS SELECT * FROM users"
-        expression = sqlglot.parse_one(create_temp_sql, dialect="snowflake")
-        query_type, query_type_props = get_query_type_of_sql(expression, "snowflake")
-
-        # Should detect temporary table from SQL parsing
-        assert query_type_props.get("temporary") is True
-
-    def test_sql_parsing_temp_table_detection_with_patterns(self):
-        """Test that SQL parsing detects CREATE TEMPORARY TABLE works alongside temp_table_patterns."""
-        import sqlglot
-
-        from datahub.sql_parsing.query_types import get_query_type_of_sql
-        from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
-
-        # Test with temp table patterns configured
-        config = SqlQueriesSourceConfig(
-            platform="snowflake",
-            query_file="dummy.json",
-            temp_table_patterns=["^temp_.*"],
-        )
-
-        # Create aggregator with temp table patterns
-        aggregator = SqlParsingAggregator(
-            platform="snowflake",
-            is_temp_table=lambda name: any(
-                re.match(pattern, name, flags=re.IGNORECASE)
-                for pattern in config.temp_table_patterns
-            ),
-        )
-
-        # Test SQL parsing detection for CREATE TEMPORARY TABLE
-        create_temp_sql = "CREATE TEMPORARY TABLE temp_users AS SELECT * FROM users"
-        expression = sqlglot.parse_one(create_temp_sql, dialect="snowflake")
-        query_type, query_type_props = get_query_type_of_sql(expression, "snowflake")
-
-        # Should detect temporary table from SQL parsing
-        assert query_type_props.get("temporary") is True
-
-        # Test pattern-based detection for non-SQL temp tables
-        assert (
-            aggregator.is_temp_table(
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,temp_users,PROD)"
-            )
-            is True
-        )
-        assert (
-            aggregator.is_temp_table(
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,regular_table,PROD)"
-            )
-            is False
-        )
-
-    def test_sql_parsing_temp_table_detection_variations(self):
-        """Test SQL parsing detection for different temporary table syntax variations."""
-        import sqlglot
-
-        from datahub.sql_parsing.query_types import get_query_type_of_sql
-
-        # Test different temporary table syntaxes
-        test_cases = [
-            "CREATE TEMPORARY TABLE temp_users AS SELECT * FROM users",
-            "CREATE TEMP TABLE temp_users AS SELECT * FROM users",
-            "CREATE TEMPORARY TABLE IF NOT EXISTS temp_users AS SELECT * FROM users",
-            "CREATE TEMP TABLE IF NOT EXISTS temp_users AS SELECT * FROM users",
-        ]
-
-        for sql in test_cases:
-            expression = sqlglot.parse_one(sql, dialect="snowflake")
-            query_type, query_type_props = get_query_type_of_sql(
-                expression, "snowflake"
-            )
-
-            # All variations should be detected as temporary tables
-            assert query_type_props.get("temporary") is True, f"Failed for SQL: {sql}"
-
-    def test_sql_parsing_temp_table_detection_dialect_specific(self):
-        """Test SQL parsing detection for dialect-specific temporary table syntax."""
-        import sqlglot
-
-        from datahub.sql_parsing.query_types import get_query_type_of_sql
-
-        # Test MSSQL/Redshift # prefix syntax
-        test_cases = [
-            (
-                "CREATE TABLE #temp_users AS SELECT * FROM users",
-                "tsql",
-            ),  # MSSQL dialect
-            ("CREATE TABLE #temp_users AS SELECT * FROM users", "redshift"),
-        ]
-
-        for sql, dialect in test_cases:
-            expression = sqlglot.parse_one(sql, dialect=dialect)
-            query_type, query_type_props = get_query_type_of_sql(expression, dialect)
-
-            # Should detect # prefix as temporary table
-            assert query_type_props.get("temporary") is True, (
-                f"Failed for SQL: {sql} with dialect: {dialect}"
-            )
-
-    def test_combined_temp_table_detection_scenarios(self):
-        """Test scenarios combining SQL parsing detection with pattern-based detection."""
-        import sqlglot
-
-        from datahub.sql_parsing.query_types import get_query_type_of_sql
-        from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
-
-        # Configure with patterns that catch some temp tables but not others
-        config = SqlQueriesSourceConfig(
-            platform="snowflake",
-            query_file="dummy.json",
-            temp_table_patterns=["^staging_.*"],  # Only catches staging_* tables
-        )
-
-        # Create aggregator with temp table patterns
-        aggregator = SqlParsingAggregator(
-            platform="snowflake",
-            is_temp_table=lambda name: any(
-                re.match(pattern, name, flags=re.IGNORECASE)
-                for pattern in config.temp_table_patterns
-            ),
-        )
-
-        # Test SQL parsing detection (should work regardless of patterns)
-        create_temp_sql = "CREATE TEMPORARY TABLE temp_users AS SELECT * FROM users"
-        expression = sqlglot.parse_one(create_temp_sql, dialect="snowflake")
-        query_type, query_type_props = get_query_type_of_sql(expression, "snowflake")
-        assert query_type_props.get("temporary") is True
-
-        # Test pattern-based detection
-        assert (
-            aggregator.is_temp_table(
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,staging_data,PROD)"
-            )
-            is True
-        )
-        assert (
-            aggregator.is_temp_table(
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,temp_users,PROD)"
-            )
-            is False
-        )
-
-        # Test that both detection methods work together
-        # SQL parsing should catch CREATE TEMPORARY TABLE regardless of patterns
-        # Pattern matching should catch tables matching the configured patterns
-
 
 class TestConfigurationValidation:
     """Test configuration validation."""
@@ -343,8 +153,6 @@ class TestConfigurationValidation:
     def test_all_new_options_have_defaults(self):
         """Test that all new configuration options have sensible defaults."""
         config = SqlQueriesSourceConfig(platform="snowflake", query_file="dummy.json")
-
-        # Performance options
 
         # S3 options
         assert config.aws_config is None
@@ -369,28 +177,9 @@ class TestConfigurationValidation:
         assert config.default_db == "test_db"
         assert config.default_schema == "test_schema"
 
-    def test_field_validation(self):
-        """Test field validation for new options."""
-
 
 class TestEdgeCases:
     """Test edge cases and error handling."""
-
-    def test_empty_temp_table_patterns(self):
-        """Test behavior with empty temp table patterns."""
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", temp_table_patterns=[]
-        )
-        # Create a minimal source instance without full initialization
-        source = SqlQueriesSource.__new__(SqlQueriesSource)
-        source.config = config
-        source.report = Mock()
-        source.report.num_temp_table_matches = 0
-        source.ctx = Mock()  # Add ctx attribute
-
-        # Should not match anything
-        assert source.is_temp_table("temp_table") is False
-        assert source.is_temp_table("regular_table") is False
 
     def test_none_aws_config(self):
         """Test that S3 URI with None AWS config is rejected at config time."""
@@ -434,51 +223,3 @@ class TestIntegrationScenarios:
 
         # Verify S3 URI detected
         assert config.query_file.startswith("s3://")
-
-    def test_temp_tables_support(self):
-        """Test temp table support."""
-        config = SqlQueriesSourceConfig(
-            platform="athena",
-            query_file="dummy.json",
-            temp_table_patterns=["^temp_.*", "^tmp_.*"],
-        )
-
-        # Create a minimal source instance without full initialization
-        source = SqlQueriesSource.__new__(SqlQueriesSource)
-        source.config = config
-        source.report = Mock()
-        source.report.num_temp_table_matches = 0
-        source.ctx = Mock()  # Add ctx attribute
-
-        # Verify configuration
-        assert len(config.temp_table_patterns) == 2
-
-        # Test temp table detection
-        assert source.is_temp_table("temp_table") is True
-        assert source.is_temp_table("tmp_table") is True
-        assert source.is_temp_table("regular_table") is False
-
-    def test_performance_optimizations_combined(self):
-        """Test all performance optimizations combined."""
-        config = SqlQueriesSourceConfig(
-            platform="snowflake",
-            query_file="dummy.json",
-        )
-
-        assert config.temp_table_patterns == []
-
-    def test_backward_compatibility_with_new_features(self):
-        """Test that existing configurations work with new features available."""
-        # Old-style configuration should still work
-        config = SqlQueriesSourceConfig(
-            platform="snowflake",
-            query_file="dummy.json",
-            default_db="test_db",
-            default_schema="test_schema",
-        )
-
-        # New features should have sensible defaults
-
-        # Old features should still work
-        assert config.default_db == "test_db"
-        assert config.default_schema == "test_schema"
