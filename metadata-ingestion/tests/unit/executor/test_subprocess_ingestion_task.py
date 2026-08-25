@@ -1107,6 +1107,64 @@ class TestSubProcessIngestionTaskProgressReporting:
                 timeout=5.0,
             )
 
+    async def test_progress_reports_are_masked_when_secrets_are_registered(
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        mock_execution_context: Mock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Progress reports are published while the run is still in flight, so they
+        need the same masking as the report published at the end.
+        """
+        secret_value = "s3cr3t-p4ssw0rd"
+        SecretRegistry.get_instance().register_secret("DB_PASSWORD", secret_value)
+
+        mock_process = AsyncMock()
+        mock_process.returncode = None
+        mock_process.stdout = AsyncMock()
+
+        progress_callback = Mock()
+        mock_execution_context.request.progress_callback = progress_callback
+
+        line_emitted = False
+
+        async def mock_readuntil(delimiter: bytes) -> bytes:
+            nonlocal line_emitted
+            if not line_emitted:
+                line_emitted = True
+                return f"connecting with {secret_value}\n".encode()
+            return b""
+
+        async def mock_wait() -> None:
+            await asyncio.sleep(0.05)
+            mock_process.returncode = 0
+
+        mock_process.stdout.readuntil = mock_readuntil
+        mock_process.wait = mock_wait
+
+        stdout_lines = LogHolder()
+        mock_log_file = Mock()
+
+        monkeypatch.setattr(ingestion_task.config, "heartbeat_time_seconds", 0.02)
+
+        with patch("sys.stdout"):
+            await asyncio.wait_for(
+                ingestion_task._monitor_subprocess(
+                    mock_process,
+                    "test-exec-id",
+                    mock_execution_context,
+                    stdout_lines,
+                    mock_log_file,
+                ),
+                timeout=5.0,
+            )
+
+        reported = " ".join(call[0][0] for call in progress_callback.call_args_list)
+        assert secret_value not in reported
+        # The log line has to have reached the report for the absence above to mean
+        # anything -- an empty report would pass it too.
+        assert "***REDACTED:DB_PASSWORD***" in reported
+
 
 class TestSubProcessIngestionTaskClose:
     def test_close_method(self, ingestion_task: SubProcessIngestionTask) -> None:

@@ -54,6 +54,25 @@ from datahub.masking.secret_registry import SecretRegistry
 
 logger = logging.getLogger(__name__)
 
+
+def _mask_secrets(text: str, context: str) -> str:
+    """Redact registered secrets from text bound for the execution report.
+
+    LogHolder is filled by direct appends, so it never passes through the
+    stdout/logging filters that mask the subprocess's own output. Both the
+    progress reports and the final report publish that text, so both need this.
+    """
+    try:
+        registry = SecretRegistry.get_instance()
+        if registry and registry.get_count() > 0:
+            return SecretMaskingFilter(registry).mask_text(text)
+    except Exception:
+        logger.warning(
+            "Failed to mask secrets in %s; publishing text unmasked", context
+        )
+    return text
+
+
 ARTIFACTS_DIR_NAME = "artifacts"
 
 
@@ -509,8 +528,11 @@ class SubProcessIngestionTask(Task):
                     if most_recent_log_ts is None:
                         report = "No logs yet"
                     else:
-                        report = SubProcessTaskUtil._format_log_lines(
-                            shared_logs.get_lines()
+                        report = _mask_secrets(
+                            SubProcessTaskUtil._format_log_lines(
+                                shared_logs.get_lines()
+                            ),
+                            "progress report",
                         )
                         current_time = datetime.now(tz=timezone.utc)
                         if most_recent_log_ts < current_time - timedelta(minutes=2):
@@ -599,33 +621,21 @@ class SubProcessIngestionTask(Task):
             try:
                 with open(report_out_file) as structured_report_fp:
                     report_content = structured_report_fp.read()
-                try:
-                    registry = SecretRegistry.get_instance()
-                    if registry and registry.get_count() > 0:
-                        report_content = SecretMaskingFilter(registry).mask_text(
-                            report_content
-                        )
-                except Exception:
-                    # Better to have the report than to fail completely.
-                    logger.warning("Failed to mask structured report, using original")
-                ctx.get_report().set_structured_report(report_content)
+                ctx.get_report().set_structured_report(
+                    _mask_secrets(report_content, "structured report")
+                )
             except Exception:
                 logger.exception(
                     "Failed to process structured report from %s", report_out_file
                 )
 
         try:
-            log_content = SubProcessTaskUtil._format_log_lines(shared_logs.get_lines())
-            try:
-                # Masked. LogHolder is populated by
-                # direct appends, so it bypasses the stdout/logging filters that mask
-                # the subprocess's own output.
-                registry = SecretRegistry.get_instance()
-                if registry and registry.get_count() > 0:
-                    log_content = SecretMaskingFilter(registry).mask_text(log_content)
-            except Exception:
-                logger.warning("Failed to mask logs, using original")
-            ctx.get_report().set_logs(log_content)
+            ctx.get_report().set_logs(
+                _mask_secrets(
+                    SubProcessTaskUtil._format_log_lines(shared_logs.get_lines()),
+                    "logs",
+                )
+            )
         except Exception:
             logger.exception("Failed to set logs on execution report")
 
