@@ -59,18 +59,6 @@ class HexConnectionDetail(ConfigModel):
         ),
     )
 
-    # Removed field — kept as a soft-warn shim so recipes carried over from the
-    # short-lived per-connection casing design don't fail with an "extra fields"
-    # error. Casing is now applied by the shared SchemaResolver used by both
-    # tier-1 (queriedTables) and tier-2 (SQL parsing), which follows each
-    # platform's default (lowercase for snowflake/postgres/redshift/mssql;
-    # preserve case for bigquery/db2) and matches the mixed-case URN the
-    # warehouse actually landed in DataHub — so an explicit override became
-    # redundant. See #19162.
-    _convert_urns_to_lowercase_removed = pydantic_removed_field(
-        "convert_urns_to_lowercase", month="August", year=2026
-    )
-
 
 class HexSourceConfig(
     StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin

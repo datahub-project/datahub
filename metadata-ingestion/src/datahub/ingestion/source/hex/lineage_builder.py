@@ -7,12 +7,13 @@ from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.hex.model import HexConnection, SqlCell
-from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.metadata.urns import SchemaFieldUrn
-from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str
-from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.sql_parsing.sqlglot_lineage import (
+    _table_name_from_sqlglot_table,
+    sqlglot_lineage,
+)
 from datahub.utilities.lossy_collections import LossyList
 
 _MAX_SAMPLE_MISMATCHES = 5
@@ -53,8 +54,11 @@ class SkippedCell:
     cell_id: str
     cell_label: Optional[str]
     connection_id: str
-    # "missing_connection_id"  — cell had no dataConnectionId
-    # "unresolved_platform"    — connection_id present but no platform mapping
+    # "missing_connection_id"    — cell had no dataConnectionId
+    # "unresolved_platform"      — connection_id present but no platform mapping
+    # "unparseable_table_name"   — queriedTables entry had no sqlglot dialect for
+    #                              the platform (db2, vertica, synapse, ...) or the
+    #                              tableName itself failed to parse
     reason: str
 
 
@@ -157,18 +161,13 @@ class HexLineageBuilder:
         construction. Only emits URNs for connections whose platform can be
         confidently resolved.
 
-        Schema-lookup batching: ``SchemaResolver.resolve_table`` fires a
-        ``graph.get_entities`` per call (each request carrying 1–3 candidate
-        URNs). Large Hex projects can list hundreds of queriedTables and
-        would otherwise pay one graph round-trip each. We pre-warm the
-        resolver cache with a single batched fetch per ``(platform,
-        platform_instance)`` before the resolution loop, so ``resolve_table``
-        below hits cache and does no additional graph traffic.
+        Bad inputs (a platform sqlglot has no dialect for — db2, vertica,
+        synapse, greenplum, impala, netezza, cockroachdb — or a tableName that
+        fails to parse) are skipped and recorded rather than aborting the run,
+        so one bad entry does not cost every project not yet emitted.
         """
-        # Pass 1: normalize each entry to (connection, _TableName). We keep the
-        # resolved connection alongside the table so the resolve loop below
-        # doesn't have to look it up again.
-        prepared: List[Tuple[HexConnection, _TableName]] = []
+        seen: Set[str] = set()
+        result: List[str] = []
         for item in queried_tables:
             connection_id = item.get("dataConnectionId")
             table_name = item.get("tableName")
@@ -190,36 +189,29 @@ class HexLineageBuilder:
                 default_database=connection.default_database,
                 default_schema=connection.default_schema,
             )
-            dialect = get_dialect_str(connection.platform)
-            tbl = normalize_identifiers(
-                sqlglot.to_table(qualified_name, dialect=dialect), dialect=dialect
-            )
-            prepared.append(
-                (
-                    connection,
-                    _TableName(
-                        database=tbl.catalog or None,
-                        db_schema=tbl.db or None,
-                        table=tbl.name,
-                    ),
+            try:
+                # get_dialect_str passes unmapped platforms through verbatim, so
+                # a connection_platform_map entry naming a platform sqlglot has
+                # no dialect for (db2, vertica, synapse, ...) raises here rather
+                # than returning. Parse errors come from tableName itself, which
+                # Hex does not guarantee is a well-formed identifier.
+                dialect = sqlglot.Dialect.get_or_raise(
+                    get_dialect_str(connection.platform)
                 )
-            )
+                tbl = normalize_identifiers(
+                    sqlglot.to_table(qualified_name, dialect=dialect),
+                    dialect=dialect,
+                )
+            except (ValueError, sqlglot.ParseError, sqlglot.TokenError):
+                self._record_skip(
+                    connection_id=connection_id or "",
+                    cell_id="queriedTables",
+                    cell_label=table_name,
+                    reason="unparseable_table_name",
+                )
+                continue
 
-        # Pass 2: batch pre-warm one resolver at a time.
-        grouped: Dict[Tuple[str, Optional[str]], List[_TableName]] = {}
-        for connection, tn in prepared:
-            assert connection.platform is not None  # gated in pass 1
-            grouped.setdefault(
-                (connection.platform, connection.platform_instance), []
-            ).append(tn)
-        for (platform, instance), tables in grouped.items():
-            self._prewarm_resolver_cache(self._get_resolver(platform, instance), tables)
-
-        # Pass 3: resolve each table through the (now-cached) resolver.
-        seen: Set[str] = set()
-        result: List[str] = []
-        for connection, tn in prepared:
-            assert connection.platform is not None
+            tn = _table_name_from_sqlglot_table(tbl, dialect)
             urn, _ = self._get_resolver(
                 connection.platform, connection.platform_instance
             ).resolve_table_parts(
@@ -337,9 +329,7 @@ class HexLineageBuilder:
 
             for furn in field_urns:
                 try:
-                    sf = SchemaFieldUrn.from_string(furn)
-                    parent_urn = sf.parent
-                    field_path = sf.field_path
+                    parent_urn = SchemaFieldUrn.from_string(furn).parent
                 except Exception:
                     logger.warning(
                         "Skipping malformed schema field URN during queriedTables cross-validation: %s",
@@ -349,7 +339,7 @@ class HexLineageBuilder:
                     continue
 
                 if parent_urn in queried_set:
-                    matched.append(make_schema_field_urn(parent_urn, field_path))
+                    matched.append(furn)
                 else:
                     unmatched_tables.add(parent_urn)
                     unmatched_field_count += 1
@@ -412,64 +402,6 @@ class HexLineageBuilder:
                 graph=self._graph,
             )
         return self._schema_resolvers[key]
-
-    def _prewarm_resolver_cache(
-        self, resolver: SchemaResolver, tables: List[_TableName]
-    ) -> None:
-        """Batch-fetch SchemaMetadata for every candidate URN of ``tables`` in
-        a single graph call, populating the resolver's internal cache.
-
-        ``SchemaResolver.resolve_table`` tries up to three URN variants per
-        table (raw, lowercased, lowercased-with-mixed-instance) and hits the
-        graph if any are un-cached. Calling it in a loop turns N tables into
-        N serial round-trips. We pre-fetch the union of all candidates once;
-        subsequent ``resolve_table`` calls see a fully-primed cache and don't
-        hit the graph again. The set of variants mirrors ``resolve_table``'s
-        internal try-list to stay behaviourally identical.
-        """
-        if resolver.graph is None or not tables:
-            return
-
-        all_candidates: List[str] = []
-        seen: Set[str] = set()
-        for table in tables:
-            for lower, mixed in ((False, False), (True, False), (True, True)):
-                urn = resolver.get_urn_for_table(table, lower=lower, mixed=mixed)
-                if urn not in seen:
-                    seen.add(urn)
-                    all_candidates.append(urn)
-        if not all_candidates:
-            return
-
-        try:
-            entity_results = resolver.graph.get_entities(
-                entity_name="dataset",
-                urns=all_candidates,
-                aspects=[SchemaMetadataClass.ASPECT_NAME],
-                with_system_metadata=False,
-            )
-        except Exception as e:
-            # Fall back to per-table resolution — resolve_table will retry each
-            # candidate individually. A single batch failure must not sink the
-            # entire lineage build.
-            logger.warning(
-                "Batch schema fetch for queriedTables prewarm failed (%s); "
-                "falling back to per-table resolution.",
-                e,
-                exc_info=True,
-            )
-            return
-
-        for urn in all_candidates:
-            schema_metadata: Optional[SchemaMetadataClass] = None
-            entity_aspects = entity_results.get(urn)
-            if entity_aspects and SchemaMetadataClass.ASPECT_NAME in entity_aspects:
-                aspect_value, _ = entity_aspects[SchemaMetadataClass.ASPECT_NAME]
-                if isinstance(aspect_value, SchemaMetadataClass):
-                    schema_metadata = aspect_value
-            # Always populate — including as None — so resolve_table treats it
-            # as "already tried" and skips it in its own graph.get_entities.
-            resolver.add_schema_metadata_from_fetch(urn, schema_metadata)
 
     def _parse_cell(
         self,

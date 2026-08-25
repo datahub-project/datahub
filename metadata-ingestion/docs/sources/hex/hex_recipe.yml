@@ -32,10 +32,11 @@ source:
     # (Optional) Match the platform_instance under which the upstream warehouses
     # were ingested, and pin platform for connections Hex can't auto-resolve.
     # Keyed by Hex dataConnectionId (UUID). Both the queriedTables and SQL-cell
-    # paths route through the same schema resolver, so casing follows the
-    # upstream warehouse (lowercase for snowflake/postgres/redshift/mssql/…,
-    # preserve for bigquery/db2) and BigQuery date-shard suffixes fold — no
-    # per-connection casing flag is needed.
+    # paths route through the same schema resolver — the resolver matches the
+    # URN already in DataHub when the table is there, else falls back to
+    # lowercase for snowflake/postgres/redshift/mssql/… and case-preserving for
+    # bigquery — and BigQuery date-shard suffixes fold — no per-connection
+    # casing flag is needed.
     # connection_platform_map:
     #   "8f3a1c2d-4b5e-6789-abcd-ef0123456789":
     #     platform: snowflake

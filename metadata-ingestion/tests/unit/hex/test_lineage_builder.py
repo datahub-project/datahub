@@ -200,6 +200,87 @@ def test_build_from_queried_tables_empty_table_name_skipped():
     assert urns == []
 
 
+def test_build_from_queried_tables_unknown_dialect_skipped():
+    """A connection_platform_map entry naming a platform sqlglot has no dialect
+    for (db2, vertica, synapse, greenplum, impala, netezza, cockroachdb) must
+    be recorded as skipped rather than aborting the whole ingestion run."""
+    report = LineageBuilderReport()
+    b = _builder(
+        report=report,
+        connections={"conn-db2": HexConnection(name="D", platform="db2")},
+    )
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": "conn-db2", "tableName": "orders"}]
+    )
+    assert urns == []
+    assert len(report.skipped_cells) == 1
+    assert report.skipped_cells[0].reason == "unparseable_table_name"
+
+
+def test_build_from_queried_tables_unparseable_table_name_skipped():
+    """A malformed tableName (trailing dot, empty part, etc.) is recorded as
+    skipped instead of raising through the pipeline."""
+    report = LineageBuilderReport()
+    b = _builder(report=report)
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.schema."}]
+    )
+    assert urns == []
+    assert len(report.skipped_cells) == 1
+    assert report.skipped_cells[0].reason == "unparseable_table_name"
+
+
+def test_build_from_queried_tables_bad_entry_does_not_drop_neighbors():
+    """A single bad entry must not sink the run — the good entries on either
+    side of it still produce URNs."""
+    b = _builder()
+    urns = b.build_from_queried_tables(
+        [
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.schema.good_one"},
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.schema."},
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.schema.good_two"},
+        ]
+    )
+    assert len(urns) == 2
+    assert any("good_one" in u for u in urns)
+    assert any("good_two" in u for u in urns)
+
+
+def test_build_from_queried_tables_four_part_name_preserved():
+    """4-part names (a.b.c.d) must not silently drop a component — the shared
+    _table_name_from_sqlglot_table helper preserves ``a.b.c.d`` end-to-end
+    where the previous hand-rolled construction dropped the third part."""
+    b = _builder(
+        connections={SNOWFLAKE_CONN: HexConnection(name="A", platform="snowflake")},
+    )
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "a.b.c.d"}]
+    )
+    assert len(urns) == 1
+    assert ",a.b.c.d," in urns[0]
+
+
+def test_build_from_queried_tables_mssql_preserves_temp_prefix():
+    """MSSQL temp table prefixes (``#tmp``, ``##tmp``) are stripped by sqlglot
+    during parsing; the shared helper restores them so the URN points at the
+    same temp table the warehouse would emit."""
+    b = _builder(
+        connections={
+            "conn-mssql": HexConnection(
+                name="M",
+                platform="mssql",
+                default_database="db",
+                default_schema="dbo",
+            ),
+        },
+    )
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": "conn-mssql", "tableName": "#tmp"}]
+    )
+    assert len(urns) == 1
+    assert ",db.dbo.#tmp," in urns[0]
+
+
 def test_qualify_table_name_already_three_parts_unchanged():
     assert (
         _qualify_table_name("db.schema.t", "DEFAULT_DB", "DEFAULT_SCHEMA")

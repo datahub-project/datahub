@@ -506,39 +506,6 @@ def test_pipeline_blanket_urn_lowercasing_stays_disabled() -> None:
         )
 
 
-def test_per_connection_convert_urns_to_lowercase_is_soft_removed() -> None:
-    """The short-lived per-connection ``convert_urns_to_lowercase`` field was
-    dropped once both lineage tiers routed through the shared SchemaResolver
-    (which already follows each platform's default casing and matches the
-    warehouse URN in DataHub). Recipes carried over from that version must
-    still parse — the field is silently accepted with a ConfigurationWarning
-    rather than raising an extra-fields error and breaking the run.
-    """
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        config = HexSourceConfig.model_validate(
-            {
-                "workspace_name": "ws",
-                "token": "t",
-                "connection_platform_map": {
-                    "conn-sf": {
-                        "platform": "snowflake",
-                        "convert_urns_to_lowercase": True,
-                    },
-                },
-            }
-        )
-    # Config parses cleanly and the legacy key doesn't materialise anywhere.
-    detail = config.connection_platform_map["conn-sf"]
-    assert detail.platform == "snowflake"
-    assert not hasattr(detail, "convert_urns_to_lowercase")
-    assert any(
-        issubclass(w.category, ConfigurationWarning)
-        and "convert_urns_to_lowercase" in str(w.message)
-        for w in caught
-    )
-
-
 class TestHexTestConnection:
     """Tests for test_connection() — especially the cells access probe."""
 
