@@ -2276,6 +2276,21 @@ def test_shared_expression_provides_lineage():
 
 
 @pytest.mark.integration
+def test_parenthesized_step_still_reaches_a_hidden_query():
+    """Parentheses and hidden queries compose: the walk has to carry the shared
+    queries through the parenthesized branch, not just the scope chain."""
+    lineages = _lineage_with_expressions(
+        'let Source = (#"Base Query") in Source',
+        {"Base Query": _HIDDEN_BASE_EXPRESSION},
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_UPSTREAM
+
+
+@pytest.mark.integration
 def test_shared_expression_chain_resolves_through_diamond():
     """The reported shape: one loaded table combining two hidden queries that both
     read a third hidden query, which holds the connector. The shared upstream is

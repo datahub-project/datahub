@@ -209,6 +209,7 @@ def _walk(
             results,
             seen,
             parameters,
+            shared,
         )
         return
 

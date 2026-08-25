@@ -256,6 +256,8 @@ def test_mysql_odbc_query_ingest(
         output_path=f"{tmp_path}/powerbi_mysql_odbc_query_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
