@@ -1,13 +1,11 @@
-import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, cast
+from typing import cast
 from unittest.mock import Mock
 
 import pytest
 
 from datahub.configuration.common import OperationalError
 from datahub.executor.context.execution_context import ExecutionContext
-from datahub.executor.execution import reporting_executor
 from datahub.executor.execution.reporting_executor import (
     ReportingExecutor,
     ReportingExecutorConfig,
@@ -16,7 +14,6 @@ from datahub.executor.request.execution_request import ExecutionRequest
 from datahub.executor.request.signal_request import SignalRequest
 from datahub.executor.result.execution_result import ExecutionResult, Type
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.schema_classes import ExecutionRequestResultClass
 
 MAX_LENGTH = 500
 
@@ -112,10 +109,15 @@ class TestResultAspectSizeGuard:
 
 
 class TestExecutorInstanceId:
-    """The field must be omitted, not passed, when the installed models lack it."""
+    def test_the_field_is_never_put_on_the_result_aspect(self) -> None:
+        """`executorInstanceId` is not an OSS aspect field.
 
-    def test_configured_instance_id_never_breaks_aspect_construction(self) -> None:
-        # The original failure mode: against the OSS aspect this raised TypeError.
+        It is declared only by a custom models package, so OSS must not set it: the
+        generated class takes explicit kwargs and would raise TypeError. Deployments
+        whose models do declare it add it by overriding
+        `_build_execution_request_result_aspect`. The config field itself stays, since
+        DefaultExecutor uses it for the pool-claim log line.
+        """
         executor = ReportingExecutor(
             ReportingExecutorConfig(
                 id="test-executor",
@@ -131,52 +133,7 @@ class TestExecutorInstanceId:
         )
 
         assert aspect.status == "SUCCESS"
-
-    def test_probe_agrees_with_the_installed_aspect(self) -> None:
-        # Keeps the probe honest under whichever models build is installed.
-        # Splatted so mypy does not reject the deliberately-unsupported kwarg inline.
-        kwargs: Dict[str, Any] = {
-            "status": "SUCCESS",
-            "startTimeMs": 0,
-            "executorInstanceId": "pool-a",
-        }
-        try:
-            ExecutionRequestResultClass(**kwargs)
-        except TypeError:
-            accepted = False
-        else:
-            accepted = True
-
-        assert (
-            accepted is reporting_executor._RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID
-        )
-
-    def test_unsupported_field_is_omitted_and_warned_about_only_once(
-        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        # An MCP is built on every progress heartbeat, so warn once at construction.
-        monkeypatch.setattr(
-            reporting_executor, "_RESULT_ASPECT_SUPPORTS_EXECUTOR_INSTANCE_ID", False
-        )
-
-        with caplog.at_level(logging.WARNING):
-            executor = ReportingExecutor(
-                ReportingExecutorConfig(
-                    id="test-executor",
-                    task_configs=[],
-                    secret_stores=[],
-                    graph_client=Mock(spec=DataHubGraph),
-                    executor_instance_id="pool-a",
-                )
-            )
-            for _ in range(5):
-                aspect = executor._build_execution_request_result_aspect(
-                    status="SUCCESS", start_time_ms=0, exec_request=_request()
-                )
-
         assert getattr(aspect, "executorInstanceId", None) is None
-        warnings = [r for r in caplog.records if "executorInstanceId" in r.getMessage()]
-        assert len(warnings) == 1
 
 
 class TestCompletionMcpEmission:
