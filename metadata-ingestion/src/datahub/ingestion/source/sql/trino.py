@@ -3,7 +3,7 @@ import json
 import logging
 import uuid
 from textwrap import dedent
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
 import sqlalchemy
 import trino
@@ -356,11 +356,27 @@ class TrinoSource(SQLAlchemySource):
             else:
                 if source_schema is not None and source_schema.fields:
                     field_path_map = {}
+                    ambiguous: Set[str] = set()
                     for field in source_schema.fields:
                         simple_path = get_simple_field_path_from_v2_field_path(
                             field.fieldPath
                         )
-                        field_path_map[simple_path.lower()] = simple_path
+                        lowered = simple_path.lower()
+                        if field_path_map.get(lowered, simple_path) != simple_path:
+                            # The source distinguishes these columns only by case, so a
+                            # lowercased Trino name cannot choose between them. Record
+                            # the clash and drop the key below rather than binding to
+                            # whichever column happened to come last.
+                            ambiguous.add(lowered)
+                        field_path_map[lowered] = simple_path
+                    for lowered in ambiguous:
+                        del field_path_map[lowered]
+                    if ambiguous:
+                        self.report.warning(
+                            "Connector source has columns differing only by case; "
+                            "column lineage skipped for them",
+                            context=f"{source_dataset_urn} columns={sorted(ambiguous)}",
+                        )
 
         # Cached even on failure, so one outage does not re-query GMS for every table
         # that shares this connector source.
@@ -468,12 +484,13 @@ class TrinoSource(SQLAlchemySource):
                     if source_field_path_map is not None:
                         matched = source_field_path_map.get(path.lower())
                         if matched is None:
-                            # The source schema is known but has no column matching
-                            # this Trino column; skip rather than emit an upstream
-                            # schemaField URN that does not exist on the source.
+                            # The source schema is known but has no column matching this
+                            # Trino column -- either absent, or ambiguous because the
+                            # source distinguishes columns only by case. Skip rather
+                            # than guess at an upstream schemaField URN.
                             self.report.warning(
-                                "Skipped column lineage: no matching column on the "
-                                "connector source",
+                                "Skipped column lineage: no unambiguous matching "
+                                "column on the connector source",
                                 context=f"{source_dataset_urn} column={path}",
                             )
                             continue
