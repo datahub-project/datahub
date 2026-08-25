@@ -85,12 +85,17 @@ public class OpenLineageDatasetIdentityTest {
 
   @Test
   public void testMissingLogicalNameKeepsPhysicalIdentity() {
-    OpenLineage.InputDataset dataset = tableDataset("iceberg", "rest", CATALOG_NAMESPACE, "  ");
+    OpenLineage.InputDataset blankName = tableDataset("iceberg", "rest", CATALOG_NAMESPACE, "  ");
+    OpenLineage.InputDataset prefixOnlyName =
+        tableDataset("iceberg", "rest", CATALOG_NAMESPACE, "table/");
     DatahubOpenlineageConfig config =
         DatahubOpenlineageConfig.builder().fabricType(FabricType.PROD).build();
 
     assertEquals(
-        convert(dataset, config),
+        convert(blankName, config),
+        "urn:li:dataset:(urn:li:dataPlatform:s3,warehouse-bucket/catalog/db/table,PROD)");
+    assertEquals(
+        convert(prefixOnlyName, config),
         "urn:li:dataset:(urn:li:dataPlatform:s3,warehouse-bucket/catalog/db/table,PROD)");
   }
 
