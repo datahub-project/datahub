@@ -67,6 +67,8 @@ Requirements:
 
 - #18944 **(GMS / Domain-scoped Edit on `domains` PATCH)** `ChangeType.PATCH` always requires **Edit Entity** (never Create Entity). Domain-scoped Edit on a `domains` PATCH must allow **both** the before and after domain membership when domains already exist; when establishing first domains via PATCH, Edit is matched against the after domains only. Sync requests re-check inside the DB transaction after patch apply; async MCE consume skips user domain auth (authorized on the API thread before Kafka). **Action:** Grant Edit on both source and destination domains before moving assets between domains with a domains PATCH.
 
+- #19099 **(Ingestion / sql-queries)** A run where nothing at all succeeds — every input line unparseable, or every query failing — now reports a failure and exits non-zero, instead of completing successfully with nothing to show for it. Individual bad rows are still skipped and counted as before, and a single malformed row no longer aborts the whole run. The `enable_lazy_schema_loading` option has been removed (it was never read), and two report fields were renamed: `num_queries_processed_sequential` is now `num_queries_processed`, and `num_temp_tables_detected` is now `num_temp_table_matches`. **Action:** remove `enable_lazy_schema_loading` from your recipe. If you re-ingest a partial query log and want to avoid replacing existing lineage, set `incremental_lineage: true`.
+
 ### Known Issues
 
 ### Potential Downtime

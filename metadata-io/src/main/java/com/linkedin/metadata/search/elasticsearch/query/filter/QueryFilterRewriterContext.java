@@ -37,7 +37,13 @@ public class QueryFilterRewriterContext {
         if (isTimeseries) {
           this.searchType = TIMESERIES;
         } else if (this.searchFlags != null) {
-          this.searchType = this.searchFlags.isFulltext() ? FULLTEXT_SEARCH : STRUCTURED_SEARCH;
+          // `fulltext` is an optional boolean with no PDL default, and SearchContext's own default
+          // flags leave it unset, so unboxing it directly throws. Unset reads as not fulltext, the
+          // same reading SearchRequestHandler applies.
+          this.searchType =
+              Boolean.TRUE.equals(this.searchFlags.isFulltext())
+                  ? FULLTEXT_SEARCH
+                  : STRUCTURED_SEARCH;
         } else {
           this.searchType = AUTOCOMPLETE;
         }
