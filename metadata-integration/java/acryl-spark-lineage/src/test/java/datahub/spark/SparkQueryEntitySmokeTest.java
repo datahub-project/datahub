@@ -1,6 +1,7 @@
 package datahub.spark;
 
 import static datahub.spark.ListenerConf.listener;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -23,6 +24,8 @@ import org.junit.jupiter.api.io.TempDir;
 @Tag("integration")
 public class SparkQueryEntitySmokeTest extends SparkSmokeTestBase {
 
+  private static final String SQL = "SELECT age, name FROM people WHERE age > 18";
+
   @Test
   public void emitsQueryEntityForSparkSqlJob(@TempDir Path tmp) throws Exception {
     Path in = writeCsv(tmp.resolve("people.csv"), "age,name\n30,Alice\n10,Bob\n");
@@ -42,11 +45,7 @@ public class SparkQueryEntitySmokeTest extends SparkSmokeTestBase {
                       .option("inferSchema", "true")
                       .csv(in.toString());
               df.createOrReplaceTempView("people");
-              spark
-                  .sql("SELECT age, name FROM people WHERE age > 18")
-                  .write()
-                  .mode(SaveMode.Overwrite)
-                  .csv(out.toString());
+              spark.sql(SQL).write().mode(SaveMode.Overwrite).csv(out.toString());
             });
 
     assertTrue(md.hasEntity("query"), "expected a query entity to be emitted:\n" + md.raw);
@@ -58,6 +57,19 @@ public class SparkQueryEntitySmokeTest extends SparkSmokeTestBase {
             && fineGrainedLineages.isArray()
             && anyHasNonNullQuery(fineGrainedLineages),
         "expected a fineGrainedLineages entry with a non-null query field:\n" + md.raw);
+
+    // The statement must be the bare SQL. transformOperation carries the same SQL prefixed with
+    // OpenLineage transformation tags ("-- DIRECT:TRANSFORMATION\n..."); hashing or storing that
+    // prefixed form would break URN parity with the Python SDK and show tags in the Logic panel.
+    String statement =
+        md.aspect("queryProperties")
+            .map(qp -> qp.path("statement").path("value").asText(null))
+            .orElse(null);
+    assertEquals(
+        SQL,
+        statement,
+        "query entity statement must be the bare SQL, not the tag-prefixed transformOperation:\n"
+            + md.raw);
   }
 
   private static boolean anyHasNonNullQuery(JsonNode fineGrainedLineages) {

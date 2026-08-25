@@ -273,6 +273,7 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
     platform_instance: Optional[str],
     enable_datajob_lineage: bool,
     cluster: Optional[str] = None,
+    capture_query_entities: bool = False,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -374,6 +375,9 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
         "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
         "AIRFLOW__DATAHUB__ENABLE_DATAJOB_LINEAGE": (
             "true" if enable_datajob_lineage else "false"
+        ),
+        "AIRFLOW__DATAHUB__CAPTURE_QUERY_ENTITIES": (
+            "true" if capture_query_entities else "false"
         ),
         # macOS: run the setproctitle/gunicorn patch before any process forks so the
         # Airflow subprocess inherits it even when the venv has no .pth (e.g. under tox).
@@ -632,6 +636,7 @@ class DagTestCase:
     platform_instance: Optional[str] = None
     enable_datajob_lineage: bool = True
     cluster: Optional[str] = None
+    capture_query_entities: bool = False
 
     # used to identify the test case in the golden file when same DAG is used in multiple tests
     test_variant: Optional[str] = None
@@ -660,6 +665,15 @@ test_cases = [
     DagTestCase("dag_to_skip", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("snowflake_operator", success=False),
     DagTestCase("sqlite_operator", platform_instance=PLATFORM_INSTANCE),
+    # Same DAG with capture_query_entities on: each task's SQL is additionally emitted as a
+    # Query entity and referenced from the task's fine-grained lineage. The golden pins which
+    # statements produce a referenced query and which (DDL, values-only DML) do not.
+    DagTestCase(
+        "sqlite_operator",
+        platform_instance=PLATFORM_INSTANCE,
+        test_variant="_query_entities",
+        capture_query_entities=True,
+    ),
     DagTestCase("custom_operator_dag", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("custom_operator_sql_parsing"),
     DagTestCase("datahub_emitter_operator_jinja_template_dag"),
@@ -727,6 +741,7 @@ def test_airflow_plugin(
                 platform_instance=test_case.platform_instance,
                 enable_datajob_lineage=test_case.enable_datajob_lineage,
                 cluster=test_case.cluster,
+                capture_query_entities=test_case.capture_query_entities,
             ) as airflow_instance:
                 print(f"Running DAG {dag_id} (attempt {attempt}/{max_attempts})...")
                 _wait_for_dag_to_load(airflow_instance, dag_id)
