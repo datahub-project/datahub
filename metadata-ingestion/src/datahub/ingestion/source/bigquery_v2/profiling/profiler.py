@@ -780,16 +780,17 @@ class BigqueryProfiler(GenericProfiler):
                 )
             else:
                 custom_sql = self._build_custom_sql(safe_table_ref, table_ref, bq_table)
-                if custom_sql and self._row_count_unavailable(bq_table):
-                    # The bounded fallback profiles a capped slice and gives the profile a
-                    # QUERY partitionSpec, which makes the shared profiler overwrite the
-                    # measured rowCount with request.table.rows_count. For an external table
-                    # that stale value is an unreliable 0 (legacy __TABLES__), so it would
-                    # publish rowCount=0 for a table that actually holds data. Clear it so
-                    # rowCount is reported as unknown rather than a false "empty table".
-                    request.table.rows_count = None
 
             if custom_sql:
+                if self._row_count_unavailable(bq_table):
+                    # Either a partition scan or the bounded fallback gives the profile a
+                    # non-FULL_TABLE partitionSpec, which makes the shared profiler
+                    # overwrite the measured rowCount with request.table.rows_count. For an
+                    # external table that stale value is an unreliable 0 (legacy
+                    # __TABLES__), so it would publish rowCount=0 for a table (or partition)
+                    # that actually holds data. Clear it so rowCount is reported as unknown
+                    # rather than a false "empty table".
+                    request.table.rows_count = None
                 request.batch_kwargs.update(
                     {
                         CUSTOM_SQL_KWARG: custom_sql,

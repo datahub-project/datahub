@@ -1413,6 +1413,44 @@ def test_deferred_external_unreliable_row_count_cleared_for_bounded_scan():
     assert result.table.rows_count is None
 
 
+def test_deferred_external_unreliable_row_count_cleared_with_partition_filter():
+    # Same false-rowCount=0 risk when the external table HAS a partition filter: the
+    # partition-scan SQL also yields a non-FULL_TABLE partitionSpec, so the unreliable
+    # legacy rows_count=0 must be cleared on this branch too.
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    external_table = create_test_table(
+        name="ext_events", partitioned=True, external=True, rows_count=0
+    )
+    with patch.object(
+        PartitionDiscovery,
+        "get_required_partition_filters",
+        return_value=["`event_date` = '2023-01-01'"],
+    ):
+        request = profiler.get_profile_request(
+            external_table, "test_dataset", "test-project"
+        )
+    assert request is not None
+    deferred = DeferredExternalTable(
+        request=request,
+        bq_table=external_table,
+        db_name="test-project",
+        schema_name="test_dataset",
+    )
+
+    with patch.object(
+        PartitionDiscovery,
+        "get_required_partition_filters",
+        return_value=["`event_date` = '2023-01-01'"],
+    ):
+        result = profiler._discover_external_partition_filter(deferred)
+
+    assert result is not None
+    assert "event_date" in result.batch_kwargs.get("custom_sql", "")
+    assert result.table.rows_count is None
+
+
 def test_profiler_external_table_integration():
     config = create_test_config()
     report = BigQueryV2Report()
