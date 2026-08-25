@@ -230,6 +230,36 @@ def test_build_from_queried_tables_unparseable_table_name_skipped():
     assert report.skipped_cells[0].reason == "unparseable_table_name"
 
 
+def test_build_from_queried_tables_skip_captures_exception_detail():
+    """`unparseable_table_name` skips must carry the underlying sqlglot
+    exception in `detail` so operators can triage without re-running with
+    debug logging. Both failure classes (unknown dialect via ValueError and
+    malformed tableName via ParseError) are exercised."""
+    report = LineageBuilderReport()
+    b = _builder(
+        report=report,
+        connections={"conn-db2": HexConnection(name="D", platform="db2")},
+    )
+    b.build_from_queried_tables(
+        [{"dataConnectionId": "conn-db2", "tableName": "orders"}]
+    )
+    assert len(report.skipped_cells) == 1
+    detail = report.skipped_cells[0].detail
+    assert detail is not None
+    assert detail.startswith("ValueError:")
+    assert "db2" in detail
+
+    report2 = LineageBuilderReport()
+    b2 = _builder(report=report2)
+    b2.build_from_queried_tables(
+        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.schema."}]
+    )
+    assert len(report2.skipped_cells) == 1
+    detail2 = report2.skipped_cells[0].detail
+    assert detail2 is not None
+    assert "ParseError" in detail2 or "TokenError" in detail2
+
+
 def test_build_from_queried_tables_bad_entry_does_not_drop_neighbors():
     """A single bad entry must not sink the run — the good entries on either
     side of it still produce URNs."""

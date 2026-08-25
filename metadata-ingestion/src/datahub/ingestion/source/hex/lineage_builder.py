@@ -17,6 +17,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub.utilities.lossy_collections import LossyList
 
 _MAX_SAMPLE_MISMATCHES = 5
+_MAX_SKIP_DETAIL_CHARS = 200
 
 
 if TYPE_CHECKING:
@@ -60,6 +61,12 @@ class SkippedCell:
     #                              the platform (db2, vertica, synapse, ...) or the
     #                              tableName itself failed to parse
     reason: str
+    # Truncated "<ExceptionClass>: <message>" for reasons that come from a caught
+    # exception (currently "unparseable_table_name"). None for reasons derived
+    # purely from control flow. Bounded per entry by _MAX_SKIP_DETAIL_CHARS; the
+    # containing skipped_cells list is a LossyList so overall report size stays
+    # capped even under a flood of bad inputs.
+    detail: Optional[str] = None
 
 
 @dataclass
@@ -202,12 +209,13 @@ class HexLineageBuilder:
                     sqlglot.to_table(qualified_name, dialect=dialect),
                     dialect=dialect,
                 )
-            except (ValueError, sqlglot.ParseError, sqlglot.TokenError):
+            except (ValueError, sqlglot.ParseError, sqlglot.TokenError) as e:
                 self._record_skip(
                     connection_id=connection_id or "",
                     cell_id="queriedTables",
                     cell_label=table_name,
                     reason="unparseable_table_name",
+                    detail=_format_skip_detail(e),
                 )
                 continue
 
@@ -465,6 +473,7 @@ class HexLineageBuilder:
         cell_id: str,
         cell_label: Optional[str],
         reason: str,
+        detail: Optional[str] = None,
     ) -> None:
         self._report.skipped_cells.append(
             SkippedCell(
@@ -473,13 +482,27 @@ class HexLineageBuilder:
                 cell_label=cell_label,
                 connection_id=connection_id,
                 reason=reason,
+                detail=detail,
             )
         )
         logger.debug(
-            "Skipping lineage for cell %s in project %s — %s "
+            "Skipping lineage for cell %s in project %s — %s%s "
             "(add connection_id %r to connection_platform_map to recover)",
             cell_id,
             self._project_id,
             reason,
+            f" [{detail}]" if detail else "",
             connection_id,
         )
+
+
+def _format_skip_detail(exc: BaseException) -> str:
+    """Compact, bounded exception summary for SkippedCell.detail.
+
+    Bounded per-entry so a pathological sqlglot error message can't blow up
+    the report; the enclosing skipped_cells LossyList caps total entries.
+    """
+    detail = f"{type(exc).__name__}: {exc}"
+    if len(detail) > _MAX_SKIP_DETAIL_CHARS:
+        detail = detail[: _MAX_SKIP_DETAIL_CHARS - 1] + "…"
+    return detail
