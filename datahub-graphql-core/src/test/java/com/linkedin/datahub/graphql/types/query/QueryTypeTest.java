@@ -275,6 +275,99 @@ public class QueryTypeTest {
   }
 
   /**
+   * requireAllSubjects plumb-through: with the strict mode configured, a query with two subject
+   * datasets is filtered when the actor holds the privilege on only one of them — even though the
+   * default any-subject mode would have allowed it.
+   */
+  @Test
+  public void testBatchLoadStrictModeFiltersPartialGrantAcrossSubjects() throws Exception {
+    EntityClient client = Mockito.mock(EntityClient.class);
+    QuerySubjects twoSubjects =
+        new QuerySubjects()
+            .setSubjects(
+                new QuerySubjectArray(
+                    ImmutableList.of(
+                        new QuerySubject().setEntity(TEST_DATASET_URN),
+                        new QuerySubject().setEntity(TEST_DATASET_2_URN))));
+    Map<String, EnvelopedAspect> queryAspects = new HashMap<>();
+    queryAspects.put(
+        Constants.QUERY_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(TEST_QUERY_PROPERTIES_1.data())));
+    queryAspects.put(
+        Constants.QUERY_SUBJECTS_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(twoSubjects.data())));
+    Mockito.when(
+            client.batchGetV2(
+                any(),
+                Mockito.eq(Constants.QUERY_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_QUERY_URN))),
+                Mockito.eq(QueryType.ASPECTS_TO_FETCH)))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_QUERY_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.QUERY_ENTITY_NAME)
+                    .setUrn(TEST_QUERY_URN)
+                    .setAspects(new EnvelopedAspectMap(queryAspects))));
+
+    // Grants the query-view privilege group on TEST_DATASET_URN only.
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              boolean allowed =
+                  request
+                      .getResourceSpec()
+                      .map(spec -> TEST_DATASET_URN.toString().equals(spec.getEntity()))
+                      .orElse(false);
+              return new AuthorizationResult(
+                  request,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  "");
+            });
+
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(aspectRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Mockito.when(
+            aspectRetriever.getLatestAspectObjects(
+                any(),
+                eq(ImmutableSet.of(TEST_QUERY_URN)),
+                eq(ImmutableSet.of(Constants.QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_QUERY_URN,
+                ImmutableMap.of(
+                    Constants.QUERY_SUBJECTS_ASPECT_NAME, new Aspect(twoSubjects.data()))));
+
+    QueryType type = new QueryType(client);
+    OperationContext userContext =
+        createUserContext(
+            mockAuthorizer,
+            aspectRetriever,
+            ViewAuthorizationConfiguration.builder()
+                .enabled(false)
+                .queryEntities(
+                    ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
+                        .enabled(true)
+                        .requireAllSubjects(true)
+                        .build())
+                .build());
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(userContext);
+
+    List<DataFetcherResult<QueryEntity>> result =
+        type.batchLoad(ImmutableList.of(TEST_QUERY_URN.toString()), mockContext);
+
+    assertEquals(result.size(), 1);
+    assertNull(
+        result.get(0),
+        "strict mode: privilege on only one of two subject datasets must not grant access");
+  }
+
+  /**
    * Escape valve: with query-read authorization explicitly disabled (and legacy view-auth off), no
    * filtering — and no subject lookups — happen at all.
    */
