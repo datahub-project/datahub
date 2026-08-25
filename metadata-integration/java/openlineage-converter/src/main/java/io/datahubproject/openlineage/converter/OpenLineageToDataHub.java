@@ -147,11 +147,7 @@ public class OpenLineageToDataHub {
         namespace =
             resolveTableSymlinkPlatform(
                 symlink.getNamespace(), dataset.getFacets().getCatalog(), mappingConfig);
-        if (symlink.getName().startsWith(TABLE_PREFIX)) {
-          datasetName = symlink.getName().replaceFirst(TABLE_PREFIX, "").replace("/", ".");
-        } else {
-          datasetName = symlink.getName();
-        }
+        datasetName = normalizeTableSymlinkName(symlink.getName());
         String connectionKey = toConnectionKey(symlink.getNamespace());
         Optional<DatasetUrn> symlinkedUrn =
             getDatasetUrnFromOlDataset(namespace, datasetName, connectionKey, mappingConfig);
@@ -198,8 +194,15 @@ public class OpenLineageToDataHub {
                 symlink != null
                     && "TABLE".equals(symlink.getType())
                     && symlink.getName() != null
-                    && !symlink.getName().isBlank())
+                    && !normalizeTableSymlinkName(symlink.getName()).isBlank())
         .reduce((first, second) -> second);
+  }
+
+  private static String normalizeTableSymlinkName(String symlinkName) {
+    if (symlinkName.startsWith(TABLE_PREFIX)) {
+      return symlinkName.substring(TABLE_PREFIX.length()).replace("/", ".");
+    }
+    return symlinkName;
   }
 
   private static String resolveTableSymlinkPlatform(
