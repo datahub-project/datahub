@@ -83,7 +83,7 @@ Requirements:
 
 ### Other Notable Changes
 
-- **(Ingestion / Cube)** Cube views are now ingested with subtype `Semantic View` instead of `View`, matching Snowflake Semantic Views. Cube entities themselves are unchanged (`Cube`). Dataset URNs are unchanged. **Action:** re-ingest Cube to update the subtype. Saved searches or filters that look for Cube assets with type `View` should use `Semantic View`.
+- #19440 **(Ingestion / Cube)** Cube views are now ingested with subtype `Semantic View` instead of `View`, matching Snowflake Semantic Views. Cube entities themselves are unchanged (`Cube`). Dataset URNs are unchanged. **Action:** re-ingest Cube to update the subtype. Saved searches or filters that look for Cube assets with type `View` should use `Semantic View`.
 
 - **(GMS / Auth helpers)** `POST /auth/signUp`, `/auth/resetNativeUserCredentials`, `/auth/verifyNativeUserCredentials`, and `/auth/getSsoSettings` now require the GMS **system client** credentials, matching `/auth/generateSessionTokenForUser`. Frontend login, signup, password reset, and SSO continue to work (they already call these helpers with the system client). A user session token calling GMS `/auth/*` directly receives **401**. **Action:** none for standard deployments; if you called these GMS helpers with a user token, switch to the frontend routes or system client credentials.
 
