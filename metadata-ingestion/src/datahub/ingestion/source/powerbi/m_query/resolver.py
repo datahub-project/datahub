@@ -189,8 +189,7 @@ def _walk(
         _walk(
             node_map,
             node.get("content"),
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
