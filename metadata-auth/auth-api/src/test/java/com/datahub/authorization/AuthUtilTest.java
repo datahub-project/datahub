@@ -217,14 +217,18 @@ public class AuthUtilTest {
                     API_ENTITY_PRIVILEGE_MAP.get("dataHubPolicy").get(UPDATE).get(0).get(0))),
         "Expected MANAGE permission directly on dataHubPolicy entity");
 
-    assertEquals(
-        AuthUtil.buildDisjunctivePrivilegeGroup(
-            AuthUtil.lookupEntityAPIPrivilege(READ, Constants.INGESTION_SOURCE_ENTITY_NAME)),
-        new DisjunctivePrivilegeGroup(
-            List.of(
-                new ConjunctivePrivilegeGroup(
-                    List.of(PoliciesConfig.MANAGE_INGESTION_PRIVILEGE.getType())))),
-        "Expected READ on dataHubIngestionSource to require MANAGE_INGESTION");
+    assertTrue(
+        AuthUtil.lookupEntityAPIPrivilege(READ, Constants.INGESTION_SOURCE_ENTITY_NAME)
+            .contains(Conjunctive.of(PoliciesConfig.MANAGE_INGESTION_PRIVILEGE)),
+        "Expected READ on dataHubIngestionSource to allow MANAGE_INGESTION");
+    assertTrue(
+        AuthUtil.lookupEntityAPIPrivilege(READ, Constants.INGESTION_SOURCE_ENTITY_NAME)
+            .contains(Conjunctive.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE)),
+        "Expected READ on dataHubIngestionSource to allow EDIT_ENTITY");
+    assertTrue(
+        AuthUtil.lookupEntityAPIPrivilege(READ, Constants.INGESTION_SOURCE_ENTITY_NAME)
+            .contains(Conjunctive.of(PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE)),
+        "Expected READ on dataHubIngestionSource to allow VIEW_ENTITY_PAGE");
 
     assertEquals(
         AuthUtil.buildDisjunctivePrivilegeGroup(

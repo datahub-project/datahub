@@ -32,8 +32,9 @@ public class IngestionAuthUtils {
   }
 
   /**
-   * Type-level execute check when no specific ingestion source URN is available (e.g. test
-   * connection, rollback by run id).
+   * Type-level execute check when no specific ingestion source URN is available (e.g. rollback by
+   * run id). Test connection remains gated on {@link #canManageIngestion} because it accepts a
+   * client-supplied recipe.
    */
   public static boolean canExecuteIngestion(@Nonnull QueryContext context) {
     return isAuthorizedEntityType(

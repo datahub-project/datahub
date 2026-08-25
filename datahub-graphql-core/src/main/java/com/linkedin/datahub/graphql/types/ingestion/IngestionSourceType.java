@@ -1,12 +1,14 @@
 package com.linkedin.datahub.graphql.types.ingestion;
 
+import static com.datahub.authorization.AuthUtil.isAuthorizedEntityUrns;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -25,7 +27,9 @@ import lombok.extern.slf4j.Slf4j;
  * IngestionSourceType provides a way to load {@link IngestionSource} objects from their URNs. It
  * leverages the {@link EntityClient} to retrieve the entities from the GMS.
  *
- * <p>Requires {@code MANAGE_INGESTION}, matching {@link
+ * <p>Requires {@link com.linkedin.metadata.authorization.ApiOperation#READ} on the requested URNs
+ * ({@code MANAGE_INGESTION}, Edit, or standard entity read privileges). Listing all sources still
+ * requires Manage Ingestion via {@link
  * com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver}.
  */
 @Slf4j
@@ -60,13 +64,13 @@ public class IngestionSourceType
   @Override
   public List<DataFetcherResult<IngestionSource>> batchLoad(
       @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
-    if (!IngestionAuthUtils.canManageIngestion(context)) {
+    final List<Urn> ingestionSourceUrns =
+        urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+
+    if (!isAuthorizedEntityUrns(context.getOperationContext(), READ, ingestionSourceUrns)) {
       throw new AuthorizationException(
           "Unauthorized to get ingestion sources. Please contact your DataHub administrator.");
     }
-
-    final List<Urn> ingestionSourceUrns =
-        urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
       final Map<Urn, EntityResponse> entities =

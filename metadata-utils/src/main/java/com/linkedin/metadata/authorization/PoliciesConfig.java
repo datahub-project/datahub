@@ -1281,7 +1281,17 @@ public class PoliciesConfig {
                   Constants.INGESTION_SOURCE_ENTITY_NAME,
                   ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
                       .put(ApiOperation.CREATE, Disjunctive.disjoint(MANAGE_INGESTION_PRIVILEGE))
-                      .put(ApiOperation.READ, Disjunctive.disjoint(MANAGE_INGESTION_PRIVILEGE))
+                      // Recipe READ: Manage Ingestion, Edit, or standard entity read privileges.
+                      .put(
+                          ApiOperation.READ,
+                          new Disjunctive<>(
+                              Stream.concat(
+                                      Stream.of(Conjunctive.of(MANAGE_INGESTION_PRIVILEGE)),
+                                      API_PRIVILEGE_MAP
+                                          .get(ApiGroup.ENTITY)
+                                          .get(ApiOperation.READ)
+                                          .stream())
+                                  .collect(Collectors.toList())))
                       .put(
                           ApiOperation.UPDATE,
                           Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
