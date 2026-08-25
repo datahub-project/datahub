@@ -741,15 +741,15 @@ With the default `contract_test_tag: "contract"`, any test tagged with `contract
 
 dbt's [constraint support matrix](https://docs.getdbt.com/reference/resource-properties/constraints) varies widely by adapter, and dbt documents that the matrix will keep changing. DataHub reflects three states on each constraint assertion's `enforced_by` custom property:
 
-| Adapter    | `not_null`  | `unique`                                 | `primary_key` / `foreign_key` | `check`     |
-| ---------- | ----------- | ---------------------------------------- | ----------------------------- | ----------- |
-| PostgreSQL | database    | database                                 | database                      | database    |
-| Snowflake  | database    | dbt_contract                             | dbt_contract                  | unsupported |
-| BigQuery   | database    | dbt_contract                             | dbt_contract                  | unsupported |
-| Redshift   | database    | dbt_contract                             | dbt_contract                  | unsupported |
-| Databricks | database    | unsupported                              | dbt_contract                  | database    |
-| Spark      | unsupported | unsupported                              | unsupported                   | unsupported |
-| Athena     | unsupported | unsupported                              | unsupported                   | unsupported |
+| Adapter    | `not_null`  | `unique`     | `primary_key` / `foreign_key` | `check`     |
+| ---------- | ----------- | ------------ | ----------------------------- | ----------- |
+| PostgreSQL | database    | database     | database                      | database    |
+| Snowflake  | database    | dbt_contract | dbt_contract                  | unsupported |
+| BigQuery   | database    | dbt_contract | dbt_contract                  | unsupported |
+| Redshift   | database    | dbt_contract | dbt_contract                  | unsupported |
+| Databricks | database    | unsupported  | dbt_contract                  | database    |
+| Spark      | unsupported | unsupported  | unsupported                   | unsupported |
+| Athena     | unsupported | unsupported  | unsupported                   | unsupported |
 
 - **`enforced_by: database`** means dbt emits real DDL constraints and the warehouse validates them at write time.
 - **`enforced_by: dbt_contract`** means the constraint is definable as metadata but is not DDL-enforced.
