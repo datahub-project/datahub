@@ -2140,6 +2140,26 @@ _NESTED_LET_OUTER_SCOPE_M_QUERY: str = (
     "    out"
 )
 
+# A nested let whose own binding initialises from the enclosing binding of the
+# same name. A plain reference in M is exclusive -- the spec evaluates each let
+# variable "with an environment containing each of the variables of the let except
+# the one being initialized" -- so the inner `a` reads the outer `a`.
+_NESTED_SELF_INIT_M_QUERY: str = (
+    "let\n"
+    f"    Source = {_DATABRICKS_CONNECTOR},\n"
+    '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    '    sch = db{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    '    a = sch{[Name="my_table",Kind="Table"]}[Data],\n'
+    "    out = let a = a in a\n"
+    "in\n"
+    "    out"
+)
+
+# The same shape with nothing outside to resolve to, which the spec calls an error.
+_SELF_INIT_UNRESOLVABLE_M_QUERY: str = (
+    f"let\n    Source = {_DATABRICKS_CONNECTOR},\n    out = let a = a in a\nin\n    out"
+)
+
 # A nested let that rebinds a name the enclosing let already uses.
 _NESTED_LET_SHADOWING_M_QUERY: str = (
     "let\n"
@@ -2220,16 +2240,29 @@ def test_cycle_spelled_with_different_casing_is_one_visit():
 
 
 @pytest.mark.integration
-def test_nested_self_reference_does_not_fall_back_to_the_outer_binding():
-    """A nested `a = a` shadows the outer `a` for the whole nested body, so it is a
-    self-reference -- the shape Power BI rejects as a cyclic reference. Resolving it
-    against the outer binding instead would invent lineage the query never reads."""
+def test_nested_self_init_reads_the_enclosing_binding():
+    """`a = a` in a nested let skips its own binding and reads the enclosing `a`.
+    Valid M that Power BI refreshes -- resolving it to the inner binding instead
+    would report a cyclic reference and drop the lineage."""
     lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
-        q=(
-            f"let Source = {_DATABRICKS_CONNECTOR},"
-            ' a = Source{[Name="my_catalog",Kind="Database"]}[Data],'
-            " out = let a = a in a in out"
-        )
+        q=_NESTED_SELF_INIT_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn == "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "my_catalog.my_schema.my_table,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_self_init_with_nothing_enclosing_it_yields_nothing():
+    """With no enclosing binding the exclusive reference has nothing to resolve to,
+    which the spec calls an error. Report no lineage rather than guess."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_SELF_INIT_UNRESOLVABLE_M_QUERY
     )
 
     assert combine_upstreams_from_lineage(lineages) == []

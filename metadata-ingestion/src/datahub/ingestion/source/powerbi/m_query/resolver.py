@@ -353,7 +353,10 @@ def _unwrap_csv(elem: object) -> Optional[dict]:
 
 
 def _resolve_in_scopes(
-    node_map: NodeIdMap, scopes: Scopes, name: str
+    node_map: NodeIdMap,
+    scopes: Scopes,
+    name: str,
+    initializing: Set[Tuple[int, str]],
 ) -> Optional[Tuple[int, dict, Scopes]]:
     """Look a name up in the innermost scope that binds it.
 
@@ -361,9 +364,19 @@ def _resolve_in_scopes(
     scopes that value is itself evaluated in. That last part matters: a step
     bound by an outer let cannot see names introduced by a nested one, so the
     chain is truncated at the scope where the name was found.
+
+    A plain identifier reference in M is an *exclusive* reference: the language
+    spec evaluates each let variable "with an environment containing each of the
+    variables of the let except the one being initialized". So a binding is
+    skipped while its own value is being walked, letting `a = a` in a nested let
+    reach the enclosing `a` -- valid M, and only an error when no enclosing
+    scope binds the name. `@a` would be the inclusive form; M-Query queries that
+    reach here do not use it for data-source steps.
     """
     for index in range(len(scopes) - 1, -1, -1):
         let_id, let_node = scopes[index]
+        if (let_id, name.casefold()) in initializing:
+            continue
         resolved = resolve_identifier(node_map, let_node, name)
         if resolved is not None:
             return let_id, resolved, scopes[: index + 1]
@@ -383,7 +396,9 @@ def _walk_identifier_name(
     if not name:
         return
 
-    found = _resolve_in_scopes(node_map, scopes, name)
+    # `seen` holds the bindings whose values are being walked on this path, which
+    # is what an exclusive reference has to skip over.
+    found = _resolve_in_scopes(node_map, scopes, name, seen)
     if found is None:
         logger.debug("No enclosing let binds '%s', stopping this branch", name)
         return
