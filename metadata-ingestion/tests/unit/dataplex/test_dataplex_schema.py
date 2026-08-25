@@ -125,8 +125,15 @@ class TestMapAspectTypeToDatahub:
             assert isinstance(result.type, NumberTypeClass)
 
     def test_map_float_types(self):
-        """Test mapping float types."""
-        for type_str in ["FLOAT", "DOUBLE", "NUMERIC", "DECIMAL"]:
+        """Test mapping float types, including BigQuery's FLOAT64/BIGNUMERIC."""
+        for type_str in [
+            "FLOAT",
+            "FLOAT64",
+            "DOUBLE",
+            "NUMERIC",
+            "BIGNUMERIC",
+            "DECIMAL",
+        ]:
             result = map_aspect_type_to_datahub(type_str)
             assert isinstance(result.type, NumberTypeClass)
 
