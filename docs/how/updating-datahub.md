@@ -65,6 +65,8 @@ Requirements:
 
 - #18944 **(GMS / Domain-scoped Edit on `domains` PATCH)** `ChangeType.PATCH` always requires **Edit Entity** (never Create Entity). Domain-scoped Edit on a `domains` PATCH must allow **both** the before and after domain membership when domains already exist; when establishing first domains via PATCH, Edit is matched against the after domains only. Sync requests re-check inside the DB transaction after patch apply; async MCE consume skips user domain auth (authorized on the API thread before Kafka). **Action:** Grant Edit on both source and destination domains before moving assets between domains with a domains PATCH.
 
+- #16336 **(GraphQL / Validation)** Aspect-validator rejections now return 400 BAD_REQUEST (403 UNAUTHORIZED for authorization-subtype failures) with the validator's own message and an `errorSource: "VALIDATION"` extension, instead of a generic 500 whose message buried the validator text inside a Java object dump; GraphQL clients that matched on the 500 status or parsed the old message format should switch to the new codes and the `errorSource` extension.
+
 ### Known Issues
 
 ### Potential Downtime
