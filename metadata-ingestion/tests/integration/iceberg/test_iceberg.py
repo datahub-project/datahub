@@ -40,6 +40,7 @@ def remove_docker_image():
 
     # The tabulario/spark-iceberg image is pretty large, so we remove it after the test.
     cleanup_image("tabulario/spark-iceberg")
+    cleanup_image("apache/iceberg-rest-fixture")
 
 
 VIEWS_CATALOG_URI = "http://localhost:8183"
