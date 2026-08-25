@@ -185,11 +185,11 @@
                         },
                         {
                             "id": "5e033fd1-385c-4f0c-8a61-58910cc25194",
-                            "name": "combined-actions-dataset",
+                            "name": "shared-expressions-dataset",
                             "description": "One loaded table over three queries with Enable load off",
                             "tables": [
                                 {
-                                    "name": "combined actions",
+                                    "name": "merged rows",
                                     "isHidden": false,
                                     "storageMode": "Import",
                                     "columns": [
@@ -209,7 +209,7 @@
                                     "measures": [],
                                     "source": [
                                         {
-                                            "expression": "let\n    Source = Table.Combine({#\"actions intercom only\", #\"actions intercom excluded\"})\nin\n    Source"
+                                            "expression": "let\n    Source = Table.Combine({#\"rows kept\", #\"rows dropped\"})\nin\n    Source"
                                         }
                                     ]
                                 }
@@ -239,19 +239,19 @@
                             ],
                             "expressions": [
                                 {
-                                    "name": "actions base",
+                                    "name": "base rows",
                                     "description": "Enable load off - holds the Databricks navigation",
                                     "expression": "let\n    Source = Databricks.Catalogs(\"adb-123.azuredatabricks.net\", \"/sql/1.0/endpoints/12345dc91aa25844\", [Database=null, Catalog=\"my_catalog\"]),\n    db = Source{[Name=\"my_catalog\",Kind=\"Database\"]}[Data],\n    sch = db{[Name=\"my_schema\",Kind=\"Schema\"]}[Data],\n    tbl = sch{[Name=\"my_table\",Kind=\"Table\"]}[Data]\nin\n    tbl"
                                 },
                                 {
-                                    "name": "actions intercom only",
+                                    "name": "rows kept",
                                     "description": "Enable load off",
-                                    "expression": "let\n    Source = #\"actions base\",\n    #\"Filtered Rows\" = Table.SelectRows(Source, each [a] = \"x\")\nin\n    #\"Filtered Rows\""
+                                    "expression": "let\n    Source = #\"base rows\",\n    #\"Filtered Rows\" = Table.SelectRows(Source, each [a] = \"x\")\nin\n    #\"Filtered Rows\""
                                 },
                                 {
-                                    "name": "actions intercom excluded",
+                                    "name": "rows dropped",
                                     "description": "Enable load off",
-                                    "expression": "let\n    Source = #\"actions base\",\n    #\"Filtered Rows\" = Table.SelectRows(Source, each [a] <> \"x\")\nin\n    #\"Filtered Rows\""
+                                    "expression": "let\n    Source = #\"base rows\",\n    #\"Filtered Rows\" = Table.SelectRows(Source, each [a] <> \"x\")\nin\n    #\"Filtered Rows\""
                                 },
                                 {
                                     "name": "Server Hostname",
