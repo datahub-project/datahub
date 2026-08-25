@@ -70,12 +70,9 @@ public class QueryType
               aspectsToResolve);
 
       final Set<Urn> viewableQueryUrns;
-      if (context
-              .getOperationContext()
-              .getOperationContextConfig()
-              .getViewAuthorizationConfiguration()
-              .isEnabled()
-          && !context.getOperationContext().isSystemAuth()) {
+      // VIEW_ENTITY_QUERIES enforcement is intentionally NOT gated on the view-authorization
+      // flag: query statements are always privilege-protected for non-system actors.
+      if (!context.getOperationContext().isSystemAuth()) {
         viewableQueryUrns =
             EntityAspectAuthorizationUtils.filterViewableQueryEntities(
                 context.getOperationContext(),

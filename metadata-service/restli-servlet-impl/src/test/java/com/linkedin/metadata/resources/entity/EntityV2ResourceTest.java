@@ -10,6 +10,7 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
@@ -33,6 +34,8 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 public class EntityV2ResourceTest {
@@ -66,13 +69,23 @@ public class EntityV2ResourceTest {
     assertTrue(invokeIsAuthorizedToReadEntities(opContext, List.of(QUERY_URN)));
   }
 
+  /**
+   * Query READ enforcement now flows through the shared {@code
+   * EntityAuthorizationUtils.isAPIAuthorizedEntityUrns} path, whose activation follows the REST API
+   * authorization setting — so it is force-enabled here (real tests run with the default-enabled
+   * setting; unit test JVMs never initialize it).
+   */
   private static boolean invokeIsAuthorizedToReadEntities(
       OperationContext opContext, List<Urn> urns) throws Exception {
     Method method =
         EntityV2Resource.class.getDeclaredMethod(
             "isAuthorizedToReadEntities", OperationContext.class, java.util.Collection.class);
     method.setAccessible(true);
-    return (boolean) method.invoke(null, opContext, urns);
+    try (MockedStatic<AuthUtil> authUtil =
+        Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      return (boolean) method.invoke(null, opContext, urns);
+    }
   }
 
   private static Authorizer denyAllAuthorizer() {

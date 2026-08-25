@@ -110,8 +110,11 @@ public class ListQueriesResolverTest {
 
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
 
-    // Execute resolver
-    QueryContext mockContext = getMockAllowContext();
+    // Execute resolver. Query reads are always privilege-filtered for non-system actors, so the
+    // context must resolve the query's subjects and grant VIEW_ENTITY_QUERIES.
+    QueryContext mockContext =
+        createContext(
+            queryViewPrivilegeAuthorizer(true), mockQuerySubjectsAspectRetriever(), false);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -176,7 +179,8 @@ public class ListQueriesResolverTest {
     ListQueriesResult result = resolver.get(mockEnv).get();
     assertEquals((int) result.getCount(), 0);
     assertEquals(result.getQueries().size(), 0);
-    assertEquals((int) result.getTotal(), 1);
+    // The reported total excludes entities redacted from this page.
+    assertEquals((int) result.getTotal(), 0);
   }
 
   /**

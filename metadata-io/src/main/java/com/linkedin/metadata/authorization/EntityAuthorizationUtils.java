@@ -80,10 +80,13 @@ public final class EntityAuthorizationUtils {
             .filter(urn -> !DocumentAuthorizationUtils.isDocumentEntity(urn))
             .filter(EntityAspectAuthorizationUtils::isSchemaFieldEntity)
             .toList();
+    List<Urn> queries =
+        urns.stream().filter(EntityAspectAuthorizationUtils::isQueryEntity).toList();
     List<Urn> others =
         urns.stream()
             .filter(urn -> !DocumentAuthorizationUtils.isDocumentEntity(urn))
             .filter(urn -> !EntityAspectAuthorizationUtils.isSchemaFieldEntity(urn))
+            .filter(urn -> !EntityAspectAuthorizationUtils.isQueryEntity(urn))
             .toList();
     if (!others.isEmpty() && !AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, others)) {
       return false;
@@ -92,9 +95,37 @@ public final class EntityAuthorizationUtils {
         && !isAPIAuthorizedSchemaFieldUrns(opContext, apiOperation, schemaFields)) {
       return false;
     }
+    if (!queries.isEmpty() && !isAPIAuthorizedQueryUrns(opContext, apiOperation, queries)) {
+      return false;
+    }
     return documents.isEmpty()
         || DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
             opContext, apiOperation, documents);
+  }
+
+  /**
+   * Authorizes query entity URNs for API surfaces. READ requires {@code VIEW_ENTITY_QUERIES} (or a
+   * privilege implying it) on every subject dataset via {@link
+   * EntityAspectAuthorizationUtils#filterViewableQueryEntities} when REST API authorization is
+   * enabled — query entities with no subjects are fail-closed. Other operations use {@link
+   * AuthUtil} without inheritance.
+   */
+  private static boolean isAPIAuthorizedQueryUrns(
+      @Nonnull OperationContext opContext,
+      @Nonnull ApiOperation apiOperation,
+      @Nonnull Collection<Urn> queryUrns) {
+    if (queryUrns.isEmpty()) {
+      return true;
+    }
+    if (apiOperation != READ) {
+      return AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, queryUrns);
+    }
+    if (!AuthUtil.isRestApiAuthorizationEnabled()) {
+      return true;
+    }
+    return EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            opContext, opContext, opContext.getAspectRetriever(), queryUrns)
+        .containsAll(queryUrns);
   }
 
   /**
