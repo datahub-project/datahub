@@ -1,0 +1,20 @@
+{
+    "allTime": "すべての期間",
+    "dateRange": "{{startDate}} - {{endDate}}",
+    "durationHoursCount_other": "{{count}} 時間",
+    "durationMinutesCount_other": "{{count}} 分",
+    "durationSecondsCount_other": "{{count}} 秒",
+    "fromDate": "{{date}}から",
+    "justNow": "たった今",
+    "lastDaysCount_other": "過去{{count}}日間",
+    "lastUpdated.defaultAssetType": "アセット",
+    "lastUpdated.lastChangedNoPlatform": "この{{typeName}}がソースプラットフォーム内で最後に変更された時刻",
+    "lastUpdated.lastChangedWithPlatform": "この{{typeName}}が<platform>{{platformName}}</platform>内で最後に変更された時刻",
+    "lastUpdated.legendOlder": "<bold>1か月以上前</bold>に更新",
+    "lastUpdated.legendPastMonth": "<bold>過去1か月以内</bold>に更新",
+    "lastUpdated.legendPastWeek": "<bold>過去1週間以内</bold>に更新",
+    "lastUpdated.updatedRelative": "{{relativeTime}}に更新",
+    "now": "現在",
+    "unknownTimeRange": "不明な期間",
+    "untilDate": "{{date}}まで"
+}

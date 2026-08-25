@@ -1,0 +1,10 @@
+{
+    "defaultTemplateBar.editingWarning": "組織のデフォルトホームを編集中",
+    "header.discoverLabel": "発見",
+    "error.failedToAddSummaryElement": "サマリー要素の追加に失敗しました",
+    "error.failedToRemoveSummaryElement": "サマリー要素の削除に失敗しました",
+    "error.failedToReplaceSummaryElement": "サマリー要素の置き換えに失敗しました",
+    "error.noTemplateAvailable": "更新できるテンプレートがありません",
+    "toast.editedDescription": "ホームページをリセットするには、「組織のデフォルトにリセット」をクリックしてください",
+    "toast.editedTitle": "ホームページを編集しました"
+}

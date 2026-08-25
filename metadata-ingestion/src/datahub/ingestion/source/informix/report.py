@@ -8,6 +8,9 @@ from datahub.utilities.lossy_collections import LossyList
 
 @dataclass
 class InformixSourceReport(StaleEntityRemovalSourceReport):
+    # Tables and views that passed every filter, so "selected but not ingested"
+    # is distinguishable from "nothing matched" -- see source.get_workunits_internal.
+    objects_selected: int = 0
     tables_scanned: int = 0
     views_scanned: int = 0
     filtered: LossyList[str] = field(default_factory=LossyList)
