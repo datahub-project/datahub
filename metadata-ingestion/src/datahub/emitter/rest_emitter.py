@@ -530,6 +530,17 @@ class DataHubRestEmitter(Closeable, Emitter):
         # resolution here — e.g. the datahub-rest sink, which applies an origin
         # guard before attaching env OAuth (re-resolving here could attach a token
         # to a different server).
+        #
+        # No origin guard here, deliberately, unlike that sink. The sink compares
+        # its server against DATAHUB_GMS_URL because a recipe can point it at an
+        # arbitrary host. The callers on this path — the Airflow hook and lineage
+        # listener, GX, Prefect, DataHubGraph(config=...) — routinely run where
+        # DATAHUB_GMS_URL is unset, or set to a different form of the same
+        # address, so the sink's guard would decline for the deployments this
+        # resolution exists to serve. The server here comes from the calling code
+        # rather than a recipe, and the minted token is audience-scoped to
+        # DataHub. A caller pointing at a host it does not trust should pass
+        # resolve_env_auth=False.
         if not caller_supplied_creds and resolve_env_auth:
             env_auth_config = build_auth_config_from_env()
             if env_auth_config is not None:

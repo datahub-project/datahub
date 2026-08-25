@@ -4,6 +4,19 @@ from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.emitter.token_provider import StaticTokenProvider, TokenProviderAuth
 
 
+@pytest.fixture(autouse=True)
+def _no_ambient_credentials(monkeypatch):
+    # The emitter resolves these from the environment, so a developer machine
+    # with any of them exported would otherwise change what these tests assert.
+    for var in (
+        "DATAHUB_AUTH_TYPE",
+        "DATAHUB_GMS_TOKEN",
+        "DATAHUB_SYSTEM_CLIENT_ID",
+        "DATAHUB_SYSTEM_CLIENT_SECRET",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+
 def test_emitter_installs_session_auth_and_skips_static_header():
     auth = TokenProviderAuth(StaticTokenProvider("tok"), retry_on_401=False)
     emitter = DataHubRestEmitter(gms_server="http://gms", auth=auth)
@@ -26,7 +39,6 @@ def test_emitter_explicit_host_uses_env_oauth(monkeypatch, token):
     # arrives from a URI/env-defined Airflow connection, and it bakes no
     # Authorization header, so suppressing env OAuth for it would leave the
     # client silently unauthenticated.
-    monkeypatch.delenv("DATAHUB_GMS_TOKEN", raising=False)
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
     monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "http://idp/token")
     monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
@@ -49,8 +61,6 @@ def test_emitter_explicit_token_beats_env_oauth(monkeypatch):
 
 def test_emitter_no_env_auth_is_unchanged(monkeypatch):
     # No DATAHUB_AUTH_TYPE -> no auth resolved, existing behavior preserved.
-    monkeypatch.delenv("DATAHUB_AUTH_TYPE", raising=False)
-    monkeypatch.delenv("DATAHUB_GMS_TOKEN", raising=False)
     emitter = DataHubRestEmitter(gms_server="http://gms")
     assert emitter._session.auth is None
 
@@ -72,7 +82,6 @@ def test_emitter_explicit_host_ignores_static_gms_token(monkeypatch):
     # DATAHUB_GMS_TOKEN from env (that env token is only for the __from_env__
     # sentinel). With no DATAHUB_AUTH_TYPE it falls through to system auth and
     # must never bake `Bearer <DATAHUB_GMS_TOKEN>`.
-    monkeypatch.delenv("DATAHUB_AUTH_TYPE", raising=False)
     monkeypatch.setenv("DATAHUB_GMS_TOKEN", "static-env-token")
     emitter = DataHubRestEmitter(gms_server="http://gms")
     assert emitter._session.auth is None
