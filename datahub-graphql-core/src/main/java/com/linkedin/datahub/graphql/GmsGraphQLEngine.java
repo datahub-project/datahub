@@ -376,6 +376,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.StaticDataFetcher;
 import graphql.schema.idl.RuntimeWiring;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import java.io.IOException;
@@ -408,6 +409,7 @@ public class GmsGraphQLEngine {
 
   private final EntityClient entityClient;
   private final SystemEntityClient systemEntityClient;
+  private final OperationContext systemOperationContext;
   private final GraphClient graphClient;
   private final UsageStatsJavaClient usageClient;
   private final SiblingGraphService siblingGraphService;
@@ -550,6 +552,7 @@ public class GmsGraphQLEngine {
 
     this.entityClient = args.entityClient;
     this.systemEntityClient = args.systemEntityClient;
+    this.systemOperationContext = args.systemOperationContext;
     this.graphClient = args.graphClient;
     this.usageClient = args.usageClient;
     this.siblingGraphService = args.siblingGraphService;
@@ -1415,7 +1418,10 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "acceptRole",
                   new AcceptRoleResolver(
-                      this.roleService, this.inviteTokenService, this.systemEntityClient))
+                      this.roleService,
+                      this.inviteTokenService,
+                      this.systemEntityClient,
+                      this.systemOperationContext))
               .dataFetcher("createPost", new CreatePostResolver(this.postService))
               .dataFetcher("deletePost", new DeletePostResolver(this.postService))
               .dataFetcher("updatePost", new UpdatePostResolver(this.postService))
