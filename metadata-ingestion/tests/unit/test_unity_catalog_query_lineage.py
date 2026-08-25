@@ -233,11 +233,10 @@ def test_edge_lookup_is_case_insensitive():
         _urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")
     )
     assert urn is not None
-    # subject_urns_for mirrors exactly the URNs this lookup was called with --
-    # the same casing the caller's Upstream edge carries -- not the
-    # system.access casing the candidate was originally matched on.
+    # Only the match *key* is folded: the URNs we emit must stay exactly as
+    # gen_dataset_urn produced them, or querySubjects points at nothing.
     assert resolver.subject_urns_for(urn) == sorted(
-        [_urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")]
+        [_urn("My_Catalog.My_Schema.Src"), _urn("My_Catalog.My_Schema.Tgt")]
     )
 
 
@@ -395,37 +394,33 @@ def test_subject_urns_for_returns_all_distinct_datasets_for_a_query():
     )
 
 
-def test_subject_urns_for_only_includes_confirmed_lookups():
-    """Only edges query_urn_for actually confirmed count as subjects.
-
-    _generate_lineage_aspect calls query_urn_for once per table it actually
-    ingests, so a statement that also joined system.access to a table outside
-    the configured catalog/schema patterns must not leak that (never-ingested)
-    table's URN into querySubjects, even though the resolver knows about the
-    edge.
-    """
+def test_subject_urns_for_reflects_edges_added_after_a_prior_call():
+    # Guards the subjects cache added for perf (avoids an O(edges) scan per
+    # query_urn): a lazily-built cache that isn't invalidated on add_query
+    # would keep serving this pre-mutation subject list forever.
     resolver = QueryLineageResolver(resolve_urn=_resolve)
     text = "INSERT INTO my_catalog.my_schema.tgt SELECT col_a FROM my_catalog.my_schema.src"
     resolver.add_query(
         _query(text, 1, "my_catalog.my_schema.src", "my_catalog.my_schema.tgt")
     )
-    # Same query_urn (identical text/id); this edge is never looked up below,
-    # mirroring a table that was never actually ingested.
-    resolver.add_query(
-        _query(text, 1, "my_catalog.my_schema.src2", "my_catalog.my_schema.tgt")
-    )
-
     urn = resolver.query_urn_for(
         _urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")
     )
     assert urn is not None
 
-    assert resolver.subject_urns_for(urn) == sorted(
-        [_urn("my_catalog.my_schema.src"), _urn("my_catalog.my_schema.tgt")]
+    resolver.subject_urns_for(urn)  # populate the cache before the mutation below
+
+    resolver.add_query(
+        _query(text, 1, "my_catalog.my_schema.src2", "my_catalog.my_schema.tgt")
     )
-    # The Query entity is still emitted regardless: a query URN is never left
-    # without its own entity just because one of its edges was never confirmed.
-    assert dict(resolver.queries_to_emit())[urn] == text
+
+    assert resolver.subject_urns_for(urn) == sorted(
+        [
+            _urn("my_catalog.my_schema.src"),
+            _urn("my_catalog.my_schema.src2"),
+            _urn("my_catalog.my_schema.tgt"),
+        ]
+    )
 
 
 def test_resolver_not_built_when_include_queries_disabled():

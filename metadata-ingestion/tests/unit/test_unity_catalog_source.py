@@ -3377,14 +3377,61 @@ class TestUnityCatalogQueryLinkedLineage:
             "every query link would silently miss"
         )
 
+    def test_lineage_full_name_to_urn_respects_configured_patterns(self):
+        """Mirrors process_catalogs/process_schemas/process_tables' own pattern
+        checks, using the exact argument form each expects: a bare catalog name,
+        a "catalog.schema" pair, and a "catalog.schema.table" triple. The
+        query-history fetch's own catalog_pattern push-down (proxy.py) only
+        excludes a statement when *neither* its source nor target catalog
+        matches, and applies no schema/table filtering at all -- so without this,
+        a table outside the configured scope could still reach querySubjects.
+        """
+        source = self._build_source(
+            catalog_pattern={"deny": ["blocked_catalog"]},
+            schema_pattern={"deny": ["c\\.blocked_schema"]},
+            table_pattern={"deny": ["c\\.s\\.blocked_table"]},
+        )
+
+        assert source._lineage_full_name_to_urn("c.s.my_table") is not None
+        assert source._lineage_full_name_to_urn("blocked_catalog.s.my_table") is None
+        assert source._lineage_full_name_to_urn("c.blocked_schema.my_table") is None
+        assert source._lineage_full_name_to_urn("c.s.blocked_table") is None
+
+    def test_pattern_excluded_table_does_not_reach_query_subjects(self):
+        """A statement touching a table outside the configured patterns must not
+        contribute a querySubjects entry: resolve_urn returns None for it, so it
+        can never become a resolver candidate in the first place.
+        """
+        source = self._build_source(schema_pattern={"deny": ["c\\.blocked_schema"]})
+        resolver = QueryLineageResolver(resolve_urn=source._lineage_full_name_to_urn)
+        resolver.add_query(
+            Query(
+                query_id="stmt-1",
+                query_text="INSERT INTO c.s.my_table SELECT col_a "
+                "FROM c.blocked_schema.upstream_table",
+                statement_type=None,
+                start_time=None,
+                end_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                user_id=None,
+                user_name=None,
+                executed_as_user_id=None,
+                executed_as_user_name=None,
+                source_table_full_names=["c.blocked_schema.upstream_table"],
+                target_table_full_names=["c.s.my_table"],
+            )
+        )
+
+        # The upstream side never resolved to a URN, so no edge exists at all --
+        # not even one with an empty subjects list.
+        assert resolver.queries_to_emit() == []
+        assert resolver.num_edges_linked == 0
+
     def test_wiring_emits_query_linked_lineage_end_to_end(self, monkeypatch):
         """Drives the real wiring, not a hand-built resolver: stubs
         get_query_history_via_system_tables at the Databricks boundary, then calls
-        the real _build_query_lineage_resolver() and process_table()/ingest_lineage()
-        before _gen_query_entity_workunits, exactly as get_workunits_internal wires
-        them (entities are emitted after process_metastores now that querySubjects
-        depends on the lineage aspects it generates — see subject_urns_for), and
-        inspects the emitted workunits.
+        the real _build_query_lineage_resolver() and _gen_query_entity_workunits()
+        before process_table()/ingest_lineage(), exactly as get_workunits_internal
+        wires them, and inspects the emitted workunits.
 
         This is the test the brief's original (rejected) _lineage_full_name_to_urn
         design — which resolved through the near-empty schema resolver during this
@@ -3442,14 +3489,13 @@ class TestUnityCatalogQueryLinkedLineage:
         # must not inflate the usage path's counters or duplicate its warnings.
         assert captured["secondary_fetch"] is True
 
-        # process_table (which calls _generate_lineage_aspect -> query_urn_for
-        # internally) must run before _gen_query_entity_workunits, exactly as
-        # get_workunits_internal orders them, or querySubjects below would be
-        # computed before any edge was consumed.
-        table_workunits = list(source.process_table(table, table.schema))
+        # _gen_query_entity_workunits must run before process_table, exactly as
+        # get_workunits_internal orders them, so the Query entity already exists
+        # by the time process_table's lineage aspect can reference its URN.
         entity_workunits = list(
             source._gen_query_entity_workunits(source.query_lineage_resolver)
         )
+        table_workunits = list(source.process_table(table, table.schema))
 
         upstream_urn = source.gen_dataset_urn(upstream_ref)
         dataset_urn = source.gen_dataset_urn(table.ref)
@@ -3486,6 +3532,73 @@ class TestUnityCatalogQueryLinkedLineage:
         assert len(subjects_aspects) == 1
         subject_urns = {s.entity for s in subjects_aspects[0].subjects}
         assert subject_urns == {upstream_urn, dataset_urn}
+
+    def test_query_entities_precede_referencing_lineage_aspects(self, monkeypatch):
+        """Pins get_workunits_internal's real emission order: a `query` URN
+        pointing at an entity that hasn't been emitted yet renders as a ghost
+        node in the lineage graph, so the queryProperties workunit for a query
+        must appear before any aspect that references its URN.
+
+        Drives get_workunits_internal() itself (unlike the wiring test above,
+        which calls process_table/_gen_query_entity_workunits directly) so a
+        regression that reorders the two calls inside it is actually caught.
+        process_metastores/get_view_lineage are stubbed to avoid mocking the
+        unrelated catalogs/schemas/tables API calls a real crawl would need.
+        """
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+        from datahub.metadata.schema_classes import (
+            QueryPropertiesClass,
+            UpstreamLineageClass,
+        )
+
+        source = self._build_source(include_usage_statistics=False)
+        table = self._build_table_with_upstream()
+        upstream_ref = next(iter(table.upstreams))
+        query = self._build_query(upstream_ref, table)
+
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy,
+            "get_query_history_via_system_tables",
+            lambda *a, **k: iter([query]),
+        )
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy, "table_lineage", lambda *a, **k: None
+        )
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy, "get_column_lineage", lambda *a, **k: None
+        )
+        monkeypatch.setattr(
+            source,
+            "process_metastores",
+            lambda: source.process_table(table, table.schema),
+        )
+        monkeypatch.setattr(source, "get_view_lineage", lambda: iter(()))
+
+        workunits = list(source.get_workunits_internal())
+
+        upstream_urn = source.gen_dataset_urn(upstream_ref)
+        dataset_urn = source.gen_dataset_urn(table.ref)
+        assert source.query_lineage_resolver is not None
+        expected_query_urn = source.query_lineage_resolver.query_urn_for(
+            upstream_urn, dataset_urn
+        )
+        assert expected_query_urn is not None
+
+        query_props_index = next(
+            i
+            for i, wu in enumerate(workunits)
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and wu.metadata.entityUrn == expected_query_urn
+            and isinstance(wu.metadata.aspect, QueryPropertiesClass)
+        )
+        referencing_index = next(
+            i
+            for i, wu in enumerate(workunits)
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+            and any(u.query == expected_query_urn for u in wu.metadata.aspect.upstreams)
+        )
+        assert query_props_index < referencing_index
 
     def test_secondary_fetch_false_when_usage_will_not_read_system_tables(
         self, monkeypatch

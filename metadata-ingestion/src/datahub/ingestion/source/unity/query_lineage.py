@@ -62,8 +62,8 @@ class _Candidate:
     query_urn: str
     query_text: str
     end_time: datetime
-    # The unfolded URNs this candidate was matched on, so _offer can rebuild its
-    # _by_edge key from a stored candidate (e.g. when comparing to a replacement).
+    # The unfolded URNs this candidate was matched on, so subject_urns_for can
+    # report real URNs rather than the folded key.
     upstream_urn: str
     downstream_urn: str
 
@@ -84,14 +84,11 @@ class QueryLineageResolver:
     _seen: int = 0
     _skipped: int = 0
     _unresolved: int = 0
-    # Populated by query_urn_for as lineage aspects are generated: the URNs a
-    # caller actually asserted for that query_urn, i.e. the ones that end up in an
-    # emitted Upstream/FineGrainedLineage edge. A statement can join system.access
-    # to a table outside the ingested catalog/schema patterns, whose URN then
-    # never appears in any lineage aspect; keying subjects off actual lookups
-    # (rather than every _by_edge candidate for a query_urn) keeps that
-    # never-ingested table out of querySubjects.
-    _consumed_subjects: Dict[str, Set[str]] = field(default_factory=dict)
+    # Lazily built, invalidated whenever _by_edge changes (see _offer) so it can
+    # never serve a stale subjects list for a query_urn added/replaced since the
+    # last build. Rebuilding costs O(edges) once per generation instead of once
+    # per subject_urns_for() call, which matters at production edge counts.
+    _subjects_by_query: Optional[Dict[str, List[str]]] = None
 
     def add_query(self, query: Query) -> None:
         self._seen += 1
@@ -175,6 +172,7 @@ class QueryLineageResolver:
         existing = self._by_edge.get(key)
         if existing is None or self._is_newer(candidate, existing):
             self._by_edge[key] = candidate
+            self._subjects_by_query = None
 
     @staticmethod
     def _is_newer(candidate: _Candidate, existing: _Candidate) -> bool:
@@ -186,37 +184,34 @@ class QueryLineageResolver:
 
     def query_urn_for(self, upstream_urn: str, downstream_urn: str) -> Optional[str]:
         candidate = self._by_edge.get(_edge_key(upstream_urn, downstream_urn))
-        if candidate is None:
-            return None
-        # Record the exact URNs this lookup asserted (not the candidate's own
-        # stored URNs, which matched case-insensitively and may differ in case)
-        # so subject_urns_for reports precisely what the caller put in its
-        # emitted lineage edge.
-        subjects = self._consumed_subjects.setdefault(candidate.query_urn, set())
-        subjects.add(upstream_urn)
-        subjects.add(downstream_urn)
-        return candidate.query_urn
+        return candidate.query_urn if candidate else None
 
     def queries_to_emit(self) -> List[Tuple[str, str]]:
-        """Every Query entity the resolver resolved, deduped by URN.
-
-        Emitted regardless of subject_urns_for's outcome, so a query URN
-        referenced by a lineage edge is never left without its own entity.
-        """
+        """Every Query entity that must be emitted before its URN is referenced."""
         deduped: Dict[str, str] = {
             c.query_urn: c.query_text for c in self._by_edge.values()
         }
         return sorted(deduped.items())
 
     def subject_urns_for(self, query_urn: str) -> List[str]:
-        """Every dataset actually referenced by an emitted lineage edge for this query.
+        """Every dataset touched by the statement behind this query URN.
 
-        Only URNs that reached an Upstream/FineGrainedLineage edge via
-        query_urn_for count as subjects, so a statement that also touched a
-        table outside the ingested catalog/schema patterns cannot leak that
-        table's (never-ingested) URN into querySubjects.
+        Every _by_edge candidate's URNs are safe to include here even before
+        lineage generation has run: resolve_urn already excludes tables outside
+        the configured catalog/schema/table patterns (see
+        UnityCatalogSource._lineage_full_name_to_urn), so no candidate can point
+        at a table this recipe would not otherwise ingest.
         """
-        return sorted(self._consumed_subjects.get(query_urn, ()))
+        if self._subjects_by_query is None:
+            by_query: Dict[str, Set[str]] = {}
+            for candidate in self._by_edge.values():
+                subjects = by_query.setdefault(candidate.query_urn, set())
+                subjects.add(candidate.upstream_urn)
+                subjects.add(candidate.downstream_urn)
+            self._subjects_by_query = {
+                urn: sorted(subjects) for urn, subjects in by_query.items()
+            }
+        return self._subjects_by_query.get(query_urn, [])
 
     @property
     def num_edges_linked(self) -> int:
