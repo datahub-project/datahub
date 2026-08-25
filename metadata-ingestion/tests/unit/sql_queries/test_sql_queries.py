@@ -594,12 +594,13 @@ class TestSqlQueriesSource:
         # The fixture holds valid lineage queries, so dropped output must fail.
         assert work_units
         assert all(isinstance(wu, MetadataWorkUnit) for wu in work_units)
-        aspects = {
-            wu.metadata.aspectName
-            for wu in work_units
-            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-            and wu.metadata.aspectName
-        }
+        aspects = set()
+        for wu in work_units:
+            if not isinstance(wu, MetadataWorkUnit):
+                continue
+            mcp = wu.metadata
+            if isinstance(mcp, MetadataChangeProposalWrapper) and mcp.aspectName:
+                aspects.add(mcp.aspectName)
         assert "queryProperties" in aspects
         assert "querySubjects" in aspects
 
