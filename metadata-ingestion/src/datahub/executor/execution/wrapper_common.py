@@ -108,13 +108,24 @@ def check_cli_flag_support(datahub_binary: Path, flag: str) -> bool:
             capture_output=True,
             text=True,
         )
-        return flag in result.stdout
     except Exception as e:
         print(
             f"Warning: Failed to check --{flag} support: {e}",
             file=sys.stderr,
         )
         return False
+
+    if result.returncode != 0:
+        print(
+            f"Warning: could not determine --{flag} support: "
+            f"`datahub ingest run --help` exited {result.returncode}. "
+            f"This is a CLI failure, not a missing feature. "
+            f"stderr: {result.stderr.strip()[:2000]}",
+            file=sys.stderr,
+        )
+        return False
+
+    return flag in result.stdout
 
 
 def _resolve_element(element: Any, secrets: dict[str, str], pattern: re.Pattern) -> Any:  # type: ignore[type-arg]
@@ -178,6 +189,7 @@ def run_datahub_subprocess(cmd: list[str], stdin_data: str) -> int:
     masking_filter = SecretMaskingFilter(secret_registry=registry)
 
     process: Optional[subprocess.Popen] = None
+    deferred_signum: Optional[int] = None
 
     def _reap_and_exit(signum: int, _frame: Any) -> None:
         # Our process group got a termination signal -- stop and REAP the datahub
@@ -188,7 +200,14 @@ def run_datahub_subprocess(cmd: list[str], stdin_data: str) -> int:
         # this wrapper outright and the child it just spawned is never reaped.
         # `process` is still None for the part of that window before Popen returns,
         # hence the guard.
-        if process is not None and process.poll() is None:
+        nonlocal deferred_signum
+        if process is None:
+            # Signalled between the spawn and the assignment below: the child exists
+            # but is not reachable yet. Exiting here orphans it, so record the signal
+            # and let the replay after the assignment do the reaping.
+            deferred_signum = signum
+            return
+        if process.poll() is None:
             process.terminate()
             try:
                 process.wait(timeout=30)
@@ -199,15 +218,22 @@ def run_datahub_subprocess(cmd: list[str], stdin_data: str) -> int:
 
     signal.signal(signal.SIGTERM, _reap_and_exit)
 
-    process = subprocess.Popen(
-        cmd,
-        env=os.environ.copy(),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
+    try:
+        process = subprocess.Popen(
+            cmd,
+            env=os.environ.copy(),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+    except Exception:
+        if deferred_signum is not None:
+            sys.exit(128 + deferred_signum)
+        raise
+    if deferred_signum is not None:
+        _reap_and_exit(deferred_signum, None)
 
     try:
         assert process.stdin is not None

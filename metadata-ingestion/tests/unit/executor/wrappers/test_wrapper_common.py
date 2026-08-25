@@ -204,3 +204,100 @@ class TestWrapperStdinContent:
         # from whatever `datahub` happens to be on PATH.
         cmd = mock_popen.call_args[0][0]
         assert cmd[0] == str(venv_dir / "datahub")
+
+
+class TestSigtermDuringSpawn:
+    """The window the ORDER test cannot cover.
+
+    The handler is installed before Popen, but `process` stays unbound until Popen
+    returns. A signal landing in between used to find None, assume there was nothing to
+    kill, and exit -- orphaning the child it had just spawned.
+    """
+
+    @pytest.fixture(autouse=True)
+    def restore_sigterm(self):
+        previous = signal.getsignal(signal.SIGTERM)
+        yield
+        signal.signal(signal.SIGTERM, previous)
+
+    def _child(self) -> MagicMock:
+        proc = MagicMock()
+        proc.stdin = MagicMock()
+        proc.stdout = iter([])
+        proc.poll.return_value = None  # still running when the handler looks
+        proc.wait.return_value = 0
+        return proc
+
+    def test_the_child_is_terminated_rather_than_orphaned(self) -> None:
+        proc = self._child()
+
+        def fake_popen(*_args: Any, **_kwargs: Any) -> MagicMock:
+            signal.raise_signal(signal.SIGTERM)  # `process` is still None here
+            return proc
+
+        with (
+            patch(
+                "datahub.executor.execution.wrapper_common.subprocess.Popen",
+                side_effect=fake_popen,
+            ),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            wrapper_common.run_datahub_subprocess(["/bin/true"], "recipe: {}")
+
+        proc.terminate.assert_called_once()
+        assert exc_info.value.code == 128 + signal.SIGTERM
+
+    def test_a_signal_is_not_dropped_when_the_spawn_itself_fails(self) -> None:
+        """The replay after the assignment is unreachable if Popen raises, so the
+        deferred signal has to be honoured on that path too."""
+
+        def failing_popen(*_args: Any, **_kwargs: Any) -> MagicMock:
+            signal.raise_signal(signal.SIGTERM)
+            raise FileNotFoundError("no such binary")
+
+        with (
+            patch(
+                "datahub.executor.execution.wrapper_common.subprocess.Popen",
+                side_effect=failing_popen,
+            ),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            wrapper_common.run_datahub_subprocess(["/nonexistent"], "recipe: {}")
+
+        assert exc_info.value.code == 128 + signal.SIGTERM
+
+
+class TestCliFlagProbe:
+    """A probe that fails is not the same as a flag that is absent.
+
+    Callers turn False into "you are likely running an old version", so a broken venv
+    must not be reported that way.
+    """
+
+    def _script(self, tmp_path: Path, name: str, body: str) -> Path:
+        path = tmp_path / name
+        path.write_text(f"#!/bin/sh\n{body}\n")
+        path.chmod(0o755)
+        return path
+
+    def test_a_failing_probe_surfaces_its_own_error(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        broken = self._script(
+            tmp_path,
+            "broken",
+            "echo 'ImportError: no module named snowflake' >&2\nexit 1",
+        )
+
+        assert wrapper_common.check_cli_flag_support(broken, "some-flag") is False
+        assert "ImportError: no module named snowflake" in capsys.readouterr().err
+
+    def test_a_genuinely_missing_flag_is_reported_silently(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        old_cli = self._script(
+            tmp_path, "old", "echo 'Usage: datahub ingest run'\nexit 0"
+        )
+
+        assert wrapper_common.check_cli_flag_support(old_cli, "some-flag") is False
+        assert capsys.readouterr().err == ""
