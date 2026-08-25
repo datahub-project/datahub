@@ -1,5 +1,4 @@
 import json
-import logging
 import warnings
 from datetime import datetime, timezone
 from unittest.mock import Mock
@@ -15,6 +14,7 @@ from datahub.ingestion.source.sql_queries import (
     QueryEntry,
     SqlQueriesSource,
     SqlQueriesSourceConfig,
+    SqlQueriesSourceReport,
 )
 from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
     AutoIncrementalLineageProcessor,
@@ -485,10 +485,14 @@ class TestQueryEntry:
     def test_create(self, entry_dict, entry_config, expected_query_entry, should_raise):
         if should_raise:
             with pytest.raises(ValueError):
-                QueryEntry.create(entry_dict, config=entry_config)
+                QueryEntry.create(
+                    entry_dict, config=entry_config, report=SqlQueriesSourceReport()
+                )
             return
 
-        query_entry = QueryEntry.create(entry_dict, config=entry_config)
+        query_entry = QueryEntry.create(
+            entry_dict, config=entry_config, report=SqlQueriesSourceReport()
+        )
 
         assert query_entry.query == expected_query_entry.query
         assert query_entry.timestamp == expected_query_entry.timestamp
@@ -778,9 +782,9 @@ class TestErrorHandling:
             raise OSError("connection reset")
 
         with pytest.raises(OSError):
-            list(source._guarded_stream(failing_stream(), "Local file read error"))
+            list(source._guarded_stream(failing_stream()))
 
-        assert any(f.title == "Local file read error" for f in source.report.failures)
+        assert any(f.title == "Query file read error" for f in source.report.failures)
 
     def test_guarded_stream_ignores_consumer_errors(self, pipeline_context):
         """The whole point of the helper: yield sits outside the try.
@@ -789,7 +793,7 @@ class TestErrorHandling:
         not be reported as a read failure.
         """
         source = _make_source(pipeline_context, "dummy.jsonl")
-        gen = source._guarded_stream(iter(["a\n", "b\n"]), "Local file read error")
+        gen = source._guarded_stream(iter(["a\n", "b\n"]))
         next(gen)
 
         with pytest.raises(ValueError):
@@ -878,7 +882,8 @@ class TestErrorHandling:
         assert str(call_args.user) == "urn:li:corpuser:test_user"
         source.aggregator.add_known_query_lineage.assert_not_called()
 
-    def test_non_str_table_entries_logged(self, caplog):
+    def test_non_str_table_entries_reported(self):
+        """Malformed table references are dropped, counted, and surfaced."""
         entry_dict = {
             "query": "SELECT * FROM t",
             "timestamp": 1640995200,
@@ -886,18 +891,16 @@ class TestErrorHandling:
             "upstream_tables": ["valid_table", 42, None, {"name": "bad"}],
         }
         config = SqlQueriesSourceConfig(platform="snowflake", query_file="dummy.json")
+        report = SqlQueriesSourceReport()
 
-        with caplog.at_level(logging.WARNING):
-            entry = QueryEntry.create(entry_dict, config=config)
+        entry = QueryEntry.create(entry_dict, config=config, report=report)
 
         assert len(entry.upstream_tables) == 1
         assert entry.upstream_tables[0] == DatasetUrn.from_string(
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,valid_table,PROD)"
         )
-        assert (
-            sum(1 for r in caplog.records if "invalid table entry" in r.message.lower())
-            == 3
-        )
+        assert report.num_invalid_table_entries == 3
+        assert any(w.title == "Invalid table entry" for w in report.warnings)
 
     def test_all_queries_throw_under_threshold(self, pipeline_context, query_file_with):
         """3 entries, all throw exceptions from add_observed_query (< threshold of 5).

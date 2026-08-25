@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, LiteralString, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import smart_open
 from pydantic import (
@@ -48,6 +48,7 @@ from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
     AutoIncrementalLineageProcessor,
@@ -130,7 +131,7 @@ class SqlQueriesSourceConfig(
 
     @model_validator(mode="after")
     def validate_s3_config(self) -> "SqlQueriesSourceConfig":
-        if self.query_file.startswith("s3://") and not self.aws_config:
+        if is_s3_uri(self.query_file) and not self.aws_config:
             raise ValueError(
                 "aws_config is required when query_file is an S3 URI (s3://)"
             )
@@ -239,21 +240,11 @@ class SqlQueriesSource(Source):
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
         logger.info(f"Parsing queries from {os.path.basename(self.config.query_file)}")
 
-        yield from self._process_queries_batch()
-
-    def _process_queries_batch(
-        self,
-    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
-
         with self.report.new_stage("Parsing and processing queries"):
             for entry in self._parse_query_file():
                 try:
                     self._add_query_to_aggregator(entry)
                     self.report.num_queries_processed += 1
-                    if self.report.num_queries_processed % 1000 == 0:
-                        logger.info(
-                            f"Processed {self.report.num_queries_processed} queries"
-                        )
                 except (MemoryError, SystemExit, KeyboardInterrupt):
                     raise
                 except Exception as e:
@@ -265,21 +256,13 @@ class SqlQueriesSource(Source):
                         exc=e,
                     )
 
-        if not self._check_post_loop_health():
-            # Emitting now would be actively harmful: incremental_lineage is off
-            # by default, so partial lineage REPLACES what is already in DataHub.
-            # A run that failed systemically must leave existing lineage alone.
-            logger.error(
-                "Aborting before emit: systemic failure detected, and emitting "
-                "partial results would overwrite good lineage in DataHub"
-            )
-            return
+        self._report_run_health()
 
         with self.report.new_stage("Generating metadata work units"):
             logger.info("Generating workunits from SQL parsing aggregator")
             yield from auto_workunit(self.aggregator.gen_metadata())
 
-    def _check_post_loop_health(self) -> bool:
+    def _report_run_health(self) -> None:
         """Decide whether this run produced anything worth emitting.
 
         Returns False only when nothing succeeded at all. Emitting after a
@@ -307,10 +290,7 @@ class SqlQueriesSource(Source):
             )
             return True
 
-        if (
-            self.report.num_queries_aggregator_failures > 0
-            and self.report.num_queries_processed == 0
-        ):
+        if self.report.num_queries_processed == 0:
             self.report.failure(
                 title="All queries failed aggregation",
                 message="Every query failed during aggregation — "
@@ -342,13 +322,9 @@ class SqlQueriesSource(Source):
             raise
 
         with file_stream_ctx as file_stream:
-            yield from self._parse_lines(
-                self._guarded_stream(file_stream, "S3 stream error")
-            )
+            yield from self._parse_lines(self._guarded_stream(file_stream))
 
-    def _guarded_stream(
-        self, stream: Iterable[str], failure_title: LiteralString
-    ) -> Iterable[str]:
+    def _guarded_stream(self, stream: Iterable[str]) -> Iterable[str]:
         """Yield lines, reporting read errors that occur mid-transfer.
 
         Only stream advancement sits inside the try. Wrapping the yield instead
@@ -363,7 +339,7 @@ class SqlQueriesSource(Source):
                 return
             except Exception as e:
                 self.report.failure(
-                    title=failure_title,
+                    title="Query file read error",
                     message="Error reading query file mid-transfer",
                     context=self.config.query_file,
                     exc=e,
@@ -387,9 +363,7 @@ class SqlQueriesSource(Source):
         with f:
             # Guarded too: a truncated read or undecodable bytes surface partway
             # through iteration, well after open() has succeeded.
-            yield from self._parse_lines(
-                self._guarded_stream(f, "Local file read error")
-            )
+            yield from self._parse_lines(self._guarded_stream(f))
 
     def _parse_lines(self, stream: Iterable[str]) -> Iterable["QueryEntry"]:
         """Parse lines from a file stream, yielding QueryEntry objects."""
@@ -433,7 +407,7 @@ class SqlQueriesSource(Source):
 
     def _parse_query_file(self) -> Iterable["QueryEntry"]:
         """Parse the query file and yield QueryEntry objects."""
-        if not self.config.query_file.startswith("s3://"):
+        if not is_s3_uri(self.config.query_file):
             yield from self._parse_local_query_file()
             return
 
@@ -542,6 +516,8 @@ class QueryEntry(BaseModel):
 
         context = info.context or {}
         config: Optional[SqlQueriesSourceConfig] = context.get("config")
+        # Absent only when a QueryEntry is constructed directly; _parse_lines
+        # always supplies one.
         report: Optional[SqlQueriesSourceReport] = context.get("report")
 
         result: List[DatasetUrn] = []
@@ -571,10 +547,6 @@ class QueryEntry(BaseModel):
                     message="Ignoring malformed table reference in lineage hints",
                     context=f"type={type(item).__name__}, value={item!r}",
                 )
-            else:
-                logger.warning(
-                    f"Ignoring invalid table entry of type {type(item).__name__}: {item!r}"
-                )
 
         return result
 
@@ -584,7 +556,7 @@ class QueryEntry(BaseModel):
         entry_dict: Dict[str, Any],
         *,
         config: SqlQueriesSourceConfig,
-        report: Optional[SqlQueriesSourceReport] = None,
+        report: SqlQueriesSourceReport,
     ) -> "QueryEntry":
         """Create QueryEntry from dict with config context."""
         return cls.model_validate(
