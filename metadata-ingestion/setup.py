@@ -152,10 +152,9 @@ kafka_protobuf = {
 }
 
 usage_common = {
-    # 0.6.0 fixes CVE-2026-59893, CVE-2026-54284, CVE-2026-71491, CVE-2026-59894 and
-    # a quadratic-CPU DoS in format(reindent=...), which usage_common reaches with
-    # arbitrary query text. Airflow's constraints pin sqlparse lower, but the
-    # airflow-plugin never pulls a sqlparse-bearing extra, so it is unaffected.
+    # 0.6.0 fixes CVE-2026-59893, CVE-2026-54284, CVE-2026-71491, CVE-2026-59894 and a
+    # quadratic-CPU DoS in format(reindent=...). Airflow constraints pin sqlparse lower,
+    # but the airflow-plugin pulls no sqlparse-bearing extra, so it is unaffected.
     "sqlparse>=0.6.0,<1.0.0",
 }
 
