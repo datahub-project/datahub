@@ -108,6 +108,10 @@ def test_flow_property_bag_masks_credentials() -> None:
             "s3.bucket.name": "my-bucket",
             "aws.access.key.id": "AKIA",
             "aws.secret.access.key": "secret",
+            "aws.session.token": "session",
+            "s3.sse.customer.key": "sse-key",
+            "s3.sse.customer.key.md5": "md5",
+            "s3.proxy.password": "proxy-pw",
         }
     )
 
@@ -115,4 +119,8 @@ def test_flow_property_bag_masks_credentials() -> None:
 
     assert "aws.access.key.id" not in bag
     assert "aws.secret.access.key" not in bag
+    assert "aws.session.token" not in bag
+    assert "s3.sse.customer.key" not in bag
+    assert "s3.sse.customer.key.md5" not in bag
+    assert "s3.proxy.password" not in bag
     assert bag["s3.bucket.name"] == "my-bucket"

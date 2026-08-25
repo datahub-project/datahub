@@ -24,6 +24,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KNOWN_TOPIC_ROUTING_TRANSFORMS,
     MYSQL_CDC_SOURCE_V2_CLOUD,
     POSTGRES_CDC_SOURCE_V2_CLOUD,
+    POSTGRES_SOURCE_CLOUD,
     REGEXROUTER_TRANSFORM,
     SNOWFLAKE_SOURCE_CLOUD,
     BaseConnector,
@@ -36,6 +37,9 @@ from datahub.ingestion.source.kafka_connect.common import (
     remove_prefix,
     unquote,
     validate_jdbc_url,
+)
+from datahub.ingestion.source.kafka_connect.config_constants import (
+    S3_SENSITIVE_CONFIG_KEYS,
 )
 from datahub.ingestion.source.kafka_connect.pattern_matchers import (
     JavaRegexMatcher,
@@ -247,8 +251,8 @@ class JdbcParserFactory:
 
 @dataclass
 class ConfluentJDBCSourceConnector(BaseConnector):
-    # Traditional io.confluent.connect.jdbc.JdbcSourceConnector only — Cloud
-    # Postgres/MySQL CDC classes dispatch to DebeziumSourceConnector instead.
+    # Self-hosted JdbcSourceConnector and Confluent Cloud PostgresSource (non-CDC).
+    # Cloud Postgres/MySQL CDC classes still dispatch to DebeziumSourceConnector.
     needs_cluster_topics: ClassVar[bool] = True
 
     # Use imported constants from connector_constants module
@@ -555,7 +559,10 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         connector_class = self.connector_manifest.config.get(CONNECTOR_CLASS, "")
 
         # Determine environment type
-        is_cloud_environment = connector_class in CLOUD_JDBC_SOURCE_CLASSES
+        is_cloud_environment = (
+            connector_class in CLOUD_JDBC_SOURCE_CLASSES
+            or connector_class == POSTGRES_SOURCE_CLOUD
+        )
 
         if is_cloud_environment:
             return self._extract_lineages_cloud_environment(parser)
@@ -3557,17 +3564,10 @@ class ConfluentS3SourceConnector(BaseConnector):
         return self._produced_topics()
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
-        # Mask/Remove properties that may reveal credentials
         return {
             k: v
             for k, v in self.connector_manifest.config.items()
-            if k
-            not in [
-                "aws.access.key.id",
-                "aws.secret.access.key",
-                "s3.sse.customer.key",
-                "s3.proxy.password",
-            ]
+            if k not in S3_SENSITIVE_CONFIG_KEYS
         }
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:

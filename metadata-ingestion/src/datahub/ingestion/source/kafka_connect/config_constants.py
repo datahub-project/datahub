@@ -6,7 +6,7 @@ modules (common.py, transform_plugins.py, etc.) without creating circular depend
 """
 
 import logging
-from typing import Dict, Final, List
+from typing import Dict, Final, FrozenSet, List
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,9 @@ class ConnectorConfigKeys:
     TOPICS_DIR: Final[str] = "topics.dir"
     AWS_ACCESS_KEY_ID: Final[str] = "aws.access.key.id"
     AWS_SECRET_ACCESS_KEY: Final[str] = "aws.secret.access.key"
+    AWS_SESSION_TOKEN: Final[str] = "aws.session.token"
     S3_SSE_CUSTOMER_KEY: Final[str] = "s3.sse.customer.key"
+    S3_SSE_CUSTOMER_KEY_MD5: Final[str] = "s3.sse.customer.key.md5"
     S3_PROXY_PASSWORD: Final[str] = "s3.proxy.password"
 
     # MongoDB configuration
@@ -86,6 +88,18 @@ class ConnectorConfigKeys:
     VALUE_CONVERTER_BASIC_AUTH_USER_INFO: Final[str] = (
         "value.converter.basic.auth.user.info"
     )
+
+
+S3_SENSITIVE_CONFIG_KEYS: Final[FrozenSet[str]] = frozenset(
+    {
+        ConnectorConfigKeys.AWS_ACCESS_KEY_ID,
+        ConnectorConfigKeys.AWS_SECRET_ACCESS_KEY,
+        ConnectorConfigKeys.AWS_SESSION_TOKEN,
+        ConnectorConfigKeys.S3_SSE_CUSTOMER_KEY,
+        ConnectorConfigKeys.S3_SSE_CUSTOMER_KEY_MD5,
+        ConnectorConfigKeys.S3_PROXY_PASSWORD,
+    }
+)
 
 
 def parse_comma_separated_list(value: str) -> List[str]:
