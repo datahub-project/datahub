@@ -2,6 +2,7 @@ package com.linkedin.common.client;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -251,10 +252,18 @@ public class BaseClientTest {
   @Test
   public void testBatchIngestProposalsSendsPartitionNotFullCollection()
       throws RemoteInvocationException {
-    // Regression: proposalsParam must use the partition, not the full input collection.
-    // Sending N on every request of size B multiplies work by ceil(N/B).
-    final int total = 15;
-    final int batchSize = 5;
+    // Evenly divisible and remainder cases — remainder catches off-by-one in partition sizing.
+    assertBatchIngestSendsPartitionsOnly(15, 5);
+    assertBatchIngestSendsPartitionsOnly(13, 5);
+  }
+
+  /**
+   * Regression helper: proposalsParam must use the partition, not the full input collection.
+   * Sending N on every request of size B multiplies work by ceil(N/B).
+   */
+  private void assertBatchIngestSendsPartitionsOnly(int total, int batchSize)
+      throws RemoteInvocationException {
+    reset(mockRestliClient);
     List<MetadataChangeProposal> mcps = createTestMCPs(total);
 
     ArgumentCaptor<ActionRequest> requestCaptor = ArgumentCaptor.forClass(ActionRequest.class);
@@ -279,14 +288,22 @@ public class BaseClientTest {
 
     assertEquals(result.size(), total);
     List<ActionRequest> requests = requestCaptor.getAllValues();
-    assertEquals(requests.size(), total / batchSize);
+    int expectedBatches = (total + batchSize - 1) / batchSize;
+    assertEquals(requests.size(), expectedBatches);
+
+    int remaining = total;
     for (ActionRequest request : requests) {
+      // ActionRequest only exposes the Rest.li input as a DataMap; the field name matches
+      // AspectsDoIngestProposalBatchRequestBuilder.proposalsParam (generated Rest.li schema).
       DataList proposals = request.getInputRecord().data().getDataList("proposals");
+      int expectedSize = Math.min(batchSize, remaining);
       assertEquals(
           proposals.size(),
-          batchSize,
-          "Each ingest request must carry only its partition size, not the full input");
+          expectedSize,
+          "Each ingest request must carry only its partition, not the full input");
+      remaining -= proposals.size();
     }
+    assertEquals(remaining, 0);
   }
 
   @Test
