@@ -108,18 +108,23 @@ class FilterBuilder:
     def create_lower_bound_filter(
         col_name: str, val: PartitionValue, col_type: Optional[str] = None
     ) -> str:
-        # An integer RANGE partition ID is the bucket's inclusive lower bound, not an
+        # A RANGE partition ID is the max bucket's inclusive integer lower bound, not an
         # exact value: a row belongs to the bucket when col is in [start, start+interval).
         # Equality (`col = start`) would only match rows exactly on the floor and miss the
-        # rest of the bucket, so the max bucket is scanned with `col >= start`. Reuse
-        # create_safe_filter for validation/normalization, then relax `=` to `>=`.
-        equality = FilterBuilder.create_safe_filter(col_name, val, col_type)
-        marker = f"`{col_name}` = "
-        if equality.startswith(marker):
-            return f"`{col_name}` >= {equality[len(marker) :]}"
-        # A non-equality result (e.g. a date range) can't be reinterpreted as a lower
-        # bound; RANGE partitions are integer-only, so this is not expected in practice.
-        return equality
+        # rest of the bucket, so the bucket is scanned with `col >= start`. BigQuery RANGE
+        # partitioning is integer-only, so build the typed numeric predicate directly and
+        # reject anything that isn't a valid integer bound rather than emitting an
+        # unenforceable filter.
+        if not VALID_COLUMN_NAME_PATTERN.match(col_name):
+            raise ValueError(f"Invalid column name for filter: {col_name}")
+        try:
+            int_val = int(str(val).strip())
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"RANGE partition lower bound must be an integer for column "
+                f"{col_name}, got '{val}'"
+            ) from None
+        return f"`{col_name}` >= {int_val}"
 
     @staticmethod
     def create_partition_datetime_filter(
@@ -151,15 +156,17 @@ class FilterBuilder:
     def _partition_bounds(
         moment: datetime, granularity: Optional[str]
     ) -> Tuple[datetime, Optional[datetime]]:
+        # datetime tops out at 9999-12-31 23:59:59.999999, so a partition at the very end
+        # of the representable range has no expressible exclusive upper bound. Every
+        # branch returns None for the upper bound in that case, and the caller scans
+        # lower-bound-only (mirroring the year-9999 YEAR behaviour) instead of raising.
         gran = (granularity or "").upper()
         if gran == PARTITION_GRANULARITY_HOUR:
             lower = moment.replace(minute=0, second=0, microsecond=0)
-            return lower, lower + timedelta(hours=1)
+            return lower, FilterBuilder._safe_add(lower, timedelta(hours=1))
         if gran == PARTITION_GRANULARITY_MONTH:
             lower = moment.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            if lower.month == 12:
-                return lower, lower.replace(year=lower.year + 1, month=1)
-            return lower, lower.replace(month=lower.month + 1)
+            return lower, FilterBuilder._next_month(lower)
         if gran == PARTITION_GRANULARITY_YEAR:
             lower = moment.replace(
                 month=1, day=1, hour=0, minute=0, second=0, microsecond=0
@@ -169,7 +176,23 @@ class FilterBuilder:
             return lower, lower.replace(year=lower.year + 1)
         # Default and explicit DAY granularity.
         lower = moment.replace(hour=0, minute=0, second=0, microsecond=0)
-        return lower, lower + timedelta(days=1)
+        return lower, FilterBuilder._safe_add(lower, timedelta(days=1))
+
+    @staticmethod
+    def _safe_add(moment: datetime, delta: timedelta) -> Optional[datetime]:
+        try:
+            return moment + delta
+        except OverflowError:
+            return None
+
+    @staticmethod
+    def _next_month(lower: datetime) -> Optional[datetime]:
+        if lower.month != 12:
+            return lower.replace(month=lower.month + 1)
+        try:
+            return lower.replace(year=lower.year + 1, month=1)
+        except ValueError:
+            return None
 
     @staticmethod
     def _format_bound_literal(moment: datetime, col_type: str) -> str:
@@ -177,7 +200,14 @@ class FilterBuilder:
             return f"'{moment.strftime('%Y-%m-%d')}'"
         rendered = moment.strftime("%Y-%m-%d %H:%M:%S")
         if col_type == "TIMESTAMP":
+            # A TIMESTAMP is an absolute instant. If partition_datetime carries a
+            # timezone offset (even a non-UTC one), preserve it so the correct
+            # partition is selected; a naive value is interpreted by BigQuery as UTC.
+            offset = moment.strftime("%z")  # +HHMM / -HHMM, empty when tz-naive
+            if offset:
+                rendered = f"{rendered}{offset[:3]}:{offset[3:]}"
             return f"TIMESTAMP('{rendered}')"
+        # DATETIME has no timezone; render it tz-free.
         return f"'{rendered}'"
 
     @staticmethod

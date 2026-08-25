@@ -332,10 +332,20 @@ class BigqueryProfiler(GenericProfiler):
                 f"{queries.TABLESAMPLE_SYSTEM.format(sample_percent=sample_percent)}"
             )
 
-        if not rows_count:
-            return None
-
         row_limit = self.config.profiling.profiling_row_limit
+
+        if not rows_count:
+            # Row count unavailable (external tables frequently lack stats): we can
+            # neither size a sample nor decide whether the table fits under the limit,
+            # so apply a bounded cap rather than leaving the scan unbounded — a full
+            # scan of a large external table is exactly the runaway cost we avoid.
+            limit = max(1, int(row_limit)) if row_limit > 0 else BQ_SAFETY_ROW_LIMIT
+            logger.info(
+                f"Row count unavailable for {table_ref}; applying bounded limit "
+                f"({limit:,}) instead of an unbounded scan"
+            )
+            return f"{select_all} {queries.LIMIT_CLAUSE.format(limit=limit)}"
+
         if row_limit > 0 and rows_count > row_limit:
             limit = max(1, int(row_limit))
             logger.info(

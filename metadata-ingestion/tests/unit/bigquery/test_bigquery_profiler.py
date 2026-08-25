@@ -16,6 +16,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Repor
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+    BQ_SAFETY_ROW_LIMIT,
     CUSTOM_SQL_KWARG,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
@@ -781,6 +782,32 @@ def test_profiler_get_batch_kwargs_ignores_special_partition_id(mock_get_filters
     result = profiler.get_batch_kwargs(table, "test_dataset", "test-project")
 
     assert "partition" not in result
+
+
+def test_build_custom_sql_bounds_unknown_row_count():
+    # A table with no row count (common for external tables) must not be profiled
+    # unbounded: fall back to the configured row limit so a large table is capped.
+    config = create_test_config(profiling={"profiling_row_limit": 5000})
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table(rows_count=None)
+
+    sql = profiler._build_custom_sql("`p`.`d`.`t`", "p.d.t", table)
+
+    assert sql is not None
+    assert "LIMIT 5000" in sql
+
+
+def test_build_custom_sql_unknown_row_count_uses_safety_limit_when_no_row_limit():
+    # With profiling_row_limit disabled (0), an unknown row count still gets the safety
+    # cap rather than an unbounded scan.
+    config = create_test_config(profiling={"profiling_row_limit": 0})
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table(rows_count=None)
+
+    sql = profiler._build_custom_sql("`p`.`d`.`t`", "p.d.t", table)
+
+    assert sql is not None
+    assert f"LIMIT {BQ_SAFETY_ROW_LIMIT}" in sql
 
 
 def test_validate_bigquery_identifier_table_allows_hyphen():

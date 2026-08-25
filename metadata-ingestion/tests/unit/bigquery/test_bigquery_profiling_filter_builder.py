@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -297,6 +297,16 @@ class TestFilterBuilderRangeLowerBound:
         )
         assert filters == ["`bucket` = 100"]
 
+    def test_non_integer_range_bound_rejected(self):
+        # RANGE partitioning is integer-only; a non-integer bound is rejected so the
+        # caller skips/reports rather than emitting an unenforceable predicate.
+        with pytest.raises(ValueError, match="must be an integer"):
+            FilterBuilder.create_lower_bound_filter("bucket", "2025-01-01", "INT64")
+
+    def test_invalid_column_name_rejected(self):
+        with pytest.raises(ValueError, match="Invalid column name"):
+            FilterBuilder.create_lower_bound_filter("bucket; DROP", "100", "INT64")
+
 
 class TestFilterBuilderPartitionDatetime:
     def test_day_granularity_builds_half_open_range(self):
@@ -333,3 +343,47 @@ class TestFilterBuilderPartitionDatetime:
             FilterBuilder.create_partition_datetime_filter(
                 "d; DROP", datetime(2025, 1, 15), "DATE", "DAY"
             )
+
+    def test_day_partition_at_datetime_max_has_no_upper_bound(self):
+        # The last representable day would overflow when adding a day; fall back to a
+        # lower-bound-only predicate instead of raising OverflowError.
+        result = FilterBuilder.create_partition_datetime_filter(
+            "d", datetime(9999, 12, 31), "DATE", "DAY"
+        )
+        assert result == "`d` >= '9999-12-31'"
+
+    def test_hour_partition_at_datetime_max_has_no_upper_bound(self):
+        result = FilterBuilder.create_partition_datetime_filter(
+            "ts", datetime(9999, 12, 31, 23), "TIMESTAMP", "HOUR"
+        )
+        assert result == "`ts` >= TIMESTAMP('9999-12-31 23:00:00')"
+
+    def test_month_partition_at_datetime_max_has_no_upper_bound(self):
+        result = FilterBuilder.create_partition_datetime_filter(
+            "dt", datetime(9999, 12, 15), "DATETIME", "MONTH"
+        )
+        assert result == "`dt` >= '9999-12-01 00:00:00'"
+
+    def test_timestamp_offset_is_preserved(self):
+        # A tz-aware partition_datetime pins an absolute instant; the offset must survive
+        # into the TIMESTAMP literal so the correct partition is selected.
+        moment = datetime(
+            2025, 1, 15, 10, 30, tzinfo=timezone(timedelta(hours=5, minutes=30))
+        )
+        result = FilterBuilder.create_partition_datetime_filter(
+            "ts", moment, "TIMESTAMP", "HOUR"
+        )
+        assert result == (
+            "`ts` >= TIMESTAMP('2025-01-15 10:00:00+05:30') "
+            "AND `ts` < TIMESTAMP('2025-01-15 11:00:00+05:30')"
+        )
+
+    def test_datetime_column_stays_timezone_free(self):
+        # DATETIME has no timezone in BigQuery; an offset on the input must not leak in.
+        moment = datetime(2025, 1, 15, 10, 30, tzinfo=timezone(timedelta(hours=-8)))
+        result = FilterBuilder.create_partition_datetime_filter(
+            "dt", moment, "DATETIME", "HOUR"
+        )
+        assert result == (
+            "`dt` >= '2025-01-15 10:00:00' AND `dt` < '2025-01-15 11:00:00'"
+        )
