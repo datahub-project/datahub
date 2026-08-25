@@ -476,3 +476,47 @@ class TestGetCombinedEnvVars:
         assert combined_env.get("TEST_VAR1") == "user_override1"
         assert combined_env.get("TEST_VAR2") == "user_override2"
         assert combined_env.get("NEW_VAR") == "new_value"
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [(8080, "8080"), (True, "true"), (False, "false"), (1.5, "1.5")],
+        ids=["int", "true", "false", "float"],
+    )
+    def test_non_string_scalars_are_coerced(self, value: object, expected: str) -> None:
+        """The UI field is free text holding JSON, so `{"PORT": 8080}` arrives as an int
+        and would reach Popen(env=...), which accepts only strings. Booleans lowercase
+        so a CLI reading the value does not get "True"."""
+        args = SubProcessRecipeTaskArgs(
+            recipe='{"source": {"type": "test"}}',
+            version="0.12.0",
+            extra_env_vars={"VAR": value},
+        )
+
+        assert args.get_combined_env_vars().get("VAR") == expected
+
+    def test_none_values_are_dropped_rather_than_passed_through(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A None reaching Popen(env=...) raises TypeError, so the key must be absent --
+        not present holding None."""
+        monkeypatch.delenv("VAR", raising=False)
+
+        args = SubProcessRecipeTaskArgs(
+            recipe='{"source": {"type": "test"}}',
+            version="0.12.0",
+            extra_env_vars={"VAR": None},
+        )
+
+        assert "VAR" not in args.get_combined_env_vars()
+
+    def test_container_values_are_rejected_naming_the_key(self) -> None:
+        """No sensible coercion exists, so fail during validation rather than as a
+        TypeError from subprocess creation mid-run."""
+        with pytest.raises(ValidationError) as exc_info:
+            SubProcessRecipeTaskArgs(
+                recipe='{"source": {"type": "test"}}',
+                version="0.12.0",
+                extra_env_vars={"NESTED": {"a": 1}},
+            )
+
+        assert "NESTED" in str(exc_info.value)
