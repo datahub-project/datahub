@@ -474,5 +474,3 @@ def test_empty_owner_criteria_includes_all_users(
         output_path=f"{tmp_path}/powerbi_empty_criteria_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
-
-
