@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import sqlalchemy as sa
-from datahub.metadata.schema_classes import DatasetFieldProfileClass
 from sqlalchemy import Column, Float, Integer, String, create_engine
 
 from datahub.ingestion.source.ge_profiling_config import (
@@ -20,6 +19,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
+from datahub.metadata.schema_classes import DatasetFieldProfileClass
 
 
 @pytest.fixture
