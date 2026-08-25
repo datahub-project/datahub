@@ -318,7 +318,11 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
             display_name=entity.title or entity.name,
             description=entity.description,
-            subtype=DatasetSubTypes.VIEW if entity.is_view else DatasetSubTypes.CUBE,
+            subtype=(
+                DatasetSubTypes.SEMANTIC_VIEW
+                if entity.is_view
+                else DatasetSubTypes.CUBE
+            ),
             custom_properties=self._custom_properties(entity),
             schema=self._build_schema_fields(entity),
             parent_container=container,

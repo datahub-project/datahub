@@ -2,7 +2,7 @@
 
 The connector extracts the following metadata:
 
-- **Cubes and views** as datasets, grouped under a container representing the deployment. The container links back to the deployment UI (derived from `api_url`, or set `deployment_url`).
+- **Cubes and views** as datasets, grouped under a container representing the deployment. Cubes use subtype `Cube`; views use subtype `Semantic View` (the same subtype as Snowflake Semantic Views). The container links back to the deployment UI (derived from `api_url`, or set `deployment_url`).
 - **Schema** — each measure and dimension becomes a schema field. Measures carry their aggregation type (e.g. `count`, `sum`) in the native data type; primary-key dimensions are flagged as part of the key. Fields are tagged `Measure` or `Dimension` — and `Temporal` for time dimensions (disable with `tag_measures_and_dimensions: false`).
 - **Descriptions and properties** — titles, descriptions, segment names, source file name, and any custom `meta` defined in the model.
 - **Structural metadata** — joins (with relationship), hierarchies (with levels), folders/nested folders (with members), and pre-aggregation names are captured as dataset custom properties (disable with `emit_member_details: false`).

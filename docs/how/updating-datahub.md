@@ -83,6 +83,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Ingestion / Cube)** Cube views are now ingested with subtype `Semantic View` instead of `View`, matching Snowflake Semantic Views. Cube entities themselves are unchanged (`Cube`). Dataset URNs are unchanged. **Action:** re-ingest Cube to update the subtype. Saved searches or filters that look for Cube assets with type `View` should use `Semantic View`.
+
 - **(GMS / Auth helpers)** `POST /auth/signUp`, `/auth/resetNativeUserCredentials`, `/auth/verifyNativeUserCredentials`, and `/auth/getSsoSettings` now require the GMS **system client** credentials, matching `/auth/generateSessionTokenForUser`. Frontend login, signup, password reset, and SSO continue to work (they already call these helpers with the system client). A user session token calling GMS `/auth/*` directly receives **401**. **Action:** none for standard deployments; if you called these GMS helpers with a user token, switch to the frontend routes or system client credentials.
 
 - #19247 **(CLI)** `datahub check get-kafka-consumer-offsets` no longer crashes (`AttributeError: 'str' object has no attribute 'items'`) against servers that return the newer consumer-offset response formats. The command now queries `/openapi/operations/messaging/*/consumer/lag` first and falls back to the deprecated kafka endpoints on older servers. The table columns changed from `Topic`/`Consumer Group`/`Schema` to `Consumer Type`/`Consumer Group`/`Topic` (the old labels did not match the row content), and a new `-o/--output table|json` option emits normalized rows as JSON. **Action:** update any scripts that parse the table output, or switch them to `-o json`.

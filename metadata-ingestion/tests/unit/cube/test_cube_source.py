@@ -1,8 +1,9 @@
 from typing import Dict, Iterator, List
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.cube.config import CubeSourceConfig
 from datahub.ingestion.source.cube.cube import CubeSource
 from datahub.ingestion.source.cube.models import (
@@ -154,6 +155,38 @@ def test_column_meta_mapping_tags_and_terms_field() -> None:
     assert any(t.tag == "urn:li:tag:pii" for t in field.globalTags.tags)
     assert field.glossaryTerms is not None
     assert any("CustomerData" in t.urn for t in field.glossaryTerms.terms)
+
+
+def test_view_uses_semantic_view_subtype() -> None:
+    source = _source()
+    container = Container(source._container_key, display_name="demo")
+    lineage_builder = MagicMock()
+    lineage_builder.build.return_value = None
+
+    view_aspects = _aspects(
+        list(
+            source._emit_entity(
+                CubeEntity(name="orders_view", is_view=True),
+                container,
+                lineage_builder,
+            )
+        )
+    )
+    cube_aspects = _aspects(
+        list(
+            source._emit_entity(
+                CubeEntity(name="orders"),
+                container,
+                lineage_builder,
+            )
+        )
+    )
+    assert view_aspects["SubTypesClass"].typeNames == [  # type: ignore[attr-defined]
+        DatasetSubTypes.SEMANTIC_VIEW
+    ]
+    assert cube_aspects["SubTypesClass"].typeNames == [  # type: ignore[attr-defined]
+        DatasetSubTypes.CUBE
+    ]
 
 
 def test_view_definition_uses_sql_for_cube() -> None:
