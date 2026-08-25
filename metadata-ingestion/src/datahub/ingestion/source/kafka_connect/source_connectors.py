@@ -527,8 +527,8 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             f"database: {parser.database_name}"
         )
 
-        # Early return if no topics
-        if not self.connector_manifest.topic_names:
+        # Cloud JDBC sources leave topic_names empty; lineage uses cluster topics.
+        if not self.available_topics():
             return []
 
         # Handle query-based connectors early (can't determine source tables from custom queries)

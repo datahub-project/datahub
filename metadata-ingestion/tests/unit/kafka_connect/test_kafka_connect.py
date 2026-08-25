@@ -17,6 +17,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     get_dataset_name,
     has_three_level_hierarchy,
 )
+from datahub.ingestion.source.kafka_connect.kafka_connect import KafkaConnectSource
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
     BigQuerySinkConnector,
     ClickHouseSinkConnector,
@@ -1197,6 +1198,51 @@ class TestConfluentCloudConnectors:
         assert any(t.schema == "public" and t.table == "users" for t in table_names)
         # Check for TableId with schema='public' and table='orders'
         assert any(t.schema == "public" and t.table == "orders" for t in table_names)
+
+    def test_cloud_managed_postgres_source_uses_cluster_topics(self) -> None:
+        connector_config: Dict[str, str] = {
+            "connector.class": "PostgresSource",
+            "connection.url": "jdbc:postgresql://db.example:5432/testdb",
+            "table.whitelist": "users",
+            "topic.prefix": "pg-",
+        }
+        manifest = ConnectorManifest(
+            name="pg-src",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+        connector.all_cluster_topics = ["pg-users", "unrelated"]
+
+        lineages = connector.extract_lineages()
+
+        assert any(lineage.target_dataset == "pg-users" for lineage in lineages)
+
+    def test_get_job_id_prefixes_managed_postgres_source(self) -> None:
+        lineage = KafkaConnectLineage(
+            source_dataset="public.users",
+            source_platform="postgres",
+            target_dataset="pg-users",
+            target_platform="kafka",
+        )
+        connector = ConnectorManifest(
+            name="pg-src",
+            type="source",
+            config={"connector.class": "PostgresSource"},
+            tasks=[],
+            topic_names=[],
+            lineages=[lineage],
+        )
+        config: Mock = create_mock_kafka_connect_config()
+        config.connect_to_platform_map = {"pg-src": {"postgres": "prod-pg"}}
+
+        job_id = KafkaConnectSource.get_job_id(None, lineage, connector, config)  # type: ignore[arg-type]
+
+        assert job_id == "prod-pg.public.users"
 
     def test_cloud_postgres_source_connector(self) -> None:
         """Test Confluent Cloud PostgreSQL CDC source connector."""
