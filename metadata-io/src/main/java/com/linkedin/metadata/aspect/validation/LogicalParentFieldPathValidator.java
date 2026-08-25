@@ -97,7 +97,7 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
       @Nonnull final MCPItem item,
       @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext,
-      @Nonnull final Map<Urn, Set<String>> fieldPathCache,
+      @Nonnull final Map<Urn, Optional<Set<String>>> fieldPathCache,
       @Nonnull final ValidationExceptionCollection exceptions) {
     PatchOperationUtils.addAndReplaceValues(item)
         .forEach(
@@ -125,7 +125,7 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
       final LogicalParent logicalParent,
       @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext,
-      @Nonnull final Map<Urn, Set<String>> fieldPathCache,
+      @Nonnull final Map<Urn, Optional<Set<String>>> fieldPathCache,
       @Nonnull final ValidationExceptionCollection exceptions) {
     if (logicalParent == null
         || logicalParent.getParent() == null
