@@ -275,9 +275,11 @@ def test_bare_emitter_explicit_host_uses_env_auth(monkeypatch):
     # GMS is guaranteed set by the module-level skipif; assert for the type checker.
     assert GMS is not None
 
-    # Shape 1: bare emitter -> graph.
+    # Shape 1: bare emitter -> graph. The auth must survive the emitter->graph
+    # rebuild (DataHubGraph.from_emitter), not just authenticate the call.
     graph = DataHubRestEmitter(gms_server=GMS).to_graph()
     assert graph.execute_graphql(_ME_QUERY)["me"]["corpUser"]["urn"]
+    assert isinstance(graph.session.auth, TokenProviderAuth)
 
     # Shape 2: DataHubGraph(config=...) with explicit host, no token — the shape
     # any DataHubGraph(config=...) consumer (graph clients, connectors) uses.

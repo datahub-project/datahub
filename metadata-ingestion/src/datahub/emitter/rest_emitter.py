@@ -508,7 +508,12 @@ class DataHubRestEmitter(Closeable, Emitter):
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
-        caller_supplied_creds = token is not None or auth is not None
+        # Truthiness, not `is not None`: an empty-string token (how a blank
+        # password reaches us from a URI/env-defined Airflow connection) is not
+        # a credential, and must not suppress env-OAuth resolution — it bakes no
+        # Authorization header either, so treating it as supplied would leave the
+        # client silently unauthenticated. Matches the `elif token:` check below.
+        caller_supplied_creds = bool(token) or auth is not None
         if gms_server == "__from_env__":
             # The sentinel resolves the server (and, when the caller gave no
             # credentials, the token) from the environment. The server always

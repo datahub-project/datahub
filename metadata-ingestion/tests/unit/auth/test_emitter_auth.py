@@ -1,3 +1,5 @@
+import pytest
+
 from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.emitter.token_provider import StaticTokenProvider, TokenProviderAuth
 
@@ -16,15 +18,20 @@ def test_emitter_static_token_still_works():
     assert emitter._session.auth is None
 
 
-def test_emitter_explicit_host_uses_env_oauth(monkeypatch):
-    # No token/auth passed + DATAHUB_AUTH_TYPE set -> the emitter resolves env
-    # OAuth even for an explicit host (not just the __from_env__ sentinel).
+@pytest.mark.parametrize("token", [None, ""])
+def test_emitter_explicit_host_uses_env_oauth(monkeypatch, token):
+    # No real token/auth passed + DATAHUB_AUTH_TYPE set -> the emitter resolves
+    # env OAuth even for an explicit host (not just the __from_env__ sentinel).
+    # An empty-string token counts as "no token": that is how a blank password
+    # arrives from a URI/env-defined Airflow connection, and it bakes no
+    # Authorization header, so suppressing env OAuth for it would leave the
+    # client silently unauthenticated.
     monkeypatch.delenv("DATAHUB_GMS_TOKEN", raising=False)
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
     monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "http://idp/token")
     monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
     monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "csecret")
-    emitter = DataHubRestEmitter(gms_server="http://gms")
+    emitter = DataHubRestEmitter(gms_server="http://gms", token=token)
     assert isinstance(emitter._session.auth, TokenProviderAuth)
     assert "Authorization" not in emitter._session.headers
 
