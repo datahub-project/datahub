@@ -232,11 +232,11 @@ public class EntitiesControllerTest {
   }
 
   /**
-   * Documents currently-unenforced behavior for the OpenAPI v2 aspect read path (the v2 {@code GET
+   * OpenAPI v2 aspect read path (the v2 {@code GET
    * /openapi/v2/entity/query/&lt;urn&gt;/queryProperties} endpoint delegates to this controller's
-   * {@code getEntities}): reading a query entity's queryProperties aspect must require the {@code
-   * VIEW_ENTITY_QUERIES} privilege on the query's subject dataset. Expected to fail (the SQL
-   * statement is returned instead of an UnauthorizedException) until enforcement is wired in.
+   * {@code getEntities}): reading a query entity's queryProperties aspect requires the {@code
+   * VIEW_ENTITY_QUERIES} privilege on the query's subject dataset (query-read authorization is
+   * enabled by default).
    */
   @Test
   public void testGetQueryEntityDeniedWithoutViewEntityQueries() throws Exception {

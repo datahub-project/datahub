@@ -105,10 +105,12 @@ public final class EntityAuthorizationUtils {
 
   /**
    * Authorizes query entity URNs for API surfaces. READ requires {@code VIEW_ENTITY_QUERIES} (or a
-   * privilege implying it) on every subject dataset via {@link
-   * EntityAspectAuthorizationUtils#filterViewableQueryEntities} when REST API authorization is
-   * enabled — query entities with no subjects are fail-closed. Other operations use {@link
-   * AuthUtil} without inheritance.
+   * privilege implying it) on the query's subject datasets via {@link
+   * EntityAspectAuthorizationUtils#filterViewableQueryEntities} — active only when REST API
+   * authorization is enabled AND query-read authorization is enabled (see {@link
+   * EntityAspectAuthorizationUtils#isQueryViewAuthorizationEnabled}); when inactive, no subject
+   * lookups are performed. Query entities with no subjects are fail-closed. Other operations use
+   * {@link AuthUtil} without inheritance.
    */
   private static boolean isAPIAuthorizedQueryUrns(
       @Nonnull OperationContext opContext,
@@ -120,11 +122,16 @@ public final class EntityAuthorizationUtils {
     if (apiOperation != READ) {
       return AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, queryUrns);
     }
-    if (!AuthUtil.isRestApiAuthorizationEnabled()) {
+    if (!AuthUtil.isRestApiAuthorizationEnabled()
+        || !EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(opContext)) {
       return true;
     }
     return EntityAspectAuthorizationUtils.filterViewableQueryEntities(
-            opContext, opContext, opContext.getAspectRetriever(), queryUrns)
+            opContext,
+            opContext,
+            opContext.getAspectRetriever(),
+            queryUrns,
+            EntityAspectAuthorizationUtils.requireAllQuerySubjects(opContext))
         .containsAll(queryUrns);
   }
 
@@ -335,7 +342,11 @@ public final class EntityAuthorizationUtils {
   public static boolean canViewEntity(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
     if (QUERY_ENTITY_NAME.equals(urn.getEntityType())) {
       return EntityAspectAuthorizationUtils.canViewQueryEntity(
-          opContext, opContext, opContext.getAspectRetriever(), urn);
+          opContext,
+          opContext,
+          opContext.getAspectRetriever(),
+          urn,
+          EntityAspectAuthorizationUtils.requireAllQuerySubjects(opContext));
     }
     if (DOCUMENT_ENTITY_NAME.equals(urn.getEntityType())) {
       return DocumentAuthorizationUtils.canViewDocumentEntity(opContext, urn);

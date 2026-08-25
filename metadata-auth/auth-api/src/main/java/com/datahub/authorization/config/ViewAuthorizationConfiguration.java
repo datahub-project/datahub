@@ -19,6 +19,16 @@ public class ViewAuthorizationConfiguration {
   private ViewAuthorizationRecommendationsConfig recommendations;
 
   /**
+   * Enforcement of {@code VIEW_ENTITY_QUERIES} on Query entity reads (GraphQL and REST),
+   * independent of the view-authorization master switch above. Enabled by default so the privilege
+   * is actually enforced wherever it is granted; disabling it is the escape valve — when disabled,
+   * no subject-dataset lookups are performed on query reads at all.
+   */
+  @Builder.Default
+  private QueryEntityAuthorizationConfig queryEntities =
+      QueryEntityAuthorizationConfig.builder().enabled(true).build();
+
+  /**
    * Raw operator overlays for entity types that bypass view authorization when enabled. Lean
    * baseline is {@code viewUnrestricted} on the entity registry; overlays live in {@code
    * application.yaml}.
@@ -38,5 +48,25 @@ public class ViewAuthorizationConfiguration {
   @NoArgsConstructor(access = AccessLevel.PACKAGE)
   public static class ViewAuthorizationRecommendationsConfig {
     private boolean peerGroupEnabled;
+  }
+
+  @Builder(toBuilder = true)
+  @Data
+  @AllArgsConstructor(access = AccessLevel.PACKAGE)
+  @NoArgsConstructor(access = AccessLevel.PACKAGE)
+  public static class QueryEntityAuthorizationConfig {
+    /**
+     * Switch for query-read enforcement (default on). Off means no checks and no subject lookups —
+     * the performance escape valve.
+     */
+    @Builder.Default private boolean enabled = true;
+
+    /**
+     * When true, reading a query requires {@code VIEW_ENTITY_QUERIES} on ALL of its subject
+     * datasets (a query's SQL reveals information about every dataset it touches). When false (the
+     * default), holding the privilege on any single subject dataset suffices — the initial rollout
+     * posture, with the strict mode as the eventual destination.
+     */
+    private boolean requireAllSubjects;
   }
 }

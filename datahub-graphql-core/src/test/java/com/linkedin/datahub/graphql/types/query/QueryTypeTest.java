@@ -226,10 +226,9 @@ public class QueryTypeTest {
   }
 
   /**
-   * Documents currently-unenforced behavior: direct entity loads of Query urns must be gated by the
-   * {@code VIEW_ENTITY_QUERIES} privilege on the query's subject dataset regardless of the legacy
-   * view-authorization flag. Expected to fail (query properties leak) until enforcement is wired
-   * in.
+   * Query-read authorization is enabled by default (independent of the legacy view-authorization
+   * flag): a direct entity load of a Query urn by an actor lacking {@code VIEW_ENTITY_QUERIES} on
+   * the query's subject dataset must be filtered (null slot).
    */
   @Test
   public void testBatchLoadFiltersQueriesWhenActorLacksViewEntityQueriesAndViewAuthDisabled()
@@ -273,6 +272,43 @@ public class QueryTypeTest {
     assertEquals(result.size(), 1);
     assertNotNull(result.get(0));
     verifyQuery1(result.get(0).getData());
+  }
+
+  /**
+   * Escape valve: with query-read authorization explicitly disabled (and legacy view-auth off), no
+   * filtering — and no subject lookups — happen at all.
+   */
+  @Test
+  public void testBatchLoadReturnsQueriesWhenQueryAuthorizationDisabled() throws Exception {
+    EntityClient client = mockClientReturningQuery1();
+    Authorizer mockAuthorizer = queryViewPrivilegeAuthorizer(false);
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(aspectRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+
+    QueryType type = new QueryType(client);
+    OperationContext userContext =
+        createUserContext(
+            mockAuthorizer,
+            aspectRetriever,
+            ViewAuthorizationConfiguration.builder()
+                .enabled(false)
+                .queryEntities(
+                    ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
+                        .enabled(false)
+                        .build())
+                .build());
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(userContext);
+
+    List<DataFetcherResult<QueryEntity>> result =
+        type.batchLoad(ImmutableList.of(TEST_QUERY_URN.toString()), mockContext);
+
+    assertEquals(result.size(), 1);
+    assertNotNull(result.get(0));
+    verifyQuery1(result.get(0).getData());
+    Mockito.verify(aspectRetriever, Mockito.never()).getLatestAspectObjects(any(), any(), any());
   }
 
   @Test
@@ -426,6 +462,16 @@ public class QueryTypeTest {
 
   private OperationContext createUserContext(
       Authorizer authorizer, AspectRetriever aspectRetriever, boolean viewAuthorizationEnabled) {
+    return createUserContext(
+        authorizer,
+        aspectRetriever,
+        ViewAuthorizationConfiguration.builder().enabled(viewAuthorizationEnabled).build());
+  }
+
+  private OperationContext createUserContext(
+      Authorizer authorizer,
+      AspectRetriever aspectRetriever,
+      ViewAuthorizationConfiguration viewAuthorizationConfiguration) {
     Authentication userAuth =
         new Authentication(new Actor(ActorType.USER, TEST_USER_URN.getId()), "");
 
@@ -443,10 +489,7 @@ public class QueryTypeTest {
         TestOperationContexts.systemContext(
             () ->
                 OperationContextConfig.builder()
-                    .viewAuthorizationConfiguration(
-                        ViewAuthorizationConfiguration.builder()
-                            .enabled(viewAuthorizationEnabled)
-                            .build())
+                    .viewAuthorizationConfiguration(viewAuthorizationConfiguration)
                     .build(),
             null,
             null,

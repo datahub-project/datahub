@@ -503,7 +503,11 @@ public class EntityAuthorizationUtilsTest {
           .when(
               () ->
                   EntityAspectAuthorizationUtils.canViewQueryEntity(
-                      opContext, opContext, aspectRetriever, QUERY_URN))
+                      eq(opContext),
+                      eq(opContext),
+                      eq(aspectRetriever),
+                      eq(QUERY_URN),
+                      Mockito.anyBoolean()))
           .thenReturn(true);
 
       assertTrue(EntityAuthorizationUtils.canViewEntity(opContext, QUERY_URN));
