@@ -15,7 +15,11 @@ from datahub.ingestion.source.kafka.confluent_catalog import (
 )
 from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
-from datahub.metadata.schema_classes import DatasetPropertiesClass, GlobalTagsClass
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    GlobalTagsClass,
+    UpstreamLineageClass,
+)
 
 CONFLUENT_SCHEMA_REGISTRY_URL = "https://psrc-abc123.us-east-1.aws.confluent.cloud"
 SCHEMA_REGISTRY_URL = "http://localhost:8081"
@@ -472,3 +476,103 @@ class TestCatalogMetadataOnTopics:
             "Confluent Cloud only" in warning.message
             for warning in source.report.warnings
         )
+
+
+class TestMirrorSourceResolution:
+    def test_relationship_source_topic_wins_over_scalar_fallback(self) -> None:
+        topic = CatalogKafkaTopic.model_validate(
+            {
+                "name": TOPIC,
+                "source_topic": {"name": "orders_origin"},
+                "externalSourceTopicName": "ignored_external",
+            }
+        )
+        assert topic.upstream_topic_name() == "orders_origin"
+
+    def test_external_scalar_is_used_when_no_relationship(self) -> None:
+        topic = CatalogKafkaTopic.model_validate(
+            {"name": TOPIC, "externalSourceTopicName": "orders_external"}
+        )
+        assert topic.upstream_topic_name() == "orders_external"
+
+    def test_topic_without_a_mirror_source_has_no_upstream(self) -> None:
+        assert CatalogKafkaTopic(name=TOPIC).upstream_topic_name() is None
+
+
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+class TestCatalogLineage:
+    def build_source(
+        self,
+        mock_kafka: Mock,
+        topics: List[CatalogKafkaTopic],
+        **catalog_overrides: object,
+    ) -> KafkaSource:
+        cluster_metadata = MagicMock()
+        cluster_metadata.topics = {TOPIC: None}
+        mock_kafka.return_value.list_topics.return_value = cluster_metadata
+
+        source = KafkaSource(
+            make_source_config(
+                catalog=enabled_catalog_config(**catalog_overrides),
+                schema_registry_url=SCHEMA_REGISTRY_URL,
+            ),
+            PipelineContext(run_id="test"),
+        )
+        attach_catalog(source, topics)
+        return source
+
+    def test_mirror_topic_gets_an_upstream_edge_when_lineage_is_enabled(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [
+                CatalogKafkaTopic.model_validate(
+                    {"name": TOPIC, "source_topic": {"name": "orders_origin"}}
+                )
+            ],
+            include_lineage=True,
+        )
+
+        workunits = list(source.get_workunits())
+
+        lineage = [
+            aspect
+            for aspect in aspects_of(workunits, "upstreamLineage")
+            if isinstance(aspect, UpstreamLineageClass)
+        ]
+        assert len(lineage) == 1
+        upstreams = [upstream.dataset for upstream in lineage[0].upstreams]
+        assert any("orders_origin" in urn for urn in upstreams)
+        assert source.report.catalog_mirror_lineage_edges == 1
+
+    def test_lineage_is_off_by_default(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [
+                CatalogKafkaTopic.model_validate(
+                    {"name": TOPIC, "source_topic": {"name": "orders_origin"}}
+                )
+            ],
+        )
+
+        workunits = list(source.get_workunits())
+
+        assert not aspects_of(workunits, "upstreamLineage")
+        assert source.report.catalog_mirror_lineage_edges == 0
+
+    def test_topic_without_a_mirror_source_emits_no_lineage(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [CatalogKafkaTopic(name=TOPIC)],
+            include_lineage=True,
+        )
+
+        workunits = list(source.get_workunits())
+
+        assert not aspects_of(workunits, "upstreamLineage")
+        assert source.report.catalog_mirror_lineage_edges == 0

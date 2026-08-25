@@ -453,3 +453,25 @@ class TestCatalogEntityHelpers:
 
         entity = index.get("orders")
         assert entity is not None and entity.cluster_id == "lkc-1"
+
+
+class TestDebugFieldPopulationTally:
+    def test_empty_and_null_values_do_not_count_as_populated(self) -> None:
+        from collections import Counter
+
+        from datahub.ingestion.source.confluent.client import _tally_populated_fields
+
+        population: "Counter[str]" = Counter()
+        _tally_populated_fields(
+            {
+                "name": "orders",
+                "tags": ["pii"],
+                "source_topic": None,
+                "mirror_topics": [],
+                "business_metadata": {},
+                "note": "",
+            },
+            population,
+        )
+
+        assert population == Counter({"name": 1, "tags": 1})

@@ -1,4 +1,6 @@
+import json
 import logging
+from collections import Counter
 from dataclasses import dataclass
 from typing import Dict, Generic, List, Optional, Type
 
@@ -20,6 +22,10 @@ from datahub.ingestion.source.confluent.models import CatalogEntityType
 logger = logging.getLogger(__name__)
 
 _CREDENTIAL_REJECTED_STATUSES = (401, 403)
+
+# Debug-only: cap the size of a sampled raw catalog payload we log so a single
+# entity with large business metadata can't flood the log.
+_MAX_DEBUG_PAYLOAD_CHARS = 4000
 
 
 @dataclass(frozen=True)
@@ -76,6 +82,15 @@ class ConfluentStreamCatalogClient:
         pages = 0
         complete = True
 
+        # Debug aid: the catalog only returns the fields we query, so run with the
+        # `datahub.ingestion.source.confluent` logger at DEBUG to see a sample raw
+        # payload plus how many entities actually populate each field. That tells us
+        # which relationships/attributes are worth mapping in a given environment
+        # (e.g. `source_topic` populated on 0 vs. 120 topics).
+        debug_enabled = logger.isEnabledFor(logging.DEBUG)
+        field_population: "Counter[str]" = Counter()
+        sample_logged = False
+
         while True:
             if pages >= MAX_CATALOG_PAGES:
                 self.report.warning(
@@ -111,6 +126,15 @@ class ConfluentStreamCatalogClient:
                 )
 
             for payload in page.items:
+                if debug_enabled:
+                    if not sample_logged:
+                        logger.debug(
+                            f"Sample raw {root_key} Stream Catalog payload: "
+                            f"{_truncate(json.dumps(payload, default=str))}"
+                        )
+                        sample_logged = True
+                    _tally_populated_fields(payload, field_population)
+
                 entity = self._parse_entity(payload, root_key, model)
                 if entity is None:
                     complete = False
@@ -125,6 +149,15 @@ class ConfluentStreamCatalogClient:
         logger.info(
             f"Retrieved {len(entities)} {root_key} entities from the Confluent Stream Catalog"
         )
+        if debug_enabled and field_population:
+            summary = ", ".join(
+                f"{field}={count}/{len(entities)}"
+                for field, count in sorted(field_population.items())
+            )
+            logger.debug(
+                f"Confluent Stream Catalog {root_key} field population (entities with a "
+                f"non-empty value): {summary}"
+            )
         return CatalogFetchResult(entities, complete=complete)
 
     def _fetch_page(
@@ -232,6 +265,23 @@ class ConfluentStreamCatalogClient:
 
     def close(self) -> None:
         self.session.close()
+
+
+def _truncate(text: str) -> str:
+    if len(text) <= _MAX_DEBUG_PAYLOAD_CHARS:
+        return text
+    return f"{text[:_MAX_DEBUG_PAYLOAD_CHARS]}… (truncated)"
+
+
+def _tally_populated_fields(
+    payload: Dict[str, object], field_population: "Counter[str]"
+) -> None:
+    # A field counts as populated when it is present and not null/empty — an empty
+    # list (the catalog's shape for an unset relationship) does not count.
+    for field, value in payload.items():
+        if value in (None, "", [], {}):
+            continue
+        field_population[field] += 1
 
 
 def _response_body(error: requests.HTTPError) -> str:
