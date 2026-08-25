@@ -214,6 +214,49 @@ public class OpenLineageEventToDatahubTest {
   }
 
   @Test
+  public void testSparkConfigConnectionResolvesIcebergTableIdentity() {
+    String catalogNamespace = "https://catalog.example/api/catalog";
+    Config datahubConfig =
+        ConfigFactory.parseString(
+            "metadata.dataset.connections {\n"
+                + "  \"https://catalog.example/api/catalog\" { platformInstance = \"iceberg_prod\", env = \"PROD\" }\n"
+                + "}");
+    DatahubOpenlineageConfig conf =
+        SparkConfigParser.sparkConfigToDatahubOpenlineageConf(datahubConfig, new SparkAppContext());
+    OpenLineage openLineage = new OpenLineage(URI.create("https://test"));
+    OpenLineage.CatalogDatasetFacet catalog =
+        openLineage
+            .newCatalogDatasetFacetBuilder()
+            .framework("iceberg")
+            .type("rest")
+            .name("catalog")
+            .metadataUri(catalogNamespace)
+            .warehouseUri("s3://warehouse-bucket")
+            .build();
+    OpenLineage.SymlinksDatasetFacet symlinks =
+        openLineage.newSymlinksDatasetFacet(
+            List.of(
+                openLineage.newSymlinksDatasetFacetIdentifiers(
+                    catalogNamespace, "my_db.events", "TABLE")));
+    OpenLineage.InputDataset dataset =
+        openLineage
+            .newInputDatasetBuilder()
+            .namespace("s3://warehouse-bucket")
+            .name("catalog/db/table")
+            .facets(
+                openLineage.newDatasetFacetsBuilder().catalog(catalog).symlinks(symlinks).build())
+            .build();
+
+    Optional<DatasetUrn> urn =
+        OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn(dataset, conf);
+
+    assertTrue(urn.isPresent());
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,iceberg_prod.my_db.events,PROD)",
+        urn.get().toString());
+  }
+
+  @Test
   public void testGenerateUrnFromStreamingDescriptionGCSWithPathSpec()
       throws InstantiationException, IllegalArgumentException, URISyntaxException {
     Config datahubConfig =
