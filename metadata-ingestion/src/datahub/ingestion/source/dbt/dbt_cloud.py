@@ -547,6 +547,22 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     {"jobId": source_config.job_id, "runId": source_config.run_id},
                 )
 
+            if source_config.ingest_contracts:
+                if source_config.environment_id is None:
+                    raise ValueError(
+                        "environment_id is required when ingest_contracts=true"
+                    )
+                DBTCloudSource._send_graphql_query(
+                    source_config.metadata_endpoint,
+                    source_config.token.get_secret_value(),
+                    _DBT_DISCOVERY_CONTRACT_QUERY,
+                    {
+                        "environmentId": source_config.environment_id,
+                        "first": 1,
+                        "after": None,
+                    },
+                )
+
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
@@ -655,11 +671,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 break
             cursor = page_info.get("endCursor")
             if not cursor:
-                logger.warning(
-                    "Discovery API returned hasNextPage=true with no "
-                    "endCursor; stopping pagination to avoid infinite loop."
+                raise ValueError(
+                    "Discovery API returned hasNextPage=true with no endCursor"
                 )
-                break
 
         return results
 

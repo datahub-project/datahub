@@ -3901,7 +3901,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         the contract rather than the current warehouse state. Falls back to
         ``node.columns`` for sources that don't populate ``contract_columns``.
         """
-        columns_for_assertion = node.contract_columns or node.columns
+        columns_for_assertion = (
+            node.contract_columns if node.contract_columns is not None else node.columns
+        )
 
         fields = []
         for col in columns_for_assertion:
@@ -4214,7 +4216,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             customProperties={
                 "source": f"dbt_{scope}_constraint",
                 "constraint_type": source_type,
-                "enforced_by": self._enforced_by_for_constraint(node, "unique"),
+                "enforced_by": self._enforced_by_for_constraint(node, source_type),
                 "columns": ",".join(sorted_columns),
             },
         )
@@ -4232,6 +4234,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         distinguishing = constraint.name or (
             "_".join(sorted_columns) if sorted_columns else "model"
         )
+        if not constraint.name:
+            extras = [
+                value
+                for value in (
+                    constraint.expression,
+                    constraint.to,
+                    ",".join(constraint.to_columns or []),
+                )
+                if value
+            ]
+            if extras:
+                distinguishing = distinguishing + "__" + "__".join(extras)
         assertion_name = (
             f"{node.dbt_name}__constraint__{distinguishing}__{constraint.type}"
         )
@@ -4370,7 +4384,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         schema_assertion_urn: Optional[str],
         data_quality_assertion_urns: List[str],
     ) -> List[MetadataChangeProposalWrapper]:
-        contract_urn = f"urn:li:dataContract:{mce_builder.datahub_guid({'entity': entity_urn, 'source': 'dbt'})}"
+        # Same GUID as DataContract.urn so YAML-authored and ingested
+        # contracts land on one entity per dataset.
+        contract_urn = (
+            f"urn:li:dataContract:{mce_builder.datahub_guid({'entity': entity_urn})}"
+        )
 
         schema_contracts = (
             [SchemaContractClass(assertion=schema_assertion_urn)]
