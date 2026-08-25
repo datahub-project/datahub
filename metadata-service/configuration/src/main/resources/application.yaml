@@ -1729,6 +1729,8 @@ cache:
           roleMembership: 20
           groupMembership: 20
           nativeGroupMembership: 20
+        corpGroup:
+          roleMembership: 20
         structuredProperty:
           status: 300 # 5 min
           propertyDefinition: 300 # 5 min
