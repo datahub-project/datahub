@@ -86,3 +86,15 @@ def test_emitter_explicit_host_ignores_static_gms_token(monkeypatch):
     emitter = DataHubRestEmitter(gms_server="http://gms")
     assert emitter._session.auth is None
     assert emitter._session.headers.get("Authorization") != "Bearer static-env-token"
+
+
+def test_to_graph_does_not_re_resolve_env_auth(monkeypatch):
+    # Regression: an emitter built with auth= has _token None, so the config
+    # from_emitter rebuilds looks credential-free. If the graph constructor
+    # re-resolved DATAHUB_AUTH_TYPE there, a malformed value in the ambient
+    # environment would raise before the verbatim auth copy could run, breaking
+    # a to_graph() that has nothing to do with env auth.
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "azure_entra")  # required vars absent
+    auth = TokenProviderAuth(StaticTokenProvider("recipe-tok"), retry_on_401=False)
+    graph = DataHubRestEmitter("http://gms", auth=auth).to_graph()
+    assert graph._session.auth is auth

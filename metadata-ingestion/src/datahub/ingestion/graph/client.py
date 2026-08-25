@@ -167,12 +167,15 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
     RelationshipDirection = RelationshipDirection
     LineageDirection = LineageDirection
 
-    def __init__(self, config: DatahubClientConfig) -> None:
+    def __init__(
+        self, config: DatahubClientConfig, *, resolve_env_auth: bool = True
+    ) -> None:
         self.config = config
         resolved_auth = None
         if self.config.auth is not None:
             resolved_auth = TokenProviderAuth(build_token_provider(self.config.auth))
         super().__init__(
+            resolve_env_auth=resolve_env_auth,
             default_emit_mode=self.config.default_emit_mode,
             gms_server=self.config.server,
             token=self.config.token,
@@ -314,28 +317,35 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 # revert to the global default.
                 default_emit_mode=emitter._default_emit_mode,
             ),
+            # The source emitter has already settled its credentials; this
+            # rebuild must reproduce that decision, not make a fresh one. A
+            # DatahubClientConfig cannot express "these absent credentials are
+            # deliberate", so without this the constructor would re-resolve
+            # DATAHUB_AUTH_TYPE for what looks like a tokenless server — minting
+            # bearer tokens for the very host the datahub-rest sink's origin
+            # guard just refused, and raising outright when DATAHUB_AUTH_TYPE is
+            # set but malformed (an emitter built with auth= has _token None, so
+            # the rebuilt config looks credential-free). The verbatim copy below
+            # is what actually carries the credentials across.
+            resolve_env_auth=False,
         )
         # Carry the source emitter's resolved auth verbatim — including None.
-        #
         # The declarative AuthConfig is not recoverable from a live emitter, so
         # copying the resolved object is what stops a graph built from an
         # OAuth-authenticated emitter from silently losing its credentials.
-        # Assigning None matters just as much: DatahubClientConfig cannot express
-        # "these absent credentials are deliberate", so the constructor above
-        # re-resolves DATAHUB_AUTH_TYPE for a tokenless server. For an emitter
-        # that deliberately holds no credentials — the datahub-rest sink after
-        # its origin guard declines env OAuth — that would mint bearer tokens for
-        # the very host the guard refused. Only session.auth can carry an OAuth
-        # provider; static tokens and system auth are baked headers and are
-        # re-derived from `token` above, so this never clears those.
+        # Static tokens and system auth are baked headers, re-derived from
+        # `token` and extra_headers above, so this only ever moves OAuth.
         #
-        # Known edge: the derived graph's config.auth stays None, so anything
-        # that re-derives a client from this graph's CONFIG (rather than its
-        # session) — e.g. emit_all()/make_rest_sink() via
-        # _make_rest_sink_config() — only picks up env-based OAuth
-        # (DATAHUB_AUTH_TYPE), not auth that came from a recipe sink block.
-        # TODO(oauth): retain the declarative AuthConfig alongside the
-        # resolved auth so derived configs keep it.
+        # Known edge: the derived graph's config.auth stays None. Anything that
+        # re-derives a client from this graph's CONFIG rather than its session —
+        # emit_all() / make_rest_sink() via _make_rest_sink_config() — therefore
+        # resolves auth from scratch, and the datahub-rest sink applies its
+        # origin guard when doing so. With env OAuth on an explicit host and
+        # DATAHUB_GMS_URL unset or mismatched, that guard declines: reads through
+        # this graph stay authenticated while bulk emits go out unauthenticated.
+        # TODO(oauth): retain the declarative AuthConfig on the config alongside
+        # the resolved auth, so derived configs keep it and this divergence goes
+        # away. See the follow-up noted in PR #18547.
         graph._session.auth = emitter._session.auth
         return graph
 
