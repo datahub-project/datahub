@@ -154,6 +154,32 @@ def test_warehouse_id_must_be_present_test_connection():
     assert not report.internal_failure
 
 
+def test_include_volumes_defaults_true():
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://workspace_url",
+            "include_hive_metastore": False,
+            "include_tags": False,
+        }
+    )
+    assert config.include_volumes is True
+
+
+def test_include_volume_files_requires_volumes():
+    with pytest.raises(ValidationError, match="include_volume_files"):
+        UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "token",
+                "workspace_url": "https://workspace_url",
+                "include_hive_metastore": False,
+                "include_tags": False,
+                "include_volumes": False,
+                "include_volume_files": True,
+            }
+        )
+
+
 def test_set_profiling_warehouse_id_from_global():
     config = UnityCatalogSourceConfig.model_validate(
         {

@@ -13,6 +13,7 @@ from databricks.sdk.service.catalog import (
     DataSourceFormat,
     SecurableType,
     TableType,
+    VolumeType,
 )
 from databricks.sdk.service.sql import QueryStatementType
 from databricks.sdk.service.workspace import Language
@@ -266,6 +267,80 @@ class NotebookReference:
     last_updated: Optional[datetime] = None
 
 
+@dataclass(frozen=True, order=True)
+class VolumeReference:
+    metastore: Optional[str]
+    catalog: str
+    schema: str
+    volume: str
+
+    @classmethod
+    def create(cls, volume: "Volume") -> "VolumeReference":
+        return cls(
+            (
+                volume.schema.catalog.metastore.id
+                if volume.schema.catalog.metastore
+                else None
+            ),
+            volume.schema.catalog.name,
+            volume.schema.name,
+            volume.name,
+        )
+
+    def __str__(self) -> str:
+        if self.metastore:
+            return f"{self.metastore}.{self.catalog}.{self.schema}.{self.volume}"
+        return self.qualified_name
+
+    @property
+    def qualified_name(self) -> str:
+        return f"{self.catalog}.{self.schema}.{self.volume}"
+
+    @property
+    def external_path(self) -> str:
+        return f"{self.catalog}/{self.schema}/{self.volume}"
+
+
+@dataclass
+class Volume(CommonProperty):
+    schema: Schema
+    owner: Optional[str]
+    volume_type: Optional[VolumeType]
+    storage_location: Optional[str]
+    volume_id: Optional[str]
+    created_at: Optional[datetime]
+    created_by: Optional[str]
+    updated_at: Optional[datetime]
+    updated_by: Optional[str]
+
+    # Derived once at construction; don't mutate schema/name after, ref won't update.
+    ref: VolumeReference = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.ref = VolumeReference.create(self)
+
+
+@dataclass
+class VolumeFile:
+    volume: Volume
+    relative_path: str
+    dbfs_path: str
+    file_size: Optional[int]
+    last_modified: Optional[datetime]
+
+    @property
+    def name(self) -> str:
+        return self.relative_path.rsplit("/", 1)[-1]
+
+    @property
+    def qualified_name(self) -> str:
+        return f"{self.volume.ref.qualified_name}/{self.relative_path}"
+
+
+def volume_fs_root(volume: Volume) -> str:
+    return f"/Volumes/{volume.schema.catalog.name}/{volume.schema.name}/{volume.name}"
+
+
 @dataclass
 class Table(CommonProperty):
     schema: Schema
@@ -287,6 +362,7 @@ class Table(CommonProperty):
     upstream_notebooks: Dict[int, NotebookReference] = field(default_factory=dict)
     downstream_notebooks: Dict[int, NotebookReference] = field(default_factory=dict)
 
+    # Derived once at construction; don't mutate schema/name after, ref won't update.
     ref: TableReference = field(init=False)
 
     def __post_init__(self):

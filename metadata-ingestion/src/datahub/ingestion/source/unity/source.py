@@ -1,9 +1,11 @@
 import dataclasses
+import hashlib
 import itertools
 import json
 import logging
 import re
 import time
+from datetime import datetime
 from typing import (
     AbstractSet,
     Any,
@@ -25,6 +27,7 @@ import sqlglot.expressions as sqlglot_exp
 import yaml
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
+from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     UNKNOWN_USER,
     make_data_platform_urn,
@@ -46,6 +49,10 @@ from datahub.emitter.mcp_builder import (
     NotebookKey,
     UnitySchemaKey,
     UnitySchemaKeyWithMetastore,
+    UnityVolumeFolderKey,
+    UnityVolumeFolderKeyWithMetastore,
+    UnityVolumeKey,
+    UnityVolumeKeyWithMetastore,
     add_dataset_to_container,
     add_entity_to_container,
     gen_containers,
@@ -74,6 +81,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
 )
+from datahub.ingestion.source.schema_inference.base import SchemaInferenceBase
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -113,6 +121,8 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    Volume,
+    VolumeFile,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.tag_entities import (
@@ -146,6 +156,7 @@ from datahub.metadata.schema_classes import (
     MLModelPropertiesClass,
     MySqlDDLClass,
     NullTypeClass,
+    OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -182,6 +193,44 @@ _MEASURE_REF_RE = re.compile(
 _DISPLAY_NAME_MAX_LEN = 255
 _SYNONYMS_MAX_COUNT = 10
 _SYNONYM_MAX_LEN = 255
+_DATASET_URN_NAME_MAX_LENGTH = 210
+
+
+def _bounded_dataset_name(name: str) -> str:
+    # make_dataset_urn_with_platform_instance lower-cases the whole name when
+    # DATASET_URN_TO_LOWER is set, so hash the same normalized form here.
+    # Otherwise two paths differing only by case would fold to one prefix but
+    # keep distinct digests, yielding two URNs for what is one dataset. Read the
+    # flag from the module at call time; it is toggled by PipelineContext after
+    # import, so a bound copy could be stale.
+    if mce_builder.DATASET_URN_TO_LOWER:
+        name = name.lower()
+    if len(name) <= _DATASET_URN_NAME_MAX_LENGTH:
+        return name
+    digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:16]
+    prefix_len = _DATASET_URN_NAME_MAX_LENGTH - len(digest) - 1
+    return f"{name[:prefix_len]}.{digest}"
+
+
+def _make_timestamp(
+    ts: Optional[datetime], actor: Optional[str] = None
+) -> Optional[TimeStampClass]:
+    if ts is None:
+        return None
+    return TimeStampClass(make_ts_millis(ts), make_user_urn(actor) if actor else None)
+
+
+def _build_timestamps(
+    created_at: Optional[datetime],
+    created_by: Optional[str],
+    updated_at: Optional[datetime],
+    updated_by: Optional[str],
+) -> Tuple[Optional[TimeStampClass], Optional[TimeStampClass]]:
+    created = _make_timestamp(created_at, created_by)
+    # lastModified falls back to created when there is no update timestamp.
+    last_modified = _make_timestamp(updated_at, updated_by) or created
+    return created, last_modified
+
 
 # Databricks external lineage can return object-storage paths with a trailing
 # partition-set component in brace-list syntax, e.g.
@@ -388,6 +437,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     - metastores
     - schemas
     - tables and column lineage
+    - Unity Catalog volumes (named storage locations), and optionally files inside them
     - model and model versions
     """
 
@@ -808,6 +858,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.gen_schema_containers(schema)
                 try:
                     yield from self.process_tables(schema)
+                    yield from self.process_volumes(schema)
                     yield from self.process_ml_models(schema)
                 except Exception as e:
                     logger.exception(f"Error parsing schema {schema}")
@@ -878,6 +929,243 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.report.tables.processed(table.id, f"table ({table.table_type})")
             if table.is_metric_view and self.config.include_metric_views:
                 self.report.metric_views.processed(table.id)
+
+    def process_volumes(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
+        if not self.config.include_volumes:
+            return
+        for volume in self.unity_catalog_api_proxy.volumes(schema=schema):
+            if not self.config.volume_pattern.allowed(volume.ref.qualified_name):
+                self.report.volumes.dropped(volume.id)
+                continue
+            yield from self.process_volume(volume, schema)
+            yield from self.process_volume_files(volume)
+            self.report.volumes.processed(volume.id)
+
+    def process_volume(
+        self, volume: Volume, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        extra_properties: Dict[str, str] = {}
+        if volume.storage_location is not None:
+            extra_properties["storage_location"] = volume.storage_location
+        if volume.volume_type is not None:
+            extra_properties["volume_type"] = volume.volume_type.value
+        if volume.volume_id:
+            extra_properties["volume_id"] = volume.volume_id
+        if volume.owner:
+            extra_properties["owner"] = volume.owner
+        if volume.created_by:
+            extra_properties["created_by"] = volume.created_by
+        if volume.updated_by:
+            extra_properties["updated_by"] = volume.updated_by
+        if volume.created_at:
+            extra_properties["created_at"] = str(volume.created_at)
+        if volume.updated_at:
+            extra_properties["updated_at"] = str(volume.updated_at)
+
+        created_ms = make_ts_millis(volume.created_at) if volume.created_at else None
+        # Leave last_modified unset when Databricks reports no update time rather than
+        # fabricating it from the creation time.
+        last_modified_ms = (
+            make_ts_millis(volume.updated_at) if volume.updated_at else None
+        )
+
+        yield from gen_containers(
+            container_key=self.gen_volume_key(volume),
+            name=volume.name,
+            sub_types=[DatasetContainerSubTypes.DATABRICKS_VOLUME],
+            parent_container_key=self.gen_schema_key(schema),
+            domain_urn=self._gen_domain_urn(volume.ref.qualified_name),
+            description=volume.comment,
+            owner_urn=self.get_owner_urn(volume.owner),
+            external_url=f"{self.external_url_base}/{volume.ref.external_path}",
+            qualified_name=volume.ref.qualified_name,
+            extra_properties=extra_properties or None,
+            created=created_ms,
+            last_modified=last_modified_ms,
+        )
+
+    def process_volume_files(self, volume: Volume) -> Iterable[MetadataWorkUnit]:
+        if not self.config.include_volume_files:
+            return
+
+        def _allowed(name: str) -> bool:
+            if self.config.volume_file_pattern.allowed(name):
+                return True
+            self.report.volume_files.dropped(name)
+            return False
+
+        seen_folders: Set[str] = set()
+        for volume_file in self.unity_catalog_api_proxy.volume_files(
+            volume,
+            max_results=self.config.volume_file_max_results,
+            allowed=_allowed,
+        ):
+            parent_container_key = self.gen_volume_key(volume)
+            # relative_path is "<folder>/.../<file>"; every leading segment is a
+            # folder container nested under the volume (or the folder above it).
+            cumulative = ""
+            for segment in volume_file.relative_path.split("/")[:-1]:
+                cumulative = f"{cumulative}/{segment}" if cumulative else segment
+                folder_key = self.gen_volume_folder_key(volume, cumulative)
+                # Dedup on the container's own identity, matching ContainerWUCreator.
+                folder_guid = folder_key.guid()
+                if folder_guid not in seen_folders:
+                    seen_folders.add(folder_guid)
+                    self.report.num_volume_folders_emitted += 1
+                    yield from gen_containers(
+                        container_key=folder_key,
+                        name=segment,
+                        sub_types=[DatasetContainerSubTypes.FOLDER],
+                        parent_container_key=parent_container_key,
+                    )
+                parent_container_key = folder_key
+            yield from self.process_volume_file(volume_file, parent_container_key)
+            self.report.volume_files.processed(volume_file.qualified_name)
+
+    def process_volume_file(
+        self, volume_file: VolumeFile, parent_container_key: ContainerKey
+    ) -> Iterable[MetadataWorkUnit]:
+        dataset_urn = self.gen_volume_file_urn(volume_file)
+        yield from add_dataset_to_container(
+            container_key=parent_container_key,
+            dataset_urn=dataset_urn,
+        )
+
+        custom_properties: Dict[str, str] = {
+            "volume": volume_file.volume.ref.qualified_name,
+            "path": volume_file.relative_path,
+            "dbfs_path": volume_file.dbfs_path,
+        }
+        if volume_file.file_size is not None:
+            custom_properties["file_size"] = str(volume_file.file_size)
+
+        last_modified = _make_timestamp(volume_file.last_modified)
+
+        aspects: List[Any] = [
+            DatasetPropertiesClass(
+                name=volume_file.name,
+                qualifiedName=volume_file.qualified_name,
+                customProperties=custom_properties,
+                lastModified=last_modified,
+                externalUrl=(
+                    f"{self.external_url_base}/{volume_file.volume.ref.external_path}"
+                    f"/{volume_file.relative_path}"
+                ),
+            ),
+            SubTypesClass(typeNames=[DatasetSubTypes.DATABRICKS_VOLUME_FILE]),
+            self._create_data_platform_instance_aspect(),
+            self._get_domain_aspect(dataset_name=volume_file.qualified_name),
+        ]
+        schema_metadata = self._infer_volume_file_schema(volume_file)
+        if schema_metadata is not None:
+            aspects.append(schema_metadata)
+
+        mcps = MetadataChangeProposalWrapper.construct_many(
+            entityUrn=dataset_urn,
+            aspects=aspects,
+        )
+        for mcp in mcps:
+            yield mcp.as_workunit()
+
+    def _volume_file_schema_inferrer(self, name: str) -> Optional[SchemaInferenceBase]:
+        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+        max_rows = self.config.volume_file_schema_max_rows
+        # Inferrers pull in optional heavy deps (pyarrow/tableschema/ijson/avro),
+        # so import lazily on the opt-in schema-inference path.
+        if ext == "parquet":
+            from datahub.ingestion.source.schema_inference.parquet import (
+                ParquetInferrer,
+            )
+
+            return ParquetInferrer()
+        if ext == "csv":
+            from datahub.ingestion.source.schema_inference.csv_tsv import CsvInferrer
+
+            return CsvInferrer(max_rows=max_rows)
+        if ext == "tsv":
+            from datahub.ingestion.source.schema_inference.csv_tsv import TsvInferrer
+
+            return TsvInferrer(max_rows=max_rows)
+        if ext == "json":
+            from datahub.ingestion.source.schema_inference.json import JsonInferrer
+
+            return JsonInferrer(max_rows=max_rows)
+        if ext == "jsonl":
+            from datahub.ingestion.source.schema_inference.json import JsonInferrer
+
+            return JsonInferrer(max_rows=max_rows, format="jsonl")
+        if ext == "avro":
+            from datahub.ingestion.source.schema_inference.avro import AvroInferrer
+
+            return AvroInferrer()
+        return None
+
+    def _infer_volume_file_schema(
+        self, volume_file: VolumeFile
+    ) -> Optional[SchemaMetadataClass]:
+        if not self.config.include_volume_file_schemas:
+            return None
+        try:
+            # Inferrer construction lazily imports the format's optional dependency,
+            # which can fail (e.g. tableschema not installed); emit without a schema
+            # instead of aborting the volume's file loop.
+            inferrer = self._volume_file_schema_inferrer(volume_file.name)
+        except Exception as e:
+            self.report.num_volume_file_schema_inference_failed += 1
+            self.report.warning(
+                title="Failed to load schema inferrer for Unity Catalog volume file",
+                message="The file dataset was emitted without a schema. Install the "
+                "format's optional dependency to enable inference.",
+                context=volume_file.qualified_name,
+                exc=e,
+                log=False,
+            )
+            return None
+        if inferrer is None:
+            self.report.num_volume_file_schema_skipped += 1
+            return None
+        if (
+            volume_file.file_size is not None
+            and volume_file.file_size > self.config.volume_file_schema_max_bytes
+        ):
+            self.report.num_volume_file_schema_too_large += 1
+            return None
+        # Read one byte past the cap so an unknown/misreported file_size can't slip a
+        # file through that is larger than we're willing to buffer — inferring from a
+        # truncated read would publish a partial schema as if it were complete.
+        contents = self.unity_catalog_api_proxy.download_volume_file(
+            volume_file.dbfs_path, self.config.volume_file_schema_max_bytes + 1
+        )
+        if contents is None:
+            self.report.num_volume_file_schema_inference_failed += 1
+            return None
+        contents.seek(0, 2)
+        downloaded_bytes = contents.tell()
+        contents.seek(0)
+        if downloaded_bytes > self.config.volume_file_schema_max_bytes:
+            self.report.num_volume_file_schema_too_large += 1
+            return None
+        try:
+            fields = inferrer.infer_schema(contents)
+        except Exception as e:
+            self.report.num_volume_file_schema_inference_failed += 1
+            self.report.warning(
+                title="Failed to infer schema for Unity Catalog volume file",
+                message="The file dataset was emitted without a schema.",
+                context=volume_file.qualified_name,
+                exc=e,
+                log=False,
+            )
+            return None
+        self.report.num_volume_file_schemas_inferred += 1
+        return SchemaMetadataClass(
+            schemaName=volume_file.qualified_name,
+            platform=make_data_platform_urn(self.platform),
+            version=0,
+            hash="",
+            fields=fields,
+            platformSchema=OtherSchemaClass(rawSchema=""),
+        )
 
     def process_table(self, table: Table, schema: Schema) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self.gen_dataset_urn(table.ref)
@@ -1249,12 +1537,54 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             user = self.service_principals[user].display_name
         return make_user_urn(user)
 
-    def gen_dataset_urn(self, table_ref: TableReference) -> str:
+    def _gen_dataset_urn(self, name: str) -> str:
         return make_dataset_urn_with_platform_instance(
             platform=self.platform,
             platform_instance=self.platform_instance_name,
-            name=str(table_ref),
+            name=name,
             env=self.config.env,
+        )
+
+    def gen_dataset_urn(self, table_ref: TableReference) -> str:
+        return self._gen_dataset_urn(str(table_ref))
+
+    def gen_volume_key(self, volume: Volume) -> ContainerKey:
+        schema = volume.schema
+        if self.config.include_metastore:
+            assert schema.catalog.metastore
+            return UnityVolumeKeyWithMetastore(
+                volume=volume.name,
+                unity_schema=schema.name,
+                platform=self.platform,
+                instance=self.config.platform_instance,
+                catalog=schema.catalog.name,
+                metastore=schema.catalog.metastore.name,
+                env=self.config.env,
+            )
+        return UnityVolumeKey(
+            volume=volume.name,
+            unity_schema=schema.name,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            catalog=schema.catalog.name,
+            env=self.config.env,
+        )
+
+    def gen_volume_folder_key(self, volume: Volume, folder_path: str) -> ContainerKey:
+        # Derive from the volume key plus folder_path so the shared fields (and the
+        # parent GUID lineage) can't drift between the two key types.
+        base = self.gen_volume_key(volume)
+        if isinstance(base, UnityVolumeKeyWithMetastore):
+            return UnityVolumeFolderKeyWithMetastore(
+                **base.model_dump(), folder_path=folder_path
+            )
+        return UnityVolumeFolderKey(**base.model_dump(), folder_path=folder_path)
+
+    def gen_volume_file_urn(self, volume_file: VolumeFile) -> str:
+        return self._gen_dataset_urn(
+            _bounded_dataset_name(
+                f"{volume_file.volume.ref}/{volume_file.relative_path}"
+            )
         )
 
     def gen_ml_model_urn(self, name: str) -> str:
@@ -1940,23 +2270,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self._build_metric_view_spec_custom_props(metric_view_spec)
             )
 
-        created: Optional[TimeStampClass] = None
         if table.created_at:
             custom_properties["created_at"] = str(table.created_at)
-            created_ts = make_ts_millis(table.created_at)
-            if created_ts is not None:
-                created = TimeStampClass(
-                    created_ts,
-                    make_user_urn(table.created_by) if table.created_by else None,
-                )
-        last_modified = created
-        if table.updated_at:
-            updated_ts = make_ts_millis(table.updated_at)
-            if updated_ts is not None:
-                last_modified = TimeStampClass(
-                    updated_ts,
-                    table.updated_by and make_user_urn(table.updated_by),
-                )
+        created, last_modified = _build_timestamps(
+            table.created_at,
+            table.created_by,
+            table.updated_at,
+            table.updated_by,
+        )
 
         # YAML top-level `comment` is the metric view's own documentation; UC's table.comment
         # is separate and may not be kept in sync. Prefer YAML when present.
@@ -1982,16 +2303,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def _create_table_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
         owner_urn = self.get_owner_urn(table.owner)
-        if owner_urn is not None:
-            return OwnershipClass(
-                owners=[
-                    OwnerClass(
-                        owner=owner_urn,
-                        type=OwnershipTypeClass.DATAOWNER,
-                    )
-                ]
-            )
-        return None
+        if owner_urn is None:
+            return None
+        return OwnershipClass(
+            owners=[OwnerClass(owner=owner_urn, type=OwnershipTypeClass.DATAOWNER)]
+        )
 
     def _create_data_platform_instance_aspect(
         self,

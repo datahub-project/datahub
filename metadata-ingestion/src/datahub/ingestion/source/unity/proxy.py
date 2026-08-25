@@ -9,7 +9,21 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
+from io import BytesIO
+from typing import (
+    IO,
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Union,
+    cast,
+)
 from unittest.mock import patch
 
 import cachetools
@@ -27,6 +41,7 @@ from databricks.sdk.service.catalog import (
     SchemaInfo,
     TableConstraint,
     TableInfo,
+    VolumeInfo,
 )
 from databricks.sdk.service.files import DownloadResponse, FilesAPI
 from databricks.sdk.service.iam import ServicePrincipal as DatabricksServicePrincipal
@@ -74,7 +89,10 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    Volume,
+    VolumeFile,
     usage_statement_types,
+    volume_fs_root,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -84,6 +102,25 @@ logger: logging.Logger = logging.getLogger(__name__)
 # It is enough to keep the cache size to 1, since we only process one catalog at a time
 # We need to change this if we want to support parallel processing of multiple catalogs
 _MAX_CONCURRENT_CATALOGS = 1
+
+# Matched against a listing error before advising "grant READ VOLUME", so an
+# SDK/network fault isn't misdiagnosed as a permissions issue.
+_PERMISSION_ERROR_KEYWORDS = (
+    "permission",
+    "not authorized",
+    "unauthorized",
+    "does not have",
+    "access denied",
+    "forbidden",
+    "privilege",
+    "read volume",
+    "403",
+)
+
+
+def _looks_like_permission_error(error: Exception) -> bool:
+    error_str = str(error).lower()
+    return any(keyword in error_str for keyword in _PERMISSION_ERROR_KEYWORDS)
 
 
 # Import and apply the proxy patch from separate module
@@ -646,6 +683,193 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         exc=e,
                         log=False,
                     )
+
+    def volumes(self, schema: Schema) -> Iterable[Volume]:
+        if schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
+            return
+        try:
+            # volumes.list() returns a lazy generator: the HTTP request (and any
+            # permission/network error) only fires while iterating, so the loop must
+            # stay inside this try or a real 403 escapes uncaught.
+            response = self._workspace_client.volumes.list(
+                catalog_name=schema.catalog.name,
+                schema_name=schema.name,
+                include_browse=True,
+                max_results=self.databricks_api_page_size,
+            )
+            for volume in response or []:
+                try:
+                    optional_volume = self._create_volume(schema, volume)
+                    if optional_volume:
+                        yield optional_volume
+                except Exception as e:
+                    self.report.num_volumes_parse_failed += 1
+                    volume_name = getattr(volume, "name", None)
+                    logger.warning(f"Error parsing volume {volume_name}: {e}")
+                    self.report.warning(
+                        title="Failed to parse Unity Catalog volume",
+                        message="A volume could not be parsed and was skipped.",
+                        context=f"{schema.id}.{volume_name}",
+                        exc=e,
+                        log=False,
+                    )
+        except Exception as e:
+            self.report.num_volumes_list_failed += 1
+            # A whole schema's volumes are skipped, so log live, not just in the report.
+            logger.warning(
+                f"Failed to list volumes for schema {schema.id}: {e}", exc_info=True
+            )
+            if _looks_like_permission_error(e):
+                message = (
+                    "Volumes in this schema were skipped. Grant READ VOLUME on the "
+                    "volumes (plus USE CATALOG / USE SCHEMA on the parent) or set "
+                    "include_volumes: false."
+                )
+            else:
+                message = (
+                    "Volumes in this schema were skipped due to an unexpected error "
+                    "while listing them. If this is a permissions issue, grant READ "
+                    "VOLUME (plus USE CATALOG / USE SCHEMA on the parent); otherwise "
+                    "set include_volumes: false to skip volume ingestion."
+                )
+            self.report.warning(
+                title="Failed to list Unity Catalog volumes",
+                message=message,
+                context=schema.id,
+                exc=e,
+                log=False,
+            )
+
+    def volume_files(
+        self,
+        volume: Volume,
+        max_results: int,
+        allowed: Optional[Callable[[str], bool]] = None,
+    ) -> Iterable[VolumeFile]:
+        if max_results <= 0:
+            return
+        root = volume_fs_root(volume)
+        # Depth-first walk (pending used as a stack). Order only decides which
+        # files survive when max_results truncates the walk.
+        pending: List[str] = [root]
+        # max_results bounds yielded files, not directory visits, so a
+        # self-referential listing would loop forever without this guard.
+        visited: Set[str] = set()
+        yielded = 0
+        limit_reached = False
+        while pending and yielded < max_results:
+            directory_path = pending.pop()
+            if directory_path in visited:
+                continue
+            visited.add(directory_path)
+            try:
+                entries = self._files_api.list_directory_contents(
+                    directory_path,
+                    page_size=self.databricks_api_page_size or None,
+                )
+                for entry in entries:
+                    path = entry.path or ""
+                    is_directory = bool(entry.is_directory)
+                    if is_directory:
+                        if path and path not in visited:
+                            pending.append(path)
+                        elif not path:
+                            # Pathless directory can't be walked; count the
+                            # dropped subtree rather than losing it silently.
+                            self.report.num_volume_file_entries_unresolvable += 1
+                            logger.warning(
+                                f"Skipping pathless directory entry under "
+                                f"{directory_path} in volume {volume.ref.qualified_name}"
+                            )
+                        continue
+                    relative = (
+                        path[len(root) :].lstrip("/")
+                        if path.startswith(root)
+                        else (entry.name or "")
+                    )
+                    if not relative:
+                        # File with no resolvable path or name; count the drop.
+                        self.report.num_volume_file_entries_unresolvable += 1
+                        logger.warning(
+                            f"Skipping unresolvable file entry (path={path!r}, "
+                            f"name={entry.name!r}) under {directory_path} in volume "
+                            f"{volume.ref.qualified_name}"
+                        )
+                        continue
+                    qualified_name = f"{volume.ref.qualified_name}/{relative}"
+                    if allowed is not None and not allowed(qualified_name):
+                        continue
+                    if yielded >= max_results:
+                        limit_reached = True
+                        break
+                    yielded += 1
+                    yield VolumeFile(
+                        volume=volume,
+                        relative_path=relative,
+                        dbfs_path=path or f"{root}/{relative}",
+                        file_size=entry.file_size,
+                        last_modified=(
+                            parse_ts_millis(entry.last_modified)
+                            if entry.last_modified
+                            else None
+                        ),
+                    )
+                if limit_reached:
+                    break
+            except Exception as e:
+                self.report.num_volume_files_list_failed += 1
+                logger.warning(
+                    f"Failed to list files under {directory_path}: {e}", exc_info=True
+                )
+                if _looks_like_permission_error(e):
+                    message = (
+                        "Files under this path were skipped. Grant READ VOLUME "
+                        "or set include_volume_files: false."
+                    )
+                else:
+                    message = (
+                        "Files under this path were skipped due to an unexpected "
+                        "error while listing them. If this is a permissions issue, "
+                        "grant READ VOLUME; otherwise set include_volume_files: "
+                        "false to skip volume-file ingestion."
+                    )
+                self.report.warning(
+                    title="Failed to list files in Unity Catalog volume",
+                    message=message,
+                    context=directory_path,
+                    exc=e,
+                    log=False,
+                )
+                continue
+        # The cap stopped the walk with files still unvisited.
+        if limit_reached or pending:
+            self.report.num_volumes_file_limit_reached += 1
+
+    def download_volume_file(
+        self, dbfs_path: str, max_bytes: int
+    ) -> Optional[IO[bytes]]:
+        try:
+            download_response: DownloadResponse = self._files_api.download(
+                file_path=dbfs_path
+            )
+            contents = download_response.contents if download_response else None
+            if contents is None:
+                return None
+            # Schema inferrers need seekable input (parquet reads the footer, json
+            # seeks back to 0), so buffer the download in memory bounded by max_bytes.
+            # Close the streaming response so its HTTP resources aren't retained
+            # across many files.
+            with closing(contents):
+                return BytesIO(contents.read(max_bytes))
+        except Exception as e:
+            self.report.warning(
+                title="Failed to download Unity Catalog volume file",
+                message="Schema inference was skipped for this file.",
+                context=dbfs_path,
+                exc=e,
+                log=False,
+            )
+            return None
 
     def ml_models(
         self, schema: Schema, max_results: Optional[int] = None
@@ -1491,6 +1715,25 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             updated_by=obj.updated_by,
             table_id=obj.table_id,
             comment=obj.comment,
+        )
+
+    def _create_volume(self, schema: Schema, obj: VolumeInfo) -> Optional[Volume]:
+        if not obj.name:
+            self.report.num_volumes_missing_name += 1
+            return None
+        return Volume(
+            name=obj.name,
+            id=f"{schema.id}.{self._escape_sequence(obj.name)}",
+            comment=obj.comment,
+            schema=schema,
+            owner=obj.owner,
+            volume_type=obj.volume_type,
+            storage_location=obj.storage_location,
+            volume_id=obj.volume_id,
+            created_at=(parse_ts_millis(obj.created_at) if obj.created_at else None),
+            created_by=obj.created_by,
+            updated_at=(parse_ts_millis(obj.updated_at) if obj.updated_at else None),
+            updated_by=obj.updated_by,
         )
 
     def _extract_columns(
