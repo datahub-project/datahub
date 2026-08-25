@@ -749,6 +749,36 @@ class TestSubProcessIngestionTaskCompletion:
         ][0]
         assert secret_value not in published
 
+    def test_logs_are_masked_when_secrets_are_registered(
+        self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
+    ) -> None:
+        """Logs reach the same report as the structured report, so they need the same
+        masking. LogHolder is filled by direct appends, bypassing the stdout and
+        logging filters that mask the subprocess's own output.
+        """
+        secret_value = "s3cr3t-p4ssw0rd"
+        SecretRegistry.get_instance().register_secret("DB_PASSWORD", secret_value)
+
+        logs = LogHolder()
+        logs.append(f"error: Failed to fetch https://u:{secret_value}@idx/simple\n")
+
+        mock_process = Mock()
+        mock_process.returncode = 0
+
+        with patch("os.path.exists", return_value=False), patch(_REMOVE_DIRECTORY):
+            ingestion_task._handle_subprocess_completion(
+                mock_process,
+                mock_execution_context,
+                "/tmp/report.json",
+                "/tmp/artifacts",
+                {"pipeline_name": "test-pipeline"},
+                "/tmp/exec",
+                logs,
+            )
+
+        published = mock_execution_context.get_report().set_logs.call_args[0][0]
+        assert secret_value not in published
+
     def test_handle_subprocess_completion_failure_exit_code(
         self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
     ) -> None:

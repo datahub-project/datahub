@@ -615,9 +615,17 @@ class SubProcessIngestionTask(Task):
                 )
 
         try:
-            ctx.get_report().set_logs(
-                SubProcessTaskUtil._format_log_lines(shared_logs.get_lines())
-            )
+            log_content = SubProcessTaskUtil._format_log_lines(shared_logs.get_lines())
+            try:
+                # Masked. LogHolder is populated by
+                # direct appends, so it bypasses the stdout/logging filters that mask
+                # the subprocess's own output.
+                registry = SecretRegistry.get_instance()
+                if registry and registry.get_count() > 0:
+                    log_content = SecretMaskingFilter(registry).mask_text(log_content)
+            except Exception:
+                logger.warning("Failed to mask logs, using original")
+            ctx.get_report().set_logs(log_content)
         except Exception:
             logger.exception("Failed to set logs on execution report")
 
