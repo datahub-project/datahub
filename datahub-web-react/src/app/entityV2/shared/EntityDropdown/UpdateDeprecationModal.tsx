@@ -1,4 +1,4 @@
-import { Button, DatePicker, Loader, Modal, SimpleSelect, TextArea, toast } from '@components';
+import { Button, DatePicker, DatePickerVariant, Loader, Modal, SimpleSelect, TextArea, toast } from '@components';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -175,6 +175,7 @@ export const UpdateDeprecationModal = ({
                     placeholder={t('deprecation.decommissionDateLabel')}
                     value={decommissionTime}
                     onChange={(v) => setDecommissionTime(v)}
+                    variant={DatePickerVariant.EditableInput}
                 />
 
                 {isReplacementModalVisible && !isDeprecatingFields && (
