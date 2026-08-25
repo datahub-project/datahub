@@ -75,3 +75,27 @@ class TestRegistryResolvesRetiredPaths:
         registry.register_lazy("BOGUS", "acryl.executor.execution.nope.Nope")
         with pytest.raises(EnvironmentError):
             registry.get("BOGUS")
+
+
+class TestIncompleteTasksAreRejected:
+    """`Task` is an ABC so the registry's isabstract check can fire.
+
+    Without it the check is dead code: an incomplete subclass registers, runs, and
+    reports SUCCESS, because a missing `async def execute` resolves to None and raises
+    nothing.
+    """
+
+    def test_a_subclass_missing_execute_is_rejected(self) -> None:
+        class MissingExecute(Task):
+            @classmethod
+            def create(cls, config: dict, ctx: object) -> "MissingExecute":  # type: ignore[override]
+                return cls()
+
+            def close(self) -> None:
+                pass
+
+        registry: TaskRegistry = TaskRegistry()
+        with pytest.raises(ValueError, match="abstract"):
+            # mypy flags the abstract class here, which is exactly the contract
+            # this test asserts the registry enforces at runtime.
+            registry.register("RUN_INGEST", MissingExecute)  # type: ignore[type-abstract]
