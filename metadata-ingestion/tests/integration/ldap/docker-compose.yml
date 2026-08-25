@@ -3,7 +3,7 @@ services:
   openldap:
     image: osixia/openldap:latest
     command: --copy-service --loglevel debug
-    container_name: openldap
+    container_name: test-openldap
     domainname: "example.org"
     hostname: "openldap"
     environment:

@@ -16,7 +16,7 @@ def neo4j_runner(docker_compose_runner):
     with docker_compose_runner(
         _resources_dir / "docker-compose.yml", "neo4j"
     ) as docker_services:
-        wait_for_port(docker_services, "neo4j", 7687)
+        wait_for_port(docker_services, "test-neo4j", 7687)
         bolt_port = docker_services.port_for("neo4j", 7687)
 
         # Wait for test data to be loaded by checking if we can query some test nodes
