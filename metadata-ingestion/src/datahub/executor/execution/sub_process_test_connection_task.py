@@ -112,6 +112,7 @@ class SubProcessTestConnectionTask(Task):
         command_script: str = resolve_wrapper_script(
             "datahub.executor.wrappers.run_test_connection"
         )
+        Path(exec_out_dir).mkdir(0o755, parents=True, exist_ok=True)
         report_out_file: str = f"{exec_out_dir}/connection_report.json"
         stdout_lines: deque = deque(maxlen=SubProcessTaskUtil.MAX_LOG_LINES)
 
