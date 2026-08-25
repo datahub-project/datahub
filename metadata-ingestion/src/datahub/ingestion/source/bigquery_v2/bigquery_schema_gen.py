@@ -1412,9 +1412,14 @@ class BigQuerySchemaGenerator:
     ) -> Dict[str, TableListItem]:
         table_items: Dict[str, TableListItem] = {}
         sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
+        # Every table id in the dataset, including ones dropped by the filters below.
+        # Whether an un-suffixed table physically exists is a fact about BigQuery, so
+        # it must not depend on which tables the recipe happens to select.
+        all_table_ids: Set[str] = set()
 
         for table in self.schema_api.list_tables(dataset_name, project_id):
             table_id = table.table_id
+            all_table_ids.add(table_id)
 
             match = self.shard_matcher.match(table_id)
 
@@ -1423,6 +1428,8 @@ class BigQuerySchemaGenerator:
                     table_id, dataset_name, match
                 )
                 shard = match[3]
+
+                self.report.num_sharded_tables_scanned += 1
 
                 if table.table_type == "VIEW":
                     table_identifier = BigqueryTableIdentifier(
@@ -1448,6 +1455,7 @@ class BigQuerySchemaGenerator:
                     stored_shard = sharded_tables[base_name][1]
                     if is_shard_newer(shard, stored_shard):
                         sharded_tables[base_name] = (table, shard)
+                    self.report.num_sharded_tables_deduped += 1
                 continue
 
             table_identifier = BigqueryTableIdentifier(
@@ -1479,8 +1487,26 @@ class BigQuerySchemaGenerator:
 
             table_items[table_id] = table
 
-        table_items.update(
-            {value[0].table_id: value[0] for value in sharded_tables.values()}
-        )
+        for base_name, (table, _shard) in sharded_tables.items():
+            # A genuine sharded set has no un-suffixed member: `events_20251121` is a
+            # shard of the wildcard table `events_*`, and no table named `events`
+            # exists. When one does, the date-suffixed tables are separate physical
+            # tables (a dated copy, a backup) that merely look like shards. Collapsing
+            # them would put them on the base table's URN, where their schema and
+            # profile overwrite the real table's non-deterministically.
+            if base_name in all_table_ids:
+                self.report.num_sharded_tables_shadowed_by_base_table += 1
+                self.report.warning(
+                    title="Date-suffixed tables skipped",
+                    message="Table(s) with a date suffix were skipped because a table "
+                    "of the same name without the suffix exists, so they are copies "
+                    "rather than shards. Ingesting them would overwrite the "
+                    "un-suffixed table's schema and profile. Rename them if they "
+                    "should be ingested.",
+                    context=f"{project_id}.{dataset_name}.{base_name}",
+                )
+                continue
+
+            table_items[table.table_id] = table
 
         return table_items

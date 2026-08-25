@@ -1014,6 +1014,57 @@ def test_table_processing_logic_date_named_tables(
         assert tables[table].table_id in ["test-table", "20220103"]
 
 
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_table_processing_logic_date_suffixed_copies_of_a_real_table(
+    get_projects_client, get_bq_client_mock, data_dictionary_mock
+):
+    """Date-suffixed tables sitting beside an un-suffixed table of the same name are
+    one-off copies, not a sharded set. Collapsing them would land several physically
+    different tables on a single URN, so the copies are dropped instead."""
+    client_mock = MagicMock()
+    get_bq_client_mock.return_value = client_mock
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+
+    def _item(table_id: str) -> TableListItem:
+        return TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": table_id,
+                }
+            }
+        )
+
+    client_mock.list_tables.return_value = [
+        _item("my-table"),
+        _item("my-table_20251120"),
+        _item("my-table_20251121"),
+        # A genuine sharded set in the same dataset must keep collapsing.
+        _item("my-sharded-table_20251120"),
+        _item("my-sharded-table_20251121"),
+    ]
+    data_dictionary_mock.get_tables_for_dataset.return_value = None
+
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    _ = list(
+        schema_gen.get_tables_for_dataset(
+            project_id="test-project", dataset=BigqueryDataset("test-dataset")
+        )
+    )
+
+    tables: Dict[str, TableListItem] = data_dictionary_mock.call_args_list[0][0][2]
+
+    assert sorted(tables) == ["my-sharded-table_20251121", "my-table"]
+    assert source.report.num_sharded_tables_scanned == 4
+    assert source.report.num_sharded_tables_deduped == 2
+    assert source.report.num_sharded_tables_shadowed_by_base_table == 1
+
+
 def create_row(d: Dict[str, Any]) -> Row:
     values = []
     field_to_index = {}
