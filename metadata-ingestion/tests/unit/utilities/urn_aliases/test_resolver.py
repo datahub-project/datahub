@@ -3,15 +3,18 @@ from unittest import mock
 
 import pytest
 
-from datahub.utilities.server_config_util import RestServiceConfig
+from datahub.metadata.schema_classes import (
+    DataHubUpgradeResultClass,
+    DataHubUpgradeStateClass,
+)
 from datahub.utilities.urn_aliases.provider import (
     graph_urn_alias_resolver,
     provide_urn_alias_resolver,
 )
 from datahub.utilities.urn_aliases.resolver import (
     UrnAliasResolver,
+    dataset_aliases_backfilled,
     lowercased_urn,
-    maintains_dataset_aliases,
 )
 
 _LOWER = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,PROD)"
@@ -228,43 +231,42 @@ def test_an_empty_instance_filtered_load_still_loads() -> None:
 # --- the gate on the whole feature -----------------------------------------------------
 
 
-def _versioned_server(version: str, cloud: bool = False) -> mock.MagicMock:
-    """A graph reporting itself as DataHub `version`."""
+def _marked_server(marker: object) -> mock.MagicMock:
     graph = mock.MagicMock()
-    graph.server_config = RestServiceConfig(
-        raw_config={
-            "versions": {"acryldata/datahub": {"version": version}},
-            "datahub": {"serverEnv": "prod" if cloud else ""},
-        }
-    )
+    graph.get_aspect.return_value = marker
     return graph
 
 
+def _result(state: str) -> DataHubUpgradeResultClass:
+    return DataHubUpgradeResultClass(timestampMs=0, state=state)
+
+
 @pytest.mark.parametrize(
-    ("version", "cloud", "supported"),
+    ("state", "backfilled"),
     [
-        ("v1.8.0", False, True),
-        ("v1.9.2", False, True),
-        ("v1.7.0", False, False),
-        ("v2.2.0", True, True),
-        ("v2.1.0", True, False),
+        (DataHubUpgradeStateClass.SUCCEEDED, True),
+        (DataHubUpgradeStateClass.IN_PROGRESS, False),
+        (DataHubUpgradeStateClass.FAILED, False),
+        (DataHubUpgradeStateClass.ABORTED, False),
     ],
 )
-def test_the_feature_needs_a_server_that_maintains_aliases(
-    version: str, cloud: bool, supported: bool
-) -> None:
-    # Cloud and OSS number separately, so each has its own floor.
-    assert maintains_dataset_aliases(_versioned_server(version, cloud)) is supported
+def test_only_a_succeeded_backfill_opens_the_gate(state: str, backfilled: bool) -> None:
+    graph = _marked_server(_result(state))
+    assert dataset_aliases_backfilled(graph) is backfilled
+    # Read off the upgrade entity the backfill stamps, not off anything inferred.
+    assert (
+        graph.get_aspect.call_args.args[0] == "urn:li:dataHubUpgrade:dataset-aliases-v1"
+    )
 
 
-def test_a_server_that_reports_no_version_is_not_assumed_new() -> None:
+def test_a_backfill_that_never_ran_keeps_the_gate_shut() -> None:
+    # GMS answers 404 for the marker, which get_aspect reports as None.
+    assert dataset_aliases_backfilled(_marked_server(None)) is False
+
+
+def test_a_failed_read_is_left_to_the_caller() -> None:
+    # Not a verdict on the backfill, so it is not turned into one here.
     graph = mock.MagicMock()
-    graph.server_config = RestServiceConfig(raw_config={})
-    assert maintains_dataset_aliases(graph) is False
-
-
-def test_a_server_whose_version_does_not_parse_disables_the_feature() -> None:
-    # A build off a git SHA reports an unparseable version. The gate is read outside its
-    # caller's try/except, so raising here would abort the run rather than turn the feature
-    # off.
-    assert maintains_dataset_aliases(_versioned_server("a1b2c3d")) is False
+    graph.get_aspect.side_effect = RuntimeError("boom")
+    with pytest.raises(RuntimeError):
+        dataset_aliases_backfilled(graph)

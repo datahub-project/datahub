@@ -1,7 +1,11 @@
 import logging
 from typing import TYPE_CHECKING, List, Optional
 
-from datahub.metadata.urns import DatasetUrn
+from datahub.metadata.schema_classes import (
+    DataHubUpgradeResultClass,
+    DataHubUpgradeStateClass,
+)
+from datahub.metadata.urns import DataHubUpgradeUrn, DatasetUrn
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -12,10 +16,9 @@ logger = logging.getLogger(__name__)
 
 _TABLE = "urn_aliases"
 
-# Where GMS started maintaining the dataset `aliases` aspect resolution reads.
-# Documented as a prerequisite in docs/dev_guides/lineage_urn_casing.md; keep both in sync.
-_MIN_CLOUD_VERSION = (2, 2, 0)
-_MIN_OSS_VERSION = (1, 8, 0)
+# Tracks AliasesUtils.DATASET_ALIASES_BACKFILL_UPGRADE_ID; the `-vN` suffix is the
+# lowercasing-rule version.
+_ALIASES_BACKFILL_URN = str(DataHubUpgradeUrn("dataset-aliases-v1"))
 
 
 def lowercased_urn(urn: str) -> Optional[str]:
@@ -86,28 +89,8 @@ class UrnAliasResolver:
         self._urns_by_key.close()
 
 
-def maintains_dataset_aliases(graph: "DataHubGraph") -> bool:
-    """Whether the server maintains the dataset `aliases` aspect resolution reads.
-
-    Gates the whole feature: without aliases a stored casing is unreachable.
-    """
-    config = graph.server_config
-    minimum = _MIN_CLOUD_VERSION if config.is_datahub_cloud else _MIN_OSS_VERSION
-    try:
-        return config.is_version_at_least(*minimum)
-    except ValueError:
-        # A build off a git SHA reports an unparseable version, so it is treated as too
-        # old. The caller's report warning carries the version read and the one needed.
-        logger.debug(
-            f"Cannot parse the DataHub server version {config.service_version!r}.",
-            exc_info=True,
-        )
-        return False
-
-
-def required_server_version(graph: "DataHubGraph") -> str:
-    """The lowest server version that maintains the dataset `aliases` aspect."""
-    config = graph.server_config
-    if config.is_datahub_cloud:
-        return f"DataHub Cloud {'.'.join(map(str, _MIN_CLOUD_VERSION))}"
-    return f"DataHub {'.'.join(map(str, _MIN_OSS_VERSION))}"
+def dataset_aliases_backfilled(graph: "DataHubGraph") -> bool:
+    """Whether the dataset `aliases` backfill has succeeded, so a stored casing is findable."""
+    # No marker means never run: get_aspect answers None on the 404.
+    result = graph.get_aspect(_ALIASES_BACKFILL_URN, DataHubUpgradeResultClass)
+    return result is not None and result.state == DataHubUpgradeStateClass.SUCCEEDED

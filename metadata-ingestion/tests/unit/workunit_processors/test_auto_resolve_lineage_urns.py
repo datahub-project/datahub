@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
@@ -20,6 +21,7 @@ from datahub.ingestion.run.pipeline_config import (
 )
 from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns import (
     AutoResolveLineageUrnsProcessor,
+    AutoResolveLineageUrnsProcessorReport,
     _pick_match,
 )
 from datahub.metadata.schema_classes import (
@@ -27,6 +29,8 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
     DashboardInfoClass,
+    DataHubUpgradeResultClass,
+    DataHubUpgradeStateClass,
     DataJobInputOutputClass,
     DatasetSnapshotClass,
     EdgeClass,
@@ -47,7 +51,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.utilities.server_config_util import RestServiceConfig
 from datahub.utilities.urn_aliases.resolver import (
     UrnAliasResolver,
     lowercased_urn,
@@ -99,16 +102,16 @@ def _resolver(
     return resolver
 
 
-def _registers_aliases(graph: Any) -> Any:
-    """Pin `graph` as a server new enough to maintain the dataset `aliases` aspect."""
-    graph.server_config = RestServiceConfig(
-        raw_config={"versions": {"acryldata/datahub": {"version": "v1.8.0"}}}
+def _backfilled(graph: Any) -> Any:
+    """Pin `graph` as a server whose dataset `aliases` backfill has succeeded."""
+    graph.get_aspect.return_value = DataHubUpgradeResultClass(
+        timestampMs=0, state=DataHubUpgradeStateClass.SUCCEEDED
     )
     return graph
 
 
 def _schema_fetches(graph: mock.MagicMock) -> int:
-    """How many schemas were asked of `graph`; the one marker read is not one of them."""
+    """How many schemas were asked of `graph`."""
     return sum(
         1
         for call in graph.get_aspect.call_args_list
@@ -132,7 +135,6 @@ def _seed_index(
     would have reached; a region not listed raises, as a failed load does. Either way a
     miss falls through to the graph, which answers from `urns` as DataHub would.
     """
-    _registers_aliases(graph)
     graph.get_dataset_urns_ignoring_case.side_effect = lambda key: [
         urn for urn in urns if lowercased_urn(urn) == key
     ]
@@ -1173,9 +1175,9 @@ def _ctx(
     resolve_all_platforms: bool = False,
 ) -> mock.MagicMock:
     pipeline_ctx = mock.MagicMock()
-    # A server that maintains `aliases`; the gate on that is exercised on its own below.
+    # A server whose backfill has succeeded; the gate on that is exercised on its own below.
     pipeline_ctx.graph = (
-        _registers_aliases(graph) if isinstance(graph, mock.MagicMock) else graph
+        _backfilled(graph) if isinstance(graph, mock.MagicMock) else graph
     )
     pipeline_ctx.flags.auto_resolve_lineage_urns = AutoResolveLineageUrnsConfig(
         enabled=enabled,
@@ -1231,13 +1233,42 @@ def test_enabled_when_flag_on_with_graph():
     )
 
 
-def test_disabled_where_the_server_does_not_maintain_aliases():
-    # Resolution reads the `aliases` aspect, so an older server cannot answer at all —
-    # and approximating would report healthy lineage as broken. Off, with a warning.
+@pytest.mark.parametrize(
+    "marker",
+    [
+        pytest.param(None, id="never-run"),
+        pytest.param(
+            DataHubUpgradeResultClass(
+                timestampMs=0, state=DataHubUpgradeStateClass.IN_PROGRESS
+            ),
+            id="mid-backfill",
+        ),
+        pytest.param(
+            DataHubUpgradeResultClass(
+                timestampMs=0, state=DataHubUpgradeStateClass.FAILED
+            ),
+            id="failed",
+        ),
+    ],
+)
+def test_disabled_until_the_aliases_backfill_has_succeeded(
+    marker: Optional[DataHubUpgradeResultClass],
+) -> None:
     ctx = _ctx(True, mock.MagicMock())
-    ctx.pipeline_context.graph.server_config = RestServiceConfig(
-        raw_config={"versions": {"acryldata/datahub": {"version": "v1.7.0"}}}
+    ctx.pipeline_context.graph.get_aspect.return_value = marker
+
+    assert AutoResolveLineageUrnsProcessor.should_enable(ctx) is False
+    assert (
+        cast(mock.MagicMock, ctx.source_report).warning.call_args.kwargs["title"]
+        == "Lineage URN casing resolution disabled"
     )
+
+
+def test_a_failed_marker_read_disables_rather_than_aborts() -> None:
+    # should_enable is called outside any try/except in the processor chain, so a raising
+    # read must be turned into a skip here rather than taking the run down.
+    ctx = _ctx(True, mock.MagicMock())
+    ctx.pipeline_context.graph.get_aspect.side_effect = RuntimeError("boom")
 
     assert AutoResolveLineageUrnsProcessor.should_enable(ctx) is False
     assert (
@@ -1619,7 +1650,6 @@ def test_widened_scope_with_no_upstream_platforms_reads_nothing_up_front():
     pipeline_ctx = mock.MagicMock()
     pipeline_ctx.graph = mock.MagicMock()
     pipeline_ctx.flags.auto_resolve_lineage_urns = _widened(upstream_platforms=[])
-    _registers_aliases(pipeline_ctx.graph)
     pipeline_ctx.graph.get_dataset_urns_ignoring_case.return_value = [LOWER]
     pipeline_ctx.graph.get_aspect.return_value = None
     ctx = mock.MagicMock()
@@ -1961,6 +1991,15 @@ def test_the_four_outcomes_are_counted_apart():
 
 
 # --- the sample behind the unresolved count --------------------------------------------
+
+
+def test_the_report_is_json_serializable():
+    # The run summary reporter json.dumps the report, and the base as_obj returns values
+    # raw — so a bare set here would break every run with the feature on, sample or not.
+    report = AutoResolveLineageUrnsProcessorReport()
+    assert json.loads(json.dumps(report.as_obj()))["unresolved_refs_sample"] == []
+    report.unresolved_refs_sample.add(UPPER)
+    assert UPPER in json.loads(json.dumps(report.as_obj()))["unresolved_refs_sample"]
 
 
 def test_the_unresolved_sample_keeps_one_entry_per_broken_table():

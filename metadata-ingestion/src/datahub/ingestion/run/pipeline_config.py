@@ -207,7 +207,8 @@ class FlagsConfig(ConfigModel):
             "which lowercases every URN, this resolves references to the casing of the "
             "entity that already exists, preserving the warehouse's original casing. "
             "Requires a DataHub backend connection (no-op for offline/file-only "
-            "ingestion), and either the upstream platform(s) to be configured or "
+            "ingestion), the server's dataset aliases backfill to have succeeded, and "
+            "either the upstream platform(s) to be configured or "
             "`resolve_all_platforms`. Enable on BI-tool ingestions, not on the "
             "warehouse ingestion itself."
         ),

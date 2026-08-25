@@ -192,15 +192,12 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
 
 - **Requires a DataHub backend connection.** Resolution looks up existing entities, so it is a no-op for
   offline / file-only ingestion.
-- **Requires DataHub Cloud 2.2.0, or DataHub 1.8.0, and later.** The dataset `aliases` aspect those
-  versions maintain is what lets one lookup cover every casing of a name. On an older server the feature
-  turns itself off with a warning and lineage is emitted unchanged; it is not approximated, since a
-  partial answer would report healthy lineage as broken.
-- **Datasets last written before the upgrade need the alias backfill.** GMS computes the aspect when a
-  dataset is written, so a dataset untouched since the upgrade has no alias — and a reference to it is
-  reported `UNRESOLVED` even when it is cased exactly right. Run the dataset alias backfill, or
-  re-ingest the platform, before relying on the feature. Datasets whose name is already lowercase are
-  unaffected: they are matched on their URN directly, and GMS stores no alias for them.
+- **Requires the dataset `aliases` backfill to have succeeded.** GMS computes the aspect when a dataset
+  is written, so a dataset untouched since aliases were introduced has none, and a reference to it
+  would read as `UNRESOLVED` even when cased exactly right. The `BackfillDatasetAliases` system update
+  (default-on, non-blocking) fills those in. The feature reads its completion marker on
+  `urn:li:dataHubUpgrade:dataset-aliases-v1` and stays off with a warning until it reports `SUCCEEDED`,
+  rather than approximating an answer that would report healthy lineage as broken.
 - **Aliases are written asynchronously.** For a short window after a backfill or an ingestion, a
   reference can still miss and be reported `UNRESOLVED`. It heals on the source's next run.
 - **Resolves only against entities that already exist at ingestion time.** This relies on the warehouse

@@ -57,9 +57,8 @@ from datahub.utilities.urn_aliases.provider import (
 )
 from datahub.utilities.urn_aliases.resolver import (
     UrnAliasResolver,
+    dataset_aliases_backfilled,
     lowercased_urn,
-    maintains_dataset_aliases,
-    required_server_version,
 )
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -118,6 +117,12 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     # Bounded sample of references left UNRESOLVED, alongside the num_refs_unresolved
     # count, so the report shows *which* lineage looks broken, not just how much.
     unresolved_refs_sample: LossySet[str] = field(default_factory=LossySet)
+
+    def as_obj(self) -> Dict[str, object]:
+        obj = super().as_obj()
+        # The base class returns values raw, and a set is not JSON serializable.
+        obj["unresolved_refs_sample"] = self.unresolved_refs_sample.as_obj()
+        return obj
 
 
 @dataclass
@@ -308,17 +313,24 @@ class AutoResolveLineageUrnsProcessor(
         graph = getattr(ctx.pipeline_context, "graph", None)
         if graph is None:
             return False
-        # Resolution reads the `aliases` aspect GMS maintains, so a server too old to
-        # have it cannot answer at all.
-        if not maintains_dataset_aliases(graph):
+        # Until the backfill succeeds, a dataset it has not reached has no alias, so its
+        # stored casing reads as an absence rather than a match.
+        try:
+            backfilled = dataset_aliases_backfilled(graph)
+        except Exception as e:
             ctx.source_report.warning(
                 title="Lineage URN casing resolution disabled",
-                message="This DataHub server does not maintain the dataset `aliases` "
-                "aspect that URN casing resolution reads, so lineage is emitted "
-                "unchanged. Upgrade the server to use this feature.",
-                context=f"server version "
-                f"{graph.server_config.service_version or 'unknown'}; requires "
-                f"{required_server_version(graph)} or later",
+                message="Could not read the dataset `aliases` backfill marker, so "
+                "lineage is emitted unchanged.",
+                exc=e,
+            )
+            return False
+        if not backfilled:
+            ctx.source_report.warning(
+                title="Lineage URN casing resolution disabled",
+                message="The dataset `aliases` backfill has not succeeded on this "
+                "DataHub server, so lineage is emitted unchanged. Let the "
+                "dataset-aliases-v1 system update finish, then re-ingest this source.",
             )
             return False
         return True
