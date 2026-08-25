@@ -269,10 +269,12 @@ public class DatahubEventEmitter extends EventEmitter {
 
           mergeDatasets(storedDatahubJob.getInSet(), datahubJob.getInSet());
 
-          // Fine-grained lineage entries carrying a `query` urn (merged in via mergeDatasets
-          // above) need their statement text alongside them so toMcps() can emit the Query
-          // entity - without this, a coalesced job would reference a query urn with no matching
-          // queryProperties/querySubjects aspect.
+          // Accumulate every statement text ever seen across merged events, keyed by query urn.
+          // Note this map can end up holding urns for statements that mergeDatasets above has
+          // since superseded (it replaces a dataset's lineage wholesale rather than merging it),
+          // so it is a superset of the urns actually referenced by the final merged lineage.
+          // DatahubJob#generateQueryEntityMcps is responsible for filtering to only the referenced
+          // urns when emitting Query entities - it must not treat this map as the emission set.
           datahubJob.getQueryStatements().putAll(storedDatahubJob.getQueryStatements());
 
           mergeDataProcessInstance(datahubJob, storedDatahubJob);

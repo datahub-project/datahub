@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 import time
+from datetime import datetime
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -1271,7 +1272,20 @@ class DataHubListener:
         # Emit the Query entity alongside DataJobInputOutput (same `complete`
         # branch) so a query URN is never written without the entity behind it.
         if complete:
-            self._emit_query_entity(emitter, statement_text, subject_urns)
+            # Matches AirflowGenerator.complete_datajob's end_timestamp_millis
+            # fallback: ti.end_date is normally set by this point (this fires
+            # from the same task-completion hook that later calls
+            # complete_datajob with the same task_instance), but fall back to
+            # now() defensively - RuntimeTaskInstance doesn't guarantee every
+            # TaskInstance attribute is present (see _airflow_version_specific.py).
+            end_date = getattr(task_instance, "end_date", None)
+            if end_date:
+                event_time_millis = int(end_date.timestamp() * 1000)
+            else:
+                event_time_millis = int(datetime.now().timestamp() * 1000)
+            self._emit_query_entity(
+                emitter, statement_text, subject_urns, event_time_millis
+            )
 
         status_text = f"finish w/ status {complete}" if complete else "start"
         logger.debug(f"Emitted DataHub Datajob {status_text}: {datajob}")
@@ -1283,6 +1297,7 @@ class DataHubListener:
         emitter: Emitter,
         statement_text: Optional[str],
         subject_urns: Set[str],
+        event_time_millis: int,
     ) -> None:
         """Emit a Query entity (queryProperties + querySubjects) for a task's SQL
         statement.
@@ -1297,9 +1312,13 @@ class DataHubListener:
             return
 
         query_urn = QueryUrn(generate_hash(statement_text)).urn()
-        # time=0: this is a SYSTEM-sourced record with no meaningful creation
-        # time to report, matching datahub.sdk.lineage_client's _empty_audit_stamp.
-        audit_stamp = AuditStampClass(time=0, actor=builder.make_user_urn("airflow"))
+        # Stamp with the real task-completion time (matching the Spark producer's
+        # use of the OpenLineage event time) rather than a placeholder, so
+        # sort-by-modified and audit display agree across producers of the same
+        # entity type.
+        audit_stamp = AuditStampClass(
+            time=event_time_millis, actor=builder.make_user_urn("airflow")
+        )
         for aspect in (
             QueryPropertiesClass(
                 statement=QueryStatementClass(

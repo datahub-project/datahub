@@ -28,6 +28,8 @@ import io.datahubproject.openlineage.dataset.PathSpec;
 import io.datahubproject.openlineage.utils.QueryUrnUtils;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClientUtils;
+import io.openlineage.client.transports.ConsoleConfig;
+import io.openlineage.spark.api.SparkOpenLineageConfig;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -1434,6 +1436,68 @@ public class OpenLineageEventToDatahubTest {
     assertTrue(
         mcps.stream().noneMatch(mcp -> "query".equals(mcp.getEntityType())),
         "no query entity MCP should be emitted when captureQueryEntities is off");
+  }
+
+  @Test
+  public void testCoalescedEventsEmitOnlyTheReferencedQueryEntity()
+      throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(true);
+    builder.captureQueryEntities(true);
+    DatahubOpenlineageConfig config = builder.build();
+
+    String firstSql = "SELECT age, name FROM people WHERE age > 18";
+    String secondSql = "SELECT age, name FROM people WHERE age > 21";
+    Urn firstQueryUrn = QueryUrnUtils.queryUrnForStatement(firstSql);
+    Urn secondQueryUrn = QueryUrnUtils.queryUrnForStatement(secondSql);
+
+    OpenLineage.RunEvent firstEvent =
+        OpenLineageClientUtils.runEventFromJson(
+            IOUtils.toString(
+                this.getClass().getResourceAsStream("/ol_events/sample_spark_with_sql_facet.json"),
+                StandardCharsets.UTF_8));
+    OpenLineage.RunEvent secondEvent =
+        OpenLineageClientUtils.runEventFromJson(
+            IOUtils.toString(
+                this.getClass()
+                    .getResourceAsStream(
+                        "/ol_events/sample_spark_with_sql_facet_second_event.json"),
+                StandardCharsets.UTF_8));
+
+    SparkOpenLineageConfig sparkOpenLineageConfig = new SparkOpenLineageConfig();
+    sparkOpenLineageConfig.setTransportConfig(new ConsoleConfig());
+    DatahubEventEmitter emitter = new DatahubEventEmitter(sparkOpenLineageConfig, "test-app");
+    emitter.setConfig(SparkLineageConf.builder().openLineageConf(config).build());
+
+    // Two write events to the same output dataset with different SQL - the shape Spark produces
+    // when it coalesces multiple events per job run. The second event's lineage supersedes the
+    // first's on the shared output dataset (see DatahubEventEmitter#mergeDatasets).
+    emitter.convertOpenLineageRunEventToDatahubJob(firstEvent);
+    emitter.convertOpenLineageRunEventToDatahubJob(secondEvent);
+
+    List<MetadataChangeProposal> mcps = emitter.generateCoalescedMcps();
+
+    assertTrue(
+        mcps.stream()
+            .anyMatch(
+                mcp ->
+                    "queryProperties".equals(mcp.getAspectName())
+                        && secondQueryUrn.equals(mcp.getEntityUrn())),
+        "the surviving query should still get its Query entity");
+    assertTrue(
+        mcps.stream()
+            .noneMatch(
+                mcp ->
+                    "queryProperties".equals(mcp.getAspectName())
+                        && firstQueryUrn.equals(mcp.getEntityUrn())),
+        "the superseded query must not produce an orphan Query entity");
   }
 
   /** Parses the JSON aspect value carried by an in-process (non-file-emitter) MCP. */

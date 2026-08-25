@@ -395,6 +395,7 @@ DOWNSTREAM_DATASET_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_schema.dst,PROD)"
 )
 SQL_STATEMENT = "SELECT col_a FROM my_db.my_schema.src"
+EVENT_TIME_MILLIS = 1700000000000
 
 
 def _make_query_entity_stub(capture_query_entities: bool) -> Any:
@@ -473,7 +474,7 @@ class TestQueryEntityEmission:
 
         mock_emitter = MagicMock()
         DataHubListener._emit_query_entity(
-            stub, mock_emitter, statement_text, subject_urns
+            stub, mock_emitter, statement_text, subject_urns, EVENT_TIME_MILLIS
         )
 
         emitted_mcps = [call.args[0] for call in mock_emitter.emit.call_args_list]
@@ -486,6 +487,11 @@ class TestQueryEntityEmission:
             if isinstance(mcp.aspect, QueryPropertiesClass)
         )
         assert query_properties.statement.value == SQL_STATEMENT
+        # Stamped with the real task-completion time, not a placeholder - keeps
+        # this producer consistent with the Spark producer's use of the real
+        # OpenLineage event time.
+        assert query_properties.created.time == EVENT_TIME_MILLIS
+        assert query_properties.lastModified.time == EVENT_TIME_MILLIS
 
         query_subjects = next(
             mcp.aspect
@@ -511,6 +517,6 @@ class TestQueryEntityEmission:
 
         mock_emitter = MagicMock()
         DataHubListener._emit_query_entity(
-            stub, mock_emitter, statement_text, subject_urns
+            stub, mock_emitter, statement_text, subject_urns, EVENT_TIME_MILLIS
         )
         mock_emitter.emit.assert_not_called()

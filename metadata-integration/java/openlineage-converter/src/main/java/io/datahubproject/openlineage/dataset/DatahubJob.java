@@ -56,7 +56,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -219,10 +218,17 @@ public class DatahubJob {
   }
 
   /**
-   * Emits a Query entity (queryProperties + querySubjects) for every statement captured via {@link
-   * #queryStatements}. A Query URN is only ever set on a FineGrainedLineage when {@code
-   * captureQueryEntities} is on (see OpenLineageToDataHub#getFineGrainedLineage), so {@code
-   * queryStatements} stays empty and this is a no-op with the flag off.
+   * Emits a Query entity (queryProperties + querySubjects) for every query URN actually referenced
+   * by the currently merged fine-grained lineages. A Query URN is only ever set on a
+   * FineGrainedLineage when {@code captureQueryEntities} is on (see
+   * OpenLineageToDataHub#getFineGrainedLineage), so this is a no-op with the flag off.
+   *
+   * <p>Deliberately does NOT iterate {@link #queryStatements} directly: on the coalesced Spark
+   * emission path, {@code queryStatements} accumulates every statement seen across all merged
+   * events, but {@code mergeDatasets} replaces (not merges) a dataset's lineage wholesale on each
+   * event, so a superseded event's query URN can survive in the map after its FineGrainedLineage
+   * entries are gone. Deriving the emitted set from the current FGLs instead ensures we emit
+   * exactly what is referenced - no orphans, no missing entities.
    */
   private void generateQueryEntityMcps(List<MetadataChangeProposal> mcps) {
     if (queryStatements.isEmpty()) {
@@ -243,19 +249,27 @@ public class DatahubJob {
     AuditStamp auditStamp =
         createAuditStamp(ZonedDateTime.ofInstant(Instant.ofEpochMilli(eventTime), ZoneOffset.UTC));
 
-    for (Map.Entry<Urn, String> entry : queryStatements.entrySet()) {
-      Urn queryUrn = entry.getKey();
+    for (Urn queryUrn : subjectsByQuery.keySet()) {
+      String statement = queryStatements.get(queryUrn);
+      if (statement == null) {
+        // Every query URN placed on a FineGrainedLineage is recorded in queryStatements at
+        // conversion time (see OpenLineageToDataHub#getFineGrainedLineage) and that map only
+        // grows, so a referenced URN missing its statement should be unreachable. Skip rather
+        // than emit an entity with no statement text, which would be worse than emitting nothing.
+        log.warn("No captured statement text for referenced query URN {}, skipping", queryUrn);
+        continue;
+      }
 
       QueryProperties queryProperties = new QueryProperties();
       queryProperties.setStatement(
-          new QueryStatement().setValue(entry.getValue()).setLanguage(QueryLanguage.SQL));
+          new QueryStatement().setValue(statement).setLanguage(QueryLanguage.SQL));
       queryProperties.setSource(QuerySource.SYSTEM);
       queryProperties.setCreated(auditStamp);
       queryProperties.setLastModified(auditStamp);
       addAspectToMcps(queryUrn, QUERY_ENTITY_TYPE, queryProperties, mcps);
 
       QuerySubjectArray subjectArray = new QuerySubjectArray();
-      for (Urn subjectUrn : subjectsByQuery.getOrDefault(queryUrn, Collections.emptySet())) {
+      for (Urn subjectUrn : subjectsByQuery.get(queryUrn)) {
         subjectArray.add(new QuerySubject().setEntity(subjectUrn));
       }
       addAspectToMcps(
