@@ -155,6 +155,11 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
     Integer getSocketTimeout();
 
     SSLContext getSSLContext();
+
+    /** Whether the engine type was auto-detected rather than explicitly configured. */
+    default boolean isEngineTypeAutoDetected() {
+      return false;
+    }
   }
 
   @OperationContextExempt(reason = "Local accessor, no I/O.")
@@ -349,11 +354,10 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
       ClusterUpdateSettingsRequest clusterUpdateSettingsRequest, RequestOptions options)
       throws IOException;
 
+  @OperationContextExempt(
+      reason = "Cluster-wide health probe — no tenant routing, no actor relevance")
   @Nonnull
-  ClusterHealthResponse clusterHealth(
-      @Nonnull OperationFingerprint opContext,
-      ClusterHealthRequest healthRequest,
-      RequestOptions options)
+  ClusterHealthResponse clusterHealth(ClusterHealthRequest healthRequest, RequestOptions options)
       throws IOException;
 
   // Async Task operations
@@ -458,6 +462,27 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
 
   @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
   void flushBulkProcessor();
+
+  /** Optional write options for item requeue. Default no-op for shims without bulk processors. */
+  @OperationContextExempt(reason = "Bulk processor lifecycle setup, not a per-event call.")
+  default void configureBulkProcessorWriteOptions(
+      boolean itemRequeueEnabled, int itemRequeueMaxAttempts) {}
+
+  /**
+   * Flush pending bulks and wait until tracked items reach a terminal outcome. Default flushes
+   * only.
+   */
+  @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
+  default void flushAndAwaitBulkTransfer(long timeoutMillis)
+      throws InterruptedException, java.util.concurrent.TimeoutException {
+    flushBulkProcessor();
+  }
+
+  /** Drain unrecovered transfer failure count since last drain. Default 0. */
+  @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
+  default long drainBulkTransferFailures() {
+    return 0L;
+  }
 
   @OperationContextExempt(reason = "Bulk processor lifecycle, not a per-event call.")
   void closeBulkProcessor();

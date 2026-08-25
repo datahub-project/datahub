@@ -36,5 +36,6 @@
     "properties.glossaryTerms": "Términos del glosario",
     "properties.lastModified": "Última modificación",
     "properties.lastSynced": "Última sincronización",
+    "properties.semanticModel": "Modelo semántico",
     "properties.terms": "Términos"
 }

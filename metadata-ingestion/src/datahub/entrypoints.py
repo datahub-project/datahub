@@ -311,7 +311,10 @@ def _validate_init_inputs(
         case_sensitive=False,
     ),
     default=None,
-    help="Token expiration duration (default: ONE_MONTH for localhost, ONE_HOUR otherwise)",
+    help=(
+        "Token expiration duration (default: ONE_MONTH for localhost, ONE_HOUR otherwise). "
+        "NO_EXPIRY requires ACCESS_TOKEN_ALLOW_NO_EXPIRY=true on the server (disabled by default)."
+    ),
 )
 @click.option(
     "--force",
@@ -336,7 +339,13 @@ def _validate_init_inputs(
     "--support",
     is_flag=True,
     default=False,
-    help="Use support login path for DataHub Cloud customer debugging (use with --sso)",
+    help="Use support login for DataHub Cloud customer debugging (use with --oauth or --sso)",
+)
+@click.option(
+    "--ticket-id",
+    type=str,
+    default=None,
+    help="Support ticket ID (required with --oauth --support)",
 )
 @click.option(
     "--agent-context",
@@ -355,6 +364,7 @@ def init(
     sso: bool = False,
     oauth: bool = False,
     support: bool = False,
+    ticket_id: Optional[str] = None,
     agent_context: bool = False,
 ) -> None:
     """Configure which DataHub instance to connect to.
@@ -398,7 +408,7 @@ def init(
 
     \b
     Support Login (DataHub Cloud — customer debugging):
-        datahub init --sso --support \\
+        datahub init --oauth --support --ticket-id SUPPORT-123 \\
             --host https://customer.acryl.io/gms
 
     \b
@@ -428,9 +438,12 @@ def init(
         click.echo(text)
         return
 
-    # Validate: --support requires --sso
-    if support and not sso:
-        raise click.UsageError("--support requires --sso")
+    if support and not (sso or oauth):
+        raise click.UsageError("--support requires --oauth or --sso")
+    if ticket_id and not support:
+        raise click.UsageError("--ticket-id requires --support")
+    if support and oauth and not ticket_id:
+        raise click.UsageError("--oauth --support requires --ticket-id")
 
     # Show deprecation warning if --use-password used
     if use_password:
@@ -492,7 +505,7 @@ def init(
         from datahub.cli.config_utils import write_oauth_config
         from datahub.cli.oauth_cli import pkce_login
 
-        result = pkce_login(host_value)
+        result = pkce_login(host_value, support=support, ticket_id=ticket_id)
         click.echo("✓ Successfully authenticated with DataHub")
         if result.refresh_token:
             click.echo(
@@ -514,7 +527,10 @@ def init(
 
         frontend_url = guess_frontend_url_from_gms_url(host_value)
         _, token_value = browser_sso_login(
-            frontend_url, effective_duration, support=support
+            frontend_url,
+            effective_duration,
+            support=support,
+            ticket_id=ticket_id,
         )
         click.echo(f"✓ Generated token (expires: {effective_duration})")
     elif should_generate_token or use_password:

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.usage.flush;
 
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,7 +29,7 @@ public class UsageFlushSinkComposer implements UsageFlushSink {
       Collections.synchronizedMap(new HashMap<>());
 
   @Override
-  public void publish(@Nonnull UsageFlushBatch batch) {
+  public void publish(@Nonnull OperationContext opContext, @Nonnull UsageFlushBatch batch) {
     Set<UsageFlushSink> succeeded =
         succeededDelegates.computeIfAbsent(batch, ignored -> new HashSet<>());
     RuntimeException lastFailure = null;
@@ -40,7 +41,7 @@ public class UsageFlushSinkComposer implements UsageFlushSink {
         continue;
       }
       try {
-        sink.publish(batch);
+        sink.publish(opContext, batch);
         succeeded.add(sink);
       } catch (RuntimeException e) {
         log.warn("Usage flush sink {} failed", sink.getClass().getSimpleName(), e);

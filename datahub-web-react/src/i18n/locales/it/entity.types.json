@@ -308,6 +308,7 @@
     "tab.properties": "Proprietà",
     "tab.queries": "Query",
     "tab.runs": "Run",
+    "tab.definition": "Definizione",
     "tab.summary": "Riepilogo",
     "tag.name": "Tag",
     "tag.namePlural": "Tag",
@@ -326,5 +327,6 @@
     "user.tab.ownerOf": "Proprietario di",
     "user.teamLabel": "Team",
     "user.teamsHeading": "Team",
-    "user.titleRoleLabel": "Titolo/Ruolo"
+    "user.titleRoleLabel": "Titolo/Ruolo",
+    "dataProduct.parentLabel": "Data Product padre"
 }

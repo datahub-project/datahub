@@ -9,11 +9,24 @@ public class FeatureFlags {
   private boolean lineageSearchCacheEnabled = false;
   private boolean alwaysEmitChangeLog = false;
   private boolean cdcModeChangeLog = false;
+  // Moves aspect retention out of the ingest retry loop to a best-effort post-commit path.
+  // When false, retention runs inside the retry loop (legacy behavior). When true, retention
+  // runs after the upsert transaction commits and never triggers a retry on failure.
+  // Lifecycle: introduced for scale. Default OFF. Sunset target: remove in-tx retention block
+  // + this flag once post-commit path is validated in prod.
+  private boolean postCommitRetentionEnabled = false;
+  // When true (and postCommitRetentionEnabled), coalesce post-commit retention into a Hazelcast-
+  // backed buffer drained by RetentionDrainer off the ingest thread. When false, post-commit path
+  // (if on) applies retention synchronously. Enabling this boots the shared embedded Hazelcast node
+  // (HazelcastInstanceBootstrapCondition). Every ingesting pod (GMS or MCE consumer) runs the
+  // drainer — RetentionBufferSchedulingConfig enables scheduling wherever the buffer is wired — and
+  // all pods share one map + one cluster-wide drain lock, so exactly one drains per tick.
+  // Lifecycle: introduced for scale. Default OFF.
+  private boolean retentionBufferEnabled = false;
   private boolean readOnlyModeEnabled = false;
   private boolean showSearchFiltersV2 = false;
   private boolean showBrowseV2 = false;
   private boolean platformBrowseV2 = false;
-  private boolean lineageGraphV2 = false;
   private PreProcessHooks preProcessHooks;
   private boolean showAcrylInfo = false;
   private boolean erModelRelationshipFeatureEnabled = false;
@@ -46,7 +59,6 @@ public class FeatureFlags {
   private boolean showLineageFilterNodes = false;
   private boolean showStatsTabRedesign = false;
   private boolean showHomePageRedesign = false;
-  private boolean lineageGraphV3 = true;
   private boolean showProductUpdates = false;
   private String productUpdatesJsonUrl;
   private String productUpdatesJsonFallbackResource;
@@ -75,4 +87,13 @@ public class FeatureFlags {
   // Gates browser Core Web Vitals (LCP/CLS/FID/FCP/TTFB) emission as OTel spans. Independent of
   // browserTracingEnabled so vitals can stay off while browser request tracing is validated.
   private boolean browserWebVitalsEnabled = false;
+  private boolean datasetStatsSummaryBatchLoadEnabled = true;
+  private boolean entityHealthBatchLoadEnabled = true;
+  private boolean entityExistsBatchLoadEnabled = true;
+  private boolean parentContainersBatchLoadEnabled = true;
+  private boolean parentNodesBatchLoadEnabled = true;
+  // Kill switch for schema-driven GraphQL aspect optimization. When true, entity hydration fetches
+  // only the aspects required by the selected fields. When false, every loader falls back to
+  // fetching its full default aspect set (legacy behavior). Default ON.
+  private boolean graphQLAspectOptimizationEnabled = true;
 }

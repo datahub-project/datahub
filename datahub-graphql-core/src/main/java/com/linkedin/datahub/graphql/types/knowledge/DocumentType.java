@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -50,7 +51,8 @@ public class DocumentType
           Constants.GLOBAL_TAGS_ASPECT_NAME,
           Constants.GLOSSARY_TERMS_ASPECT_NAME,
           Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
-          Constants.DOCUMENTATION_ASPECT_NAME);
+          Constants.DOCUMENTATION_ASPECT_NAME,
+          Constants.SEMANTIC_TEXT_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
@@ -79,6 +81,10 @@ public class DocumentType
     final List<Urn> documentUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, Constants.DOCUMENT_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),
@@ -86,7 +92,7 @@ public class DocumentType
               documentUrns.stream()
                   .filter(urn -> canView(context.getOperationContext(), urn))
                   .collect(Collectors.toSet()),
-              ASPECTS_TO_FETCH);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : documentUrns) {

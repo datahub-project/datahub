@@ -14,6 +14,7 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import pruneAllDuplicateEdges from '@app/lineageV3/queries/pruneAllDuplicateEdges';
+import { getNodeForBulkResult } from '@app/lineageV3/queries/useBulkEntityLineage.utils';
 import { addQueryNodes, setEntityNodeDefault } from '@app/lineageV3/queries/useSearchAcrossLineage';
 import { FetchedEntityV2Relationship } from '@app/lineageV3/types';
 import usePrevious from '@app/shared/usePrevious';
@@ -53,7 +54,61 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
     }, [prevShownUrns, shownUrns]);
 
     const [urnsToFetch, setUrnsToFetch] = useState<string[]>([]);
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
+
+    const { refetch, loading } = useGetBulkEntityLineageV2Query({
+        skip: !urnsToFetch?.length,
+        fetchPolicy: 'cache-first',
+        variables: {
+            urns: urnsToFetch,
+            startTimeMillis,
+            endTimeMillis,
+            separateSiblings: true,
+            showColumns: true,
+            includeGhostEntities:
+                showGhostEntities || (rootType === EntityType?.SchemaField && ignoreSchemaFieldStatus),
+        },
+        onCompleted: (data) => {
+            const smallContext = { nodes, edges, adjacencyList, setDisplayVersion, rootType };
+            let changed = false;
+            // Results are positional & 1:1 with the requested urns. A neighbor the user
+            // can't view returns as a Restricted placeholder with a re-encrypted urn that
+            // won't match its node key, so match those back by request position.
+            const requestedUrns = data?.entities?.length === urnsToFetch.length ? urnsToFetch : [];
+            data?.entities?.forEach((rawEntity, index) => {
+                if (!rawEntity) return;
+                const config = entityRegistry.getLineageVizConfigV2(rawEntity.type, rawEntity, flags);
+                if (!config) return;
+                const entity = { ...config, lineageAssets: entityRegistry.getLineageAssets(rawEntity.type, rawEntity) };
+
+                const node = getNodeForBulkResult(nodes, entity.urn, rawEntity.type, requestedUrns, index);
+                if (node) {
+                    node.entity = entity;
+                    node.rawEntity = rawEntity;
+                    changed = true;
+
+                    // TODO: Remove once using bulk edges query
+                    if (!isQuery(node)) {
+                        entity.downstreamRelationships?.forEach((relationship) =>
+                            processEdge(node, relationship, LineageDirection.Downstream, smallContext),
+                        );
+                        entity.upstreamRelationships?.forEach((relationship) => {
+                            processEdge(node, relationship, LineageDirection.Upstream, smallContext);
+                        });
+                        pruneAllDuplicateEdges(node.urn, null, smallContext);
+                    }
+                }
+            });
+            if (changed) {
+                setDataVersion((version) => version + 1);
+                setDisplayVersion(([version, n]) => [version + 1, n]); // TODO: Also remove with above todo
+            }
+        },
+    });
+
     useEffect(() => {
+        // Changing the variables aborts the in-flight request, losing that batch's results
+        if (loading) return;
         setUrnsToFetch((oldUrnsToFetch) => {
             let newUrnsToFetch = memoizedShownUrns
                 .filter((urn) => {
@@ -84,55 +139,8 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
         rootType,
         ignoreSchemaFieldStatus,
         hideTransformations,
+        loading,
     ]);
-
-    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-
-    const { refetch } = useGetBulkEntityLineageV2Query({
-        skip: !urnsToFetch?.length,
-        fetchPolicy: 'cache-first',
-        variables: {
-            urns: urnsToFetch,
-            startTimeMillis,
-            endTimeMillis,
-            separateSiblings: true,
-            showColumns: true,
-            includeGhostEntities:
-                showGhostEntities || (rootType === EntityType?.SchemaField && ignoreSchemaFieldStatus),
-        },
-        onCompleted: (data) => {
-            const smallContext = { nodes, edges, adjacencyList, setDisplayVersion, rootType };
-            let changed = false;
-            data?.entities?.forEach((rawEntity) => {
-                if (!rawEntity) return;
-                const config = entityRegistry.getLineageVizConfigV2(rawEntity.type, rawEntity, flags);
-                if (!config) return;
-                const entity = { ...config, lineageAssets: entityRegistry.getLineageAssets(rawEntity.type, rawEntity) };
-
-                const node = nodes.get(entity.urn);
-                if (node) {
-                    node.entity = entity;
-                    node.rawEntity = rawEntity;
-                    changed = true;
-
-                    // TODO: Remove once using bulk edges query
-                    if (!isQuery(node)) {
-                        entity.downstreamRelationships?.forEach((relationship) =>
-                            processEdge(node, relationship, LineageDirection.Downstream, smallContext),
-                        );
-                        entity.upstreamRelationships?.forEach((relationship) => {
-                            processEdge(node, relationship, LineageDirection.Upstream, smallContext);
-                        });
-                        pruneAllDuplicateEdges(node.urn, null, smallContext);
-                    }
-                }
-            });
-            if (changed) {
-                setDataVersion((version) => version + 1);
-                setDisplayVersion(([version, n]) => [version + 1, n]); // TODO: Also remove with above todo
-            }
-        },
-    });
 
     return useCallback(
         (urn: string) =>

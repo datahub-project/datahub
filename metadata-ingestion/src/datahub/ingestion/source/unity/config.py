@@ -67,10 +67,9 @@ class UnityCatalogProfilerConfig(ConfigModel):
     method: str = Field(
         description=(
             "Profiling method to use."
-            " Options supported are `ge`, `analyze`, and `sqlalchemy`."
-            " `ge` uses Great Expectations and runs SELECT SQL queries on profiled tables."
+            " Options supported are `analyze` and `sqlalchemy`."
             " `analyze` calls ANALYZE TABLE on profiled tables. Only works for delta tables."
-            " `sqlalchemy` uses the custom SQLAlchemy-based profiler (no GE dependency)."
+            " `sqlalchemy` uses the custom SQLAlchemy-based profiler."
         ),
     )
 
@@ -137,15 +136,6 @@ class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
 
 
 # TODO: should this max_wait_secs had been implemented as a global profiler feature instead of keeping it specific to Unity Catalog?
-class UnityCatalogGEProfilerConfig(UnityCatalogProfilerConfig, GEProfilingConfig):
-    method: Literal["ge"] = "ge"
-
-    max_wait_secs: Optional[int] = Field(
-        default=None,
-        description="Maximum time to wait for a table to be profiled.",
-    )
-
-
 class UnityCatalogSQLAlchemyProfilerConfig(
     UnityCatalogProfilerConfig, GEProfilingConfig
 ):
@@ -155,6 +145,16 @@ class UnityCatalogSQLAlchemyProfilerConfig(
         default=None,
         description="Maximum time to wait for a table to be profiled.",
     )
+
+    # Unity Catalog still uses `method` as a real discriminator (analyze vs
+    # sqlalchemy), so cancel the `_method_removed` validator inherited from
+    # GEProfilingConfig (see ge_profiling_config.py) — otherwise it would warn
+    # and strip `method` on every Unity profiling config. The attribute name must
+    # match the inherited validator's for the override to take effect.
+    @model_validator(mode="before")
+    @classmethod
+    def _method_removed(cls, values: object) -> object:
+        return values
 
 
 class FederationConnectionDetail(ConfigModel):
@@ -279,13 +279,15 @@ class UnityCatalogSourceConfig(
     include_metric_views: bool = pydantic.Field(
         default=False,
         description=(
-            "Enable enriched ingestion of Unity Catalog Metric Views: subtype"
-            " 'Metric View', YAML body as ViewProperties, upstream and column-level"
-            " lineage from `source` / `joins` / `dimensions.expr` / `measures.expr`,"
-            " `Dimension` / `Measure` tags on matching columns, `materialization`"
-            " → `ViewProperties.materialized`, and `filter` as a custom property."
-            " Default `false` keeps metric views as plain Tables. Requires a"
-            " `databricks-sdk` recent enough to expose `TableType.METRIC_VIEW`."
+            "Enable enriched ingestion of Unity Catalog Metric Views: YAML body as"
+            " ViewProperties, upstream and column-level lineage from `source` / `joins`"
+            " / `dimensions.expr` / `measures.expr`, `Dimension` / `Measure` tags on"
+            " matching columns, `materialization` → `ViewProperties.materialized`, and"
+            " `filter` as a custom property. Metric views are always assigned the"
+            " 'Metric View' subtype regardless of this flag (they are never plain"
+            " Tables); this flag only controls the additional enrichment above."
+            " Requires a `databricks-sdk` recent enough to expose"
+            " `TableType.METRIC_VIEW`."
         ),
     )
 
@@ -508,7 +510,6 @@ class UnityCatalogSourceConfig(
 
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
-        UnityCatalogGEProfilerConfig,
         UnityCatalogAnalyzeProfilerConfig,
         UnityCatalogSQLAlchemyProfilerConfig,
     ] = Field(  # type: ignore
@@ -614,14 +615,11 @@ class UnityCatalogSourceConfig(
             self.profiling.operation_config
         )
 
-    def is_ge_profiling(self) -> bool:
-        return self.profiling.method == "ge"
-
     def is_sqlalchemy_profiling(self) -> bool:
         return self.profiling.method == "sqlalchemy"
 
     def uses_table_level_profiler(self) -> bool:
-        return self.is_ge_profiling() or self.is_sqlalchemy_profiling()
+        return self.is_sqlalchemy_profiling()
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."

@@ -147,11 +147,13 @@ class TestPostgreSQLRecording:
                 replay_pipeline.run()
 
             # Get replay output file
-            import glob
-
-            replay_files = glob.glob("/tmp/datahub_replay_test-postgres-recording.json")
-            assert len(replay_files) > 0, "Replay output file not created"
-            replay_output = Path(replay_files[0])
+            replay_output = (
+                Path(tempfile.gettempdir())
+                / "datahub_replay_test-postgres-recording.json"
+            )
+            assert replay_output.exists(), (
+                f"Replay output file not created at {replay_output}"
+            )
 
             with open(replay_output) as f:
                 replay_mcps = json.load(f)

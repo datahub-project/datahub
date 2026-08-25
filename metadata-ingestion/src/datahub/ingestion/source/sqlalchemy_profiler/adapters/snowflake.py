@@ -51,8 +51,10 @@ class SnowflakeAdapter(PlatformAdapter):
 
         # Prefer the row count already on the context (from the schema crawl)
         # to avoid a redundant INFORMATION_SCHEMA round-trip per table.
-        row_count = context.row_count or self._get_row_count_from_metadata(
-            context, conn
+        row_count = (
+            context.row_count
+            if context.row_count is not None
+            else self._get_row_count_from_metadata(context, conn)
         )
         if not self.config.limit and self.config.use_sampling:
             if row_count is not None and row_count <= self.config.sample_size:
@@ -193,9 +195,13 @@ class SnowflakeAdapter(PlatformAdapter):
             else:
                 raise
 
-        # Reflect the temp table as a real sa.Table
+        # Reflect the temp table as a real sa.Table. CTAS carries case-only
+        # duplicate columns through to the sample, so this needs the same
+        # case-folding repair as a directly reflected table.
         metadata = sa.MetaData()
-        context.sql_table = sa.Table(temp_name, metadata, autoload_with=conn)
+        context.sql_table = self._use_stored_column_names(
+            sa.Table(temp_name, metadata, autoload_with=conn), conn
+        )
         context.is_sampled = True
         context.sample_percentage = bernoulli_pc
         context.temp_table = temp_name
@@ -234,13 +240,16 @@ class SnowflakeAdapter(PlatformAdapter):
 
         if has_lowercase or has_lowercase_schema:
             try:
-                return sa.Table(
-                    table,
-                    metadata,
-                    schema=schema,
-                    autoload_with=engine,
-                    quote=True,
-                    quote_schema=bool(schema),
+                return self._use_stored_column_names(
+                    sa.Table(
+                        table,
+                        metadata,
+                        schema=schema,
+                        autoload_with=engine,
+                        quote=True,
+                        quote_schema=bool(schema),
+                    ),
+                    engine,
                 )
             except SQLAlchemyError as e:
                 logger.debug(
@@ -249,13 +258,16 @@ class SnowflakeAdapter(PlatformAdapter):
                 )
 
         try:
-            return sa.Table(
-                table,
-                metadata,
-                schema=schema,
-                autoload_with=engine,
-                quote=False,
-                quote_schema=False,
+            return self._use_stored_column_names(
+                sa.Table(
+                    table,
+                    metadata,
+                    schema=schema,
+                    autoload_with=engine,
+                    quote=False,
+                    quote_schema=False,
+                ),
+                engine,
             )
         except SQLAlchemyError as e:
             if not (has_lowercase or has_lowercase_schema):
@@ -263,13 +275,16 @@ class SnowflakeAdapter(PlatformAdapter):
                     f"Failed to reflect {schema}.{table} without quoting, "
                     f"trying with quotes: {type(e).__name__}: {str(e)}"
                 )
-                return sa.Table(
-                    table,
-                    metadata,
-                    schema=schema,
-                    autoload_with=engine,
-                    quote=True,
-                    quote_schema=bool(schema),
+                return self._use_stored_column_names(
+                    sa.Table(
+                        table,
+                        metadata,
+                        schema=schema,
+                        autoload_with=engine,
+                        quote=True,
+                        quote_schema=bool(schema),
+                    ),
+                    engine,
                 )
             raise
 

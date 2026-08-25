@@ -31,14 +31,15 @@ Core metadata is stored in the `metricInfo` aspect:
   Search-indexed as `lastModifiedAt` (DATETIME).
 - **`expression`** — the metric formula expressed in one or more SQL dialects. Each `DialectExpression` pairs
   a `Dialect` enum value with the raw SQL string.
-- **`aiContext`** — optional hints for AI/LLM consumers: synonyms, natural-language instructions,
-  few-shot examples, and custom instructions.
-- **`semanticModel`** -- URN of the `semanticModel` entity that defines this metric's
-  dimensional context. Optional: null when the metric was ingested without a semantic model
-  context (e.g. thin catalog-only metrics from BI tools like Tableau) or is a native /
-  SDK-authored metric awaiting a model. The `ModeledBy` relationship on this field carries
-  `isLineage: true`, so when `semanticModel` is populated the metric automatically appears as a
-  downstream node in the semantic model's lineage explorer — no additional lineage MCPs are needed.
+
+- **`semanticModel`** — optional URN of the owning SemanticModel. Authoritative membership
+  pointer. Search-indexed as `semanticModel` / `hasSemanticModel`. Metrics ingested without a semantic model (e.g. thin
+  catalog-only metrics from BI tools) leave this unset.
+
+### AI Context
+
+Optional AI/LLM hints are stored in the first-class `aiContext` aspect (synonyms, natural-language
+instructions, few-shot examples, and custom instructions).
 
 ### Metric Relationships
 
@@ -58,23 +59,32 @@ Hierarchical and derivation relationships are stored in the `metricRelationships
 The metric entity reuses these standard governance aspects: `ownership`, `domains`,
 `globalTags`, `glossaryTerms`, `institutionalMemory`, `structuredProperties`, `status`,
 `deprecation`, `dataPlatformInstance`, `subTypes`, `documentation`, `browsePathsV2`,
-`applications`.
+`applications`, `aiContext`.
 
 ## Relationships with Other Entities
 
 | Relationship           | Direction | Target entity   | Aspect / edge name                 | Lineage? |
 | ---------------------- | --------- | --------------- | ---------------------------------- | -------- |
-| ModeledBy              | outbound  | `semanticModel` | `metricInfo`                       | yes      |
+| ModeledBy              | outbound  | `semanticModel` | `metricInfo.semanticModel`         | no       |
 | IsPartOf               | outbound  | `metric`        | `metricRelationships`              | no       |
 | DerivedFrom            | outbound  | `metric`        | `metricRelationships`              | yes      |
 | RelatedTo              | outbound  | `metric`        | `metricRelationships`              | no       |
 | Consumes (dataset)     | outbound  | `dataset`       | `metricUpstreams.datasetUpstreams` | yes      |
 | Consumes (schemaField) | outbound  | `schemaField`   | `metricUpstreams.fieldUpstreams`   | yes      |
 
+Semantic-model membership is member-side only: `metricInfo.semanticModel` (`ModeledBy`,
+non-lineage) is the single source of truth. Listing a model's metrics is an ES filter on
+`semanticModel` (optionally with `hasSemanticModel=true`).
+
 Metric-to-dataset and metric-to-column lineage are carried by the dedicated `metricUpstreams`
 aspect. `datasetUpstreams` and `fieldUpstreams` are independently optional so ingestion sources
 can populate whichever granularity they can extract. Metric-to-metric derivation lineage lives on
 `metricRelationships.derivedFrom` and is not folded into `metricUpstreams`.
+
+**Convention for semantic-model-backed metrics:** populate `metricUpstreams.datasetUpstreams`
+with the Semantic Model Dataset URN(s) the metric reads from. The SemanticModel itself is a
+container (bounding box), not a lineage hop — the canonical chain is
+`Metric → Logical Dataset (Semantic Model Dataset) → Physical Dataset`.
 
 ## Notable Exceptions
 

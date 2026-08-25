@@ -44,7 +44,6 @@ export class SearchPage extends BasePage {
       localStorage.setItem('skipOnboardingTour', 'true');
     });
     await this.navigate('/');
-    await this.page.waitForLoadState('networkidle');
     await this.searchInput.waitFor({ state: 'visible', timeout: 10000 });
     // Dismiss any remaining dialog (e.g. "Narrow your search" welcome modal).
     await this.dismissOnboardingOverlays();
@@ -83,6 +82,7 @@ export class SearchPage extends BasePage {
   async search(query: string): Promise<void> {
     await this.searchInput.fill(query);
     await this.searchInput.press('Enter');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(2000);
   }
 
@@ -91,6 +91,7 @@ export class SearchPage extends BasePage {
     await this.searchInput.fill(query);
     await this.searchInput.press('Enter');
     await this.page.waitForLoadState('networkidle');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(waitTime);
   }
 
@@ -144,6 +145,7 @@ export class SearchPage extends BasePage {
     if (!(await moreFiltersBtn.isVisible())) return false;
 
     await moreFiltersBtn.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(300);
     const moreFilterOption = this.page.getByTestId(`more-filter-${filterName}`);
     const found = await moreFilterOption.isVisible();
@@ -163,11 +165,13 @@ export class SearchPage extends BasePage {
       const moreFiltersVisible = await moreFiltersBtn.isVisible();
       if (moreFiltersVisible) {
         await moreFiltersBtn.click();
+        // eslint-disable-next-line playwright/no-wait-for-timeout
         await this.page.waitForTimeout(500);
         const moreFilterOption = this.page.getByTestId(`more-filter-${filterName}`);
         const moreFilterVisible = await moreFilterOption.isVisible();
         if (moreFilterVisible) {
           await moreFilterOption.click();
+          // eslint-disable-next-line playwright/no-wait-for-timeout
           await this.page.waitForTimeout(500);
           // After clicking the more-filter option, select the option within
           // the sub-dropdown that appears. Fall through to the selection logic.
@@ -184,6 +188,7 @@ export class SearchPage extends BasePage {
     await filterDropdown.click({ force: true });
 
     // Wait for the dropdown menu to appear
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(1000);
 
     await this.selectFilterValue(optionLabel);
@@ -225,6 +230,7 @@ export class SearchPage extends BasePage {
     const dropdownSearchInput = dropdownMenu.getByTestId('search-input').last();
     if (await dropdownSearchInput.isVisible()) {
       await dropdownSearchInput.fill(optionLabel);
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await this.page.waitForTimeout(500);
 
       if (await tryCheckbox()) {
@@ -399,6 +405,24 @@ export class SearchPage extends BasePage {
   async expectUrlNotContains(urlPart: string): Promise<void> {
     const url = this.page.url();
     expect(url).not.toContain(urlPart);
+  }
+
+  /**
+   * Change the operator on an active filter chip (e.g. Domain equals → within).
+   * @param fieldName URL/field name such as "domains" or "platform"
+   * @param operatorLabel Visible operator text such as "within" or "equals"
+   */
+  async selectActiveFilterOperator(fieldName: string, operatorLabel: string): Promise<void> {
+    const chip = this.page.getByTestId(`active-filter-${fieldName}`);
+    await chip.waitFor({ state: 'visible', timeout: 10000 });
+    await chip.getByTestId('active-filter-operator').click();
+    await this.page.getByRole('menuitem', { name: new RegExp(operatorLabel, 'i') }).click();
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async expectActiveFilterOperator(fieldName: string, operatorLabel: string): Promise<void> {
+    const chip = this.page.getByTestId(`active-filter-${fieldName}`);
+    await expect(chip.getByTestId('active-filter-operator')).toHaveText(new RegExp(operatorLabel, 'i'));
   }
 
   async expectTextVisible(text: string): Promise<void> {

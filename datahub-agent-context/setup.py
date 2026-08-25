@@ -77,6 +77,11 @@ langchain_requirements = {
 
 google_adk_requirements = {
     "google-adk>=1.0.0,<2.0.0",
+    # google-adk depends on opentelemetry-resourcedetector-gcp which only
+    # publishes pre-releases (the sole stable release 1.13.0 was yanked).
+    # Listing it as a direct dependency with the pre-release lower bound
+    # tells uv that pre-releases are acceptable for this package.
+    "opentelemetry-resourcedetector-gcp>=1.9.0a0,<2",
 }
 
 snowflake_requirements = {

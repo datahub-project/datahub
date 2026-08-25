@@ -65,7 +65,7 @@ def build_entity_mcps(
                     f"No MCPs created for {len(entities)} {entity_type} entities (they may have been filtered out)"
                 )
         except RuntimeError as e:
-            report.report_failure(
+            report.failure(
                 f"Failed to create MCPs for {entity_type}",
                 context=f"Entity count: {len(entities)}",
                 exc=e,
@@ -83,7 +83,7 @@ def build_entity_mcps(
                         created_count += 1
             except RuntimeError as e:
                 entity_urn = getattr(entity, "urn", "unknown")
-                report.report_failure(
+                report.failure(
                     f"Failed to create MCP for {entity_type}",
                     context=f"Entity URN: {entity_urn}",
                     exc=e,
@@ -127,7 +127,7 @@ def process_post_processing_hooks(
                 for mcp in post_mcps:
                     yield mcp
         except RuntimeError as e:
-            report.report_failure(
+            report.failure(
                 f"Failed to create post-processing MCPs for {entity_type}",
                 context="Post-processing hook",
                 exc=e,

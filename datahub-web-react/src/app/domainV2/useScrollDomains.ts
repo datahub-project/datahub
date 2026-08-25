@@ -1,26 +1,39 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 
+import {
+    DEFAULT_DOMAIN_SIDEBAR_SORT,
+    DomainSidebarSortValue,
+    domainSidebarSortToCriterion,
+} from '@app/domainV2/nestedDomains/domainSidebarFilters/domainSidebarSort';
 import useManageDomains from '@app/domainV2/useManageDomains';
-import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
 
 import { ListDomainFragment } from '@graphql/domain.generated';
 import { useScrollAcrossEntitiesQuery } from '@graphql/search.generated';
-import { EntityType, FacetFilterInput, FilterOperator, SortOrder } from '@types';
+import { EntityType, FacetFilterInput, FilterOperator } from '@types';
 
 export const DOMAIN_COUNT = 25;
 
-export function getDomainsScrollInput(
-    parentDomain: string | null,
-    scrollId: string | null,
-    selectedOwnerUrns?: ReadonlyArray<string> | null,
-    ignoreParentScope?: boolean,
-) {
+export type DomainsScrollInputParams = {
+    parentDomain: string | null;
+    scrollId: string | null;
+    selectedOwnerUrns?: ReadonlyArray<string> | null;
+    ignoreParentScope?: boolean;
+    sort?: DomainSidebarSortValue;
+};
+
+export function getDomainsScrollInput({
+    parentDomain,
+    scrollId,
+    selectedOwnerUrns,
+    ignoreParentScope,
+    sort = DEFAULT_DOMAIN_SIDEBAR_SORT,
+}: DomainsScrollInputParams) {
     const filters: FacetFilterInput[] = [];
     // `ignoreParentScope` switches the query from "domains at this level of
     // the hierarchy" to "domains anywhere in the index" — used by the
-    // sidebar's flat-list mode when an owner filter is active, so we don't
+    // sidebar's flat-list mode when a filter is active, so we don't
     // miss matching subdomains whose parents don't match the filter.
     if (!ignoreParentScope) {
         const parentFilter: FacetFilterInput = parentDomain
@@ -46,7 +59,7 @@ export function getDomainsScrollInput(
             orFilters: [{ and: filters }],
             count: DOMAIN_COUNT,
             sortInput: {
-                sortCriteria: [{ field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending }],
+                sortCriteria: [domainSidebarSortToCriterion(sort)],
             },
             searchFlags: { skipCache: true },
         },
@@ -66,27 +79,29 @@ interface Props {
     /**
      * When true, drop the `parentDomain` clause from the scroll query so the
      * result set spans every domain at every depth. Used by the sidebar's
-     * flat-list "filter results" mode — without this, an owner filter would
+     * flat-list "filter results" mode — without this, a filter would
      * be ANDed with `parentDomain NOT EXISTS` and silently exclude matching
      * subdomains whose parents don't match the filter (the bug John flagged
      * in PR #18088 review).
      */
     ignoreParentScope?: boolean;
+    /** Server-side sort for this scroll stream. Defaults to name A–Z. */
+    sort?: DomainSidebarSortValue;
 }
 
-export default function useScrollDomains({ parentDomain, skip, selectedOwnerUrns, ignoreParentScope }: Props) {
+export default function useScrollDomains({
+    parentDomain,
+    skip,
+    selectedOwnerUrns,
+    ignoreParentScope,
+    sort = DEFAULT_DOMAIN_SIDEBAR_SORT,
+}: Props) {
     const [hasInitialized, setHasInitialized] = useState(false);
     const [data, setData] = useState<ListDomainFragment[]>([]);
     const [dataUrnsSet, setDataUrnsSet] = useState<Set<string>>(new Set());
     const [scrollId, setScrollId] = useState<string | null>(null);
 
-    // Reset the in-memory accumulator whenever the *filter scope* changes
-    // (parent domain or owner selection). Without this, switching the owner
-    // filter from Alice to Bob would leave Alice's already-fetched domains
-    // stuck in `data` because the URN-dedup guard would silently drop the
-    // newly-fetched Bob domains as "already seen" without ever flushing
-    // Alice's. Memoize the owner-filter key on a sorted join so reference
-    // identity (Apollo refetches) doesn't trip the reset.
+    // Reset the in-memory accumulator whenever the *filter / sort scope* changes.
     const ownerKey = useMemo(
         () => (selectedOwnerUrns ? [...selectedOwnerUrns].sort().join(',') : ''),
         [selectedOwnerUrns],
@@ -96,7 +111,7 @@ export default function useScrollDomains({ parentDomain, skip, selectedOwnerUrns
         setDataUrnsSet(new Set());
         setScrollId(null);
         setHasInitialized(false);
-    }, [parentDomain, ownerKey, ignoreParentScope]);
+    }, [parentDomain, ownerKey, ignoreParentScope, sort]);
 
     const {
         data: scrollData,
@@ -105,7 +120,13 @@ export default function useScrollDomains({ parentDomain, skip, selectedOwnerUrns
         refetch,
     } = useScrollAcrossEntitiesQuery({
         variables: {
-            ...getDomainsScrollInput(parentDomain || null, scrollId, selectedOwnerUrns, ignoreParentScope),
+            ...getDomainsScrollInput({
+                parentDomain: parentDomain || null,
+                scrollId,
+                selectedOwnerUrns,
+                ignoreParentScope,
+                sort,
+            }),
         },
         skip,
         notifyOnNetworkStatusChange: true,

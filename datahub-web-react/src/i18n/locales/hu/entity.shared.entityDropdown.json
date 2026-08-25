@@ -95,5 +95,8 @@
     "unlinkVersion.confirmTitle": "Biztos benne?",
     "unlinkVersion.error": "A leválasztás sikertelen: \n {{errorMessage}}",
     "unlinkVersion.loading": "Leválasztás...",
-    "unlinkVersion.success": "{{entityName}} leválasztva!"
+    "unlinkVersion.success": "{{entityName}} leválasztva!",
+    "dataProductSelect.notFound": "Nem találhatók Data Productök",
+    "dataProductSelect.placeholder": "Szülő Data Product kiválasztása",
+    "moveDataProduct.title": "Data Product áthelyezése"
 }
