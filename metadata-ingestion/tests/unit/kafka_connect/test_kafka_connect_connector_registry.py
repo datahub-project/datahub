@@ -170,9 +170,7 @@ class TestConnectorRegistrySourceConnectors:
         assert connector.get_platform() == "s3"
 
     def test_generic_source_overrides_s3_class(self) -> None:
-        manifest = create_manifest(
-            SOURCE, S3_SOURCE_CLOUD, name="my-s3-source"
-        )
+        manifest = create_manifest(SOURCE, S3_SOURCE_CLOUD, name="my-s3-source")
         generic_config = GenericConnectorConfig(
             connector_name="my-s3-source",
             source_platform="s3",
