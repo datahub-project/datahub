@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.logical.LogicalParent;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -157,11 +158,14 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
       @Nonnull final Set<Urn> datasetUrns,
       @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext) {
+    // A schemaField urn's parent is an arbitrary entity urn (dataset, chart, ...), so the batch can
+    // span entity types; getLatestAspectObjects is scoped to a single one.
     final Map<Urn, Map<String, Aspect>> aspects =
-        retrieverContext
-            .getAspectRetriever()
-            .getLatestAspectObjects(
-                operationContext, datasetUrns, Set.of(SCHEMA_METADATA_ASPECT_NAME));
+        AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
+            retrieverContext.getAspectRetriever(),
+            operationContext,
+            datasetUrns,
+            Set.of(SCHEMA_METADATA_ASPECT_NAME));
 
     final Map<Urn, Set<String>> fieldPathsByDataset = new HashMap<>();
     aspects.forEach(

@@ -112,8 +112,8 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
     urnsByAspectName.forEach(
         (aspectName, urns) -> {
           Map<Urn, Aspect> byUrn = new HashMap<>();
-          aspectRetriever
-              .getLatestAspectObjects(operationContext, urns, Set.of(aspectName))
+          AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
+                  aspectRetriever, operationContext, urns, Set.of(aspectName))
               .forEach(
                   (urn, aspectsByName) -> {
                     Aspect aspect = aspectsByName.get(aspectName);

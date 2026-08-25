@@ -8,6 +8,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.lifecycle.LifecycleStageTypeInfo;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -169,10 +170,11 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
       RetrieverContext retrieverContext) {
     try {
       Map<Urn, Map<String, Aspect>> aspects =
-          retrieverContext
-              .getAspectRetriever()
-              .getLatestAspectObjects(
-                  operationContext, stageUrns, Set.of(LIFECYCLE_STAGE_TYPE_INFO_ASPECT));
+          AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
+              retrieverContext.getAspectRetriever(),
+              operationContext,
+              stageUrns,
+              Set.of(LIFECYCLE_STAGE_TYPE_INFO_ASPECT));
 
       Map<Urn, LifecycleStageTypeInfo> stageInfos = new HashMap<>();
       aspects.forEach(

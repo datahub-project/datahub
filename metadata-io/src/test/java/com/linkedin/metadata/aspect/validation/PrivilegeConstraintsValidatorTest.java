@@ -66,6 +66,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -139,6 +140,13 @@ public class PrivilegeConstraintsValidatorTest {
             invocation -> {
               Set<Urn> requestedUrns = invocation.getArgument(1);
               Set<String> requestedAspects = invocation.getArgument(2);
+              // Mirror the contract of the real retrievers: the entity type is derived from the
+              // first urn in the set, so a mixed-type set is a caller bug rather than a lookup that
+              // quietly returns partial results.
+              Assert.assertEquals(
+                  requestedUrns.stream().map(Urn::getEntityType).distinct().count(),
+                  1L,
+                  "getLatestAspectObjects is scoped to a single entity type: " + requestedUrns);
               Map<Urn, Map<String, Aspect>> result = new HashMap<>();
               requestedUrns.forEach(
                   urn -> {
@@ -1212,6 +1220,49 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertTrue(result.findAny().isEmpty());
     Assert.assertEquals(checkedTagsByEntity.get(TEST_DATASET_URN), Set.of(TEST_TAG_URN));
     Assert.assertEquals(checkedTagsByEntity.get(secondDatasetUrn), Set.of(TEST_TAG_URN_2));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testBatchAcrossEntityTypesChecksTagRemovals() {
+    stubCurrentAspect(
+        TEST_DATASET_URN,
+        GLOBAL_TAGS_ASPECT_NAME,
+        new Aspect(createGlobalTags(TEST_TAG_URN).data()));
+    stubCurrentAspect(
+        TEST_DATA_FLOW_URN,
+        GLOBAL_TAGS_ASPECT_NAME,
+        new Aspect(createGlobalTags(TEST_TAG_URN_2).data()));
+
+    // Only TEST_TAG_URN_2, carried by the dataFlow, is privileged.
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+        .thenAnswer(invocation -> !((Set<Urn>) invocation.getArgument(2)).contains(TEST_TAG_URN_2));
+
+    // Both proposals clear their tags, so the only change either one carries is a removal.
+    BatchItem datasetItem =
+        TestMCP.ofOneUpsertItem(TEST_DATASET_URN, new GlobalTags(), TEST_REGISTRY).stream()
+            .findFirst()
+            .orElseThrow();
+    BatchItem dataFlowItem =
+        TestMCP.ofOneUpsertItem(TEST_DATA_FLOW_URN, new GlobalTags(), TEST_REGISTRY).stream()
+            .findFirst()
+            .orElseThrow();
+
+    List<AspectValidationException> exceptions =
+        validator
+            .validateProposedAspectsWithAuth(
+                OperationFingerprint.EMPTY,
+                List.of(datasetItem, dataFlowItem),
+                retrieverContext,
+                mockAuthSession)
+            .collect(Collectors.toList());
+
+    Assert.assertEquals(exceptions.size(), 1, "Expected the privileged tag removal to be rejected");
+    Assert.assertEquals(exceptions.get(0).getEntityUrn(), TEST_DATA_FLOW_URN);
   }
 
   private void closeAuthUtilMock() {
