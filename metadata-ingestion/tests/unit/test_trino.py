@@ -209,6 +209,41 @@ def test_trino_gen_lineage_workunit_falls_back_when_graph_lookup_raises():
     assert graph.get_aspect.call_count == 1
 
 
+def test_trino_gen_lineage_workunit_skips_case_ambiguous_source_columns():
+    """A source that distinguishes two columns only by case cannot be matched.
+
+    Trino reports one lowercased name for both, so binding it to either would be a
+    coin flip. The ambiguous column is skipped; unambiguous ones still resolve.
+    """
+    source_schema = make_source_schema(["AccountId", "accountid", "ServiceType"])
+    graph = mock.Mock(spec=DataHubGraph)
+    graph.get_aspect.return_value = source_schema
+    source = get_test_trino_source(include_column_lineage=True, graph=graph)
+
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:trino,iceberg_catalog.contextad.accountcontact,PROD)"
+    source_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,contextad.accountcontact,PROD)"
+    )
+    trino_schema = get_test_trino_schema_metadata(["accountid", "servicetype"])
+
+    workunits = list(
+        source.gen_lineage_workunit(dataset_urn, source_dataset_urn, trino_schema)
+    )
+    upstream_lineage = workunits[0].get_aspect_of_type(UpstreamLineageClass)
+    assert isinstance(upstream_lineage, UpstreamLineageClass)
+    fgl = upstream_lineage.fineGrainedLineages
+    assert fgl is not None
+
+    upstreams = [fg.upstreams[0] for fg in fgl if fg.upstreams]
+    # Only the unambiguous column resolves; neither casing of accountid is guessed at.
+    assert upstreams == [make_schema_field_urn(source_dataset_urn, "ServiceType")]
+    assert make_schema_field_urn(source_dataset_urn, "AccountId") not in upstreams
+    assert make_schema_field_urn(source_dataset_urn, "accountid") not in upstreams
+    assert source.report.warnings
+    # The dataset-level upstream is unaffected.
+    assert len(upstream_lineage.upstreams) == 1
+
+
 def test_trino_gen_lineage_workunit_skips_columns_without_source_match():
     """When the source schema is known but a Trino column has no case-insensitive
     match, that column's lineage is skipped (no invalid upstream URN emitted)."""
