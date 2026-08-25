@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
@@ -267,3 +269,67 @@ class TestFilterBuilderFlexibleTimestamps:
     def test_date_column_rejects_space_separated_datetime(self):
         with pytest.raises(ValueError, match="Could not format date value"):
             FilterBuilder.create_safe_filter("d", "2025-01-15 10:30:00", "DATE")
+
+
+class TestFilterBuilderRangeLowerBound:
+    def test_numeric_range_id_scans_whole_bucket(self):
+        # A RANGE partition ID is the bucket's inclusive floor, so the whole bucket
+        # must be scanned with `>=`, not matched exactly with `=`.
+        assert (
+            FilterBuilder.create_lower_bound_filter("bucket", "100", "INT64")
+            == "`bucket` >= 100"
+        )
+
+    def test_convert_partition_id_uses_lower_bound_for_range(self):
+        filters = FilterBuilder.convert_partition_id_to_filters(
+            "100",
+            ["bucket"],
+            {"bucket": "INT64"},
+            is_range_partition=True,
+        )
+        assert filters == ["`bucket` >= 100"]
+
+    def test_convert_partition_id_uses_equality_when_not_range(self):
+        filters = FilterBuilder.convert_partition_id_to_filters(
+            "100",
+            ["bucket"],
+            {"bucket": "INT64"},
+        )
+        assert filters == ["`bucket` = 100"]
+
+
+class TestFilterBuilderPartitionDatetime:
+    def test_day_granularity_builds_half_open_range(self):
+        result = FilterBuilder.create_partition_datetime_filter(
+            "d", datetime(2025, 1, 15, 10, 30), "DATE", "DAY"
+        )
+        assert result == "`d` >= '2025-01-15' AND `d` < '2025-01-16'"
+
+    def test_hour_granularity_timestamp_column(self):
+        result = FilterBuilder.create_partition_datetime_filter(
+            "ts", datetime(2025, 1, 15, 10, 30), "TIMESTAMP", "HOUR"
+        )
+        assert result == (
+            "`ts` >= TIMESTAMP('2025-01-15 10:00:00') "
+            "AND `ts` < TIMESTAMP('2025-01-15 11:00:00')"
+        )
+
+    def test_month_granularity_datetime_column(self):
+        result = FilterBuilder.create_partition_datetime_filter(
+            "dt", datetime(2025, 12, 5), "DATETIME", "MONTH"
+        )
+        assert result == (
+            "`dt` >= '2025-12-01 00:00:00' AND `dt` < '2026-01-01 00:00:00'"
+        )
+
+    def test_year_9999_has_no_upper_bound(self):
+        result = FilterBuilder.create_partition_datetime_filter(
+            "d", datetime(9999, 6, 1), "DATE", "YEAR"
+        )
+        assert result == "`d` >= '9999-01-01'"
+
+    def test_invalid_column_name_raises(self):
+        with pytest.raises(ValueError, match="Invalid column name"):
+            FilterBuilder.create_partition_datetime_filter(
+                "d; DROP", datetime(2025, 1, 15), "DATE", "DAY"
+            )

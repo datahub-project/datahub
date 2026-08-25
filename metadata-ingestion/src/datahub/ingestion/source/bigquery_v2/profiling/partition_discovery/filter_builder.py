@@ -1,11 +1,15 @@
 import logging
-from typing import Dict, List, Optional
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
 
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     BIGQUERY_NUMERIC_TYPES,
     DATE_TIME_TYPES,
     ISO_DATE_PATTERN,
     ISO_DATETIME_FLEX_PATTERN,
+    PARTITION_GRANULARITY_HOUR,
+    PARTITION_GRANULARITY_MONTH,
+    PARTITION_GRANULARITY_YEAR,
     PARTITION_ID_YYYY_PATTERN,
     PARTITION_ID_YYYYMM_PATTERN,
     PARTITION_ID_YYYYMMDD_LENGTH,
@@ -101,6 +105,82 @@ class FilterBuilder:
             return f"`{col_name}` = '{str_val}'"
 
     @staticmethod
+    def create_lower_bound_filter(
+        col_name: str, val: PartitionValue, col_type: Optional[str] = None
+    ) -> str:
+        # An integer RANGE partition ID is the bucket's inclusive lower bound, not an
+        # exact value: a row belongs to the bucket when col is in [start, start+interval).
+        # Equality (`col = start`) would only match rows exactly on the floor and miss the
+        # rest of the bucket, so the max bucket is scanned with `col >= start`. Reuse
+        # create_safe_filter for validation/normalization, then relax `=` to `>=`.
+        equality = FilterBuilder.create_safe_filter(col_name, val, col_type)
+        marker = f"`{col_name}` = "
+        if equality.startswith(marker):
+            return f"`{col_name}` >= {equality[len(marker) :]}"
+        # A non-equality result (e.g. a date range) can't be reinterpreted as a lower
+        # bound; RANGE partitions are integer-only, so this is not expected in practice.
+        return equality
+
+    @staticmethod
+    def create_partition_datetime_filter(
+        col_name: str,
+        partition_datetime: datetime,
+        col_type: str,
+        granularity: Optional[str],
+    ) -> str:
+        # Build a half-open range covering the single time-unit partition that contains
+        # partition_datetime, honoring profiling.partition_datetime. The range (rather
+        # than an equality) is required because a DATETIME/TIMESTAMP partition column
+        # holds every instant within the unit, so `col = floor(dt)` would match only the
+        # unit boundary.
+        if not VALID_COLUMN_NAME_PATTERN.match(col_name):
+            raise ValueError(f"Invalid column name for filter: {col_name}")
+
+        ctype = col_type.upper()
+        lower, upper = FilterBuilder._partition_bounds(partition_datetime, granularity)
+
+        lower_literal = FilterBuilder._format_bound_literal(lower, ctype)
+        if upper is None:
+            # A year-9999 partition has no representable exclusive upper bound
+            # (10000-01-01 exceeds BigQuery's max year), so scan lower-bound-only.
+            return f"`{col_name}` >= {lower_literal}"
+        upper_literal = FilterBuilder._format_bound_literal(upper, ctype)
+        return f"`{col_name}` >= {lower_literal} AND `{col_name}` < {upper_literal}"
+
+    @staticmethod
+    def _partition_bounds(
+        moment: datetime, granularity: Optional[str]
+    ) -> Tuple[datetime, Optional[datetime]]:
+        gran = (granularity or "").upper()
+        if gran == PARTITION_GRANULARITY_HOUR:
+            lower = moment.replace(minute=0, second=0, microsecond=0)
+            return lower, lower + timedelta(hours=1)
+        if gran == PARTITION_GRANULARITY_MONTH:
+            lower = moment.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            if lower.month == 12:
+                return lower, lower.replace(year=lower.year + 1, month=1)
+            return lower, lower.replace(month=lower.month + 1)
+        if gran == PARTITION_GRANULARITY_YEAR:
+            lower = moment.replace(
+                month=1, day=1, hour=0, minute=0, second=0, microsecond=0
+            )
+            if lower.year >= 9999:
+                return lower, None
+            return lower, lower.replace(year=lower.year + 1)
+        # Default and explicit DAY granularity.
+        lower = moment.replace(hour=0, minute=0, second=0, microsecond=0)
+        return lower, lower + timedelta(days=1)
+
+    @staticmethod
+    def _format_bound_literal(moment: datetime, col_type: str) -> str:
+        if col_type == "DATE":
+            return f"'{moment.strftime('%Y-%m-%d')}'"
+        rendered = moment.strftime("%Y-%m-%d %H:%M:%S")
+        if col_type == "TIMESTAMP":
+            return f"TIMESTAMP('{rendered}')"
+        return f"'{rendered}'"
+
+    @staticmethod
     def _format_date_value(val: str, col_type: str) -> Optional[str]:
         # Normalize BigQuery partition date formats (YYYYMMDD/YYYYMM/YYYYMMDDHH) to YYYY-MM-DD.
         if ISO_DATE_PATTERN.match(val):
@@ -166,6 +246,7 @@ class FilterBuilder:
         partition_id: str,
         required_columns: List[str],
         column_types: Optional[Dict[str, str]] = None,
+        is_range_partition: bool = False,
     ) -> Optional[List[str]]:
         # Errors (e.g. create_safe_filter raising on a type mismatch) propagate to the
         # caller, which holds the report and decides how to surface the skip.
@@ -204,9 +285,20 @@ class FilterBuilder:
                     filter_value = (
                         f"{partition_id[:4]}-{partition_id[4:6]}-{partition_id[6:8]}"
                     )
-                filters.append(
-                    FilterBuilder.create_safe_filter(col_name, filter_value, col_type)
-                )
+                if is_range_partition:
+                    # The ID is the max range bucket's inclusive floor; scan `col >= id`
+                    # rather than equality so the whole bucket is profiled.
+                    filters.append(
+                        FilterBuilder.create_lower_bound_filter(
+                            col_name, filter_value, col_type
+                        )
+                    )
+                else:
+                    filters.append(
+                        FilterBuilder.create_safe_filter(
+                            col_name, filter_value, col_type
+                        )
+                    )
             else:
                 logger.debug(
                     f"Complex partition mapping for {partition_id} with {len(required_columns)} columns"

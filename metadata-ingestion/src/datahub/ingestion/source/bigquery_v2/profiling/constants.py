@@ -93,6 +93,21 @@ DATE_TIME_TYPES: Set[str] = {
     "TIME",
 }
 
+# Column types that can back a temporal (time-unit) partition, so a configured
+# profiling.partition_datetime can select the partition containing that instant.
+# TIME is excluded: it has no date component and cannot be a partition column.
+TEMPORAL_PARTITION_TYPES: Set[str] = {
+    "DATE",
+    "DATETIME",
+    "TIMESTAMP",
+}
+
+# Time-unit partition granularities (BigQuery TimePartitioningType values).
+PARTITION_GRANULARITY_HOUR = "HOUR"
+PARTITION_GRANULARITY_DAY = "DAY"
+PARTITION_GRANULARITY_MONTH = "MONTH"
+PARTITION_GRANULARITY_YEAR = "YEAR"
+
 VALID_COLUMN_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 # BigQuery project ID: lowercase letters, numbers, hyphens; 6-30 chars.

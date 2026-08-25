@@ -944,6 +944,61 @@ def test_partition_discovery_get_required_partition_filters():
     assert any("date_partition" in f for f in result)
 
 
+def test_partition_datetime_override_pins_configured_partition():
+    # A configured profiling.partition_datetime selects the partition containing that
+    # instant instead of the latest one.
+    config = create_test_config()
+    config.profiling.partition_datetime = datetime(2025, 6, 15, 8, 30)
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(partitioned=True)
+
+    result = discovery._get_partition_datetime_override_filters(
+        table, {"event_date"}, {"event_date": "DATE"}
+    )
+
+    assert result == ["`event_date` >= '2025-06-15' AND `event_date` < '2025-06-16'"]
+
+
+def test_partition_datetime_override_ignored_for_composite_key():
+    # partition_datetime only applies to a single temporal column; a composite key
+    # can't be expressed, so it is ignored (and the latest partition is used).
+    config = create_test_config()
+    config.profiling.partition_datetime = datetime(2025, 6, 15)
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(partitioned=True)
+
+    result = discovery._get_partition_datetime_override_filters(
+        table, {"event_date", "region"}, {"event_date": "DATE", "region": "STRING"}
+    )
+
+    assert result is None
+
+
+def test_partition_datetime_override_ignored_for_non_temporal_column():
+    config = create_test_config()
+    config.profiling.partition_datetime = datetime(2025, 6, 15)
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(partitioned=True)
+
+    result = discovery._get_partition_datetime_override_filters(
+        table, {"bucket"}, {"bucket": "INT64"}
+    )
+
+    assert result is None
+
+
+def test_partition_datetime_override_absent_when_not_configured():
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(partitioned=True)
+
+    result = discovery._get_partition_datetime_override_filters(
+        table, {"event_date"}, {"event_date": "DATE"}
+    )
+
+    assert result is None
+
+
 def test_partition_discovery_create_partition_stats_query():
     config = create_test_config()
     discovery = PartitionDiscovery(config)
@@ -1226,6 +1281,49 @@ def test_deferred_external_discovery_success_builds_custom_sql():
     retained = captured["requests"][0]
     assert retained.batch_kwargs.get("custom_sql")
     assert "event_date" in retained.batch_kwargs["custom_sql"]
+
+
+def test_deferred_external_no_partition_filter_still_limits_scan():
+    # An unpartitioned external table yields no partition filter (empty list, not None).
+    # The deferred path must still fall back to sampling / row-limit SQL like the
+    # internal path, so a large external table isn't fully scanned.
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    deferred = _build_deferred_external_request(profiler)
+    # Start from a request with no custom_sql so we can prove the deferred path adds one.
+    deferred.request.batch_kwargs.pop("custom_sql", None)
+
+    captured = {}
+
+    def fake_super(processed_requests, **kwargs):
+        captured["requests"] = list(processed_requests)
+        return []
+
+    with (
+        patch.object(
+            PartitionDiscovery,
+            "get_required_partition_filters",
+            return_value=[],
+        ),
+        patch.object(
+            profiler, "_build_custom_sql", return_value="SELECT * FROM t LIMIT 100"
+        ) as mock_build,
+        patch(
+            "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.generate_profile_workunits",
+            side_effect=fake_super,
+        ),
+    ):
+        list(
+            profiler.generate_profile_workunits_with_deferred_partitions(
+                [], [deferred], max_workers=1, platform="bigquery", profiler_args={}
+            )
+        )
+
+    mock_build.assert_called_once()
+    retained = captured["requests"][0]
+    assert retained.batch_kwargs.get("custom_sql") == "SELECT * FROM t LIMIT 100"
 
 
 def test_profiler_external_table_integration():

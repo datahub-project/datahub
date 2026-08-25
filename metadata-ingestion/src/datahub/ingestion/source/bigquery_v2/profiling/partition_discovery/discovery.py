@@ -19,7 +19,10 @@ from sqlglot.expressions import (
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    RANGE_PARTITION_NAME,
+    BigqueryTable,
+)
 from datahub.ingestion.source.bigquery_v2.common import BQ_SPECIAL_PARTITION_IDS
 from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
@@ -31,6 +34,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     PARTITIONING_COLUMN_FLAG,
     SAMPLING_LIMIT_ROWS,
     SAMPLING_PERCENT,
+    TEMPORAL_PARTITION_TYPES,
     TEST_QUERY_LIMIT_ROWS,
     VALID_COLUMN_NAME_PATTERN,
 )
@@ -264,6 +268,14 @@ class PartitionDiscovery:
             execute_query_func,
             cached_metadata=cached_partition_metadata,
         )
+
+        # A user-pinned profiling.partition_datetime takes priority over discovery: it
+        # explicitly selects which partition to profile instead of the latest.
+        datetime_override = self._get_partition_datetime_override_filters(
+            table, required_partition_columns, column_types
+        )
+        if datetime_override is not None:
+            return datetime_override
 
         filters_from_metadata = None
         if table.max_partition_id:
@@ -1485,6 +1497,69 @@ class PartitionDiscovery:
             logger.warning(f"Error creating fallback filter for {col_name}: {e}")
             return FilterBuilder.is_not_null(col_name)
 
+    def _get_partition_datetime_override_filters(
+        self,
+        table: BigqueryTable,
+        required_columns: Set[str],
+        column_types: Dict[str, str],
+    ) -> Optional[List[str]]:
+        # profiling.partition_datetime pins a specific date/time partition to profile
+        # (instead of the latest). It only makes sense for a single temporal partition
+        # column; for a composite key or a non-temporal column it cannot be expressed, so
+        # warn and let normal discovery run rather than silently ignoring the setting.
+        configured = self.config.profiling.partition_datetime
+        if configured is None:
+            return None
+
+        columns = list(required_columns)
+        if len(columns) != 1:
+            warn(
+                self.report,
+                logger,
+                title="partition_datetime not applied",
+                message="profiling.partition_datetime only applies to a single "
+                "date/time partition column; this table has a composite or "
+                "non-single-column partition key, so the configured value was ignored "
+                "and the latest partition is profiled instead.",
+                context=f"{table.name}: partition columns={sorted(columns)}",
+            )
+            return None
+
+        col_name = columns[0]
+        col_type = (column_types.get(col_name) or "").upper()
+        if col_type not in TEMPORAL_PARTITION_TYPES:
+            warn(
+                self.report,
+                logger,
+                title="partition_datetime not applied",
+                message="profiling.partition_datetime only applies to a DATE, DATETIME "
+                "or TIMESTAMP partition column; the configured value was ignored and the "
+                "latest partition is profiled instead.",
+                context=f"{table.name}: column {col_name} type={col_type or 'unknown'}",
+            )
+            return None
+
+        granularity = getattr(table.partition_info, "type", None)
+        try:
+            partition_filter = FilterBuilder.create_partition_datetime_filter(
+                col_name, configured, col_type, granularity
+            )
+        except ValueError as e:
+            warn(
+                self.report,
+                logger,
+                title="partition_datetime not applied",
+                message="Could not build a partition filter from the configured "
+                "profiling.partition_datetime; the latest partition is profiled instead.",
+                context=f"{table.name}: {e}",
+            )
+            return None
+
+        logger.info(
+            f"Using configured partition_datetime for {table.name}: {partition_filter}"
+        )
+        return [partition_filter]
+
     def _get_partition_filters_from_max_partition_id(
         self,
         table: BigqueryTable,
@@ -1497,9 +1572,18 @@ class PartitionDiscovery:
         ):
             return None
 
+        # A RANGE-partitioned table's max_partition_id is the highest bucket's inclusive
+        # lower bound, so it must be scanned with `col >= id`, not equality.
+        is_range_partition = (
+            getattr(table.partition_info, "type", None) == RANGE_PARTITION_NAME
+        )
+
         try:
             filters = FilterBuilder.convert_partition_id_to_filters(
-                table.max_partition_id, required_columns, column_types
+                table.max_partition_id,
+                required_columns,
+                column_types,
+                is_range_partition=is_range_partition,
             )
             if filters:
                 logger.debug(

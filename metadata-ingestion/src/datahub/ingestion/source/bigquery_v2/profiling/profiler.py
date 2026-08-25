@@ -724,6 +724,7 @@ class BigqueryProfiler(GenericProfiler):
                 )
                 return None
 
+            partition_where = ""
             if partition_filters:
                 validated_filters = validate_and_filter_expressions(
                     partition_filters, "external table profile request"
@@ -734,18 +735,6 @@ class BigqueryProfiler(GenericProfiler):
                         validated_filters, bq_table
                     )
                     partition_where = " AND ".join(windowed_filters)
-                    safe_table_ref = build_safe_table_reference(
-                        deferred.db_name, deferred.schema_name, bq_table.name
-                    )
-                    custom_sql = self._build_partition_profiling_sql(
-                        safe_table_ref, partition_where, bq_table
-                    )
-                    request.batch_kwargs.update(
-                        {
-                            CUSTOM_SQL_KWARG: custom_sql,
-                            PARTITION_HANDLING_KWARG: PARTITION_HANDLING_ENABLED,
-                        }
-                    )
                 else:
                     # Mirror the internal path: discovery produced filters but all
                     # failed validation, so this external table is profiled unfiltered.
@@ -756,6 +745,27 @@ class BigqueryProfiler(GenericProfiler):
                         "filter (full scan), or fail if the table requires one.",
                         context=table_ref,
                     )
+
+            safe_table_ref = build_safe_table_reference(
+                deferred.db_name, deferred.schema_name, bq_table.name
+            )
+            # A partition-filtered SELECT when we have a filter; otherwise fall back to the
+            # sampling / row-limit SQL like the internal path (get_profile_request), so a
+            # large unpartitioned external table is sampled instead of fully scanned.
+            if partition_where:
+                custom_sql: Optional[str] = self._build_partition_profiling_sql(
+                    safe_table_ref, partition_where, bq_table
+                )
+            else:
+                custom_sql = self._build_custom_sql(safe_table_ref, table_ref, bq_table)
+
+            if custom_sql:
+                request.batch_kwargs.update(
+                    {
+                        CUSTOM_SQL_KWARG: custom_sql,
+                        PARTITION_HANDLING_KWARG: PARTITION_HANDLING_ENABLED,
+                    }
+                )
 
             return request
 
