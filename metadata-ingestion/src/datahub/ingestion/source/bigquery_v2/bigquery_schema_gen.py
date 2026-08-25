@@ -1407,6 +1407,16 @@ class BigQuerySchemaGenerator:
             timer.elapsed_seconds(digits=2)
         )
 
+    @staticmethod
+    def _collides_with_base_table(
+        project_id: str, dataset_name: str, table_id: str, base_name: str
+    ) -> bool:
+        """Whether collapsing the shard suffix off `table_id` yields the same DataHub
+        name as the un-suffixed `base_name` table, i.e. the two would share a URN."""
+        shard = BigqueryTableIdentifier(project_id, dataset_name, table_id)
+        base = BigqueryTableIdentifier(project_id, dataset_name, base_name)
+        return shard.get_table_name() == base.get_table_name()
+
     def get_core_table_details(
         self, dataset_name: str, project_id: str, temp_table_dataset_prefix: str
     ) -> Dict[str, TableListItem]:
@@ -1491,18 +1501,26 @@ class BigQuerySchemaGenerator:
             # A genuine sharded set has no un-suffixed member: `events_20251121` is a
             # shard of the wildcard table `events_*`, and no table named `events`
             # exists. When one does, the date-suffixed tables are separate physical
-            # tables (a dated copy, a backup) that merely look like shards. Collapsing
-            # them would put them on the base table's URN, where their schema and
-            # profile overwrite the real table's non-deterministically.
-            if base_name in all_table_ids:
+            # tables (a dated copy, a backup) that merely look like shards.
+            #
+            # That only causes harm if collapsing lands them on the base table's URN,
+            # where their schema and profile overwrite the real table's. Compare the
+            # names rather than reading the config: with
+            # enable_legacy_sharded_table_support disabled the shard keeps a
+            # `_yyyymmdd` suffix and stays a dataset of its own, so it is safe to
+            # ingest and dropping it would lose metadata.
+            if base_name in all_table_ids and self._collides_with_base_table(
+                project_id, dataset_name, table.table_id, base_name
+            ):
                 self.report.num_sharded_tables_shadowed_by_base_table += 1
                 self.report.warning(
                     title="Date-suffixed tables skipped",
                     message="Table(s) with a date suffix were skipped because a table "
                     "of the same name without the suffix exists, so they are copies "
-                    "rather than shards. Ingesting them would overwrite the "
-                    "un-suffixed table's schema and profile. Rename them if they "
-                    "should be ingested.",
+                    "rather than shards, and ingesting them would overwrite the "
+                    "un-suffixed table's schema and profile. Rename them, or set "
+                    "enable_legacy_sharded_table_support to false to give sharded "
+                    "tables their own URNs, if they should be ingested.",
                     context=f"{project_id}.{dataset_name}.{base_name}",
                 )
                 continue

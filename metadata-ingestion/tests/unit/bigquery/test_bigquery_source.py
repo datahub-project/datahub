@@ -1065,6 +1065,54 @@ def test_table_processing_logic_date_suffixed_copies_of_a_real_table(
     assert source.report.num_sharded_tables_shadowed_by_base_table == 1
 
 
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_date_suffixed_copies_kept_without_legacy_sharded_table_support(
+    get_projects_client, get_bq_client_mock, data_dictionary_mock
+):
+    """With enable_legacy_sharded_table_support disabled a shard keeps a `_yyyymmdd`
+    suffix in its URN, so it does not collide with the un-suffixed table and there is
+    no reason to drop it."""
+    client_mock = MagicMock()
+    get_bq_client_mock.return_value = client_mock
+    config = BigQueryV2Config.model_validate(
+        {"project_id": "test-project", "enable_legacy_sharded_table_support": False}
+    )
+
+    def _item(table_id: str) -> TableListItem:
+        return TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": table_id,
+                }
+            }
+        )
+
+    client_mock.list_tables.return_value = [
+        _item("my-table"),
+        _item("my-table_20251120"),
+        _item("my-table_20251121"),
+    ]
+    data_dictionary_mock.get_tables_for_dataset.return_value = None
+
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    _ = list(
+        schema_gen.get_tables_for_dataset(
+            project_id="test-project", dataset=BigqueryDataset("test-dataset")
+        )
+    )
+
+    tables: Dict[str, TableListItem] = data_dictionary_mock.call_args_list[0][0][2]
+
+    assert sorted(tables) == ["my-table", "my-table_20251121"]
+    assert source.report.num_sharded_tables_shadowed_by_base_table == 0
+
+
 def create_row(d: Dict[str, Any]) -> Row:
     values = []
     field_to_index = {}
