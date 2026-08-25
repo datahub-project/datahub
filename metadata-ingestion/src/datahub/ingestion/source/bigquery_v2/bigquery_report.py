@@ -186,6 +186,9 @@ class BigQueryV2Report(
     snapshots_scanned: int = 0
     num_sharded_tables_scanned: int = 0
     num_sharded_tables_deduped: int = 0
+    # Base names whose date-suffixed siblings were dropped because an un-suffixed
+    # table of the same name exists, which means they are copies rather than shards.
+    num_sharded_tables_shadowed_by_base_table: int = 0
 
     # Materialized view statistics
     num_mv_stats_fetched: int = 0
