@@ -105,6 +105,9 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     num_exceptions: int = 0  # Failed to process a workunit
     # Per-URN schema fetch failed; table casing still healed, column casing left alone.
     num_schema_fetches_failed: int = 0
+    # A preloaded catalog raised, so DataHub was asked instead: round trips, not casing.
+    # A count near the reference total means the catalog is unusable, not flaky.
+    num_preloaded_lookups_failed: int = 0
     # Lineage aspect emitted as a PATCH (not UPSERT); can't be reconciled, so skipped.
     num_patch_lineage_skipped: int = 0
     num_workunits_with_lineage_aspect: int = 0
@@ -601,6 +604,7 @@ class AutoResolveLineageUrnsProcessor(
             try:
                 matches = resolver.find_match(urn)
             except Exception:
+                self.report.num_preloaded_lookups_failed += 1
                 logger.debug(
                     f"Preloaded URN catalog failed for {urn}; asking DataHub instead",
                     exc_info=True,
@@ -624,6 +628,7 @@ class AutoResolveLineageUrnsProcessor(
             try:
                 schema = resolver.resolve_urn(urn)[1]
             except Exception:
+                self.report.num_preloaded_lookups_failed += 1
                 logger.debug(
                     f"Preloaded schema catalog failed for {urn}; asking DataHub instead",
                     exc_info=True,

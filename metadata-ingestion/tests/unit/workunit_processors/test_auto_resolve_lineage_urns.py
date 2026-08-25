@@ -1499,8 +1499,11 @@ def test_a_failing_preloaded_urn_catalog_still_lets_datahub_answer():
 
     assert _stored_upstream(out) == LOWER
     assert processor.report.num_dataset_urns_normalized == 1
+    # No verdict was lost, so this is not a lookup failure — but a dead catalog is dead
+    # for every reference, so the fallback is counted rather than left at DEBUG.
     assert processor.report.num_refs_lookup_failed == 0
     assert processor.report.num_exceptions == 0
+    assert processor.report.num_preloaded_lookups_failed == 1
 
 
 def test_a_preloaded_collision_is_not_re_asked_of_datahub():
@@ -1545,6 +1548,7 @@ def test_a_failing_preloaded_resolver_still_lets_datahub_answer():
     assert _fine_grained(out).upstreams == [make_schema_field_urn(LOWER, "amount")]
     assert processor.report.num_schema_fetches_failed == 0
     assert processor.report.num_exceptions == 0
+    assert processor.report.num_preloaded_lookups_failed == 1
 
 
 def test_a_failing_preloaded_schema_resolver_keeps_the_table_level_healing():
@@ -1569,6 +1573,7 @@ def test_a_failing_preloaded_schema_resolver_keeps_the_table_level_healing():
     assert processor.report.num_dataset_urns_normalized == 1
     assert processor.report.num_schema_fetches_failed == 1
     assert processor.report.num_exceptions == 0
+    assert processor.report.num_preloaded_lookups_failed == 1
 
 
 def test_table_only_lineage_fetches_no_schema():
