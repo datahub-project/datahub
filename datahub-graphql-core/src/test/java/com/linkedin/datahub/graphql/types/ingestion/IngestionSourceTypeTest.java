@@ -1,18 +1,19 @@
 package com.linkedin.datahub.graphql.types.ingestion;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static com.linkedin.datahub.graphql.types.ingestion.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -78,6 +79,18 @@ public class IngestionSourceTypeTest {
   }
 
   @Test
+  public void testBatchLoadUnauthorized() throws Exception {
+    EntityClient client = Mockito.mock(EntityClient.class);
+    IngestionSourceType type = new IngestionSourceType(client);
+
+    assertThrows(
+        AuthorizationException.class,
+        () -> type.batchLoad(ImmutableList.of(TEST_1_URN), getMockDenyContext()));
+    Mockito.verify(client, Mockito.never())
+        .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
+  }
+
+  @Test
   public void testBatchLoadClientException() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
@@ -85,11 +98,8 @@ public class IngestionSourceTypeTest {
         .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
     IngestionSourceType type = new IngestionSourceType(mockClient);
 
-    // Execute Batch load
-    QueryContext context = Mockito.mock(QueryContext.class);
-    Mockito.when(context.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     assertThrows(
         RuntimeException.class,
-        () -> type.batchLoad(ImmutableList.of(TEST_1_URN, TEST_2_URN), context));
+        () -> type.batchLoad(ImmutableList.of(TEST_1_URN, TEST_2_URN), getMockAllowContext()));
   }
 }

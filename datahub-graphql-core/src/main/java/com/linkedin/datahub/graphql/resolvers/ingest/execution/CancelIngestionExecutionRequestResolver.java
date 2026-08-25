@@ -45,56 +45,57 @@ public class CancelIngestionExecutionRequestResolver
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (IngestionAuthUtils.canManageIngestion(context)) {
+          final CancelIngestionExecutionRequestInput input =
+              bindArgument(
+                  environment.getArgument("input"), CancelIngestionExecutionRequestInput.class);
 
-            final CancelIngestionExecutionRequestInput input =
-                bindArgument(
-                    environment.getArgument("input"), CancelIngestionExecutionRequestInput.class);
-
-            try {
-              final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
-              final Map<Urn, EntityResponse> response =
-                  _entityClient.batchGetV2(
-                      context.getOperationContext(),
-                      INGESTION_SOURCE_ENTITY_NAME,
-                      ImmutableSet.of(ingestionSourceUrn),
-                      ImmutableSet.of(INGESTION_INFO_ASPECT_NAME));
-
-              if (!response.containsKey(ingestionSourceUrn)) {
-                throw new DataHubGraphQLException(
-                    String.format(
-                        "Failed to find ingestion source with urn %s", ingestionSourceUrn),
-                    DataHubGraphQLErrorCode.BAD_REQUEST);
-              }
-
-              final EnvelopedAspect envelopedInfo =
-                  response.get(ingestionSourceUrn).getAspects().get(INGESTION_INFO_ASPECT_NAME);
-              final DataHubIngestionSourceInfo ingestionSourceInfo =
-                  new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
-
-              // Build the arguments map.
-              final ExecutionRequestSignal execSignal = new ExecutionRequestSignal();
-              execSignal.setSignal(
-                  KILL_EXECUTION_REQUEST_SIGNAL); // Requests a kill of the running task.
-              execSignal.setExecutorId(
-                  ingestionSourceInfo.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
-              execSignal.setCreatedAt(
-                  new AuditStamp()
-                      .setTime(System.currentTimeMillis())
-                      .setActor(Urn.createFromString(context.getActorUrn())));
-              final MetadataChangeProposal proposal =
-                  buildMetadataChangeProposalWithUrn(
-                      UrnUtils.getUrn(input.getExecutionRequestUrn()),
-                      EXECUTION_REQUEST_SIGNAL_ASPECT_NAME,
-                      execSignal);
-              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
-            } catch (Exception e) {
-              throw new RuntimeException(
-                  String.format("Failed to submit cancel signal %s", input), e);
+          try {
+            final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
+            if (!IngestionAuthUtils.canExecuteIngestion(context, ingestionSourceUrn)) {
+              throw new AuthorizationException(
+                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
             }
+
+            final Map<Urn, EntityResponse> response =
+                _entityClient.batchGetV2(
+                    context.getOperationContext(),
+                    INGESTION_SOURCE_ENTITY_NAME,
+                    ImmutableSet.of(ingestionSourceUrn),
+                    ImmutableSet.of(INGESTION_INFO_ASPECT_NAME));
+
+            if (!response.containsKey(ingestionSourceUrn)) {
+              throw new DataHubGraphQLException(
+                  String.format("Failed to find ingestion source with urn %s", ingestionSourceUrn),
+                  DataHubGraphQLErrorCode.BAD_REQUEST);
+            }
+
+            final EnvelopedAspect envelopedInfo =
+                response.get(ingestionSourceUrn).getAspects().get(INGESTION_INFO_ASPECT_NAME);
+            final DataHubIngestionSourceInfo ingestionSourceInfo =
+                new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
+
+            // Build the arguments map.
+            final ExecutionRequestSignal execSignal = new ExecutionRequestSignal();
+            execSignal.setSignal(
+                KILL_EXECUTION_REQUEST_SIGNAL); // Requests a kill of the running task.
+            execSignal.setExecutorId(
+                ingestionSourceInfo.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
+            execSignal.setCreatedAt(
+                new AuditStamp()
+                    .setTime(System.currentTimeMillis())
+                    .setActor(Urn.createFromString(context.getActorUrn())));
+            final MetadataChangeProposal proposal =
+                buildMetadataChangeProposalWithUrn(
+                    UrnUtils.getUrn(input.getExecutionRequestUrn()),
+                    EXECUTION_REQUEST_SIGNAL_ASPECT_NAME,
+                    execSignal);
+            return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+          } catch (AuthorizationException e) {
+            throw e;
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format("Failed to submit cancel signal %s", input), e);
           }
-          throw new AuthorizationException(
-              "Unauthorized to perform this action. Please contact your DataHub administrator.");
         },
         this.getClass().getSimpleName(),
         "get");

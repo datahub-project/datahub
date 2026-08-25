@@ -219,6 +219,44 @@ public class AuthUtilTest {
 
     assertEquals(
         AuthUtil.buildDisjunctivePrivilegeGroup(
+            AuthUtil.lookupEntityAPIPrivilege(READ, Constants.INGESTION_SOURCE_ENTITY_NAME)),
+        new DisjunctivePrivilegeGroup(
+            List.of(
+                new ConjunctivePrivilegeGroup(
+                    List.of(PoliciesConfig.MANAGE_INGESTION_PRIVILEGE.getType())))),
+        "Expected READ on dataHubIngestionSource to require MANAGE_INGESTION");
+
+    assertEquals(
+        AuthUtil.buildDisjunctivePrivilegeGroup(
+            AuthUtil.lookupEntityAPIPrivilege(
+                ApiOperation.EXECUTE, Constants.INGESTION_SOURCE_ENTITY_NAME)),
+        new DisjunctivePrivilegeGroup(
+            List.of(
+                new ConjunctivePrivilegeGroup(
+                    List.of(PoliciesConfig.EXECUTE_ENTITY_PRIVILEGE.getType())),
+                new ConjunctivePrivilegeGroup(
+                    List.of(PoliciesConfig.MANAGE_INGESTION_PRIVILEGE.getType())))),
+        "Expected EXECUTE on dataHubIngestionSource to allow EXECUTE_ENTITY or MANAGE_INGESTION");
+
+    assertEquals(
+        AuthUtil.buildDisjunctivePrivilegeGroup(
+            AuthUtil.lookupEntityAPIPrivilege(ApiOperation.EXECUTE, "dataset")),
+        new DisjunctivePrivilegeGroup(List.of()),
+        "Expected EXECUTE on dataset to deny (ingestion-only)");
+
+    assertTrue(
+        AuthUtil.lookupEntityAPIPrivilege(
+                ApiOperation.EXISTS, Constants.INGESTION_SOURCE_ENTITY_NAME)
+            .contains(Conjunctive.of(PoliciesConfig.EXECUTE_ENTITY_PRIVILEGE)),
+        "Expected EXISTS on dataHubIngestionSource to allow EXECUTE_ENTITY");
+    assertTrue(
+        AuthUtil.lookupEntityAPIPrivilege(
+                ApiOperation.EXISTS, Constants.INGESTION_SOURCE_ENTITY_NAME)
+            .contains(Conjunctive.of(PoliciesConfig.MANAGE_INGESTION_PRIVILEGE)),
+        "Expected EXISTS on dataHubIngestionSource to allow MANAGE_INGESTION");
+
+    assertEquals(
+        AuthUtil.buildDisjunctivePrivilegeGroup(
             AuthUtil.lookupEntityAPIPrivilege(UPDATE, "globalSettings")),
         new DisjunctivePrivilegeGroup(
             List.of(

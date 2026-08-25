@@ -11,6 +11,8 @@ import static org.testng.Assert.*;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.EntitySpec;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.Constants;
 import io.datahubproject.metadata.context.OperationContext;
@@ -64,6 +66,56 @@ public class IngestionAuthUtilsTest {
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:unauthorized");
 
     assertFalse(IngestionAuthUtils.canManageIngestion(mockContext));
+  }
+
+  @Test
+  public void testCanExecuteIngestionAuthorized() throws Exception {
+    Set<String> allowedPrivileges = Set.of("MANAGE_INGESTION", "EXECUTE_ENTITY");
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataHubIngestionSource:test");
+
+    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
+    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
+    Mockito.when(
+            mockContext
+                .getOperationContext()
+                .authorize(
+                    argThat(allowedPrivileges::contains),
+                    eq(
+                        new EntitySpec(
+                            Constants.INGESTION_SOURCE_ENTITY_NAME, sourceUrn.toString())),
+                    anyCollection()))
+        .thenReturn(result);
+
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:authorized");
+
+    assertTrue(IngestionAuthUtils.canExecuteIngestion(mockContext, sourceUrn));
+  }
+
+  @Test
+  public void testCanExecuteIngestionUnauthorized() throws Exception {
+    Set<String> allowedPrivileges = Set.of("MANAGE_INGESTION", "EXECUTE_ENTITY");
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataHubIngestionSource:test");
+
+    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
+    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
+    Mockito.when(
+            mockContext
+                .getOperationContext()
+                .authorize(
+                    argThat(allowedPrivileges::contains),
+                    eq(
+                        new EntitySpec(
+                            Constants.INGESTION_SOURCE_ENTITY_NAME, sourceUrn.toString())),
+                    anyCollection()))
+        .thenReturn(result);
+
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:unauthorized");
+
+    assertFalse(IngestionAuthUtils.canExecuteIngestion(mockContext, sourceUrn));
   }
 
   @Test
