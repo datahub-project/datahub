@@ -192,12 +192,15 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
 
 - **Requires a DataHub backend connection.** Resolution looks up existing entities, so it is a no-op for
   offline / file-only ingestion.
-- **Requires the dataset `aliases` backfill to have succeeded.** GMS computes the aspect when a dataset
-  is written, so a dataset untouched since aliases were introduced has none, and a reference to it
-  would read as `UNRESOLVED` even when cased exactly right. The `BackfillDatasetAliases` system update
-  (default-on, non-blocking) fills those in. The feature reads its completion marker on
-  `urn:li:dataHubUpgrade:dataset-aliases-v1` and stays off with a warning until it reports `SUCCEEDED`,
-  rather than approximating an answer that would report healthy lineage as broken.
+- **Requires the dataset `aliases` backfill to have succeeded.** GMS derives the aspect from the dataset
+  key aspect, written once at creation, so a dataset created before aliases shipped has none until the
+  `BackfillDatasetAliases` system update (default-on, non-blocking) reaches it. An entity with no alias
+  is invisible to the lookup, so a reference naming it exactly can be healed onto a lowercase-named
+  sibling instead — a wrong edge, not an `UNRESOLVED` one. The feature therefore stays off, with a
+  warning, until the completion marker on `urn:li:dataHubUpgrade:dataset-aliases-v1` reports
+  `SUCCEEDED`. That marker is written when the backfill's scroll is exhausted, and the alias writes
+  themselves land through the MCE consumer, so references resolved while that backlog drains can still
+  miss; they heal on the source's next run.
 - **Aliases are written asynchronously.** For a short window after a backfill or an ingestion, a
   reference can still miss and be reported `UNRESOLVED`. It heals on the source's next run.
 - **Resolves only against entities that already exist at ingestion time.** This relies on the warehouse
