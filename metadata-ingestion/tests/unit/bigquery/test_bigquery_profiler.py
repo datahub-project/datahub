@@ -797,16 +797,30 @@ def test_build_custom_sql_bounds_unknown_row_count():
     assert "LIMIT 5000" in sql
 
 
-def test_build_custom_sql_known_empty_table_profiles_normally():
-    # rows_count == 0 is a known-empty table, not an unavailable count: it must fall
-    # through to normal full-table profiling (no custom_sql), not the bounded fallback.
+def test_build_custom_sql_known_empty_native_table_profiles_normally():
+    # rows_count == 0 on a native table is a genuinely empty table, not an unavailable
+    # count: it must fall through to normal full-table profiling (no custom_sql).
     config = create_test_config(profiling={"profiling_row_limit": 5000})
     profiler = BigqueryProfiler(config, BigQueryV2Report())
-    table = create_test_table(rows_count=0)
+    table = create_test_table(rows_count=0, external=False)
 
     sql = profiler._build_custom_sql("`p`.`d`.`t`", "p.d.t", table)
 
     assert sql is None
+
+
+def test_build_custom_sql_external_zero_row_count_is_bounded():
+    # BigQuery's legacy __TABLES__ reports row_count as 0 for external tables even when
+    # they hold data, so 0 there means "unknown" — apply the bounded cap, don't fall
+    # through to an unbounded full scan.
+    config = create_test_config(profiling={"profiling_row_limit": 5000})
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table(rows_count=0, external=True)
+
+    sql = profiler._build_custom_sql("`p`.`d`.`t`", "p.d.t", table)
+
+    assert sql is not None
+    assert "LIMIT 5000" in sql
 
 
 def test_build_custom_sql_unknown_row_count_uses_safety_limit_when_no_row_limit():

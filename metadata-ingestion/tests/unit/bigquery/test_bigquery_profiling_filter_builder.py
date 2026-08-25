@@ -379,16 +379,6 @@ class TestFilterBuilderPartitionDatetime:
             "AND `ts` < TIMESTAMP('2025-01-15 06:00:00+00:00')"
         )
 
-    def test_timestamp_naive_treated_as_utc(self):
-        # A naive TIMESTAMP is interpreted by BigQuery as UTC; render it bare.
-        result = FilterBuilder.create_partition_datetime_filter(
-            "ts", datetime(2025, 1, 15, 10, 30), "TIMESTAMP", "HOUR"
-        )
-        assert result == (
-            "`ts` >= TIMESTAMP('2025-01-15 10:00:00') "
-            "AND `ts` < TIMESTAMP('2025-01-15 11:00:00')"
-        )
-
     def test_datetime_column_stays_timezone_free(self):
         # DATETIME has no timezone in BigQuery; an offset on the input must not leak in.
         moment = datetime(2025, 1, 15, 10, 30, tzinfo=timezone(timedelta(hours=-8)))

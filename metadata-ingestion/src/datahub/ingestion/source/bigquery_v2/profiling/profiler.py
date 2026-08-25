@@ -334,13 +334,18 @@ class BigqueryProfiler(GenericProfiler):
 
         row_limit = self.config.profiling.profiling_row_limit
 
-        if rows_count is None:
-            # Row count unavailable (external tables frequently lack stats): we can
-            # neither size a sample nor decide whether the table fits under the limit,
-            # so apply a bounded cap rather than leaving the scan unbounded — a full
-            # scan of a large external table is exactly the runaway cost we avoid.
-            # A known-empty table (rows_count == 0) is not unavailable: it falls
-            # through to normal full-table profiling below.
+        # A row count of 0 is a genuinely empty native table, but for external tables
+        # BigQuery's legacy `__TABLES__` reports row_count as 0 even when data exists,
+        # so 0 there means "unknown", not "empty". Treat unknown as unavailable.
+        row_count_unavailable = rows_count is None or (
+            bq_table.external and not rows_count
+        )
+        if row_count_unavailable:
+            # Row count unavailable: we can neither size a sample nor decide whether the
+            # table fits under the limit, so apply a bounded cap rather than leaving the
+            # scan unbounded — a full scan of a large external table is exactly the
+            # runaway cost we avoid. A known-empty native table (rows_count == 0) is not
+            # unavailable: it falls through to normal full-table profiling below.
             limit = max(1, int(row_limit)) if row_limit > 0 else BQ_SAFETY_ROW_LIMIT
             logger.info(
                 f"Row count unavailable for {table_ref}; applying bounded limit "
