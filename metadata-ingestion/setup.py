@@ -842,9 +842,9 @@ plugins: Dict[str, Set[str]] = {
     "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
     "quicksight": aws_common | sqlglot_lib,
-    # sqlparse: transitive runtime dep of SqlParsingAggregator (imported by sigma.py).
-    # Not directly imported by the sigma source; revisit if SqlParsingAggregator use is removed.
-    "sigma": sqlglot_lib | {"sqlparse>=0.6.0,<1.0.0", "requests<3.0.0"},
+    # usage_common: sigma emits no usage itself, but SqlParsingAggregator imports
+    # usage_common, which pulls sqlparse in via sql_formatter.
+    "sigma": sqlglot_lib | usage_common | {"requests<3.0.0"},
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
