@@ -797,6 +797,18 @@ def test_build_custom_sql_bounds_unknown_row_count():
     assert "LIMIT 5000" in sql
 
 
+def test_build_custom_sql_known_empty_table_profiles_normally():
+    # rows_count == 0 is a known-empty table, not an unavailable count: it must fall
+    # through to normal full-table profiling (no custom_sql), not the bounded fallback.
+    config = create_test_config(profiling={"profiling_row_limit": 5000})
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table(rows_count=0)
+
+    sql = profiler._build_custom_sql("`p`.`d`.`t`", "p.d.t", table)
+
+    assert sql is None
+
+
 def test_build_custom_sql_unknown_row_count_uses_safety_limit_when_no_row_limit():
     # With profiling_row_limit disabled (0), an unknown row count still gets the safety
     # cap rather than an unbounded scan.

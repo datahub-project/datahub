@@ -364,9 +364,10 @@ class TestFilterBuilderPartitionDatetime:
         )
         assert result == "`dt` >= '9999-12-01 00:00:00'"
 
-    def test_timestamp_offset_is_preserved(self):
-        # A tz-aware partition_datetime pins an absolute instant; the offset must survive
-        # into the TIMESTAMP literal so the correct partition is selected.
+    def test_timestamp_tzaware_normalized_to_utc_boundary(self):
+        # BigQuery partitions TIMESTAMP on UTC boundaries. A tz-aware instant must be
+        # converted to UTC before flooring: 10:30+05:30 is 05:00 UTC, so the HOUR
+        # partition is [05:00, 06:00) UTC, not [10:00, 11:00) local.
         moment = datetime(
             2025, 1, 15, 10, 30, tzinfo=timezone(timedelta(hours=5, minutes=30))
         )
@@ -374,8 +375,18 @@ class TestFilterBuilderPartitionDatetime:
             "ts", moment, "TIMESTAMP", "HOUR"
         )
         assert result == (
-            "`ts` >= TIMESTAMP('2025-01-15 10:00:00+05:30') "
-            "AND `ts` < TIMESTAMP('2025-01-15 11:00:00+05:30')"
+            "`ts` >= TIMESTAMP('2025-01-15 05:00:00+00:00') "
+            "AND `ts` < TIMESTAMP('2025-01-15 06:00:00+00:00')"
+        )
+
+    def test_timestamp_naive_treated_as_utc(self):
+        # A naive TIMESTAMP is interpreted by BigQuery as UTC; render it bare.
+        result = FilterBuilder.create_partition_datetime_filter(
+            "ts", datetime(2025, 1, 15, 10, 30), "TIMESTAMP", "HOUR"
+        )
+        assert result == (
+            "`ts` >= TIMESTAMP('2025-01-15 10:00:00') "
+            "AND `ts` < TIMESTAMP('2025-01-15 11:00:00')"
         )
 
     def test_datetime_column_stays_timezone_free(self):

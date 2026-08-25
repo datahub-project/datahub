@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
@@ -142,7 +142,14 @@ class FilterBuilder:
             raise ValueError(f"Invalid column name for filter: {col_name}")
 
         ctype = col_type.upper()
-        lower, upper = FilterBuilder._partition_bounds(partition_datetime, granularity)
+        moment = partition_datetime
+        if ctype == "TIMESTAMP" and moment.tzinfo is not None:
+            # BigQuery time-partitions TIMESTAMP columns on UTC boundaries. Normalize a
+            # tz-aware instant to UTC *before* flooring, otherwise flooring the local
+            # wall clock (e.g. 10:30+05:30) yields 04:30 UTC — not the 05:00 UTC
+            # partition boundary — and would scan the wrong partition or span two.
+            moment = moment.astimezone(timezone.utc)
+        lower, upper = FilterBuilder._partition_bounds(moment, granularity)
 
         lower_literal = FilterBuilder._format_bound_literal(lower, ctype)
         if upper is None:
@@ -200,10 +207,10 @@ class FilterBuilder:
             return f"'{moment.strftime('%Y-%m-%d')}'"
         rendered = moment.strftime("%Y-%m-%d %H:%M:%S")
         if col_type == "TIMESTAMP":
-            # A TIMESTAMP is an absolute instant. If partition_datetime carries a
-            # timezone offset (even a non-UTC one), preserve it so the correct
-            # partition is selected; a naive value is interpreted by BigQuery as UTC.
-            offset = moment.strftime("%z")  # +HHMM / -HHMM, empty when tz-naive
+            # Bounds for a tz-aware instant were normalized to UTC by the caller, so a
+            # UTC offset is rendered explicitly (+00:00); a naive value is left bare and
+            # interpreted by BigQuery as UTC. Either way the literal is on a UTC boundary.
+            offset = moment.strftime("%z")  # +0000 for UTC, empty when tz-naive
             if offset:
                 rendered = f"{rendered}{offset[:3]}:{offset[3:]}"
             return f"TIMESTAMP('{rendered}')"
