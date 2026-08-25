@@ -389,8 +389,10 @@ def _walk_identifier_name(
         return
     binding_let_id, resolved, binding_scopes = found
 
-    # Circular reference guard: (binding let id, variable name) pair
-    guard_key = (binding_let_id, name)
+    # Circular reference guard: (binding let id, variable name) pair. Casefolded
+    # to match how the name was resolved -- M treats `a` and `A` as one variable,
+    # so a cycle spelled inconsistently has to count as the same visit.
+    guard_key = (binding_let_id, name.casefold())
     if guard_key in seen:
         logger.warning("Circular reference detected for variable '%s', stopping", name)
         return

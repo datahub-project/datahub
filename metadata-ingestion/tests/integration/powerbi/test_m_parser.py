@@ -2209,6 +2209,33 @@ def test_outer_step_cannot_see_a_nested_let_binding():
 
 
 @pytest.mark.integration
+def test_cycle_spelled_with_different_casing_is_one_visit():
+    """M variable names are case-insensitive, so `a` and `A` are one variable and
+    a cycle written inconsistently is still a cycle."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=f"let Source = {_DATABRICKS_CONNECTOR}, a = B, b = A, out = a in out"
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+def test_nested_self_reference_does_not_fall_back_to_the_outer_binding():
+    """A nested `a = a` shadows the outer `a` for the whole nested body, so it is a
+    self-reference -- the shape Power BI rejects as a cyclic reference. Resolving it
+    against the outer binding instead would invent lineage the query never reads."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=(
+            f"let Source = {_DATABRICKS_CONNECTOR},"
+            ' a = Source{[Name="my_catalog",Kind="Database"]}[Data],'
+            " out = let a = a in a in out"
+        )
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
 def test_mutually_referencing_steps_do_not_recurse():
     """Steps defined in terms of each other must stop rather than walk forever."""
     lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
