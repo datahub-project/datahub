@@ -12,6 +12,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
     MYSQL_SINK_CLOUD,
     POSTGRES_SINK_CLOUD,
+    S3_SOURCE_CLOUD,
     SINK,
     SNOWFLAKE_SINK_CLOUD,
     SNOWFLAKE_SOURCE_CLOUD,
@@ -169,7 +170,9 @@ class ConnectorRegistry:
             DEBEZIUM_SOURCE_CONNECTOR_PREFIX,
             JDBC_SOURCE_CONNECTOR_CLASS,
             MONGO_SOURCE_CONNECTOR_CLASS,
+            S3_SOURCE_CONNECTOR_CLASS,
             ConfluentJDBCSourceConnector,
+            ConfluentS3SourceConnector,
             DebeziumSourceConnector,
             MongoSourceConnector,
             SnowflakeSourceConnector,
@@ -181,7 +184,10 @@ class ConnectorRegistry:
         # Snowflake Source connector (Confluent Cloud managed)
         elif connector_class_value == SNOWFLAKE_SOURCE_CLOUD:
             return SnowflakeSourceConnector(manifest, config, report)
-        # Cloud CDC connectors (use Debezium-style naming)
+        # S3 source connectors (self-hosted and Confluent Cloud managed)
+        elif connector_class_value in (S3_SOURCE_CONNECTOR_CLASS, S3_SOURCE_CLOUD):
+            return ConfluentS3SourceConnector(manifest, config, report)
+        # Cloud CDC/JDBC source connectors (use Debezium-style naming)
         elif (
             connector_class_value in CLOUD_JDBC_SOURCE_CLASSES
             or connector_class_value.startswith(DEBEZIUM_SOURCE_CONNECTOR_PREFIX)

@@ -9,6 +9,8 @@ from datahub.ingestion.source.kafka_connect.common import (
     MYSQL_SINK_CLOUD,
     POSTGRES_CDC_SOURCE_CLOUD,
     POSTGRES_SINK_CLOUD,
+    POSTGRES_SOURCE_CLOUD,
+    S3_SOURCE_CLOUD,
     SINK,
     SNOWFLAKE_SINK_CLOUD,
     SNOWFLAKE_SOURCE_CLOUD,
@@ -37,7 +39,9 @@ from datahub.ingestion.source.kafka_connect.sink_connectors import (
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     JDBC_SOURCE_CONNECTOR_CLASS,
     MONGO_SOURCE_CONNECTOR_CLASS,
+    S3_SOURCE_CONNECTOR_CLASS,
     ConfluentJDBCSourceConnector,
+    ConfluentS3SourceConnector,
     DebeziumSourceConnector,
     MongoSourceConnector,
     SnowflakeSourceConnector,
@@ -118,6 +122,53 @@ class TestConnectorRegistrySourceConnectors:
         assert connector is not None
         assert isinstance(connector, DebeziumSourceConnector)
         assert connector.get_platform() == "postgres"
+
+    def test_postgres_source_cloud_connector(self) -> None:
+        """Test routing for the Confluent Cloud managed (non-CDC) Postgres source.
+
+        PostgresSource is symmetric with the existing MySqlSource: both are
+        managed JDBC source connectors that share the Debezium-style topic
+        naming path, so both route to DebeziumSourceConnector.
+        """
+        manifest = create_manifest(SOURCE, POSTGRES_SOURCE_CLOUD)
+        config = create_mock_config()
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, DebeziumSourceConnector)
+        assert connector.get_platform() == "postgres"
+
+    def test_s3_source_cloud_connector(self) -> None:
+        """Test routing for the Confluent Cloud managed S3 source connector."""
+        manifest = create_manifest(SOURCE, S3_SOURCE_CLOUD)
+        config = create_mock_config()
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, ConfluentS3SourceConnector)
+        assert connector.get_platform() == "s3"
+
+    def test_s3_source_self_hosted_connector(self) -> None:
+        """Test routing for the self-hosted S3 source connector."""
+        manifest = create_manifest(SOURCE, S3_SOURCE_CONNECTOR_CLASS)
+        config = create_mock_config()
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, ConfluentS3SourceConnector)
+        assert connector.get_platform() == "s3"
 
     def test_debezium_connector_with_prefix(self) -> None:
         """Test routing for Debezium connector with standard prefix."""
