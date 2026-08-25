@@ -160,6 +160,9 @@ public class AppConfigResolverTest {
     assertTrue(result.getAnalyticsConfig().getEnabled());
     assertNotNull(result.getAuthConfig());
     assertTrue(result.getAuthConfig().getTokenAuthEnabled());
+    assertFalse(result.getAuthConfig().getAllowNoExpiry());
+    assertNotNull(result.getAuthConfig().getAllowedAccessTokenDurations());
+    assertFalse(result.getAuthConfig().getAllowedAccessTokenDurations().isEmpty());
     assertNotNull(result.getPoliciesConfig());
     assertTrue(result.getPoliciesConfig().getEnabled());
     assertNotNull(result.getIdentityManagementConfig());

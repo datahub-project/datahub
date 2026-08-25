@@ -6,6 +6,7 @@ import com.datahub.authentication.post.PostService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.role.RoleService;
+import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GraphQLEngine;
@@ -61,6 +62,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import com.linkedin.metadata.version.GitVersion;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.concurrent.ExecutorService;
@@ -262,11 +264,13 @@ public class GraphQLEngineFactory {
   protected GraphQLEngine graphQLEngine(
       @Qualifier("entityClient") final EntityClient entityClient,
       @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient,
+      @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
       final EntityVersioningService entityVersioningService,
       final MetricUtils metricUtils) {
     GmsGraphQLEngineArgs args = new GmsGraphQLEngineArgs();
     args.setEntityClient(entityClient);
     args.setSystemEntityClient(systemEntityClient);
+    args.setSystemOperationContext(systemOperationContext);
     args.setGraphClient(graphClient);
     args.setUsageClient(
         new UsageStatsJavaClient(
@@ -333,7 +337,20 @@ public class GraphQLEngineFactory {
     args.setSemanticSearchConfiguration(
         configProvider.getElasticSearch().getEntityIndex().getSemanticSearch());
 
-    return new GmsGraphQLEngine(args).builder().build();
+    // Create the GmsGraphQLEngine and build the GraphQL schema
+    GmsGraphQLEngine gmsGraphQLEngine = new GmsGraphQLEngine(args);
+    return gmsGraphQLEngine.builder().build();
+  }
+
+  /**
+   * Builds AspectMappingRegistry from the GraphQLEngine schema. Takes an explicit engine dependency
+   * so Spring creates the registry after the schema exists (no config-field side effect).
+   */
+  @Bean(name = "aspectMappingRegistry")
+  @Nonnull
+  protected AspectMappingRegistry aspectMappingRegistry(
+      @Qualifier("graphQLEngine") final GraphQLEngine engine) {
+    return new AspectMappingRegistry(engine.getGraphQL().getGraphQLSchema());
   }
 
   @Bean(name = "graphQLWorkerPool")

@@ -7,7 +7,7 @@
     "createGlossary.documentationLabel": "Dokumentation <optional>(valfritt)</optional>",
     "createGlossary.editDocumentation": "Redigera dokumentation",
     "createGlossary.error": "Det gick inte att skapa: \n {{errorMessage}}",
-    "createGlossary.idHelp": "Som standard genereras ett slumpmässigt UUID för att unikt identifiera den här entiteten. Om du vill ange ett eget id kan du göra det här. Observera att det måste vara unikt inom hela glossaryn. Var försiktig – id:t kan inte enkelt ändras efter att entiteten har skapats.",
+    "createGlossary.idHelp": "Som standard genereras ett slumpmässigt UUID för att unikt identifiera den här entiteten. Om du vill ange ett eget id kan du göra det här. Observera att det måste vara unikt inom hela ordlistan. Var försiktig – id:t kan inte enkelt ändras efter att entiteten har skapats.",
     "createGlossary.idInvalid": "Ange ett giltigt entitets-id",
     "createGlossary.idLabel": "{{entityName}}-id",
     "createGlossary.idPlaceholder": "klassificering",
@@ -54,7 +54,7 @@
     "editGlossary.error": "Det gick inte att uppdatera: \n {{errorMessage}}",
     "editGlossary.success": "{{entityName}} har uppdaterats!",
     "editGlossary.title": "Redigera {{entityName}}",
-    "glossary": "Glossary",
+    "glossary": "Ordlista",
     "glossaryTerm": "Term",
     "linkVersion.error": "Det gick inte att länka: \n {{errorMessage}}",
     "linkVersion.invalidError": "Det går inte att länka till en entitet som inte är versionshanterad eller inte är den senaste",
@@ -95,5 +95,8 @@
     "unlinkVersion.confirmTitle": "Är du säker?",
     "unlinkVersion.error": "Det gick inte att ta bort länken: \n {{errorMessage}}",
     "unlinkVersion.loading": "Tar bort länken...",
-    "unlinkVersion.success": "Länken till {{entityName}} har tagits bort!"
+    "unlinkVersion.success": "Länken till {{entityName}} har tagits bort!",
+    "dataProductSelect.notFound": "Inga Data Products hittades",
+    "dataProductSelect.placeholder": "Välj ett överordnat Data Product",
+    "moveDataProduct.title": "Flytta Data Product"
 }

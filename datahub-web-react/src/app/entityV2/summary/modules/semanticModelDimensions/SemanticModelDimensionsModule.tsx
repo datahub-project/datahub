@@ -10,6 +10,7 @@ import styled from 'styled-components';
 import { ColorOptions } from '@components/theme/config';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useAllSemanticModelMemberDatasets } from '@app/entityV2/summary/modules/semanticModelDatasets/useSemanticModelMemberDatasets';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
@@ -18,11 +19,8 @@ import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { DataPlatform, Dataset, EntityType, SchemaField, SemanticFieldType } from '@types';
 
-type EntityDataWithDatasets = {
+type EntityDataWithPlatform = {
     platform?: DataPlatform | null;
-    info?: {
-        datasets?: Dataset[] | null;
-    } | null;
 };
 
 type DimensionGroup = {
@@ -114,12 +112,13 @@ export default function SemanticModelDimensionsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
+    const { datasets, loading } = useAllSemanticModelMemberDatasets();
 
-    const typedData = entityData as EntityDataWithDatasets | null;
+    const typedData = entityData as EntityDataWithPlatform | null;
     const fallbackPlatform = typedData?.platform;
 
     const groups: DimensionGroup[] = useMemo(() => {
-        return (typedData?.info?.datasets ?? [])
+        return datasets
             .map((dataset): DimensionGroup | null => {
                 const fields = (dataset.schema?.fields ?? []).filter(
                     (field) => field.schemaFieldEntity?.semanticFieldAnnotation?.type === SemanticFieldType.Dimension,
@@ -135,11 +134,11 @@ export default function SemanticModelDimensionsModule(props: ModuleProps) {
                 };
             })
             .filter((group): group is DimensionGroup => group !== null);
-    }, [typedData?.info?.datasets, fallbackPlatform]);
+    }, [datasets, fallbackPlatform]);
 
-    if (!groups.length) {
+    if (!loading && !groups.length) {
         return (
-            <LargeModule {...props} dataTestId="semantic-model-dimensions-module">
+            <LargeModule {...props} loading={loading} dataTestId="semantic-model-dimensions-module">
                 <EmptyContent
                     icon={Cube}
                     title={t('semanticModelDimensions.emptyTitle')}
@@ -150,7 +149,7 @@ export default function SemanticModelDimensionsModule(props: ModuleProps) {
     }
 
     return (
-        <LargeModule {...props} dataTestId="semantic-model-dimensions-module">
+        <LargeModule {...props} loading={loading} dataTestId="semantic-model-dimensions-module">
             {groups.map((group) => {
                 const headerContent = (
                     <DatasetHeader>

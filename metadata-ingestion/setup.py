@@ -43,6 +43,11 @@ base_requirements = {
     # docker/snippets/ingestion/constraints.txt only — avoid a lower bound here so
     # installs alongside Airflow constraints remain satisfiable.
     "setuptools<82.0.0",
+    # Floor at 2.5.0 — the highest the airflow-plugin CI
+    # tolerates (Airflow 3.0.x/3.1.x pin urllib3==2.5.0, 3.2.x pins 2.6.3). The stronger
+    # >=2.7.0 floor for the remaining CVEs is applied at lock time via pyproject
+    # [tool.uv] constraint-dependencies, keeping this bound Airflow-satisfiable.
+    "urllib3>=2.5.0,<3.0",
 }
 
 gcp_sm_common = {
@@ -94,11 +99,20 @@ framework_common = {
     # Snappy-compatible codec for pgQueue payload decompression (Java Snappy); not Kafka-specific.
     "cramjam>=2.8.0,<3.0.0",
     # The ingestion executor bootstraps per-source venvs by shelling out to
-    # `python -m pip download` (see acryl.executor). uv-created venvs omit pip
+    # `python -m pip download` (see datahub.executor). uv-created venvs omit pip
     # by default, so pip must be present in the base environment. This was
     # previously pulled in transitively via the classification extra; declare it
     # explicitly here. No upper bound: pip is a system tool.
     "pip",
+    # Logging backend used by the ingestion executor's subprocess runner
+    # (datahub.executor.execution.runner). Adds no runtime deps on Linux/macOS -
+    # colorama and win32-setctime are win32-only.
+    "loguru>=0.5.0,<1.0.0",
+    # Structured concurrency primitives (task groups, cancel scopes, byte/text
+    # streams) used to supervise ingestion subprocesses in
+    # datahub.executor.execution.runner. Previously only available transitively
+    # via httpx/openai/starlette; declare it explicitly.
+    "anyio>=3.0.0,<5.0.0",
 }
 
 rest_common = {
@@ -198,12 +212,6 @@ aws_common = {
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
-    # urllib3 2.x carries security fixes (CVE-2025-66418, CVE-2025-66471, CVE-2026-21441,
-    # CVE-2026-44431), but a 2.x floor is NOT satisfiable for acryl-datahub[all]: the elasticsearch
-    # source extra pins elasticsearch==7.13.4 (held for OpenSearch compat), which requires
-    # urllib3<2. Keep the bound loose here; the 2.x floor is enforced for elasticsearch-free Docker
-    # venvs via docker/snippets/ingestion/constraints.txt.
-    "urllib3>=1.26,<3.0",
     "botocore!=1.23.0,<2.0.0",
 }
 
@@ -488,17 +496,15 @@ unstructured_lib = {
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
     # Transitive via unstructured, which requires plain `nltk`. 3.10.1 added an
-    # import hook that blocks any nltk-initiated import resolving under the CWD,
-    # which includes site-packages whenever the venv lives in the project dir --
-    # the standard `python -m venv .venv` / uv / Poetry in-project layout. That
-    # breaks text partitioning, so document chunking silently produces nothing.
-    # Capped rather than excluding only 3.10.1: there is no fix upstream to
-    # forward-allow. https://github.com/nltk/nltk/issues/3730 is open and the
-    # proposed fix (nltk/nltk#3731) was closed unmerged, with the hook's own
-    # author questioning whether it should exist at all -- so a 3.10.2 may well
-    # still carry it. Given the failure is silent (zero documents indexed, exit
-    # 0), fail closed and lift the cap deliberately once upstream settles.
-    "nltk<3.10.1",
+    # import hook (nltk/inisec.py, NLTKSafeImportFinder) that blocks any
+    # nltk-initiated import resolving under the CWD, which includes site-packages
+    # whenever the venv lives in the project dir -- the standard
+    # `python -m venv .venv` / uv / Poetry in-project layout. That breaks text
+    # partitioning, so document chunking silently produces nothing (zero documents
+    # indexed, exit 0). See https://github.com/nltk/nltk/issues/3730.
+    # Upstream reverted the hook: inisec.py ships in 3.10.1 only and is absent from
+    # 3.10.2 onwards, so this excludes just that release rather than capping.
+    "nltk!=3.10.1",
     # Embedding support for semantic search
     *embedding_common,
 }
@@ -617,7 +623,8 @@ plugins: Dict[str, Set[str]] = {
     "druid": sql_common | {"pydruid>=0.6.2,<=0.6.9"},
     "dynamodb": aws_common,
     # opensearch-py, not elasticsearch-py: the latter only supports Elasticsearch and rejects OpenSearch.
-    "elasticsearch": {"opensearch-py>=2.6.0,<4.0.0", *cachetools_lib},
+    # 3.x generated APIs are keyword-only; require >=3 so 2.x is not installed.
+    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",
@@ -626,7 +633,12 @@ plugins: Dict[str, Set[str]] = {
         *cachetools_lib,
     },
     "cassandra": {
-        "cassandra-driver>=3.28.0,<4.0.0",
+        # 3.30.1 fixes "Prevent crash at exit" (PR 1287): before it, the libev reactor
+        # registered atexit.register(partial(_cleanup, _global_loop)) at import time,
+        # which binds None permanently and leaves the reactor thread running into
+        # interpreter shutdown -- intermittently segfaulting the process (exit 139)
+        # after ingestion had already succeeded.
+        "cassandra-driver>=3.30.1,<4.0.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
@@ -682,6 +694,9 @@ plugins: Dict[str, Set[str]] = {
         # (blocks billion-laughs / external-entity attacks).
         "defusedxml>=0.7.1,<0.8.0",
     },
+    # sqlglot_lib: view lineage reuses datahub.sql_parsing (sqlglot), which is not
+    # in the base install; JPype1/jdk4py bridge to the JDBC driver (no SQLAlchemy).
+    "informix": sqlglot_lib | {"JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common
@@ -762,6 +777,14 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowplow": snowplow,
+    # Floor at 0.235.2: first release pinning sqlglot~=30.8.0. Cap at <0.237 after
+    # vetting 0.236. Excluded from the pyproject/uv lock and from the "all" extra
+    # because DataHub pins sqlglot[c]==30.12.0 and no released sqlmesh accepts that
+    # yet — install with ``pip install 'acryl-datahub[sqlmesh]'`` (setuptools path)
+    # in a dedicated environment. Re-vet and restore to the lock when sqlmesh bumps.
+    "sqlmesh": {"sqlmesh>=0.235.2,<0.237", *cachetools_lib}
+    | aws_common
+    | {"GitPython>2,<4.0.0"},
     "sqlalchemy": sql_common,
     "sql-queries": usage_common
     | sqlglot_lib
@@ -770,7 +793,7 @@ plugins: Dict[str, Set[str]] = {
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
-    "tableau": {"tableauserverclient>=0.24.0,<=0.40"} | sqlglot_lib,
+    "tableau": {"tableauserverclient>=0.34,<=0.40"} | sqlglot_lib,
     "thoughtspot": {"thoughtspot_rest_api>=2.0.0,<3.0.0"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
@@ -860,6 +883,9 @@ all_exclude_plugins: Set[str] = {
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
+    # SQLMesh pins sqlglot~=30.8.0; DataHub pins sqlglot[c]==30.12.0. Until
+    # sqlmesh widens its pin, keep it out of "all" so lock resolution succeeds.
+    "sqlmesh",
     # Debug recording is an optional debugging tool.
     "debug-recording",
 }
@@ -1164,6 +1190,7 @@ entry_points = {
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
         "sap-datasphere = datahub.ingestion.source.sap_datasphere.source:SapDatasphereSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
+        "sqlmesh = datahub.ingestion.source.sqlmesh.sqlmesh_source:SqlmeshSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
@@ -1184,6 +1211,7 @@ entry_points = {
         "powerbi-report-server = datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "informatica = datahub.ingestion.source.informatica.source:InformaticaSource",
+        "informix = datahub.ingestion.source.informix.source:InformixSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         # This is only here for backward compatibility. Use the `hive-metastore` source instead.
@@ -1324,6 +1352,7 @@ setuptools.setup(
         "datahub.ingestion.autogenerated": ["*.json"],
         "datahub.cli.gql": ["*.gql"],
         "datahub.cli.resources": ["*.md"],
+        "datahub.cli.datapack.resources": ["*.md", "*.json"],
     },
     # Install .pth files that run at interpreter startup:
     # - setproctitle patch avoids a SIGSEGV when a multi-threaded process forks
