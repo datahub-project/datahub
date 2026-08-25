@@ -6,6 +6,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Type
 
 import sqlglot
 from sqlglot import ParseError, expressions as exp
+from sqlparse.exceptions import SQLParseError
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter import mce_builder as builder
@@ -437,6 +438,26 @@ class AbstractLineage(ABC):
         except (ParseError, Exception):
             logger.debug(f"Failed to parse query as SQL: {query}")
             return False
+
+    def get_tables_using_old_parser(self, query: str) -> List[str]:
+        # sqlparse raises SQLParseError once its DoS-protection limits
+        # (MAX_GROUPING_DEPTH / MAX_GROUPING_TOKENS) are hit. Without this, the
+        # error escapes to the caller in parser.py, which abandons the remaining
+        # data-access functions for this table and reports the generic "Unknown
+        # M-Query Pattern" warning. Only that error is caught: anything else is a
+        # bug in get_tables and should not be relabelled as a parse failure.
+        try:
+            return native_sql_parser.get_tables(query)
+        except SQLParseError as e:
+            self.reporter.warning(
+                title=Constant.SQL_PARSING_FAILURE,
+                message="Native SQL exceeded the SQL parser's size limits, so "
+                "lineage for this query is skipped. Enabling "
+                "enable_advance_lineage_sql_construct uses the sqlglot-based parser instead.",
+                context=f"table-name={self.table.full_name}",
+                exc=e,
+            )
+            return []
 
     def parse_custom_sql(
         self,
@@ -1242,7 +1263,7 @@ class MSSqlLineage(TwoStepDataAccessPattern):
     ) -> List[DataPlatformTable]:
         dataplatform_tables: List[DataPlatformTable] = []
 
-        tables: List[str] = native_sql_parser.get_tables(query)
+        tables: List[str] = self.get_tables_using_old_parser(query)
 
         for parsed_table in tables:
             # components: List[str] = [v.strip("[]") for v in parsed_table.split(".")]
@@ -1500,7 +1521,7 @@ class NativeQueryLineage(AbstractLineage):
     def create_urn_using_old_parser(self, query: str, server: str) -> Lineage:
         dataplatform_tables: List[DataPlatformTable] = []
 
-        tables: List[str] = native_sql_parser.get_tables(query)
+        tables: List[str] = self.get_tables_using_old_parser(query)
 
         column_lineage = []
         for qualified_table_name in tables:

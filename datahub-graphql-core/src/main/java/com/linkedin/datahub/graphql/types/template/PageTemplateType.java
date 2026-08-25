@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.template;
 
 import static com.linkedin.metadata.Constants.DATAHUB_PAGE_TEMPLATE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATAHUB_PAGE_TEMPLATE_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
@@ -10,6 +11,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubPageTemplate;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
@@ -52,12 +54,18 @@ public class PageTemplateType
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          // dataHubPageTemplateProperties is a hydration-required aspect (see
+          // AspectUtils.HYDRATION_REQUIRED_ASPECTS) so it is always fetched.
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, DATAHUB_PAGE_TEMPLATE_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               DATAHUB_PAGE_TEMPLATE_ENTITY_NAME,
               new HashSet<>(applicationUrns),
-              ASPECTS_TO_FETCH);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : applicationUrns) {

@@ -1,0 +1,13 @@
+{
+    "addAttribute": "属性を追加",
+    "addError": "追加に失敗しました: \n {{error}}",
+    "addSuccess": "属性を追加しました！",
+    "modal.addTitle": "{{entityName}}を追加",
+    "modal.removeTitle": "{{entityName}}を削除",
+    "removeAttributeError": "属性の削除に失敗しました: \n {{error}}",
+    "removeConfirm.content": "属性「{{attributeName}}」を削除してもよろしいですか？",
+    "removeConfirm.title": "属性「{{attributeName}}」を削除しますか？",
+    "removeError": "削除に失敗しました: \n {{error}}",
+    "removeSuccess": "属性を削除しました！",
+    "searchPlaceholder": "{{entityName}}を検索..."
+}
