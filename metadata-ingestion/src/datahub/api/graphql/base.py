@@ -28,10 +28,13 @@ class BaseApi:
         source = "static token" if datahub_token else None
         if datahub_token is None and datahub_auth is None:
             # Env-based OAuth (DATAHUB_AUTH_TYPE) for an explicitly passed host.
-            # Resolved here because the emitter only does it for the
-            # "__from_env__" sentinel, and the Airflow circuit-breaker operators
-            # have no other route: they build their config from
-            # DatahubRestHook._get_config(), which cannot express an AuthConfig.
+            # The emitter also resolves this (#18547), but only onto
+            # session.auth; resolving here puts the declarative AuthConfig on
+            # DatahubClientConfig, so anything re-deriving a client from
+            # graph.config keeps the credentials. It is also the only route the
+            # Airflow circuit-breaker operators have: they build their config
+            # from DatahubRestHook._get_config(), which cannot express an
+            # AuthConfig.
             datahub_auth = build_auth_config_from_env()
             source = f"env OAuth ({datahub_auth.type})" if datahub_auth else None
         elif datahub_auth is not None:
