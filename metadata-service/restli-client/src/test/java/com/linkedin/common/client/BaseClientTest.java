@@ -18,6 +18,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.RequiredFieldNotPresentException;
@@ -245,6 +246,47 @@ public class BaseClientTest {
 
     // Verify all URNs were returned
     assertEquals(result.size(), 15);
+  }
+
+  @Test
+  public void testBatchIngestProposalsSendsPartitionNotFullCollection()
+      throws RemoteInvocationException {
+    // Regression: proposalsParam must use the partition, not the full input collection.
+    // Sending N on every request of size B multiplies work by ceil(N/B).
+    final int total = 15;
+    final int batchSize = 5;
+    List<MetadataChangeProposal> mcps = createTestMCPs(total);
+
+    ArgumentCaptor<ActionRequest> requestCaptor = ArgumentCaptor.forClass(ActionRequest.class);
+    when(mockRestliClient.sendRequest(requestCaptor.capture())).thenReturn(mockFuture);
+    when(mockFuture.getResponse()).thenReturn(mockResponse);
+    when(mockResponse.getEntity()).thenReturn("success");
+
+    testClient =
+        new RestliEntityClient(
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ExponentialBackoff(1))
+                .retryCount(0)
+                .batchGetV2Size(10)
+                .batchGetV2Concurrency(2)
+                .batchIngestSize(batchSize)
+                .batchIngestConcurrency(3)
+                .build(),
+            mockMetricUtils);
+
+    List<String> result = testClient.batchIngestProposals(opContext, mcps, false);
+
+    assertEquals(result.size(), total);
+    List<ActionRequest> requests = requestCaptor.getAllValues();
+    assertEquals(requests.size(), total / batchSize);
+    for (ActionRequest request : requests) {
+      DataList proposals = request.getInputRecord().data().getDataList("proposals");
+      assertEquals(
+          proposals.size(),
+          batchSize,
+          "Each ingest request must carry only its partition size, not the full input");
+    }
   }
 
   @Test
