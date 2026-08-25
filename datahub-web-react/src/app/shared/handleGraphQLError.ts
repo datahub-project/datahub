@@ -25,19 +25,23 @@ export default function handleGraphQLError({
     if (graphQLErrors && graphQLErrors.length) {
         const { extensions, message: serverMessage } = graphQLErrors[0];
         const errorCode = extensions && (extensions.code as number);
+        const errorSource = extensions && (extensions.errorSource as string);
         if (errorCode === ErrorCodes.Forbidden) {
-            // Server 403 messages (e.g. which privilege is missing) are actionable for the
-            // user, so surface them when present. Suppressing them is not a security measure
-            // anyway — the same message is readable via the API with the user's own token.
-            toast.error(serverMessage?.trim() || permissionMessage);
+            toast.error(permissionMessage);
+            return;
+        }
+        if (errorCode === ErrorCodes.BadRequest && errorSource === 'VALIDATION') {
+            // The server marked this BAD_REQUEST as validation-originated: its message is the
+            // specific validator text (rule names, offending values), strictly more useful than
+            // any generic override the caller passed — so the server message takes precedence.
+            toast.error(serverMessage?.trim() || badRequestMessage || defaultMessage);
             return;
         }
         if (errorCode === ErrorCodes.BadRequest) {
-            // 4xx messages describe the client's mistake (validator text, invalid input), so
-            // the server message takes precedence over any generic caller override. Only 5xx
-            // messages stay generic below — that's where internal failure detail (SQL/search
-            // engine errors) lives, which would only confuse users in a toast.
-            toast.error(serverMessage?.trim() || badRequestMessage || defaultMessage);
+            // Non-validation 400s keep master's behavior: only caller-supplied text is shown.
+            // Verbatim server messages are gated on errorSource=VALIDATION above so arbitrary
+            // BadRequest internals never leak to the toast.
+            toast.error(badRequestMessage || defaultMessage);
             return;
         }
         if (errorCode === ErrorCodes.ServerError && serverErrorMessage) {

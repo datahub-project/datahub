@@ -22,22 +22,9 @@ describe('handleGraphQLError', () => {
         vi.clearAllMocks();
     });
 
-    it('should show the server message for 403 Forbidden errors when present', () => {
+    it('should show permission message for 403 Forbidden errors', () => {
         const error = {
             graphQLErrors: [{ message: 'Access denied', extensions: { code: ErrorCodes.Forbidden } }],
-        };
-
-        handleGraphQLError({
-            error: error as any,
-            defaultMessage: 'Default error',
-        });
-
-        expect(toast.error).toHaveBeenCalledWith('Access denied');
-    });
-
-    it('should fall back to the permission message for 403 Forbidden errors with a blank server message', () => {
-        const error = {
-            graphQLErrors: [{ message: '  ', extensions: { code: ErrorCodes.Forbidden } }],
         };
 
         handleGraphQLError({
@@ -106,7 +93,7 @@ describe('handleGraphQLError', () => {
         expect(toast.error).toHaveBeenCalledWith('Bad request fallback');
     });
 
-    it('should show the server message for BadRequest errors without an errorSource too', () => {
+    it('should use badRequestMessage for non-validation BadRequest errors (no errorSource)', () => {
         const error = {
             graphQLErrors: [
                 {
@@ -122,7 +109,7 @@ describe('handleGraphQLError', () => {
             badRequestMessage: 'Bad request fallback',
         });
 
-        expect(toast.error).toHaveBeenCalledWith('Some other bad request error');
+        expect(toast.error).toHaveBeenCalledWith('Bad request fallback');
     });
 
     it('should use safe predefined message for ServerError (500), not expose server details', () => {

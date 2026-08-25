@@ -150,10 +150,11 @@ export const handleBatchError = (urns, e, defaultMessage) => {
         };
     }
     if (getGraphqlErrorCode(e) === 400) {
-        // 400 messages describe the client's mistake (validator text, invalid input), so
-        // surface the server's own message when present — same policy as handleGraphQLError.
+        // Surface the server's own message only when the server marked the 400 as
+        // validation-originated (errorSource=VALIDATION) — same gate as handleGraphQLError —
+        // so arbitrary BadRequest internals never leak into bulk-action toasts.
         const firstError = e.graphQLErrors?.[0];
-        if (firstError?.message?.trim()) {
+        if (firstError?.extensions?.errorSource === 'VALIDATION' && firstError?.message) {
             return { content: firstError.message, duration: 3 };
         }
     }
