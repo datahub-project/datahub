@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionHandler {
 
   private static final String DEFAULT_ERROR_MESSAGE = "An unknown error occurred.";
+  private static final String ERROR_SOURCE_VALIDATION = "VALIDATION";
 
   /**
    * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → {@link
@@ -47,11 +48,57 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
         findFirstThrowableCauseOfClass(exception, ValidationException.class);
     if (validationException != null) {
       log.error("Failed to execute", validationException);
+      // errorSource=VALIDATION tells the client this BAD_REQUEST's message is the real
+      // validator text, safe to surface verbatim (see handleGraphQLError.ts).
       return completedResult(
           extractErrorMessage(validationException),
           DataHubGraphQLErrorCode.BAD_REQUEST,
           path,
-          sourceLocation);
+          sourceLocation,
+          ERROR_SOURCE_VALIDATION);
+    }
+
+    // Distinct from the graphql-layer ValidationException above: this is metadata-io's
+    // validator-rejection exception (thrown by AspectsBatchImpl/EntityServiceImpl when an
+    // AspectPayloadValidator rejects a proposal). Its message is already a clean validator
+    // message (see ValidationExceptionCollection.getCollectiveMessage()), so no need to walk
+    // the cause chain - just classify it as BAD_REQUEST instead of falling through to the
+    // generic RuntimeException branch below, which would misclassify it as a 500.
+    com.linkedin.metadata.entity.validation.ValidationException metadataValidationException =
+        findFirstThrowableCauseOfClass(
+            exception, com.linkedin.metadata.entity.validation.ValidationException.class);
+    if (metadataValidationException != null) {
+      // Log the full per-entity/aspect breakdown (which urn/aspect failed, useful when a batch
+      // has multiple items) separately from the exception's own message, which is intentionally
+      // just the clean validator text now - see
+      // ValidationExceptionCollection.getCollectiveMessage().
+      log.error(
+          "Failed to execute: {}",
+          metadataValidationException.getValidationExceptionCollection(),
+          metadataValidationException);
+      // AUTHORIZATION-subtype failures (e.g. auth validators) are permission errors, not
+      // payload-validation errors: classify as 403 without the VALIDATION marker, mirroring
+      // the OpenAPI mapping in GlobalControllerExceptionHandler. Other subtypes (including
+      // PRECONDITION, which GraphQL has no distinct status for) stay 400/VALIDATION.
+      if (metadataValidationException.getValidationExceptionCollection() != null
+          && metadataValidationException
+              .getValidationExceptionCollection()
+              .getSubTypes()
+              .contains(
+                  com.linkedin.metadata.aspect.plugins.validation.ValidationSubType
+                      .AUTHORIZATION)) {
+        return completedResult(
+            metadataValidationException.getMessage(),
+            DataHubGraphQLErrorCode.UNAUTHORIZED,
+            path,
+            sourceLocation);
+      }
+      return completedResult(
+          metadataValidationException.getMessage(),
+          DataHubGraphQLErrorCode.BAD_REQUEST,
+          path,
+          sourceLocation,
+          ERROR_SOURCE_VALIDATION);
     }
 
     IllegalArgumentException illException =
@@ -122,7 +169,17 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       DataHubGraphQLErrorCode errorCode,
       ResultPath path,
       SourceLocation sourceLocation) {
-    DataHubGraphQLError error = new DataHubGraphQLError(message, path, sourceLocation, errorCode);
+    return completedResult(message, errorCode, path, sourceLocation, null);
+  }
+
+  private CompletableFuture<DataFetcherExceptionHandlerResult> completedResult(
+      String message,
+      DataHubGraphQLErrorCode errorCode,
+      ResultPath path,
+      SourceLocation sourceLocation,
+      String errorSource) {
+    DataHubGraphQLError error =
+        new DataHubGraphQLError(message, path, sourceLocation, errorCode, errorSource);
     return CompletableFuture.completedFuture(
         DataFetcherExceptionHandlerResult.newResult().error(error).build());
   }

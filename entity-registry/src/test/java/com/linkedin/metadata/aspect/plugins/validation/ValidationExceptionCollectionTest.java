@@ -222,6 +222,23 @@ public class ValidationExceptionCollectionTest {
   }
 
   @Test
+  public void testGetCollectiveMessage() {
+    BatchItem testItem =
+        TestMCP.ofOneMCP(TEST_URN, new Status(), testEntityRegistry).stream().findFirst().get();
+    AspectValidationException exception =
+        new AspectValidationException(testItem, ERROR_MESSAGE, ValidationSubType.VALIDATION, null);
+
+    collection.addException(exception);
+
+    // Unlike toString(), the collective message is just the validator's own message, without
+    // the EntityAspect/collection wrapper - safe to surface directly to end users.
+    String result = collection.getCollectiveMessage();
+    assertEquals(result, ERROR_MESSAGE);
+    assertFalse(result.contains("ValidationExceptionCollection"));
+    assertFalse(result.contains("EntityAspect:"));
+  }
+
+  @Test
   public void testAddAuthException() {
     BatchItem testItem =
         TestMCP.ofOneMCP(TEST_URN, new Status(), testEntityRegistry).stream().findFirst().get();

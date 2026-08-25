@@ -562,4 +562,59 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertTrue(error.getMessage().contains("Validation failed"));
     assertEquals(error.getErrorCode(), 400);
   }
+
+  private static com.linkedin.metadata.aspect.batch.BatchItem mockBatchItem() {
+    com.linkedin.metadata.aspect.batch.BatchItem item =
+        Mockito.mock(com.linkedin.metadata.aspect.batch.BatchItem.class);
+    Mockito.when(item.getChangeType()).thenReturn(com.linkedin.events.metadata.ChangeType.UPSERT);
+    Mockito.when(item.getUrn())
+        .thenReturn(
+            com.linkedin.common.urn.UrnUtils.getUrn(
+                "urn:li:dataset:(urn:li:dataPlatform:hive,handler_test,PROD)"));
+    Mockito.when(item.getAspectName()).thenReturn("datasetProperties");
+    return item;
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionMarksValidationSource()
+      throws ExecutionException, InterruptedException {
+    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
+        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
+            .newCollection();
+    collection.addException(mockBatchItem(), "At least one rule is required.");
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertTrue(error.getMessage().contains("At least one rule is required."));
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), "VALIDATION");
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionAuthorizationSubtypeIs403()
+      throws ExecutionException, InterruptedException {
+    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
+        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
+            .newCollection();
+    collection.addException(
+        com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forAuth(
+            mockBatchItem(), "Not authorized to modify this aspect"));
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    // Authorization-subtype validator failures are permission errors: 403, no VALIDATION marker.
+    assertEquals(error.getErrorCode(), 403);
+    assertTrue(error.getMessage().contains("Not authorized to modify this aspect"));
+    assertEquals(error.getExtensions().get("errorSource"), null);
+  }
 }
