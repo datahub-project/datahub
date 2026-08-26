@@ -17,6 +17,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
@@ -46,6 +47,7 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class EntityAuthorizationUtilsTest {
@@ -332,7 +334,13 @@ public class EntityAuthorizationUtilsTest {
     when(aspectRetriever.entityExists(opContext, Set.of(DOCUMENT_URN)))
         .thenReturn(Map.of(DOCUMENT_URN, false));
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedUrns(opContext, ENTITY, Set.of(createAuthorizationKey)))
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    eq(opContext),
+                    eq(ENTITY),
+                    eq(Set.of(createAuthorizationKey)),
+                    eq(Map.of(DOCUMENT_URN, false))))
         .thenReturn(Map.of(createAuthorizationKey, 403));
 
     List<Pair<MetadataChangeProposal, Integer>> result =
@@ -385,7 +393,13 @@ public class EntityAuthorizationUtilsTest {
     when(aspectRetriever.entityExists(opContext, Set.of(DOCUMENT_URN)))
         .thenReturn(Map.of(DOCUMENT_URN, false));
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedUrns(opContext, ENTITY, Set.of(createAuthorizationKey)))
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    eq(opContext),
+                    eq(ENTITY),
+                    eq(Set.of(createAuthorizationKey)),
+                    eq(Map.of(DOCUMENT_URN, false))))
         .thenReturn(Map.of(createAuthorizationKey, 201));
 
     try (MockedStatic<EntityKeyUtils> entityKeyUtils = Mockito.mockStatic(EntityKeyUtils.class)) {
@@ -401,7 +415,7 @@ public class EntityAuthorizationUtilsTest {
   }
 
   @Test
-  public void testIngestAuthorization_nonDocumentSkipsExistenceLookup() {
+  public void testIngestAuthorization_nonDocumentUsesExistenceAwareAuth() {
     EntityRegistry entityRegistry = mock(EntityRegistry.class);
     MetadataChangeProposal proposal =
         new MetadataChangeProposal()
@@ -410,21 +424,23 @@ public class EntityAuthorizationUtilsTest {
             .setChangeType(ChangeType.UPSERT);
     Pair<ChangeType, Urn> authorizationKey = Pair.of(ChangeType.UPSERT, DATASET_URN);
     authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
-    documentAuthMock
+    when(aspectRetriever.entityExists(opContext, Set.of(DATASET_URN)))
+        .thenReturn(Map.of(DATASET_URN, false));
+    authUtilMock
         .when(
             () ->
-                DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
-                    ChangeType.UPSERT, DATASET_URN, false))
-        .thenReturn(authorizationKey);
-    authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedUrns(opContext, ENTITY, Set.of(authorizationKey)))
+                AuthUtil.isAPIAuthorizedUrns(
+                    eq(opContext),
+                    eq(ENTITY),
+                    eq(Set.of(authorizationKey)),
+                    eq(Map.of(DATASET_URN, false))))
         .thenReturn(Map.of(authorizationKey, 200));
 
     assertEquals(
         EntityAuthorizationUtils.isAPIAuthorizedIngest(
             opContext, entityRegistry, List.of(proposal)),
         List.of(Pair.of(proposal, 200)));
-    Mockito.verify(aspectRetriever, Mockito.never()).entityExists(any(), any());
+    Mockito.verify(aspectRetriever).entityExists(opContext, Set.of(DATASET_URN));
   }
 
   @Test
@@ -507,5 +523,38 @@ public class EntityAuthorizationUtilsTest {
 
       assertTrue(EntityAuthorizationUtils.canViewEntity(opContext, SCHEMA_FIELD_URN));
     }
+  }
+
+  @DataProvider(name = "batchItemsAuthorizationCases")
+  public Object[][] batchItemsAuthorizationCases() {
+    return new Object[][] {
+      // Existing entity: CREATE_ENTITY aspect write is existence-aware and can be denied
+      {ChangeType.CREATE_ENTITY, "domains", true, 403},
+      // Missing entity: UPSERT is authorized as create and allowed
+      {ChangeType.UPSERT, "datasetProperties", false, 200},
+    };
+  }
+
+  @Test(dataProvider = "batchItemsAuthorizationCases")
+  public void testBatchItemsAuthorization_existenceAware(
+      ChangeType changeType, String aspectName, boolean entityExists, int expectedStatus) {
+    BatchItem item = mock(BatchItem.class);
+    when(item.getUrn()).thenReturn(DATASET_URN);
+    when(item.getChangeType()).thenReturn(changeType);
+    when(item.getAspectName()).thenReturn(aspectName);
+    Pair<ChangeType, Urn> authorizationKey = Pair.of(changeType, DATASET_URN);
+    Map<Urn, Boolean> existence = Map.of(DATASET_URN, entityExists);
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+    when(aspectRetriever.entityExists(opContext, Set.of(DATASET_URN))).thenReturn(existence);
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    eq(opContext), eq(ENTITY), eq(Set.of(authorizationKey)), eq(existence)))
+        .thenReturn(Map.of(authorizationKey, expectedStatus));
+
+    assertEquals(
+        EntityAuthorizationUtils.isAPIAuthorizedBatchItems(opContext, List.of(item)),
+        List.of(Pair.of(item, expectedStatus)));
   }
 }

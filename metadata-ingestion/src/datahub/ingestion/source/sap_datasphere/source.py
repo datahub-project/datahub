@@ -101,6 +101,7 @@ from datahub.ingestion.source.sap_datasphere.graph_resolver import (
 )
 from datahub.ingestion.source.sap_datasphere.lineage import (
     CsnLineageExtractor,
+    is_qualified,
     parse_remote_table_source,
 )
 from datahub.ingestion.source.sap_datasphere.models import (
@@ -121,6 +122,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     TransformOp,
     UnknownColumnType,
     UpstreamRef,
+    dedup_preserving_order,
 )
 from datahub.ingestion.source.sap_datasphere.platform_mapping import (
     PlatformMappingResolver,
@@ -1512,6 +1514,13 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
 
+    def _business_layer_upstream_urn(self, space_name: str, key: str) -> str:
+        # Bare same-space BL keys need the AM's space; dotted keys are already
+        # space-qualified (same heuristic as query-FROM lineage).
+        return self._qualified_upstream_urn(
+            key if is_qualified(key) else f"{space_name}.{key}"
+        )
+
     def _apply_business_layer_guarded(
         self,
         csn_obj: Optional[Dict],
@@ -1530,6 +1539,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 schema_fields,
                 custom_properties,
                 query_upstreams,
+                space_name,
             )
         except Exception as e:
             self.report.warning(
@@ -1549,6 +1559,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         schema_fields: Optional[List[SchemaFieldClass]],
         custom_properties: Dict[str, str],
         query_upstreams: Optional[UpstreamLineageClass],
+        space_name: str,
     ) -> Optional[UpstreamLineageClass]:
         """Wire an analytic model's businessLayerDefinitions in as the authoritative table-level lineage, replacing the query-FROM upstreams (which may double-prefix the fact's space)."""
         bld = (csn_obj or {}).get(CSN_KEY_BUSINESS_LAYER)
@@ -1573,15 +1584,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if not bl.upstream_keys:
             return query_upstreams
 
-        bl_upstream_urns = {
-            self._qualified_upstream_urn(key) for key in bl.upstream_keys
-        }
-        upstreams = [
-            UpstreamClass(
-                dataset=self._qualified_upstream_urn(key),
-                type=DatasetLineageTypeClass.VIEW,
-            )
+        # One URN per key — shared by table upstreams and the FGL retention filter.
+        bl_upstream_urns = dedup_preserving_order(
+            self._business_layer_upstream_urn(space_name, key)
             for key in bl.upstream_keys
+        )
+        upstreams = [
+            UpstreamClass(dataset=urn, type=DatasetLineageTypeClass.VIEW)
+            for urn in bl_upstream_urns
         ]
 
         fine_grained = None

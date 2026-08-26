@@ -54,11 +54,12 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import StructuredPropertyUrn
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.CATALOG)]
 
 
 def _is_transient_sp_error(exc: BaseException) -> bool:
@@ -330,7 +331,7 @@ def timeline_urns(graph_client):
         graph_client,
         MetadataChangeProposalWrapper(entityUrn=urns.sp_urn, aspect=sp_def),
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     # --- Dataset ---
     graph_client.emit_mcp(
@@ -415,7 +416,7 @@ def timeline_urns(graph_client):
         )
     )
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     yield urns
 
