@@ -331,7 +331,8 @@ public class EntitiesControllerTest {
         Set.of(
             PoliciesConfig.VIEW_ENTITY_QUERIES_PRIVILEGE.getType(),
             PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType(),
-            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType());
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
+            PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE.getType());
     org.mockito.stubbing.Answer<AuthorizationResult> answer =
         invocation -> {
           AuthorizationRequest authRequest = invocation.getArgument(0);
@@ -350,6 +351,114 @@ public class EntitiesControllerTest {
         TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever);
     return new EntitiesController(
         queryAuthSystemContext, entityService, objectMapper, authorizerChain);
+  }
+
+  private Map<Urn, EntityResponse> datasetWithViewPropertiesResponse() {
+    com.linkedin.dataset.ViewProperties viewProperties =
+        new com.linkedin.dataset.ViewProperties()
+            .setMaterialized(false)
+            .setViewLogic("SELECT sensitive FROM restricted_table")
+            .setViewLanguage("SQL");
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(SUBJECT_URN);
+    entityResponse.setEntityName(Constants.DATASET_ENTITY_NAME);
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(
+        Constants.VIEW_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setName(Constants.VIEW_PROPERTIES_ASPECT_NAME)
+            .setValue(new com.linkedin.entity.Aspect(viewProperties.data())));
+    entityResponse.setAspects(aspectMap);
+    Map<Urn, EntityResponse> responses = new HashMap<>();
+    responses.put(SUBJECT_URN, entityResponse);
+    return responses;
+  }
+
+  /**
+   * Regression test for the gap Cursor Bugbot flagged on PR #16319: unlike GraphQL's {@code
+   * DatasetMapper}, this generic OpenAPI read path had no per-field redaction, so {@code
+   * viewProperties} was returned unconditionally. An actor lacking {@code VIEW_ENTITY_QUERIES} on
+   * the dataset must not see the aspect at all in the response passed to {@code
+   * MappingUtil.mapServiceResponse}.
+   */
+  @Test
+  public void testGetDatasetViewPropertiesWithheldWithoutViewEntityQueries() throws Exception {
+    String[] urns = {SUBJECT_URN.toString()};
+    String[] aspectNames = {Constants.VIEW_PROPERTIES_ASPECT_NAME};
+
+    EntitiesController queryController = queryAuthController(false);
+    when(entityService.getEntitiesV2(any(), anyString(), anySet(), anySet()))
+        .thenReturn(datasetWithViewPropertiesResponse());
+
+    try (MockedStatic<AuthenticationContext> authContext =
+            Mockito.mockStatic(AuthenticationContext.class);
+        MockedStatic<AuthUtil> authUtil =
+            Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS);
+        MockedStatic<MappingUtil> mappingUtil = Mockito.mockStatic(MappingUtil.class)) {
+
+      authContext.when(AuthenticationContext::getAuthentication).thenReturn(authentication);
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      java.util.concurrent.atomic.AtomicReference<Map<Urn, EntityResponse>> captured =
+          new java.util.concurrent.atomic.AtomicReference<>();
+      mappingUtil
+          .when(() -> MappingUtil.mapServiceResponse(any(), any()))
+          .thenAnswer(
+              invocation -> {
+                captured.set(invocation.getArgument(0));
+                return new HashMap<>();
+              });
+
+      queryController.getEntities(request, urns, aspectNames);
+
+      assertTrue(
+          captured.get().get(SUBJECT_URN).getAspects().isEmpty()
+              || !captured
+                  .get()
+                  .get(SUBJECT_URN)
+                  .getAspects()
+                  .containsKey(Constants.VIEW_PROPERTIES_ASPECT_NAME),
+          "viewProperties leaked to an actor lacking VIEW_ENTITY_QUERIES");
+    }
+  }
+
+  /** Mirror allow-case: an actor granted VIEW_ENTITY_QUERIES still sees viewProperties. */
+  @Test
+  public void testGetDatasetViewPropertiesShownWithViewEntityQueries() throws Exception {
+    String[] urns = {SUBJECT_URN.toString()};
+    String[] aspectNames = {Constants.VIEW_PROPERTIES_ASPECT_NAME};
+
+    EntitiesController queryController = queryAuthController(true);
+    when(entityService.getEntitiesV2(any(), anyString(), anySet(), anySet()))
+        .thenReturn(datasetWithViewPropertiesResponse());
+
+    try (MockedStatic<AuthenticationContext> authContext =
+            Mockito.mockStatic(AuthenticationContext.class);
+        MockedStatic<AuthUtil> authUtil =
+            Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS);
+        MockedStatic<MappingUtil> mappingUtil = Mockito.mockStatic(MappingUtil.class)) {
+
+      authContext.when(AuthenticationContext::getAuthentication).thenReturn(authentication);
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      java.util.concurrent.atomic.AtomicReference<Map<Urn, EntityResponse>> captured =
+          new java.util.concurrent.atomic.AtomicReference<>();
+      mappingUtil
+          .when(() -> MappingUtil.mapServiceResponse(any(), any()))
+          .thenAnswer(
+              invocation -> {
+                captured.set(invocation.getArgument(0));
+                return new HashMap<>();
+              });
+
+      queryController.getEntities(request, urns, aspectNames);
+
+      assertTrue(
+          captured
+              .get()
+              .get(SUBJECT_URN)
+              .getAspects()
+              .containsKey(Constants.VIEW_PROPERTIES_ASPECT_NAME),
+          "viewProperties must remain for an actor holding VIEW_ENTITY_QUERIES");
+    }
   }
 
   private Map<Urn, EntityResponse> queryEntityServiceResponse() {

@@ -2,23 +2,20 @@ package com.linkedin.datahub.graphql.resolvers.dataset;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.isViewDatasetUsageAuthorized;
 
-import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.Constants;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
 import com.linkedin.datahub.graphql.types.usage.UsageQueryResultMapper;
+import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageTimeRange;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
@@ -105,41 +102,38 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
    * per-statement authorization is impossible here:
    *
    * <ul>
-   *   <li>Default (any-subject) mode: SQL is permitted iff the actor holds the privilege on THIS
-   *       dataset — consistent with the any-subject rule, since every statement in the list ran
-   *       against this dataset.
-   *   <li>Strict ({@code requireAllSubjects}) mode: SQL is ALWAYS restricted, even for actors
-   *       holding the privilege on this dataset — a statement may reference other datasets the
-   *       actor cannot see, and that cannot be verified for bare strings. Documented limitation of
-   *       strict mode. Supporting topSqlQueries under strict mode would require the usage documents
-   *       written to Elasticsearch ({@code DatasetUsageStatistics}) to carry something like a
-   *       {@code topSqlQueries[].referencedDatasets} attribute alongside each statement (or a Query
-   *       entity urn reference), so the privilege could be enforced per statement at read time;
-   *       ingestion already computes those associations when parsing query logs, but today it
-   *       stores only the bare strings.
+   *   <li>{@code VIEW_ALL_QUERIES} (see {@link
+   *       com.linkedin.metadata.authorization.PoliciesConfig#VIEW_ALL_QUERIES_PRIVILEGE}):
+   *       platform-level, unrestricted in every mode. Since it grants visibility into every query
+   *       platform-wide regardless of subject datasets, per-statement dataset association is moot
+   *       for an actor holding it — there is no "other dataset" whose SQL they aren't already
+   *       entitled to see.
+   *   <li>Default (any-subject) mode, without {@code VIEW_ALL_QUERIES}: SQL is permitted iff the
+   *       actor holds {@code VIEW_ENTITY_QUERIES} on THIS dataset — consistent with the any-subject
+   *       rule, since every statement in the list ran against this dataset.
+   *   <li>Strict ({@code requireAllSubjects}) mode, without {@code VIEW_ALL_QUERIES}: SQL is ALWAYS
+   *       restricted, even for actors holding {@code VIEW_ENTITY_QUERIES} on this dataset — a
+   *       statement may reference other datasets the actor cannot see, and that cannot be verified
+   *       for bare strings. Documented limitation of strict mode. Supporting topSqlQueries under
+   *       strict mode would require the usage documents written to Elasticsearch ({@code
+   *       DatasetUsageStatistics}) to carry something like a {@code
+   *       topSqlQueries[].referencedDatasets} attribute alongside each statement (or a Query entity
+   *       urn reference), so the privilege could be enforced per statement at read time; ingestion
+   *       already computes those associations when parsing query logs, but today it stores only the
+   *       bare strings.
    * </ul>
    *
-   * <p>Governed by the dedicated {@code authorization.view.queryEntities} flag only (disabled flag
-   * = no restriction), with the usual system-actor bypass.
+   * <p>Delegates to {@link EntityAspectAuthorizationUtils#isTopSqlQueriesRestricted}, which is
+   * governed by {@link EntityAspectAuthorizationUtils#isQueryViewAuthorizationEnabled} (dedicated
+   * flag OR the legacy view-authorization master switch) rather than the dedicated flag alone, so
+   * this resolver and Rest.li's {@code UsageStats} action resource — the other caller — can never
+   * drift out of agreement on when enforcement is active the way this method's own inline copy of
+   * the enabled-check once did.
    */
   private static boolean isTopSqlQueriesRestricted(
       final QueryContext context, final Urn resourceUrn) {
-    final OperationContext opContext = context.getOperationContext();
-    final ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig queryEntities =
-        opContext
-            .getOperationContextConfig()
-            .getViewAuthorizationConfiguration()
-            .getQueryEntities();
-    final boolean enabled = queryEntities == null || queryEntities.isEnabled();
-    final boolean requireAllSubjects =
-        queryEntities != null && queryEntities.isRequireAllSubjects();
-    if (!enabled || opContext.isSystemAuth()) {
-      return false;
-    }
-    if (requireAllSubjects) {
-      return true;
-    }
-    return !AuthorizationUtils.canViewEntityQueries(List.of(resourceUrn), context);
+    return EntityAspectAuthorizationUtils.isTopSqlQueriesRestricted(
+        context.getOperationContext(), resourceUrn);
   }
 
   private static void removeTopSqlQueries(final UsageQueryResult result) {

@@ -15,7 +15,12 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -55,6 +60,10 @@ public class EntityAuthorizationUtilsTest {
   private static final Urn DOCUMENT_URN = UrnUtils.getUrn("urn:li:document:facade-doc");
   private static final Urn DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,facade,PROD)");
+  private static final Urn ALLOWED_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,allowed,PROD)");
+  private static final Urn DATA_JOB_URN =
+      UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,flow,PROD),task)");
   private static final Urn QUERY_URN = UrnUtils.getUrn("urn:li:query:facade-query");
   private static final Urn SCHEMA_FIELD_URN =
       UrnUtils.getUrn(
@@ -496,6 +505,28 @@ public class EntityAuthorizationUtilsTest {
   }
 
   @Test
+  public void testIsAPIAuthorizedEntityUrns_queryReadBypassedForSystemAuth() {
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+    when(opContext.isSystemAuth()).thenReturn(true);
+    try (MockedStatic<EntityAspectAuthorizationUtils> queryAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      queryAuth
+          .when(() -> EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(opContext))
+          .thenReturn(true);
+
+      assertTrue(
+          EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(QUERY_URN)),
+          "system-auth query reads must bypass subject-derived filtering, as the GraphQL query"
+              + " paths already do");
+      queryAuth.verify(
+          () ->
+              EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+                  any(), any(), any(), any(), Mockito.anyBoolean()),
+          Mockito.never());
+    }
+  }
+
+  @Test
   public void testCanViewEntity_delegatesQueries() {
     try (MockedStatic<EntityAspectAuthorizationUtils> queryAuth =
         Mockito.mockStatic(EntityAspectAuthorizationUtils.class)) {
@@ -560,5 +591,101 @@ public class EntityAuthorizationUtilsTest {
     assertEquals(
         EntityAuthorizationUtils.isAPIAuthorizedBatchItems(opContext, List.of(item)),
         List.of(Pair.of(item, expectedStatus)));
+  }
+
+  /**
+   * Regression coverage for the gap Cursor Bugbot flagged on PR #16319: OpenAPI (v1/v2/v3) and
+   * Rest.li entity reads serialize aspect content generically, with no per-field mapper the way
+   * GraphQL has, so {@code viewProperties}/{@code dataTransformLogic} were exposed unconditionally
+   * on those surfaces even after the GraphQL mappers were gated. {@link
+   * EntityAuthorizationUtils#isQuerySqlAspectRestricted} is the shared predicate every one of those
+   * surfaces now consults before including either aspect in a response.
+   */
+  @Test
+  public void testIsQuerySqlAspectRestricted_onlyMatchesSqlBearingAspectOnCorrectEntityType() {
+    try (MockedStatic<EntityAspectAuthorizationUtils> queryAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class)) {
+      queryAuth
+          .when(() -> EntityAspectAuthorizationUtils.canViewQueriesOnEntity(opContext, DATASET_URN))
+          .thenReturn(false);
+      queryAuth
+          .when(
+              () -> EntityAspectAuthorizationUtils.canViewQueriesOnEntity(opContext, DATA_JOB_URN))
+          .thenReturn(false);
+
+      assertTrue(
+          EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+              opContext, DATASET_URN, Constants.VIEW_PROPERTIES_ASPECT_NAME),
+          "dataset viewProperties must be restricted when the actor lacks query-view access");
+      assertTrue(
+          EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+              opContext, DATA_JOB_URN, Constants.DATA_TRANSFORM_LOGIC_ASPECT_NAME),
+          "dataJob dataTransformLogic must be restricted when the actor lacks query-view access");
+      assertFalse(
+          EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+              opContext, DATASET_URN, Constants.DATASET_PROPERTIES_ASPECT_NAME),
+          "non-SQL-bearing aspects on a dataset are never restricted by this check");
+      assertFalse(
+          EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+              opContext, DATA_JOB_URN, Constants.VIEW_PROPERTIES_ASPECT_NAME),
+          "viewProperties is only SQL-bearing on datasets, not data jobs");
+    }
+  }
+
+  @Test
+  public void testIsQuerySqlAspectRestricted_falseWhenActorHasQueryViewAccess() {
+    try (MockedStatic<EntityAspectAuthorizationUtils> queryAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class)) {
+      queryAuth
+          .when(() -> EntityAspectAuthorizationUtils.canViewQueriesOnEntity(opContext, DATASET_URN))
+          .thenReturn(true);
+
+      assertFalse(
+          EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+              opContext, DATASET_URN, Constants.VIEW_PROPERTIES_ASPECT_NAME));
+    }
+  }
+
+  @Test
+  public void testRedactUnauthorizedQuerySqlAspects_removesOnlyRestrictedAspects() {
+    try (MockedStatic<EntityAspectAuthorizationUtils> queryAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class)) {
+      queryAuth
+          .when(() -> EntityAspectAuthorizationUtils.canViewQueriesOnEntity(opContext, DATASET_URN))
+          .thenReturn(false);
+      queryAuth
+          .when(
+              () ->
+                  EntityAspectAuthorizationUtils.canViewQueriesOnEntity(
+                      opContext, ALLOWED_DATASET_URN))
+          .thenReturn(true);
+
+      EntityResponse restrictedDataset = entityResponseWithViewProperties(DATASET_URN);
+      EntityResponse allowedDataset = entityResponseWithViewProperties(ALLOWED_DATASET_URN);
+      Map<Urn, EntityResponse> responses =
+          Map.of(DATASET_URN, restrictedDataset, ALLOWED_DATASET_URN, allowedDataset);
+
+      EntityAuthorizationUtils.redactUnauthorizedQuerySqlAspects(opContext, responses);
+
+      assertFalse(
+          restrictedDataset.getAspects().containsKey(Constants.VIEW_PROPERTIES_ASPECT_NAME),
+          "viewProperties must be removed for an actor lacking query-view access");
+      assertTrue(
+          allowedDataset.getAspects().containsKey(Constants.VIEW_PROPERTIES_ASPECT_NAME),
+          "viewProperties must remain for an actor with query-view access");
+    }
+  }
+
+  private static EntityResponse entityResponseWithViewProperties(Urn urn) {
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.VIEW_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setName(Constants.VIEW_PROPERTIES_ASPECT_NAME)
+            .setValue(new Aspect()));
+    return new EntityResponse()
+        .setUrn(urn)
+        .setEntityName(Constants.DATASET_ENTITY_NAME)
+        .setAspects(aspects);
   }
 }

@@ -498,6 +498,7 @@ These privileges are for DataHub operators to access & manage the administrative
 | Manage Platform Settings[^1]    | Allow actor to view and change platform-level settings, like integrations & notifications.                                                                                                                                            |
 | Manage Monitors[^1]             | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care.                                                                                                                    |
 | View Manage Tags                | Allow the actor to view the Manage Tags page.                                                                                                                                                                                         |
+| View All Queries                | Allow actor to view every Query entity, including ones with no recorded subject dataset (orphan queries), which **View Entity Queries** alone can never grant access to — see [Query entities](#query-entities).                      |
 
 #### Entity Management
 
@@ -610,12 +611,14 @@ Domain URNs are read from the product's `domains` aspect, preferring `domainAsso
 
 #### Query entities
 
-| Operation                                                           | Privilege evaluated                                  | Resource                                     |
-| ------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------- |
-| Create / update / delete Query                                      | **Edit Dataset Queries** (or **Edit Entity**)        | Each subject dataset in `querySubjects`      |
-| Read Query metadata (GraphQL, Rest.li, search when view auth is on) | **View Entity Page** **or** **Edit Dataset Queries** | **Every** subject dataset in `querySubjects` |
+| Operation                                       | Privilege evaluated                                                                                | Resource                                                                                                                                             |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Create / update / delete Query                  | **Edit Dataset Queries** (or **Edit Entity**)                                                      | Each subject dataset in `querySubjects`                                                                                                              |
+| Read Query (GraphQL, Rest.li, OpenAPI v1/v2/v3) | **View Entity Queries**, **Edit Dataset Queries**, or all privileges — **or** **View All Queries** | **At least one** subject dataset in `querySubjects` (default); **every** subject dataset when `QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS=true` |
 
-Query entities with **no subjects** are not readable when view authorization is enabled (fail-closed). Schema field subjects are resolved to their parent dataset for authorization. **Edit Entity** on a subject dataset also grants read access (same disjunction as write).
+**View All Queries** is a platform privilege, not tied to any dataset, and is checked before the subject-dataset logic above: an actor who holds it can read any Query regardless of subjects. This is the only way to read a Query with **no subjects at all** — such a Query has no dataset for the ordinary privileges to be checked against, so it is otherwise denied to every actor, including root/admin, in both modes. It is also the only way to read one under `QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS=true` when the Query has subjects but the actor's grant doesn't cover all of them.
+
+Schema field subjects are resolved to their parent dataset for authorization. Read enforcement is controlled by `QUERY_ENTITY_AUTHORIZATION_ENABLED` (default `true`), independently of the general `VIEW_AUTHORIZATION_ENABLED` switch (default `false`) — disabling the latter does not disable query read authorization.
 
 #### Schema field entities (view)
 
@@ -669,7 +672,7 @@ These privileges are not generalizable.
 
 | Entity       | Privilege                                 | Description                                                                                                                                                                                                                                |
 | ------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Dataset      | View Dataset Usage                        | Allow actor to access dataset usage information (includes usage statistics and queries). Also required to read dashboard `dashboardUsageStatistics` timeseries data.                                                                       |
+| Dataset      | View Dataset Usage                        | Allow actor to access dataset usage information (numeric statistics). Also required to read dashboard `dashboardUsageStatistics` timeseries data. When `QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS=true`, holding **View Entity Queries** on the dataset is not sufficient to see the SQL text of the dataset's most frequently run queries — **View All Queries** is also required. See [Query entities](#query-entities). |
 | Dataset      | View Dataset Profile                      | Allow actor to access dataset profile (snapshot statistics) on GraphQL, Rest.li, and OpenAPI.                                                                                                                                              |
 | Dataset      | Edit Dataset Column Descriptions          | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                                                                                      |
 | Dataset      | Edit Dataset Column Tags                  | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                                                                                              |

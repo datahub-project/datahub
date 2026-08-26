@@ -27,6 +27,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
@@ -133,12 +134,23 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     return AuthUtil.isAuthorizedUrns(context.getOperationContext(), LINEAGE, UPDATE, List.of(urn));
   }
 
+  /**
+   * Whether {@code canViewQueries} should read as granted for this entity — delegates to {@link
+   * EntityAspectAuthorizationUtils#canViewQueriesOnEntity}, which folds in the escape valve
+   * (query-view authorization disabled) and system auth alongside the ordinary per-entity check,
+   * matching the same guard {@code ListQueriesResolver}/{@code QueryType} apply before their own
+   * subject-dataset lookups.
+   */
+  private boolean canViewQueries(Urn urn, QueryContext context) {
+    return EntityAspectAuthorizationUtils.canViewQueriesOnEntity(
+        context.getOperationContext(), urn);
+  }
+
   private EntityPrivileges getDatasetPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
     // Schema Field Edits are a bit of a hack.
-    result.setCanViewQueries(
-        AuthorizationUtils.canViewEntityQueries(ImmutableList.of(urn), context));
+    result.setCanViewQueries(canViewQueries(urn, context));
     result.setCanEditQueries(AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context));
     result.setCanEditSchemaFieldTags(
         LabelUtils.isAuthorizedToUpdateTags(
@@ -159,8 +171,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   private EntityPrivileges getChartPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
-    result.setCanViewQueries(
-        AuthorizationUtils.canViewEntityQueries(ImmutableList.of(urn), context));
+    result.setCanViewQueries(canViewQueries(urn, context));
     addCommonPrivileges(result, urn, context);
     return result;
   }
@@ -174,8 +185,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
 
   private EntityPrivileges getDataJobPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
-    result.setCanViewQueries(
-        AuthorizationUtils.canViewEntityQueries(ImmutableList.of(urn), context));
+    result.setCanViewQueries(canViewQueries(urn, context));
     addCommonPrivileges(result, urn, context);
     return result;
   }

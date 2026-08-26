@@ -723,6 +723,12 @@ public class EntityController
                             lookupAspectSpec(u, name).map(AspectSpec::isTimeseries).orElse(false));
                 aspectItemMap =
                     SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, u, aspectItemMap);
+                aspectItemMap
+                    .keySet()
+                    .removeIf(
+                        aspectName ->
+                            EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+                                opContext, u, aspectName));
 
                 return GenericEntityV3.builder().build(objectMapper, u, aspectItemMap);
               })

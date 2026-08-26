@@ -4113,13 +4113,16 @@ type ViewProperties {
   materialized: Boolean!
 
   """
-  The logic associated with the view, most commonly a SQL statement
+  The logic associated with the view, most commonly a SQL statement. Null when the requesting
+  actor lacks VIEW_ENTITY_QUERIES (or VIEW_ALL_QUERIES) on the dataset -- materialized/language
+  remain populated regardless, since only the SQL text itself is privilege-gated.
   """
-  logic: String!
+  logic: String
 
   """
   A formatted version of the logic associated with the view.
-  For dbt, this contains the compiled SQL.
+  For dbt, this contains the compiled SQL. Null when the requesting actor lacks
+  VIEW_ENTITY_QUERIES (or VIEW_ALL_QUERIES) on the dataset, same as logic.
   """
   formattedLogic: String
 
