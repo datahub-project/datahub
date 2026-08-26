@@ -1043,6 +1043,37 @@ class TestStateStorage:
 
                 assert consumer.suppress_offset_commits is True
 
+    def test_event_exception_suppresses_offset_commit(self, ctx, config, mock_graph):
+        """An exception escaping the event loop (e.g. the max-document limit
+        abort) leaves events unprocessed with no per-document failure counted —
+        offsets must still be held so those events are not acknowledged."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.config.event_mode.enabled = True
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_event_offset.return_value = "offset-1"
+
+            with (
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.DocumentEventConsumer"
+                ) as mock_consumer_cls,
+                patch.object(
+                    source,
+                    "_process_single_event",
+                    side_effect=RuntimeError("Document limit of 100000 reached"),
+                ),
+                patch.object(source, "_process_batch_mode", return_value=iter([])),
+            ):
+                consumer = mock_consumer_cls.return_value
+                consumer.consume_events.return_value = iter([{"entityUrn": "urn:x"}])
+                consumer.suppress_offset_commits = False
+
+                list(source._process_event_mode())
+
+                assert consumer.suppress_offset_commits is True
+
     def test_event_success_commits_offsets(self, ctx, config, mock_graph):
         """Successful event processing must not suppress offset commits."""
         with mock_graph:

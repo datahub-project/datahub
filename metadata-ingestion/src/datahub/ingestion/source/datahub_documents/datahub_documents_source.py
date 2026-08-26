@@ -641,8 +641,14 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # A batch fallback above aborted systemically and already reported a
             # specific failure. Falling back again would replay a full
             # enumeration + hydration storm against GMS for the same outcome.
+            # Do not acknowledge events we did not finish processing.
+            event_consumer.suppress_offset_commits = True
             raise
         except Exception as e:
+            # An exception escaping the loop (e.g. the max-document limit abort)
+            # leaves events unprocessed with no failure counted per document —
+            # committing offsets would drop them, so hold the window here too.
+            event_consumer.suppress_offset_commits = True
             # Catch any errors during event processing and fall back to batch mode
             error_msg = str(e)
             logger.error(
