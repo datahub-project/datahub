@@ -38,7 +38,6 @@ from datahub.executor.execution.sub_process_task_common import (
     resolve_wrapper_script,
 )
 from datahub.executor.execution.task import Task, TaskError
-from datahub.masking.bootstrap import shutdown_secret_masking
 from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -208,12 +207,6 @@ class SubProcessTestConnectionTask(Task):
 
             # Cleanup execution directory
             SubProcessTaskUtil._remove_directory(exec_out_dir)
-
-            # Shutdown DataHub masking framework
-            try:
-                shutdown_secret_masking()
-            except Exception as e:
-                logger.warning(f"Failed to shutdown secret masking: {e}")
 
         if return_code != 0:
             # Failed

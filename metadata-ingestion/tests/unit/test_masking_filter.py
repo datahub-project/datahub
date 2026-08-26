@@ -15,6 +15,7 @@ import sys
 import threading
 import time
 from io import StringIO
+from unittest.mock import patch
 
 import pytest
 
@@ -22,6 +23,7 @@ from datahub.masking.masking_filter import (
     SecretMaskingFilter,
     StreamMaskingWrapper,
     install_masking_filter,
+    mask_secrets,
     uninstall_masking_filter,
 )
 from datahub.masking.secret_registry import SecretRegistry
@@ -1177,3 +1179,39 @@ class TestThreadSafetyConcurrent:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestMaskSecretsHelper:
+    """`mask_secrets` masks report lines, log buffers and the structured report."""
+
+    @pytest.fixture(autouse=True)
+    def empty_singleton(self):
+        SecretRegistry.reset_instance()
+        yield
+        SecretRegistry.reset_instance()
+
+    def test_a_supplied_filter_is_used_even_when_the_singleton_is_empty(self) -> None:
+        """Masks from the supplied filter's registry while the singleton is empty."""
+        own_registry = SecretRegistry()
+        own_registry.register_secret("OTHER_PW", "other-secret-value")
+        assert SecretRegistry.get_instance().get_count() == 0
+
+        masked = mask_secrets(
+            "connecting with other-secret-value",
+            "test",
+            SecretMaskingFilter(own_registry),
+        )
+
+        assert masked == "connecting with ***REDACTED:OTHER_PW***"
+
+    def test_the_report_survives_a_masking_failure(self) -> None:
+        """Returns the text unchanged when the registry lookup raises."""
+        with patch.object(
+            SecretRegistry, "get_instance", side_effect=RuntimeError("registry gone")
+        ):
+            result = mask_secrets("connection failed after 3 retries", "test")
+
+        assert result == "connection failed after 3 retries"
+
+    def test_text_is_returned_unchanged_when_nothing_is_registered(self) -> None:
+        assert mask_secrets("nothing to hide here", "test") == "nothing to hide here"

@@ -53,10 +53,8 @@ _SETUP_VENV = "datahub.executor.execution.sub_process_ingestion_task.setup_venv"
 
 @pytest.fixture(autouse=True)
 def reset_secret_registry() -> Iterator[None]:
-    # SecretRegistry is a process-wide singleton and _handle_subprocess_completion
-    # both reads it (to mask the structured report) and clears it via
-    # shutdown_secret_masking(). Reset around every test so these tests neither
-    # inherit nor leak registered secrets under --random-order.
+    # SecretRegistry is a process-wide singleton. Reset around every test so these
+    # tests neither inherit nor leak registered secrets under --random-order.
     SecretRegistry.reset_instance()
     yield
     SecretRegistry.reset_instance()
@@ -749,6 +747,33 @@ class TestSubProcessIngestionTaskCompletion:
         ][0]
         assert secret_value not in published
 
+    def test_logs_are_masked_when_secrets_are_registered(
+        self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
+    ) -> None:
+        """Masks registered secrets in the logs published at completion."""
+        secret_value = "s3cr3t-p4ssw0rd"
+        SecretRegistry.get_instance().register_secret("DB_PASSWORD", secret_value)
+
+        logs = LogHolder()
+        logs.append(f"error: Failed to fetch https://u:{secret_value}@idx/simple\n")
+
+        mock_process = Mock()
+        mock_process.returncode = 0
+
+        with patch("os.path.exists", return_value=False), patch(_REMOVE_DIRECTORY):
+            ingestion_task._handle_subprocess_completion(
+                mock_process,
+                mock_execution_context,
+                "/tmp/report.json",
+                "/tmp/artifacts",
+                {"pipeline_name": "test-pipeline"},
+                "/tmp/exec",
+                logs,
+            )
+
+        published = mock_execution_context.get_report().set_logs.call_args[0][0]
+        assert secret_value not in published
+
     def test_handle_subprocess_completion_failure_exit_code(
         self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
     ) -> None:
@@ -874,11 +899,6 @@ class TestSubProcessIngestionTaskCompletion:
             patch("builtins.open", side_effect=OSError(errno.EIO, "I/O error")),
             # set_logs fails.
             patch(_FORMAT_LOG_LINES, side_effect=RuntimeError("format boom")),
-            # Secret-masking shutdown fails.
-            patch(
-                "datahub.executor.execution.sub_process_ingestion_task.shutdown_secret_masking",
-                side_effect=Exception("masking boom"),
-            ),
             # _remove_directory is internally guarded; stub it out.
             patch(_REMOVE_DIRECTORY),
         ):
@@ -1076,6 +1096,61 @@ class TestSubProcessIngestionTaskProgressReporting:
                 ),
                 timeout=5.0,
             )
+
+    async def test_progress_reports_are_masked_when_secrets_are_registered(
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        mock_execution_context: Mock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Masks registered secrets in the progress reports sent during the run."""
+        secret_value = "s3cr3t-p4ssw0rd"
+        SecretRegistry.get_instance().register_secret("DB_PASSWORD", secret_value)
+
+        mock_process = AsyncMock()
+        mock_process.returncode = None
+        mock_process.stdout = AsyncMock()
+
+        progress_callback = Mock()
+        mock_execution_context.request.progress_callback = progress_callback
+
+        line_emitted = False
+
+        async def mock_readuntil(delimiter: bytes) -> bytes:
+            nonlocal line_emitted
+            if not line_emitted:
+                line_emitted = True
+                return f"connecting with {secret_value}\n".encode()
+            return b""
+
+        async def mock_wait() -> None:
+            await asyncio.sleep(0.05)
+            mock_process.returncode = 0
+
+        mock_process.stdout.readuntil = mock_readuntil
+        mock_process.wait = mock_wait
+
+        stdout_lines = LogHolder()
+        mock_log_file = Mock()
+
+        monkeypatch.setattr(ingestion_task.config, "heartbeat_time_seconds", 0.02)
+
+        with patch("sys.stdout"):
+            await asyncio.wait_for(
+                ingestion_task._monitor_subprocess(
+                    mock_process,
+                    "test-exec-id",
+                    mock_execution_context,
+                    stdout_lines,
+                    mock_log_file,
+                ),
+                timeout=5.0,
+            )
+
+        reported = " ".join(call[0][0] for call in progress_callback.call_args_list)
+        assert secret_value not in reported
+        # The marker also shows the line reached the report at all.
+        assert "***REDACTED:DB_PASSWORD***" in reported
 
 
 class TestSubProcessIngestionTaskClose:
