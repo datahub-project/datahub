@@ -10,7 +10,7 @@ Child nodes are embedded directly as nested dicts, not as integer ID references.
 The nodeIdMap provides a flat index to find any node by ID.
 """
 
-from typing import Dict, Optional
+from typing import Dict, Mapping, Optional
 
 NodeIdMap = dict[int, dict]
 
@@ -18,6 +18,28 @@ NodeIdMap = dict[int, dict]
 def find_nodes_by_kind(node_map: NodeIdMap, kind: str) -> list[dict]:
     """Return all nodes of the given NodeKind at any depth in the map."""
     return [node for node in node_map.values() if node.get("kind") == kind]
+
+
+def _unquote_m_identifier(name: str) -> str:
+    if name.startswith('#"') and name.endswith('"'):
+        return name[2:-1]
+    return name
+
+
+def resolve_parameter_value(
+    parameters: Optional[Mapping[str, str]], ref_name: str
+) -> Optional[str]:
+    """Look up a Power Query parameter. M identifiers are case-insensitive."""
+    if not parameters:
+        return None
+    name = _unquote_m_identifier(ref_name)
+    if name in parameters:
+        return parameters[name]
+    folded = name.casefold()
+    for key, value in parameters.items():
+        if key.casefold() == folded:
+            return value
+    return None
 
 
 def get_literal_value(node: dict) -> Optional[str]:
@@ -170,18 +192,9 @@ def get_record_field_values(
 
         key = key_node.get("literal", "")
         value = get_literal_value(value_node)
-        if (
-            value is None
-            and parameters
-            and value_node.get("kind") == "IdentifierExpression"
-        ):
-            # Resolve identifier references using parameters
+        if value is None and value_node.get("kind") == "IdentifierExpression":
             ident = value_node.get("identifier", {})
-            ref_name = ident.get("literal", "")
-            if ref_name.startswith('#"') and ref_name.endswith('"'):
-                ref_name = ref_name[2:-1]
-            if ref_name in parameters:
-                value = parameters[ref_name]
+            value = resolve_parameter_value(parameters, ident.get("literal", ""))
         if value is not None:
             result[key] = value
 

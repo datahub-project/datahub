@@ -1,5 +1,9 @@
 {
     "groups.addMembersError": "Failed to add members to the group. Please add them manually.",
+    "groups.addMembersFailure": "Failed to add group members: \n {{error}}",
+    "groups.addMembersModal.searchPlaceholder": "Search for users...",
+    "groups.addMembersModal.title": "Add group members",
+    "groups.addMembersSuccess": "Group members added!",
     "groups.copyUrn": "Copy URN",
     "groups.createButton": "Create Group",
     "groups.createError": "Failed to create group!:\n{{error}}",
@@ -15,7 +19,7 @@
     "groups.createModal.name.label": "Name",
     "groups.createModal.name.placeholder": "A name for your group",
     "groups.createModal.name.validationError.empty": "Enter a Group name.",
-    "groups.createModal.name.validationError.tooLong": "Name must be 50 characters or less.",
+    "groups.createModal.name.validationError.tooLong": "Name must be 250 characters or less.",
     "groups.createModal.title": "Create new group",
     "groups.createOwnerError": "Failed to automatically add you as an owner of the group. Please add yourself as an owner manually.",
     "groups.createSuccess": "Created group!",

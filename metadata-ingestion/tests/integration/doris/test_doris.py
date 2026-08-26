@@ -34,10 +34,19 @@ def is_doris_up(container_name: str) -> bool:
 
 
 @pytest.fixture(scope="module")
-def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir, request):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "doris"
     ) as docker_services:
+        # The compose file exposes the MySQL protocol port ephemerally, so a
+        # leaked container from a prior run can never hold onto the port a
+        # fresh run needs. Recipe ymls in this directory pick it up via
+        # ${DORIS_MYSQL_PORT}.
+        mysql_port = docker_services.port_for("doris-fe", DORIS_PORT)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("DORIS_MYSQL_PORT", str(mysql_port))
+        request.addfinalizer(mp.undo)
+
         print("Waiting for Doris FE to start...")
         try:
             wait_for_port(
@@ -98,7 +107,7 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             subprocess.run("docker logs testdoris-be 2>&1 | tail -30", shell=True)
             raise Exception("Failed to execute Doris setup script after 5 attempts")
 
-        yield docker_services
+        yield mysql_port
 
 
 @pytest.mark.parametrize(
@@ -126,6 +135,10 @@ def test_doris_ingest(
         r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['min'\]",
         r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['max'\]",
         r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",
+        # Doris reports table storage size (information_schema.tables.data_length)
+        # asynchronously and it reflects columnar segment/compaction state, so it
+        # varies between runs. Ignore it like the other non-deterministic profile fields.
+        r"root\[\d+\]\['aspect'\]\['json'\]\['sizeInBytes'\]",
     ]
 
     mce_helpers.check_golden_file(
@@ -141,7 +154,7 @@ def test_doris_ingest(
     [
         (
             {
-                "host_port": "localhost:59030",
+                "host_port": None,  # filled in from doris_runner's ephemeral port below
                 "database": "dorisdb",
                 "username": "root",
                 "password": "",
@@ -161,7 +174,7 @@ def test_doris_ingest(
         ),
         (
             {
-                "host_port": "localhost:59030",
+                "host_port": None,  # filled in from doris_runner's ephemeral port below
                 "database": "dorisdb",
                 "username": "wrong_user",
                 "password": "wrong_pass",
@@ -171,7 +184,7 @@ def test_doris_ingest(
         ),
         (
             {
-                "host_port": "localhost:59030",
+                "host_port": None,  # filled in from doris_runner's ephemeral port below
                 "database": "nonexistent_db",
                 "username": "root",
                 "password": "",
@@ -184,6 +197,8 @@ def test_doris_ingest(
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_doris_test_connection(doris_runner, config_dict, is_success, expected_error):
+    if config_dict["host_port"] is None:
+        config_dict = {**config_dict, "host_port": f"localhost:{doris_runner}"}
     report = test_connection_helpers.run_test_connection(DorisSource, config_dict)
     if is_success:
         test_connection_helpers.assert_basic_connectivity_success(report)

@@ -383,9 +383,10 @@ class AerospikeSource(StatefulIngestionSourceBase):
         """
         type_string = PYTHON_TYPE_TO_AEROSPIKE_TYPE.get(field_type)
         if type_string is None:
-            self.report.report_warning(
+            self.report.warning(
                 message="unable to map type to metadata schema",
                 context=f"{set_name}: {field_type}",
+                log=False,
             )
             type_string = "unknown"
 
@@ -407,9 +408,10 @@ class AerospikeSource(StatefulIngestionSourceBase):
         TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
 
         if TypeClass is None:
-            self.report.report_warning(
+            self.report.warning(
                 message="unable to map type to metadata schema",
                 context=f"{set_name}: {field_type}",
+                log=False,
             )
             TypeClass = NullTypeClass
 
@@ -606,10 +608,11 @@ class AerospikeSource(StatefulIngestionSourceBase):
                     f"Truncated schema for {dataset_name} from {len(schema)} to {len(truncated_schema)}"
                 )
                 schema_depth = max([len(k) for k in schema])
-                self.report.report_warning(
+                self.report.warning(
                     title="Schema depth limit reached",
                     message="Truncating the collection schema because it has too many nested levels.",
-                    context=f"{dataset_name}: Schema Depth: {len(schema)}, Configured threshold: {self.config.infer_schema_depth}",
+                    context=f"Schema Depth: {len(schema)}, Configured threshold: {self.config.infer_schema_depth}",
+                    log=False,
                 )
                 custom_properties["schema.truncated"] = "True"
                 custom_properties["schema.totalDepth"] = f"{schema_depth}"
@@ -618,10 +621,11 @@ class AerospikeSource(StatefulIngestionSourceBase):
         schema_size = len(schema)
         max_schema_size = self.config.max_schema_size
         if max_schema_size is not None and schema_size > max_schema_size:
-            self.report.report_warning(
+            self.report.warning(
                 title="Too many schema fields",
                 message="Downsampling the collection schema because it has too many schema fields.",
-                context=f"{dataset_name}: Schema Size: {schema_size}, Configured threshold: {max_schema_size}",
+                context=f"Schema Size: {schema_size}, Configured threshold: {max_schema_size}",
+                log=False,
             )
             custom_properties["schema.downsampled"] = "True"
             custom_properties["schema.totalFields"] = f"{schema_size}"

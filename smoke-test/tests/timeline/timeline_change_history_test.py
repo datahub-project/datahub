@@ -19,10 +19,13 @@ Covered categories per entity:
 import logging
 import time
 import uuid
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pytest
+import tenacity
 
+from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     ApplicationsClass,
@@ -51,40 +54,110 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import StructuredPropertyUrn
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import execute_graphql
+from tests.utilities.domains import Domain
+from tests.utils import execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.CATALOG)]
+
+
+def _is_transient_sp_error(exc: BaseException) -> bool:
+    """Return True for transient SP-creation errors caused by ES mapping lookups."""
+    if not isinstance(exc, OperationalError):
+        return False
+    msg = str(exc)
+    return "Retry the request" in msg or "mapping lookup failed" in msg
+
+
+@tenacity.retry(
+    retry=tenacity.retry_if_exception(_is_transient_sp_error),
+    wait=tenacity.wait_exponential(multiplier=1, min=1, max=8),
+    stop=tenacity.stop_after_attempt(5),
+    reraise=True,
+)
+def _emit_sp_definition(graph_client: Any, mcp: MetadataChangeProposalWrapper) -> None:
+    """Emit a structured property definition MCP, retrying on transient ES errors."""
+    graph_client.emit_mcp(mcp)
+
 
 # ---------------------------------------------------------------------------
-# Constants
+# Constants / per-run URNs
 # ---------------------------------------------------------------------------
-UNIQUE = uuid.uuid4().hex[:8]
-
-DATASET_URN = f"urn:li:dataset:(urn:li:dataPlatform:kafka,timeline-test-{UNIQUE},PROD)"
-GLOSSARY_TERM_URN = f"urn:li:glossaryTerm:timeline-test-term-{UNIQUE}"
-DOMAIN_URN = f"urn:li:domain:timeline-test-domain-{UNIQUE}"
-DATA_PRODUCT_URN = f"urn:li:dataProduct:timeline-test-dp-{UNIQUE}"
-
-# Structured property used across entity types
-SP_URN = str(StructuredPropertyUrn(f"io.acryl.timeline.test.{UNIQUE}"))
-
-# Tags and terms referenced in tests
+# Tags referenced in tests (stable across fixture re-setups)
 TAG_PII = "urn:li:tag:PII"
 TAG_CONFIDENTIAL = "urn:li:tag:Confidential"
-TERM_A = f"urn:li:glossaryTerm:timeline-ref-term-a-{UNIQUE}"
-TERM_B = f"urn:li:glossaryTerm:timeline-ref-term-b-{UNIQUE}"
-DOMAIN_ENGINEERING = f"urn:li:domain:timeline-ref-eng-{UNIQUE}"
-DOMAIN_MARKETING = f"urn:li:domain:timeline-ref-mkt-{UNIQUE}"
-APP_URN_1 = f"urn:li:application:timeline-ref-app1-{UNIQUE}"
-APP_URN_2 = f"urn:li:application:timeline-ref-app2-{UNIQUE}"
-ASSET_DATASET_1 = (
-    f"urn:li:dataset:(urn:li:dataPlatform:snowflake,timeline-asset1-{UNIQUE},PROD)"
-)
-ASSET_DATASET_2 = (
-    f"urn:li:dataset:(urn:li:dataPlatform:snowflake,timeline-asset2-{UNIQUE},PROD)"
-)
+
+
+@dataclass(frozen=True)
+class TimelineUrns:
+    """Immutable per-run URNs for timeline change-history tests.
+
+    Under pytest-xdist ``--dist=loadscope`` the module-scoped fixture can tear
+    down and re-run on the same worker. ES retains structured-property field
+    mappings after hard-delete, so each fixture invocation needs a fresh
+    ``unique`` / qualifiedName. Passing this dataclass as a fixture arg avoids
+    mutable module globals that could be stomped mid-test.
+    """
+
+    unique: str
+    dataset_urn: str
+    glossary_term_urn: str
+    domain_urn: str
+    data_product_urn: str
+    sp_urn: str
+    term_a: str
+    term_b: str
+    domain_engineering: str
+    domain_marketing: str
+    app_urn_1: str
+    app_urn_2: str
+    asset_dataset_1: str
+    asset_dataset_2: str
+
+    @classmethod
+    def create(cls, unique: Optional[str] = None) -> "TimelineUrns":
+        u = unique or uuid.uuid4().hex[:8]
+        return cls(
+            unique=u,
+            dataset_urn=(
+                f"urn:li:dataset:(urn:li:dataPlatform:kafka,timeline-test-{u},PROD)"
+            ),
+            glossary_term_urn=f"urn:li:glossaryTerm:timeline-test-term-{u}",
+            domain_urn=f"urn:li:domain:timeline-test-domain-{u}",
+            data_product_urn=f"urn:li:dataProduct:timeline-test-dp-{u}",
+            sp_urn=str(StructuredPropertyUrn(f"io.acryl.timeline.test.{u}")),
+            term_a=f"urn:li:glossaryTerm:timeline-ref-term-a-{u}",
+            term_b=f"urn:li:glossaryTerm:timeline-ref-term-b-{u}",
+            domain_engineering=f"urn:li:domain:timeline-ref-eng-{u}",
+            domain_marketing=f"urn:li:domain:timeline-ref-mkt-{u}",
+            app_urn_1=f"urn:li:application:timeline-ref-app1-{u}",
+            app_urn_2=f"urn:li:application:timeline-ref-app2-{u}",
+            asset_dataset_1=(
+                f"urn:li:dataset:(urn:li:dataPlatform:snowflake,timeline-asset1-{u},PROD)"
+            ),
+            asset_dataset_2=(
+                f"urn:li:dataset:(urn:li:dataPlatform:snowflake,timeline-asset2-{u},PROD)"
+            ),
+        )
+
+    def cleanup_urns(self) -> List[str]:
+        return [
+            self.dataset_urn,
+            self.glossary_term_urn,
+            self.domain_urn,
+            self.data_product_urn,
+            self.sp_urn,
+            self.term_a,
+            self.term_b,
+            self.domain_engineering,
+            self.domain_marketing,
+            self.app_urn_1,
+            self.app_urn_2,
+            self.asset_dataset_1,
+            self.asset_dataset_2,
+        ]
+
 
 # GraphQL query matching what the frontend HistorySidebar uses
 GET_TIMELINE_QUERY = """
@@ -121,9 +194,14 @@ def _now_ms() -> int:
 
 
 def _emit_and_wait(graph_client, mcp: MetadataChangeProposalWrapper) -> None:
-    """Emit an MCP and wait for writes to propagate."""
+    """Emit an MCP and wait for primary + search indexing to catch up.
+
+    Timeline reads go through search/history storage, so drain MCL (mae_only)
+    after the default sync — cheaper than relying only on assertion retries.
+    """
     graph_client.emit_mcp(mcp)
     wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 def _get_timeline(
@@ -138,6 +216,49 @@ def _get_timeline(
 
     res = execute_graphql(auth_session, GET_TIMELINE_QUERY, variables)
     return res["data"]["getTimeline"]["changeTransactions"]
+
+
+@with_test_retry(max_attempts=2)
+def _wait_for_timeline_events(
+    auth_session,
+    urn: str,
+    expected: List[Tuple[str, str]],
+    entity_label: str,
+    categories: Optional[List[str]] = None,
+    min_events: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """Retry getTimeline until expected (category, operation) pairs appear.
+
+    Timeline indexing lags primary writes even after wait_for_writes_to_sync;
+    one-shot asserts flake under load.
+    """
+    txns = _get_timeline(auth_session, urn, categories)
+    events = _collect_change_events(txns)
+    required = min_events if min_events is not None else len(expected)
+    assert len(events) >= required, (
+        f"[{entity_label}] Expected >={required} events, got {len(events)}"
+    )
+    _assert_has_events(events, expected, entity_label)
+    return txns
+
+
+@with_test_retry(max_attempts=2)
+def _wait_for_timeline_categories(
+    auth_session,
+    urn: str,
+    expected_categories: List[str],
+    entity_label: str,
+) -> List[Dict[str, Any]]:
+    """Retry getTimeline until all expected categories are present."""
+    txns = _get_timeline(auth_session, urn)
+    events = _collect_change_events(txns)
+    categories = {e["category"] for e in events if e.get("category")}
+    for expected in expected_categories:
+        assert expected in categories, (
+            f"[{entity_label}] timeline missing {expected}. Found: {sorted(categories)}"
+        )
+    _assert_actor_present(txns, entity_label)
+    return txns
 
 
 def _collect_change_events(
@@ -182,13 +303,18 @@ def _assert_actor_present(
 # Fixture: create all test entities + structured property, tear down after
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="module", autouse=True)
-def setup_entities(graph_client):
+def timeline_urns(graph_client):
     """Create all test entities and the shared structured property definition."""
-    logger.info("Creating test entities for timeline change history tests")
+    # Fresh IDs per fixture invocation — see TimelineUrns docstring.
+    urns = TimelineUrns.create()
+    logger.info(
+        "Creating test entities for timeline change history tests (unique=%s)",
+        urns.unique,
+    )
 
     # --- Structured property definition (used by dataset, glossary term, domain, data product) ---
     sp_def = StructuredPropertyDefinitionClass(
-        qualifiedName=f"io.acryl.timeline.test.{UNIQUE}",
+        qualifiedName=f"io.acryl.timeline.test.{urns.unique}",
         displayName="Timeline Test Property",
         valueType="urn:li:dataType:datahub.string",
         cardinality="SINGLE",
@@ -201,16 +327,18 @@ def setup_entities(graph_client):
         description="Property for timeline smoke tests",
         immutable=False,
     )
-    graph_client.emit_mcp(
-        MetadataChangeProposalWrapper(entityUrn=SP_URN, aspect=sp_def)
+    _emit_sp_definition(
+        graph_client,
+        MetadataChangeProposalWrapper(entityUrn=urns.sp_urn, aspect=sp_def),
     )
+    wait_for_writes_to_sync(mcp_only=True)
 
     # --- Dataset ---
     graph_client.emit_mcp(
         MetadataChangeProposalWrapper(
-            entityUrn=DATASET_URN,
+            entityUrn=urns.dataset_urn,
             aspect=DatasetPropertiesClass(
-                name=f"timeline-test-{UNIQUE}",
+                name=f"timeline-test-{urns.unique}",
                 description="Initial description",
             ),
         )
@@ -219,9 +347,9 @@ def setup_entities(graph_client):
     # --- Glossary Term ---
     graph_client.emit_mcp(
         MetadataChangeProposalWrapper(
-            entityUrn=GLOSSARY_TERM_URN,
+            entityUrn=urns.glossary_term_urn,
             aspect=GlossaryTermInfoClass(
-                name=f"Timeline Test Term {UNIQUE}",
+                name=f"Timeline Test Term {urns.unique}",
                 definition="Initial definition",
                 termSource="INTERNAL",
             ),
@@ -231,9 +359,9 @@ def setup_entities(graph_client):
     # --- Reference glossary terms (used as related terms) ---
     graph_client.emit_mcp(
         MetadataChangeProposalWrapper(
-            entityUrn=TERM_A,
+            entityUrn=urns.term_a,
             aspect=GlossaryTermInfoClass(
-                name=f"Ref Term A {UNIQUE}",
+                name=f"Ref Term A {urns.unique}",
                 definition="Reference term A",
                 termSource="INTERNAL",
             ),
@@ -241,9 +369,9 @@ def setup_entities(graph_client):
     )
     graph_client.emit_mcp(
         MetadataChangeProposalWrapper(
-            entityUrn=TERM_B,
+            entityUrn=urns.term_b,
             aspect=GlossaryTermInfoClass(
-                name=f"Ref Term B {UNIQUE}",
+                name=f"Ref Term B {urns.unique}",
                 definition="Reference term B",
                 termSource="INTERNAL",
             ),
@@ -255,9 +383,9 @@ def setup_entities(graph_client):
 
     graph_client.emit_mcp(
         MetadataChangeProposalWrapper(
-            entityUrn=DOMAIN_URN,
+            entityUrn=urns.domain_urn,
             aspect=DomainPropertiesClass(
-                name=f"Timeline Test Domain {UNIQUE}",
+                name=f"Timeline Test Domain {urns.unique}",
                 description="Initial domain description",
             ),
         )
@@ -266,13 +394,13 @@ def setup_entities(graph_client):
     # --- Reference domains ---
     graph_client.emit_mcp(
         MetadataChangeProposalWrapper(
-            entityUrn=DOMAIN_ENGINEERING,
+            entityUrn=urns.domain_engineering,
             aspect=DomainPropertiesClass(name="Engineering"),
         )
     )
     graph_client.emit_mcp(
         MetadataChangeProposalWrapper(
-            entityUrn=DOMAIN_MARKETING,
+            entityUrn=urns.domain_marketing,
             aspect=DomainPropertiesClass(name="Marketing"),
         )
     )
@@ -280,35 +408,21 @@ def setup_entities(graph_client):
     # --- Data Product ---
     graph_client.emit_mcp(
         MetadataChangeProposalWrapper(
-            entityUrn=DATA_PRODUCT_URN,
+            entityUrn=urns.data_product_urn,
             aspect=DataProductPropertiesClass(
-                name=f"Timeline Test Product {UNIQUE}",
+                name=f"Timeline Test Product {urns.unique}",
                 description="Initial product description",
             ),
         )
     )
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
-    yield
+    yield urns
 
     # --- Cleanup ---
     logger.info("Cleaning up test entities")
-    for urn in [
-        DATASET_URN,
-        GLOSSARY_TERM_URN,
-        DOMAIN_URN,
-        DATA_PRODUCT_URN,
-        SP_URN,
-        TERM_A,
-        TERM_B,
-        DOMAIN_ENGINEERING,
-        DOMAIN_MARKETING,
-        APP_URN_1,
-        APP_URN_2,
-        ASSET_DATASET_1,
-        ASSET_DATASET_2,
-    ]:
+    for urn in urns.cleanup_urns():
         try:
             graph_client.hard_delete_entity(urn=urn)
         except Exception:
@@ -321,12 +435,14 @@ def setup_entities(graph_client):
 class TestDatasetTimeline:
     """Test all supported change categories for Dataset entities."""
 
-    def test_dataset_ownership_changes(self, graph_client, auth_session):
+    def test_dataset_ownership_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add then change ownership on a dataset — verifies ADD and REMOVE."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
+                entityUrn=timeline_urns.dataset_urn,
                 aspect=OwnershipClass(
                     owners=[
                         OwnerClass(
@@ -339,7 +455,7 @@ class TestDatasetTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
+                entityUrn=timeline_urns.dataset_urn,
                 aspect=OwnershipClass(
                     owners=[
                         OwnerClass(owner="urn:li:corpuser:bob", type="DATA_STEWARD")
@@ -348,47 +464,55 @@ class TestDatasetTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["OWNERSHIP"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 ownership events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.dataset_urn,
             [("OWNERSHIP", "ADD"), ("OWNERSHIP", "REMOVE")],
             "dataset/ownership",
+            categories=["OWNERSHIP"],
+            min_events=2,
         )
 
-    def test_dataset_tag_changes(self, graph_client, auth_session):
+    def test_dataset_tag_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add a tag, then swap it."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
+                entityUrn=timeline_urns.dataset_urn,
                 aspect=GlobalTagsClass(tags=[TagAssociationClass(tag=TAG_PII)]),
             ),
         )
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
+                entityUrn=timeline_urns.dataset_urn,
                 aspect=GlobalTagsClass(
                     tags=[TagAssociationClass(tag=TAG_CONFIDENTIAL)]
                 ),
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["TAG"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 tag events, got {len(events)}"
-        _assert_has_events(events, [("TAG", "ADD"), ("TAG", "REMOVE")], "dataset/tag")
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.dataset_urn,
+            [("TAG", "ADD"), ("TAG", "REMOVE")],
+            "dataset/tag",
+            categories=["TAG"],
+            min_events=2,
+        )
 
-    def test_dataset_glossary_term_changes(self, graph_client, auth_session):
+    def test_dataset_glossary_term_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add then remove a glossary term."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
+                entityUrn=timeline_urns.dataset_urn,
                 aspect=GlossaryTermsClass(
-                    terms=[GlossaryTermAssociationClass(urn=TERM_A)],
+                    terms=[GlossaryTermAssociationClass(urn=timeline_urns.term_a)],
                     auditStamp=AuditStampClass(
                         time=_now_ms(), actor="urn:li:corpuser:datahub"
                     ),
@@ -398,7 +522,7 @@ class TestDatasetTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
+                entityUrn=timeline_urns.dataset_urn,
                 aspect=GlossaryTermsClass(
                     terms=[],
                     auditStamp=AuditStampClass(
@@ -408,51 +532,55 @@ class TestDatasetTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["GLOSSARY_TERM"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 term events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.dataset_urn,
             [("GLOSSARY_TERM", "ADD"), ("GLOSSARY_TERM", "REMOVE")],
             "dataset/glossaryTerm",
+            categories=["GLOSSARY_TERM"],
+            min_events=2,
         )
 
-    def test_dataset_domain_changes(self, graph_client, auth_session):
+    def test_dataset_domain_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Set domain, then change it — verifies ADD and REMOVE."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
-                aspect=DomainsClass(domains=[DOMAIN_ENGINEERING]),
+                entityUrn=timeline_urns.dataset_urn,
+                aspect=DomainsClass(domains=[timeline_urns.domain_engineering]),
             ),
         )
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
-                aspect=DomainsClass(domains=[DOMAIN_MARKETING]),
+                entityUrn=timeline_urns.dataset_urn,
+                aspect=DomainsClass(domains=[timeline_urns.domain_marketing]),
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["DOMAIN"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 domain events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.dataset_urn,
             [("DOMAIN", "ADD"), ("DOMAIN", "REMOVE")],
             "dataset/domain",
+            categories=["DOMAIN"],
+            min_events=2,
         )
 
-    def test_dataset_structured_property_changes(self, graph_client, auth_session):
+    def test_dataset_structured_property_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Assign, update, then remove a structured property — verifies ADD, MODIFY, REMOVE."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
+                entityUrn=timeline_urns.dataset_urn,
                 aspect=StructuredPropertiesClass(
                     properties=[
                         StructuredPropertyValueAssignmentClass(
-                            propertyUrn=SP_URN, values=["alpha"]
+                            propertyUrn=timeline_urns.sp_urn, values=["alpha"]
                         )
                     ]
                 ),
@@ -461,11 +589,11 @@ class TestDatasetTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
+                entityUrn=timeline_urns.dataset_urn,
                 aspect=StructuredPropertiesClass(
                     properties=[
                         StructuredPropertyValueAssignmentClass(
-                            propertyUrn=SP_URN, values=["beta"]
+                            propertyUrn=timeline_urns.sp_urn, values=["beta"]
                         )
                     ]
                 ),
@@ -475,56 +603,60 @@ class TestDatasetTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
+                entityUrn=timeline_urns.dataset_urn,
                 aspect=StructuredPropertiesClass(properties=[]),
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["STRUCTURED_PROPERTY"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 3, f"Expected >=3 SP events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.dataset_urn,
             [
                 ("STRUCTURED_PROPERTY", "ADD"),
                 ("STRUCTURED_PROPERTY", "MODIFY"),
                 ("STRUCTURED_PROPERTY", "REMOVE"),
             ],
             "dataset/structuredProperty",
+            categories=["STRUCTURED_PROPERTY"],
+            min_events=3,
         )
 
-    def test_dataset_application_changes(self, graph_client, auth_session):
+    def test_dataset_application_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add an application, then swap it."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
-                aspect=ApplicationsClass(applications=[APP_URN_1]),
+                entityUrn=timeline_urns.dataset_urn,
+                aspect=ApplicationsClass(applications=[timeline_urns.app_urn_1]),
             ),
         )
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
-                aspect=ApplicationsClass(applications=[APP_URN_2]),
+                entityUrn=timeline_urns.dataset_urn,
+                aspect=ApplicationsClass(applications=[timeline_urns.app_urn_2]),
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["APPLICATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 application events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.dataset_urn,
             [("APPLICATION", "ADD"), ("APPLICATION", "REMOVE")],
             "dataset/application",
+            categories=["APPLICATION"],
+            min_events=2,
         )
 
-    def test_dataset_documentation_changes(self, graph_client, auth_session):
+    def test_dataset_documentation_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add then update documentation on a dataset — verifies ADD and MODIFY."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
+                entityUrn=timeline_urns.dataset_urn,
                 aspect=EditableDatasetPropertiesClass(
                     description="Initial dataset description for timeline test",
                 ),
@@ -533,30 +665,32 @@ class TestDatasetTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
+                entityUrn=timeline_urns.dataset_urn,
                 aspect=EditableDatasetPropertiesClass(
                     description="Updated dataset description for timeline test",
                 ),
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["DOCUMENTATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 documentation events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.dataset_urn,
             [("DOCUMENTATION", "ADD"), ("DOCUMENTATION", "MODIFY")],
             "dataset/documentation",
+            categories=["DOCUMENTATION"],
+            min_events=2,
         )
 
-    def test_dataset_schema_changes(self, graph_client, auth_session):
+    def test_dataset_schema_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add a schema then modify it — verifies TECHNICAL_SCHEMA events."""
         platform_urn = "urn:li:dataPlatform:kafka"
 
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
+                entityUrn=timeline_urns.dataset_urn,
                 aspect=SchemaMetadataClass(
                     schemaName="testSchema",
                     platform=platform_urn,
@@ -577,7 +711,7 @@ class TestDatasetTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATASET_URN,
+                entityUrn=timeline_urns.dataset_urn,
                 aspect=SchemaMetadataClass(
                     schemaName="testSchema",
                     platform=platform_urn,
@@ -602,37 +736,32 @@ class TestDatasetTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATASET_URN, ["TECHNICAL_SCHEMA"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 1, f"Expected >=1 schema events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.dataset_urn,
             [("TECHNICAL_SCHEMA", "ADD")],
             "dataset/schema",
+            categories=["TECHNICAL_SCHEMA"],
+            min_events=1,
         )
 
-    def test_dataset_all_categories(self, auth_session):
+    def test_dataset_all_categories(self, auth_session, timeline_urns: TimelineUrns):
         """Fetch timeline with all categories and verify actor attribution."""
-        txns = _get_timeline(auth_session, DATASET_URN)
-        events = _collect_change_events(txns)
-        categories = {e["category"] for e in events if e.get("category")}
-
-        for expected in [
-            "OWNERSHIP",
-            "DOCUMENTATION",
-            "TECHNICAL_SCHEMA",
-            "TAG",
-            "GLOSSARY_TERM",
-            "DOMAIN",
-            "STRUCTURED_PROPERTY",
-            "APPLICATION",
-        ]:
-            assert expected in categories, (
-                f"Dataset timeline missing category {expected}. "
-                f"Found: {sorted(categories)}"
-            )
-
-        _assert_actor_present(txns, "dataset")
+        _wait_for_timeline_categories(
+            auth_session,
+            timeline_urns.dataset_urn,
+            [
+                "OWNERSHIP",
+                "DOCUMENTATION",
+                "TECHNICAL_SCHEMA",
+                "TAG",
+                "GLOSSARY_TERM",
+                "DOMAIN",
+                "STRUCTURED_PROPERTY",
+                "APPLICATION",
+            ],
+            "dataset",
+        )
 
 
 # ===========================================================================
@@ -641,12 +770,14 @@ class TestDatasetTimeline:
 class TestGlossaryTermTimeline:
     """Test all supported change categories for GlossaryTerm entities."""
 
-    def test_glossary_term_ownership_changes(self, graph_client, auth_session):
+    def test_glossary_term_ownership_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add then remove ownership — verifies ADD and REMOVE."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=GLOSSARY_TERM_URN,
+                entityUrn=timeline_urns.glossary_term_urn,
                 aspect=OwnershipClass(
                     owners=[
                         OwnerClass(
@@ -659,76 +790,85 @@ class TestGlossaryTermTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=GLOSSARY_TERM_URN,
+                entityUrn=timeline_urns.glossary_term_urn,
                 aspect=OwnershipClass(owners=[]),
             ),
         )
 
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN, ["OWNERSHIP"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 ownership events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.glossary_term_urn,
             [("OWNERSHIP", "ADD"), ("OWNERSHIP", "REMOVE")],
             "glossaryTerm/ownership",
+            categories=["OWNERSHIP"],
+            min_events=2,
         )
 
-    def test_glossary_term_documentation_changes(self, graph_client, auth_session):
+    def test_glossary_term_documentation_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Update the glossary term definition (DOCUMENTATION category)."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=GLOSSARY_TERM_URN,
+                entityUrn=timeline_urns.glossary_term_urn,
                 aspect=GlossaryTermInfoClass(
-                    name=f"Timeline Test Term {UNIQUE}",
+                    name=f"Timeline Test Term {timeline_urns.unique}",
                     definition="Updated definition for timeline test",
                     termSource="INTERNAL",
                 ),
             ),
         )
 
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN, ["DOCUMENTATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 1, f"Expected >=1 documentation events, got {len(events)}"
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.glossary_term_urn,
+            [("DOCUMENTATION", "MODIFY")],
+            "glossaryTerm/documentation",
+            categories=["DOCUMENTATION"],
+            min_events=1,
+        )
 
-    def test_glossary_term_domain_changes(self, graph_client, auth_session):
+    def test_glossary_term_domain_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Set then change domain — verifies ADD and REMOVE."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=GLOSSARY_TERM_URN,
-                aspect=DomainsClass(domains=[DOMAIN_ENGINEERING]),
+                entityUrn=timeline_urns.glossary_term_urn,
+                aspect=DomainsClass(domains=[timeline_urns.domain_engineering]),
             ),
         )
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=GLOSSARY_TERM_URN,
-                aspect=DomainsClass(domains=[DOMAIN_MARKETING]),
+                entityUrn=timeline_urns.glossary_term_urn,
+                aspect=DomainsClass(domains=[timeline_urns.domain_marketing]),
             ),
         )
 
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN, ["DOMAIN"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 domain events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.glossary_term_urn,
             [("DOMAIN", "ADD"), ("DOMAIN", "REMOVE")],
             "glossaryTerm/domain",
+            categories=["DOMAIN"],
+            min_events=2,
         )
 
     def test_glossary_term_structured_property_changes(
-        self, graph_client, auth_session
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
     ):
         """Add then update a structured property — verifies ADD and MODIFY."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=GLOSSARY_TERM_URN,
+                entityUrn=timeline_urns.glossary_term_urn,
                 aspect=StructuredPropertiesClass(
                     properties=[
                         StructuredPropertyValueAssignmentClass(
-                            propertyUrn=SP_URN, values=["gamma"]
+                            propertyUrn=timeline_urns.sp_urn, values=["gamma"]
                         )
                     ]
                 ),
@@ -737,99 +877,102 @@ class TestGlossaryTermTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=GLOSSARY_TERM_URN,
+                entityUrn=timeline_urns.glossary_term_urn,
                 aspect=StructuredPropertiesClass(
                     properties=[
                         StructuredPropertyValueAssignmentClass(
-                            propertyUrn=SP_URN, values=["gamma-updated"]
+                            propertyUrn=timeline_urns.sp_urn, values=["gamma-updated"]
                         )
                     ]
                 ),
             ),
         )
 
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN, ["STRUCTURED_PROPERTY"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 SP events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.glossary_term_urn,
             [("STRUCTURED_PROPERTY", "ADD"), ("STRUCTURED_PROPERTY", "MODIFY")],
             "glossaryTerm/structuredProperty",
+            categories=["STRUCTURED_PROPERTY"],
+            min_events=2,
         )
 
-    def test_glossary_term_related_terms_changes(self, graph_client, auth_session):
+    def test_glossary_term_related_terms_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add then swap related terms — verifies GLOSSARY_TERM ADD and REMOVE."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=GLOSSARY_TERM_URN,
+                entityUrn=timeline_urns.glossary_term_urn,
                 aspect=GlossaryRelatedTermsClass(
-                    isRelatedTerms=[TERM_A],
+                    isRelatedTerms=[timeline_urns.term_a],
                 ),
             ),
         )
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=GLOSSARY_TERM_URN,
+                entityUrn=timeline_urns.glossary_term_urn,
                 aspect=GlossaryRelatedTermsClass(
-                    isRelatedTerms=[TERM_B],
+                    isRelatedTerms=[timeline_urns.term_b],
                 ),
             ),
         )
 
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN, ["GLOSSARY_TERM"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 related term events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.glossary_term_urn,
             [("GLOSSARY_TERM", "ADD"), ("GLOSSARY_TERM", "REMOVE")],
             "glossaryTerm/relatedTerms",
+            categories=["GLOSSARY_TERM"],
+            min_events=2,
         )
 
-    def test_glossary_term_application_changes(self, graph_client, auth_session):
+    def test_glossary_term_application_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add an application then swap it — verifies ADD and REMOVE."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=GLOSSARY_TERM_URN,
-                aspect=ApplicationsClass(applications=[APP_URN_1]),
+                entityUrn=timeline_urns.glossary_term_urn,
+                aspect=ApplicationsClass(applications=[timeline_urns.app_urn_1]),
             ),
         )
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=GLOSSARY_TERM_URN,
-                aspect=ApplicationsClass(applications=[APP_URN_2]),
+                entityUrn=timeline_urns.glossary_term_urn,
+                aspect=ApplicationsClass(applications=[timeline_urns.app_urn_2]),
             ),
         )
 
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN, ["APPLICATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 application events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.glossary_term_urn,
             [("APPLICATION", "ADD"), ("APPLICATION", "REMOVE")],
             "glossaryTerm/application",
+            categories=["APPLICATION"],
+            min_events=2,
         )
 
-    def test_glossary_term_all_categories(self, auth_session):
-        txns = _get_timeline(auth_session, GLOSSARY_TERM_URN)
-        events = _collect_change_events(txns)
-        categories = {e["category"] for e in events if e.get("category")}
-
-        for expected in [
-            "OWNERSHIP",
-            "DOCUMENTATION",
-            "GLOSSARY_TERM",
-            "DOMAIN",
-            "STRUCTURED_PROPERTY",
-            "APPLICATION",
-        ]:
-            assert expected in categories, (
-                f"GlossaryTerm timeline missing {expected}. Found: {sorted(categories)}"
-            )
-        _assert_actor_present(txns, "glossaryTerm")
+    def test_glossary_term_all_categories(
+        self, auth_session, timeline_urns: TimelineUrns
+    ):
+        _wait_for_timeline_categories(
+            auth_session,
+            timeline_urns.glossary_term_urn,
+            [
+                "OWNERSHIP",
+                "DOCUMENTATION",
+                "GLOSSARY_TERM",
+                "DOMAIN",
+                "STRUCTURED_PROPERTY",
+                "APPLICATION",
+            ],
+            "glossaryTerm",
+        )
 
 
 # ===========================================================================
@@ -838,12 +981,14 @@ class TestGlossaryTermTimeline:
 class TestDomainTimeline:
     """Test all supported change categories for Domain entities."""
 
-    def test_domain_ownership_changes(self, graph_client, auth_session):
+    def test_domain_ownership_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add then remove ownership — verifies ADD and REMOVE."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DOMAIN_URN,
+                entityUrn=timeline_urns.domain_urn,
                 aspect=OwnershipClass(
                     owners=[
                         OwnerClass(
@@ -856,52 +1001,58 @@ class TestDomainTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DOMAIN_URN,
+                entityUrn=timeline_urns.domain_urn,
                 aspect=OwnershipClass(owners=[]),
             ),
         )
 
-        txns = _get_timeline(auth_session, DOMAIN_URN, ["OWNERSHIP"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 ownership events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.domain_urn,
             [("OWNERSHIP", "ADD"), ("OWNERSHIP", "REMOVE")],
             "domain/ownership",
+            categories=["OWNERSHIP"],
+            min_events=2,
         )
 
-    def test_domain_documentation_changes(self, graph_client, auth_session):
+    def test_domain_documentation_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Update domain name/description (DOCUMENTATION via DomainPropertiesChangeEventGenerator)."""
         from datahub.metadata.schema_classes import DomainPropertiesClass
 
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DOMAIN_URN,
+                entityUrn=timeline_urns.domain_urn,
                 aspect=DomainPropertiesClass(
-                    name=f"Timeline Test Domain {UNIQUE} - Renamed",
+                    name=f"Timeline Test Domain {timeline_urns.unique} - Renamed",
                     description="Updated domain description",
                 ),
             ),
         )
 
-        txns = _get_timeline(auth_session, DOMAIN_URN, ["DOCUMENTATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 1, f"Expected >=1 documentation events, got {len(events)}"
-        _assert_has_events(
-            events, [("DOCUMENTATION", "MODIFY")], "domain/documentation"
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.domain_urn,
+            [("DOCUMENTATION", "MODIFY")],
+            "domain/documentation",
+            categories=["DOCUMENTATION"],
+            min_events=1,
         )
 
-    def test_domain_structured_property_changes(self, graph_client, auth_session):
+    def test_domain_structured_property_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add then remove a structured property — verifies ADD and REMOVE."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DOMAIN_URN,
+                entityUrn=timeline_urns.domain_urn,
                 aspect=StructuredPropertiesClass(
                     properties=[
                         StructuredPropertyValueAssignmentClass(
-                            propertyUrn=SP_URN, values=["delta"]
+                            propertyUrn=timeline_urns.sp_urn, values=["delta"]
                         )
                     ]
                 ),
@@ -910,30 +1061,27 @@ class TestDomainTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DOMAIN_URN,
+                entityUrn=timeline_urns.domain_urn,
                 aspect=StructuredPropertiesClass(properties=[]),
             ),
         )
 
-        txns = _get_timeline(auth_session, DOMAIN_URN, ["STRUCTURED_PROPERTY"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 SP events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.domain_urn,
             [("STRUCTURED_PROPERTY", "ADD"), ("STRUCTURED_PROPERTY", "REMOVE")],
             "domain/structuredProperty",
+            categories=["STRUCTURED_PROPERTY"],
+            min_events=2,
         )
 
-    def test_domain_all_categories(self, auth_session):
-        txns = _get_timeline(auth_session, DOMAIN_URN)
-        events = _collect_change_events(txns)
-        categories = {e["category"] for e in events if e.get("category")}
-
-        for expected in ["OWNERSHIP", "DOCUMENTATION", "STRUCTURED_PROPERTY"]:
-            assert expected in categories, (
-                f"Domain timeline missing {expected}. Found: {sorted(categories)}"
-            )
-        _assert_actor_present(txns, "domain")
+    def test_domain_all_categories(self, auth_session, timeline_urns: TimelineUrns):
+        _wait_for_timeline_categories(
+            auth_session,
+            timeline_urns.domain_urn,
+            ["OWNERSHIP", "DOCUMENTATION", "STRUCTURED_PROPERTY"],
+            "domain",
+        )
 
 
 # ===========================================================================
@@ -942,12 +1090,14 @@ class TestDomainTimeline:
 class TestDataProductTimeline:
     """Test all supported change categories for DataProduct entities."""
 
-    def test_data_product_ownership_changes(self, graph_client, auth_session):
+    def test_data_product_ownership_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add then swap ownership — verifies ADD and REMOVE."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
+                entityUrn=timeline_urns.data_product_urn,
                 aspect=OwnershipClass(
                     owners=[
                         OwnerClass(
@@ -960,7 +1110,7 @@ class TestDataProductTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
+                entityUrn=timeline_urns.data_product_urn,
                 aspect=OwnershipClass(
                     owners=[
                         OwnerClass(owner="urn:li:corpuser:bob", type="DATA_STEWARD")
@@ -969,67 +1119,77 @@ class TestDataProductTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["OWNERSHIP"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 ownership events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.data_product_urn,
             [("OWNERSHIP", "ADD"), ("OWNERSHIP", "REMOVE")],
             "dataProduct/ownership",
+            categories=["OWNERSHIP"],
+            min_events=2,
         )
 
-    def test_data_product_documentation_changes(self, graph_client, auth_session):
+    def test_data_product_documentation_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Update data product name/description (DOCUMENTATION via DataProductPropertiesChangeEventGenerator)."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
+                entityUrn=timeline_urns.data_product_urn,
                 aspect=DataProductPropertiesClass(
-                    name=f"Timeline Test Product {UNIQUE} - Renamed",
+                    name=f"Timeline Test Product {timeline_urns.unique} - Renamed",
                     description="Updated product description",
                 ),
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["DOCUMENTATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 1, f"Expected >=1 documentation events, got {len(events)}"
-        _assert_has_events(
-            events, [("DOCUMENTATION", "MODIFY")], "dataProduct/documentation"
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.data_product_urn,
+            [("DOCUMENTATION", "MODIFY")],
+            "dataProduct/documentation",
+            categories=["DOCUMENTATION"],
+            min_events=1,
         )
 
-    def test_data_product_tag_changes(self, graph_client, auth_session):
+    def test_data_product_tag_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
+                entityUrn=timeline_urns.data_product_urn,
                 aspect=GlobalTagsClass(tags=[TagAssociationClass(tag=TAG_PII)]),
             ),
         )
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
+                entityUrn=timeline_urns.data_product_urn,
                 aspect=GlobalTagsClass(
                     tags=[TagAssociationClass(tag=TAG_CONFIDENTIAL)]
                 ),
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["TAG"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 tag events, got {len(events)}"
-        _assert_has_events(
-            events, [("TAG", "ADD"), ("TAG", "REMOVE")], "dataProduct/tag"
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.data_product_urn,
+            [("TAG", "ADD"), ("TAG", "REMOVE")],
+            "dataProduct/tag",
+            categories=["TAG"],
+            min_events=2,
         )
 
-    def test_data_product_glossary_term_changes(self, graph_client, auth_session):
+    def test_data_product_glossary_term_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
+                entityUrn=timeline_urns.data_product_urn,
                 aspect=GlossaryTermsClass(
-                    terms=[GlossaryTermAssociationClass(urn=TERM_A)],
+                    terms=[GlossaryTermAssociationClass(urn=timeline_urns.term_a)],
                     auditStamp=AuditStampClass(
                         time=_now_ms(), actor="urn:li:corpuser:datahub"
                     ),
@@ -1039,7 +1199,7 @@ class TestDataProductTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
+                entityUrn=timeline_urns.data_product_urn,
                 aspect=GlossaryTermsClass(
                     terms=[],
                     auditStamp=AuditStampClass(
@@ -1049,51 +1209,55 @@ class TestDataProductTimeline:
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["GLOSSARY_TERM"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 term events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.data_product_urn,
             [("GLOSSARY_TERM", "ADD"), ("GLOSSARY_TERM", "REMOVE")],
             "dataProduct/glossaryTerm",
+            categories=["GLOSSARY_TERM"],
+            min_events=2,
         )
 
-    def test_data_product_domain_changes(self, graph_client, auth_session):
+    def test_data_product_domain_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Set domain then swap it — verifies ADD and REMOVE."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
-                aspect=DomainsClass(domains=[DOMAIN_ENGINEERING]),
+                entityUrn=timeline_urns.data_product_urn,
+                aspect=DomainsClass(domains=[timeline_urns.domain_engineering]),
             ),
         )
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
-                aspect=DomainsClass(domains=[DOMAIN_MARKETING]),
+                entityUrn=timeline_urns.data_product_urn,
+                aspect=DomainsClass(domains=[timeline_urns.domain_marketing]),
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["DOMAIN"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 domain events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.data_product_urn,
             [("DOMAIN", "ADD"), ("DOMAIN", "REMOVE")],
             "dataProduct/domain",
+            categories=["DOMAIN"],
+            min_events=2,
         )
 
-    def test_data_product_structured_property_changes(self, graph_client, auth_session):
+    def test_data_product_structured_property_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add then update a structured property — verifies ADD and MODIFY."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
+                entityUrn=timeline_urns.data_product_urn,
                 aspect=StructuredPropertiesClass(
                     properties=[
                         StructuredPropertyValueAssignmentClass(
-                            propertyUrn=SP_URN, values=["epsilon"]
+                            propertyUrn=timeline_urns.sp_urn, values=["epsilon"]
                         )
                     ]
                 ),
@@ -1102,64 +1266,70 @@ class TestDataProductTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
+                entityUrn=timeline_urns.data_product_urn,
                 aspect=StructuredPropertiesClass(
                     properties=[
                         StructuredPropertyValueAssignmentClass(
-                            propertyUrn=SP_URN, values=["zeta"]
+                            propertyUrn=timeline_urns.sp_urn, values=["zeta"]
                         )
                     ]
                 ),
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["STRUCTURED_PROPERTY"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 SP events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.data_product_urn,
             [
                 ("STRUCTURED_PROPERTY", "ADD"),
                 ("STRUCTURED_PROPERTY", "MODIFY"),
             ],
             "dataProduct/structuredProperty",
+            categories=["STRUCTURED_PROPERTY"],
+            min_events=2,
         )
 
-    def test_data_product_application_changes(self, graph_client, auth_session):
+    def test_data_product_application_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
-                aspect=ApplicationsClass(applications=[APP_URN_1]),
+                entityUrn=timeline_urns.data_product_urn,
+                aspect=ApplicationsClass(applications=[timeline_urns.app_urn_1]),
             ),
         )
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
-                aspect=ApplicationsClass(applications=[APP_URN_2]),
+                entityUrn=timeline_urns.data_product_urn,
+                aspect=ApplicationsClass(applications=[timeline_urns.app_urn_2]),
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["APPLICATION"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 application events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.data_product_urn,
             [("APPLICATION", "ADD"), ("APPLICATION", "REMOVE")],
             "dataProduct/application",
+            categories=["APPLICATION"],
+            min_events=2,
         )
 
-    def test_data_product_asset_membership_changes(self, graph_client, auth_session):
+    def test_data_product_asset_membership_changes(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
         """Add an asset, then swap it — verifies ASSET_MEMBERSHIP category."""
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
+                entityUrn=timeline_urns.data_product_urn,
                 aspect=DataProductPropertiesClass(
-                    name=f"Timeline Test Product {UNIQUE}",
+                    name=f"Timeline Test Product {timeline_urns.unique}",
                     assets=[
-                        DataProductAssociationClass(destinationUrn=ASSET_DATASET_1)
+                        DataProductAssociationClass(
+                            destinationUrn=timeline_urns.asset_dataset_1
+                        )
                     ],
                 ),
             ),
@@ -1167,50 +1337,59 @@ class TestDataProductTimeline:
         _emit_and_wait(
             graph_client,
             MetadataChangeProposalWrapper(
-                entityUrn=DATA_PRODUCT_URN,
+                entityUrn=timeline_urns.data_product_urn,
                 aspect=DataProductPropertiesClass(
-                    name=f"Timeline Test Product {UNIQUE}",
+                    name=f"Timeline Test Product {timeline_urns.unique}",
                     assets=[
-                        DataProductAssociationClass(destinationUrn=ASSET_DATASET_2)
+                        DataProductAssociationClass(
+                            destinationUrn=timeline_urns.asset_dataset_2
+                        )
                     ],
                 ),
             ),
         )
 
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN, ["ASSET_MEMBERSHIP"])
-        events = _collect_change_events(txns)
-        assert len(events) >= 2, f"Expected >=2 asset events, got {len(events)}"
-        _assert_has_events(
-            events,
+        _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.data_product_urn,
             [("ASSET_MEMBERSHIP", "ADD"), ("ASSET_MEMBERSHIP", "REMOVE")],
             "dataProduct/assetMembership",
+            categories=["ASSET_MEMBERSHIP"],
+            min_events=2,
         )
 
-    def test_data_product_all_categories(self, auth_session):
+    def test_data_product_all_categories(
+        self, auth_session, timeline_urns: TimelineUrns
+    ):
         """Verify all categories appear and actor attribution works."""
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN)
-        events = _collect_change_events(txns)
-        categories = {e["category"] for e in events if e.get("category")}
+        _wait_for_timeline_categories(
+            auth_session,
+            timeline_urns.data_product_urn,
+            [
+                "OWNERSHIP",
+                "DOCUMENTATION",
+                "TAG",
+                "GLOSSARY_TERM",
+                "DOMAIN",
+                "STRUCTURED_PROPERTY",
+                "APPLICATION",
+                "ASSET_MEMBERSHIP",
+            ],
+            "dataProduct",
+        )
 
-        for expected in [
-            "OWNERSHIP",
-            "DOCUMENTATION",
-            "TAG",
-            "GLOSSARY_TERM",
-            "DOMAIN",
-            "STRUCTURED_PROPERTY",
-            "APPLICATION",
-            "ASSET_MEMBERSHIP",
-        ]:
-            assert expected in categories, (
-                f"DataProduct timeline missing {expected}. Found: {sorted(categories)}"
-            )
-
-        _assert_actor_present(txns, "dataProduct")
-
-    def test_data_product_timeline_structure(self, auth_session):
+    def test_data_product_timeline_structure(
+        self, auth_session, timeline_urns: TimelineUrns
+    ):
         """Verify the GraphQL response structure matches what the frontend expects."""
-        txns = _get_timeline(auth_session, DATA_PRODUCT_URN)
+        # Wait for timeline materialization before structure checks.
+        _wait_for_timeline_categories(
+            auth_session,
+            timeline_urns.data_product_urn,
+            ["OWNERSHIP"],
+            "dataProduct/structure",
+        )
+        txns = _get_timeline(auth_session, timeline_urns.data_product_urn)
         assert len(txns) > 0, "Expected at least one transaction"
 
         for tx in txns:

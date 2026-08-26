@@ -93,7 +93,7 @@ KNOWN_CONNECTOR_PLATFORM_MAPPING = {
 
 TWO_TIER_CONNECTORS = ["clickhouse", "hive", "glue", "mysql", "iceberg"]
 
-PROPERTIES_TABLE_SUPPORTED_CONNECTORS = ["hive", "iceberg"]
+PROPERTIES_TABLE_SUPPORTED_CONNECTORS = ["hive", "iceberg", "lakehouse", "delta_lake"]
 
 # Type JSON was introduced in trino sqlalchemy dialect in version 0.317.0
 if version.parse(trino.__version__) >= version.parse("0.317.0"):
@@ -157,19 +157,25 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
                 # No properties found, return empty dictionary
                 return {}
 
-            # Check if using the old format (key, value columns)
+            # Table properties can be returned in different formats depending on the connector, so we need to handle different cases.
+            # Lakehouse is a proxy for hive, iceberg and delta lake connectors. It can contain both formats.
             if (
-                connector_name == "iceberg"
+                connector_name in ["iceberg", "lakehouse", "delta_lake"]
                 and len(rows[0]) == 2
                 and "key" in rows[0]
                 and "value" in rows[0]
             ):
-                #  https://trino.io/docs/current/connector/iceberg.html#properties-table
+                # https://trino.io/docs/current/connector/iceberg.html#properties-table
+                # https://trino.io/docs/current/connector/delta-lake.html#properties-table
                 for row in rows:
                     if row["value"] is not None:
                         properties[row["key"]] = row["value"]
                 return {"text": properties.get("comment"), "properties": properties}
-            elif connector_name == "hive" and len(rows[0]) > 1 and len(rows) == 1:
+            elif (
+                connector_name in ["hive", "lakehouse"]
+                and len(rows[0]) > 1
+                and len(rows) == 1
+            ):
                 # https://trino.io/docs/current/connector/hive.html#properties-table
                 row = rows[0]
                 for col_name, col_value in row.items():

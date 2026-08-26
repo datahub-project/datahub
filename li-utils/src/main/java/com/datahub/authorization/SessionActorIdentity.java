@@ -12,28 +12,43 @@ import javax.annotation.Nonnull;
 import lombok.Getter;
 
 /**
- * Request-scoped snapshot of a corp user's group membership and role membership. Group URNs include
- * both corp (SSO) and native groups, deduplicated. Roles inherited via groups are resolved lazily.
+ * Request-scoped snapshot of a corp user's group membership and role membership. {@link #groups}
+ * includes both corp (SSO) and native groups, deduplicated. {@link #corpGroups} and {@link
+ * #nativeGroups} retain the source aspect distinction for relationship-type labeling. Roles
+ * inherited via groups are resolved lazily.
  */
 @Getter
 public final class SessionActorIdentity {
 
   private final Urn actorUrn;
+  private final List<Urn> corpGroups;
+  private final List<Urn> nativeGroups;
   private final List<Urn> groups;
   private final Set<Urn> directRoles;
   private volatile Set<Urn> allRoles;
 
   public SessionActorIdentity(
       @Nonnull final Urn actorUrn,
-      @Nonnull final List<Urn> groups,
+      @Nonnull final List<Urn> corpGroups,
+      @Nonnull final List<Urn> nativeGroups,
       @Nonnull final Set<Urn> directRoles) {
     this.actorUrn = actorUrn;
-    this.groups = List.copyOf(groups);
+    this.corpGroups = List.copyOf(corpGroups);
+    this.nativeGroups = List.copyOf(nativeGroups);
+    this.groups = List.copyOf(mergeGroupMembership(corpGroups, nativeGroups));
     this.directRoles = Collections.unmodifiableSet(new HashSet<>(directRoles));
   }
 
+  /** Treats all groups as corp (SSO) membership for callers without native/corp distinction. */
+  public SessionActorIdentity(
+      @Nonnull final Urn actorUrn,
+      @Nonnull final List<Urn> groups,
+      @Nonnull final Set<Urn> directRoles) {
+    this(actorUrn, groups, List.of(), directRoles);
+  }
+
   public static SessionActorIdentity empty(@Nonnull final Urn actorUrn) {
-    return new SessionActorIdentity(actorUrn, List.of(), Set.of());
+    return new SessionActorIdentity(actorUrn, List.of(), List.of(), Set.of());
   }
 
   /**

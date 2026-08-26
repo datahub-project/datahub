@@ -2,15 +2,20 @@ package com.linkedin.gms.factory.entity;
 
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.lock.EntityWriteLock;
+import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.event.EventProducer;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -33,22 +38,36 @@ public class EntityServiceFactory {
       @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
       @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
       @Value("${featureFlags.cdcModeChangeLog}") final boolean enableCDCModeChangeLog,
+      @Value("${MAE_CONSUMER_ENABLED:false}") final String maeConsumerEnabled,
+      @Value("${MCL_CONSUMER_ENABLED:false}") final String mclConsumerEnabled,
       final List<ThrottleSensor> throttleSensors,
-      @javax.annotation.Nullable
-          final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
+      @javax.annotation.Nullable final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils,
+      final ObjectProvider<RetentionBuffer> retentionBufferProvider,
+      final EntityWriteLock entityWriteLock) {
 
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
+    PreProcessHooks.validateWhenConsumingMcl(
+        featureFlags.getPreProcessHooks(),
+        PreProcessHooks.isMclConsumerEnabled(maeConsumerEnabled, mclConsumerEnabled));
 
     EntityServiceImpl entityService =
         new EntityServiceImpl(
             aspectDao,
             eventProducer,
-            featureFlags.isAlwaysEmitChangeLog(),
-            featureFlags.isCdcModeChangeLog(),
             featureFlags.getPreProcessHooks(),
-            _ebeanMaxTransactionRetry,
-            enableBrowsePathV2,
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(featureFlags.isAlwaysEmitChangeLog())
+                .setCdcModeChangeLog(featureFlags.isCdcModeChangeLog())
+                .setRetry(_ebeanMaxTransactionRetry)
+                .setEnableBrowseV2(enableBrowsePathV2)
+                .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled()),
             metricUtils);
+
+    // Absent (NO_OP) unless RetentionBufferFactory activated a coalesce-backed buffer.
+    entityService.setRetentionBuffer(retentionBufferProvider.getIfAvailable());
+
+    // No-op unless entityWriteLockBackend selects a real gate (e.g. Hazelcast).
+    entityService.setEntityWriteLock(entityWriteLock);
 
     if (throttleSensors != null
         && !throttleSensors.isEmpty()

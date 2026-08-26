@@ -2,8 +2,6 @@ package com.linkedin.metadata.resources.operations;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 
-import com.datahub.authentication.Authentication;
-import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
@@ -16,14 +14,12 @@ import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.ResourceContext;
 import com.linkedin.restli.server.RestLiServiceException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
@@ -33,7 +29,7 @@ public class Utils {
   private Utils() {}
 
   public static String restoreIndices(
-     @Nonnull OperationContext systemOperationContext,
+     @Nonnull OperationContext opContext,
       @Nonnull ResourceContext resourceContext,
       @Nonnull String aspectName,
       @Nullable String urn,
@@ -52,10 +48,6 @@ public class Utils {
       Urn resource = UrnUtils.getUrn(urn);
       resourceSpec = new EntitySpec(resource.getEntityType(), resource.toString());
     }
-    final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), resourceContext,
-                    "restoreIndices", List.of()), authorizer, auth, true);
 
     if (!isAPIAuthorized(
             opContext,

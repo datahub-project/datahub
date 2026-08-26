@@ -21,7 +21,7 @@ import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
-import com.linkedin.metadata.authorization.ApiOperation;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.schema.EditableSchemaFieldInfo;
@@ -121,11 +121,8 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
     }
     if (newTags != null) {
       Set<Urn> tagDifference = extractTagDifference(newTags, currentTags);
-      if (!AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-          session,
-          ApiOperation.fromChangeType(item.getChangeType()),
-          List.of(item.getUrn()),
-          tagDifference)) {
+      if (!AuthUtil.isAPIAuthorizedForTagModification(
+          session, item.getUrn(), tagDifference, PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE)) {
         return List.of(
             AspectValidationException.forItem(
                 item, "Unauthorized to modify one or more tag Urns: " + tagDifference));
@@ -200,11 +197,11 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
                           existingTagsMap.get(schemaField.getFieldPath())))
               .flatMap(Set::stream)
               .collect(Collectors.toSet());
-      if (!AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+      if (!AuthUtil.isAPIAuthorizedForTagModification(
           session,
-          ApiOperation.fromChangeType(item.getChangeType()),
-          List.of(item.getUrn()),
-          tagDifference)) {
+          item.getUrn(),
+          tagDifference,
+          AuthUtil.tagModificationPrivilege(item.getUrn(), true))) {
         return List.of(
             AspectValidationException.forItem(
                 item, "Unauthorized to modify one or more tag Urns: " + tagDifference));
@@ -260,11 +257,11 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
                           existingTagsMap.get(schemaField.getFieldPath())))
               .flatMap(Set::stream)
               .collect(Collectors.toSet());
-      if (!AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+      if (!AuthUtil.isAPIAuthorizedForTagModification(
           session,
-          ApiOperation.fromChangeType(item.getChangeType()),
-          List.of(item.getUrn()),
-          tagDifference)) {
+          item.getUrn(),
+          tagDifference,
+          AuthUtil.tagModificationPrivilege(item.getUrn(), true))) {
         return List.of(
             AspectValidationException.forItem(
                 item, "Unauthorized to modify one or more tag Urns: " + tagDifference));

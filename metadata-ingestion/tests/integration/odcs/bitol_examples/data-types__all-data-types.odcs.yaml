@@ -1,0 +1,85 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/data-types/all-data-types.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+version: 1.0.0
+kind: DataContract
+id: 53581432-6c55-4ba2-a65f-72344a91553a
+status: active
+name: my_table
+dataProduct: my_quantum
+apiVersion: v3.0.2
+schema:
+  - name: transactions_tbl
+    description: Provides core payment metrics
+    dataGranularityDescription: Aggregation on names txn_ref_dt, pmt_txn_id
+    physicalType: table
+    properties:
+      - name: account_id
+        physicalType: string
+        logicalType: string
+        logicalTypeOptions:
+          minLength: 11
+          maxLength: 11
+          pattern: ACC[0-9]{8}
+      - name: txn_ref_date
+        physicalType: date
+        logicalType: date
+        logicalTypeOptions:
+          exclusiveMinimum: "2020-01-01"
+          maximum: "2021-01-01"
+          format: yyyy-MM-dd
+      - name: txn_timestamp
+        physicalType: timestamp
+        logicalType: timestamp
+        logicalTypeOptions:
+          minimum: "2020-01-01 00:00:00"
+          maximum: "2021-01-01 00:00:00"
+          format: "yyyy-MM-dd HH:mm:ss"
+      - name: txn_timestamp_tz
+        physicalType: timestamp
+        logicalType: timestamp
+        logicalTypeOptions:
+          minimum: "2020-01-01 00:00:00+10:00"
+          maximum: "2021-01-01 00:00:00+10:00"
+          format: "yyyy-MM-dd HH:mm:ssZ"
+          timezone: true
+          defaultTimezone: "Australia/Sydney"
+      - name: txn_time
+        physicalType: time
+        logicalType: time
+        logicalTypeOptions:
+          minimum: "00:00:00"
+          maximum: "23:59:59"
+          format: "HH:mm:ss"
+          timezone: false
+      - name: amount
+        physicalType: double
+        logicalType: number
+        logicalTypeOptions:
+          minimum: 0
+          format: f32
+      - name: age
+        physicalType: int
+        logicalType: integer
+        logicalTypeOptions:
+          minimum: 18
+          exclusiveMaximum: 100
+          format: i64
+      - name: is_open
+        physicalType: bool
+        logicalType: boolean
+      - name: latest_txns
+        physicalType: list
+        logicalType: array
+        logicalTypeOptions:
+          minItems: 0
+          maxItems: 3
+          uniqueItems: true
+      - name: customer_details
+        physicalType: json
+        logicalType: object
+        logicalTypeOptions:
+          required:
+            - num_children
+            - date_of_birth
+          maxProperties: 5

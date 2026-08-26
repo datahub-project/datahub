@@ -1,0 +1,21 @@
+{
+    "card.nodeGroupCountTooltip_one": "Contient {{count}} groupe de termes",
+    "card.nodeGroupCountTooltip_other": "Contient {{count}} groupes de termes",
+    "card.termCountTooltip_one": "Contient {{count}} terme",
+    "card.termCountTooltip_other": "Contient {{count}} termes",
+    "empty.addTerm": "Ajouter un terme",
+    "empty.addTermGroup": "Ajouter un groupe de termes",
+    "empty.description": "Créer des termes et des groupes de termes pour organiser les assets de données à l'aide d'un vocabulaire partagé.",
+    "empty.title": "Glossaire vide",
+    "list.error": "Échec du chargement du glossaire! Une erreur inattendue s'est produite.",
+    "list.loading": "Chargement du glossaire...",
+    "page.createGlossary": "Créer un glossaire",
+    "page.subtitle": "Classer vos assets de données et vos colonnes à l'aide de dictionnaires de données",
+    "page.title": "Glossaire",
+    "section.glossaryTerms": "Termes",
+    "section.termGroups": "Groupes de termes",
+    "sidebar.collapse": "Réduire le glossaire",
+    "sidebar.expand": "Développer le glossaire",
+    "sidebar.home": "Accueil du glossaire",
+    "sidebar.section.allTerms": "Tous les termes"
+}

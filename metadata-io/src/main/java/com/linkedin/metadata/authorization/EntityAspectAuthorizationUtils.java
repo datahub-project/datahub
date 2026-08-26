@@ -95,6 +95,32 @@ public final class EntityAspectAuthorizationUtils {
   }
 
   /**
+   * Returns true when the actor may view {@code schemaFieldUrn}. Schema fields inherit VIEW from
+   * the containing parent URN encoded in the schemaField key (typically a dataset), then fall back
+   * to a direct grant on the schemaField URN itself.
+   *
+   * <p>Uses {@link #resolveLogicalParentAuthorizationCandidates(Urn)} so write and view paths share
+   * the same parent resolution. Non-schemaField URNs are checked directly via {@link
+   * com.datahub.authorization.AuthUtil#canViewEntity}.
+   */
+  public static boolean canViewSchemaFieldEntity(
+      @Nonnull AuthorizationSession session, @Nonnull Urn schemaFieldUrn) {
+    if (!SCHEMA_FIELD_ENTITY_NAME.equals(schemaFieldUrn.getEntityType())) {
+      return com.datahub.authorization.AuthUtil.canViewEntity(session, schemaFieldUrn);
+    }
+    for (Urn candidate : resolveLogicalParentAuthorizationCandidates(schemaFieldUrn)) {
+      if (com.datahub.authorization.AuthUtil.canViewEntity(session, candidate)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public static boolean isSchemaFieldEntity(@Nonnull Urn urn) {
+    return SCHEMA_FIELD_ENTITY_NAME.equals(urn.getEntityType());
+  }
+
+  /**
    * Returns true when the actor may write {@code logicalParent} on {@code childUrn}. Setting a
    * parent requires {@code EDIT_ENTITY} on both the child and proposed parent — each side is
    * evaluated independently (dataset or schema field URN for that side). Clearing a parent requires
@@ -207,6 +233,69 @@ public final class EntityAspectAuthorizationUtils {
       }
     }
     return unauthorized;
+  }
+
+  /**
+   * Returns true when the actor may rename a data product ({@code dataProductProperties.name} or
+   * {@code updateName}). Requires {@code MANAGE_DATA_PRODUCTS} on at least one product domain, or
+   * {@code EDIT_ENTITY} on the data product itself.
+   */
+  public static boolean isAuthorizedToRenameDataProduct(
+      @Nonnull AuthorizationSession session,
+      @Nonnull Urn dataProductUrn,
+      @Nonnull Set<Urn> productDomainUrns) {
+    if (!productDomainUrns.isEmpty()
+        && isAuthorizedToManageDataProductsOnAnyDomain(session, productDomainUrns)) {
+      return true;
+    }
+    return isAuthorizedToEditDataProductEntity(session, dataProductUrn);
+  }
+
+  /**
+   * Returns data product URNs whose {@code dataProductProperties.name} change is not authorized.
+   */
+  @Nonnull
+  public static Set<Urn> filterUnauthorizedToRenameDataProduct(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AuthorizationSession session,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Set<Urn> dataProductUrnsWithNameChange,
+      @Nonnull Map<Urn, Aspect> proposedProductDomainsAspects) {
+    if (dataProductUrnsWithNameChange.isEmpty()) {
+      return Set.of();
+    }
+
+    Map<Urn, Map<String, Aspect>> persistedProductDomainsAspects =
+        aspectRetriever.getLatestAspectObjects(
+            operationContext,
+            new HashSet<>(dataProductUrnsWithNameChange),
+            Set.of(DOMAINS_ASPECT_NAME));
+
+    Set<Urn> unauthorized = new HashSet<>();
+    for (Urn dataProductUrn : dataProductUrnsWithNameChange) {
+      Aspect productDomainsAspect = proposedProductDomainsAspects.get(dataProductUrn);
+      if (productDomainsAspect == null) {
+        productDomainsAspect =
+            persistedProductDomainsAspects
+                .getOrDefault(dataProductUrn, Map.of())
+                .get(DOMAINS_ASPECT_NAME);
+      }
+      Set<Urn> productDomainUrns = resolveUniqueDomainUrns(productDomainsAspect);
+      if (!isAuthorizedToRenameDataProduct(session, dataProductUrn, productDomainUrns)) {
+        unauthorized.add(dataProductUrn);
+      }
+    }
+    return unauthorized;
+  }
+
+  private static boolean isAuthorizedToEditDataProductEntity(
+      @Nonnull AuthorizationSession session, @Nonnull Urn dataProductUrn) {
+    EntitySpec productSpec =
+        new EntitySpec(dataProductUrn.getEntityType(), dataProductUrn.toString());
+    return com.datahub.authorization.AuthUtil.isAuthorized(
+        session,
+        new DisjunctivePrivilegeGroup(ImmutableList.of(ALL_ENTITY_PRIVILEGES)),
+        productSpec);
   }
 
   /**

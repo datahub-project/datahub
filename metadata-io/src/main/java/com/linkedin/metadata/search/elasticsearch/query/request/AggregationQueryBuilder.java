@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.models.StructuredPropertyUtils.toStructuredPropertyFacetName;
 import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
@@ -199,11 +198,8 @@ public class AggregationQueryBuilder {
       // Boolean hasX field, not a keyword field. Return the name of the original facet.
       return facet;
     }
-    // intercept structured property if it exists
-    return toStructuredPropertyFacetName(
-            (com.datahub.context.OperationFingerprint) opContext, facet, aspectRetriever)
-        // Otherwise assume that this field is of keyword type.
-        .orElse(ESUtils.toKeywordField(opContext, facet, false, aspectRetriever));
+    // Structured properties and keyword fields share one resolver (SP type → parent vs .keyword).
+    return ESUtils.toKeywordField(opContext, facet, false, aspectRetriever);
   }
 
   List<String> getDefaultFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {

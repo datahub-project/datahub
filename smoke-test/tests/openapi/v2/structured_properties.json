@@ -1,34 +1,34 @@
 [
   {
     "request": {
-      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV2%2CPROD%29",
+      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV2{unique_id}%2CPROD%29",
       "description": "Remove test dataset",
       "method": "delete"
     }
   },
   {
     "request": {
-      "url": "/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v2.retentionTime",
+      "url": "/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v2.retentionTime{unique_id}",
       "description": "Remove test structured property",
       "method": "delete"
     }
   },
   {
     "request": {
-      "url": "/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v2.retentionTime02",
+      "url": "/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v2.retentionTime02{unique_id}",
       "description": "Remove test structured property #2",
       "method": "delete"
     }
   },
   {
     "request": {
-      "url": "/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v2.retentionTime/propertyDefinition",
+      "url": "/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v2.retentionTime{unique_id}/propertyDefinition",
       "description": "Create structured property definition",
       "params": {
         "createIfNotExists": "false"
       },
       "json": {
-        "qualifiedName": "io.acryl.privacy.v2.retentionTime",
+        "qualifiedName": "io.acryl.privacy.v2.retentionTime{unique_id}",
         "valueType": "urn:li:dataType:datahub.number",
         "description": "Retention Time is used to figure out how long to retain records in a dataset",
         "displayName": "Retention Time",
@@ -61,7 +61,7 @@
     },
     "response": {
       "json": {
-        "urn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime",
+        "urn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime{unique_id}",
         "aspects": {
           "propertyDefinition": {
             "value": {
@@ -85,7 +85,7 @@
                   "description": "Use this for non-sensitive data that can be retained for longer"
                 }
               ],
-              "qualifiedName": "io.acryl.privacy.v2.retentionTime",
+              "qualifiedName": "io.acryl.privacy.v2.retentionTime{unique_id}",
               "displayName": "Retention Time",
               "valueType": "urn:li:dataType:datahub.number",
               "description": "Retention Time is used to figure out how long to retain records in a dataset",
@@ -106,7 +106,7 @@
       "description": "Create dataset",
       "json": [
         {
-          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2,PROD)",
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2{unique_id},PROD)",
           "aspects": {
             "status": {
               "value": {
@@ -120,19 +120,19 @@
     "response": {
       "json": [
         {
-          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2,PROD)"
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2{unique_id},PROD)"
         }
       ]
     }
   },
   {
     "request": {
-      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV2%2CPROD%29/structuredProperties?createIfNotExists=false",
+      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV2{unique_id}%2CPROD%29/structuredProperties?createIfNotExists=false",
       "description": "Add structured property to dataset",
       "json": {
         "properties": [
           {
-            "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime",
+            "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime{unique_id}",
             "values": [
               {
                 "double": 60.0
@@ -144,7 +144,7 @@
     },
     "response": {
       "json": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2,PROD)",
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2{unique_id},PROD)",
         "aspects": {
           "structuredProperties": {
             "value": {
@@ -155,7 +155,7 @@
                       "double": 60.0
                     }
                   ],
-                  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime"
+                  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime{unique_id}"
                 }
               ]
             }
@@ -166,13 +166,13 @@
   },
   {
     "request": {
-      "url": "/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v2.retentionTime02/propertyDefinition?createIfNotExists=false",
+      "url": "/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v2.retentionTime02{unique_id}/propertyDefinition?createIfNotExists=false",
       "description": "Create structured property definition #2",
       "params": {
         "createIfNotExists": "false"
       },
       "json": {
-        "qualifiedName": "io.acryl.privacy.v2.retentionTime02",
+        "qualifiedName": "io.acryl.privacy.v2.retentionTime02{unique_id}",
         "displayName": "Retention Time 02",
         "valueType": "urn:li:dataType:datahub.string",
         "allowedValues": [
@@ -197,7 +197,7 @@
     },
     "response": {
       "json": {
-        "urn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02",
+        "urn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02{unique_id}",
         "aspects": {
           "propertyDefinition": {
             "value": {
@@ -220,7 +220,7 @@
               ],
               "cardinality": "SINGLE",
               "displayName": "Retention Time 02",
-              "qualifiedName": "io.acryl.privacy.v2.retentionTime02",
+              "qualifiedName": "io.acryl.privacy.v2.retentionTime02{unique_id}",
               "valueType": "urn:li:dataType:datahub.string"
             }
           }
@@ -230,16 +230,16 @@
   },
   {
     "request": {
-      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV2%2CPROD%29/structuredProperties",
+      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV2{unique_id}%2CPROD%29/structuredProperties",
       "description": "Patch ADD structured property",
       "method": "patch",
       "json": {
         "patch": [
           {
             "op": "add",
-            "path": "/properties/urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02",
+            "path": "/properties/urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02{unique_id}",
             "value": {
-              "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02",
+              "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02{unique_id}",
               "values": [
                 {
                   "string": "bar2"
@@ -257,7 +257,7 @@
     },
     "response": {
       "json": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2,PROD)",
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2{unique_id},PROD)",
         "aspects": {
           "structuredProperties": {
             "value": {
@@ -268,7 +268,7 @@
                       "double": 60.0
                     }
                   ],
-                  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime"
+                  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime{unique_id}"
                 },
                 {
                   "values": [
@@ -276,7 +276,7 @@
                       "string": "bar2"
                     }
                   ],
-                  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02"
+                  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02{unique_id}"
                 }
               ]
             }
@@ -287,16 +287,16 @@
   },
   {
     "request": {
-      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV2%2CPROD%29/structuredProperties",
+      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetStructPropV2{unique_id}%2CPROD%29/structuredProperties",
       "description": "Patch REMOVE structured property",
       "method": "patch",
       "json": {
         "patch": [
           {
             "op": "remove",
-            "path": "/properties/urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02",
+            "path": "/properties/urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02{unique_id}",
             "value": {
-              "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02"
+              "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime02{unique_id}"
             }
           }
         ],
@@ -309,7 +309,7 @@
     },
     "response": {
       "json": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2,PROD)",
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetStructPropV2{unique_id},PROD)",
         "aspects": {
           "structuredProperties": {
             "value": {
@@ -320,7 +320,7 @@
                       "double": 60.0
                     }
                   ],
-                  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime"
+                  "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.v2.retentionTime{unique_id}"
                 }
               ]
             }

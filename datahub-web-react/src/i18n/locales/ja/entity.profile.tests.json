@@ -1,0 +1,13 @@
+{
+    "resultText.failing": "失敗",
+    "resultText.passing": "成功",
+    "summary.allFailing": "すべてのテストが失敗しています",
+    "summary.allPassing": "すべてのテストが成功しています",
+    "summary.countsSubtitle": "成功{{passing}}件、失敗{{failing}}件",
+    "summary.noTestsRun": "テストが実行されていません",
+    "summary.someFailing": "一部のテストが失敗しています",
+    "summary.statusTooltip": "このステータスは、各テストの最新の実行結果に基づいています。",
+    "testResults.empty": "テストが見つかりません :(",
+    "testResults.noEvaluations": "評価がありません",
+    "testResults.title": "ガバナンステスト結果"
+}

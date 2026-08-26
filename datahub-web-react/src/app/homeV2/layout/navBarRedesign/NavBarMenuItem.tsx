@@ -10,7 +10,13 @@ import analytics, { EventType } from '@src/app/analytics';
 const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
     &&& {
         position: relative;
-        padding: 4px 8px;
+        padding: ${(props) => (props.isCollapsed ? '4px 0 !important' : '4px 8px')};
+        ${(props) =>
+            props.isCollapsed &&
+            `
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        `}
         margin: 4px 0;
         margin-bottom: 0;
         height: 36px;
@@ -19,7 +25,12 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         border: 0;
         display: flex;
         align-items: center;
-        ${(props) => props.isCollapsed && 'width: 36px;'}
+        ${(props) =>
+            props.isCollapsed &&
+            `
+            width: 100%;
+            justify-content: center;
+        `}
         @media (max-height: 970px) {
             margin: 2px 0;
         }
@@ -47,6 +58,13 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         align-items: center;
         height: 36px;
         line-height: 24px;
+        ${(props) =>
+            props.isCollapsed &&
+            `
+            justify-content: center;
+            gap: 0;
+            width: auto;
+        `}
     }
 
     &:hover,
@@ -64,6 +82,7 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
 const Icon = styled.div<{ $isSelected?: boolean; $size?: number }>`
     width: ${(props) => props.$size ?? 20}px;
     height: ${(props) => props.$size ?? 20}px;
+    flex: 0 0 auto;
 
     && svg {
         ${(props) =>

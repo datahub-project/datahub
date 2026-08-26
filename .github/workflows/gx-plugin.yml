@@ -48,7 +48,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -61,32 +61,43 @@ jobs:
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
         include:
           - python-version: "3.10"
             extraPythonRequirement: "great-expectations~=0.18.0"
+            gradleTasks: ":metadata-ingestion-modules:gx-plugin:testFull"
+            venvName: "venv"
           - python-version: "3.11"
             extraPythonRequirement: "great-expectations~=0.18.0"
+            gradleTasks: ":metadata-ingestion-modules:gx-plugin:testFull"
+            venvName: "venv"
+          # GX Core 1.x exercises datahub_gx_plugin.action_v1 in its own venv.
+          - python-version: "3.11"
+            extraPythonRequirement: "great-expectations~=1.0"
+            gradleTasks: ":metadata-ingestion-modules:gx-plugin:testFullGx1"
+            venvName: "venv-gx1"
       fail-fast: false
     steps:
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install GX package and test  (extras ${{ matrix.extraPythonRequirement }})
-        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion-modules:gx-plugin:lint :metadata-ingestion-modules:gx-plugin:testFull
+        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' ${{ matrix.gradleTasks }}
       - name: pip freeze show list installed
         if: always()
-        run: source metadata-ingestion-modules/gx-plugin/venv/bin/activate && uv pip freeze
+        run: source metadata-ingestion-modules/gx-plugin/${{ matrix.venvName }}/bin/activate && uv pip freeze
       - name: Report test results
         if: (!cancelled())
         uses: ./.github/actions/report-test-results

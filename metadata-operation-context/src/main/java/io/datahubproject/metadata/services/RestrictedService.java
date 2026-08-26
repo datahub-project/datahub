@@ -14,7 +14,7 @@ public class RestrictedService {
   }
 
   public Urn encryptRestrictedUrn(@Nonnull final Urn entityUrn) {
-    final String encryptedEntityUrn = this.secretService.encrypt(entityUrn.toString());
+    final String encryptedEntityUrn = this.secretService.encrypt(null, entityUrn.toString());
     try {
       return new Urn(RESTRICTED_ENTITY_TYPE, encryptedEntityUrn);
     } catch (Exception e) {
@@ -24,6 +24,6 @@ public class RestrictedService {
 
   public Urn decryptRestrictedUrn(@Nonnull final Urn restrictedUrn) {
     final String encryptedUrn = restrictedUrn.getId();
-    return UrnUtils.getUrn(this.secretService.decrypt(encryptedUrn));
+    return UrnUtils.getUrn(this.secretService.decrypt(null, encryptedUrn));
   }
 }

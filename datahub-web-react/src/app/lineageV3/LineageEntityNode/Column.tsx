@@ -1,7 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Spin, Typography } from 'antd';
-import React, { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
@@ -10,27 +10,27 @@ import styled from 'styled-components';
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
-import { LineageDisplayColumn } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
-import {
-    LineageNodesContext,
-    createColumnRef,
-    onClickPreventSelect,
-    useIgnoreSchemaFieldStatus,
-} from '@app/lineageV3/common';
-import { ColumnAsset } from '@app/lineageV3/types';
+import useFetchColumnCounts from '@app/lineageV3/LineageEntityNode/Column.hooks';
+import { ColumnLineageControl } from '@app/lineageV3/LineageEntityNode/ColumnLineageControl';
+import { LineageDisplayColumn, columnHasLineage } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
+import { createColumnRef, onClickPreventSelect } from '@app/lineageV3/common';
 import { useGetLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import { CompactFieldIconWithTooltip } from '@app/sharedV2/icons/CompactFieldIcon';
 import { useAppConfig } from '@app/useAppConfig';
 
-import { useGetLineageCountsLazyQuery } from '@graphql/lineage.generated';
-import { EntityType } from '@types';
+import { EntityType, LineageDirection } from '@types';
 
 import LinkOut from '@images/link-out.svg?react';
 
 const HOVER_REQUEST_DELAY = 300;
 
 const LinkOutIcon = styled(LinkOut)``;
+
+// Anchors the column's lineage controls, which render outside the node on either side
+const ColumnPositioner = styled.div`
+    position: relative;
+    width: 100%;
+`;
 
 const ColumnWrapper = styled.div<{
     selected: boolean;
@@ -115,6 +115,8 @@ type Props = LineageDisplayColumn & {
     parentUrn: string;
     entityType: EntityType;
     allNeighborsFetched: boolean;
+    mayHideUpstreamLineage: boolean;
+    mayHideDownstreamLineage: boolean;
     selectedColumn: string | null;
     setSelectedColumn: Dispatch<SetStateAction<string | null>>;
     hoveredColumn: string | null;
@@ -126,11 +128,14 @@ export default function Column({
     entityType,
     fieldPath,
     highlighted,
-    hasLineage,
+    connectedToHomeNode,
     type,
     nativeDataType,
     lineageAsset,
+    shownRelated,
     allNeighborsFetched,
+    mayHideUpstreamLineage,
+    mayHideDownstreamLineage,
     selectedColumn,
     setSelectedColumn,
     hoveredColumn,
@@ -140,6 +145,10 @@ export default function Column({
     const { config } = useAppConfig();
     const id = useMemo(() => createColumnRef(parentUrn, fieldPath), [parentUrn, fieldPath]);
     const selected = selectedColumn === id;
+    // Lineage filter nodes cover hidden column lineage themselves, with an edge to the filter node
+    const showLineageControls = !!shownRelated && !config.featureFlags.showLineageFilterNodes;
+    const showUpstreamControl = showLineageControls && mayHideUpstreamLineage;
+    const showDownstreamControl = showLineageControls && mayHideDownstreamLineage;
 
     let columnName = fieldPath;
     try {
@@ -156,10 +165,15 @@ export default function Column({
     const turnOnDisabledTooltipOnHover = useCallback(() => setShowDisabledTooltipOnHover(true), []);
 
     const { initiateRequest, cancelRequest, loading } = useFetchColumnCounts(
+        parentUrn,
         schemaFieldUrn,
         lineageAsset,
         turnOnDisabledTooltipOnHover,
     );
+    // Recomputed here rather than taken from props: counts are written onto `lineageAsset` when the
+    // query resolves, which re-renders this component but leaves its props stale
+    const hasLineage = columnHasLineage(lineageAsset, connectedToHomeNode);
+    const hasFetchedCounts = lineageAsset.numUpstream !== undefined || lineageAsset.numDownstream !== undefined;
     const isFullyFetched = lineageAsset.lineageCountsFetched || allNeighborsFetched;
     const showAsDisabled = !hasLineage && isFullyFetched;
 
@@ -171,6 +185,17 @@ export default function Column({
             setTimeout(() => setShowDisabledTooltipOnSelect(false), 3000);
         }
     }, [selectedColumn, id, hasLineage, isFullyFetched, setSelectedColumn]);
+
+    // Counts back the controls of every column in the traversal, not just the one under the cursor.
+    // `isFullyFetched` is not enough to skip the request: it is set without fetching counts when a
+    // node's neighbors are all loaded, which is also true of a node whose lineage is contracted.
+    useEffect(() => {
+        if ((!showUpstreamControl && !showDownstreamControl) || hasFetchedCounts) {
+            cancelRequest(); // No longer interested, e.g. the cursor moved on to another column
+        } else {
+            initiateRequest(HOVER_REQUEST_DELAY);
+        }
+    }, [showUpstreamControl, showDownstreamControl, hasFetchedCounts, initiateRequest, cancelRequest]);
 
     const handleMouseEnter = useCallback(() => {
         if (!selectedColumn && !showAsDisabled) {
@@ -190,113 +215,84 @@ export default function Column({
 
     // TODO: Add hover text if overflowed
     const contents = (
-        <ColumnWrapper
-            highlighted={highlighted && !showAsDisabled}
-            fromSelect={!!selectedColumn}
-            selected={selected}
-            disabled={showAsDisabled}
-            onClick={(e) => {
-                if (!showAsDisabled) {
-                    onClickPreventSelect(e);
-                    if (selectedColumn !== id && !allNeighborsFetched) {
-                        initiateRequest();
+        <ColumnPositioner>
+            <ColumnWrapper
+                highlighted={highlighted && !showAsDisabled}
+                fromSelect={!!selectedColumn}
+                selected={selected}
+                disabled={showAsDisabled}
+                onClick={(e) => {
+                    if (!showAsDisabled) {
+                        onClickPreventSelect(e);
+                        if (selectedColumn !== id && !allNeighborsFetched) {
+                            initiateRequest();
+                        }
+                        // Toggle if already selected
+                        setSelectedColumn((v) => (v === id ? null : id));
+                        analytics.event({
+                            type: EventType.DrillDownLineageEvent,
+                            action: selectedColumn === id ? 'deselect' : 'select',
+                            parentUrn,
+                            parentEntityType: entityType,
+                            entityUrn: schemaFieldUrn,
+                            entityType: EntityType.SchemaField,
+                            dataType: type,
+                        });
                     }
-                    // Toggle if already selected
-                    setSelectedColumn((v) => (v === id ? null : id));
-                    analytics.event({
-                        type: EventType.DrillDownLineageEvent,
-                        action: selectedColumn === id ? 'deselect' : 'select',
-                        parentUrn,
-                        parentEntityType: entityType,
-                        entityUrn: schemaFieldUrn,
-                        entityType: EntityType.SchemaField,
-                        dataType: type,
-                    });
-                }
-            }}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            data-testid={`column-${columnName}`}
-        >
-            <CustomHandle id={id} type="target" position={Position.Left} isConnectable={false} />
-            {type && (
-                <TypeWrapper>
-                    <CompactFieldIconWithTooltip type={type} nativeDataType={nativeDataType} />
-                </TypeWrapper>
+                }}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+                data-testid={`column-${columnName}`}
+            >
+                <CustomHandle id={id} type="target" position={Position.Left} isConnectable={false} />
+                {type && (
+                    <TypeWrapper>
+                        <CompactFieldIconWithTooltip type={type} nativeDataType={nativeDataType} />
+                    </TypeWrapper>
+                )}
+                <ColumnText ellipsis={{ tooltip: { showArrow: false } }}>{columnName}</ColumnText>
+                {loading && !hasLineage && <Spin indicator={<StyledLoadingIndicator />} />}
+                {config.featureFlags.schemaFieldCLLEnabled && (
+                    <ColumnLinkWrapper
+                        to={lineageUrl}
+                        onClick={(e) => e.stopPropagation()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <Tooltip title={t('column.exploreCompleteLineage.tooltip')} mouseEnterDelay={0.3}>
+                            <LinkOutIcon />
+                        </Tooltip>
+                    </ColumnLinkWrapper>
+                )}
+                <CustomHandle id={id} type="source" position={Position.Right} isConnectable={false} />
+            </ColumnWrapper>
+            {shownRelated && showUpstreamControl && (
+                <ColumnLineageControl
+                    direction={LineageDirection.Upstream}
+                    lineageAsset={lineageAsset}
+                    shownRelated={shownRelated}
+                />
             )}
-            <ColumnText ellipsis={{ tooltip: { showArrow: false } }}>{columnName}</ColumnText>
-            {loading && !hasLineage && <Spin indicator={<StyledLoadingIndicator />} />}
-            {config.featureFlags.schemaFieldCLLEnabled && (
-                <ColumnLinkWrapper
-                    to={lineageUrl}
-                    onClick={(e) => e.stopPropagation()}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    <Tooltip title={t('column.exploreCompleteLineage.tooltip')} mouseEnterDelay={0.3}>
-                        <LinkOutIcon />
-                    </Tooltip>
-                </ColumnLinkWrapper>
+            {shownRelated && showDownstreamControl && (
+                <ColumnLineageControl
+                    direction={LineageDirection.Downstream}
+                    lineageAsset={lineageAsset}
+                    shownRelated={shownRelated}
+                />
             )}
-            <CustomHandle id={id} type="source" position={Position.Right} isConnectable={false} />
-        </ColumnWrapper>
+        </ColumnPositioner>
     );
 
     return (
         <Tooltip
             title={t('column.noLineage.tooltip')}
-            open={(showDisabledTooltipOnHover && hoveredColumn === id) || showDisabledTooltipOnSelect}
+            // Only claim a column has no lineage if nothing says otherwise: the counts query can
+            // come back empty for a column that has column lineage drawn on the graph
+            open={(showDisabledTooltipOnHover && hoveredColumn === id && !hasLineage) || showDisabledTooltipOnSelect}
             placement="right"
             showArrow={false}
         >
             {contents}
         </Tooltip>
     );
-}
-
-function useFetchColumnCounts(schemaFieldUrn: string, lineageAsset: ColumnAsset, onDisabled: () => void) {
-    const { showGhostEntities, setColumnEdgeVersion } = useContext(LineageNodesContext);
-    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
-
-    const assetToWrite = lineageAsset;
-    const [fetchCounts, { loading }] = useGetLineageCountsLazyQuery({
-        variables: {
-            urn: schemaFieldUrn,
-            startTimeMillis,
-            endTimeMillis,
-            separateSiblings: true,
-            includeGhostEntities: showGhostEntities || ignoreSchemaFieldStatus,
-        },
-        onCompleted: (data) => {
-            assetToWrite.lineageCountsFetched = true;
-            if (data.entity && 'upstream' in data?.entity && data.entity.upstream?.total !== undefined) {
-                assetToWrite.numUpstream = (data.entity.upstream.total || 0) - (data.entity.upstream.filtered || 0);
-            }
-            if (data.entity && 'downstream' in data?.entity && data.entity.downstream?.total !== undefined) {
-                assetToWrite.numDownstream =
-                    (data.entity.downstream.total || 0) - (data.entity.downstream.filtered || 0);
-            }
-            if (!assetToWrite.numUpstream && !assetToWrite.numDownstream) {
-                onDisabled();
-            }
-            setColumnEdgeVersion((v) => v + 1);
-        },
-    });
-
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const initiateRequest = useCallback(
-        (delay = 0) => {
-            if (!lineageAsset.lineageCountsFetched && !loading) {
-                timeoutRef.current = setTimeout(() => fetchCounts(), delay);
-            }
-        },
-        [lineageAsset.lineageCountsFetched, fetchCounts, loading],
-    );
-    const cancelRequest = useCallback(() => {
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-        }
-    }, []);
-    return { initiateRequest, cancelRequest, loading };
 }

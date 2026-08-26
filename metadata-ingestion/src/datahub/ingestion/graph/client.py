@@ -34,10 +34,10 @@ from datahub.configuration.common import ConfigModel, GraphError, OperationalErr
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import (
-    DatahubRestEmitter,
-)
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
+from datahub.emitter.token_provider import TokenProviderAuth
+from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.config import (
     ClientMode,
     DatahubClientConfig as DatahubClientConfig,
@@ -55,7 +55,11 @@ from datahub.ingestion.graph.filters import (
     generate_filter,
 )
 from datahub.ingestion.graph.links import make_url_for_urn
-from datahub.ingestion.graph.openapi import OpenApiAPI, RelationshipDirection
+from datahub.ingestion.graph.openapi import (
+    LineageDirection,
+    OpenApiAPI,
+    RelationshipDirection,
+)
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -161,12 +165,18 @@ def flexible_entity_type_to_graphql(entity_type: str) -> str:
 class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
     # Redefine for backwards compatibility
     RelationshipDirection = RelationshipDirection
+    LineageDirection = LineageDirection
 
     def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
+        resolved_auth = None
+        if self.config.auth is not None:
+            resolved_auth = TokenProviderAuth(build_token_provider(self.config.auth))
         super().__init__(
+            default_emit_mode=self.config.default_emit_mode,
             gms_server=self.config.server,
             token=self.config.token,
+            auth=resolved_auth,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
             retry_status_codes=self.config.retry_status_codes,
@@ -179,6 +189,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             client_key_path=self.config.client_key_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
             openapi_ingestion=self.config.openapi_ingestion,
+            respect_mcp_sync_marker=self.config.respect_mcp_sync_marker,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
             server_config_refresh_interval=config.server_config_refresh_interval,
@@ -282,7 +293,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             timeout_sec: Optional[float] = session_config.timeout[0]
         else:
             timeout_sec = session_config.timeout
-        return cls(
+        graph = cls(
             DatahubClientConfig(
                 server=emitter._gms_server,
                 token=emitter._token,
@@ -298,8 +309,27 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 datahub_component=session_config.datahub_component,
                 server_config_refresh_interval=emitter._server_config_refresh_interval,
                 tcp_keepalive=session_config.tcp_keepalive,
-            )
+                # Preserve the source emitter's default emit mode so converting an
+                # emitter to a graph (e.g. emitter.to_graph()) doesn't silently
+                # revert to the global default.
+                default_emit_mode=emitter._default_emit_mode,
+            ),
         )
+        if emitter._session.auth is not None:
+            # The declarative AuthConfig is not recoverable from a live emitter,
+            # so carry the resolved requests auth object onto the new session —
+            # otherwise a graph built from an OAuth-authenticated emitter would
+            # silently lose its credentials.
+            #
+            # Known edge: the derived graph's config.auth stays None, so anything
+            # that re-derives a client from this graph's CONFIG (rather than its
+            # session) — e.g. emit_all()/make_rest_sink() via
+            # _make_rest_sink_config() — only picks up env-based OAuth
+            # (DATAHUB_AUTH_TYPE), not auth that came from a recipe sink block.
+            # TODO(oauth): retain the declarative AuthConfig alongside the
+            # resolved auth so derived configs keep it.
+            graph._session.auth = emitter._session.auth
+        return graph
 
     def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
         try:
@@ -822,6 +852,37 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             entities.append(x["entity"])
         return entities[0] if entities_yielded else None
 
+    def get_data_product_urn_by_name(self, data_product_name: str) -> Optional[str]:
+        """Retrieve a data product urn based on its name. Returns None if there is no match found"""
+
+        filters = []
+        filter_criteria = [
+            {
+                "field": "name",
+                "values": [data_product_name],
+                "condition": "EQUAL",
+            }
+        ]
+
+        filters.append({"and": filter_criteria})
+        search_body = {
+            "input": "*",
+            "entity": "dataProduct",
+            "start": 0,
+            "count": 10,
+            "filter": {"or": filters},
+        }
+        results: Dict = self._post_generic(self._search_endpoint, search_body)
+        value = results.get("value", {})
+        entities = value.get("entities") or []
+        num_entities = value.get("numEntities", 0)
+        if num_entities > 1:
+            logger.warning(
+                f"Got {num_entities} results for data product name {data_product_name}. "
+                f"Will return the first match."
+            )
+        return entities[0]["entity"] if entities else None
+
     def get_connection_json(self, urn: str) -> Optional[dict]:
         """Retrieve a connection config.
 
@@ -1033,6 +1094,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         skip_cache: bool = False,
         include_hidden_lifecycle_stages: bool = False,
         include_draft: bool = False,
+        sort_by: Optional[str] = None,
+        sort_order: Literal["ASCENDING", "DESCENDING"] = "ASCENDING",
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -1054,6 +1117,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         :param skip_cache: Whether to bypass caching. Defaults to False.
         :param include_hidden_lifecycle_stages: Whether to include entities hidden by lifecycle stage.
         :param include_draft: Whether to include entities in DRAFT lifecycle state.
+        :param sort_by: Optional searchable field to sort on (e.g. "lastModifiedAt"). If None, uses the backend's default scroll order.
+        :param sort_order: Sort direction when sort_by is set; ignored when sort_by is None. Defaults to ASCENDING.
 
         :return: An iterable of urns that match the filters.
         """
@@ -1104,6 +1169,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $batchSize: Int!,
                 $scrollId: String,
                 $skipCache: Boolean!,
+                $sortInput: SearchSortInput,
             """
             + optional_variable_defs
             + """
@@ -1115,6 +1181,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     scrollId: $scrollId,
                     types: $types,
                     orFilters: $orFilters,
+                    sortInput: $sortInput,
                     searchFlags: {
                         skipHighlighting: true
                         skipAggregates: true
@@ -1146,6 +1213,11 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "orFilters": orFilters,
             "batchSize": batch_size,
             "skipCache": skip_cache,
+            "sortInput": (
+                {"sortCriteria": [{"field": sort_by, "sortOrder": sort_order}]}
+                if sort_by
+                else None
+            ),
             "includeSoftDeleted": (
                 None
                 if status is None
@@ -2005,8 +2077,15 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         platform_name: Optional[str] = None,
         platform_urn: Optional[str] = None,
         field_path: Optional[str] = None,
+        field_paths: Optional[List[str]] = None,
         external_url: Optional[str] = None,
         logic: Optional[str] = None,
+        scope: Optional[str] = None,
+        aggregation: Optional[str] = None,
+        operator: Optional[str] = None,
+        parameters: Optional[Dict] = None,
+        native_type: Optional[str] = None,
+        native_parameters: Optional[List[Dict[str, str]]] = None,
     ) -> Dict:
         graph_query: str = """
             mutation upsertCustomAssertion(
@@ -2015,22 +2094,36 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $type: String!,
                 $description: String!,
                 $fieldPath: String,
+                $fieldPaths: [String!],
                 $platformName: String,
                 $platformUrn: String,
                 $externalUrl: String,
-                $logic: String
+                $logic: String,
+                $scope: DatasetAssertionScope,
+                $aggregation: AssertionStdAggregation,
+                $operator: AssertionStdOperator,
+                $parameters: AssertionStdParametersInput,
+                $nativeType: String,
+                $nativeParameters: [StringMapEntryInput!]
             ) {
                 upsertCustomAssertion(urn: $assertionUrn, input: {
                     entityUrn: $entityUrn
                     type: $type
                     description: $description
                     fieldPath: $fieldPath
+                    fieldPaths: $fieldPaths
                     platform: {
                         urn: $platformUrn
                         name: $platformName
                     }
                     externalUrl: $externalUrl
                     logic: $logic
+                    scope: $scope
+                    aggregation: $aggregation
+                    operator: $operator
+                    parameters: $parameters
+                    nativeType: $nativeType
+                    nativeParameters: $nativeParameters
                 }) {
                         urn
                 }
@@ -2043,10 +2136,17 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "type": type,
             "description": description,
             "fieldPath": field_path,
+            "fieldPaths": field_paths,
             "platformName": platform_name,
             "platformUrn": platform_urn,
             "externalUrl": external_url,
             "logic": logic,
+            "scope": scope,
+            "aggregation": aggregation,
+            "operator": operator,
+            "parameters": parameters,
+            "nativeType": native_type,
+            "nativeParameters": native_parameters,
         }
 
         res = self.execute_graphql(

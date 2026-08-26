@@ -65,7 +65,7 @@ def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
     )
 
     # Note: the .airflowignore file skips the snowflake DAG.
-    dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
+    dag_bag = DagBag(dag_folder=str(airflow_examples_folder))
 
     import_errors = dag_bag.import_errors
 
@@ -184,6 +184,29 @@ def test_datajob_url_link_taskinstance_rejected_with_migration_message():
     ):
         with pytest.raises(ValueError, match="taskinstance"):
             get_lineage_config()
+
+
+def test_emit_mode_defaults_to_async_and_is_overridable():
+    """The listener defaults to ASYNC emit so high-volume DAG runs don't block
+    GMS, and operators can override it via `[datahub] emit_mode`."""
+    from datahub.emitter.rest_emitter import EmitMode
+    from datahub_airflow_plugin._config import get_lineage_config
+
+    # Default: no emit_mode in airflow.cfg -> ASYNC.
+    with mock.patch(
+        "datahub_airflow_plugin._config.conf.get",
+        side_effect=lambda section, key, fallback=None: fallback,
+    ):
+        assert get_lineage_config().emit_mode == EmitMode.ASYNC
+
+    # Explicit override in airflow.cfg.
+    with mock.patch(
+        "datahub_airflow_plugin._config.conf.get",
+        side_effect=lambda section, key, fallback=None: (
+            "SYNC_WAIT" if key == "emit_mode" else fallback
+        ),
+    ):
+        assert get_lineage_config().emit_mode == EmitMode.SYNC_WAIT
 
 
 def test_basehook_falls_back_to_legacy_location_on_airflow_30(monkeypatch):

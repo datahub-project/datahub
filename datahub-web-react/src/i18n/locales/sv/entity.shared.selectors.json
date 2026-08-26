@@ -1,0 +1,10 @@
+{
+    "actorsSearch.placeholder": "Sök efter användare eller grupper",
+    "domainSelector.label": "Domäner",
+    "domainSelector.placeholder": "Välj domäner",
+    "domainSelector.searchPlaceholder": "Sök alla domäner...",
+    "entitySearch.noEntitiesFound": "Inga entiteter hittades",
+    "entitySearch.placeholder": "Sök efter entiteter...",
+    "groupBy.displayValue": "Gruppera {{label}}",
+    "groupBy.group": "Gruppera"
+}

@@ -534,7 +534,7 @@ class Dataset(
         domain: Optional[DomainInputType] = None,
         # Dataset-specific aspects.
         schema: Optional[SchemaFieldsInputType] = None,
-        upstreams: Optional[models.UpstreamLineageClass] = None,
+        upstreams: Optional[UpstreamLineageInputType] = None,
         structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: ExtraAspectsType = None,
         # View lineage parsing option.

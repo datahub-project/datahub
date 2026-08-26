@@ -376,11 +376,11 @@ class RedashSource(StatefulIngestionSourceBase):
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         # TODO: Remove this method.
-        self.report.failure(key, reason)
+        self.report.failure(message=reason, context=key)
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         # TODO: Remove this method.
-        self.report.warning(key, reason)
+        self.report.warning(message=reason, context=key)
 
     def validate_connection(self) -> None:
         test_response = self.client._get(f"{self.config.connect_uri}/api")
@@ -635,14 +635,14 @@ class RedashSource(StatefulIngestionSourceBase):
             if chart_type is None:
                 chart_type = DEFAULT_VISUALIZATION_TYPE
                 message = f"ChartTypeClass for Redash Visualization Type={viz_type} with options.globalSeriesType={globalSeriesType} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
-                self.report.report_warning(title=report_type, message=message)
+                self.report.warning(title=report_type, message=message, log=False)
                 logger.warning(message)
         else:
             chart_type = VISUALIZATION_TYPE_MAP.get(viz_type)
             if chart_type is None:
                 chart_type = DEFAULT_VISUALIZATION_TYPE
                 message = f"ChartTypeClass for Redash Visualization Type={viz_type} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
-                self.report.report_warning(title=report_type, message=message)
+                self.report.warning(title=report_type, message=message, log=False)
                 logger.warning(message)
 
         return chart_type
@@ -680,9 +680,11 @@ class RedashSource(StatefulIngestionSourceBase):
         if datasource_urns is None:
             self.report.charts_no_input.add(chart_urn)
             self.report.queries_no_dataset.add(str(query_id))
-            self.report.report_warning(
-                title="redash-chart-input-missing",
-                message=f"For viz-id-{viz_id}-query-{query_id}-datasource-{data_source_id} data_source_type={data_source_type} no datasources found. Setting inputs to None",
+            self.report.warning(
+                title="Redash chart input missing",
+                message="No datasources found for chart, setting inputs to None",
+                context=f"viz_id={viz_id}, query_id={query_id}, data_source_id={data_source_id}, data_source_type={data_source_type}",
+                log=False,
             )
 
         chart_info = ChartInfoClass(

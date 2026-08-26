@@ -4,6 +4,8 @@ description: Learn how to set up, deploy, and configure Remote Executors in your
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 # Configuring Remote Executor
 
@@ -35,7 +37,7 @@ Before deploying a Remote Executor, ensure you have the following:
 
 1. **DataHub Cloud**
 
-   - A DataHub User with the **Manage Metadata Ingestion** Platform privilege
+   - A DataHub User with the **Manage Metadata Ingestion** Platform privilege (recipes run as Python on the executor — see [Ingestion executor security](/docs/docker/ingestion-executor-security.md))
    - A DataHub Remote Executor Access Token (generate from **Settings > Access Tokens > Generate new token > Remote Executor**)
    - Your DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`). **NOTE:** you MUST include the trailing `/gms` when configuring the executor.
 
@@ -93,100 +95,187 @@ Remote Executor (`datahub-executor`) images use the same **bundled venv** mechan
 
 ### Deploy on Amazon ECS
 
+DataHub Cloud Remote Executors run on AWS ECS/Fargate. You can provision the deployment with either **CloudFormation** or **Terraform** — the AWS setup below is the same for both; choose your tool in the tabs under step 3.
+
 1. **AWS Account Configuration**
 
-To access the private DataHub Cloud ECR registry, you'll need to provide your AWS account ID to DataHub Cloud. You can securely share your account ID through:
+To access the private DataHub Cloud ECR registry, provide your AWS account ID to DataHub Cloud. You can securely share it through:
 
 - Your DataHub Cloud representative
 - A secure secret-sharing service like [One Time Secret](https://onetimesecret.com/)
 
-This step is required to grant your AWS account access to pull the Remote Executor container image.
+This grants your AWS account access to pull the Remote Executor container image.
 
-2. **Configure CloudFormation Template**
+2. **Prerequisites**
 
-The DataHub Team will provide a [Cloudformation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml) that you can run to provision an ECS cluster with a single remote ingestion task. It will also provision an AWS role for the task which grants the permissions necessary to read and delete from the private queue created for you, along with reading the secrets you've specified. At minimum, the template requires the following parameters:
+- An existing **VPC and subnet(s)** with outbound HTTPS egress (private subnets require a NAT gateway).
+- Your **DataHub Cloud URL**, including the trailing `/gms` (e.g. `https://<your-company>.acryl.io/gms`).
+- The **Executor Pool ID** you created in the DataHub UI.
+- Your **DataHub Remote Executor Access Token** (generate from **Settings > Access Tokens** in the DataHub UI).
+
+3. **Deploy**
+
+Choose your infrastructure tool below — both provision the same ECS/Fargate stack.
+
+<Tabs groupId="ecs-iac">
+<TabItem value="cloudformation" label="CloudFormation" default>
+
+The DataHub Team will provide a [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml) that provisions an ECS cluster with a single remote ingestion task. It also provisions an AWS role for the task, granting the permissions to read/delete from the private queue created for you and to read the secrets you specify. At minimum, the template requires:
 
 - Deployment Location (VPC and subnet)
 - DataHub Personal Access Token
-- DataHub Cloud URL (e.g., `<your-company>.acryl.io/gms`)
+- DataHub Cloud URL (e.g. `<your-company>.acryl.io/gms`)
 - Executor Pool ID you set in the DataHub UI
 - Optional: DataHub Cloud Remote Executor Version; defaults to latest
 
 Optional parameters:
 
-- Source Secrets: `SECRET_NAME=SECRET_ARN` (up to 10); separate multiple secrets by comma, e.g. `SECRET_NAME_1=SECRET_ARN_1,SECRET_NAME_2,SECRET_ARN_2`.
-- Environment Variables: `ENV_VAR_NAME=ENV_VAR_VALUE` (up to 10); separate multiple variable by comma, e.g. `ENV_VAR_NAME_1=ENV_VAR_VALUE_1,ENV_VAR_NAME_2,ENV_VAR_VALUE_2`.
+- Source Secrets: `SECRET_NAME=SECRET_ARN` (up to 10); separate multiple secrets by comma, e.g. `SECRET_NAME_1=SECRET_ARN_1,SECRET_NAME_2=SECRET_ARN_2`.
+- Environment Variables: `ENV_VAR_NAME=ENV_VAR_VALUE` (up to 10); separate multiple by comma, e.g. `ENV_VAR_NAME_1=ENV_VAR_VALUE_1,ENV_VAR_NAME_2=ENV_VAR_VALUE_2`.
 
 :::note
-Configuring Secrets enables you to manage ingestion sources from the DataHub UI without storing credentials inside DataHub. Once defined, secrets can be referenced by name inside of your DataHub Ingestion Source configurations using the usual convention: `${SECRET_NAME}`.
+When you wire **local** secrets into the executor (ECS `SECRET_NAME=SECRET_ARN`, Kubernetes mounts, or runtime AWS/GCP Secret Manager), credentials stay in your environment and are not stored in DataHub. Reference them in ingestion source configs using `${SECRET_NAME}`. This is different from **DataHub UI Secrets** — see [Secret security considerations](#secret-security-considerations).
 :::
 
-3. **Deploy Stack**
+**Deploy the stack**
 
-   ```bash
+```bash
+# Using AWS CLI
+aws --region us-east-1 cloudformation create-stack \
+  --stack-name datahub-remote-executor \
+  --template-body file://datahub-executor.ecs.template.yaml \
+  --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM \
+  --parameters ParameterKey=ExecutorPoolId,ParameterValue="remote" \
+  ParameterKey=VPCID,ParameterValue="<your-vpc>" \
+  ParameterKey=SubnetID,ParameterValue="<your-subnet>" \
+  ParameterKey=DataHubBaseUrl,ParameterValue="https://<your-company>.acryl.io/gms" \
+  ParameterKey=DataHubAccessToken,ParameterValue="<your-remote-executor-access-token>"
+```
 
-   # Using AWS CLI
+Or use the [CloudFormation Console](https://console.aws.amazon.com/cloudformation).
 
-    aws --region us-east-1 cloudformation create-stack \
-      --stack-name datahub-remote-executor \
-      --template-body file://datahub-executor.ecs.template.yaml \
-      --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM \
-      --parameters ParameterKey=ExecutorPoolId,ParameterValue="remote" \
-      ParameterKey=VPCID,ParameterValue="<your-vpc>" \
-      ParameterKey=SubnetID,ParameterValue="<your-subnet>" \
-      ParameterKey=DataHubBaseUrl,ParameterValue="https://<your-company>.acryl.io/gms" \
-      ParameterKey=DataHubAccessToken,ParameterValue="<your-remote-executor-access-token>"
-   ```
+**Configure source secrets (optional)**
 
-   Or use the [CloudFormation Console](https://console.aws.amazon.com/cloudformation)
+```bash
+# Create a secret in AWS Secrets Manager
+aws secretsmanager create-secret \
+  --name my-source-secret \
+  --secret-string '{"username":"user","password":"pass"}'
+```
 
-4. **Configure Secrets (Optional)**
+</TabItem>
+<TabItem value="terraform" label="Terraform">
 
-   ```bash
+Use the public [`remote-ingestion-executor`](https://github.com/acryldata/datahub-terraform-modules/tree/main/remote-ingestion-executor) module. It produces the **same ECS/Fargate deployment** as the CloudFormation template — an ECS cluster, a Fargate service running the Remote Executor, IAM roles, a security group, and CloudWatch logging — configured through Terraform inputs. Requires **Terraform `~> 1.0`** and the **AWS provider `~> 5.0`**.
 
-   # Create a secret in AWS Secrets Manager
+Store your access token in **AWS Secrets Manager** (or SSM Parameter Store as a `SecureString`) first — the module does not create it; you create the secret and reference its ARN.
 
-   aws secretsmanager create-secret \
-     --name my-source-secret \
-     --secret-string '{"username":"user","password":"pass"}'
-   ```
+Pin the module to a released tag with `?ref=`. At minimum set your GMS URL, Pool ID, and subnets, and wire the access token through **both** `secrets` (injected into the container as `DATAHUB_GMS_TOKEN`) and `task_exec_secret_arns` (grants the task-execution role permission to read it):
 
-### Update Amazon ECS Deployment
+```hcl
+resource "aws_secretsmanager_secret" "datahub_pat" {
+  name = "datahub-remote-executor-pat"
+}
 
-To update your Remote Executor deployment (e.g., to deploy a new container version or modify configuration), you'll need to update your existing CloudFormation Stack. This process involves re-deploying the CloudFormation template with your updated parameters while preserving your existing resources.
+resource "aws_secretsmanager_secret_version" "datahub_pat" {
+  secret_id     = aws_secretsmanager_secret.datahub_pat.id
+  secret_string = var.datahub_access_token # your Remote Executor access token
+}
 
-1. **Access CloudFormation**
+module "remote_executor" {
+  source = "git::https://github.com/acryldata/datahub-terraform-modules.git//remote-ingestion-executor?ref=v2.1.0"
 
-   - Navigate to the AWS CloudFormation Console
-   - Locate and select your Remote Executor stack
-   - Click the **Update** button
+  cluster_name = "datahub-remote-executor"
 
-2. **Update Template**
-   - Select **Replace current template**
-   - Choose **Upload a template file**
-   - Download the latest DataHub Cloud Remote Executor [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml)
-   - Upload the template file
+  datahub = {
+    url              = "https://<your-company>.acryl.io/gms"
+    executor_pool_id = "remote" # the Pool ID you created in the DataHub UI
+  }
 
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-4.23.32-PM.png"/>
-</p>
+  # Access token: inject it into the container AND let the task-execution
+  # role read it from Secrets Manager.
+  create_task_exec_iam_role = true
+  task_exec_secret_arns     = [aws_secretsmanager_secret.datahub_pat.arn]
+  secrets = [
+    { name = "DATAHUB_GMS_TOKEN", valueFrom = aws_secretsmanager_secret.datahub_pat.arn },
+  ]
 
-3. **Configure Parameters**
-
-   - Review and update parameters as needed:
-     - `ImageTag`: Specify a new version if upgrading
-     - `DatahubGmsURL`: Verify your DataHub URL is correct
-     - Other parameters will retain their previous values unless changed
-   - Click **Next** to proceed
-
-4. **Review and Deploy**
-   - Review the configuration changes
-   - Acknowledge any capabilities if prompted
-   - Click **Update stack** to begin the update process
+  # Network placement (private subnets + NAT recommended)
+  subnet_ids       = ["subnet-XXXXXXXX"]
+  assign_public_ip = false
+  security_group_rules = {
+    egress_all = {
+      type        = "egress"
+      from_port   = 0
+      to_port     = 0
+      protocol    = "-1"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  }
+}
+```
 
 :::note
-The update process will maintain your existing resources (e.g., secrets, IAM roles) while deploying the new configuration. Monitor the stack events to track the update progress.
+`create_task_exec_iam_role` defaults to `false`, but the task-execution role is what lets Fargate pull the image, write logs, and read the access token — set it to `true`, or the task will not launch. Always pass the token via `secrets`, never `environment`. If your token lives in SSM Parameter Store instead of Secrets Manager, use `task_exec_ssm_param_arns` in place of `task_exec_secret_arns`.
 :::
+
+Other commonly used inputs:
+
+| Input                                                                       | Purpose                                                                                                | Default                  |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------ |
+| `datahub.url`                                                               | DataHub Cloud GMS URL (include the trailing `/gms`)                                                    | — (**required**)         |
+| `datahub.executor_pool_id`                                                  | Executor Pool ID from the DataHub UI                                                                   | `"remote"`               |
+| `subnet_ids`                                                                | Subnets for the task. Required in practice — the security group's VPC is derived from the first subnet | `[]`                     |
+| `assign_public_ip`                                                          | Set to `false` for private subnets with a NAT gateway                                                  | `true`                   |
+| `desired_count`                                                             | Number of running executor tasks                                                                       | `1`                      |
+| `cpu` / `memory`                                                            | Fargate task size (CPU units / MiB)                                                                    | `1024` / `2048`          |
+| `ephemeral_storage`                                                         | Task disk, e.g. `{ size_in_gib = 20 }`                                                                 | Fargate default (20 GiB) |
+| `datahub.executor_ingestions_workers` / `datahub.executor_monitors_workers` | Concurrent ingestion / monitor tasks                                                                   | `4` / `10`               |
+| `datahub.image_tag`                                                         | Remote Executor image version                                                                          | pinned by the module tag |
+| `environment`                                                               | Extra non-secret env vars (`[{ name, value }]`)                                                        | `[]`                     |
+| `tags`                                                                      | Tags applied to all created resources                                                                  | `{}`                     |
+
+**Apply**
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+</TabItem>
+</Tabs>
+
+4. **Update**
+
+Both tools update the deployment **in place** — to change the executor version or configuration, re-deploy with a new image tag. Existing resources (IAM roles, secrets) are preserved, and the ECS service performs a rolling replacement of the task.
+
+<Tabs groupId="ecs-iac">
+<TabItem value="cloudformation" label="CloudFormation" default>
+
+Update the existing stack with the new parameters:
+
+1. In the AWS CloudFormation Console, select your Remote Executor stack and click **Update**.
+2. Choose **Replace current template** → **Upload a template file**, and upload the latest [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml).
+3. Review and update parameters (e.g. `ImageTag` for a new version); unchanged parameters keep their previous values. Click **Next**.
+4. Acknowledge any IAM capabilities if prompted, then **Update stack**.
+
+:::note
+Monitor the stack events to track update progress.
+:::
+
+</TabItem>
+<TabItem value="terraform" label="Terraform">
+
+Update your module inputs and re-apply:
+
+- **New executor version** — set `datahub.image_tag` (e.g. `"v2.1.0-cloud"`), or bump the module `?ref=` tag to pick up its newer pinned default. Module tags (`v2.1.0`) and image tags (`v2.1.0-cloud`) are versioned independently.
+- **Configuration changes** — edit any input (e.g. `desired_count`, `cpu`, worker counts).
+
+Then run `terraform apply` — it shows a plan of exactly what will change before you confirm.
+
+</TabItem>
+</Tabs>
 
 ### Deploy on Kubernetes
 
@@ -398,6 +487,49 @@ New Ingestion Sources will automatically use your designated Default Pool if you
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/view-ingestion-running.png?raw=true"/>
 </p>
 
+## Mutual TLS (mTLS) for Outbound HTTPS
+
+If DataHub Cloud GMS sits behind a proxy or load balancer that requires the client to present a certificate during the TLS handshake (mutual TLS), point the executor at a client certificate via two environment variables. The CLI / Python SDK reads these on every outbound HTTPS call, so configuring them once on the executor pod covers all of them.
+
+| Environment variable       | Purpose                                                                                                                                                                                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DATAHUB_CLIENT_CERT_PATH` | Path to a PEM file containing the client certificate. The file may be a combined PEM (cert + private key) when `DATAHUB_CLIENT_KEY_PATH` is not set.                                                                                             |
+| `DATAHUB_CLIENT_KEY_PATH`  | Path to a PEM file containing the private key matching `DATAHUB_CLIENT_CERT_PATH`. Required only when the cert and key live in separate files (e.g. the kubernetes `tls`-secret layout, where `tls.crt` and `tls.key` are mounted side by side). |
+
+When both env vars are unset, no client certificate is sent — fully backwards compatible.
+
+### Example: Kubernetes
+
+Mount a `kubernetes.io/tls` Secret into the executor pod and point the env vars at the mount.
+
+1. Create the TLS Secret from your cert and key files:
+
+```bash
+kubectl create secret tls datahub-executor-mtls-cert \
+  --cert=client.crt \
+  --key=client.key
+```
+
+2. Mount the Secret and set the env vars in your `values.yaml`:
+
+```yaml
+extraVolumes:
+  - name: mtls-cert
+    secret:
+      secretName: datahub-executor-mtls-cert
+extraVolumeMounts:
+  - name: mtls-cert
+    mountPath: /secrets/mtls
+    readOnly: true
+extraEnvs:
+  - name: DATAHUB_CLIENT_CERT_PATH
+    value: /secrets/mtls/tls.crt
+  - name: DATAHUB_CLIENT_KEY_PATH
+    value: /secrets/mtls/tls.key
+```
+
+3. Apply with `helm upgrade`. The pod restarts and presents the client cert on every outbound HTTPS call to GMS.
+
 ## Using Cloud Secret Managers
 
 You can configure the Remote Executor to resolve secrets directly from AWS Secrets Manager or GCP Secret Manager at runtime. This lets you manage credentials in your cloud provider instead of storing them inside DataHub. Secrets resolved this way are available to all executor workflows, including ingestion and assertions.
@@ -551,6 +683,49 @@ serviceAccount:
   annotations:
     iam.gke.io/gcp-service-account: "<sa>@<project-id>.iam.gserviceaccount.com"
 ```
+
+## Secret security considerations
+
+Security-conscious Remote Executor deployments should keep credentials **local to your environment** rather than in DataHub UI Secrets.
+
+:::note Secure by default
+DataHub ships with `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE`. Browser sessions and user Personal Access Tokens **cannot** call `getSecretValues` or otherwise decrypt secrets through human-facing API paths. On DataHub Core, scheduled UI ingestion uses [**datahub-actions**](../../actions/actions/executor.md) with system client credentials for the same trusted-worker path. You only need to change this setting for a staged rollout (`AUDIT`) or break-glass incident response (`DISABLED`, administrator approval required).
+:::
+
+:::caution DataHub UI Secrets and Remote Executor
+Secrets created in the DataHub UI are encrypted at rest in DataHub, but when a Remote Executor resolves `${SECRET_NAME}` against the **DataHub** secret backend, GMS decrypts the value and returns it in plaintext over the DataHub API (protected by TLS). The credential transits from DataHub Cloud back into your executor at runtime.
+
+This is convenient for getting started, but weaker than local secret backends for deployments where credentials must not leave your environment boundary.
+:::
+
+### Recommended approach (local secrets)
+
+For production Remote Executor pools, prefer:
+
+- **Kubernetes Secrets** mounted at `/mnt/secrets/` — see [Configure Secret Mounting](#configure-secret-mounting-optional)
+- **Runtime AWS Secrets Manager or GCP Secret Manager** — see [Using Cloud Secret Managers](#using-cloud-secret-managers)
+- **ECS deploy-time secrets** via CloudFormation `SECRET_NAME=SECRET_ARN`
+- **Environment variables** on the executor container
+
+Use an **embedded executor** access token when configuring the worker — not a user-issued Personal Access Token.
+
+### Discouraged approach (DataHub UI Secrets)
+
+Avoid creating secrets in the DataHub UI **Secrets** tab for ingestion sources assigned to Remote Executor pools. If a UI secret shares a name with a locally mounted secret, the **DataHub backend takes precedence** — see [Secret Resolution](../../secret-resolution.md).
+
+### Caller guard modes (override only when needed)
+
+GMS enforces a caller guard on `SecretService` decryption. The default is **secure by default** — no configuration required for production:
+
+| Value      | Behavior                                                                                                         |
+| ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| `ENFORCE`  | Blocks `getSecretValues` for browser sessions, user PATs, and other non-embedded-executor callers (**default**). |
+| `AUDIT`    | Allows decryption but logs a warning — use only for staged rollout before enforcing.                             |
+| `DISABLED` | No enforcement — break-glass only; contact your DataHub administrator to enable on request.                      |
+
+`ENFORCE` prevents humans and user PATs from fetching secret values via GraphQL, but **does not** block an **embedded executor** from resolving UI secrets. To avoid UI secrets entirely, do not create them and use local backends above.
+
+See [Environment Variables](../../deploy/environment-vars.md) and [Updating DataHub](../../how/updating-datahub.md) for migration details.
 
 ## Advanced: Performance Settings and Task Weight-Based Queuing
 

@@ -1,5 +1,6 @@
 {
     "category": "Categoria",
+    "color": "Cor",
     "column": "Coluna",
     "columns": "Colunas",
     "created": "Criado",
@@ -8,10 +9,12 @@
     "details": "Detalhes",
     "domain": "Domínio",
     "groups": "Grupos",
+    "icon": "Ícone",
     "lastModifiedAt": "Última modificação em",
     "na": "N/A",
     "name": "Nome",
     "none": "Nenhum",
+    "optional": "(opcional)",
     "owner": "Responsável",
     "owners": "Responsáveis",
     "roles": "Funções",
@@ -22,6 +25,7 @@
     "tags": "Tags",
     "title": "Título",
     "type": "Tipo",
+    "unknown": "Desconhecido",
     "usage": "Uso",
     "users": "Usuários",
     "value": "Valor"

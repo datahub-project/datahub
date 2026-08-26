@@ -2,21 +2,39 @@ package com.linkedin.metadata.config.ratelimit;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.env.PropertyResolver;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.util.StringUtils;
 
+/**
+ * Merges GMS rate-limit policy after Spring binds {@code application.yaml} toggles.
+ *
+ * <ol>
+ *   <li>Spring-bound {@link RateLimitProperties} (env placeholders already resolved)
+ *   <li>Exactly one YAML document: bundled {@code rate-limit-config.yaml}, or {@code
+ *       RATE_LIMITS_CONFIG_FILE} if set (replaces the classpath file; the two are not merged)
+ *   <li>{@code RATE_LIMITS_CONFIG_JSON} Jackson overlay (lists replace; maps merge)
+ * </ol>
+ */
 @Slf4j
 public class RateLimitConfigLoader {
 
   public static final String RATE_LIMITS_CONFIG_JSON_ENV = "RATE_LIMITS_CONFIG_JSON";
+  public static final String RATE_LIMITS_CONFIG_FILE_ENV = "RATE_LIMITS_CONFIG_FILE";
+  private static final String CONFIG_FILE_PATH_PROPERTY = "datahub.gms.rateLimits.configFile.path";
+  private static final String CONFIG_JSON_PROPERTY = "datahub.gms.rateLimits.configJson";
 
   private final ObjectMapper jsonMapper;
   private final ObjectMapper yamlMapper;
@@ -26,35 +44,34 @@ public class RateLimitConfigLoader {
     this.yamlMapper = yamlMapper;
   }
 
-  /**
-   * Load effective rate limit configuration: bundled defaults + env scalars, optional external
-   * file, optional JSON env overlay.
-   */
   public RateLimitProperties loadEffective(RateLimitProperties fromSpring) {
-    RateLimitProperties effective = deepCopy(fromSpring);
+    return loadEffective(fromSpring, null);
+  }
+
+  /**
+   * Same merge as {@link #loadEffective(RateLimitProperties)}, then fills {@code configFile.path} /
+   * {@code configJson} from {@code environment} when the bound bean left them unset (Hazelcast
+   * {@code @Conditional} sees the {@link PropertyResolver} before {@code GMSConfiguration} exists).
+   */
+  public RateLimitProperties loadEffective(
+      RateLimitProperties fromSpring, PropertyResolver environment) {
+    RateLimitProperties effective =
+        deepCopy(fromSpring != null ? fromSpring : new RateLimitProperties());
     ensureNestedDefaults(effective);
+    applyOverlayPointers(effective, environment);
 
-    if (effective.getConfigFile() != null
-        && effective.getConfigFile().isEnabled()
-        && StringUtils.hasText(effective.getConfigFile().getPath())) {
-      applyFileOverlay(effective.getConfigFile().getPath(), effective);
-    }
+    applyFileOverlay(resolveConfigFilePath(effective), effective);
 
-    String jsonOverlay = System.getenv(RATE_LIMITS_CONFIG_JSON_ENV);
+    String jsonOverlay = resolveJsonOverlay(effective);
     if (StringUtils.hasText(jsonOverlay)) {
       applyJsonOverlay(jsonOverlay, effective, RATE_LIMITS_CONFIG_JSON_ENV);
     }
-
-    validate(effective);
     return effective;
   }
 
-  /** Package-visible for tests — applies a JSON overlay without env vars. */
   void applyJsonOverlay(String json, RateLimitProperties target, String sourceLabel) {
     try {
-      JsonNode root = jsonMapper.readTree(json);
-      JsonNode rateLimitsNode = root.has("rateLimits") ? root.get("rateLimits") : root;
-      mergeOverlayNode(rateLimitsNode, target, sourceLabel);
+      mergeOverlayNode(unwrapRateLimits(jsonMapper.readTree(json)), target, sourceLabel);
     } catch (IOException e) {
       throw new IllegalStateException("Failed to parse rate limit overlay from " + sourceLabel, e);
     }
@@ -62,26 +79,77 @@ public class RateLimitConfigLoader {
 
   private void applyFileOverlay(String path, RateLimitProperties target) {
     try (InputStream stream = openConfigStream(path)) {
-      JsonNode root = yamlMapper.readTree(stream);
-      JsonNode rateLimitsNode = root.has("rateLimits") ? root.get("rateLimits") : root;
-      mergeOverlayNode(rateLimitsNode, target, path);
+      mergeOverlayNode(unwrapRateLimits(yamlMapper.readTree(stream)), target, path);
     } catch (FileNotFoundException e) {
-      log.warn(
-          "Rate limit configuration file was NOT found at {} — continuing with bundled defaults. "
-              + "If RATE_LIMITS_CONFIG_FILE_ENABLED=true, verify the mount path.",
-          path);
+      throw new IllegalStateException("Rate limit configuration file was NOT found at " + path, e);
     } catch (IOException e) {
       throw new IllegalStateException("Failed to load rate limit configuration from: " + path, e);
     }
   }
 
-  private InputStream openConfigStream(String path) throws IOException {
+  static String resolveConfigFilePath(RateLimitProperties config) {
+    if (config.getConfigFile() != null && StringUtils.hasText(config.getConfigFile().getPath())) {
+      return config.getConfigFile().getPath();
+    }
+    return RateLimitProperties.DEFAULT_CONFIG_FILE_PATH;
+  }
+
+  private static String resolveJsonOverlay(RateLimitProperties config) {
+    if (StringUtils.hasText(config.getConfigJson())) {
+      return config.getConfigJson();
+    }
+    return System.getenv(RATE_LIMITS_CONFIG_JSON_ENV);
+  }
+
+  private static void applyOverlayPointers(
+      RateLimitProperties effective, PropertyResolver environment) {
+    if (environment == null) {
+      return;
+    }
+    String filePath =
+        firstText(
+            environment.getProperty(RATE_LIMITS_CONFIG_FILE_ENV),
+            environment.getProperty(CONFIG_FILE_PATH_PROPERTY));
+    if (StringUtils.hasText(filePath)) {
+      effective.getConfigFile().setPath(filePath);
+    }
+    if (!StringUtils.hasText(effective.getConfigJson())) {
+      String json =
+          firstText(
+              environment.getProperty(RATE_LIMITS_CONFIG_JSON_ENV),
+              environment.getProperty(CONFIG_JSON_PROPERTY));
+      if (StringUtils.hasText(json)) {
+        effective.setConfigJson(json);
+      }
+    }
+  }
+
+  private static String firstText(String... values) {
+    if (values == null) {
+      return null;
+    }
+    for (String value : values) {
+      if (StringUtils.hasText(value)) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  private static InputStream openConfigStream(String path) throws IOException {
+    if (hasResourceScheme(path)) {
+      Resource resource = new DefaultResourceLoader().getResource(path);
+      if (!resource.exists()) {
+        throw new FileNotFoundException(path);
+      }
+      log.info("Rate limit configuration found at {}", path);
+      return resource.getInputStream();
+    }
     ClassPathResource classpathResource = new ClassPathResource(path);
     if (classpathResource.exists()) {
       log.info("Rate limit configuration found in classpath: {}", path);
       return classpathResource.getInputStream();
     }
-    log.debug("Rate limit configuration was NOT found in classpath: {}", path);
     FileSystemResource filesystemResource = new FileSystemResource(path);
     if (!filesystemResource.exists()) {
       throw new FileNotFoundException(path);
@@ -90,35 +158,98 @@ public class RateLimitConfigLoader {
     return filesystemResource.getInputStream();
   }
 
+  private static boolean hasResourceScheme(String path) {
+    return path.startsWith("file:")
+        || path.startsWith("classpath:")
+        || path.startsWith("http:")
+        || path.startsWith("https:");
+  }
+
+  static JsonNode unwrapRateLimits(JsonNode root) {
+    if (root == null || root.isNull() || root.isMissingNode()) {
+      return root;
+    }
+    JsonNode nested = nestedRateLimits(root);
+    if (nested != null) {
+      return nested;
+    }
+    if (root.has("rateLimits")) {
+      return root.get("rateLimits");
+    }
+    return root;
+  }
+
+  private static JsonNode nestedRateLimits(JsonNode root) {
+    JsonNode datahub = root.get("datahub");
+    if (datahub == null || !datahub.has("gms")) {
+      return null;
+    }
+    JsonNode gms = datahub.get("gms");
+    return gms.has("rateLimits") ? gms.get("rateLimits") : null;
+  }
+
   private void mergeOverlayNode(JsonNode overlay, RateLimitProperties target, String sourceLabel)
       throws IOException {
     if (overlay == null || overlay.isNull() || overlay.isMissingNode()) {
       return;
     }
     ensureNestedDefaults(target);
-    jsonMapper.readerForUpdating(target).readValue(overlay);
-    int ruleCount = countRulesInOverlay(overlay);
-    if (ruleCount > 0) {
-      log.info("Applied {} rate limit rules from {}", ruleCount, sourceLabel);
+    if (!(overlay instanceof ObjectNode)) {
+      jsonMapper.readerForUpdating(target).readValue(overlay);
+      log.info("Applied rate limit overlay from {}", sourceLabel);
+      return;
     }
+    ObjectNode remainder = ((ObjectNode) overlay).deepCopy();
+    remainder.remove("configFile");
+    remainder.remove("configJson");
+    JsonNode heavyResolversNode = stripHeavyResolvers(remainder);
+    if (!remainder.isEmpty()) {
+      jsonMapper.readerForUpdating(target).readValue(remainder);
+    }
+    mergeHeavyResolvers(heavyResolversNode, target);
+    log.info("Applied rate limit overlay from {}", sourceLabel);
   }
 
-  private int countRulesInOverlay(JsonNode overlay) {
-    int count = 0;
-    if (overlay.has("capacity")
-        && overlay.get("capacity").has("rules")
-        && overlay.get("capacity").get("rules").isArray()) {
-      count += overlay.get("capacity").get("rules").size();
+  private static JsonNode stripHeavyResolvers(ObjectNode remainder) {
+    JsonNode scoped = remainder.get("scoped");
+    if (!(scoped instanceof ObjectNode) || !scoped.has("heavyResolvers")) {
+      return null;
     }
-    if (overlay.has("endpoint")
-        && overlay.get("endpoint").has("rules")
-        && overlay.get("endpoint").get("rules").isArray()) {
-      count += overlay.get("endpoint").get("rules").size();
+    JsonNode heavyResolvers = scoped.get("heavyResolvers");
+    ((ObjectNode) scoped).remove("heavyResolvers");
+    if (scoped.isEmpty()) {
+      remainder.remove("scoped");
     }
-    return count;
+    return heavyResolvers;
+  }
+
+  private void mergeHeavyResolvers(JsonNode node, RateLimitProperties target) throws IOException {
+    if (node == null || node.isNull() || !node.isObject()) {
+      return;
+    }
+    if (target.getScoped() == null) {
+      target.setScoped(new RateLimitProperties.ScopedLimits());
+    }
+    if (target.getScoped().getHeavyResolvers() == null) {
+      target.getScoped().setHeavyResolvers(new HashMap<>());
+    }
+    Map<String, RateLimitProperties.BucketLimits> existing = target.getScoped().getHeavyResolvers();
+    Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+    while (fields.hasNext()) {
+      Map.Entry<String, JsonNode> entry = fields.next();
+      RateLimitProperties.BucketLimits current = existing.get(entry.getKey());
+      RateLimitProperties.BucketLimits merged =
+          current != null
+              ? jsonMapper.readerForUpdating(current).readValue(entry.getValue())
+              : jsonMapper.treeToValue(entry.getValue(), RateLimitProperties.BucketLimits.class);
+      existing.put(entry.getKey(), merged);
+    }
   }
 
   private void ensureNestedDefaults(RateLimitProperties target) {
+    if (target.getConfigFile() == null) {
+      target.setConfigFile(new RateLimitProperties.ConfigFile());
+    }
     if (target.getCapacity() == null) {
       target.setCapacity(new RateLimitProperties.Capacity());
     }
@@ -140,154 +271,15 @@ public class RateLimitConfigLoader {
     if (target.getMetrics() == null) {
       target.setMetrics(new RateLimitProperties.Metrics());
     }
-    if (target.getConfigFile() == null) {
-      target.setConfigFile(new RateLimitProperties.ConfigFile());
+    if (target.getScoped() == null) {
+      target.setScoped(new RateLimitProperties.ScopedLimits());
+    }
+    if (target.getScoped().getHeavyResolvers() == null) {
+      target.getScoped().setHeavyResolvers(new HashMap<>());
     }
   }
 
   private RateLimitProperties deepCopy(RateLimitProperties source) {
     return jsonMapper.convertValue(source, RateLimitProperties.class);
-  }
-
-  public void validate(RateLimitProperties config) {
-    ensureNestedDefaults(config);
-    String graphqlPath = config.getCapacity().getGraphql().getPathPattern();
-    List<String> validationErrors = new ArrayList<>();
-
-    if (!StringUtils.hasText(graphqlPath)) {
-      validationErrors.add("capacity.graphql.pathPattern is required");
-    }
-
-    validateCapacityLimitConfig(
-        "capacity.default", config.getCapacity().getDefaultCapacity(), validationErrors);
-    validateCapacityLimitConfig(
-        "capacity.graphql", config.getCapacity().getGraphql(), validationErrors);
-    validateCapacityRules(config.getCapacity().getRules(), graphqlPath, validationErrors);
-    validateEndpointConfig(config.getEndpoint(), graphqlPath, validationErrors);
-    validateRetryAfterConfig(config, validationErrors);
-
-    if (!validationErrors.isEmpty()) {
-      throw new IllegalStateException(
-          "Invalid rate limit configuration: " + String.join("; ", validationErrors));
-    }
-  }
-
-  private void validateCapacityRules(
-      List<RateLimitProperties.Rule> rules, String graphqlPath, List<String> validationErrors) {
-    CapacityLimitConfig ruleDefaults = new CapacityLimitConfig();
-    for (RateLimitProperties.Rule rule : rules) {
-      validateCommonRuleFields(rule, graphqlPath, validationErrors, "capacity");
-      if (rule.getInitialLimit() == null && rule.getMaxLimit() == null) {
-        validationErrors.add("Capacity rate limit rule " + rule.getId() + " requires limit fields");
-      }
-      validateCapacityLimits(
-          "Capacity rate limit rule " + rule.getId(),
-          effectiveLimit(rule.getMinLimit(), ruleDefaults.getMinLimit()),
-          effectiveLimit(rule.getInitialLimit(), ruleDefaults.getInitialLimit()),
-          effectiveLimit(rule.getMaxLimit(), ruleDefaults.getMaxLimit()),
-          validationErrors);
-    }
-  }
-
-  private void validateCapacityLimitConfig(
-      String configPath, CapacityLimitConfig config, List<String> validationErrors) {
-    validateCapacityLimits(
-        configPath,
-        config.getMinLimit(),
-        config.getInitialLimit(),
-        config.getMaxLimit(),
-        validationErrors);
-  }
-
-  private static int effectiveLimit(Integer value, int defaultValue) {
-    return value != null ? value : defaultValue;
-  }
-
-  private static void validateCapacityLimits(
-      String configPath,
-      int minLimit,
-      int initialLimit,
-      int maxLimit,
-      List<String> validationErrors) {
-    if (minLimit <= 0) {
-      validationErrors.add(configPath + " minLimit must be > 0");
-    }
-    if (initialLimit <= 0) {
-      validationErrors.add(configPath + " initialLimit must be > 0");
-    }
-    if (maxLimit <= 0) {
-      validationErrors.add(configPath + " maxLimit must be > 0");
-    }
-    if (minLimit > initialLimit) {
-      validationErrors.add(configPath + " minLimit must be <= initialLimit");
-    }
-    if (initialLimit > maxLimit) {
-      validationErrors.add(configPath + " initialLimit must be <= maxLimit");
-    }
-  }
-
-  private void validateEndpointConfig(
-      RateLimitProperties.Endpoint endpoint, String graphqlPath, List<String> validationErrors) {
-    validateEndpointRules(endpoint.getRules(), graphqlPath, validationErrors);
-  }
-
-  private void validateEndpointRules(
-      List<RateLimitProperties.Rule> rules, String graphqlPath, List<String> validationErrors) {
-    for (RateLimitProperties.Rule rule : rules) {
-      validateCommonRuleFields(rule, graphqlPath, validationErrors, "endpoint");
-      if (rule.getCapacity() == null
-          || rule.getRefillTokens() == null
-          || rule.getRefillPeriodSeconds() == null) {
-        validationErrors.add(
-            "Endpoint rate limit rule " + rule.getId() + " requires capacity/refill fields");
-      }
-    }
-  }
-
-  private void validateRetryAfterConfig(RateLimitProperties config, List<String> validationErrors) {
-    if (config.getMinRetryAfterSeconds() < 0) {
-      validationErrors.add("minRetryAfterSeconds must be >= 0");
-    }
-    if (config.getRetryAfterJitterPercent() < 0 || config.getRetryAfterJitterPercent() > 100) {
-      validationErrors.add("retryAfterJitterPercent must be between 0 and 100");
-    }
-  }
-
-  private void validateCommonRuleFields(
-      RateLimitProperties.Rule rule,
-      String graphqlPath,
-      List<String> validationErrors,
-      String listLabel) {
-    if (!StringUtils.hasText(rule.getId())) {
-      validationErrors.add(listLabel + " rate limit rule missing id");
-    }
-    if (!StringUtils.hasText(rule.getPathPattern())) {
-      validationErrors.add(listLabel + " rate limit rule " + rule.getId() + " missing pathPattern");
-    }
-    if (rule.getMethods() == null || rule.getMethods().isEmpty()) {
-      validationErrors.add(listLabel + " rate limit rule " + rule.getId() + " missing methods");
-    }
-    if (rule.getGraphqlOperationNames() != null
-        && !rule.getGraphqlOperationNames().isEmpty()
-        && !Objects.equals(graphqlPath, rule.getPathPattern())) {
-      validationErrors.add(
-          listLabel
-              + " rate limit rule "
-              + rule.getId()
-              + " with graphqlOperationNames must use capacity.graphql.pathPattern");
-    }
-  }
-
-  /** Wrapper for external YAML files — top-level {@code rateLimits:} fragment. */
-  public static class RateLimitPropertiesWrapper {
-    private RateLimitProperties rateLimits;
-
-    public RateLimitProperties getRateLimits() {
-      return rateLimits;
-    }
-
-    public void setRateLimits(RateLimitProperties rateLimits) {
-      this.rateLimits = rateLimits;
-    }
   }
 }

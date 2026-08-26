@@ -1,10 +1,15 @@
 import base64
 import logging
+from dataclasses import dataclass, field
+from enum import Enum, auto
 from typing import Dict, Iterable, List, Optional
 
 import jpype
 import jpype.imports
 import requests
+from requests.adapters import HTTPAdapter
+from typing_extensions import LiteralString
+from urllib3.util import Retry
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
@@ -19,9 +24,27 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.confluent.constants import (
+    KAFKA_REST_FETCH_FAILED,
+    KAFKA_REST_FETCH_FAILED_CATALOG,
+    KAFKA_REST_NO_AUTH,
+    KAFKA_REST_NO_AUTH_CATALOG,
+    KAFKA_REST_NO_ENDPOINT,
+    KAFKA_REST_NO_ENDPOINT_CATALOG,
+    KAFKA_REST_UNEXPECTED_RESPONSE,
+    KAFKA_REST_UNEXPECTED_RESPONSE_CATALOG,
+    KAFKA_TOPIC_FETCH_RETRY_STATUS_CODES,
+    MAX_KAFKA_TOPIC_FETCH_ATTEMPTS,
+    MAX_KAFKA_TOPIC_PAGES,
+)
+from datahub.ingestion.source.confluent.models import (
+    BM_COLLISION_WITH_CONNECTOR_CONFIG,
+    non_colliding_business_metadata,
+)
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
     CONNECTOR_CLASS,
+    KAFKA,
     SINK,
     SOURCE,
     ConnectorManifest,
@@ -30,6 +53,14 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceReport,
     get_platform_instance,
     transform_connector_config,
+)
+from datahub.ingestion.source.kafka_connect.confluent_catalog import (
+    CatalogConnector,
+    ConnectorCatalog,
+)
+from datahub.ingestion.source.kafka_connect.confluent_catalog_constants import (
+    LINEAGE_SOURCE_CATALOG,
+    LINEAGE_SOURCE_PROPERTY,
 )
 from datahub.ingestion.source.kafka_connect.consumer_group_analyzer import (
     ConsumerGroupAnalyzer,
@@ -46,12 +77,33 @@ from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 logger = logging.getLogger(__name__)
 
 
+class CatalogLineageOutcome(Enum):
+    # No catalog entry, lineage disabled, or not a source: behave as if no catalog.
+    NOT_APPLICABLE = auto()
+    # Catalog applies but lists no topics: fall back to config-inferred lineage.
+    NO_CATALOG_TOPICS = auto()
+    # Every catalog topic was absent from the live cluster: emit no lineage.
+    FILTERED_OUT = auto()
+    RESOLVED = auto()
+
+
+@dataclass(frozen=True)
+class CatalogLineageResult:
+    outcome: CatalogLineageOutcome
+    lineages: List[KafkaConnectLineage] = field(default_factory=list)
+
+
 @platform_name("Kafka Connect")
 @config_class(KafkaConnectSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(
+    SourceCapability.TAGS,
+    "Requires Confluent Cloud Stream Governance; enable via `confluent_catalog`",
+    supported=True,
+)
 class KafkaConnectSource(StatefulIngestionSourceBase):
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
@@ -65,7 +117,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         # Separate session for Kafka REST API calls — must NOT inherit Connect auth,
         # because Confluent Cloud uses different credentials for Connect vs Kafka APIs.
-        self.kafka_session = self._create_json_session()
+        # Mount retries for transient REST failures (see MAX_KAFKA_TOPIC_FETCH_ATTEMPTS).
+        self.kafka_session = self._create_kafka_session()
 
         # Test the connection using appropriate credentials
         connect_username, connect_password = self.config.get_connect_credentials()
@@ -123,11 +176,28 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             self.kafka_session, self.config, self.report
         )
 
-        # Cache for all Kafka topics (single ingestion run)
+        # Cache for the live cluster topic list. None = unavailable or not yet fetched;
+        # [] = resolved empty cluster. See _get_all_topics_from_kafka_api.
         self._all_kafka_topics_cache: Optional[List[str]] = None
+        self._all_kafka_topics_resolved: bool = False
+
+        self._catalog = self._create_catalog()
 
         if not jpype.isJVMStarted():
             jpype.startJVM()
+
+    def _create_catalog(self) -> Optional[ConnectorCatalog]:
+        if not self.config.confluent_catalog.enabled:
+            return None
+
+        # Gate on the catalog SR URL, not connect_uri — independently configurable.
+        if not self.config.confluent_catalog.check_confluent_cloud_endpoint(
+            self.report
+        ):
+            return None
+
+        logger.info("Confluent Stream Catalog enabled for connector metadata")
+        return ConnectorCatalog(self.config.confluent_catalog, self.report)
 
     def get_connectors_manifest(self) -> Iterable[ConnectorManifest]:
         """Get Kafka Connect connectors manifest using REST API."""
@@ -167,59 +237,149 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             # Extract lineages for this connector and check if it should be included
             should_include = self.extract_connector_lineages(connector_manifest)
             if not should_include:
-                # Skip unsupported connector (matches master's behavior)
                 continue
 
             yield connector_manifest
 
     def extract_connector_lineages(self, connector_manifest: ConnectorManifest) -> bool:
-        """
-        Extract lineages for a connector manifest.
-
-        Returns:
-            bool: True if connector should be included in output, False if it should be skipped
-        """
         from datahub.ingestion.source.kafka_connect.connector_registry import (
             ConnectorRegistry,
         )
 
-        # Try to get a connector handler from the registry
         connector = ConnectorRegistry.get_connector_for_manifest(
             connector_manifest, self.config, self.report, self._schema_resolver_provider
         )
 
-        # For Confluent Cloud, populate all_cluster_topics for validation purposes
-        if connector and self._is_confluent_cloud:
+        catalog_connector = self._get_catalog_connector(connector_manifest)
+
+        all_cluster_topics: Optional[List[str]] = None
+        if self._is_confluent_cloud:
             all_cluster_topics = self._get_all_topics_from_kafka_api()
-            if all_cluster_topics:
+            # Catalog cross-check below uses the full list. Only hand it to
+            # connectors that need it for inference (sinks, JDBC, EventRouter).
+            if (
+                connector
+                and all_cluster_topics is not None
+                and connector.requires_cluster_topics()
+            ):
                 connector.all_cluster_topics = all_cluster_topics
                 logger.debug(
                     f"Populated {len(all_cluster_topics)} cluster topics for connector '{connector_manifest.name}'"
                 )
 
-        if not connector:
-            # No handler found for this connector class
-            if connector_manifest.type == SOURCE:
-                # Source connectors without handlers are skipped (master's behavior with 'continue')
-                self._handle_unsupported_connector(connector_manifest)
-                return False  # Skip unsupported source connector
-            else:
-                # Sink connectors without handlers are still included (master's BaseConnector behavior)
-                self._handle_unsupported_connector(connector_manifest)
-                connector_manifest.lineages = []
-                connector_manifest.flow_property_bag = {}
-                return True  # Include unsupported sink connector
+        catalog = self._build_catalog_lineages(
+            connector_manifest, catalog_connector, all_cluster_topics
+        )
 
-        # Handler found - extract lineages and flow_property_bag
-        # Master always extracts and yields, regardless of whether they're empty
-        connector_manifest.lineages = connector.extract_lineages()
-        connector_manifest.flow_property_bag = connector.extract_flow_property_bag()
-        return True  # Always include connectors with handlers
+        if catalog.outcome == CatalogLineageOutcome.RESOLVED:
+            connector_manifest.lineages = catalog.lineages
+        elif catalog.outcome == CatalogLineageOutcome.FILTERED_OUT and connector:
+            # Unsupported connectors fall through to be dropped below instead.
+            connector_manifest.lineages = []
+            self.report.warning(
+                message="Dropping all lineage for a connector because none of its "
+                "Stream Catalog topics are present on the live Kafka cluster; its "
+                "config-inferred lineage is not used as a fallback",
+                context=f"connector={connector_manifest.name}",
+            )
+        elif connector:
+            connector_manifest.lineages = connector.extract_lineages()
+            if catalog.outcome == CatalogLineageOutcome.NO_CATALOG_TOPICS:
+                self.report.report_catalog_lineage_fallback(connector_manifest.name)
+        else:
+            self._handle_unsupported_connector(connector_manifest)
+            if connector_manifest.type == SOURCE:
+                return False
+            connector_manifest.lineages = []
+
+        connector_manifest.flow_property_bag = (
+            connector.extract_flow_property_bag() if connector else {}
+        )
+        self._apply_catalog_flow_properties(connector_manifest, catalog_connector)
+        return True
+
+    def _get_catalog_connector(
+        self, connector_manifest: ConnectorManifest
+    ) -> Optional[CatalogConnector]:
+        if not self._catalog:
+            return None
+        return self._catalog.get_connector(connector_manifest.name)
+
+    def _build_catalog_lineages(
+        self,
+        connector_manifest: ConnectorManifest,
+        catalog_connector: Optional[CatalogConnector],
+        all_cluster_topics: Optional[List[str]],
+    ) -> CatalogLineageResult:
+        if (
+            not catalog_connector
+            or not self.config.confluent_catalog.include_lineage
+            or connector_manifest.type != SOURCE
+        ):
+            return CatalogLineageResult(CatalogLineageOutcome.NOT_APPLICABLE)
+
+        topics = catalog_connector.get_topic_names()
+        if not topics:
+            return CatalogLineageResult(CatalogLineageOutcome.NO_CATALOG_TOPICS)
+
+        if all_cluster_topics is not None:
+            cluster_topic_set = set(all_cluster_topics)
+            missing = [topic for topic in topics if topic not in cluster_topic_set]
+            if missing:
+                self.report.warning(
+                    message="Ignoring Stream Catalog lineage topics that are not present on "
+                    "the live Kafka cluster",
+                    context=f"connector={connector_manifest.name}, topics={missing}",
+                )
+                topics = [topic for topic in topics if topic in cluster_topic_set]
+            if not topics:
+                return CatalogLineageResult(CatalogLineageOutcome.FILTERED_OUT)
+
+        self.report.catalog_lineage_connectors += 1
+        logger.debug(
+            f"Using {len(topics)} Stream Catalog topics for connector '{connector_manifest.name}'"
+        )
+        return CatalogLineageResult(
+            CatalogLineageOutcome.RESOLVED,
+            [
+                KafkaConnectLineage(
+                    source_dataset=None,
+                    source_platform=self.platform,
+                    target_dataset=topic,
+                    target_platform=KAFKA,
+                    job_property_bag={LINEAGE_SOURCE_PROPERTY: LINEAGE_SOURCE_CATALOG},
+                )
+                for topic in topics
+            ],
+        )
+
+    def _apply_catalog_flow_properties(
+        self,
+        connector_manifest: ConnectorManifest,
+        catalog_connector: Optional[CatalogConnector],
+    ) -> None:
+        if (
+            not catalog_connector
+            or not self.config.confluent_catalog.include_business_metadata
+        ):
+            return
+
+        # Connector config wins on name collision.
+        existing = connector_manifest.flow_property_bag or {}
+        properties = non_colliding_business_metadata(
+            catalog_connector,
+            existing,
+            self.report,
+            collision_message=BM_COLLISION_WITH_CONNECTOR_CONFIG,
+            context=f"connector={connector_manifest.name}",
+        )
+        if properties:
+            connector_manifest.flow_property_bag = {**existing, **properties}
+            self.report.catalog_connectors_with_business_metadata += 1
 
     def _handle_unsupported_connector(
         self, connector_manifest: ConnectorManifest
     ) -> None:
-        """Handle unsupported connectors with appropriate warnings."""
         connector_class_value = connector_manifest.config.get(CONNECTOR_CLASS) or ""
 
         self.report.report_dropped(connector_manifest.name)
@@ -244,7 +404,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_response.raise_for_status()
         except Exception as e:
             self.report.warning(
-                "Failed to get connector details", connector_name, exc=e
+                message="Failed to get connector details",
+                context=connector_name,
+                exc=e,
             )
             return None
         manifest = connector_response.json()
@@ -321,6 +483,21 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 "Content-Type": "application/json",
             }
         )
+        return session
+
+    @classmethod
+    def _create_kafka_session(cls) -> requests.Session:
+        session = cls._create_json_session()
+        retry_strategy = Retry(
+            total=MAX_KAFKA_TOPIC_FETCH_ATTEMPTS - 1,
+            backoff_factor=1,
+            status_forcelist=list(KAFKA_TOPIC_FETCH_RETRY_STATUS_CODES),
+            allowed_methods=["GET"],
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
         return session
 
     def _get_connector_topics(self, connector_manifest: ConnectorManifest) -> List[str]:
@@ -406,18 +583,16 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         Returns:
             List of all topic names from the Kafka cluster.
-            Falls back to config-based derivation if Kafka API fails.
+            Falls back to config-based derivation if Kafka API is unavailable.
         """
         try:
-            # First try to get all topics from Kafka REST API for comprehensive coverage
             all_kafka_topics = self._get_all_topics_from_kafka_api()
-            if all_kafka_topics:
+            if all_kafka_topics is not None:
                 logger.debug(
                     f"Retrieved {len(all_kafka_topics)} topics from Kafka REST API for transform pipeline"
                 )
                 return all_kafka_topics
 
-            # Fallback to config-based derivation if Kafka API fails
             logger.info(
                 "Kafka REST API not available, falling back to config-based topic derivation"
             )
@@ -430,67 +605,105 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             # Final fallback to config-based approach
             return self._get_topics_from_connector_config(connector_manifest)
 
-    def _get_all_topics_from_kafka_api(self) -> List[str]:
-        """
-        Get all topics from Confluent Cloud Kafka REST API v3.
+    def _get_all_topics_from_kafka_api(self) -> Optional[List[str]]:
+        # None = unavailable; [] = empty cluster.
+        if not self._all_kafka_topics_resolved:
+            self._all_kafka_topics_cache = self._fetch_all_topics_from_kafka_api()
+            self._all_kafka_topics_resolved = True
+        return self._all_kafka_topics_cache
 
-        This provides the comprehensive topic list needed for the reverse transform
-        pipeline strategy to work effectively.
-
-        Uses instance variable caching to avoid repeated API calls during a single ingestion run.
-
-        Returns:
-            List of all topic names from the Kafka cluster.
-            Empty list if API is not accessible or fails.
-        """
-        # Return cached result if available
-        if self._all_kafka_topics_cache is not None:
-            return self._all_kafka_topics_cache
-
+    def _fetch_all_topics_from_kafka_api(self) -> Optional[List[str]]:
         try:
-            # Extract cluster information from Connect URI
             kafka_rest_endpoint, cluster_id = self._parse_confluent_cloud_info()
             if not kafka_rest_endpoint or not cluster_id:
-                logger.debug("Could not extract Kafka REST endpoint from Connect URI")
-                return []
+                self._warn_kafka_topics_unavailable(
+                    KAFKA_REST_NO_ENDPOINT_CATALOG
+                    if self._catalog is not None
+                    else KAFKA_REST_NO_ENDPOINT,
+                    context=f"connect_uri={self.config.connect_uri}",
+                )
+                return None
 
             topics_url = f"{kafka_rest_endpoint.rstrip('/')}/kafka/v3/clusters/{cluster_id}/topics"
 
-            # Reuse the shared auth-header builder (Accept/Content-Type are on kafka_session already)
             auth_headers = self._get_kafka_auth_headers()
             if auth_headers is None:
-                logger.warning(
-                    "No authentication credentials available for Kafka API - API call may fail"
+                self._warn_kafka_topics_unavailable(
+                    KAFKA_REST_NO_AUTH_CATALOG
+                    if self._catalog is not None
+                    else KAFKA_REST_NO_AUTH,
+                    context=f"topics_url={topics_url}",
                 )
+                return None
 
-            response = self.kafka_session.get(topics_url, headers=auth_headers or {})
-            response.raise_for_status()
+            # v3 list endpoints page via `metadata.next` (an absolute URL, null on the
+            # last page). Follow it so a large cluster isn't silently truncated to the
+            # first page. The None (list unavailable) vs [] (authoritative empty cluster)
+            # distinction the catalog cross-check relies on is preserved: any read or
+            # shape failure returns None, a fully-read empty cluster returns [].
+            all_topics: List[str] = []
+            next_url: Optional[str] = topics_url
+            pages = 0
+            while next_url is not None:
+                if pages >= MAX_KAFKA_TOPIC_PAGES:
+                    self._warn_kafka_topics_unavailable(
+                        KAFKA_REST_UNEXPECTED_RESPONSE_CATALOG
+                        if self._catalog is not None
+                        else KAFKA_REST_UNEXPECTED_RESPONSE,
+                        context=f"topics_url={topics_url}, pages={pages}",
+                    )
+                    return None
 
-            # Parse v3 API response format
-            topics_data = response.json()
-            if topics_data.get("kind") == "KafkaTopicList" and "data" in topics_data:
-                all_topics = [
+                response = self.kafka_session.get(next_url, headers=auth_headers)
+                response.raise_for_status()
+                topics_data = response.json()
+                pages += 1
+
+                if (
+                    topics_data.get("kind") != "KafkaTopicList"
+                    or "data" not in topics_data
+                ):
+                    self._warn_kafka_topics_unavailable(
+                        KAFKA_REST_UNEXPECTED_RESPONSE_CATALOG
+                        if self._catalog is not None
+                        else KAFKA_REST_UNEXPECTED_RESPONSE,
+                        context=f"topics_url={topics_url}",
+                    )
+                    return None
+
+                all_topics.extend(
                     topic["topic_name"]
                     for topic in topics_data["data"]
                     if not topic.get("is_internal", False)
-                ]
-                logger.info(
-                    f"Retrieved {len(all_topics)} topics from Confluent Cloud Kafka REST API v3"
                 )
-                # Cache the result for subsequent calls
-                self._all_kafka_topics_cache = all_topics
-                return all_topics
-            else:
-                logger.warning("Unexpected response format from Kafka REST API")
-                # Cache empty result to avoid repeated failures
-                self._all_kafka_topics_cache = []
-                return []
+                next_url = (topics_data.get("metadata") or {}).get("next")
+
+            logger.info(
+                f"Retrieved {len(all_topics)} topics from Confluent Cloud "
+                "Kafka REST API v3"
+            )
+            return all_topics
 
         except Exception as e:
-            logger.debug(f"Failed to get topics from Kafka REST API: {e}")
-            # Cache empty result to avoid repeated API calls on failure
-            self._all_kafka_topics_cache = []
-            return []
+            self._warn_kafka_topics_unavailable(
+                KAFKA_REST_FETCH_FAILED_CATALOG
+                if self._catalog is not None
+                else KAFKA_REST_FETCH_FAILED,
+                context=f"connect_uri={self.config.connect_uri}",
+                exc=e,
+            )
+            return None
+
+    def _warn_kafka_topics_unavailable(
+        self,
+        message: LiteralString,
+        *,
+        context: str,
+        exc: Optional[Exception] = None,
+    ) -> None:
+        # Always warn: available_topics() consumers need this list with or without
+        # Stream Catalog. Callers pick catalog-suffixed wording when the catalog is on.
+        self.report.warning(message=message, context=context, exc=exc)
 
     def _parse_confluent_cloud_info(self) -> tuple[Optional[str], Optional[str]]:
         """
@@ -709,7 +922,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 )
             else:
                 # Fallback to original API method if no endpoint/cluster
-                return self._get_all_topics_from_kafka_api()
+                return self._get_all_topics_from_kafka_api() or []
         except Exception as e:
             logger.warning(f"Failed to get cached Kafka topics: {e}")
             return []
@@ -880,10 +1093,59 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             # No source identified - use target with unknown_source prefix
             return f"unknown_source.{lineage.target_dataset}"
 
+    def construct_catalog_metadata_workunits(
+        self, connector: ConnectorManifest
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Only the Kafka Connect pipeline is tagged here. Tags on the topics themselves
+        are emitted by the `kafka` source, which owns those datasets.
+        """
+        catalog_connector = self._get_catalog_connector(connector)
+        if not catalog_connector:
+            return
+
+        if not self.config.confluent_catalog.include_tags or not catalog_connector.tags:
+            return
+
+        flow_urn = builder.make_data_flow_urn(
+            self.platform,
+            connector.name,
+            self.config.env,
+            self.config.platform_instance,
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=builder.make_global_tag_aspect_with_tag_list(
+                sorted(set(catalog_connector.tags))
+            ),
+        ).as_workunit()
+        self.report.catalog_tagged_flows += 1
+
+    def _warn_if_catalog_partial(self) -> None:
+        # Mirror the kafka source: a partial catalog read means some connectors may
+        # silently miss their catalog metadata this run. Only relevant when it is applied.
+        if (
+            (
+                self.config.confluent_catalog.include_tags
+                or self.config.confluent_catalog.include_business_metadata
+            )
+            and self._catalog is not None
+            and not self._catalog.is_complete()
+        ):
+            self.report.warning(
+                message="The Confluent Stream Catalog was only partially read, so some "
+                "connectors may be missing catalog tags or business metadata this run. Re-run "
+                "once the catalog is fully readable.",
+                context="confluent_catalog",
+            )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self._warn_if_catalog_partial()
         for connector in self.get_connectors_manifest():
             # Always emit flow workunit (connector metadata) for all connectors
             yield self.construct_flow_workunit(connector)
+
+            yield from self.construct_catalog_metadata_workunits(connector)
 
             # Only emit job workunits if connector has lineages
             if connector.lineages:
@@ -894,6 +1156,11 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
     def close(self) -> None:
         self.session.close()
         self.kafka_session.close()
+        if self._catalog:
+            try:
+                self._catalog.close()
+            except Exception:
+                logger.warning("Failed to close Stream Catalog client", exc_info=True)
         if self._schema_resolver_provider:
             try:
                 self._schema_resolver_provider.close()

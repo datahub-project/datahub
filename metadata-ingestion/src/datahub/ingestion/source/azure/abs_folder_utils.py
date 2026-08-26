@@ -194,30 +194,15 @@ def list_folders(
 
     normalized_prefix = prefix.strip("/")
     prefix_with_separator = f"{normalized_prefix}/" if normalized_prefix else ""
-    blob_list = container_client.list_blobs(name_starts_with=prefix)
 
-    seen: set[str] = set()
-    for blob in blob_list:
-        blob_name = blob.name.strip("/")
-        if not blob_name:
+    # walk_blobs with a delimiter yields one BlobPrefix (name ends with "/") per
+    # immediate sub-folder; blobs at this level are skipped.
+    for item in container_client.walk_blobs(
+        name_starts_with=prefix_with_separator, delimiter="/"
+    ):
+        name = item.name
+        if not name.endswith("/"):
             continue
-
-        if prefix_with_separator:
-            if not blob_name.startswith(prefix_with_separator):
-                continue
-            relative_name = blob_name[len(prefix_with_separator) :]
-        else:
-            relative_name = blob_name
-
-        if "/" not in relative_name:
-            continue
-        child_folder = relative_name.split("/", 1)[0]
-        folder_name = (
-            f"{normalized_prefix}/{child_folder}" if normalized_prefix else child_folder
-        )
-
-        if folder_name in seen:
-            continue
-        seen.add(folder_name)
-
-        yield f"{folder_name}"
+        folder_name = name.strip("/")
+        if folder_name:
+            yield folder_name

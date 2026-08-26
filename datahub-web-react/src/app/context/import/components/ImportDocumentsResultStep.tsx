@@ -1,13 +1,11 @@
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
-import {
-    ErrorIcon,
-    HelperText,
-    ResultContainer,
-    SuccessIcon,
-    WarningIcon,
-} from '@app/context/import/components/importDocumentsModal.styles';
+import { HelperText, ResultContainer } from '@app/context/import/components/importDocumentsModal.styles';
 import { Text } from '@src/alchemy-components';
 
 type ImportDocumentsResultStepProps = {
@@ -17,6 +15,8 @@ type ImportDocumentsResultStepProps = {
     totalFailed: number;
 };
 
+const RESULT_ICON_SIZE = 36;
+
 export default function ImportDocumentsResultStep({
     importError,
     totalImported,
@@ -24,6 +24,7 @@ export default function ImportDocumentsResultStep({
     totalFailed,
 }: ImportDocumentsResultStepProps) {
     const { t } = useTranslation('misc');
+    const theme = useTheme();
 
     const summary = useMemo(() => {
         const parts: string[] = [];
@@ -42,7 +43,7 @@ export default function ImportDocumentsResultStep({
     if (importError) {
         return (
             <ResultContainer>
-                <ErrorIcon />
+                <XCircle size={RESULT_ICON_SIZE} color={theme.colors.iconError} weight="fill" />
                 <Text weight="semiBold" size="lg">
                     {t('context.import.failedTitle')}
                 </Text>
@@ -53,7 +54,11 @@ export default function ImportDocumentsResultStep({
 
     return (
         <ResultContainer>
-            {totalFailed === 0 ? <SuccessIcon /> : <WarningIcon />}
+            {totalFailed === 0 ? (
+                <CheckCircle size={RESULT_ICON_SIZE} color={theme.colors.iconSuccess} weight="fill" />
+            ) : (
+                <WarningCircle size={RESULT_ICON_SIZE} color={theme.colors.iconWarning} weight="fill" />
+            )}
             <Text weight="semiBold" size="lg">
                 {t('context.import.completeTitle')}
             </Text>
