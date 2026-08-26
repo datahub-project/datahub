@@ -591,12 +591,15 @@ public class PropertyDefinitionValidatorTest {
     when(mockStructuredPropertyMappingLookup.fieldExists(any(), eq("certification_status")))
         .thenReturn(true);
 
+    // PFP-5468: the collision is still rejected, and its message must surface both causes (live
+    // collision vs residual mapping from a hard-deleted property) plus the reindex recovery path.
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
                 operationContext,
                 TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
                 mockRetrieverContext,
                 mockStructuredPropertyMappingLookup)
+            .filter(e -> e.getMessage().contains("residual") && e.getMessage().contains("reindex"))
             .count(),
         1);
   }
