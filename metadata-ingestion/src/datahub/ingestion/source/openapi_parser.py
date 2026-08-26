@@ -37,6 +37,9 @@ SCHEMA_EXTRACTABLE_METHODS = ["get", "post", "put", "patch"]
 # HTTP methods that typically don't provide useful schemas
 OTHER_HTTP_METHODS = ["delete", "options", "head"]
 
+# Default timeout for outbound HTTP calls (seconds).
+_REQUEST_TIMEOUT_SECONDS = 30
+
 
 def flatten(d: dict, prefix: str = "") -> Generator:
     for k, v in d.items():
@@ -86,18 +89,26 @@ def request_call(
     verify_ssl: bool = True,
 ) -> requests.Response:
     headers = {"accept": "application/json"}
+    timeout = _REQUEST_TIMEOUT_SECONDS
     if username is not None and password is not None:
         return requests.get(
             url,
             headers=headers,
             auth=HTTPBasicAuth(username, password),
             verify=verify_ssl,
+            timeout=timeout,
         )
     elif token is not None:
         headers["Authorization"] = f"{token}"
-        return requests.get(url, proxies=proxies, headers=headers, verify=verify_ssl)
+        return requests.get(
+            url,
+            proxies=proxies,
+            headers=headers,
+            verify=verify_ssl,
+            timeout=timeout,
+        )
     else:
-        return requests.get(url, headers=headers, verify=verify_ssl)
+        return requests.get(url, headers=headers, verify=verify_ssl, timeout=timeout)
 
 
 def get_swag_json(
@@ -122,10 +133,14 @@ def get_swag_json(
     if response.status_code != 200:
         raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
     try:
-        dict_data = json.loads(response.content)
-    except json.JSONDecodeError:  # it's not a JSON!
-        dict_data = yaml.safe_load(response.content)
-    return dict_data
+        return json.loads(response.content)
+    except json.JSONDecodeError:
+        try:
+            return yaml.safe_load(response.content)
+        except yaml.YAMLError as e:
+            raise ValueError(
+                f"Unable to parse OpenAPI spec from {tot_url} as JSON or YAML"
+            ) from e
 
 
 def get_url_basepath(sw_dict: dict) -> str:
@@ -370,7 +385,11 @@ def extract_fields(
     The list in the output tuple will contain the fields name.
     The dict in the output tuple will contain a sample of data.
     """
-    dict_data = json.loads(response.content)
+    try:
+        dict_data = json.loads(response.content)
+    except json.JSONDecodeError:
+        logger.warning(f"Non-JSON response --- {dataset_name}")
+        return [], {}
     if isinstance(dict_data, str):
         # no sense
         logger.warning(f"Empty data --- {dataset_name}")
@@ -425,23 +444,39 @@ def get_tok(
     """
     token = ""
     url4req = url + tok_url
+    timeout = _REQUEST_TIMEOUT_SECONDS
     if method == "post":
         # this will make a POST call with username and password
         data = {"username": username, "password": password, "maxDuration": True}
-        # url2post = url + "api/authenticate/"
-        response = requests.post(url4req, proxies=proxies, json=data, verify=verify_ssl)
+        response = requests.post(
+            url4req,
+            proxies=proxies,
+            json=data,
+            verify=verify_ssl,
+            timeout=timeout,
+        )
         if response.status_code == 200:
-            cont = json.loads(response.content)
-            if "token" in cont:  # other authentication scheme
-                token = cont["token"]
-            else:  # works only for bearer authentication scheme
-                token = f"Bearer {cont['tokens']['access']}"
+            try:
+                cont = json.loads(response.content)
+                if "token" in cont:  # other authentication scheme
+                    token = cont["token"]
+                else:  # works only for bearer authentication scheme
+                    token = f"Bearer {cont['tokens']['access']}"
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                raise ValueError(
+                    f"Unexpected token response shape from {url4req}"
+                ) from e
     elif method == "get":
         # this will make a GET call with username and password
-        response = requests.get(url4req, verify=verify_ssl)
+        response = requests.get(url4req, verify=verify_ssl, timeout=timeout)
         if response.status_code == 200:
-            cont = json.loads(response.content)
-            token = cont["token"]
+            try:
+                cont = json.loads(response.content)
+                token = cont["token"]
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                raise ValueError(
+                    f"Unexpected token response shape from {url4req}"
+                ) from e
     else:
         raise ValueError(f"Method unrecognised: {method}")
     if token != "":
@@ -702,14 +737,6 @@ def _merge_allof_map_keywords(
                 prop_schema = _combine_under_allof(existing, prop_schema)
             merged_schema["patternProperties"][pattern] = prop_schema
 
-    if "propertyNames" in resolved_allof:
-        if "propertyNames" not in merged_schema:
-            merged_schema["propertyNames"] = resolved_allof["propertyNames"]
-        else:
-            merged_schema["propertyNames"] = _combine_under_allof(
-                merged_schema["propertyNames"], resolved_allof["propertyNames"]
-            )
-
 
 # Numeric allOf bounds: lower-bound keywords take max (most restrictive is largest),
 # upper-bound keywords take min (most restrictive is smallest). max/min preserve the
@@ -880,25 +907,6 @@ def enhance_schema_with_titles(
             enhanced_schema["additionalProperties"], sw_dict, "", is_top_level=False
         )
 
-    if "patternProperties" in enhanced_schema and isinstance(
-        enhanced_schema["patternProperties"], dict
-    ):
-        # schema.copy() is shallow — copy the map before rewriting entries in place.
-        enhanced_schema["patternProperties"] = dict(
-            enhanced_schema["patternProperties"]
-        )
-        for pattern, prop_schema in list(enhanced_schema["patternProperties"].items()):
-            enhanced_schema["patternProperties"][pattern] = enhance_schema_with_titles(
-                prop_schema, sw_dict, "", is_top_level=False
-            )
-
-    if "propertyNames" in enhanced_schema and isinstance(
-        enhanced_schema["propertyNames"], dict
-    ):
-        enhanced_schema["propertyNames"] = enhance_schema_with_titles(
-            enhanced_schema["propertyNames"], sw_dict, "", is_top_level=False
-        )
-
     # Handle union types - don't add titles to union members
     for union_key in ["oneOf", "anyOf", "allOf"]:
         if union_key in enhanced_schema:
@@ -912,26 +920,7 @@ def enhance_schema_with_titles(
     return enhanced_schema
 
 
-def _resolve_siblings_preserving_ref_constraints(
-    siblings: Dict[str, Any], sw_dict: Dict[str, Any], max_depth: int
-) -> Dict[str, Any]:
-    # resolve_schema_references returns the ref target early on a bare $ref, which would
-    # drop sibling constraints (minLength, ...). Expand the $ref first, then merge the
-    # remaining siblings on top before resolving the rest.
-    # Empty siblings: return early so we don't burn a depth slot and emit a spurious
-    # max-depth warning when the only propertyNames content was an allOf list.
-    if not siblings:
-        return {}
-    if "$ref" in siblings:
-        resolved_ref = resolve_schema_references(
-            {"$ref": siblings["$ref"]}, sw_dict, max_depth=max_depth - 1
-        )
-        merged = {**resolved_ref, **{k: v for k, v in siblings.items() if k != "$ref"}}
-        return resolve_schema_references(merged, sw_dict, max_depth=max_depth - 1)
-    return resolve_schema_references(siblings, sw_dict, max_depth=max_depth - 1)
-
-
-def _resolve_pattern_and_property_names(
+def _resolve_pattern_properties(
     resolved_schema: Dict[str, Any], sw_dict: Dict[str, Any], max_depth: int
 ) -> None:
     pattern_properties = resolved_schema.get("patternProperties")
@@ -943,28 +932,6 @@ def _resolve_pattern_and_property_names(
             pattern_properties[pattern] = resolve_schema_references(
                 prop_schema, sw_dict, max_depth=max_depth - 1
             )
-
-    property_names = resolved_schema.get("propertyNames")
-    if not isinstance(property_names, dict):
-        return
-    # Resolve $refs / members without collapsing allOf — constraints like
-    # minLength/maxLength are not merged by merge_allof_schemas. Strip allOf
-    # (list or malformed) from the sibling resolve, then re-attach only a real list.
-    allof_members = property_names.get("allOf")
-    siblings = (
-        {k: v for k, v in property_names.items() if k != "allOf"}
-        if "allOf" in property_names
-        else property_names
-    )
-    resolved_names = _resolve_siblings_preserving_ref_constraints(
-        siblings, sw_dict, max_depth
-    )
-    if isinstance(allof_members, list):
-        resolved_names["allOf"] = [
-            resolve_schema_references(part, sw_dict, max_depth=max_depth - 1)
-            for part in allof_members
-        ]
-    resolved_schema["propertyNames"] = resolved_names
 
 
 def _shallow_schema_copy(schema: object) -> object:
@@ -1098,7 +1065,7 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
         )
 
     # After allOf so keywords contributed by members are resolved too.
-    _resolve_pattern_and_property_names(resolved_schema, sw_dict, max_depth)
+    _resolve_pattern_properties(resolved_schema, sw_dict, max_depth)
 
     # Handle union types (oneOf, anyOf) - allOf is already handled above
     for union_key in ["oneOf", "anyOf"]:

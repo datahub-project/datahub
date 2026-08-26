@@ -19,7 +19,7 @@ from datahub.ingestion.source.openapi_parser import (
     try_guessing,
 )
 
-# Shared fixtures for patternProperties / propertyNames / allOf merge tests.
+# Shared fixtures for patternProperties / allOf merge tests.
 _EMPTY_OPENAPI_SW: Dict[str, Any] = {
     "openapi": "3.0.0",
     "components": {"schemas": {}},
@@ -1232,7 +1232,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             mock_logger.warning.assert_called()
 
     def test_extract_request_schema_handles_exceptions(self):
-        """Test that exceptions in request extraction are caught and logged."""
+        """Test that exceptions in request extraction are caught and reported."""
         endpoint_spec = {
             "requestBody": {
                 "content": {
@@ -1245,20 +1245,17 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             }
         }
 
-        with (
-            patch(
-                "datahub.ingestion.source.openapi.get_schema_from_response"
-            ) as mock_get_schema,
-            patch("datahub.ingestion.source.openapi.logger") as mock_logger,
-        ):
+        with patch(
+            "datahub.ingestion.source.openapi.get_schema_from_response"
+        ) as mock_get_schema:
             # Make get_schema_from_response raise an exception
             mock_get_schema.side_effect = TypeError("Cannot process schema")
 
             result = self.source.extract_request_schema_from_endpoint(endpoint_spec, {})
 
-            # Should return None and log warning
+            # Should return None and surface a report warning
             self.assertIsNone(result)
-            mock_logger.warning.assert_called()
+            self.assertTrue(len(self.source.report.warnings) > 0)
 
     def test_resolve_schema_references_recursive(self):
         """Test that nested $ref references are fully resolved in properties, items, etc."""
@@ -1624,24 +1621,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIn("a", pattern_schema["properties"])
         self.assertIn("b", pattern_schema["properties"])
 
-    def test_merge_allof_property_names_combines_under_allof(self):
-        sw_dict = _EMPTY_OPENAPI_SW
-        schema = {
-            "propertyNames": {"type": "string", "minLength": 1},
-            "allOf": [
-                {"propertyNames": {"type": "string", "maxLength": 10}},
-            ],
-            "additionalProperties": {"type": "string"},
-        }
-
-        resolved = resolve_schema_references(schema, sw_dict)
-
-        self.assertIn("allOf", resolved["propertyNames"])
-        parts = resolved["propertyNames"]["allOf"]
-        self.assertEqual(len(parts), 2)
-        self.assertEqual(parts[0].get("minLength"), 1)
-        self.assertEqual(parts[1].get("maxLength"), 10)
-
     def test_merge_allof_same_pattern_three_members_keeps_all_fields(self):
         # 3+ members sharing a pattern must not nest, or earlier schemas get dropped.
         sw_dict = _EMPTY_OPENAPI_SW
@@ -1674,43 +1653,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         for field in ("a", "b", "c"):
             self.assertIn(field, pattern_schema["properties"])
 
-    def test_merge_allof_property_names_three_members_flat(self):
-        # 3+ propertyNames contributors flatten into one allOf list, not nested.
-        sw_dict = _EMPTY_OPENAPI_SW
-        schema = {
-            "propertyNames": {"type": "string", "minLength": 1},
-            "allOf": [
-                {"propertyNames": {"type": "string", "maxLength": 10}},
-                {"propertyNames": {"type": "string", "pattern": "^x"}},
-            ],
-        }
-
-        resolved = resolve_schema_references(schema, sw_dict)
-
-        parts = resolved["propertyNames"]["allOf"]
-        self.assertEqual(len(parts), 3)
-        self.assertEqual(parts[0].get("minLength"), 1)
-        self.assertEqual(parts[1].get("maxLength"), 10)
-        self.assertEqual(parts[2].get("pattern"), "^x")
-
-    def test_property_names_allof_preserves_sibling_constraints(self):
-        # allOf alongside sibling keys (minLength) must keep the siblings on resolve.
-        sw_dict = _EMPTY_OPENAPI_SW
-        schema = {
-            "type": "object",
-            "propertyNames": {
-                "minLength": 2,
-                "allOf": [{"type": "string", "maxLength": 5}],
-            },
-            "additionalProperties": {"type": "string"},
-        }
-
-        resolved = resolve_schema_references(schema, sw_dict)
-
-        property_names = resolved["propertyNames"]
-        self.assertEqual(property_names.get("minLength"), 2)
-        self.assertEqual(property_names["allOf"][0].get("maxLength"), 5)
-
     def test_merge_allof_three_pattern_members_with_ref_resolved(self):
         # 3+ same-pattern members, one a $ref: after merge-then-resolve the flattened
         # allOf members still get their refs resolved (no $ref left, all fields present).
@@ -1742,28 +1684,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertNotIn("$ref", json.dumps(pattern_schema))
         for field in ("a", "b", "c"):
             self.assertIn(field, pattern_schema["properties"])
-
-    def test_property_names_allof_sibling_ref_resolved(self):
-        # A sibling union ($ref inside anyOf) next to allOf must have its $ref resolved.
-        sw_dict = {
-            "openapi": "3.0.0",
-            "components": {"schemas": {"Key": {"type": "string", "format": "uuid"}}},
-        }
-        schema = {
-            "type": "object",
-            "propertyNames": {
-                "anyOf": [{"$ref": "#/components/schemas/Key"}],
-                "allOf": [{"type": "string", "maxLength": 5}],
-            },
-            "additionalProperties": {"type": "string"},
-        }
-
-        resolved = resolve_schema_references(schema, sw_dict)
-
-        property_names = resolved["propertyNames"]
-        self.assertNotIn("$ref", json.dumps(property_names))
-        self.assertEqual(property_names["anyOf"][0].get("format"), "uuid")
-        self.assertEqual(property_names["allOf"][0].get("maxLength"), 5)
 
     def test_merge_allof_same_pattern_preserves_value_constraints(self):
         # Colliding same-pattern value schemas keep scalar constraints after the
@@ -1801,6 +1721,31 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         # Merged integer bounds must stay ints (not coerced to float).
         self.assertIsInstance(pattern_schema.get("minLength"), int)
         self.assertIsInstance(pattern_schema.get("maxLength"), int)
+
+    def test_merge_allof_boolean_exclusive_bounds(self):
+        # OpenAPI 3.0 exclusiveMinimum/Maximum are booleans tied to minimum/maximum:
+        # the bound stays exclusive if any member is exclusive (no min()/max() on bools).
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "allOf": [
+                {
+                    "patternProperties": {
+                        "^x": {"maximum": 10, "exclusiveMaximum": True}
+                    }
+                },
+                {
+                    "patternProperties": {
+                        "^x": {"maximum": 10, "exclusiveMaximum": False}
+                    }
+                },
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        pattern_schema = resolved["patternProperties"]["^x"]
+        self.assertEqual(pattern_schema.get("maximum"), 10)
+        self.assertIs(pattern_schema.get("exclusiveMaximum"), True)
 
     def test_merge_allof_integer_bounds_preserve_int_type(self):
         sw_dict = _EMPTY_OPENAPI_SW
@@ -1896,26 +1841,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
         self.assertEqual(resolved["additionalProperties"], {"type": "integer"})
 
-    def test_property_names_ref_with_siblings_no_allof(self):
-        # propertyNames with a $ref plus a sibling constraint but no allOf: the $ref is
-        # expanded and the sibling minLength is preserved (bare-$ref early return trap).
-        sw_dict = {
-            "openapi": "3.0.0",
-            "components": {"schemas": {"Key": {"type": "string", "format": "uuid"}}},
-        }
-        schema = {
-            "type": "object",
-            "propertyNames": {"$ref": "#/components/schemas/Key", "minLength": 3},
-            "additionalProperties": {"type": "string"},
-        }
-
-        resolved = resolve_schema_references(schema, sw_dict)
-
-        property_names = resolved["propertyNames"]
-        self.assertNotIn("$ref", json.dumps(property_names))
-        self.assertEqual(property_names.get("format"), "uuid")
-        self.assertEqual(property_names.get("minLength"), 3)
-
     def test_merge_allof_mixed_exclusive_bounds_no_error(self):
         # A numeric (draft-6+) exclusive bound in one member and a boolean (draft-4)
         # flag in another must not raise and must keep the numeric bound, regardless
@@ -1932,59 +1857,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
         pattern_schema = resolved["patternProperties"]["^x"]
         self.assertEqual(pattern_schema.get("exclusiveMinimum"), 5)
-
-    def test_property_names_allof_ref_with_sibling_constraints(self):
-        # $ref alongside sibling constraints next to allOf: the ref is expanded and the
-        # sibling constraint is kept (not dropped by the bare-$ref early return).
-        sw_dict = {
-            "openapi": "3.0.0",
-            "components": {"schemas": {"Key": {"type": "string", "format": "uuid"}}},
-        }
-        schema = {
-            "type": "object",
-            "propertyNames": {
-                "$ref": "#/components/schemas/Key",
-                "minLength": 3,
-                "allOf": [{"maxLength": 6}],
-            },
-            "additionalProperties": {"type": "string"},
-        }
-
-        resolved = resolve_schema_references(schema, sw_dict)
-
-        property_names = resolved["propertyNames"]
-        self.assertNotIn("$ref", json.dumps(property_names))
-        self.assertEqual(property_names.get("format"), "uuid")
-        self.assertEqual(property_names.get("minLength"), 3)
-        self.assertEqual(property_names["allOf"][0].get("maxLength"), 6)
-
-    def test_resolve_schema_references_property_names_ref(self):
-        sw_dict = {
-            "openapi": "3.0.0",
-            "components": {
-                "schemas": {
-                    "DateKey": {
-                        "type": "string",
-                        "format": "date",
-                    }
-                }
-            },
-        }
-        schema = {
-            "type": "object",
-            "propertyNames": {"$ref": "#/components/schemas/DateKey"},
-            "additionalProperties": {"type": "string"},
-        }
-
-        resolved = resolve_schema_references(schema, sw_dict)
-
-        self.assertNotIn("$ref", json.dumps(resolved))
-        self.assertEqual(resolved["propertyNames"]["format"], "date")
-
-        metadata = get_schema_metadata(
-            platform="openapi", name="property-names", json_schema=resolved
-        )
-        self.assertTrue(len(metadata.fields) > 0)
 
     def test_merge_allof_unique_items_or_merge(self):
         sw_dict = _EMPTY_OPENAPI_SW
@@ -2060,25 +1932,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             {"type": "string"},
         )
 
-    def test_property_names_malformed_allof_dict_ignored(self):
-        # allOf as a dict (not a list) must not emit garbage string keys.
-        sw_dict = _EMPTY_OPENAPI_SW
-        schema = {
-            "type": "object",
-            "propertyNames": {
-                "type": "string",
-                "minLength": 2,
-                "allOf": {"maxLength": 10},
-            },
-            "additionalProperties": {"type": "string"},
-        }
-
-        resolved = resolve_schema_references(schema, sw_dict)
-
-        property_names = resolved["propertyNames"]
-        self.assertEqual(property_names.get("minLength"), 2)
-        self.assertNotIn("allOf", property_names)
-
     def test_multi_pattern_properties_collapse_logs_warning(self):
         sw_dict = _EMPTY_OPENAPI_SW
         schema = {
@@ -2120,28 +1973,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
         self.assertIsNotNone(resolved)
         self.assertIn("patternProperties", resolved)
-
-    def test_circular_ref_through_property_names(self):
-        sw_dict = {
-            "openapi": "3.0.0",
-            "components": {
-                "schemas": {
-                    "Key": {
-                        "type": "string",
-                        "allOf": [{"$ref": "#/components/schemas/Key"}],
-                    }
-                }
-            },
-        }
-        schema = {
-            "type": "object",
-            "propertyNames": {"$ref": "#/components/schemas/Key"},
-            "additionalProperties": {"type": "string"},
-        }
-
-        resolved = resolve_schema_references(schema, sw_dict, max_depth=5)
-
-        self.assertIsNotNone(resolved.get("propertyNames"))
 
     def test_extract_response_schema_malformed_no_content_type(self):
         """Test handling of response with content but no application/json."""
@@ -2348,8 +2179,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             self.assertIsNone(result)
 
     def test_schema_extraction_with_missing_credentials(self):
-        """Test that API calls are skipped when credentials missing (should log warning but not fail)."""
-        # Create config without credentials
+        """API calls are skipped when credentials are missing for a GET with 200."""
         config_no_creds = OpenApiConfig(
             name="test_api",
             url="https://api.example.com",
@@ -2358,18 +2188,39 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         )
         source_no_creds = APISource(config_no_creds, self.ctx, "OpenApi")
 
+        # 200 response exists but carries no extractable schema, so the fallback
+        # path would otherwise attempt a live GET.
         sw_dict = {
             "swagger": "2.0",
             "paths": {
-                "/pets": {"get": {"responses": {"404": {"description": "Not found"}}}}
+                "/pets": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "description": "Success",
+                            }
+                        }
+                    }
+                }
             },
         }
+        endpoint_dets = {"method": "get", "description": "", "tags": []}
 
-        # Try to extract schema - should not fail even without credentials
-        # Since there's no 200 response, it should return None without making API calls
-        result = source_no_creds._extract_schema_from_openapi_spec(
-            "/pets", "pets", sw_dict
+        with patch(
+            "datahub.ingestion.source.openapi.request_call"
+        ) as mock_request_call:
+            list(source_no_creds._process_endpoint("/pets", endpoint_dets, sw_dict, {}))
+
+            mock_request_call.assert_not_called()
+
+        warning_titles = [
+            getattr(w, "title", None) or getattr(w, "message", "")
+            for w in source_no_creds.report.warnings
+        ]
+        self.assertTrue(
+            any(
+                title == "No Schema Extracted - Missing Credentials"
+                for title in warning_titles
+            ),
+            warning_titles,
         )
-
-        # Should return None (no schema in spec, and no API call made without credentials)
-        self.assertIsNone(result)
