@@ -869,14 +869,17 @@ class APISource(Source, ABC):
         # Sample from "listing endpoint" for guessing composed endpoints
         root_dataset_samples: Dict[str, Any] = {}
 
-        # Process all endpoints
+        # Process all endpoints. Materialize each endpoint's workunits inside the
+        # try so consumer-side failures at yield are not mis-attributed here.
         for endpoint_k, endpoint_dets in url_endpoints.items():
             if endpoint_k in config.ignore_endpoints:
                 continue
 
             try:
-                yield from self._process_endpoint(
-                    endpoint_k, endpoint_dets, sw_dict, root_dataset_samples
+                workunits = list(
+                    self._process_endpoint(
+                        endpoint_k, endpoint_dets, sw_dict, root_dataset_samples
+                    )
                 )
             except Exception as e:
                 self.report.failure(
@@ -886,6 +889,8 @@ class APISource(Source, ABC):
                     exc=e,
                 )
                 continue
+
+            yield from workunits
 
     def _process_endpoint(
         self,
