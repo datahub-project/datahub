@@ -1312,8 +1312,18 @@ def _normalize_map_schemas(schema: object) -> None:
     _promote_pattern_properties_to_additional(schema)
 
 
-def _strip_unresolved_refs(schema: object) -> Tuple[object, bool]:
-    """Recursively remove any leftover "$ref" key anywhere in the tree.
+
+# Carried through verbatim: literal example/default instance data, never
+# schema-interpreted by _resolve_schema_refs (see its docstring) or by
+# merge_allof_schemas (_ALLOF_FIRST_WINS_KEYWORDS) either, so a "$ref" key
+# inside one of these is real data, not an unresolved schema reference.
+_OPAQUE_DATA_KEYWORDS = ("example", "default")
+
+
+def _strip_unresolved_refs(
+    schema: object, *, is_property_map: bool = False
+) -> Tuple[object, bool]:
+    """Recursively remove any leftover "$ref" *keyword* anywhere in the tree.
 
     This walk is intentionally generic (every dict value and list item, not just the
     JSON-Schema keywords _normalize_map_schemas understands) so it also covers keys
@@ -1321,23 +1331,35 @@ def _strip_unresolved_refs(schema: object) -> Tuple[object, bool]:
     depth-limited resolution can leave a raw $ref under any of those, and an
     unresolved $ref reaching jsonref crashes the whole endpoint.
 
-    Returns (possibly-rebuilt schema, True if any $ref was found and removed). Does
-    NOT mutate the input in place: a node under one of the unvisited keywords above
-    may still be the exact same dict object as a shared sw_dict component (neither
-    _resolve_schema_refs nor _normalize_map_schemas walks into "not"/"if"/"then"/
-    "else"/"contains", so they never copy it either), and deleting a key from it
-    in place would permanently corrupt that shared component for every other
-    endpoint resolved later in the same run. A branch with nothing to strip is
-    returned unchanged (same object), so this only allocates along paths that
-    actually contained a $ref.
+    ``is_property_map`` is True only for the dict directly under "properties" /
+    "patternProperties" — i.e. a map keyed by property *names*, not schema
+    keywords. A property can legitimately be named "$ref"; that key must not be
+    mistaken for a leftover reference. "example"/"default" values are skipped
+    entirely (kept exactly as-is) for the same reason: they're opaque instance
+    data, not schema, so a "$ref" inside one is real data too.
+
+    Returns (possibly-rebuilt schema, True if any $ref keyword was found and
+    removed). Does NOT mutate the input in place: a node under one of the
+    unvisited keywords above may still be the exact same dict object as a shared
+    sw_dict component (neither _resolve_schema_refs nor _normalize_map_schemas
+    walks into "not"/"if"/"then"/"else"/"contains", so they never copy it
+    either), and deleting a key from it in place would permanently corrupt that
+    shared component for every other endpoint resolved later in the same run. A
+    branch with nothing to strip is returned unchanged (same object), so this
+    only allocates along paths that actually contained a $ref.
     """
     if isinstance(schema, dict):
-        found = "$ref" in schema
+        found = ("$ref" in schema) and not is_property_map
         new_dict = {}
         for key, value in schema.items():
-            if key == "$ref":
+            if key == "$ref" and not is_property_map:
                 continue
-            new_value, child_found = _strip_unresolved_refs(value)
+            if key in _OPAQUE_DATA_KEYWORDS:
+                new_dict[key] = value
+                continue
+            new_value, child_found = _strip_unresolved_refs(
+                value, is_property_map=key in ("properties", "patternProperties")
+            )
             found = found or child_found
             new_dict[key] = new_value
         return (new_dict if found else schema), found
@@ -1547,6 +1569,13 @@ def get_schema_from_response(
     # $ref with sibling keywords under "items" is not silently dropped.
     if response_schema.get("type") == "array":
         items_schema = response_schema.get("items", {})
+        if not isinstance(items_schema, dict):
+            # A bare `true`/`false` "items" schema carries no extractable fields
+            # here, same as a bare boolean top-level schema above -- and
+            # resolve_schema_references would otherwise return it unchanged
+            # (e.g. `True`), which is truthy and gets mistaken for a resolved
+            # schema by callers that check for one.
+            return None
         return resolve_schema_references(items_schema, sw_dict, max_depth)
 
     # Handle references (before object-shape fallthrough — $ref may carry siblings,
