@@ -305,6 +305,16 @@ class CubeSemanticModelMapper:
         return None
 
     @staticmethod
+    def _resolve_geo_type(data_type: Optional[str]) -> Optional[str]:
+        # "geo" has no dedicated DataHub SQL-type primitive -- resolve_sql_type
+        # returns None for it, which resolves to NullType downstream. Surface
+        # it as a string instead, matching the classic dataset path's
+        # CUBE_TYPE_TO_SCHEMA_FIELD_TYPE mapping (geo -> StringTypeClass).
+        # Cube's own docs describe geo as primarily a dimension type, but a
+        # calculated geo measure is possible too, so both paths need this.
+        return "string" if data_type == "geo" else data_type
+
+    @staticmethod
     def _measure_field_type(member: CubeMember) -> str:
         # A measure's `data_type` is usually an aggregation type (e.g.
         # "count"), not a SQL/native type -- passing it through as-is
@@ -312,19 +322,16 @@ class CubeSemanticModelMapper:
         # calculated measure can carry a real primitive type (string,
         # boolean, time, date, geo); those must pass through, matching the
         # classic dataset path's CUBE_TYPE_TO_SCHEMA_FIELD_TYPE lookup.
-        if member.data_type == "geo":
-            # No dedicated DataHub primitive; the classic path surfaces geo
-            # measures as a string too.
-            return "string"
-        if member.data_type in CUBE_TYPE_TO_SCHEMA_FIELD_TYPE:
-            return member.data_type or "number"
+        data_type = CubeSemanticModelMapper._resolve_geo_type(member.data_type)
+        if data_type in CUBE_TYPE_TO_SCHEMA_FIELD_TYPE:
+            return data_type or "number"
         return "number"
 
     def _semantic_field(self, member: CubeMember) -> SemanticFieldInput:
         native_type = (
             self._measure_field_type(member)
             if member.is_measure
-            else (member.data_type or "string")
+            else (self._resolve_geo_type(member.data_type) or "string")
         )
         return SemanticFieldInput(
             field_path=member.name,
@@ -494,9 +501,13 @@ class CubeSemanticModelMapper:
         # lineage path in this connector treats include_hidden as an absolute
         # filter, and a hidden FK/PK used only as a join key (a common Cube
         # modeling pattern) must not become an unintended exception to that.
-        fields = field_paths_by_cube.setdefault(cube_name, {})
-        if column in fields:
-            return column
+        #
+        # `column` is the raw SQL identifier from the join SQL
+        # ("{CUBE}.user_id"), which is commonly a Cube member's own `sql:`
+        # expression rather than its JS-identifier `name` ("userId" with
+        # `sql: user_id` is a common pattern) -- match either, and always key
+        # `fields`/return by member.name, since that's the field_path
+        # _semantic_field actually gives the schema field.
         cube = cubes_by_name.get(cube_name)
         if cube is None:
             return None
@@ -504,11 +515,14 @@ class CubeSemanticModelMapper:
             (
                 m
                 for m in cube.visible_members(self.config.include_hidden)
-                if m.name == column
+                if m.name == column or m.sql_column == column
             ),
             None,
         )
         if member is None:
             return None
-        fields[column] = self._semantic_field(member)
-        return column
+        fields = field_paths_by_cube.setdefault(cube_name, {})
+        if member.name in fields:
+            return member.name
+        fields[member.name] = self._semantic_field(member)
+        return member.name

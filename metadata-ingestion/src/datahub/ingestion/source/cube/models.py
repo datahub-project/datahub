@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from typing import Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -27,6 +28,23 @@ def _clean_core_sql(sql: Optional[str]) -> Optional[str]:
     if len(stripped) >= 2 and stripped.startswith("`") and stripped.endswith("`"):
         stripped = stripped[1:-1]
     return stripped
+
+
+_BARE_SQL_COLUMN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _extract_sql_column(sql: Optional[str]) -> Optional[str]:
+    # A member's `sql:` is often a bare column name (e.g. "user_id" for a
+    # dimension named "userId" -- common in JS/TS Cube schemas), which Cube's
+    # own join SQL ("{CUBE}.user_id") references, not the member name. A
+    # complex expression (function calls, concatenation, a table-qualified
+    # reference) can't be safely matched against a plain join column, so only
+    # a bare identifier is captured.
+    cleaned = _clean_core_sql(sql)
+    if not cleaned:
+        return None
+    stripped = cleaned.strip()
+    return stripped if _BARE_SQL_COLUMN_RE.match(stripped) else None
 
 
 def _is_hidden(public: Optional[bool], is_visible: Optional[bool]) -> bool:
@@ -86,6 +104,10 @@ class CoreMember(BaseModel):
     # For view members, the underlying cube member this aliases (e.g.
     # "base_orders.count"); used to derive view -> cube column lineage.
     alias_member: Optional[str] = Field(default=None, alias="aliasMember")
+    # The member's own SQL expression (e.g. "user_id" for a dimension named
+    # "userId"); Cube join SQL like "{CUBE}.user_id" references this, not the
+    # JS-identifier member name. See _extract_sql_column.
+    sql: Optional[str] = None
     meta: Optional[Dict[str, object]] = None
     public: Optional[bool] = None
     is_visible: Optional[bool] = Field(default=None, alias="isVisible")
@@ -361,6 +383,10 @@ class CubeMember(BaseModel):
     column_references: List[CubeColumnReference] = Field(default_factory=list)
     member_references: List[str] = Field(default_factory=list)
     meta: Dict[str, object] = Field(default_factory=dict)
+    # The member's own bare SQL column, when its `sql:` expression is one
+    # (e.g. "user_id" for a dimension named "userId"). None for a member with
+    # no such expression, or one too complex to be a plain column reference.
+    sql_column: Optional[str] = None
 
     def source_cube_name(self) -> Optional[str]:
         # View members carry aliasMember / member_references like "orders.count".
@@ -401,6 +427,7 @@ def _normalise_member(
         meta=raw.meta or {},
         member_references=member_references,
         column_references=column_references,
+        sql_column=_extract_sql_column(getattr(raw, "sql", None)),
     )
 
 

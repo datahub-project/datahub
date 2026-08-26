@@ -300,6 +300,56 @@ def test_calculated_measure_with_primitive_type_keeps_its_own_type() -> None:
     assert metric_info.expression is None
 
 
+def test_geo_dimension_maps_to_string_not_nulltype() -> None:
+    # Regression: geo has no dedicated DataHub SQL-type primitive, so passing
+    # it through as-is resolves to NullType downstream. The classic dataset
+    # path already maps geo to StringType (CUBE_TYPE_TO_SCHEMA_FIELD_TYPE);
+    # the semantic-model path must match, for both dimensions (geo's primary
+    # use in Cube) and calculated geo measures.
+    cube = CubeEntity(
+        name="stores",
+        measures=[
+            CubeMember(name="centroid", is_measure=True, data_type="geo"),
+        ],
+        dimensions=[
+            CubeMember(name="location", is_measure=False, data_type="geo"),
+        ],
+    )
+    view = CubeEntity(
+        name="stores_view",
+        is_view=True,
+        cube_references=["stores"],
+        measures=[
+            CubeMember(
+                name="centroid",
+                is_measure=True,
+                data_type="geo",
+                member_references=["stores.centroid"],
+            )
+        ],
+        dimensions=[
+            CubeMember(
+                name="location",
+                is_measure=False,
+                data_type="geo",
+                member_references=["stores.location"],
+            )
+        ],
+    )
+    mapper = _mapper()
+    aspects = _aspects_by_urn(list(mapper.emit(view, {"stores": cube})))
+
+    stores_logical = (
+        "urn:li:dataset:(urn:li:dataPlatform:cube,demo.stores_view.stores,PROD)"
+    )
+    schema_meta = aspects[stores_logical]["SchemaMetadataClass"]
+    fields = schema_meta.fields  # type: ignore[attr-defined]
+    location_field = next(f for f in fields if f.fieldPath == "location")
+    centroid_field = next(f for f in fields if f.fieldPath == "centroid")
+    assert isinstance(location_field.type.type, StringTypeClass)
+    assert isinstance(centroid_field.type.type, StringTypeClass)
+
+
 def _orders_cube_with_hidden_join_key() -> CubeEntity:
     cube = _orders_cube()
     cube.dimensions = [
@@ -480,6 +530,67 @@ def test_reversed_join_sql_emits_relationship() -> None:
     assert rel.to == "customers"
     assert rel.fromColumns == ["customer_id"]
     assert rel.toColumns == ["id"]
+
+
+def test_join_matches_member_by_sql_column_not_just_name() -> None:
+    # Regression: join SQL ("{CUBE}.user_id") names the underlying SQL column,
+    # which commonly differs from the member's JS-identifier name in
+    # camelCase schemas (e.g. a dimension named "userId" with `sql: user_id`).
+    # _ensure_join_column used to match only by member.name, so this join
+    # would silently resolve to no columns despite the member existing.
+    cube = CubeEntity(
+        name="orders",
+        joins=[
+            CubeJoin(
+                name="customers",
+                relationship="many_to_one",
+                sql="{CUBE}.user_id = {customers}.id",
+            )
+        ],
+        measures=[CubeMember(name="count", is_measure=True, agg_type="count")],
+        dimensions=[CubeMember(name="userId", is_measure=False, sql_column="user_id")],
+    )
+    view = CubeEntity(
+        name="orders_view",
+        is_view=True,
+        cube_references=["orders", "customers"],
+        measures=[
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                member_references=["orders.count"],
+            )
+        ],
+        dimensions=[
+            CubeMember(
+                name="name",
+                is_measure=False,
+                member_references=["customers.name"],
+            )
+        ],
+    )
+    mapper = _mapper()
+    aspects = _aspects_by_urn(
+        list(mapper.emit(view, {"orders": cube, "customers": _customers_cube()}))
+    )
+    model_urn = "urn:li:semanticModel:(urn:li:dataPlatform:cube,demo,orders_view)"
+    info = aspects[model_urn]["SemanticModelInfoClass"]
+    assert isinstance(info, SemanticModelInfoClass)
+    assert info.relationships
+    rel = info.relationships[0]
+    # fromColumns must reference the schema field's actual field_path
+    # (member.name), not the raw join SQL text -- the emitted logical
+    # dataset's schema has a field named "userId", not "user_id".
+    assert rel.fromColumns == ["userId"]
+    assert rel.toColumns == ["id"]
+
+    orders_logical = (
+        "urn:li:dataset:(urn:li:dataPlatform:cube,demo.orders_view.orders,PROD)"
+    )
+    schema_meta = aspects[orders_logical]["SchemaMetadataClass"]
+    field_paths = [f.fieldPath for f in schema_meta.fields]  # type: ignore[attr-defined]
+    assert "userId" in field_paths
 
 
 def test_unparsed_join_sql_is_warned_and_skipped() -> None:

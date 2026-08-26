@@ -130,6 +130,49 @@ def test_from_core_cube_normalizes_members_and_alias() -> None:
     assert entity.segment_names == ["completed"]
 
 
+def test_from_core_cube_captures_bare_sql_column_not_complex_expression() -> None:
+    # A member's `sql:` is often a bare column name that differs from its
+    # JS-identifier name (e.g. "userId" with `sql: user_id`) -- Cube join SQL
+    # references that column, not the member name, so it must be captured
+    # separately. A complex expression isn't a plain column reference and
+    # must not be captured as one.
+    response = CoreMetaResponse.model_validate(
+        {
+            "cubes": [
+                {
+                    "name": "orders",
+                    "measures": [],
+                    "dimensions": [
+                        {
+                            "name": "orders.userId",
+                            "type": "number",
+                            "sql": "user_id",
+                        },
+                        {
+                            "name": "orders.fullName",
+                            "type": "string",
+                            "sql": "`CONCAT(first_name, ' ', last_name)`",
+                        },
+                        {
+                            "name": "orders.status",
+                            "type": "string",
+                            "sql": "status",
+                        },
+                    ],
+                }
+            ]
+        }
+    )
+
+    entity = CubeEntity.from_core_cube(response.cubes[0])
+    by_name = {d.name: d for d in entity.dimensions}
+
+    assert by_name["userId"].sql_column == "user_id"
+    assert by_name["fullName"].sql_column is None
+    # A bare column whose sql happens to equal its name is still captured.
+    assert by_name["status"].sql_column == "status"
+
+
 def test_from_cloud_entity_captures_references() -> None:
     entity = CloudEntity.model_validate(
         {
