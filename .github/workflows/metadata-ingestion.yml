@@ -326,7 +326,7 @@ jobs:
 
   wolfi-smoke:
     runs-on: ubuntu-latest
-    continue-on-error: true
+    timeout-minutes: 60
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Set up JDK 25
@@ -342,17 +342,18 @@ jobs:
         run: ./gradlew :metadata-ingestion:codegen
       - name: Run metadata-ingestion unit tests on Wolfi
         run: |
-          docker run --rm -v "$PWD:/workspace" -w /workspace/metadata-ingestion \
+          docker run --rm -v "$PWD:/workspace:ro" -w /workspace/metadata-ingestion \
+            -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONDONTWRITEBYTECODE=1 \
             cgr.dev/chainguard/wolfi-base:latest sh -c '
               set -eux
               apk add --no-cache python-3.11 python-3.11-dev uv git bash \
                 build-base krb5-dev krb5-libs openldap-2.6-dev cyrus-sasl-mit-dev \
                 libaio-dev librdkafka-dev unixodbc-dev
               ln -sf /usr/bin/python3.11 /usr/bin/python3
-              uv venv .venv
-              . .venv/bin/activate
-              uv pip install -e ".[dev,integration-tests]"
-              pytest tests/unit -m "not integration" -q
+              uv venv /tmp/.venv
+              . /tmp/.venv/bin/activate
+              uv pip install ".[dev,integration-tests]"
+              pytest tests/unit -m "not integration" -q --junit-xml=/tmp/junit.xml
             '
 
   # ── Single required branch protection check ────────────────────────────────
