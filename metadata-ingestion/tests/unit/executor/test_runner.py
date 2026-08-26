@@ -4,6 +4,7 @@ import sys
 import tempfile
 import threading
 import time
+from collections.abc import Iterator
 from io import StringIO
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -1405,3 +1406,67 @@ def test_get_stable_venv_name_stable_when_env_var_unchanged(
         ],
     )
     assert config.get_stable_venv_name() == config.get_stable_venv_name()
+
+
+class TestRequirementLoggingDoesNotLeakCredentials:
+    """The requirement lines setup_venv logs are as configured, never expanded."""
+
+    @pytest.fixture
+    def recording_runner(self) -> Iterator[tuple[SubprocessRunner, LogHolder]]:
+        """A runner whose `uv venv` creates the venv but installs are no-ops."""
+        logs = LogHolder()
+        runner = SubprocessRunner(logs=logs)
+
+        async def fake_execute(cmd: list, *_args: object, **_kwargs: object) -> None:
+            if len(cmd) > 1 and cmd[1] == "venv":
+                loc = Path(cmd[-1])
+                (loc / "bin").mkdir(parents=True, exist_ok=True)
+                (loc / "bin" / "python").touch()
+            return None
+
+        with (
+            patch.object(runner, "execute", AsyncMock(side_effect=fake_execute)),
+            patch("datahub.executor.execution.runner._find_uv", return_value="uv"),
+        ):
+            yield runner, logs
+
+    async def test_extra_requirements_are_logged_unexpanded(
+        self,
+        recording_runner: tuple[SubprocessRunner, LogHolder],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        monkeypatch.setenv("PYPI_TOKEN", "SUPERSECRET_TOKEN_abc123")
+        runner, logs = recording_runner
+        config = VenvConfig(
+            version="1.0.0",
+            main_plugin="demo-data",
+            extra_pip_requirements=[
+                "--extra-index-url https://user:${PYPI_TOKEN}@pypi.acme.com/simple",
+            ],
+        )
+
+        await setup_venv(config, runner, tmp_path)
+
+        text = "".join(logs.get_lines())
+        assert "SUPERSECRET_TOKEN_abc123" not in text
+        # The configured line is still logged, placeholder intact.
+        assert "https://user:${PYPI_TOKEN}@pypi.acme.com/simple" in text
+
+    async def test_a_supplied_requirements_file_is_summarised_not_dumped(
+        self, recording_runner: tuple[SubprocessRunner, LogHolder], tmp_path: Path
+    ) -> None:
+        runner, logs = recording_runner
+        req = tmp_path / "requirements.txt"
+        req.write_text(
+            "# comment\n\n--extra-index-url https://u:SUPERSECRET_basic@idx/simple\nacme==1.0\n"
+        )
+        config = VenvConfig(
+            version="1.0.0", main_plugin="demo-data", requirements_file=req
+        )
+
+        await setup_venv(config, runner, tmp_path)
+
+        text = "".join(logs.get_lines())
+        assert "SUPERSECRET_basic" not in text
+        assert "2 requirement(s)" in text  # blanks and comments not counted
