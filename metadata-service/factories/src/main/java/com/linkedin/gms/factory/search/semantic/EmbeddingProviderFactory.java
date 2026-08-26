@@ -208,6 +208,18 @@ public class EmbeddingProviderFactory {
             onnxConfig.getPooling(),
             onnxConfig.getQueryInstruction());
 
+    return validateOnnxProviderDimension(provider, models, modelName);
+  }
+
+  /**
+   * Validates the loaded ONNX model's actual output dimension against the configured {@code
+   * vectorDimension} and returns the provider on match. On mismatch (or any failure) the provider
+   * is closed to release native resources before the exception propagates. Package-private so the
+   * dimension-check logic can be unit-tested with a mocked provider (real model loading requires a
+   * model file on disk).
+   */
+  EmbeddingProvider validateOnnxProviderDimension(
+      OnnxEmbeddingProvider provider, Map<String, ModelEmbeddingConfig> models, String modelName) {
     try {
       int actualDim = provider.getOutputDimension();
       int configuredDim = models.get(modelName).getVectorDimension();

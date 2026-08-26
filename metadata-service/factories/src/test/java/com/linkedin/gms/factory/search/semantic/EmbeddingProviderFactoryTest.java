@@ -23,6 +23,7 @@ import com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.CohereEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
+import com.linkedin.metadata.search.embedding.OnnxEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.OpenAIEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.VertexAiEmbeddingProvider;
 import java.io.IOException;
@@ -617,6 +618,70 @@ public class EmbeddingProviderFactoryTest {
     assertTrue(
         ex.getMessage().contains("does not match any entry"),
         "expected 'does not match any entry' in message, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void rejectsOnnxWhenModelDirDoesNotExist() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithOnnx("snowflake_arctic_embed_s", "/nonexistent/onnx/model/dir");
+
+    java.util.Map<String, com.linkedin.metadata.config.search.ModelEmbeddingConfig> models =
+        new java.util.HashMap<>();
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig modelConfig =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(384);
+    models.put("snowflake_arctic_embed_s", modelConfig);
+
+    TestableFactory factory = factoryWithOnnxConfig(config, models);
+    // Passes config validation, then fails constructing the provider because the model dir is
+    // absent.
+    IllegalArgumentException ex =
+        expectThrows(IllegalArgumentException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("Model directory does not exist"),
+        "expected 'Model directory does not exist' in message, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void validateOnnxProviderDimensionReturnsProviderOnMatch() {
+    java.util.Map<String, com.linkedin.metadata.config.search.ModelEmbeddingConfig> models =
+        new java.util.HashMap<>();
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig modelConfig =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(384);
+    models.put("m", modelConfig);
+
+    OnnxEmbeddingProvider provider = mock(OnnxEmbeddingProvider.class);
+    when(provider.getOutputDimension()).thenReturn(384);
+
+    TestableFactory factory = new TestableFactory();
+    EmbeddingProvider result = factory.validateOnnxProviderDimension(provider, models, "m");
+
+    assertEquals(result, provider);
+  }
+
+  @Test
+  public void validateOnnxProviderDimensionThrowsAndClosesOnMismatch() {
+    java.util.Map<String, com.linkedin.metadata.config.search.ModelEmbeddingConfig> models =
+        new java.util.HashMap<>();
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig modelConfig =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(768);
+    models.put("m", modelConfig);
+
+    OnnxEmbeddingProvider provider = mock(OnnxEmbeddingProvider.class);
+    when(provider.getOutputDimension()).thenReturn(384);
+
+    TestableFactory factory = new TestableFactory();
+    IllegalStateException ex =
+        expectThrows(
+            IllegalStateException.class,
+            () -> factory.validateOnnxProviderDimension(provider, models, "m"));
+    assertTrue(
+        ex.getMessage().contains("does not match the configured vectorDimension"),
+        "expected dimension-mismatch message, got: " + ex.getMessage());
+    // Provider must be closed to release native resources when validation fails.
+    verify(provider).close();
   }
 
   // ------- getInstance() NoOp paths -------
