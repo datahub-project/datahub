@@ -30,6 +30,7 @@ import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
@@ -127,7 +128,7 @@ public class DataProductUnsetSideEffectTest {
             eq(EMPTY_FILTER),
             eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
+            eq(Edge.EDGE_SORT_CRITERION),
             any(),
             eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
             isNull(),
@@ -345,7 +346,7 @@ public class DataProductUnsetSideEffectTest {
             eq(EMPTY_FILTER),
             eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
+            eq(Edge.EDGE_SORT_CRITERION),
             any(),
             eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
             isNull(),
@@ -419,7 +420,7 @@ public class DataProductUnsetSideEffectTest {
             eq(EMPTY_FILTER),
             eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
+            eq(Edge.EDGE_SORT_CRITERION),
             any(),
             eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
             isNull(),
@@ -457,7 +458,7 @@ public class DataProductUnsetSideEffectTest {
             eq(EMPTY_FILTER),
             eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
+            eq(Edge.EDGE_SORT_CRITERION),
             isNull(),
             eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
             isNull(),
@@ -476,7 +477,7 @@ public class DataProductUnsetSideEffectTest {
             eq(EMPTY_FILTER),
             eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
+            eq(Edge.EDGE_SORT_CRITERION),
             eq("page-2"),
             eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
             isNull(),
@@ -517,7 +518,7 @@ public class DataProductUnsetSideEffectTest {
             eq(EMPTY_FILTER),
             eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
+            eq(Edge.EDGE_SORT_CRITERION),
             any(),
             eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
             isNull(),
@@ -581,7 +582,7 @@ public class DataProductUnsetSideEffectTest {
             eq(EMPTY_FILTER),
             eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
+            eq(Edge.EDGE_SORT_CRITERION),
             any(),
             eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
             isNull(),

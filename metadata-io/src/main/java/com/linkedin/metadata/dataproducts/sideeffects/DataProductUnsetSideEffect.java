@@ -15,6 +15,7 @@ import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
@@ -26,8 +27,6 @@ import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import java.util.ArrayList;
@@ -58,10 +57,6 @@ public class DataProductUnsetSideEffect extends MCPSideEffect {
 
   /** Max asset URNs per graph scroll when batching unset lookups. */
   static final int GRAPH_SCROLL_CHUNK_SIZE = 100;
-
-  /** Stable sort for graph scroll pagination within a batched asset chunk. */
-  static final List<SortCriterion> GRAPH_SCROLL_SORT =
-      List.of(new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING));
 
   @Nonnull private AspectPluginConfig config;
 
@@ -220,7 +215,7 @@ public class DataProductUnsetSideEffect extends MCPSideEffect {
               EMPTY_FILTER,
               Set.of("DataProductContains"),
               QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-              GRAPH_SCROLL_SORT,
+              Edge.EDGE_SORT_CRITERION,
               scrollId,
               GRAPH_SCROLL_CHUNK_SIZE,
               null,
