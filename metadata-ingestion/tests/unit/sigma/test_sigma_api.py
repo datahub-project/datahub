@@ -1,13 +1,15 @@
 import datetime as _dt
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterable, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
 from datahub.ingestion.source.sigma.connection_registry import (
     SigmaConnectionRecord,
@@ -30,6 +32,7 @@ from datahub.ingestion.source.sigma.sigma import SigmaSource, _WorkbookWarehouse
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
+    ContainerPropertiesClass,
     OwnershipClass,
     SchemaMetadataClass,
 )
@@ -2876,3 +2879,143 @@ class TestGetWorkbookLineageHttp:
             result = api.get_workbook_lineage("wb-1")
         assert result is None
         assert api.report.warnings
+
+
+def _workspace_payload(workspace_id: str, name: str = "Analytics") -> Dict[str, Any]:
+    return {
+        "workspaceId": workspace_id,
+        "name": name,
+        "createdBy": "user-1",
+        "createdAt": "2024-03-12T08:31:04.826Z",
+        "updatedAt": "2024-03-12T08:31:04.826Z",
+    }
+
+
+def _emitted_container_names(workunits: Iterable[MetadataWorkUnit]) -> List[str]:
+    return [
+        wu.metadata.aspect.name
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, ContainerPropertiesClass)
+    ]
+
+
+class TestWorkspaceIdRemapping:
+    """``/workspaces/{id}`` can answer with a different ``workspaceId``.
+
+    ``_get_files_metadata`` derives the id by walking ``parentId`` up the
+    ``/files`` tree, so on some tenants it lands on a folder inode; Sigma then
+    resolves it to the owning workspace. Entities must follow the id Sigma
+    answered with, or they end up parented under a Container URN that nothing
+    ever names.
+    """
+
+    REQUESTED = "folder-inode-id"
+    ANSWERED = "real-workspace-id"
+
+    def _api_returning(self, payload: Dict[str, Any]) -> SigmaAPI:
+        api = _create_sigma_api()
+        response = MagicMock(status_code=200)
+        response.json.return_value = payload
+        api._get_api_call = MagicMock(return_value=response)  # type: ignore[method-assign]
+        return api
+
+    def test_answered_id_is_recorded_as_alias(self) -> None:
+        api = self._api_returning(_workspace_payload(self.ANSWERED))
+
+        workspace = api.get_workspace(self.REQUESTED)
+
+        assert workspace is not None
+        assert workspace.workspaceId == self.ANSWERED
+        assert self.ANSWERED in api.workspaces
+        assert api.workspace_id_aliases == {self.REQUESTED: self.ANSWERED}
+        assert api.report.workspace_ids_remapped == {self.REQUESTED: self.ANSWERED}
+
+    def test_alias_is_reused_without_a_second_call(self) -> None:
+        api = self._api_returning(_workspace_payload(self.ANSWERED))
+
+        first = api.get_workspace(self.REQUESTED)
+        second = api.get_workspace(self.REQUESTED)
+
+        assert second is first
+        # Without the alias the requested id misses the cache on every entity,
+        # costing one API call per entity on a large tenant.
+        assert api._get_api_call.call_count == 1  # type: ignore[attr-defined]
+
+    def test_matching_ids_record_nothing(self) -> None:
+        api = self._api_returning(_workspace_payload(self.REQUESTED))
+
+        api.get_workspace(self.REQUESTED)
+
+        assert api.workspace_id_aliases == {}
+        assert api.report.workspace_ids_remapped == {}
+
+
+class TestInaccessibleWorkspaceContainers:
+    """Workspaces Sigma withholds still need a named Container.
+
+    Entities admitted by ``ingest_shared_entities`` stay parented under the
+    Workspace Container URN even when ``/workspaces/{id}`` is forbidden. With
+    no ``containerProperties`` the UI renders the raw URN as the folder label.
+    """
+
+    def _make_source(self) -> SigmaSource:
+        source = SigmaSource.__new__(SigmaSource)
+        source.config = SigmaSourceConfig(client_id="x", client_secret="y")
+        source.reporter = SigmaSourceReport()
+        source.platform = "sigma"
+        source._inaccessible_workspace_names = {}
+        source.sigma_api = MagicMock()
+        source.sigma_api.workspaces = {}
+        return source
+
+    def test_name_comes_from_the_first_path_segment(self) -> None:
+        source = self._make_source()
+
+        source._note_inaccessible_workspace("ws-1", "Analytics/Finance/Q3")
+
+        assert source._inaccessible_workspace_names == {"ws-1": "Analytics"}
+
+    def test_known_workspace_is_not_recorded(self) -> None:
+        source = self._make_source()
+        source.sigma_api.workspaces = {
+            "ws-1": Workspace.model_validate(_workspace_payload("ws-1"))
+        }
+
+        source._note_inaccessible_workspace("ws-1", "Analytics")
+
+        assert source._inaccessible_workspace_names == {}
+
+    def test_a_real_name_replaces_a_pathless_placeholder(self) -> None:
+        source = self._make_source()
+
+        source._note_inaccessible_workspace("ws-1", None)
+        assert source._inaccessible_workspace_names == {"ws-1": None}
+
+        source._note_inaccessible_workspace("ws-1", "Analytics")
+        assert source._inaccessible_workspace_names == {"ws-1": "Analytics"}
+
+    def test_container_is_emitted_with_the_recovered_name(self) -> None:
+        source = self._make_source()
+        source._note_inaccessible_workspace("ws-1", "Analytics/Finance")
+
+        names = _emitted_container_names(source._gen_inaccessible_workspace_workunits())
+
+        assert names == ["Analytics"]
+        assert source.reporter.workspaces_without_metadata == ["Analytics (ws-1)"]
+        assert source.reporter.warnings
+
+    def test_pathless_workspace_falls_back_to_its_id(self) -> None:
+        source = self._make_source()
+        source._note_inaccessible_workspace("ws-1", None)
+
+        names = _emitted_container_names(source._gen_inaccessible_workspace_workunits())
+
+        # Still preferable to the UI rendering an opaque container guid.
+        assert names == ["ws-1"]
+
+    def test_nothing_emitted_when_every_workspace_resolved(self) -> None:
+        source = self._make_source()
+
+        assert list(source._gen_inaccessible_workspace_workunits()) == []
+        assert source.reporter.warnings == []
