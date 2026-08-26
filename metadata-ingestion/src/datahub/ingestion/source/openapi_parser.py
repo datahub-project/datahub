@@ -1547,6 +1547,8 @@ def get_schema_from_response(
     # $ref with sibling keywords under "items" is not silently dropped.
     if response_schema.get("type") == "array":
         items_schema = response_schema.get("items", {})
+        if not isinstance(items_schema, dict):
+            return None
         return resolve_schema_references(items_schema, sw_dict, max_depth)
 
     # Handle references (before object-shape fallthrough — $ref may carry siblings,
