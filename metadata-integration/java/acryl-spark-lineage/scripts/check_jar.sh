@@ -109,8 +109,20 @@ for jarFile in ${jarFiles}; do
   # vendored class is dropped from the jar entirely (an over-broad exclude, a renamed upstream path)
   # the customization is just as absent at runtime, and the duplicate check would happily pass. Assert
   # one entry per vendored source file so both directions are covered.
+  #
+  # The source listing must itself be non-empty for that assertion to mean anything: if the vendored
+  # tree is renamed or emptied the loop body never runs, missingOl stays empty, and this guard reports
+  # success having compared nothing — the same fail-open trap the jar-listing checks above close.
+  # find's stderr is deliberately NOT suppressed here, so a missing directory says so out loud.
+  vendoredSrc=$(find src/main/java/io/openlineage -name '*.java')
+  if [ -z "$vendoredSrc" ]; then
+    echo "💥 No vendored OpenLineage sources found under src/main/java/io/openlineage."
+    echo "   Refusing to report success without comparing anything. If the customizations were"
+    echo "   intentionally dropped, delete this guard along with them."
+    exit 1
+  fi
   missingOl=""
-  for olSrc in $(find src/main/java/io/openlineage -name '*.java' 2>/dev/null); do
+  for olSrc in $vendoredSrc; do
     olClass="io/acryl/shaded/${olSrc#src/main/java/}"
     olClass="${olClass%.java}.class"
     echo "$jarEntries" | grep -qx "$olClass" || missingOl="${missingOl}${olClass}
