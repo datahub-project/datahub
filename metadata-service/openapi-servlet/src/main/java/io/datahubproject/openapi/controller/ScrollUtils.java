@@ -193,10 +193,13 @@ public final class ScrollUtils {
 
     // Label each edge with its upstream/downstream endpoints, then drop edges running the wrong
     // way relative to the anchor urns (a no-op when direction or urns are absent).
+    Map<Urn, Urn> restrictCache = new HashMap<>();
+    Function<Urn, Urn> cachedRestrict =
+        cachedRestrictFunction(opContext, restrictedService, restrictCache);
     List<LineageRelationship> lineage =
         toLineageRelationships(result.getEntities(), lineageRegistry).stream()
             .filter(edge -> keepByLineageDirection(edge, urns, direction))
-            .map(edge -> restrictUnauthorizedLineageEndpoints(opContext, restrictedService, edge))
+            .map(edge -> restrictUnauthorizedLineageEndpoints(cachedRestrict, edge))
             .collect(Collectors.toList());
 
     return ResponseEntity.ok(
@@ -241,25 +244,28 @@ public final class ScrollUtils {
     }
   }
 
+  private static Function<Urn, Urn> cachedRestrictFunction(
+      OperationContext opContext, RestrictedService restrictedService, Map<Urn, Urn> cache) {
+    return urn ->
+        cache.computeIfAbsent(
+            urn,
+            key -> {
+              if (AuthUtil.isAPIAuthorizedUrns(opContext, RELATIONSHIP, READ, List.of(key))) {
+                return key;
+              }
+              return restrictedService.encryptRestrictedUrn(key);
+            });
+  }
+
   /**
-   * Replaces endpoints the caller cannot {@link ApiOperation#READ} via {@link
-   * ApiGroup#RELATIONSHIP} with encrypted {@code urn:li:restricted:…} placeholders — same contract
-   * as GraphQL lineage and Rest.li {@code scrollAcrossLineage}.
+   * Replaces endpoints the caller cannot {@link
+   * com.linkedin.metadata.authorization.ApiOperation#READ} via {@link
+   * com.linkedin.metadata.authorization.ApiGroup#RELATIONSHIP} with encrypted {@code
+   * urn:li:restricted:…} placeholders — same contract as GraphQL lineage and Rest.li {@code
+   * scrollAcrossLineage}.
    */
   static LineageRelationship restrictUnauthorizedLineageEndpoints(
-      OperationContext opContext, RestrictedService restrictedService, LineageRelationship edge) {
-    Map<Urn, Urn> cache = new HashMap<>();
-    Function<Urn, Urn> cachedRestrict =
-        urn ->
-            cache.computeIfAbsent(
-                urn,
-                key -> {
-                  if (AuthUtil.isAPIAuthorizedUrns(opContext, RELATIONSHIP, READ, List.of(key))) {
-                    return key;
-                  }
-                  return restrictedService.encryptRestrictedUrn(key);
-                });
-
+      Function<Urn, Urn> cachedRestrict, LineageRelationship edge) {
     Urn upstream = cachedRestrict.apply(UrnUtils.getUrn(edge.getUpstream()));
     Urn downstream = cachedRestrict.apply(UrnUtils.getUrn(edge.getDownstream()));
     Urn source = cachedRestrict.apply(UrnUtils.getUrn(edge.getSource().getUrn()));
