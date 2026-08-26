@@ -167,7 +167,8 @@ class OpenApiConfig(ConfigModel):
     forced_examples: Dict[str, List[str]] = Field(
         default_factory=dict,
         description="Path-parameter examples keyed by endpoint path. Values may be "
-        "scalars (str/int/float/bool) and are stringified for URL composition.",
+        "scalars (str/int/float; bool is accepted via int) and are stringified for "
+        "URL composition.",
     )
     token: Optional[TransparentSecretStr] = Field(
         default=None, description="Token for endpoint authentication."
@@ -216,7 +217,8 @@ class OpenApiConfig(ConfigModel):
                 coerced[endpoint] = examples
                 continue
             coerced[endpoint] = [
-                str(item) if isinstance(item, (str, int, float, bool)) else item
+                # bool is a subclass of int, so it is covered without listing bool.
+                str(item) if isinstance(item, (str, int, float)) else item
                 for item in examples
             ]
         return coerced
@@ -524,7 +526,7 @@ class APISource(Source, ABC):
                 swallow_exceptions=False,
             )
         except Exception as e:
-            self.report.warning(
+            self.report.failure(
                 title="Failed to Create Schema Metadata",
                 message="Error creating schema metadata from OpenAPI schema",
                 context=f"Dataset: {dataset_name}",
@@ -810,9 +812,7 @@ class APISource(Source, ABC):
         self, endpoint_k: str, dataset_name: str, root_dataset_samples: Dict
     ) -> Optional[SchemaMetadataClass]:
         """Extract schema from simple endpoint (no parameters) - only if necessary."""
-        if not self._should_make_api_call(endpoint_k, {"method": "get"}):
-            return None
-
+        # Caller already gated on _should_make_api_call + GET.
         tot_url = clean_url(self.config.url + self.url_basepath + endpoint_k)
         return self._schema_from_api_response(
             endpoint_k, dataset_name, tot_url, root_dataset_samples
@@ -826,9 +826,7 @@ class APISource(Source, ABC):
 
         Handles path parameters via forced_examples or guessing from prior samples.
         """
-        if not self._should_make_api_call(endpoint_k, {"method": "get"}):
-            return None
-
+        # Caller already gated on _should_make_api_call + GET.
         if endpoint_k not in self.config.forced_examples:
             url_guess = try_guessing(endpoint_k, root_dataset_samples)
             tot_url = clean_url(self.config.url + self.url_basepath + url_guess)

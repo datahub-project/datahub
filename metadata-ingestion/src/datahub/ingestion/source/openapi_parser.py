@@ -157,6 +157,10 @@ def get_url_basepath(sw_dict: dict) -> str:
 def check_sw_version(sw_dict: dict) -> None:
     version_str = sw_dict.get("swagger") or sw_dict.get("openapi")
     if not isinstance(version_str, str):
+        logger.warning(
+            "OpenAPI/Swagger spec has no swagger or openapi version key; "
+            "skipping version check"
+        )
         return
     # Strip prerelease / build suffixes (e.g. 3.0.1-rc1, 3.1.0+SNAPSHOT) before
     # comparing major.minor — this is only an informational "not fully tested" notice.
@@ -774,19 +778,32 @@ _ALLOF_NUMERIC_BOUNDS: Dict[str, Callable[[_Number, _Number], _Number]] = {
 }
 
 
+def _is_number(value: object) -> TypeGuard[_Number]:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _merge_numeric_keyword(
+    merged_schema: Dict[str, Any],
+    key: str,
+    incoming: object,
+    more_restrictive: Callable[[_Number, _Number], _Number],
+) -> None:
+    if not _is_number(incoming):
+        return
+    current = merged_schema.get(key)
+    merged_schema[key] = (
+        more_restrictive(current, incoming) if _is_number(current) else incoming
+    )
+
+
 def _merge_allof_validation_keywords(
     merged_schema: Dict[str, Any], resolved_allof: Dict[str, Any]
 ) -> None:
     for key, more_restrictive in _ALLOF_NUMERIC_BOUNDS.items():
-        if key not in resolved_allof:
-            continue
-        incoming = resolved_allof[key]
-        if not _is_number(incoming):
-            continue
-        current = merged_schema.get(key)
-        merged_schema[key] = (
-            more_restrictive(current, incoming) if _is_number(current) else incoming
-        )
+        if key in resolved_allof:
+            _merge_numeric_keyword(
+                merged_schema, key, resolved_allof[key], more_restrictive
+            )
     # minimum/maximum + exclusive* (OpenAPI 3.0 bool modifiers / draft-6 numerics).
     _merge_bound_with_exclusivity(
         merged_schema, resolved_allof, "minimum", "exclusiveMinimum", prefer_higher=True
@@ -807,10 +824,6 @@ def _merge_allof_validation_keywords(
     for key in ("pattern", "multipleOf"):
         if key in resolved_allof and key not in merged_schema:
             merged_schema[key] = resolved_allof[key]
-
-
-def _is_number(value: object) -> TypeGuard[_Number]:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
 def _apply_bool_exclusivity(
@@ -847,6 +860,7 @@ def _merge_bound_with_exclusivity(
     incoming_excl = resolved_allof.get(exclusive_key)
     has_bound = bound_key in resolved_allof and _is_number(incoming_bound)
     has_excl = exclusive_key in resolved_allof
+    reducer: Callable[[_Number, _Number], _Number] = max if prefer_higher else min
 
     if not has_bound and not has_excl:
         return
@@ -854,22 +868,8 @@ def _merge_bound_with_exclusivity(
     # Draft-6+ numeric exclusive bound: merge independently of minimum/maximum.
     if has_excl and _is_number(incoming_excl):
         if has_bound:
-            assert _is_number(incoming_bound)
-            current_bound = merged_schema.get(bound_key)
-            reducer: Callable[[_Number, _Number], _Number] = (
-                max if prefer_higher else min
-            )
-            merged_schema[bound_key] = (
-                reducer(current_bound, incoming_bound)
-                if _is_number(current_bound)
-                else incoming_bound
-            )
-        _merge_exclusive_bound(
-            merged_schema,
-            resolved_allof,
-            exclusive_key,
-            max if prefer_higher else min,
-        )
+            _merge_numeric_keyword(merged_schema, bound_key, incoming_bound, reducer)
+        _merge_exclusive_bound(merged_schema, resolved_allof, exclusive_key, reducer)
         return
 
     if has_bound:
@@ -878,12 +878,7 @@ def _merge_bound_with_exclusivity(
         current_excl = merged_schema.get(exclusive_key)
         # Mixed draft: keep an already-merged numeric exclusive* untouched.
         if _is_number(current_excl):
-            reducer = max if prefer_higher else min
-            merged_schema[bound_key] = (
-                reducer(current_bound, incoming_bound)
-                if _is_number(current_bound)
-                else incoming_bound
-            )
+            _merge_numeric_keyword(merged_schema, bound_key, incoming_bound, reducer)
             return
 
         if not _is_number(current_bound):
@@ -921,16 +916,13 @@ def _merge_exclusive_bound(
     if key not in resolved_allof:
         return
     incoming = resolved_allof[key]
-    current = merged_schema.get(key)
     if _is_number(incoming):
-        merged_schema[key] = (
-            numeric_more_restrictive(current, incoming)
-            if _is_number(current)
-            else incoming
-        )
-    elif isinstance(incoming, bool):
+        _merge_numeric_keyword(merged_schema, key, incoming, numeric_more_restrictive)
+        return
+    if isinstance(incoming, bool):
         # A boolean flag must not clobber an already-merged numeric bound, so a
         # mixed-version spec stays order-independent.
+        current = merged_schema.get(key)
         merged_schema[key] = (
             current if _is_number(current) else bool(current) or incoming
         )
@@ -955,6 +947,29 @@ def _combine_under_allof(
     return {"allOf": members}
 
 
+def _lookup_local_ref_target(
+    ref_path: str,
+    sw_dict: Dict,
+    *,
+    missing: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Resolve `#/definitions/X` or `#/components/schemas/X`.
+
+    Returns None for unsupported ref formats (external files, other JSON Pointers).
+    When the name is absent under a known prefix, returns `missing` (default None).
+    """
+    if ref_path.startswith("#/definitions/"):
+        schemas_map = sw_dict.get("definitions", {})
+    elif ref_path.startswith("#/components/schemas/"):
+        schemas_map = sw_dict.get("components", {}).get("schemas", {})
+    else:
+        return None
+    if not isinstance(schemas_map, dict):
+        return missing
+    target = schemas_map.get(ref_path.split("/")[-1])
+    return target if isinstance(target, dict) else missing
+
+
 def _resolve_ref_directly(schema: Dict, sw_dict: Dict) -> Dict:
     """
     Resolve a direct $ref reference without full schema resolution.
@@ -964,23 +979,9 @@ def _resolve_ref_directly(schema: Dict, sw_dict: Dict) -> Dict:
         return schema
 
     if "$ref" in schema:
-        ref_path = schema["$ref"]
-
-        # Handle v2 references (e.g., "#/definitions/Pet")
-        if ref_path.startswith("#/definitions/"):
-            schema_name = ref_path.split("/")[-1]
-            referenced_schema = sw_dict.get("definitions", {}).get(schema_name, {})
-            if referenced_schema:
-                return referenced_schema.copy()
-
-        # Handle v3 references (e.g., "#/components/schemas/Pet")
-        elif ref_path.startswith("#/components/schemas/"):
-            schema_name = ref_path.split("/")[-1]
-            referenced_schema = (
-                sw_dict.get("components", {}).get("schemas", {}).get(schema_name, {})
-            )
-            if referenced_schema:
-                return referenced_schema.copy()
+        referenced_schema = _lookup_local_ref_target(schema["$ref"], sw_dict)
+        if referenced_schema:
+            return referenced_schema.copy()
 
     return schema
 
@@ -1074,16 +1075,7 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
     # keywords alongside $ref — returning the target alone would drop them.
     if "$ref" in resolved_schema:
         ref_path = resolved_schema["$ref"]
-        referenced_schema: Dict[str, Any] = {}
-
-        if ref_path.startswith("#/definitions/"):
-            schema_name = ref_path.split("/")[-1]
-            referenced_schema = sw_dict.get("definitions", {}).get(schema_name, {})
-        elif ref_path.startswith("#/components/schemas/"):
-            schema_name = ref_path.split("/")[-1]
-            referenced_schema = (
-                sw_dict.get("components", {}).get("schemas", {}).get(schema_name, {})
-            )
+        referenced_schema = _lookup_local_ref_target(ref_path, sw_dict)
 
         if referenced_schema:
             resolved_referenced = resolve_schema_references(
@@ -1097,11 +1089,20 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
                 sw_dict,
                 max_depth=max_depth - 1,
             )
+        logger.warning(
+            "Unable to resolve schema $ref %r; leaving reference unresolved",
+            ref_path,
+        )
 
-    # Recursively resolve references in properties
-    if "properties" in resolved_schema:
-        for prop_name, prop_schema in resolved_schema["properties"].items():
-            resolved_schema["properties"][prop_name] = resolve_schema_references(
+    # Recursively resolve references in properties. Shallow schema.copy() still
+    # aliases the nested properties map from sw_dict — copy before rewrite so
+    # shared components are not permanently mutated across endpoints.
+    properties = resolved_schema.get("properties")
+    if isinstance(properties, dict):
+        properties = dict(properties)
+        resolved_schema["properties"] = properties
+        for prop_name, prop_schema in properties.items():
+            properties[prop_name] = resolve_schema_references(
                 prop_schema, sw_dict, max_depth=max_depth - 1
             )
 
@@ -1157,17 +1158,11 @@ def extract_schema_from_response_schema(
     Extract schema definition from response schema, handling both v2 and v3 references.
     """
     if "$ref" in response_schema:
-        ref_path = response_schema["$ref"]
-
-        # Handle v2 references (e.g., "#/definitions/Pet")
-        if ref_path.startswith("#/definitions/"):
-            schema_name = ref_path.split("/")[-1]
-            return sw_dict.get("definitions", {}).get(schema_name, {})
-
-        # Handle v3 references (e.g., "#/components/schemas/Pet")
-        elif ref_path.startswith("#/components/schemas/"):
-            schema_name = ref_path.split("/")[-1]
-            return sw_dict.get("components", {}).get("schemas", {}).get(schema_name, {})
+        referenced = _lookup_local_ref_target(
+            response_schema["$ref"], sw_dict, missing={}
+        )
+        if referenced is not None:
+            return referenced
 
     return response_schema
 

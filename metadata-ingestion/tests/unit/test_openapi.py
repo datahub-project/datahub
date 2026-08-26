@@ -631,6 +631,15 @@ paths:
         endpoints = get_endpoints(sw_dict)
         self.assertIn("/pets", endpoints)
 
+    def test_check_sw_version_missing_version_logs_warning(self) -> None:
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ) as cm:
+            check_sw_version({"paths": {}})
+        self.assertTrue(
+            any("no swagger or openapi version key" in msg for msg in cm.output)
+        )
+
 
 class TestExplodeDict(unittest.TestCase):
     def test_d1(self):
@@ -1834,6 +1843,59 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertEqual(shared, {"^x": {"type": "string"}})
         self.assertIsNot(resolved["patternProperties"], shared)
 
+    def test_resolve_schema_references_does_not_mutate_shared_component_properties(
+        self,
+    ):
+        # Resolving a $ref must not permanently rewrite the component in sw_dict —
+        # later endpoints that share the same component would otherwise see leaked
+        # nested resolutions from the first caller.
+        shared_props: Dict[str, Any] = {
+            "id": {"type": "string"},
+            "nested": {"$ref": "#/components/schemas/Nested"},
+        }
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Nested": {
+                        "type": "object",
+                        "properties": {"leaf": {"type": "integer"}},
+                    },
+                    "Shared": {
+                        "type": "object",
+                        "properties": shared_props,
+                    },
+                }
+            },
+        }
+        schema = {"$ref": "#/components/schemas/Shared"}
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertNotIn("$ref", json.dumps(resolved["properties"]["nested"]))
+        self.assertEqual(
+            resolved["properties"]["nested"]["properties"]["leaf"]["type"], "integer"
+        )
+        # Original component properties map unchanged (still holds the $ref).
+        self.assertEqual(
+            sw_dict["components"]["schemas"]["Shared"]["properties"],
+            shared_props,
+        )
+        self.assertEqual(
+            shared_props["nested"], {"$ref": "#/components/schemas/Nested"}
+        )
+
+    def test_resolve_schema_references_unresolvable_ref_logs_warning(self):
+        schema = {"$ref": "#/components/schemas/Missing"}
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ) as cm:
+            resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
+        self.assertEqual(resolved.get("$ref"), "#/components/schemas/Missing")
+        self.assertTrue(
+            any("Unable to resolve schema $ref" in msg for msg in cm.output)
+        )
+
     def test_merge_allof_numeric_exclusive_bounds(self):
         # JSON Schema draft-6+ exclusiveMinimum/Maximum are numeric bounds: keep the
         # most restrictive (max of exclusiveMinimum, min of exclusiveMaximum).
@@ -2365,8 +2427,8 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertEqual(self.source.schema_extraction_stats.from_openapi_spec, before)
         self.assertTrue(
             any(
-                getattr(w, "title", None) == "Failed to Create Schema Metadata"
-                for w in self.source.report.warnings
+                getattr(f, "title", None) == "Failed to Create Schema Metadata"
+                for f in self.source.report.failures
             )
         )
 
@@ -2426,3 +2488,122 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                 for f in self.source.report.failures
             )
         )
+
+    def test_per_endpoint_isolation_records_process_endpoint_exception(self):
+        # Force _process_endpoint itself to raise so the outer try/except is exercised.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/good": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {"id": {"type": "string"}},
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "/boom": {
+                    "get": {
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                },
+            },
+            "components": {"schemas": {}},
+        }
+
+        original = self.source._process_endpoint
+
+        def _boom_on_bad(endpoint_k, endpoint_dets, sw, samples):
+            if endpoint_k == "/boom":
+                raise RuntimeError("forced endpoint failure")
+            return original(endpoint_k, endpoint_dets, sw, samples)
+
+        with (
+            patch.object(OpenApiConfig, "get_swagger", return_value=sw_dict),
+            patch.object(self.source, "_process_endpoint", side_effect=_boom_on_bad),
+        ):
+            workunits = list(self.source.get_workunits_internal())
+
+        urns = [
+            wu.metadata.entityUrn
+            for wu in workunits
+            if hasattr(wu.metadata, "entityUrn")
+        ]
+        self.assertTrue(any("good" in (urn or "") for urn in urns))
+        self.assertFalse(any("boom" in (urn or "") for urn in urns))
+        self.assertTrue(
+            any(
+                getattr(f, "title", None) == "Failed to Process Endpoint"
+                and any("/boom" in c for c in getattr(f, "context", []))
+                for f in self.source.report.failures
+            )
+        )
+
+    def test_get_swagger_get_token_substitutes_credentials(self):
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            username="alice",
+            password="s3cret",
+            get_token={
+                "request_type": "get",
+                "url_complement": "/token?u={username}&p={password}",
+            },
+        )
+        with (
+            patch(
+                "datahub.ingestion.source.openapi.get_tok", return_value="fetched-tok"
+            ) as mock_tok,
+            patch(
+                "datahub.ingestion.source.openapi.get_swag_json",
+                return_value={"openapi": "3.0.0", "paths": {}},
+            ) as mock_swag,
+        ):
+            result = config.get_swagger()
+
+        self.assertEqual(result["openapi"], "3.0.0")
+        mock_tok.assert_called_once()
+        self.assertEqual(mock_tok.call_args.kwargs["method"], "get")
+        self.assertEqual(
+            mock_tok.call_args.kwargs["tok_url"], "/token?u=alice&p=s3cret"
+        )
+        mock_swag.assert_called_once()
+        self.assertEqual(
+            mock_swag.call_args.kwargs["token"],
+            "fetched-tok",
+        )
+
+    def test_get_swagger_post_token_dispatches_to_get_tok(self):
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            username="alice",
+            password="s3cret",
+            get_token={"request_type": "post", "url_complement": "/auth/token"},
+        )
+        with (
+            patch(
+                "datahub.ingestion.source.openapi.get_tok", return_value="post-tok"
+            ) as mock_tok,
+            patch(
+                "datahub.ingestion.source.openapi.get_swag_json",
+                return_value={"openapi": "3.0.0", "paths": {}},
+            ),
+        ):
+            config.get_swagger()
+
+        mock_tok.assert_called_once()
+        self.assertEqual(mock_tok.call_args.kwargs["method"], "post")
+        self.assertEqual(mock_tok.call_args.kwargs["tok_url"], "/auth/token")
+        self.assertEqual(mock_tok.call_args.kwargs["username"], "alice")
+        self.assertEqual(mock_tok.call_args.kwargs["password"], "s3cret")
