@@ -955,7 +955,7 @@
     "description": "Unified analytics platform from Microsoft that integrates data engineering, data science, warehousing, and real-time analytics.",
     "img_path": "img/logos/platforms/microsoft-fabric.svg"
   },
-  "monte-carlo": {
+  "montecarlo": {
     "api_connector": true,
     "platform_type": "Data Quality",
     "support_status": "Alpha",
