@@ -272,8 +272,9 @@ class DocumentChunkingSource(Source):
             logger.warning(f"No elements provided for document {document_urn}")
             return
 
-        # Chunk the elements
-        chunks = self._chunk_elements(elements)
+        # Chunk the elements. A chunking failure must raise (not return []) so the
+        # calling source does not record the document as successfully processed.
+        chunks = self._chunk_elements(elements, raise_on_error=True)
         if not chunks:
             logger.warning(f"No chunks created for document {document_urn}")
             return
@@ -726,8 +727,17 @@ class DocumentChunkingSource(Source):
             logger.error(f"Failed to parse elements JSON for {doc['urn']}: {e}")
             return []
 
-    def _chunk_elements(self, elements: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Chunk elements using Unstructured's chunking strategies."""
+    def _chunk_elements(
+        self, elements: list[dict[str, Any]], raise_on_error: bool = False
+    ) -> list[dict[str, Any]]:
+        """Chunk elements using Unstructured's chunking strategies.
+
+        With raise_on_error=False (standalone-source path) a chunking failure is
+        logged and returns [], which is indistinguishable from "nothing to chunk".
+        Inline callers that record per-document incremental state must pass
+        raise_on_error=True so a failure propagates instead of being mistaken for
+        a successfully-processed empty document.
+        """
         try:
             from unstructured.chunking.basic import chunk_elements as basic_chunk
             from unstructured.chunking.title import chunk_by_title
@@ -759,6 +769,8 @@ class DocumentChunkingSource(Source):
 
         except Exception as e:
             logger.error(f"Failed to chunk elements: {e}", exc_info=True)
+            if raise_on_error:
+                raise
             return []
 
     def _generate_embeddings(self, chunks: list[dict[str, Any]]) -> list[list[float]]:
