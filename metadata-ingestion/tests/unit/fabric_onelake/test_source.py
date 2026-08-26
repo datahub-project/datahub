@@ -7,6 +7,8 @@ from datahub.ingestion.source.fabric.common.models import (
     FABRIC_WORKSPACE_PLATFORM,
     WorkspaceKey,
 )
+from datahub.ingestion.source.fabric.common.utils import build_workspace_container
+from datahub.ingestion.source.fabric.onelake.models import FabricWorkspace
 from datahub.ingestion.source.fabric.onelake.source import (
     PLATFORM,
     FabricOneLakeSource,
@@ -142,3 +144,26 @@ def test_norm_respects_convert_urns_to_lowercase() -> None:
     src.config.convert_urns_to_lowercase = False
     assert FabricOneLakeSource._norm(src, "Sales") == "Sales"
     assert FabricOneLakeSource._norm(src, "CUSTOMERS") == "CUSTOMERS"
+
+
+def test_workspace_container_includes_external_url() -> None:
+    workspace = FabricWorkspace(
+        id="ws-123",
+        name="Test Workspace",
+        description="Test description",
+    )
+
+    container = next(
+        iter(
+            build_workspace_container(
+                workspace=workspace,
+                platform_instance="instance-1",
+                env="PROD",
+            )
+        )
+    )
+
+    assert (
+        container.external_url
+        == f"https://app.fabric.microsoft.com/groups/{workspace.id}/list"
+    )
