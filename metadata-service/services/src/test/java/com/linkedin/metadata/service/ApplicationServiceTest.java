@@ -440,6 +440,66 @@ public class ApplicationServiceTest {
         .thenReturn(responses);
   }
 
+  /** Stubs the batched membership read for a single resource's entity type as failing. */
+  private void mockMembershipReadFailure(Urn resourceUrn) throws Exception {
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(resourceUrn.getEntityType()),
+            eq(ImmutableSet.of(resourceUrn)),
+            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
+        .thenThrow(new RuntimeException("Transient read failure"));
+  }
+
+  @Test
+  public void testBatchSetApplicationAssetsFailsWhenMembershipReadFails() throws Exception {
+    mockMembershipReadFailure(TEST_ASSET_URN);
+
+    // A failed read must not turn into a write that drops the resource's current applications.
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _applicationService.batchSetApplicationAssets(
+                _opContext, TEST_APPLICATION_URN, ImmutableList.of(TEST_ASSET_URN), TEST_USER_URN));
+
+    verify(_entityClient, never()).batchIngestProposals(any(), any(List.class), anyBoolean());
+  }
+
+  @Test
+  public void testBatchUnsetApplicationFailsWhenMembershipReadFails() throws Exception {
+    mockMembershipReadFailure(TEST_ASSET_URN);
+
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _applicationService.batchUnsetApplication(
+                _opContext, TEST_APPLICATION_URN, ImmutableList.of(TEST_ASSET_URN), TEST_USER_URN));
+
+    verify(_entityClient, never()).batchIngestProposals(any(), any(List.class), anyBoolean());
+  }
+
+  @Test
+  public void testBatchSetApplicationAssetsFailsWhenOneEntityTypeReadFails() throws Exception {
+    final Urn dashboardUrn = UrnUtils.getUrn("urn:li:dashboard:(looker,test-dashboard)");
+
+    Applications existingApps = new Applications();
+    existingApps.setApplications(new UrnArray(ImmutableList.of(TEST_APPLICATION_URN_2)));
+    mockMembershipRead(dashboardUrn, existingApps);
+    mockMembershipReadFailure(TEST_ASSET_URN);
+
+    // Reads are grouped per entity type, so one failing type must not let the rest of the batch
+    // write.
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _applicationService.batchSetApplicationAssets(
+                _opContext,
+                TEST_APPLICATION_URN,
+                ImmutableList.of(TEST_ASSET_URN, dashboardUrn),
+                TEST_USER_URN));
+
+    verify(_entityClient, never()).batchIngestProposals(any(), any(List.class), anyBoolean());
+  }
+
   @Test
   public void testBatchUnsetApplicationFromEmptyList() throws Exception {
     // Mock: Resource has no existing applications

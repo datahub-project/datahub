@@ -246,14 +246,15 @@ public class ApplicationService {
   }
 
   /**
-   * Reads the current application membership of every given resource, one batch request per
-   * distinct entity type (batchGetV2 is scoped to a single entity type). Resources with no existing
-   * aspect - or whose read failed - map to an empty aspect, matching the per-resource read this
-   * replaced.
+   * Reads the current application membership of every given resource. One request per entity type,
+   * since batchGetV2 handles a single type at a time. A resource with no aspect yet maps to an
+   * empty one.
    *
-   * <p>Note that a urn repeated in {@code resourceUrns} maps to a single shared instance. Both
-   * callers mutate it idempotently (add-if-absent / remove), so repeats still yield identical
-   * proposals.
+   * <p>Throws if a read fails. Callers replace the whole aspect, so treating a failed read as "no
+   * applications" would wipe the memberships that were really there.
+   *
+   * <p>A urn listed twice shares one instance. Callers only add-if-absent or remove, so duplicates
+   * still produce the same proposal.
    */
   private Map<Urn, Applications> getExistingApplications(
       @Nonnull OperationContext opContext, @Nonnull List<Urn> resourceUrns) {
@@ -292,10 +293,10 @@ public class ApplicationService {
                       }
                     });
               } catch (Exception e) {
-                log.warn(
-                    "Failed to retrieve existing Applications for {} resource(s) of type {}, will create new aspects",
-                    urns.size(),
-                    entityType,
+                throw new RuntimeException(
+                    String.format(
+                        "Failed to retrieve existing Applications for %d resource(s) of type %s",
+                        urns.size(), entityType),
                     e);
               }
             });
