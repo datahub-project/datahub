@@ -146,6 +146,29 @@ class DBTCoreConfig(DBTCommonConfig):
             )
         return self
 
+    @model_validator(mode="after")
+    def artifact_paths_must_not_be_set_with_globbed_manifest(self) -> "DBTCoreConfig":
+        if not has_glob_characters(self.manifest_path):
+            return self
+
+        conflicting = [
+            name
+            for name, value in (
+                ("catalog_path", self.catalog_path),
+                ("sources_path", self.sources_path),
+            )
+            if value is not None
+        ]
+        if conflicting:
+            raise ValueError(
+                f"{' and '.join(conflicting)} cannot be set when manifest_path is a glob "
+                f"pattern ({self.manifest_path}), because a single artifact path cannot be "
+                "paired with multiple manifests. When manifest_path is a glob, catalog.json "
+                "and sources.json are resolved automatically from each matched manifest's "
+                "own directory."
+            )
+        return self
+
 
 def get_columns(
     dbt_name: str,

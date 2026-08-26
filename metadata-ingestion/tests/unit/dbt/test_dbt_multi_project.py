@@ -1,6 +1,8 @@
 import pathlib
 from typing import Any, Dict
 
+import pytest
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 
@@ -58,3 +60,41 @@ def test_expand_run_results_paths_preserves_config_order(
         f"{tmp_path}/run_results_z.json",
         f"{tmp_path}/run_results_a.json",
     ]
+
+
+def test_globbed_manifest_rejects_explicit_catalog_path() -> None:
+    with pytest.raises(ValueError, match="catalog_path"):
+        DBTCoreConfig(
+            manifest_path="s3://bucket/*/manifest.json",
+            catalog_path="s3://bucket/project_a/catalog.json",
+            target_platform="postgres",
+            aws_connection={"aws_region": "us-east-1"},
+        )
+
+
+def test_globbed_manifest_rejects_explicit_sources_path() -> None:
+    with pytest.raises(ValueError, match="sources_path"):
+        DBTCoreConfig(
+            manifest_path="s3://bucket/*/manifest.json",
+            sources_path="s3://bucket/project_a/sources.json",
+            target_platform="postgres",
+            aws_connection={"aws_region": "us-east-1"},
+        )
+
+
+def test_globbed_manifest_alone_is_accepted() -> None:
+    config = DBTCoreConfig(
+        manifest_path="s3://bucket/*/manifest.json",
+        target_platform="postgres",
+        aws_connection={"aws_region": "us-east-1"},
+    )
+    assert config.catalog_path is None
+
+
+def test_non_glob_manifest_still_accepts_explicit_catalog_path() -> None:
+    config = DBTCoreConfig(
+        manifest_path="/tmp/project_a/manifest.json",
+        catalog_path="/tmp/project_a/catalog.json",
+        target_platform="postgres",
+    )
+    assert config.catalog_path == "/tmp/project_a/catalog.json"
