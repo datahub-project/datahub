@@ -42,12 +42,12 @@ Mine and generate context automatically instead of authoring it by hand.
 
 Review, disambiguate, and approve context before agents rely on it.
 
-| Feature Name                                                     | Core | Cloud | Business Value                                                                           |                                                   Link                                                   |
-| :--------------------------------------------------------------- | :--: | :---: | :--------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------: |
-| **Collaborative Workflow for Reviewing and Editing Context**     |  ❌  |  ✔   | Give domain experts a structured inbox to approve, reject, or refine AI-proposed context |                                                                                                          |
-| **Business Context Disambiguation & Domain-Specific Resolution** |  ❌  |  ✔   | Resolve conflicting definitions at the domain level before they reach agents             |                                                                                                          |
-| **Simulation & Validation Before Context Publishing**            |  ❌  |  ✔   | Preview how context changes affect text-to-SQL results before going live                 |                                                                                                          |
-| **Change Proposals: Documentation, Glossary, Tags & Ownership**  |  ❌  |  ✔   | Controlled vocabulary and documentation changes with audit trail                         | [Docs](https://docs.datahub.com/docs/managed-datahub/change-proposals#proposing-tags-and-glossary-terms) |
+| Feature Name                                                     | Core | Cloud | Business Value                                                                           |                                  Link                                  |
+| :--------------------------------------------------------------- | :--: | :---: | :--------------------------------------------------------------------------------------- | :--------------------------------------------------------------------: |
+| **Collaborative Workflow for Reviewing and Editing Context**     |  ❌  |  ✔   | Give domain experts a structured inbox to approve, reject, or refine AI-proposed context |                                                                        |
+| **Business Context Disambiguation & Domain-Specific Resolution** |  ❌  |  ✔   | Resolve conflicting definitions at the domain level before they reach agents             |                                                                        |
+| **Simulation & Validation Before Context Publishing**            |  ❌  |  ✔   | Preview how context changes affect text-to-SQL results before going live                 |                                                                        |
+| **Change Proposals: Documentation, Glossary, Tags & Ownership**  |  ❌  |  ✔   | Controlled vocabulary and documentation changes with audit trail                         | [Docs](https://docs.datahub.com/docs/managed-datahub/change-proposals) |
 
 ### Context Activation
 
@@ -113,7 +113,7 @@ Serve verified context to agents, tools, and custom workflows.
 | **Bi-Directional Metadata Sync**                                               |  ❌  |  ✔   | Keep metadata current         |                 [Docs](https://docs.datahub.com/docs/automations/bigquery-metadata-sync)                 |
 | **Compliance Forms and Workflow Engine**                                       |  ❌  |  ✔   | Track regulatory compliance   |         [Docs](https://docs.datahub.com/docs/features/feature-guides/compliance-forms/analytics)         |
 | **Metadata Tests**                                                             |  ❌  |  ✔   | Validate governance rules     |                        [Docs](https://docs.datahub.com/docs/tests/metadata-tests)                        |
-| **Change Proposals: Documentation, Glossary, Tags, Terms, and Data Ownership** |  ❌  |  ✔   | Controlled vocabulary changes | [Docs](https://docs.datahub.com/docs/managed-datahub/change-proposals#proposing-tags-and-glossary-terms) |
+| **Change Proposals: Documentation, Glossary, Tags, Terms, and Data Ownership** |  ❌  |  ✔   | Controlled vocabulary changes |                  [Docs](https://docs.datahub.com/docs/managed-datahub/change-proposals)                  |
 | **Access Request Workflows**                                                   |  ❌  |  ✔   | Self-service data access      | [Docs](https://docs.datahub.com/docs/managed-datahub/workflows/access-workflows#faq-and-troubleshooting) |
 
 ## Enterprise & Security
