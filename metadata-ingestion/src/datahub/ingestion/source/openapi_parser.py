@@ -7,6 +7,7 @@ from typing import (
     Dict,
     Generator,
     List,
+    Literal,
     Optional,
     Tuple,
     TypeGuard,
@@ -106,6 +107,7 @@ def request_call(
             url,
             headers=headers,
             auth=HTTPBasicAuth(username, password),
+            proxies=proxies,
             verify=verify_ssl,
             timeout=timeout,
         )
@@ -119,7 +121,9 @@ def request_call(
             timeout=timeout,
         )
     else:
-        return requests.get(url, headers=headers, verify=verify_ssl, timeout=timeout)
+        return requests.get(
+            url, headers=headers, proxies=proxies, verify=verify_ssl, timeout=timeout
+        )
 
 
 def get_swag_json(
@@ -157,10 +161,18 @@ def get_swag_json(
 def get_url_basepath(sw_dict: dict) -> str:
     if "basePath" in sw_dict:
         return sw_dict["basePath"]
-    if sw_dict.get("servers"):
+    servers = sw_dict.get("servers")
+    if isinstance(servers, list) and servers:
         # When the API path doesn't match the OAS path.
         # Some specs declare "servers": [] or entries without a "url" key.
-        return sw_dict["servers"][0].get("url", "")
+        first_server = servers[0]
+        if isinstance(first_server, dict):
+            return first_server.get("url", "")
+        logger.warning(
+            "Ignoring malformed servers[0] entry %r (expected object, got %s)",
+            first_server,
+            type(first_server).__name__,
+        )
 
     return ""
 
@@ -208,16 +220,52 @@ def get_endpoints(sw_dict: dict) -> dict:
 
     for p_k, p_o in sw_dict["paths"].items():
         # Only set metadata if it doesn't already exist (don't overwrite higher-priority metadata)
+        if not isinstance(p_o, dict):
+            # A malformed path item must not abort every other endpoint's extraction.
+            logger.warning(
+                "Skipping malformed path item %r (expected object, got %s)",
+                p_k,
+                type(p_o).__name__,
+            )
+            continue
 
         for method in all_methods:
             method_spec = p_o.get(method)
             if not method_spec:
                 continue
+            if not isinstance(method_spec, dict):
+                logger.warning(
+                    "Skipping malformed method spec %r on %r (expected object, got %s)",
+                    method,
+                    p_k,
+                    type(method_spec).__name__,
+                )
+                continue
 
             responses = method_spec.get("responses", {})
+            if not isinstance(responses, dict):
+                logger.warning(
+                    "Skipping malformed responses %r on method %r of %r "
+                    "(expected object, got %s)",
+                    responses,
+                    method,
+                    p_k,
+                    type(responses).__name__,
+                )
+                continue
             base_res = responses.get("200") or responses.get(200)
             if not base_res:
                 # if there is no 200 response, we skip this method
+                continue
+            if not isinstance(base_res, dict):
+                logger.warning(
+                    "Skipping malformed 200 response %r on method %r of %r "
+                    "(expected object, got %s)",
+                    base_res,
+                    method,
+                    p_k,
+                    type(base_res).__name__,
+                )
                 continue
 
             # Initialize endpoint details if it doesn't exist
@@ -258,11 +306,31 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
     """
     Try to determine if example data is defined for the endpoint, and return it
     """
-    data = {}
+    data: Dict[str, Any] = {}
     if "content" in base_res:
         res_cont = base_res["content"]
+        # get_endpoints calls this once per spec, outside the per-endpoint try/except
+        # in APISource.get_workunits_internal -- an unguarded crash here would abort
+        # extraction for every endpoint, not just the one with the malformed example.
+        if not isinstance(res_cont, dict):
+            logger.warning(
+                "Skipping malformed 'content' %r for endpoint %r (expected object, got %s)",
+                res_cont,
+                key,
+                type(res_cont).__name__,
+            )
+            return data
         if "application/json" in res_cont:
             json_content = res_cont["application/json"]
+            if not isinstance(json_content, dict):
+                logger.warning(
+                    "Skipping malformed 'application/json' content %r for endpoint %r "
+                    "(expected object, got %s)",
+                    json_content,
+                    key,
+                    type(json_content).__name__,
+                )
+                return data
 
             # Check for single example (OpenAPI v3)
             if "example" in json_content:
@@ -273,7 +341,14 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
                 # Take the first example if it's a dict of examples
                 if isinstance(examples, dict) and examples:
                     first_example_name = next(iter(examples))
-                    example_value = examples[first_example_name].get("value", {})
+                    first_example = examples[first_example_name]
+                    # A well-formed Example Object wraps the value under "value";
+                    # tolerate a malformed spec placing the raw value directly.
+                    example_value = (
+                        first_example.get("value", {})
+                        if isinstance(first_example, dict)
+                        else first_example
+                    )
                     # Preserve the example name as a wrapper to maintain structure
                     data = {first_example_name: example_value}
                 # Handle list format (OpenAPI v2 style)
@@ -286,10 +361,30 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
                     f"No example data found for endpoint --- {key} (this is normal for OpenAPI v3)"
                 )
         elif "text/csv" in res_cont:
-            data = res_cont["text/csv"]["schema"]
+            csv_content = res_cont["text/csv"]
+            if isinstance(csv_content, dict) and isinstance(
+                csv_content.get("schema"), dict
+            ):
+                data = csv_content["schema"]
+            else:
+                logger.warning(
+                    "Skipping malformed 'text/csv' content %r for endpoint %r",
+                    csv_content,
+                    key,
+                )
     # Handle OpenAPI v2 format
     elif "examples" in base_res:
-        data = base_res["examples"]["application/json"]
+        v2_examples = base_res["examples"]
+        # The value itself may legitimately be a raw string (literal example text)
+        # rather than a parsed object -- only the container needs to be a dict.
+        if isinstance(v2_examples, dict):
+            data = v2_examples.get("application/json", {})
+        else:
+            logger.warning(
+                "Skipping malformed v2 'examples' %r for endpoint %r",
+                v2_examples,
+                key,
+            )
 
     return data
 
@@ -460,7 +555,7 @@ def get_tok(
     username: str = "",
     password: str = "",
     tok_url: str = "",
-    method: str = "post",
+    method: Literal["get", "post"] = "post",
     proxies: Optional[dict] = None,
     verify_ssl: bool = True,
 ) -> str:
@@ -470,16 +565,30 @@ def get_tok(
     token = ""
     url4req = _join_url(url, tok_url)
     timeout = _REQUEST_TIMEOUT_SECONDS
+    # NOTE: for method="get" the caller substitutes the raw username/password into
+    # url4req before calling get_tok. Any exception raised below must not embed
+    # url4req/response body (e.g. via a raw `requests` exception), since report.failure
+    # renders exception messages verbatim in the ingestion report UI.
     if method == "post":
         # this will make a POST call with username and password
         data = {"username": username, "password": password, "maxDuration": True}
-        response = requests.post(
-            url4req,
-            proxies=proxies,
-            json=data,
-            verify=verify_ssl,
-            timeout=timeout,
-        )
+        try:
+            response = requests.post(
+                url4req,
+                proxies=proxies,
+                json=data,
+                verify=verify_ssl,
+                timeout=timeout,
+            )
+        except requests.exceptions.RequestException as e:
+            # from None (not from e): the requests exception message often
+            # embeds the request URL, which for method="get" carries the
+            # substituted password; chaining it as __cause__ would still leak
+            # through exc_info-based DEBUG logging even though report.failure
+            # only renders str(exc) for the top-level exception.
+            raise ValueError(
+                f"Failed to request token from OpenAPI endpoint ({type(e).__name__})"
+            ) from None
         if response.status_code == 200:
             try:
                 cont = json.loads(response.content)
@@ -488,15 +597,24 @@ def get_tok(
                 else:  # works only for bearer authentication scheme
                     token = f"Bearer {cont['tokens']['access']}"
             except (json.JSONDecodeError, KeyError, TypeError) as e:
-                # Do not include url4req/response body: for method="get" the caller
-                # substitutes the raw username/password into the URL before calling
-                # get_tok, and this exception's message ends up in report.failure.
                 raise ValueError(
                     f"Unexpected token response shape (status {response.status_code})"
                 ) from e
     elif method == "get":
         # this will make a GET call with username and password
-        response = requests.get(url4req, verify=verify_ssl, timeout=timeout)
+        try:
+            response = requests.get(
+                url4req, proxies=proxies, verify=verify_ssl, timeout=timeout
+            )
+        except requests.exceptions.RequestException as e:
+            # from None (not from e): the requests exception message often
+            # embeds the request URL, which for method="get" carries the
+            # substituted password; chaining it as __cause__ would still leak
+            # through exc_info-based DEBUG logging even though report.failure
+            # only renders str(exc) for the top-level exception.
+            raise ValueError(
+                f"Failed to request token from OpenAPI endpoint ({type(e).__name__})"
+            ) from None
         if response.status_code == 200:
             try:
                 cont = json.loads(response.content)
@@ -661,6 +779,16 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
         return schema
 
     allof_schemas = schema.get("allOf", [])
+    if allof_schemas and not isinstance(allof_schemas, list):
+        # A non-list, truthy "allOf" (e.g. a dict from a generator bug) would
+        # otherwise iterate as if each of its keys were a member schema -- every
+        # one fails the isinstance(resolved_allof, dict) guard below and is
+        # skipped, silently discarding everything the malformed allOf contained.
+        logger.warning(
+            "Schema 'allOf' is not a list (got %s); ignoring",
+            type(allof_schemas).__name__,
+        )
+        return {k: v for k, v in schema.items() if k != "allOf"}
     if not allof_schemas:
         return schema
 
@@ -668,11 +796,28 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
     merged_schema = {k: v for k, v in schema.items() if k != "allOf"}
     child_depth = max_depth - 1
 
+    # oneOf/anyOf are independent constraints, not a single value to pick one winner
+    # from: every allOf member's oneOf/anyOf must be satisfied simultaneously. We
+    # accumulate all members' contributions here and resolve them once after the
+    # loop below (see _finalize_oneof_anyof_contributions) — resolving them
+    # per-member inline, by deferring a collision into merged_schema["allOf"] and
+    # relying on this same function to reprocess it, previously caused the identical
+    # collision to be re-detected on every recursive re-entry: a pure fixpoint that
+    # only stopped when max_depth was exhausted, silently discarding all other
+    # merged fields.
+    oneof_anyof_contributions = _seed_oneof_anyof_contributions(merged_schema)
+
     # Merge each schema in allOf
     for allof_schema in allof_schemas:
         resolved_allof = _resolve_schema_refs(
             allof_schema, sw_dict, max_depth=child_depth
         )
+        if not isinstance(resolved_allof, dict):
+            # Boolean schemas (true/false) are valid allOf members from JSON Schema
+            # draft-6+; "true" is a no-op, and treating "false" as a no-op too is a
+            # deliberate simplification rather than making the whole schema
+            # unsatisfiable. Either way, nothing below this point is dict-shaped.
+            continue
 
         # Merge properties — same-named fields combine under allOf (like map keywords).
         _merge_allof_properties(merged_schema, resolved_allof, sw_dict, child_depth)
@@ -693,23 +838,9 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
             if key in resolved_allof and key not in merged_schema:
                 merged_schema[key] = resolved_allof[key]
 
-        # oneOf/anyOf are independent constraints, not a single value to pick one
-        # winner from: two allOf members each contributing their own oneOf must
-        # BOTH be satisfied. First-wins would silently drop every member after the
-        # first, so a colliding contributor is deferred into a nested allOf instead
-        # (flattened by the recursive merge below, same as patternProperties).
         for key in ("oneOf", "anyOf"):
-            if key not in resolved_allof:
-                continue
-            if key not in merged_schema:
-                merged_schema[key] = resolved_allof[key]
-            elif merged_schema[key] != resolved_allof[key]:
-                combined = _combine_under_allof(
-                    {key: merged_schema.pop(key)}, {key: resolved_allof[key]}
-                )
-                merged_schema["allOf"] = (
-                    merged_schema.get("allOf", []) + combined["allOf"]
-                )
+            if resolved_allof.get(key):
+                oneof_anyof_contributions[key].append(resolved_allof[key])
 
         # Merge JSON-Schema validation keywords with allOf semantics (most
         # restrictive wins) so repeated contributors don't drop constraints.
@@ -729,16 +860,56 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
 
         _merge_allof_map_keywords(merged_schema, resolved_allof, sw_dict, child_depth)
 
-    # Recursively handle any nested allOf in the merged result
-    if "allOf" in merged_schema:
-        merged_schema = merge_allof_schemas(
-            merged_schema, sw_dict, max_depth=child_depth
-        )
+    _finalize_oneof_anyof_contributions(merged_schema, oneof_anyof_contributions)
 
     return merged_schema
 
 
-# Scalar / composition keywords that cannot collapse under allOf — keep the first.
+def _seed_oneof_anyof_contributions(
+    merged_schema: Dict[str, Any],
+) -> Dict[str, List[Any]]:
+    """Pop merged_schema's own oneOf/anyOf (if any) into the contributions the allOf
+    member loop will add to, so a colliding member doesn't silently overwrite it.
+
+    An empty oneOf/anyOf ([]) is not a real constraint (get_schema_metadata rejects
+    it outright), so it is dropped here rather than collected.
+    """
+    contributions: Dict[str, List[Any]] = {"oneOf": [], "anyOf": []}
+    for key in ("oneOf", "anyOf"):
+        if key in merged_schema:
+            sibling_value = merged_schema.pop(key)
+            if sibling_value:
+                contributions[key].append(sibling_value)
+    return contributions
+
+
+def _finalize_oneof_anyof_contributions(
+    merged_schema: Dict[str, Any], contributions: Dict[str, List[Any]]
+) -> None:
+    """A single contributor becomes the top-level keyword (no allOf needed); 2+
+    distinct contributors become sibling allOf members instead of one being picked
+    as a "winner" — this is a terminal representation and is deliberately NOT
+    re-merged, since re-running allOf-collision handling on it would just reproduce
+    the identical collision.
+    """
+    for key, values in contributions.items():
+        if not values:
+            continue
+        unique_values: List[Any] = []
+        for value in values:
+            if value not in unique_values:
+                unique_values.append(value)
+        if len(unique_values) == 1:
+            merged_schema[key] = unique_values[0]
+        else:
+            merged_schema.setdefault("allOf", []).extend(
+                {key: value} for value in unique_values
+            )
+
+
+# Scalar keywords that cannot collapse under allOf — keep the first. oneOf/anyOf are
+# handled separately (see oneof_anyof_contributions above) since, unlike these,
+# every member's contribution must be preserved rather than the first one winning.
 _ALLOF_FIRST_WINS_KEYWORDS = (
     "type",
     "format",
@@ -747,8 +918,6 @@ _ALLOF_FIRST_WINS_KEYWORDS = (
     "enum",
     "default",
     "example",
-    "oneOf",
-    "anyOf",
     "discriminator",
     "nullable",
     "deprecated",
@@ -822,7 +991,14 @@ def _merge_allof_map_keywords(
         for pattern, prop_schema in pattern_props.items():
             existing = merged_schema["patternProperties"].get(pattern)
             if existing is not None:
-                prop_schema = _combine_under_allof(existing, prop_schema)
+                # Resolve the combined fragment the same way additionalProperties/
+                # properties do, so a colliding pattern's merged shape does not
+                # depend on how deeply this schema happens to be nested.
+                prop_schema = merge_allof_schemas(
+                    _combine_under_allof(existing, prop_schema),
+                    sw_dict,
+                    max_depth=max_depth,
+                )
             merged_schema["patternProperties"][pattern] = prop_schema
 
     # Keep propertyNames so unresolved $ref there cannot break later jsonref loads.
@@ -833,8 +1009,10 @@ def _merge_allof_map_keywords(
         if existing_names is None:
             merged_schema["propertyNames"] = incoming_names
         elif isinstance(existing_names, dict) and isinstance(incoming_names, dict):
-            merged_schema["propertyNames"] = _combine_under_allof(
-                existing_names, incoming_names
+            merged_schema["propertyNames"] = merge_allof_schemas(
+                _combine_under_allof(existing_names, incoming_names),
+                sw_dict,
+                max_depth=max_depth,
             )
 
 
@@ -1022,20 +1200,28 @@ def _combine_under_allof(
 
 
 def _lookup_local_ref_target(
-    ref_path: str,
+    ref_path: object,
     sw_dict: Dict,
     *,
     missing: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Resolve `#/definitions/X` or `#/components/schemas/X`.
 
-    Returns None for unsupported ref formats (external files, other JSON Pointers).
+    Returns None for unsupported ref formats (external files, other JSON Pointers,
+    or a non-string $ref value -- e.g. an empty "$ref:" line parses as None in YAML).
     When the name is absent under a known prefix, returns `missing` (default None).
     """
+    if not isinstance(ref_path, str):
+        return None
     if ref_path.startswith("#/definitions/"):
         schemas_map = sw_dict.get("definitions", {})
     elif ref_path.startswith("#/components/schemas/"):
-        schemas_map = sw_dict.get("components", {}).get("schemas", {})
+        # Two-step lookup: guard "components" being present-but-non-dict (e.g.
+        # explicit "components: null") before chaining another .get onto it.
+        components = sw_dict.get("components")
+        schemas_map = (
+            components.get("schemas", {}) if isinstance(components, dict) else {}
+        )
     else:
         return None
     if not isinstance(schemas_map, dict):
@@ -1126,27 +1312,44 @@ def _normalize_map_schemas(schema: object) -> None:
     _promote_pattern_properties_to_additional(schema)
 
 
-def _strip_unresolved_refs(schema: object) -> bool:
+def _strip_unresolved_refs(schema: object) -> Tuple[object, bool]:
     """Recursively remove any leftover "$ref" key anywhere in the tree.
 
     This walk is intentionally generic (every dict value and list item, not just the
     JSON-Schema keywords _normalize_map_schemas understands) so it also covers keys
     normalization doesn't visit (e.g. "not", "if"/"then"/"else", "contains") — a
     depth-limited resolution can leave a raw $ref under any of those, and an
-    unresolved $ref reaching jsonref crashes the whole endpoint. Returns True if any
-    $ref was found and removed, so the caller can log once rather than per-occurrence.
+    unresolved $ref reaching jsonref crashes the whole endpoint.
+
+    Returns (possibly-rebuilt schema, True if any $ref was found and removed). Does
+    NOT mutate the input in place: a node under one of the unvisited keywords above
+    may still be the exact same dict object as a shared sw_dict component (neither
+    _resolve_schema_refs nor _normalize_map_schemas walks into "not"/"if"/"then"/
+    "else"/"contains", so they never copy it either), and deleting a key from it
+    in place would permanently corrupt that shared component for every other
+    endpoint resolved later in the same run. A branch with nothing to strip is
+    returned unchanged (same object), so this only allocates along paths that
+    actually contained a $ref.
     """
-    found = False
     if isinstance(schema, dict):
-        if "$ref" in schema:
-            del schema["$ref"]
-            found = True
-        for value in schema.values():
-            found = _strip_unresolved_refs(value) or found
+        found = "$ref" in schema
+        new_dict = {}
+        for key, value in schema.items():
+            if key == "$ref":
+                continue
+            new_value, child_found = _strip_unresolved_refs(value)
+            found = found or child_found
+            new_dict[key] = new_value
+        return (new_dict if found else schema), found
     elif isinstance(schema, list):
+        found = False
+        new_list = []
         for item in schema:
-            found = _strip_unresolved_refs(item) or found
-    return found
+            new_item, child_found = _strip_unresolved_refs(item)
+            found = found or child_found
+            new_list.append(new_item)
+        return (new_list if found else schema), found
+    return schema, False
 
 
 def _resolve_schema_refs(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
@@ -1221,7 +1424,20 @@ def _resolve_schema_refs(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Di
             resolved_schema["additionalProperties"], sw_dict, max_depth=max_depth - 1
         )
 
-    # Handle allOf by merging schemas (before treating as union)
+    # Handle union types (oneOf, anyOf) before allOf: merge_allof_schemas may
+    # relocate this schema's own oneOf/anyOf into a terminal allOf wrapper (when an
+    # allOf member also contributes one) that nothing downstream walks back into —
+    # so any $ref inside it must already be resolved before that happens, or those
+    # fields are lost when _strip_unresolved_refs later strips the leftover $ref.
+    for union_key in ["oneOf", "anyOf"]:
+        members = resolved_schema.get(union_key)
+        if isinstance(members, list):
+            resolved_schema[union_key] = [
+                _resolve_schema_refs(union_schema, sw_dict, max_depth=max_depth - 1)
+                for union_schema in members
+            ]
+
+    # Handle allOf by merging schemas (after oneOf/anyOf are resolved above)
     if "allOf" in resolved_schema:
         resolved_schema = merge_allof_schemas(
             resolved_schema, sw_dict, max_depth=max_depth
@@ -1236,14 +1452,6 @@ def _resolve_schema_refs(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Di
         resolved_schema["propertyNames"] = _resolve_schema_refs(
             property_names, sw_dict, max_depth=max_depth - 1
         )
-
-    # Handle union types (oneOf, anyOf) - allOf is already handled above
-    for union_key in ["oneOf", "anyOf"]:
-        if union_key in resolved_schema:
-            resolved_schema[union_key] = [
-                _resolve_schema_refs(union_schema, sw_dict, max_depth=max_depth - 1)
-                for union_schema in resolved_schema[union_key]
-            ]
 
     return resolved_schema
 
@@ -1273,7 +1481,10 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
         # generic sweep (not an assert) so a depth-limited $ref under a keyword
         # normalize doesn't structurally walk (e.g. "not") degrades gracefully
         # instead of crashing the endpoint — and isn't compiled out under -O.
-        if _strip_unresolved_refs(resolved_schema):
+        stripped_schema, stripped = _strip_unresolved_refs(resolved_schema)
+        assert isinstance(stripped_schema, dict)
+        resolved_schema = stripped_schema
+        if stripped:
             logger.warning(
                 "Unresolved schema $ref(s) remained after normalization; "
                 "removed to avoid jsonref failure"
@@ -1311,50 +1522,37 @@ def _looks_like_object_or_composition_schema(schema: Dict) -> bool:
     return False
 
 
-def extract_schema_from_response_schema(
-    response_schema: Dict, sw_dict: Dict, schema_name: str = ""
-) -> Dict:
-    """
-    Extract schema definition from response schema, handling both v2 and v3 references.
-    """
-    if "$ref" in response_schema:
-        referenced = _lookup_local_ref_target(
-            response_schema["$ref"], sw_dict, missing={}
-        )
-        if referenced is not None:
-            return referenced
-
-    return response_schema
-
-
 def get_schema_from_response(
-    response_schema: Dict, sw_dict: Dict, max_depth: int = 10
+    response_schema: object, sw_dict: Dict, max_depth: int = 10
 ) -> Optional[Dict]:
     """
     Extract the actual schema definition from a response schema.
     Handles both direct schemas and references.
 
     Args:
-        response_schema: Schema dictionary from response
+        response_schema: Schema dictionary from response (typed as `object`, not
+            `Dict`, since a bare `true`/`false` is a valid top-level JSON Schema)
         sw_dict: Complete OpenAPI specification for resolving references
         max_depth: Maximum recursion depth for resolving schema references (default: 10)
     """
     if not response_schema:
         return None
+    if not isinstance(response_schema, dict):
+        # A bare `true`/`false` is a valid top-level JSON Schema (matches
+        # anything / nothing), consistent with how merge_allof_schemas treats a
+        # boolean allOf member -- but it carries no extractable fields here.
+        return None
 
-    # Handle array responses
+    # Handle array responses. resolve_schema_references (not a bare $ref lookup) so a
+    # $ref with sibling keywords under "items" is not silently dropped.
     if response_schema.get("type") == "array":
         items_schema = response_schema.get("items", {})
-        resolved_items_schema = extract_schema_from_response_schema(
-            items_schema, sw_dict
-        )
-        # Resolve all references in the schema
-        return resolve_schema_references(resolved_items_schema, sw_dict, max_depth)
+        return resolve_schema_references(items_schema, sw_dict, max_depth)
 
-    # Handle references (before object-shape fallthrough — $ref may carry siblings)
+    # Handle references (before object-shape fallthrough — $ref may carry siblings,
+    # which resolve_schema_references (not a bare $ref lookup) preserves).
     if "$ref" in response_schema:
-        resolved_schema = extract_schema_from_response_schema(response_schema, sw_dict)
-        return resolve_schema_references(resolved_schema, sw_dict, max_depth)
+        return resolve_schema_references(response_schema, sw_dict, max_depth)
 
     # type is optional in JSON Schema — bare properties / allOf / oneOf are valid objects.
     if _looks_like_object_or_composition_schema(response_schema):

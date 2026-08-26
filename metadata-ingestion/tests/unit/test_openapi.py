@@ -1,6 +1,6 @@
 import json
 import unittest
-from typing import Any, Dict
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import requests
@@ -26,6 +26,7 @@ from datahub.ingestion.source.openapi_parser import (
     guessing_url_name,
     maybe_theres_simple_id,
     merge_allof_schemas,
+    request_call,
     resolve_schema_references,
     try_guessing,
 )
@@ -635,6 +636,199 @@ paths:
         check_sw_version(sw_dict)  # must not raise
         endpoints = get_endpoints(sw_dict)
         self.assertIn("/pets", endpoints)
+
+    def test_get_endpoints_malformed_path_item_does_not_abort_other_endpoints(
+        self,
+    ) -> None:
+        # Regression: a single malformed "paths" entry (e.g. a null value from a
+        # broken generator) used to raise AttributeError from p_o.get(method),
+        # aborting extraction for every other endpoint in the spec too.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/broken": None,
+                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
+            },
+        }
+        endpoints = get_endpoints(sw_dict)
+        self.assertIn("/pets", endpoints)
+        self.assertNotIn("/broken", endpoints)
+
+    def test_get_endpoints_malformed_method_spec_does_not_abort_other_endpoints(
+        self,
+    ) -> None:
+        # Same regression as above, for a malformed method spec (non-object value)
+        # instead of a malformed path item.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/broken": {"get": "oops"},
+                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
+            },
+        }
+        endpoints = get_endpoints(sw_dict)
+        self.assertIn("/pets", endpoints)
+        self.assertNotIn("/broken", endpoints)
+
+    def test_get_endpoints_malformed_responses_does_not_abort_other_endpoints(
+        self,
+    ) -> None:
+        # Regression: the malformed-path/method guards above still let a malformed
+        # "responses" value (one key deeper) raise AttributeError from
+        # responses.get("200"), aborting the whole spec rather than just /broken.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/broken": {"get": {"responses": None}},
+                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
+            },
+        }
+        endpoints = get_endpoints(sw_dict)
+        self.assertIn("/pets", endpoints)
+        self.assertNotIn("/broken", endpoints)
+
+    def test_get_endpoints_malformed_200_response_does_not_abort_other_endpoints(
+        self,
+    ) -> None:
+        # Same regression as above, for a non-object "200" response value (which
+        # would otherwise reach check_for_api_example_data's `"content" in base_res`
+        # and crash on a non-dict/non-iterable base_res).
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/broken": {"get": {"responses": {"200": 42}}},
+                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
+            },
+        }
+        endpoints = get_endpoints(sw_dict)
+        self.assertIn("/pets", endpoints)
+        self.assertNotIn("/broken", endpoints)
+
+    def test_get_endpoints_malformed_content_does_not_abort_other_endpoints(
+        self,
+    ) -> None:
+        # Regression: check_for_api_example_data indexed base_res["content"] with
+        # "application/json" without checking it was a dict first. get_endpoints
+        # calls it once, globally, before the per-endpoint try/except in
+        # APISource.get_workunits_internal exists -- so this crash used to abort
+        # extraction for the whole spec, not just /broken.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/broken": {
+                    "get": {"responses": {"200": {"content": ["application/json"]}}}
+                },
+                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
+            },
+        }
+        endpoints = get_endpoints(sw_dict)
+        self.assertIn("/pets", endpoints)
+        self.assertIn("/broken", endpoints)
+
+    def test_get_endpoints_malformed_json_content_does_not_abort_other_endpoints(
+        self,
+    ) -> None:
+        # Same regression, one level deeper: base_res["content"]["application/json"]
+        # not being a dict used to crash on `"example" in json_content` giving a
+        # false-positive substring match followed by a TypeError on indexing.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/broken": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "content": {
+                                    "application/json": "text mentioning example"
+                                }
+                            }
+                        }
+                    }
+                },
+                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
+            },
+        }
+        endpoints = get_endpoints(sw_dict)
+        self.assertIn("/pets", endpoints)
+        self.assertIn("/broken", endpoints)
+
+    def test_get_endpoints_malformed_examples_entry_does_not_abort_other_endpoints(
+        self,
+    ) -> None:
+        # Regression: a non-dict value under "examples" (malformed Example Object)
+        # used to crash on examples[name].get("value", {}).
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/broken": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "content": {
+                                    "application/json": {
+                                        "examples": {"ex1": "not-a-dict"}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
+            },
+        }
+        endpoints = get_endpoints(sw_dict)
+        self.assertIn("/pets", endpoints)
+        self.assertEqual(endpoints["/broken"]["data"], {"ex1": "not-a-dict"})
+
+    def test_get_endpoints_malformed_v2_examples_does_not_abort_other_endpoints(
+        self,
+    ) -> None:
+        # Regression: OpenAPI v2 "examples" not being a dict used to crash on
+        # base_res["examples"]["application/json"].
+        sw_dict = {
+            "swagger": "2.0",
+            "paths": {
+                "/broken": {"get": {"responses": {"200": {"examples": "oops"}}}},
+                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
+            },
+        }
+        endpoints = get_endpoints(sw_dict)
+        self.assertIn("/pets", endpoints)
+        self.assertIn("/broken", endpoints)
+
+    def test_get_endpoints_malformed_csv_content_does_not_abort_other_endpoints(
+        self,
+    ) -> None:
+        # Regression: check_for_api_example_data indexed
+        # res_cont["text/csv"]["schema"] without checking "text/csv"'s value was
+        # a dict first, crashing on e.g. a bare string there.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/broken": {
+                    "get": {
+                        "responses": {"200": {"content": {"text/csv": "not-a-dict"}}}
+                    }
+                },
+                "/pets": {"get": {"responses": {"200": {"description": "ok"}}}},
+            },
+        }
+        endpoints = get_endpoints(sw_dict)
+        self.assertIn("/pets", endpoints)
+        self.assertIn("/broken", endpoints)
+
+    def test_resolve_schema_references_null_ref_value_does_not_crash(self):
+        # Regression: a non-string $ref value (e.g. an empty "$ref:" line, which
+        # parses as None in YAML) crashed on ref_path.startswith(...) instead of
+        # degrading like any other unsupported ref format (logged as unresolved,
+        # then stripped so jsonref never sees the leftover key).
+        resolved = resolve_schema_references({"$ref": None}, _EMPTY_OPENAPI_SW)
+        self.assertNotIn("$ref", resolved)
+
+    def test_get_url_basepath_malformed_servers_entry_does_not_crash(self) -> None:
+        # Regression: a non-object servers[0] (e.g. a bare string) raised
+        # AttributeError from .get("url", "") instead of degrading to "".
+        self.assertEqual(get_url_basepath({"servers": ["not-a-dict"]}), "")
 
     def test_check_sw_version_missing_version_logs_warning(self) -> None:
         with self.assertLogs(
@@ -1877,6 +2071,16 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             any("removed to avoid jsonref failure" in msg for msg in cm.output)
         )
 
+    def test_resolve_schema_references_null_components_does_not_crash(self):
+        # Regression: `sw_dict.get("components", {}).get("schemas", {})` chained a
+        # second .get() before the isinstance guard could run, so an explicit
+        # "components: null" (present key, None value) crashed with AttributeError
+        # instead of degrading to "ref not found" like the sibling "definitions"
+        # (Swagger v2) branch already did.
+        schema = {"$ref": "#/components/schemas/Missing"}
+        resolved = resolve_schema_references(schema, {"components": None})
+        self.assertNotIn("$ref", resolved)
+
     def test_merge_allof_numeric_exclusive_bounds(self):
         # JSON Schema draft-6+ exclusiveMinimum/Maximum are numeric bounds: keep the
         # most restrictive (max of exclusiveMinimum, min of exclusiveMaximum).
@@ -2303,6 +2507,54 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             ),
             warning_titles,
         )
+
+    def test_extract_schema_from_endpoint_data_list_example_does_not_crash(self):
+        # Regression: an OpenAPI "example" value is free-form JSON, so an array
+        # response commonly provides a list example (e.g.
+        # "example": [{"id": 1}, {"id": 2}]). flatten2list only understands a
+        # dict of fields and calls .items() unconditionally, so passing the raw
+        # list through crashed with AttributeError, aborting this endpoint's
+        # entire processing instead of falling through to the next strategy.
+        endpoint_dets = {
+            "method": "get",
+            "description": "",
+            "tags": [],
+            "data": [{"id": 1}, {"id": 2}],
+        }
+        result = self.source._extract_schema_from_endpoint_data(
+            endpoint_dets, "test.items"
+        )
+        self.assertIsNotNone(result)
+        assert result is not None
+        field_paths = [f.fieldPath for f in result.fields]
+        self.assertTrue(any("id" in path for path in field_paths), field_paths)
+
+    def test_extract_schema_from_endpoint_data_scalar_example_does_not_crash(self):
+        # Same regression as above for a bare scalar/string example.
+        endpoint_dets = {
+            "method": "get",
+            "description": "",
+            "tags": [],
+            "data": "just a string",
+        }
+        result = self.source._extract_schema_from_endpoint_data(
+            endpoint_dets, "test.items"
+        )
+        self.assertIsNone(result)
+
+    def test_extract_schema_from_endpoint_data_list_of_scalars_does_not_crash(self):
+        # A list example whose first element is not itself a dict (e.g. a list
+        # of plain strings/numbers) has nothing struct-like to extract.
+        endpoint_dets = {
+            "method": "get",
+            "description": "",
+            "tags": [],
+            "data": [1, 2, 3],
+        }
+        result = self.source._extract_schema_from_endpoint_data(
+            endpoint_dets, "test.items"
+        )
+        self.assertIsNone(result)
 
     def test_forced_examples_coerce_numeric_path_params(self):
         # Docs use integers (e.g. /pet/{petId}: [1]); config stores strings for URLs.
@@ -2796,6 +3048,29 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertEqual(mock_swag.call_args.kwargs["password"], "s3cret")
         self.assertNotIn("token", mock_swag.call_args.kwargs)
 
+    def test_get_swagger_empty_bearer_token_falls_back_to_basic_auth(self):
+        # Regression: the auth-branch condition mixed truthiness (self.token,
+        # self.bearer_token in the inner checks) with `is not None` (in the outer
+        # guard), so bearer_token=SecretStr("") took the outer branch but matched
+        # none of the inner arms, hitting `assert self.get_token is not None` and
+        # crashing with a bare AssertionError instead of falling back to basic auth.
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            username="alice",
+            password="s3cret",
+            bearer_token=SecretStr(""),
+        )
+        with patch(
+            "datahub.ingestion.source.openapi.get_swag_json",
+            return_value={"openapi": "3.0.0", "paths": {}},
+        ) as mock_swag:
+            config.get_swagger()
+
+        self.assertEqual(mock_swag.call_args.kwargs["username"], "alice")
+        self.assertNotIn("token", mock_swag.call_args.kwargs)
+
     def test_make_api_request_request_exception_warns_and_returns_none(self):
         self.config.token = SecretStr("tok")
         with patch(
@@ -3062,6 +3337,32 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             "https://api.example.com/openapi.json",
         )
 
+    def test_request_call_forwards_proxies_on_basic_auth_branch(self):
+        # Regression: proxies was only ever forwarded on the bearer-token branch;
+        # a proxy-configured OpenApiConfig using username/password auth silently
+        # bypassed the configured proxy on every request.
+        with patch("requests.get") as mock_get:
+            request_call(
+                "https://api.example.com",
+                username="u",
+                password="p",
+                proxies={"https": "https://proxy.example.com"},
+            )
+        self.assertEqual(
+            mock_get.call_args.kwargs["proxies"], {"https": "https://proxy.example.com"}
+        )
+
+    def test_request_call_forwards_proxies_on_no_auth_branch(self):
+        # Same regression as above, for the neither-token-nor-credentials branch.
+        with patch("requests.get") as mock_get:
+            request_call(
+                "https://api.example.com",
+                proxies={"https": "https://proxy.example.com"},
+            )
+        self.assertEqual(
+            mock_get.call_args.kwargs["proxies"], {"https": "https://proxy.example.com"}
+        )
+
     def test_schema_resolution_max_depth_capped(self):
         with self.assertRaises(ValidationError):
             OpenApiConfig(
@@ -3111,6 +3412,22 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             )
         )
 
+    def test_get_workunits_reports_malformed_spec_missing_paths(self):
+        # Regression: a spec that fetches/parses fine but lacks "paths" used to
+        # raise an unhandled KeyError from get_endpoints, crashing the whole run
+        # instead of surfacing a report failure like the sibling get_swagger path.
+        with patch.object(
+            OpenApiConfig, "get_swagger", return_value={"openapi": "3.0.0"}
+        ):
+            workunits = list(self.source.get_workunits_internal())
+        self.assertEqual(workunits, [])
+        self.assertTrue(
+            any(
+                getattr(f, "title", None) == "Failed to Fetch OpenAPI Spec"
+                for f in self.source.report.failures
+            )
+        )
+
     def test_extract_schema_from_simple_endpoint_live_api_success(self):
         self.source.config = OpenApiConfig(
             name="test_api",
@@ -3138,6 +3455,34 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertTrue(any("id" in path for path in field_paths))
         self.assertEqual(self.source.schema_extraction_stats.from_api_calls, 1)
 
+    def test_extract_schema_from_simple_endpoint_zero_fields_returns_none(self):
+        # Regression: a zero-field live-API response used to still return a
+        # SchemaMetadataClass (with an empty fields list), unlike the sibling
+        # spec/example-data extractors, which correctly return None for a
+        # zero-field result -- letting the endpoint fall through to being counted
+        # as a real extraction and be emitted as an empty-fields schema aspect.
+        self.source.config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            username="u",
+            password="p",
+            enable_api_calls_for_schema_extraction=True,
+        )
+        self.source.url_basepath = ""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b"{}"
+        with patch(
+            "datahub.ingestion.source.openapi.request_call",
+            return_value=mock_response,
+        ):
+            result = self.source._extract_schema_from_simple_endpoint(
+                "/pets", "pets", {}
+            )
+        self.assertIsNone(result)
+        self.assertEqual(self.source.schema_extraction_stats.from_api_calls, 0)
+
     def test_extract_fields_object_response(self):
         response = MagicMock()
         response.content = b'{"id": 1, "nested": {"x": true}}'
@@ -3164,11 +3509,13 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                 )
 
     def test_get_tok_unrecognised_method_raises(self):
+        # Deliberately passes an invalid method to exercise the runtime guard,
+        # despite get_tok's method param now being typed Literal["get", "post"].
         with self.assertRaises(ValueError):
             get_tok(
                 url="https://api.example.com",
                 tok_url="/auth",
-                method="put",
+                method="put",  # type: ignore[arg-type]
             )
 
     def test_get_schema_from_response_untyped_properties(self):
@@ -3203,6 +3550,53 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         assert resolved is not None
         self.assertIn("id", resolved["properties"])
         self.assertIn("name", resolved["properties"])
+
+    def test_get_schema_from_response_ref_with_sibling_keywords_preserved(self):
+        # Regression: get_schema_from_response used to route top-level $ref (and
+        # array "items" $ref) through a bare ref lookup that returned only the
+        # referenced target, dropping any sibling keywords (OAS 3.1 / JSON Schema
+        # draft-2019-09 allow $ref siblings) instead of resolve_schema_references'
+        # proper sibling-merging behavior.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Foo": {"properties": {"x": {"type": "string"}}},
+                }
+            },
+        }
+        response = {
+            "$ref": "#/components/schemas/Foo",
+            "properties": {"y": {"type": "integer"}},
+        }
+        resolved = get_schema_from_response(response, sw_dict)
+        self.assertIsNotNone(resolved)
+        assert resolved is not None
+        self.assertIn("x", resolved["properties"])
+        self.assertIn("y", resolved["properties"])
+
+    def test_get_schema_from_response_array_items_ref_with_siblings_preserved(self):
+        # Same regression as above, through the array/"items" branch.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Foo": {"properties": {"x": {"type": "string"}}},
+                }
+            },
+        }
+        response = {
+            "type": "array",
+            "items": {
+                "$ref": "#/components/schemas/Foo",
+                "properties": {"y": {"type": "integer"}},
+            },
+        }
+        resolved = get_schema_from_response(response, sw_dict)
+        self.assertIsNotNone(resolved)
+        assert resolved is not None
+        self.assertIn("x", resolved["properties"])
+        self.assertIn("y", resolved["properties"])
 
     def test_merge_allof_preserves_oneof_and_discriminator(self):
         schema = {
@@ -3279,6 +3673,73 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         )
         self.assertIsNotNone(metadata)
 
+    def test_merge_allof_non_list_allof_ignored_with_warning(self):
+        # Regression: a truthy but non-list "allOf" (e.g. a dict from a generator
+        # bug) used to iterate as if each of its keys were a member schema; every
+        # one failed the isinstance(resolved_allof, dict) guard and was silently
+        # skipped, discarding everything the malformed allOf contained with zero
+        # warning and zero indication anything was wrong with the spec.
+        schema = {
+            "type": "object",
+            "properties": {"kept": {"type": "string"}},
+            "allOf": {"type": "object", "properties": {"lost": {"type": "string"}}},
+        }
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ) as cm:
+            merged = merge_allof_schemas(schema, _EMPTY_OPENAPI_SW, max_depth=10)
+        self.assertNotIn("allOf", merged)
+        self.assertIn("kept", merged["properties"])
+        self.assertTrue(any("not a list" in msg for msg in cm.output))
+
+    def test_get_schema_from_response_boolean_schema_returns_none(self):
+        # Regression: a bare `true`/`false` root schema (valid JSON Schema,
+        # matching merge_allof_schemas' own explicit boolean-member handling)
+        # crashed with AttributeError instead of degrading to None.
+        self.assertIsNone(get_schema_from_response(True, {}))
+        self.assertIsNone(get_schema_from_response(False, {}))
+
+    def test_resolve_schema_references_own_oneof_ref_resolved_before_allof_merge(
+        self,
+    ):
+        # Regression: the schema's own top-level oneOf (sibling to allOf) was
+        # popped into oneof_anyof_contributions and, on collision with an allOf
+        # member's oneOf, relocated into a terminal allOf wrapper that nothing
+        # downstream walks back into -- so if that oneOf still contained an
+        # unresolved $ref at the time it was popped, _strip_unresolved_refs would
+        # delete it outright instead of it ever being resolved.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "X": {"type": "object", "properties": {"xf": {"type": "string"}}}
+                }
+            },
+        }
+        # 3+ total oneOf contributors (schema's own + two allOf members): with
+        # fewer contributors, the OLD code's own $ref-resolution passes elsewhere
+        # in the call graph happened to still surface "xf" as a byproduct of
+        # exhausting max_depth (not from correctly resolving it), so a plain
+        # substring check on the output can't discriminate old vs. new -- both
+        # produce output containing "xf". What DOES discriminate: the old
+        # ordering hits max_depth and logs "Maximum recursion depth exceeded"
+        # (both for schema references and for allOf merging); the fixed
+        # ordering resolves cleanly with no such warning at all.
+        schema = {
+            "oneOf": [{"$ref": "#/components/schemas/X"}],
+            "allOf": [
+                {"oneOf": [{"type": "integer"}]},
+                {"oneOf": [{"type": "boolean"}]},
+            ],
+        }
+        with self.assertNoLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ):
+            resolved = resolve_schema_references(schema, sw_dict)
+        self.assertNotIn('"$ref"', json.dumps(resolved))
+        resolved_str = json.dumps(resolved)
+        self.assertIn("xf", resolved_str)
+
     def test_merge_allof_depth_cap_preserves_allof_members(self):
         # Hitting max_depth inside merge_allof_schemas must not discard the allOf
         # members outright (previously returned {} for a pure-allOf wrapper).
@@ -3312,6 +3773,217 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIn("catDog", merged_str)
         self.assertIn("sizeSmall", merged_str)
 
+    def test_merge_allof_oneof_collision_does_not_lose_sibling_fields(self):
+        # Regression: colliding oneOf/anyOf members used to be deferred into
+        # merged_schema["allOf"] and then re-merged by the trailing recursive call,
+        # which re-detected the identical collision and looped until max_depth was
+        # exhausted -- silently discarding every real field extracted so far. Needs
+        # 3+ colliding oneOf contributors to actually trigger the old bug: with only
+        # 2, the old pairwise defer-and-recurse happened to terminate cleanly.
+        schema = {
+            "type": "object",
+            "allOf": [
+                {"type": "object", "properties": {"payload": {"type": "string"}}},
+                {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "properties": {"inner_field": {"type": "string"}},
+                        }
+                    ]
+                },
+                {
+                    "oneOf": [
+                        {"type": "object", "properties": {"extra": {"type": "string"}}}
+                    ]
+                },
+                {
+                    "oneOf": [
+                        {"type": "object", "properties": {"third": {"type": "string"}}}
+                    ]
+                },
+            ],
+        }
+        resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW, max_depth=10)
+        self.assertIn("payload", resolved.get("properties", {}))
+        metadata = get_schema_metadata(
+            platform="openapi", name="oneof-collision", json_schema=resolved
+        )
+        field_paths = [f.fieldPath for f in metadata.fields]
+        self.assertTrue(any("payload" in path for path in field_paths), field_paths)
+        self.assertTrue(any("inner_field" in path for path in field_paths), field_paths)
+        self.assertTrue(any("extra" in path for path in field_paths), field_paths)
+        self.assertTrue(any("third" in path for path in field_paths), field_paths)
+
+    def test_merge_allof_anyof_collision_does_not_lose_sibling_fields(self):
+        # Same regression as the oneOf test above, for anyOf -- the shared
+        # oneof_anyof_contributions code path handles both keys identically, but
+        # nothing else in the test file ever collides on anyOf specifically.
+        schema = {
+            "type": "object",
+            "allOf": [
+                {"type": "object", "properties": {"payload": {"type": "string"}}},
+                {
+                    "anyOf": [
+                        {"type": "object", "properties": {"a": {"type": "string"}}}
+                    ]
+                },
+                {
+                    "anyOf": [
+                        {"type": "object", "properties": {"b": {"type": "string"}}}
+                    ]
+                },
+                {
+                    "anyOf": [
+                        {"type": "object", "properties": {"c": {"type": "string"}}}
+                    ]
+                },
+            ],
+        }
+        resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW, max_depth=10)
+        self.assertNotIn("anyOf", resolved)
+        self.assertIn("allOf", resolved)
+        metadata = get_schema_metadata(
+            platform="openapi", name="anyof-collision", json_schema=resolved
+        )
+        field_paths = [f.fieldPath for f in metadata.fields]
+        for field in ("payload", "a", "b", "c"):
+            self.assertTrue(any(field in path for path in field_paths), field_paths)
+
+    def test_merge_allof_own_oneof_survives_allof_member_collision(self):
+        # Regression: the schema's own top-level oneOf (a sibling of allOf, not
+        # one of its members) used to be silently overwritten by the finalize
+        # step's bare `merged_schema[key] = ...` when an allOf member also
+        # contributed a colliding oneOf. Old code happened to produce the same
+        # a/b/c-containing, oneOf-less output via max-depth exhaustion (its
+        # depth-cap fallback returns the unmerged member list, which coincidentally
+        # satisfies plain substring/key-absence checks) -- assertNoLogs on the
+        # depth-exceeded warning is what actually discriminates "correctly merged"
+        # from "gave up and dumped the raw input".
+        schema = {
+            "type": "object",
+            "oneOf": [{"required": ["a"]}, {"required": ["b"]}],
+            "allOf": [{"oneOf": [{"required": ["c"]}]}],
+        }
+        with self.assertNoLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ):
+            merged = merge_allof_schemas(schema, _EMPTY_OPENAPI_SW, max_depth=10)
+        self.assertNotIn("oneOf", merged)
+        self.assertIn("allOf", merged)
+        merged_str = json.dumps(merged)
+        for field in ("a", "b", "c"):
+            self.assertIn(field, merged_str)
+
+    def test_merge_allof_empty_oneof_contribution_dropped(self):
+        # Regression: an empty oneOf/anyOf ([]) used to survive into the merged
+        # schema (whether as a bare top-level key or a deferred allOf member),
+        # and get_schema_metadata's metaschema check rejects "oneOf": [] outright
+        # -- losing every field on the schema, not just the empty union.
+        schema = {
+            "type": "object",
+            "properties": {"a": {"type": "string"}},
+            "allOf": [{"oneOf": []}],
+        }
+        merged = merge_allof_schemas(schema, _EMPTY_OPENAPI_SW, max_depth=10)
+        self.assertNotIn("oneOf", merged)
+        self.assertNotIn("allOf", merged)
+        metadata = get_schema_metadata(
+            platform="openapi", name="empty-oneof", json_schema=merged
+        )
+        field_paths = [f.fieldPath for f in metadata.fields]
+        self.assertTrue(any("a" in path for path in field_paths), field_paths)
+
+    def test_merge_allof_boolean_member_does_not_crash(self):
+        # Regression: a bare `True`/`False` allOf member (valid from JSON Schema
+        # draft-6+) reached _merge_allof_properties/_merge_allof_map_keywords
+        # unconditionally and crashed with AttributeError ('bool' has no '.get').
+        merged = merge_allof_schemas(
+            {"allOf": [True, {"properties": {"a": {"type": "string"}}}]},
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertIn("a", merged.get("properties", {}))
+
+    def test_merge_allof_boolean_pattern_properties_value_does_not_crash(self):
+        # Same regression as above, specifically through the patternProperties
+        # collision path (a boolean subschema as one of the colliding values).
+        merged = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"patternProperties": {"^x": {"type": "string"}}},
+                    {"patternProperties": {"^x": True}},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertEqual(merged["patternProperties"]["^x"], {"type": "string"})
+
+    def test_merge_allof_three_members_colliding_oneof_all_survive(self):
+        # 3+ colliding contributors: a naive pairwise defer-and-recurse loses the
+        # third member's oneOf (it gets re-added as a bare top-level "oneOf" that
+        # collides with the just-created allOf-wrapped pair on the next pass).
+        schema = {
+            "allOf": [
+                {"oneOf": [{"properties": {"a": {"type": "string"}}}]},
+                {"oneOf": [{"properties": {"b": {"type": "string"}}}]},
+                {"oneOf": [{"properties": {"c": {"type": "string"}}}]},
+            ]
+        }
+        merged = merge_allof_schemas(schema, _EMPTY_OPENAPI_SW, max_depth=10)
+        self.assertNotIn("oneOf", merged)
+        self.assertIn("allOf", merged)
+        merged_str = json.dumps(merged)
+        for field in ("a", "b", "c"):
+            self.assertIn(field, merged_str)
+
+    def test_merge_allof_pattern_properties_collision_independent_of_nesting(self):
+        # Regression: colliding patternProperties/propertyNames used bare
+        # _combine_under_allof (never re-resolved), while properties/items/
+        # additionalProperties wrapped the same combination in merge_allof_schemas.
+        # The same collision must resolve identically whether the two colliding
+        # members are direct allOf siblings or nested one level down via allOf.
+        flat = {
+            "type": "object",
+            "allOf": [
+                {"type": "object", "patternProperties": {"^x": {"type": "string"}}},
+                {"type": "object", "patternProperties": {"^x": {"type": "integer"}}},
+            ],
+        }
+        nested = {
+            "type": "object",
+            "allOf": [
+                {
+                    "allOf": [
+                        {
+                            "type": "object",
+                            "patternProperties": {"^x": {"type": "string"}},
+                        },
+                        {
+                            "type": "object",
+                            "patternProperties": {"^x": {"type": "integer"}},
+                        },
+                    ]
+                }
+            ],
+        }
+        # merge_allof_schemas directly, not resolve_schema_references: the public
+        # entry point also runs _resolve_pattern_properties as a post-pass, which
+        # independently re-resolves any raw allOf wrapper left in patternProperties
+        # and would mask this bug on both old and new code -- confirmed old code's
+        # merge_allof_schemas alone produces a *different* shape per nesting depth
+        # (a leftover {"allOf": [...]} wrapper for "flat", but a clean merge for
+        # "nested", since the nested member's own inner allOf gets pre-merged by
+        # _resolve_schema_refs before the outer loop ever sees it).
+        merged_flat = merge_allof_schemas(flat, _EMPTY_OPENAPI_SW)
+        merged_nested = merge_allof_schemas(nested, _EMPTY_OPENAPI_SW)
+        self.assertNotIn("allOf", merged_flat["patternProperties"]["^x"])
+        self.assertNotIn("allOf", merged_nested["patternProperties"]["^x"])
+        self.assertEqual(
+            merged_flat["patternProperties"], merged_nested["patternProperties"]
+        )
+
     def test_resolve_schema_references_ref_under_not_does_not_crash(self):
         # A $ref nested under "not" isn't visited by the structural normalize walk;
         # the generic strip pass (not an assert) must still remove it gracefully.
@@ -3325,6 +3997,42 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         }
         resolved = resolve_schema_references(schema, sw_dict)
         self.assertNotIn('"$ref"', json.dumps(resolved))
+
+    def test_strip_unresolved_refs_does_not_mutate_shared_component(self):
+        # Regression: _strip_unresolved_refs used to `del schema["$ref"]` in place.
+        # Neither _resolve_schema_refs nor _normalize_map_schemas walk into "not"
+        # (or "if"/"then"/"else"/"contains"), so a $ref nested there is still the
+        # exact same dict object as the shared sw_dict component -- deleting its
+        # key in place would permanently corrupt that component for every other
+        # endpoint that resolves the same $ref later in the same run.
+        shared_not_clause: Dict[str, Any] = {
+            "$ref": "#/components/schemas/Unresolvable"
+        }
+        sw_dict: Dict[str, Any] = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Shared": {
+                        "type": "object",
+                        "properties": {"value": {"not": shared_not_clause}},
+                    }
+                    # "Unresolvable" is intentionally absent so the $ref cannot resolve.
+                }
+            },
+        }
+        resolve_schema_references({"$ref": "#/components/schemas/Shared"}, sw_dict)
+        # The shared component itself must be untouched by the first resolution.
+        self.assertIn("$ref", shared_not_clause)
+        self.assertIs(
+            sw_dict["components"]["schemas"]["Shared"]["properties"]["value"]["not"],
+            shared_not_clause,
+        )
+        # A second endpoint resolving the same shared component must still get a
+        # cleanly-stripped result (not a schema someone else's resolution left broken).
+        resolved_again = resolve_schema_references(
+            {"$ref": "#/components/schemas/Shared"}, sw_dict
+        )
+        self.assertNotIn('"$ref"', json.dumps(resolved_again))
 
     def test_get_tok_error_does_not_leak_credentials_in_message(self):
         # get_swagger substitutes {username}/{password} into the GET token URL before
@@ -3343,18 +4051,51 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertNotIn("hunter2", str(ctx.exception))
         self.assertNotIn("u=alice", str(ctx.exception))
 
+    def test_get_tok_connection_error_does_not_leak_credentials_in_message(self):
+        # Regression: a raw `requests` exception raised while making the GET/POST
+        # token request (not just a malformed 200 response) must not propagate its
+        # message verbatim -- for method="get" that message can otherwise embed the
+        # password-substituted URL, and it ends up in report.failure verbatim.
+        with patch("requests.get") as mock_get:
+            mock_get.side_effect = requests.exceptions.ConnectionError(
+                "Failed to resolve host for https://api.example.com/token?u=alice&p=hunter2"
+            )
+            with self.assertRaises(ValueError) as ctx:
+                get_tok(
+                    url="https://api.example.com",
+                    tok_url="/token?u=alice&p=hunter2",
+                    method="get",
+                )
+        self.assertNotIn("hunter2", str(ctx.exception))
+        self.assertNotIn("u=alice", str(ctx.exception))
+
+        with patch("requests.post") as mock_post:
+            mock_post.side_effect = requests.exceptions.ConnectionError(
+                "Failed to resolve host for https://api.example.com/token"
+            )
+            with self.assertRaises(ValueError) as ctx:
+                get_tok(
+                    url="https://api.example.com",
+                    username="alice",
+                    password="hunter2",
+                    tok_url="/token",
+                    method="post",
+                )
+        self.assertNotIn("hunter2", str(ctx.exception))
+
     def test_get_schema_from_response_empty_shapes_return_none(self):
         # An empty/no-op object-shape schema ("properties": {}, "oneOf": [], etc.)
         # carries no field information; accepting it here would suppress the
         # example-data/live-API fallback for an endpoint whose spec schema is
         # syntactically present but semantically empty.
-        for schema in (
+        empty_shapes: List[Dict[str, Any]] = [
             {"properties": {}},
             {"oneOf": []},
             {"anyOf": []},
             {"allOf": []},
             {"additionalProperties": False},
-        ):
+        ]
+        for schema in empty_shapes:
             self.assertIsNone(get_schema_from_response(schema, {}), schema)
         # additionalProperties: true is a meaningful "any properties allowed" map
         # declaration (not a no-op), so it should still be accepted.
