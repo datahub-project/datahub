@@ -219,3 +219,70 @@ def test_config_lineage_enabled_property():
     )
     assert all_off.lineage_enabled is False
     assert RedshiftConfig(**base, include_view_lineage=True).lineage_enabled is True
+
+
+def _operation_event(operation_type: str) -> RedshiftAccessEvent:
+    """One query writing one table. The operation_aspect_query groups by
+    (userid, query, tbl) and UNIONs an insert and a delete branch, so a single
+    query can produce both an insert and a delete row for the same table."""
+    return RedshiftAccessEvent(
+        userid=7,
+        username="alice",
+        query=42,
+        querytxt="merge into public.users ...",
+        tbl=1,
+        database="dev",
+        schema="public",
+        table="users",
+        operation_type=operation_type,
+        starttime=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        endtime=datetime(2024, 1, 1, 12, 0, 1, tzinfo=timezone.utc),
+    )
+
+
+def test_operation_aspect_carries_write_time_and_stable_identity():
+    """timestampMillis is the event time, and messageId identifies the operation.
+
+    Both are hashed into the timeseries docId, so an ingestion-time stamp gives the
+    same write a new document on every overlapping run, and a missing messageId lets
+    two operations on one table collapse into a single document.
+    """
+    extractor = _usage_extractor(include_operational_stats=True)
+    event = _operation_event("insert")
+
+    mcps = list(
+        extractor._gen_operation_aspect_workunits_from_access_events(
+            iter([event]), all_tables=ALL_TABLES
+        )
+    )
+
+    aspect = mcps[0].aspect
+    assert isinstance(aspect, OperationClass)
+    expected = int(event.endtime.timestamp() * 1000)
+    assert aspect.timestampMillis == expected
+    assert aspect.lastUpdatedTimestamp == expected
+    assert aspect.messageId is not None
+
+
+def test_insert_and_delete_from_one_query_stay_distinct_documents():
+    """An upsert produces an insert and a delete row for the same query and table.
+
+    They share a urn and an endtime, so the messageId has to distinguish them or one
+    silently overwrites the other.
+    """
+    extractor = _usage_extractor(include_operational_stats=True)
+
+    mcps = list(
+        extractor._gen_operation_aspect_workunits_from_access_events(
+            iter([_operation_event("insert"), _operation_event("delete")]),
+            all_tables=ALL_TABLES,
+        )
+    )
+
+    assert len(mcps) == 2
+    doc_keys = set()
+    for mcp in mcps:
+        aspect = mcp.aspect
+        assert isinstance(aspect, OperationClass)
+        doc_keys.add((mcp.entityUrn, aspect.timestampMillis, aspect.messageId))
+    assert len(doc_keys) == 2, f"Both operations collapse to one document: {doc_keys}"

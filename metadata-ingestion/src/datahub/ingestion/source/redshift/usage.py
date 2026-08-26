@@ -1,5 +1,4 @@
 import logging
-import time
 from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -434,8 +433,10 @@ class RedshiftUsageExtractor:
 
             assert event.operation_type in ["insert", "delete"]
 
-            reported_time: int = int(time.time() * 1000)
-            last_updated_timestamp: int = int(event.endtime.timestamp() * 1000)
+            # Operation is a timeseries aspect: timestampMillis is the event time, and
+            # it is hashed into the ES docId, so stamping it with the ingestion time
+            # would give the same write a fresh document on every overlapping run.
+            operation_time: int = int(event.endtime.timestamp() * 1000)
             # actor is optional on OperationClass: emit the operation even when the
             # user can't be resolved rather than dropping the record entirely.
             actor: Optional[str] = (
@@ -444,14 +445,19 @@ class RedshiftUsageExtractor:
                 else None
             )
             operation_aspect = OperationClass(
-                timestampMillis=reported_time,
-                lastUpdatedTimestamp=last_updated_timestamp,
+                timestampMillis=operation_time,
+                lastUpdatedTimestamp=operation_time,
                 actor=actor,
                 operationType=(
                     OperationTypeClass.INSERT
                     if event.operation_type == "insert"
                     else OperationTypeClass.DELETE
                 ),
+                # operation_aspect_query groups by (userid, query, tbl) and UNIONs an
+                # insert and a delete branch, so one query can yield both for the same
+                # table, sharing a urn and an endtime. The operation type is needed
+                # alongside the query id to keep them in separate documents.
+                messageId=f"{event.query}-{event.operation_type}",
             )
 
             resource: str = f"{event.database}.{event.schema_}.{event.table}".lower()

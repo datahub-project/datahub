@@ -2,7 +2,6 @@ import hashlib
 import json
 import logging
 import os
-import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -105,6 +104,10 @@ class OperationalDataMeta:
     last_updated_timestamp: int
     actor_email: str
     custom_type: Optional[str] = None
+    # Identifies the job this operation came from. Combined with the statement type
+    # because a job that both reads and writes one table produces two operations on
+    # the same urn, which would otherwise share a timeseries document id.
+    message_id: Optional[str] = None
 
 
 class BigQueryUsageState(Closeable):
@@ -649,6 +652,11 @@ class BigQueryUsageExtractor:
                     event.read_event.timestamp.timestamp() * 1000
                 ),
                 actor_email=event.read_event.actor_email,
+                message_id=(
+                    f"{event.read_event.jobName}-CUSTOM_READ"
+                    if event.read_event.jobName
+                    else None
+                ),
             )
         elif event.query_event:
             custom_type = None
@@ -677,6 +685,11 @@ class BigQueryUsageExtractor:
                     event.query_event.timestamp.timestamp() * 1000
                 ),
                 actor_email=event.query_event.actor_email,
+                message_id=(
+                    f"{event.query_event.job_name}-{event.query_event.statementType}"
+                    if event.query_event.job_name
+                    else None
+                ),
             )
         else:
             return None
@@ -710,7 +723,6 @@ class BigQueryUsageExtractor:
         ):
             return None
 
-        reported_time: int = int(time.time() * 1000)
         affected_datasets = []
         if event.query_event and event.query_event.referencedTables:
             for table in event.query_event.referencedTables:
@@ -719,8 +731,13 @@ class BigQueryUsageExtractor:
                 )
 
         operation_aspect = OperationClass(
-            timestampMillis=reported_time,
+            # Operation is a timeseries aspect: timestampMillis is the event time, and
+            # it is hashed into the ES docId together with messageId, so deriving both
+            # from the job keeps distinct operations apart and makes re-ingesting an
+            # overlapping window idempotent rather than duplicative.
+            timestampMillis=operational_meta.last_updated_timestamp,
             lastUpdatedTimestamp=operational_meta.last_updated_timestamp,
+            messageId=operational_meta.message_id,
             actor=self.identifiers.gen_user_urn(operational_meta.actor_email),
             operationType=operational_meta.statement_type,
             customOperationType=operational_meta.custom_type,

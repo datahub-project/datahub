@@ -1047,8 +1047,15 @@ def test_operational_stats(
         )
     )
 
-    events = generate_events(queries, projects, table_to_project, config=config)
+    events = list(generate_events(queries, projects, table_to_project, config=config))
     workunits = usage_extractor._get_workunits_internal(events, table_refs.values())
+
+    # generate_events yields exactly one QueryEvent per query, in order, so the
+    # generated job name and statement type can be paired back up with the query
+    # to predict the operation's messageId.
+    query_events = [event.query_event for event in events if event.query_event]
+    assert len(query_events) == len(queries)
+
     expected = [
         make_operational_workunit(
             usage_extractor.identifiers.gen_dataset_urn_from_raw_ref(
@@ -1057,8 +1064,9 @@ def test_operational_stats(
                 )
             ),
             OperationClass(
-                timestampMillis=int(FROZEN_TIME.timestamp() * 1000),
+                timestampMillis=int(query.timestamp.timestamp() * 1000),
                 lastUpdatedTimestamp=int(query.timestamp.timestamp() * 1000),
+                messageId=f"{query_event.job_name}-{query_event.statementType}",
                 actor=f"urn:li:corpuser:{query.actor}",
                 operationType=(
                     query.type
@@ -1093,7 +1101,7 @@ def test_operational_stats(
                 ),
             ),
         )
-        for query in queries
+        for query, query_event in zip(queries, query_events, strict=True)
         if query.object_modified and query.type in OPERATION_STATEMENT_TYPES.values()
     ]
     compare_workunits(
@@ -1139,3 +1147,42 @@ def test_get_tables_from_query(usage_extractor):
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "table_1")),
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1")),
     ]
+
+
+def test_operation_aspect_carries_write_time_and_job_identity(
+    usage_extractor: BigQueryUsageExtractor,
+    config: BigQueryV2Config,
+) -> None:
+    """timestampMillis is the event time and messageId identifies the job.
+
+    Asserted directly rather than through compare_workunits, which applies
+    default_exclude_paths and therefore ignores both timestamp fields.
+    """
+    config.usage.include_operational_stats = True
+    written_at = datetime(2026, 8, 20, 4, 30, tzinfo=timezone.utc)
+    table = BigQueryTableRef(
+        BigqueryTableIdentifier("project-1", "database_1", "table_1")
+    )
+
+    event = AuditEvent.create(
+        QueryEvent(
+            job_name="projects/project-1/jobs/job-abc",
+            timestamp=written_at,
+            actor_email="loader@example.com",
+            query="INSERT INTO table_1 SELECT * FROM staging",
+            statementType="INSERT",
+            project_id="project-1",
+            destinationTable=table,
+        )
+    )
+
+    wu = usage_extractor._create_operation_workunit(event, table_refs={str(table)})
+
+    assert wu is not None
+    assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    aspect = wu.metadata.aspect
+    assert isinstance(aspect, OperationClass)
+    expected = int(written_at.timestamp() * 1000)
+    assert aspect.timestampMillis == expected
+    assert aspect.lastUpdatedTimestamp == expected
+    assert aspect.messageId == "projects/project-1/jobs/job-abc-INSERT"
