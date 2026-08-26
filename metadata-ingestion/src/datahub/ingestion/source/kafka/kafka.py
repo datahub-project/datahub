@@ -104,6 +104,16 @@ from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
     SchemaAndFields,
 )
+from datahub.ingestion.source.kafka.stream_processing.builder import (
+    build_stream_processing_workunits,
+)
+from datahub.ingestion.source.kafka.stream_processing.flink import (
+    FlinkLineageExtractor,
+    build_flink_client,
+)
+from datahub.ingestion.source.kafka.stream_processing.models import (
+    StreamProcessingJob,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -321,14 +331,16 @@ class KafkaConnectionTest:
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Optionally emits topic-to-topic lineage from Stream Catalog cluster links / mirror "
-    "topics via `confluent_catalog.include_lineage`. For source/sink lineage to external "
+    "topics via `confluent_catalog.include_lineage`, and from Confluent Cloud Flink SQL "
+    "via `stream_processing_lineage.flink.enabled`. For source/sink lineage to external "
     "systems, use the kafka-connect source.",
     supported=True,
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Not supported",
-    supported=False,
+    "Optionally emits column-level lineage from Flink SQL statements when "
+    "`stream_processing_lineage.include_column_lineage` is enabled.",
+    supported=True,
 )
 @capability(
     SourceCapability.TAGS,
@@ -555,6 +567,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         if collection_tasks:
             yield from self.generate_profiles_in_parallel(collection_tasks)
 
+        yield from self._emit_stream_processing_lineage()
+
         if self.source_config.ingest_schemas_as_entities:
             # Get all subjects from schema registry and ingest them as SCHEMA DatasetSubTypes
             for subject in self.schema_registry_client.get_subjects():
@@ -572,6 +586,42 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         exc=e,
                         log=False,
                     )
+
+    def _emit_stream_processing_lineage(self) -> Iterable[MetadataWorkUnit]:
+        config = self.source_config.stream_processing_lineage
+        if not config.any_enabled():
+            return
+
+        jobs: List[StreamProcessingJob] = []
+        flink_client = build_flink_client(config.flink, self.report)
+        if flink_client is not None:
+            try:
+                jobs.extend(
+                    FlinkLineageExtractor(
+                        flink_client,
+                        self.report,
+                        config.flink.compute_pool_id,
+                    ).extract()
+                )
+            except Exception as e:
+                self.report.warning(
+                    message="Failed to extract Flink stream-processing lineage",
+                    context="flink-lineage",
+                    exc=e,
+                )
+            finally:
+                flink_client.close()
+
+        yield from build_stream_processing_workunits(
+            jobs=jobs,
+            platform=self.platform,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+            report=self.report,
+            topic_allowed=self.source_config.topic_patterns.allowed,
+            graph=self.ctx.graph,
+            include_column_lineage=config.include_column_lineage,
+        )
 
     def _locked_warning(self, message: LiteralString, context: str) -> None:
         # report.warning is not thread-safe; serialize the profiling worker calls.

@@ -620,6 +620,7 @@ kafka = [
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.44.0,<2.0.0",
     "networkx>=2.6.2,<4.0.0",
+    "sqlglot[c]==30.12.0",
 ]
 
 kafka-connect = [

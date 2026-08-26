@@ -28,6 +28,40 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 
+_FLINK_CLOUDS = frozenset({"aws", "gcp", "azure"})
+
+
+def _normalize_endpoint(endpoint: str, field: str, *, require_https: bool) -> str:
+    if require_https and not endpoint.lower().startswith("https://"):
+        raise ValueError(
+            f"Configuration error: '{field}' must use HTTPS "
+            f"to protect credentials in transit. Got: '{endpoint}'."
+        )
+    return endpoint.rstrip("/")
+
+
+def _secret_configured(value: Optional[SecretStr]) -> bool:
+    return value is not None and bool(value.get_secret_value().strip())
+
+
+def _require_secret_pair(
+    api_key: Optional[SecretStr],
+    api_secret: Optional[SecretStr],
+    prefix: str,
+    *,
+    required: bool,
+) -> None:
+    key_set = _secret_configured(api_key)
+    secret_set = _secret_configured(api_secret)
+    if required and not (key_set and secret_set):
+        raise ValueError(
+            f"Configuration error: '{prefix}.api_key' and '{prefix}.api_secret' must both be set."
+        )
+    if key_set != secret_set:
+        raise ValueError(
+            f"Configuration error: '{prefix}.api_key' and '{prefix}.api_secret' must be provided together."
+        )
+
 
 class SchemaResolutionFallback(ConfigModel):
     enabled: bool = Field(
@@ -67,6 +101,104 @@ class ProfilerConfig(GEProfilingConfig):
         default=DEFAULT_SAMPLE_SIZE,
         description="Number of messages to sample for profiling. Higher values provide more accurate statistics but take longer to process. Must be positive.",
     )
+
+
+class FlinkLineageConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="Emit topic-to-topic lineage from Confluent Cloud Flink SQL statements. Each "
+        "`INSERT INTO sink SELECT ... FROM source` statement is modeled as a DataJob mapping the "
+        "source topics to the sink topic. Requires a Confluent Cloud (resource-management) API key.",
+    )
+    organization_id: Optional[str] = Field(
+        default=None, description="Confluent Cloud organization id."
+    )
+    environment_id: Optional[str] = Field(
+        default=None, description="Confluent Cloud environment id, e.g. `env-xxxxx`."
+    )
+    region: Optional[str] = Field(
+        default=None,
+        description="Confluent Cloud region, e.g. `us-east-1`. Used to build the Flink REST host "
+        "`https://flink.<region>.<cloud>.confluent.cloud` unless `endpoint` is set.",
+    )
+    cloud: Optional[str] = Field(
+        default=None, description="Confluent Cloud provider: `aws`, `gcp`, or `azure`."
+    )
+    endpoint: Optional[str] = Field(
+        default=None,
+        description="Optional explicit Flink REST base URL, overriding the region/cloud-derived host.",
+    )
+    compute_pool_id: Optional[str] = Field(
+        default=None,
+        description="Optional Flink compute pool id to restrict statements to a single pool.",
+    )
+    api_key: Optional[SecretStr] = Field(
+        default=None,
+        description="Confluent Cloud resource-management API key (Basic auth against the Flink REST API).",
+    )
+    api_secret: Optional[SecretStr] = Field(
+        default=None, description="Confluent Cloud resource-management API secret."
+    )
+    timeout_seconds: PositiveInt = Field(
+        default=30, description="Timeout in seconds for each Flink REST request."
+    )
+
+    @model_validator(mode="after")
+    def validate_flink(self) -> "FlinkLineageConfig":
+        if not self.enabled:
+            return self
+        if self.endpoint:
+            self.endpoint = _normalize_endpoint(
+                self.endpoint,
+                "stream_processing_lineage.flink.endpoint",
+                require_https=True,
+            )
+        elif not (self.region and self.cloud):
+            raise ValueError(
+                "Configuration error: 'stream_processing_lineage.flink.enabled' is true but the "
+                "Flink REST host cannot be resolved. Set either 'endpoint' or both 'region' and 'cloud'."
+            )
+        else:
+            cloud = self.cloud.lower()
+            if cloud not in _FLINK_CLOUDS:
+                raise ValueError(
+                    "Configuration error: 'stream_processing_lineage.flink.cloud' must be one of "
+                    f"{sorted(_FLINK_CLOUDS)}. Got: '{self.cloud}'."
+                )
+            self.cloud = cloud
+        missing = [
+            name
+            for name, value in (
+                ("organization_id", self.organization_id),
+                ("environment_id", self.environment_id),
+            )
+            if not value
+        ]
+        if missing:
+            raise ValueError(
+                "Configuration error: 'stream_processing_lineage.flink.enabled' is true but "
+                f"{', '.join(repr(f'stream_processing_lineage.flink.{name}') for name in missing)} "
+                f"{'is' if len(missing) == 1 else 'are'} not set."
+            )
+        _require_secret_pair(
+            self.api_key,
+            self.api_secret,
+            "stream_processing_lineage.flink",
+            required=True,
+        )
+        return self
+
+
+class StreamProcessingLineageConfig(ConfigModel):
+    flink: FlinkLineageConfig = Field(default_factory=FlinkLineageConfig)
+    include_column_lineage: bool = Field(
+        default=True,
+        description="Parse Flink SQL to emit best-effort column-level lineage, resolving "
+        "topic schemas from DataHub when available.",
+    )
+
+    def any_enabled(self) -> bool:
+        return self.flink.enabled
 
 
 class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
@@ -171,6 +303,11 @@ class KafkaSourceConfig(
         default_factory=KafkaConfluentCatalogConfig,
         description="Read topic tags and business metadata from the Confluent Cloud Stream Catalog. "
         "Connection details default to the Schema Registry ones already set under `connection`.",
+    )
+    stream_processing_lineage: StreamProcessingLineageConfig = Field(
+        default_factory=StreamProcessingLineageConfig,
+        description="Emit topic-to-topic transform lineage from Confluent Cloud Flink SQL "
+        "statements, each modeled as a DataJob with input and output topics.",
     )
 
     @model_validator(mode="after")
