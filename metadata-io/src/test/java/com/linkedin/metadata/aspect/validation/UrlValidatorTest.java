@@ -512,6 +512,90 @@ public class UrlValidatorTest {
   }
 
   @Test
+  public void testEmbedRelativeUrlRejected() {
+    // Scheme-less URLs fail the allowlist: the validator cannot prove where a
+    // relative path resolves at render time.
+    assertEquals(
+        validateEmbedRenderUrl("/superset/dashboard/1/"),
+        1,
+        "Scheme-less renderUrl should be rejected");
+  }
+
+  @Test
+  public void testEmbedMalformedUrlRejected() {
+    assertEquals(
+        validateEmbedRenderUrl("http://exa mple.com/embed"),
+        1,
+        "Unparseable renderUrl should be rejected as a syntax violation");
+  }
+
+  @Test
+  public void testEmbedSchemeCheckIsCaseInsensitive() {
+    assertEquals(
+        validateEmbedRenderUrl("JAVASCRIPT:alert(1)"),
+        1,
+        "Scheme casing must not bypass the deny of script-executing schemes");
+    assertEquals(
+        validateEmbedRenderUrl("HTTPS://example.com/embed"),
+        0,
+        "Upper-cased HTTPS is still an allowed scheme");
+  }
+
+  @Test
+  public void testEmbedWithoutRenderUrlAllowed() {
+    Embed embed = new Embed();
+    long count =
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_DATASET_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_DATASET_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_DATASET_URN.getEntityType())
+                                .getAspectSpec(EMBED_ASPECT_NAME))
+                        .recordTemplate(embed)
+                        .build()),
+                mockRetrieverContext,
+                null)
+            .count();
+    assertEquals(count, 0, "Embed aspect without a renderUrl has nothing to validate");
+  }
+
+  @Test
+  public void testEmbedPatchRemoveOpIgnored() {
+    String ops = "[{\"op\":\"remove\",\"path\":\"/renderUrl\"}]";
+    long count =
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(TEST_DATASET_URN, EMBED_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count();
+    assertEquals(count, 0, "A remove-only patch sets no renderUrl to validate");
+  }
+
+  @Test
+  public void testEmbedPatchUnparseableDeltaIgnored() {
+    // A delta that cannot coerce into the Embed schema is left for schema validation
+    // at merge time rather than failing here.
+    String ops = "[{\"op\":\"add\",\"path\":\"/renderUrl\",\"value\":{\"nested\":\"object\"}}]";
+    long count =
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(TEST_DATASET_URN, EMBED_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count();
+    assertEquals(count, 0, "Unparseable embed delta is not this validator's violation");
+  }
+
+  @Test
   public void testEmbedPatchHttpsAccepted() {
     assertEquals(
         validateEmbedPatch(TEST_DATASET_URN, "https://bi.example.com/dashboard/1"),
