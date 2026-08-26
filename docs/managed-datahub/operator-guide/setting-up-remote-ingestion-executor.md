@@ -592,23 +592,28 @@ The pod running the executor needs the following IAM permissions. Attach this po
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "AllowBatchGetSecretValueApi",
       "Effect": "Allow",
-      "Action": [
-        "secretsmanager:BatchGetSecretValue",
-        "secretsmanager:GetSecretValue"
-      ],
-      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:datahub-*"
+      "Action": "secretsmanager:BatchGetSecretValue",
+      "Resource": "*"
     },
     {
+      "Sid": "AllowPrefixedSecretsRead",
       "Effect": "Allow",
-      "Action": "secretsmanager:ListSecrets",
-      "Resource": "*"
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:datahub-*"
     }
   ]
 }
 ```
 
-If you use a custom prefix, update the `Resource` pattern to match (e.g., `myapp-*` instead of `datahub-*`).
+If you use a custom prefix, update the `Resource` pattern in the `AllowPrefixedSecretsRead` statement to match (e.g., `myapp-*` instead of `datahub-*`).
+
+:::warning Keep `BatchGetSecretValue` scoped to `"*"`
+`BatchGetSecretValue` is authorized at the API level, before AWS resolves which secrets are involved, so it cannot be restricted to a secret ARN. Scoping it to `datahub-*` denies **every** request even when the secret names are correct, and the failure is silent — the executor logs `Failed to batch fetch secrets from AWS Secrets Manager: ...AccessDeniedException...`, resolves the secrets to null, and lets ingestion continue to fail further downstream.
+
+Access to the secret values themselves is still restricted by the prefix-scoped `GetSecretValue` statement. Granting the batch action on `"*"` permits the API call, not the secret contents.
+:::
 
 #### 3. Enable on the executor
 
