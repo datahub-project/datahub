@@ -899,7 +899,7 @@ class APISource(Source, ABC):
                 title="Failed to Fetch OpenAPI Spec",
                 message="Unable to retrieve, parse, or interpret the OpenAPI specification",
                 context=f"{config.url} / {config.swagger_file}",
-                exc=e,
+                exc=RuntimeError("Unable to retrieve or parse the OpenAPI specification"),
             )
             return
 
