@@ -8,9 +8,41 @@
   },
   {
     "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v3.retentionTime{unique_id}/status",
+      "description": "Soft delete test structured property first (hard deleting an active structured property is rejected)",
+      "method": "post",
+      "params": {
+        "createIfNotExists": "false",
+        "async": "false"
+      },
+      "json": {
+        "value": {
+          "removed": true
+        }
+      }
+    }
+  },
+  {
+    "request": {
       "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v3.retentionTime{unique_id}",
       "description": "Remove test structured property",
       "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v3.retentionTime02{unique_id}/status",
+      "description": "Soft delete test structured property first (hard deleting an active structured property is rejected)",
+      "method": "post",
+      "params": {
+        "createIfNotExists": "false",
+        "async": "false"
+      },
+      "json": {
+        "value": {
+          "removed": true
+        }
+      }
     }
   },
   {
@@ -391,7 +423,9 @@
       }
     },
     "response": {
-      "status_codes": [400],
+      "status_codes": [
+        400
+      ],
       "exclude_regex_paths": [
         "root\\['message'\\]"
       ],
@@ -421,7 +455,9 @@
       }
     },
     "response": {
-      "status_codes": [400],
+      "status_codes": [
+        400
+      ],
       "exclude_regex_paths": [
         "root\\['message'\\]"
       ],
@@ -451,7 +487,9 @@
       }
     },
     "response": {
-      "status_codes": [400],
+      "status_codes": [
+        400
+      ],
       "exclude_regex_paths": [
         "root\\['message'\\]"
       ],
@@ -481,7 +519,9 @@
       }
     },
     "response": {
-      "status_codes": [400],
+      "status_codes": [
+        400
+      ],
       "exclude_regex_paths": [
         "root\\['message'\\]"
       ],
@@ -511,7 +551,9 @@
       }
     },
     "response": {
-      "status_codes": [400],
+      "status_codes": [
+        400
+      ],
       "exclude_regex_paths": [
         "root\\['message'\\]"
       ],
@@ -541,7 +583,9 @@
       }
     },
     "response": {
-      "status_codes": [400],
+      "status_codes": [
+        400
+      ],
       "exclude_regex_paths": [
         "root\\['message'\\]"
       ],

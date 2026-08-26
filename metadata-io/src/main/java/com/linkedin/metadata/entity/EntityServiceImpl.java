@@ -3319,6 +3319,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     aspectDao.setWritable(canWrite);
   }
 
+  /**
+   * Why the shared delete primitive is being invoked. ORDINARY (API/UI/CLI deletion) enforces
+   * delete-time guards such as the structured-property soft-delete-first precondition; ROLLBACK
+   * (ingestion rollback via {@link #rollbackRun}/{@link #rollbackWithConditions}, including
+   * rollback --nuke) bypasses them so a run can always remove what it created.
+   */
+  enum DeletePurpose {
+    ORDINARY,
+    ROLLBACK
+  }
+
   @Override
   public RollbackRunResult rollbackRun(
       @Nonnull OperationContext opContext,
@@ -3336,6 +3347,39 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       Map<String, String> conditions,
       boolean hardDelete,
       boolean preProcessHooks) {
+    return rollbackWithConditions(
+        opContext, aspectRows, conditions, hardDelete, DeletePurpose.ROLLBACK);
+  }
+
+  /**
+   * Direct aspect deletion entrypoint (OpenAPI aspect delete, MCP ChangeType.DELETE, reference
+   * cleanup). Overrides the interface default so ordinary deletion is distinguished from ingestion
+   * rollback: the default delegates to {@link #rollbackWithConditions}, which bypasses the
+   * structured-property delete guard in {@link #deleteAspectWithoutMCL}.
+   */
+  @Override
+  public Optional<RollbackResult> deleteAspect(
+      @Nonnull OperationContext opContext,
+      String urn,
+      String aspectName,
+      @Nonnull Map<String, String> conditions,
+      boolean hardDelete,
+      boolean preProcessHooks) {
+    final AspectRowSummary aspectRowSummary =
+        new AspectRowSummary().setUrn(urn).setAspectName(aspectName);
+    return rollbackWithConditions(
+            opContext, List.of(aspectRowSummary), conditions, hardDelete, DeletePurpose.ORDINARY)
+        .getRollbackResults()
+        .stream()
+        .findFirst();
+  }
+
+  private RollbackRunResult rollbackWithConditions(
+      @Nonnull OperationContext opContext,
+      List<AspectRowSummary> aspectRows,
+      Map<String, String> conditions,
+      boolean hardDelete,
+      DeletePurpose deletePurpose) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
     List<RollbackResult> removedAspectResults = new ArrayList<>();
     AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);
@@ -3350,7 +3394,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           aspectToRemove.getUrn(),
                           aspectToRemove.getAspectName(),
                           conditions,
-                          hardDelete);
+                          hardDelete,
+                          deletePurpose);
                   if (result != null) {
                     Optional<AspectSpec> aspectSpec =
                         opContext
@@ -3423,7 +3468,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     RollbackResult result =
         deleteAspectWithoutMCL(
-            opContext, urn.toString(), keyAspectName, Collections.emptyMap(), true);
+            opContext,
+            urn.toString(),
+            keyAspectName,
+            Collections.emptyMap(),
+            true,
+            DeletePurpose.ORDINARY);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();
@@ -3529,6 +3579,35 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
   }
 
+  /**
+   * Whether the entity's status aspect exists in primary storage with {@code removed=true}. A
+   * missing status aspect means the entity is active.
+   */
+  private boolean isSoftDeleted(@Nonnull OperationContext opContext, @Nonnull final String urn) {
+    try {
+      final SystemAspect statusAspect =
+          aspectDao.getLatestAspect(opContext, urn, STATUS_ASPECT_NAME, false);
+      if (statusAspect == null || statusAspect.getRecordTemplate() == null) {
+        return false;
+      }
+      return new Status(statusAspect.getRecordTemplate().data()).isRemoved();
+    } catch (EntityNotFoundException e) {
+      return false;
+    }
+  }
+
+  /** Whether the latest version of the given aspect exists in primary storage. */
+  private boolean latestAspectExists(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName) {
+    try {
+      return aspectDao.getLatestAspect(opContext, urn, aspectName, false) != null;
+    } catch (EntityNotFoundException e) {
+      return false;
+    }
+  }
+
   /** Does not emit MCL */
   @VisibleForTesting
   @Nullable
@@ -3538,6 +3617,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       String aspectName,
       @Nonnull Map<String, String> conditions,
       boolean hardDelete) {
+    return deleteAspectWithoutMCL(
+        opContext, urn, aspectName, conditions, hardDelete, DeletePurpose.ORDINARY);
+  }
+
+  /** Does not emit MCL */
+  @Nullable
+  RollbackResult deleteAspectWithoutMCL(
+      @Nonnull OperationContext opContext,
+      String urn,
+      String aspectName,
+      @Nonnull Map<String, String> conditions,
+      boolean hardDelete,
+      DeletePurpose deletePurpose) {
     final AuditStamp auditStamp =
         new AuditStamp()
             .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
@@ -3569,6 +3661,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final PropertyDefinitionBeforeHardDelete propertyDefinitionBeforeHardDelete =
         new PropertyDefinitionBeforeHardDelete();
 
+    // Ordinary destructive deletion of a structured property (hard-deleting the entity, or
+    // directly deleting its propertyDefinition aspect) is only permitted once the property is
+    // soft-deleted. Rollback-purpose deletion (ingestion rollback / nuke) and true system sessions
+    // are exempt; see the guard below.
+    final boolean entityWideHardDelete =
+        hardDelete && aspectName.equals(opContext.getKeyAspectName(entityUrn));
+    final boolean guardStructuredPropertyDelete =
+        STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())
+            && (entityWideHardDelete
+                || STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectName))
+            && deletePurpose == DeletePurpose.ORDINARY
+            && !opContext.isSystemAuth();
+
     // Gate the shared DB-delete primitive at the (urn, aspect) conflict unit, off the DB
     // connection,
     // BEFORE opening the delete transaction; release after commit/rollback. (scoped mode only;
@@ -3580,14 +3685,35 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Delete↔upsert
     // safety is key-set overlap, not a permanent URN-wide lock on every ingest. The async MCL
     // emission callers run after this returns stays OUT from under the lock.
-    final Collection<String> gateKeys =
-        (hardDelete && aspectName.equals(opContext.getKeyAspectName(entityUrn)))
-            ? opContext.getEntityAspectNames(entityUrn).stream()
-                .map(a -> writeGateKey(urn, a))
-                .collect(Collectors.toList())
-            : List.of(writeGateKey(urn, aspectName));
+    final Collection<String> gateKeys;
+    if (entityWideHardDelete) {
+      gateKeys =
+          opContext.getEntityAspectNames(entityUrn).stream()
+              .map(a -> writeGateKey(urn, a))
+              .collect(Collectors.toList());
+    } else if (guardStructuredPropertyDelete) {
+      // A guarded propertyDefinition delete also locks the status key so the soft-delete
+      // precondition below cannot race a concurrent status write on this URN.
+      gateKeys = List.of(writeGateKey(urn, aspectName), writeGateKey(urn, STATUS_ASPECT_NAME));
+    } else {
+      gateKeys = List.of(writeGateKey(urn, aspectName));
+    }
     final RollbackResult result;
     try (EntityWriteLock.LockHandle writeGate = acquireWriteGate(opContext, gateKeys)) {
+      // Deleting a nonexistent target aspect is a no-op today and must stay one (idempotent
+      // cleanup), so the guard only fires when the aspect being deleted actually exists.
+      if (guardStructuredPropertyDelete
+          && !isSoftDeleted(opContext, urn)
+          && latestAspectExists(opContext, urn, aspectName)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Hard delete rejected for structured property qualifiedName '%s'. Hard deletion "
+                    + "can leave a permanent entity-index mapping for this normalized name, "
+                    + "preventing reuse until the affected entity indices are reindexed with "
+                    + "SystemUpdate. Soft-delete the property first to confirm, or leave it "
+                    + "soft-deleted; soft deletion is reversible.",
+                entityUrn.getId()));
+      }
       result =
           aspectDao
               .runInTransactionWithRetry(
