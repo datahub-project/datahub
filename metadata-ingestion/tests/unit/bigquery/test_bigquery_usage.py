@@ -1186,3 +1186,57 @@ def test_operation_aspect_carries_write_time_and_job_identity(
     assert aspect.timestampMillis == expected
     assert aspect.lastUpdatedTimestamp == expected
     assert aspect.messageId == "projects/project-1/jobs/job-abc-INSERT"
+
+
+def test_read_and_write_operations_from_one_job_stay_distinct(
+    usage_extractor: BigQueryUsageExtractor,
+    config: BigQueryV2Config,
+) -> None:
+    """A job that writes a table and also reads it yields two operations on one urn.
+
+    They share a job name and an event timestamp, so the message id has to record
+    which of the two it is or one silently overwrites the other.
+    """
+    config.usage.include_read_operational_stats = True
+    written_at = datetime(2026, 8, 20, 4, 30, tzinfo=timezone.utc)
+    table = BigQueryTableRef(
+        BigqueryTableIdentifier("project-1", "database_1", "table_1")
+    )
+    query_event = QueryEvent(
+        job_name="projects/project-1/jobs/job-abc",
+        timestamp=written_at,
+        actor_email="loader@example.com",
+        query="INSERT INTO table_1 SELECT * FROM table_1",
+        statementType="INSERT",
+        project_id="project-1",
+        destinationTable=table,
+    )
+    read_event = ReadEvent(
+        jobName="projects/project-1/jobs/job-abc",
+        timestamp=written_at,
+        actor_email="loader@example.com",
+        resource=table,
+        fieldsRead=["id"],
+        readReason="JOB",
+        payload=None,
+    )
+
+    write_wu = usage_extractor._create_operation_workunit(
+        AuditEvent.create(query_event), table_refs={str(table)}
+    )
+    read_wu = usage_extractor._create_operation_workunit(
+        AuditEvent(read_event=read_event, query_event=query_event),
+        table_refs={str(table)},
+    )
+
+    assert write_wu is not None and read_wu is not None
+    aspects = []
+    for wu in (write_wu, read_wu):
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        aspect = wu.metadata.aspect
+        assert isinstance(aspect, OperationClass)
+        aspects.append(
+            (wu.metadata.entityUrn, aspect.timestampMillis, aspect.messageId)
+        )
+
+    assert len(set(aspects)) == 2, f"read and write collapse to one document: {aspects}"

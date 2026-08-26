@@ -685,8 +685,12 @@ class BigQueryUsageExtractor:
                     event.query_event.timestamp.timestamp() * 1000
                 ),
                 actor_email=event.query_event.actor_email,
+                # A job that writes a table and also reads it produces two operations
+                # on that one urn, both stamped with the query event's timestamp, so
+                # which of the two this is has to be part of the identity.
                 message_id=(
                     f"{event.query_event.job_name}-{event.query_event.statementType}"
+                    f"{'-READ' if event.read_event else ''}"
                     if event.query_event.job_name
                     else None
                 ),
