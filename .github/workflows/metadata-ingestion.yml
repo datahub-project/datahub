@@ -324,6 +324,28 @@ jobs:
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
+  # ── Canary: catch Wolfi (apk/glibc) packaging quirks in the executor's base
+  # image early. Deliberately NOT pinned and NOT part of integration-tests-gate:
+  # floating `latest` doubles as an early-warning signal for upstream Wolfi
+  # changes, and a break here shouldn't block PRs unrelated to it.
+  wolfi-smoke:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Run metadata-ingestion unit tests on Wolfi
+        run: |
+          docker run --rm -v "$PWD:/workspace" -w /workspace/metadata-ingestion \
+            cgr.dev/chainguard/wolfi-base:latest sh -c '
+              set -eux
+              apk add --no-cache python-3.11 python-3.11-dev uv git bash
+              ln -sf /usr/bin/python3.11 /usr/bin/python3
+              uv venv .venv
+              . .venv/bin/activate
+              uv pip install -e ".[dev]"
+              pytest tests/unit -x -q
+            '
+
   # ── Single required branch protection check ────────────────────────────────
   integration-tests-gate:
     needs: [detect, ci]
