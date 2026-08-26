@@ -351,8 +351,8 @@ jobs:
               ln -sf /usr/bin/python3.11 /usr/bin/python3
               uv venv .venv
               . .venv/bin/activate
-              uv pip install -e ".[dev]"
-              pytest tests/unit -x -q
+              uv pip install -e ".[dev,integration-tests]"
+              pytest tests/unit -m "not integration" -q
             '
 
   # ── Single required branch protection check ────────────────────────────────
