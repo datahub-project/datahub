@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -229,6 +229,23 @@ jobs:
               "$TEST_PATH" \
               --junit-xml="test-results/junit.${CONNECTOR}.xml"
           fi
+      # A lint on the tests, not extra coverage of the source. Flipping the default
+      # and re-running catches a test that reads an exact field path from the
+      # ambient config instead of pinning it -- which passes on its own and then
+      # asserts the wrong spelling for anyone who runs with the flag on. Measured:
+      # it kills no source mutation the explicit tests do not already kill, so do
+      # not read a green leg here as the ON path being covered. The tests that
+      # cover it are the ones that set the flag themselves.
+      - name: Snowflake unit tests with preserve_column_case forced on
+        if: ${{ matrix.command == 'testQuick' && matrix.python-version == '3.11' }}
+        env:
+          DATAHUB_TEST_PRESERVE_COLUMN_CASE: "1"
+          PYTHONFAULTHANDLER: "1"
+        run: |
+          cd metadata-ingestion
+          source venv/bin/activate
+          pytest tests/unit/snowflake/ \
+            --junit-xml=test-results/junit.snowflake-preserve-column-case.xml
       # Success-only, single matrix leg (parallel legs would race to reserve the same
       # key). On master this workflow usually runs on Depot runners, where this save
       # lands in Depot Cache instead of the GitHub cache — the reliably GitHub-hosted

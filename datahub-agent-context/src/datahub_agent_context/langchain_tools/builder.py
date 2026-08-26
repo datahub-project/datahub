@@ -30,6 +30,11 @@ except ImportError as e:
 
 from datahub_agent_context.mcp_tools.descriptions import update_description
 from datahub_agent_context.mcp_tools.entities import get_entities, list_schema_fields
+from datahub_agent_context.mcp_tools.incidents import (
+    list_incidents,
+    raise_incident,
+    resolve_incident,
+)
 from datahub_agent_context.mcp_tools.lineage import (
     get_lineage,
     get_lineage_paths_between,
@@ -86,6 +91,7 @@ def build_langchain_tools(
 
     tools.append(tool(create_context_wrapper(get_dataset_queries, client)))
     tools.append(tool(create_context_wrapper(get_dataset_assertions, client)))
+    tools.append(tool(create_context_wrapper(list_incidents, client)))
     tools.append(tool(create_context_wrapper(search, client)))
 
     if include_mutations:
@@ -101,6 +107,8 @@ def build_langchain_tools(
         tools.append(tool(create_context_wrapper(add_glossary_terms, client)))
         tools.append(tool(create_context_wrapper(remove_glossary_terms, client)))
         tools.append(tool(create_context_wrapper(save_document, client)))
+        tools.append(tool(create_context_wrapper(raise_incident, client)))
+        tools.append(tool(create_context_wrapper(resolve_incident, client)))
 
     return tools
 

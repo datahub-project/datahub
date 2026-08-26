@@ -8,7 +8,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-:::note Self-hosted (OSS) deployments
+:::note DataHub Core deployments
 Search Access Controls with query-time filtering are a **DataHub Cloud** feature. On OSS, set `VIEW_AUTHORIZATION_ENABLED=true` for entity page gating — this does **not** filter search at query time. See [Designing policies for view-based access control](../../authorization/policies.md#designing-policies-for-view-based-access-control) in the Policies Guide.
 :::
 
@@ -52,7 +52,7 @@ view-restricted by default when view authorization is on (`container` is no long
 registry). Do not re-add them via `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD` unless you intentionally want view bypass.
 
 These are GMS environment variables (see [Environment Variables](../../deploy/environment-vars.md)). The same list
-applies to core view authorization when `VIEW_AUTHORIZATION_ENABLED=true` on self-hosted deployments — that only
+applies to core view authorization when `VIEW_AUTHORIZATION_ENABLED=true` on DataHub Core deployments — that only
 gates entity pages / post-search masking on OSS; **query-time search filtering remains DataHub Cloud–only** (see the
 note at the top of this page). Breaking-change details: [updating DataHub](../../how/updating-datahub.md).
 
@@ -82,7 +82,7 @@ columns as separate search hits**. To surface columns in search under SAC, use U
 `TYPE = dataset`-only constraint), an explicit `TYPE = schemaField` policy, or keep `schemaField` unrestricted
 (not recommended if columns must not leak in search).
 
-OSS does **not** implement this URN-prefix search pushdown; self-hosted `VIEW_AUTHORIZATION_ENABLED` only gates
+DataHub Core does **not** implement this URN-prefix search pushdown; its `VIEW_AUTHORIZATION_ENABLED` only gates
 entity pages / post-search masking.
 
 ### Policy-Based Filtering

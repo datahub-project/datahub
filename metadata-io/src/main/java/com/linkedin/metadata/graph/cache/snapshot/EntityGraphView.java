@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.jgrapht.Graph;
 import org.jgrapht.alg.connectivity.ConnectivityInspector;
 import org.jgrapht.graph.AsSubgraph;
@@ -308,6 +309,23 @@ public class EntityGraphView {
     return direction == TraversalDirection.FORWARD ? edge.getDestinationUrn() : edge.getSourceUrn();
   }
 
+  @Nullable
+  private static DirectedEdge canonicalize(@Nonnull DirectedEdge edge) {
+    String source = EntityGraphEndpoints.parse(edge.getSourceUrn());
+    String dest = EntityGraphEndpoints.parse(edge.getDestinationUrn());
+    if (source == null || dest == null) {
+      return null;
+    }
+    if (source.equals(edge.getSourceUrn()) && dest.equals(edge.getDestinationUrn())) {
+      return edge;
+    }
+    return DirectedEdge.builder()
+        .sourceUrn(source)
+        .destinationUrn(dest)
+        .relationshipType(edge.getRelationshipType())
+        .build();
+  }
+
   @Nonnull
   private DirectedMultigraph<String, DirectedEdge> forwardGraph() {
     DirectedMultigraph<String, DirectedEdge> graph = forwardGraph;
@@ -357,10 +375,14 @@ public class EntityGraphView {
   private DirectedMultigraph<String, DirectedEdge> buildForwardGraph() {
     DirectedMultigraph<String, DirectedEdge> graph = new DirectedMultigraph<>(DirectedEdge.class);
     for (DirectedEdge edge : edges) {
-      graph.addVertex(edge.getSourceUrn());
-      graph.addVertex(edge.getDestinationUrn());
-      if (!graph.containsEdge(edge)) {
-        graph.addEdge(edge.getSourceUrn(), edge.getDestinationUrn(), edge);
+      DirectedEdge canonical = canonicalize(edge);
+      if (canonical == null) {
+        continue;
+      }
+      graph.addVertex(canonical.getSourceUrn());
+      graph.addVertex(canonical.getDestinationUrn());
+      if (!graph.containsEdge(canonical)) {
+        graph.addEdge(canonical.getSourceUrn(), canonical.getDestinationUrn(), canonical);
       }
     }
     return graph;

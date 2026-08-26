@@ -5,6 +5,7 @@ import pytest
 import requests
 import yaml
 
+from datahub.configuration.config_loader import EnvResolver
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
@@ -19,17 +20,17 @@ IGNORE_PATHS = [
 ]
 
 
-def check_mockserver_health():
+def check_mockserver_health(port: int) -> bool:
     """Custom health check for MockServer using /health endpoint."""
     try:
-        response = requests.get("http://localhost:8080/health", timeout=2)
+        response = requests.get(f"http://localhost:{port}/health", timeout=2)
         return response.status_code == 200
     except Exception:
         return False
 
 
 @pytest.fixture(scope="module", autouse=True)
-def docker_datahub_service(docker_compose_runner, pytestconfig):
+def docker_datahub_service(docker_compose_runner, pytestconfig, request):
     """Start Docker mock DataHub service for all tests."""
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_queries"
@@ -37,12 +38,20 @@ def docker_datahub_service(docker_compose_runner, pytestconfig):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "datahub-mock", cleanup=True
     ) as docker_services:
+        # The compose file exposes MockServer's port ephemerally, so a leaked
+        # container from a prior run can never hold onto the port a fresh run
+        # needs. Recipe ymls in this directory pick it up via ${SQL_QUERIES_MOCK_PORT}.
+        mock_port = docker_services.port_for("datahub-mock", 8080)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("SQL_QUERIES_MOCK_PORT", str(mock_port))
+        request.addfinalizer(mp.undo)
+
         wait_for_port(
             docker_services,
             container_name="datahub-mock",
             container_port=8080,
             timeout=60,
-            checker=check_mockserver_health,
+            checker=lambda: check_mockserver_health(mock_port),
         )
         yield docker_services
 
@@ -91,9 +100,12 @@ def test_sql_queries_ingestion(tmp_path, pytestconfig, recipe_file, golden_file)
         pytestconfig.rootpath / "tests/integration/sql_queries"
     )
 
-    # Load recipe
+    # Load recipe. Pipeline.create() (used below) doesn't expand ${VAR}
+    # placeholders the way the CLI's load_config_file() does, so resolve
+    # them here to pick up the ephemeral mock server port.
     with open(test_resources_dir / recipe_file) as f:
         recipe = yaml.safe_load(f)
+    recipe = EnvResolver(environ=os.environ).resolve(recipe)
 
     # Run with isolated filesystem so relative paths work
     with fs_helpers.isolated_filesystem(test_resources_dir):
