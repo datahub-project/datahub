@@ -18,6 +18,7 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     SemanticModelInfoClass,
     SemanticModelPropertiesClass,
+    StringTypeClass,
 )
 
 
@@ -255,6 +256,48 @@ def test_cloud_measure_without_agg_type_gets_numeric_field_and_expression() -> N
     assert isinstance(metric_info, MetricInfoClass)
     assert metric_info.expression is not None
     assert metric_info.expression.dialects[0].expression == "count(orders.count)"
+
+
+def test_calculated_measure_with_primitive_type_keeps_its_own_type() -> None:
+    # Regression: forcing every measure to "number" was too broad -- a
+    # calculated measure can carry a real primitive type (e.g. a string
+    # measure built from a CASE expression), which must pass through as-is
+    # rather than being coerced to numeric, matching the classic dataset
+    # path's CUBE_TYPE_TO_SCHEMA_FIELD_TYPE lookup.
+    cube = CubeEntity(
+        name="orders",
+        measures=[CubeMember(name="status_label", is_measure=True, data_type="string")],
+    )
+    view = CubeEntity(
+        name="orders_view",
+        is_view=True,
+        cube_references=["orders"],
+        measures=[
+            CubeMember(
+                name="status_label",
+                is_measure=True,
+                data_type="string",
+                member_references=["orders.status_label"],
+            )
+        ],
+    )
+    mapper = _mapper()
+    aspects = _aspects_by_urn(list(mapper.emit(view, {"orders": cube})))
+
+    orders_logical = (
+        "urn:li:dataset:(urn:li:dataPlatform:cube,demo.orders_view.orders,PROD)"
+    )
+    schema_meta = aspects[orders_logical]["SchemaMetadataClass"]
+    fields = schema_meta.fields  # type: ignore[attr-defined]
+    field = next(f for f in fields if f.fieldPath == "status_label")
+    assert isinstance(field.type.type, StringTypeClass)
+
+    metric = (
+        "urn:li:metric:(urn:li:dataPlatform:cube,demo.orders_view.orders,status_label)"
+    )
+    metric_info = aspects[metric]["MetricInfoClass"]
+    assert isinstance(metric_info, MetricInfoClass)
+    assert metric_info.expression is None
 
 
 def _orders_cube_with_hidden_join_key() -> CubeEntity:

@@ -6,6 +6,7 @@ from datahub.ingestion.source.cube.constants import (
     CUBE_JOIN_CUBE_PLACEHOLDER,
     CUBE_JOIN_EQ_RE,
     CUBE_PLATFORM,
+    CUBE_TYPE_TO_SCHEMA_FIELD_TYPE,
     KNOWN_MEASURE_AGG_TYPES,
 )
 from datahub.ingestion.source.cube.models import CubeEntity, CubeJoin, CubeMember
@@ -303,12 +304,28 @@ class CubeSemanticModelMapper:
             return member.data_type
         return None
 
+    @staticmethod
+    def _measure_field_type(member: CubeMember) -> str:
+        # A measure's `data_type` is usually an aggregation type (e.g.
+        # "count"), not a SQL/native type -- passing it through as-is
+        # resolves to NullType downstream, so default to numeric. But a
+        # calculated measure can carry a real primitive type (string,
+        # boolean, time, date, geo); those must pass through, matching the
+        # classic dataset path's CUBE_TYPE_TO_SCHEMA_FIELD_TYPE lookup.
+        if member.data_type == "geo":
+            # No dedicated DataHub primitive; the classic path surfaces geo
+            # measures as a string too.
+            return "string"
+        if member.data_type in CUBE_TYPE_TO_SCHEMA_FIELD_TYPE:
+            return member.data_type or "number"
+        return "number"
+
     def _semantic_field(self, member: CubeMember) -> SemanticFieldInput:
-        # `data_type` on a measure is Cube's aggregation type (e.g. "count"),
-        # not a SQL/native type -- passing it through as-is resolves to
-        # NullType downstream. Match the classic dataset path, which always
-        # types measures as numeric.
-        native_type = "number" if member.is_measure else (member.data_type or "string")
+        native_type = (
+            self._measure_field_type(member)
+            if member.is_measure
+            else (member.data_type or "string")
+        )
         return SemanticFieldInput(
             field_path=member.name,
             type=native_type,
