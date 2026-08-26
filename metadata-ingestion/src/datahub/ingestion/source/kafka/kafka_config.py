@@ -208,15 +208,6 @@ class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
         "behind this Schema Registry holds more than one Kafka cluster, since the catalog "
         "covers the whole environment and topic names can repeat across clusters.",
     )
-    include_tags: bool = Field(
-        default=True,
-        description="Emit Confluent Cloud tags on topics as DataHub tags.",
-    )
-    include_business_metadata: bool = Field(
-        default=True,
-        description="Emit Confluent Cloud business metadata attributes on topics as DataHub "
-        "custom properties.",
-    )
     include_lineage: bool = Field(
         default=False,
         description="Emit topic-to-topic lineage from Stream Catalog replication metadata "

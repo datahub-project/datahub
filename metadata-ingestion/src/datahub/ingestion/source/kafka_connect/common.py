@@ -184,15 +184,6 @@ class ConfluentCatalogConfig(ConfluentStreamCatalogConfig):
         "the column-level lineage that comes with it, with a `connector -> topic` edge only. "
         "Sink connectors are unaffected.",
     )
-    include_tags: bool = Field(
-        default=True,
-        description="Emit Confluent Cloud tags on connectors as DataHub tags.",
-    )
-    include_business_metadata: bool = Field(
-        default=True,
-        description="Emit Confluent Cloud business metadata attributes on connectors as DataHub "
-        "custom properties.",
-    )
 
     @model_validator(mode="after")
     def validate_catalog_connection(self) -> "ConfluentCatalogConfig":
