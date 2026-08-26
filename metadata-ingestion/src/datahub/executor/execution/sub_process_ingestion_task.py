@@ -48,38 +48,10 @@ from datahub.executor.execution.sub_process_task_common import (
     resolve_wrapper_script,
 )
 from datahub.executor.execution.task import Task, TaskError
-from datahub.masking.bootstrap import shutdown_secret_masking
-from datahub.masking.masking_filter import SecretMaskingFilter
+from datahub.masking.masking_filter import SecretMaskingFilter, mask_secrets
 from datahub.masking.secret_registry import SecretRegistry
 
 logger = logging.getLogger(__name__)
-
-
-def _mask_secrets(
-    text: str, context: str, masking_filter: Optional[SecretMaskingFilter] = None
-) -> str:
-    """Redact registered secrets from text bound for the execution report.
-
-    LogHolder is filled by direct appends, so it never passes through the
-    stdout/logging filters that mask the subprocess's own output. Both the
-    progress reports and the final report publish that text, so both need this.
-
-    Pass `masking_filter` to reuse one across repeated calls: a filter caches its
-    compiled pattern per registry version, so a fresh one rebuilds it every call. A
-    reused filter also keeps its failure state, so repeated masking failures trip its
-    circuit breaker for the rest of the run -- reports then carry a fixed redaction
-    marker rather than leaking.
-    """
-    try:
-        registry = SecretRegistry.get_instance()
-        if registry.get_count() == 0:
-            return text
-        return (masking_filter or SecretMaskingFilter(registry)).mask_text(text)
-    except Exception:
-        logger.warning(
-            "Failed to mask secrets in %s; publishing text unmasked", context
-        )
-    return text
 
 
 ARTIFACTS_DIR_NAME = "artifacts"
@@ -538,7 +510,7 @@ class SubProcessIngestionTask(Task):
                     if most_recent_log_ts is None:
                         report = "No logs yet"
                     else:
-                        report = _mask_secrets(
+                        report = mask_secrets(
                             SubProcessTaskUtil._format_log_lines(
                                 shared_logs.get_lines()
                             ),
@@ -633,7 +605,7 @@ class SubProcessIngestionTask(Task):
                 with open(report_out_file) as structured_report_fp:
                     report_content = structured_report_fp.read()
                 ctx.get_report().set_structured_report(
-                    _mask_secrets(report_content, "structured report")
+                    mask_secrets(report_content, "structured report")
                 )
             except Exception:
                 logger.exception(
@@ -642,7 +614,7 @@ class SubProcessIngestionTask(Task):
 
         try:
             ctx.get_report().set_logs(
-                _mask_secrets(
+                mask_secrets(
                     SubProcessTaskUtil._format_log_lines(shared_logs.get_lines()),
                     "logs",
                 )
@@ -651,11 +623,6 @@ class SubProcessIngestionTask(Task):
             logger.exception("Failed to set logs on execution report")
 
         SubProcessTaskUtil._remove_directory(exec_out_dir)
-
-        try:
-            shutdown_secret_masking()
-        except Exception as e:
-            logger.warning(f"Failed to shutdown secret masking: {e}")
 
         if cancelled:
             ctx.get_report().report_info("Ingestion task was cancelled")

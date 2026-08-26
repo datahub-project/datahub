@@ -53,10 +53,9 @@ _SETUP_VENV = "datahub.executor.execution.sub_process_ingestion_task.setup_venv"
 
 @pytest.fixture(autouse=True)
 def reset_secret_registry() -> Iterator[None]:
-    # SecretRegistry is a process-wide singleton and _handle_subprocess_completion
-    # both reads it (to mask the structured report) and clears it via
-    # shutdown_secret_masking(). Reset around every test so these tests neither
-    # inherit nor leak registered secrets under --random-order.
+    # SecretRegistry is a process-wide singleton that _handle_subprocess_completion
+    # reads to mask the report. Reset around every test so these tests neither inherit
+    # nor leak registered secrets under --random-order.
     SecretRegistry.reset_instance()
     yield
     SecretRegistry.reset_instance()
@@ -904,11 +903,6 @@ class TestSubProcessIngestionTaskCompletion:
             patch("builtins.open", side_effect=OSError(errno.EIO, "I/O error")),
             # set_logs fails.
             patch(_FORMAT_LOG_LINES, side_effect=RuntimeError("format boom")),
-            # Secret-masking shutdown fails.
-            patch(
-                "datahub.executor.execution.sub_process_ingestion_task.shutdown_secret_masking",
-                side_effect=Exception("masking boom"),
-            ),
             # _remove_directory is internally guarded; stub it out.
             patch(_REMOVE_DIRECTORY),
         ):

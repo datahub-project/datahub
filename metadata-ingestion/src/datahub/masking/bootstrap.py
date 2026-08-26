@@ -17,7 +17,7 @@ import logging
 import sys
 import threading
 import traceback
-from typing import Optional
+from typing import Optional, Set
 
 from datahub.masking.logging_utils import get_masking_safe_logger
 from datahub.masking.masking_filter import (
@@ -34,6 +34,58 @@ _bootstrap_completed = False
 _bootstrap_error: Optional[Exception] = None
 _original_excepthook = None  # Track original exception hook for restoration
 _bootstrap_lock = threading.Lock()  # Thread safety for concurrent initialization
+
+# Owner used by callers that own the whole process (the CLI, the wrapper subprocess)
+# and never tear masking back down.
+PROCESS_OWNER = "process"
+
+
+class MaskingLifecycle:
+    """Tracks which executions still need masking installed.
+
+    Masking state is process-wide -- one filter on the root logger, one stdout
+    wrapper, one shared registry -- but the executor runs several ingestions in one
+    process, a thread each. Teardown waits for the last holder to leave.
+
+    Holders are tracked by identity rather than counted.
+    """
+
+    _instance: Optional["MaskingLifecycle"] = None
+    _instance_lock = threading.Lock()
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._holders: Set[str] = set()
+
+    @classmethod
+    def get_instance(cls) -> "MaskingLifecycle":
+        with cls._instance_lock:
+            if cls._instance is None:
+                cls._instance = cls()
+            return cls._instance
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        with cls._instance_lock:
+            cls._instance = None
+
+    def acquire(self, owner: str) -> None:
+        with self._lock:
+            self._holders.add(owner)
+
+    def release(self, owner: str) -> bool:
+        """Drop `owner`'s hold. True once nothing holds masking any more.
+
+        Not exactly-once: simultaneous releases can all see an empty set. Teardown is
+        serialized under the bootstrap lock and is idempotent.
+        """
+        with self._lock:
+            self._holders.discard(owner)
+            return not self._holders
+
+    def holders(self) -> Set[str]:
+        with self._lock:
+            return set(self._holders)
 
 
 def is_bootstrapped() -> bool:
@@ -83,6 +135,7 @@ def _install_exception_hook(registry: SecretRegistry) -> None:
 def initialize_secret_masking(
     max_message_size: int = 5000,
     force: bool = False,
+    owner: str = PROCESS_OWNER,
 ) -> None:
     """
     Initialize secret masking infrastructure (logging filter + exception hook).
@@ -104,6 +157,9 @@ def initialize_secret_masking(
 
     # Thread-safe initialization: acquire lock for entire operation
     with _bootstrap_lock:
+        # Teardown takes this same lock, so it cannot interleave with installation.
+        MaskingLifecycle.get_instance().acquire(owner)
+
         # Prevent double initialization
         if _bootstrap_completed and not force:
             logger.debug("Secret masking already initialized")
@@ -161,30 +217,38 @@ def initialize_secret_masking(
             # Don't raise - graceful degradation
 
 
-def shutdown_secret_masking() -> None:
-    """Shutdown secret masking system."""
+def shutdown_secret_masking(owner: str = PROCESS_OWNER) -> None:
+    """Release `owner`'s hold, tearing masking down once it is the last one."""
     global _bootstrap_completed, _bootstrap_error, _original_excepthook
 
-    try:
-        uninstall_masking_filter()
+    with _bootstrap_lock:
+        if not MaskingLifecycle.get_instance().release(owner):
+            logger.debug(
+                "Secret masking still held by "
+                f"{sorted(MaskingLifecycle.get_instance().holders())}; deferring shutdown"
+            )
+            return
 
-        # Restore original exception hook
-        if _original_excepthook is not None:
-            sys.excepthook = _original_excepthook
-            _original_excepthook = None
+        try:
+            uninstall_masking_filter()
 
-        # Clear registry
-        registry = SecretRegistry.get_instance()
-        registry.clear()
+            # Restore original exception hook
+            if _original_excepthook is not None:
+                sys.excepthook = _original_excepthook
+                _original_excepthook = None
 
-        # Reset masking-safe loggers to restore normal logging
-        from datahub.masking.logging_utils import reset_masking_safe_loggers
+            # Clear registry
+            registry = SecretRegistry.get_instance()
+            registry.clear()
 
-        reset_masking_safe_loggers()
+            # Reset masking-safe loggers to restore normal logging
+            from datahub.masking.logging_utils import reset_masking_safe_loggers
 
-        _bootstrap_completed = False
-        _bootstrap_error = None
+            reset_masking_safe_loggers()
 
-        logger.info("Secret masking shutdown completed")
-    except Exception as e:
-        logger.error(f"Error during secret masking shutdown: {e}")
+            _bootstrap_completed = False
+            _bootstrap_error = None
+
+            logger.info("Secret masking shutdown completed")
+        except Exception as e:
+            logger.error(f"Error during secret masking shutdown: {e}")

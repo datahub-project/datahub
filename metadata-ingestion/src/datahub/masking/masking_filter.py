@@ -492,6 +492,32 @@ def _update_existing_handlers() -> None:
         logger.debug(f"Updated {updated_count} logging handlers to use wrapped streams")
 
 
+def mask_secrets(
+    text: str, context: str, masking_filter: Optional["SecretMaskingFilter"] = None
+) -> str:
+    """Redact registered secrets from text bound for the execution report.
+
+    For text that never passes through the installed filter -- report lines captured
+    for the summary, log buffers filled by direct appends -- so it cannot rely on the
+    filter still being installed when the text is finally published.
+
+    Pass `masking_filter` to reuse one across repeated calls: a filter caches its
+    compiled pattern per registry version, so a fresh one rebuilds it every call. A
+    reused filter also keeps its failure state, so repeated failures trip its circuit
+    breaker -- reports then carry a fixed redaction marker rather than leaking.
+    """
+    try:
+        registry = SecretRegistry.get_instance()
+        if registry.get_count() == 0:
+            return text
+        return (masking_filter or SecretMaskingFilter(registry)).mask_text(text)
+    except Exception:
+        logger.warning(
+            "Failed to mask secrets in %s; publishing text unmasked", context
+        )
+    return text
+
+
 def install_masking_filter(
     secret_registry: Optional[SecretRegistry] = None,
     max_message_size: int = 5000,
