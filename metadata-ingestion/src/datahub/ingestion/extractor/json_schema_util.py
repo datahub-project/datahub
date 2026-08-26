@@ -665,11 +665,16 @@ def get_schema_metadata(
     name: str,
     json_schema: Dict[Any, Any],
     raw_schema_string: Optional[str] = None,
+    swallow_exceptions: bool = True,
 ) -> SchemaMetadataClass:
     json_schema_as_string = raw_schema_string or json.dumps(json_schema)
     md5_hash: str = md5(json_schema_as_string.encode()).hexdigest()
 
-    schema_fields = list(JsonSchemaTranslator.get_fields_from_schema(json_schema))
+    schema_fields = list(
+        JsonSchemaTranslator.get_fields_from_schema(
+            json_schema, swallow_exceptions=swallow_exceptions
+        )
+    )
 
     schema_metadata = SchemaMetadataClass(
         schemaName=name,

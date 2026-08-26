@@ -155,14 +155,24 @@ def get_url_basepath(sw_dict: dict) -> str:
 
 
 def check_sw_version(sw_dict: dict) -> None:
-    if "swagger" in sw_dict:
-        v_split = sw_dict["swagger"].split(".")
-    else:
-        v_split = sw_dict["openapi"].split(".")
+    version_str = sw_dict.get("swagger") or sw_dict.get("openapi")
+    if not isinstance(version_str, str):
+        return
+    # Strip prerelease / build suffixes (e.g. 3.0.1-rc1, 3.1.0+SNAPSHOT) before
+    # comparing major.minor — this is only an informational "not fully tested" notice.
+    core = re.split(r"[-+]", version_str, maxsplit=1)[0]
+    parts = core.split(".")
+    try:
+        major = int(parts[0])
+        minor = int(parts[1]) if len(parts) > 1 else 0
+    except (ValueError, IndexError):
+        logger.warning(
+            "Unable to parse OpenAPI/Swagger version %r; skipping version check",
+            version_str,
+        )
+        return
 
-    version = [int(v) for v in v_split]
-
-    if version[0] == 3 and version[1] > 0:
+    if major == 3 and minor > 0:
         logger.warning(
             "This plugin has not been fully tested with Swagger version >3.0"
         )
@@ -737,6 +747,18 @@ def _merge_allof_map_keywords(
                 prop_schema = _combine_under_allof(existing, prop_schema)
             merged_schema["patternProperties"][pattern] = prop_schema
 
+    # Keep propertyNames so unresolved $ref there cannot break later jsonref loads.
+    # json_schema_util does not emit fields from propertyNames; we only preserve/resolve.
+    if "propertyNames" in resolved_allof:
+        incoming_names = resolved_allof["propertyNames"]
+        existing_names = merged_schema.get("propertyNames")
+        if existing_names is None:
+            merged_schema["propertyNames"] = incoming_names
+        elif isinstance(existing_names, dict) and isinstance(incoming_names, dict):
+            merged_schema["propertyNames"] = _combine_under_allof(
+                existing_names, incoming_names
+            )
+
 
 # Numeric allOf bounds without exclusive* modifiers. minimum/maximum are merged
 # jointly with exclusiveMinimum/Maximum so OpenAPI 3.0 boolean exclusivity stays
@@ -965,65 +987,6 @@ def _resolve_ref_directly(schema: Dict, sw_dict: Dict) -> Dict:
     return schema
 
 
-def enhance_schema_with_titles(
-    schema: Dict, sw_dict: Dict, schema_name: str = "", is_top_level: bool = True
-) -> Dict:
-    """
-    Enhance schemas with title fields so that json_schema_util.py uses schema names instead of 'object'.
-    This is done without modifying json_schema_util.py itself.
-
-    Args:
-        schema: Schema dictionary to enhance
-        sw_dict: Complete OpenAPI specification
-        schema_name: Name to use as title (only for top-level schemas)
-        is_top_level: Whether this is a top-level schema (not a nested property)
-    """
-    if not isinstance(schema, dict):
-        return schema
-
-    enhanced_schema = schema.copy()
-
-    # Only add title to top-level schemas to avoid definition names in field paths
-    # Only add if schema doesn't already have a title and we have a schema name
-    if is_top_level and "title" not in enhanced_schema and schema_name:
-        enhanced_schema["title"] = schema_name
-
-    # Recursively enhance nested schemas, but don't add titles to nested properties
-    # This prevents definition names from appearing in field paths
-    if "properties" in enhanced_schema:
-        for prop_name, prop_schema in enhanced_schema["properties"].items():
-            # Don't add titles to nested properties - just resolve references
-            enhanced_schema["properties"][prop_name] = enhance_schema_with_titles(
-                prop_schema, sw_dict, "", is_top_level=False
-            )
-
-    # Enhance array items without adding titles
-    if "items" in enhanced_schema:
-        enhanced_schema["items"] = enhance_schema_with_titles(
-            enhanced_schema["items"], sw_dict, "", is_top_level=False
-        )
-
-    # Enhance additionalProperties without adding titles
-    if "additionalProperties" in enhanced_schema and isinstance(
-        enhanced_schema["additionalProperties"], dict
-    ):
-        enhanced_schema["additionalProperties"] = enhance_schema_with_titles(
-            enhanced_schema["additionalProperties"], sw_dict, "", is_top_level=False
-        )
-
-    # Handle union types - don't add titles to union members
-    for union_key in ["oneOf", "anyOf", "allOf"]:
-        if union_key in enhanced_schema:
-            enhanced_schema[union_key] = [
-                enhance_schema_with_titles(
-                    union_schema, sw_dict, "", is_top_level=False
-                )
-                for union_schema in enhanced_schema[union_key]
-            ]
-
-    return enhanced_schema
-
-
 def _resolve_pattern_properties(
     resolved_schema: Dict[str, Any], sw_dict: Dict[str, Any], max_depth: int
 ) -> None:
@@ -1170,6 +1133,13 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
 
     # After allOf so keywords contributed by members are resolved too.
     _resolve_pattern_properties(resolved_schema, sw_dict, max_depth)
+
+    # Resolve propertyNames so leftover $refs cannot break jsonref in json_schema_util.
+    property_names = resolved_schema.get("propertyNames")
+    if isinstance(property_names, dict):
+        resolved_schema["propertyNames"] = resolve_schema_references(
+            property_names, sw_dict, max_depth=max_depth - 1
+        )
 
     # Handle union types (oneOf, anyOf) - allOf is already handled above
     for union_key in ["oneOf", "anyOf"]:

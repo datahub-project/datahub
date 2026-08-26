@@ -7,8 +7,13 @@ import yaml
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
-from datahub.ingestion.source.openapi import APISource, OpenApiConfig
+from datahub.ingestion.source.openapi import (
+    APISource,
+    OpenApiConfig,
+    OpenApiGetTokenConfig,
+)
 from datahub.ingestion.source.openapi_parser import (
+    check_sw_version,
     flatten2list,
     get_endpoints,
     get_url_basepath,
@@ -608,6 +613,22 @@ paths:
 
         self.assertIn("data", url_endpoints["/v2/update"])
         self.assertNotIn("data", url_endpoints["/v2/updateNoExample"])
+
+    def test_get_endpoints_prerelease_openapi_version_does_not_crash(self) -> None:
+        # Springdoc / Java generators often emit 3.0.1-rc1 style version strings.
+        sw_dict = {
+            "openapi": "3.0.1-rc1",
+            "paths": {
+                "/pets": {
+                    "get": {
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                }
+            },
+        }
+        check_sw_version(sw_dict)  # must not raise
+        endpoints = get_endpoints(sw_dict)
+        self.assertIn("/pets", endpoints)
 
 
 class TestExplodeDict(unittest.TestCase):
@@ -2226,3 +2247,117 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             forced_examples={"/pet/{petId}": [1]},
         )
         self.assertEqual(config.forced_examples["/pet/{petId}"], ["1"])
+
+    def test_get_token_empty_dict_coerces_to_none(self):
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            get_token={},
+        )
+        self.assertIsNone(config.get_token)
+
+    def test_get_token_get_requires_placeholders(self):
+        with self.assertRaises(ValueError):
+            OpenApiGetTokenConfig(request_type="get", url_complement="/token")
+        cfg = OpenApiGetTokenConfig(
+            request_type="get",
+            url_complement="/token?u={username}&p={password}",
+        )
+        self.assertEqual(cfg.request_type, "get")
+
+    def test_property_names_ref_resolved_before_schema_metadata(self):
+        # Unresolved propertyNames $ref used to break jsonref and yield empty fields.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "KeyName": {"type": "string", "minLength": 1},
+                    "MapBody": {
+                        "type": "object",
+                        "propertyNames": {"$ref": "#/components/schemas/KeyName"},
+                        "additionalProperties": {"type": "string"},
+                    },
+                }
+            },
+        }
+        schema = {"$ref": "#/components/schemas/MapBody"}
+        resolved = resolve_schema_references(schema, sw_dict)
+        self.assertNotIn("$ref", json.dumps(resolved.get("propertyNames")))
+        self.assertEqual(resolved["propertyNames"].get("type"), "string")
+
+        metadata = self.source.create_schema_metadata_from_schema("map", resolved)
+        self.assertIsNotNone(metadata)
+        assert metadata is not None
+        self.assertTrue(len(metadata.fields) > 0)
+
+    def test_create_schema_metadata_reports_conversion_failure(self):
+        # Broken $ref must not count as a successful OpenAPI-spec extract.
+        bad_schema = {"$ref": "#/components/schemas/Missing"}
+        before = self.source.schema_extraction_stats.from_openapi_spec
+        result = self.source.create_schema_metadata_from_schema("bad", bad_schema)
+        self.assertIsNone(result)
+        self.assertEqual(self.source.schema_extraction_stats.from_openapi_spec, before)
+        self.assertTrue(
+            any(
+                getattr(w, "title", None) == "Failed to Create Schema Metadata"
+                for w in self.source.report.warnings
+            )
+        )
+
+    def test_per_endpoint_isolation_continues_after_failure(self):
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/good": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {"id": {"type": "string"}},
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "/bad": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/Missing"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+            },
+            "components": {"schemas": {}},
+        }
+
+        with patch.object(OpenApiConfig, "get_swagger", return_value=sw_dict):
+            workunits = list(self.source.get_workunits_internal())
+
+        urns = [
+            wu.metadata.entityUrn
+            for wu in workunits
+            if hasattr(wu.metadata, "entityUrn")
+        ]
+        self.assertTrue(any("good" in (urn or "") for urn in urns))
+        self.assertTrue(any("bad" in (urn or "") for urn in urns))
+        # /bad may warn on schema conversion but must not abort the run.
+        self.assertFalse(
+            any(
+                getattr(f, "title", None) == "Failed to Process Endpoint"
+                for f in self.source.report.failures
+            )
+        )
