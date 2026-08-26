@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any, Dict, Iterator, List
 from unittest.mock import MagicMock, patch
 
 import click
@@ -11,6 +12,7 @@ from datahub.cli.docker_cli import (
     _check_upgrade_and_show_instructions,
     _docker_compose_v2,
     _resolve_token_service_secrets,
+    _restore,
     check,
     download_compose_files,
     get_github_file_url,
@@ -471,3 +473,118 @@ def test_resolve_secrets_generated_values_are_unique(tmp_path: Path) -> None:
 
     assert results[0][0] != results[1][0]
     assert results[0][1] != results[1][1]
+
+
+@pytest.fixture
+def restore_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Pin the env vars _restore expands into the upgrade container's env file, so the
+    test neither depends on nor writes local quickstart secrets."""
+    monkeypatch.setenv("DATAHUB_TOKEN_SERVICE_SIGNING_KEY", "test-signing-key")
+    monkeypatch.setenv("DATAHUB_TOKEN_SERVICE_SALT", "test-salt")
+    monkeypatch.delenv("DATAHUB_SYSTEM_CLIENT_ID", raising=False)
+    monkeypatch.delenv("DATAHUB_SYSTEM_CLIENT_SECRET", raising=False)
+    monkeypatch.delenv("DATAHUB_VERSION", raising=False)
+    with (
+        patch("datahub.cli.docker_cli._resolve_token_service_secrets"),
+        patch("datahub.cli.docker_cli.click.confirm"),
+    ):
+        yield
+
+
+def _cmd_from_run_args(*args: Any, **kwargs: Any) -> str:
+    call_args = kwargs.get("args") or args[0]
+    return call_args[-1]
+
+
+def test_restore_indices_env_file_carries_system_client_credentials(
+    restore_env: None,
+) -> None:
+    """The RestoreIndices upgrade container must receive the system client credentials
+    via its env file: upgrade images no longer bake in a default secret, so omitting it
+    leaves the container unable to authenticate and the restore stalls indefinitely."""
+    captured: Dict[str, str] = {}
+
+    def fake_run(*args: Any, **kwargs: Any) -> MagicMock:
+        cmd = _cmd_from_run_args(*args, **kwargs)
+        if cmd.startswith("docker pull"):
+            captured["pull_cmd"] = cmd
+            return MagicMock(returncode=0)
+        assert "--env-file" in cmd, f"unexpected subprocess command: {cmd}"
+        env_file = cmd.split("--env-file ")[1].split(" ")[0]
+        # Read while _restore still holds the NamedTemporaryFile open.
+        captured["env"] = Path(env_file).read_text()
+        captured["run_cmd"] = cmd
+        return MagicMock(returncode=0)
+
+    with patch("datahub.cli.docker_cli.subprocess.run", side_effect=fake_run):
+        rc = _restore(
+            restore_primary=False, restore_indices=True, primary_restore_file=None
+        )
+
+    assert rc == 0
+    assert "DATAHUB_SYSTEM_CLIENT_ID=__datahub_system" in captured["env"]
+    assert "DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing" in captured["env"]
+    assert "acryldata/datahub-upgrade:quickstart" in captured["run_cmd"]
+    assert "-u RestoreIndices -a clean" in captured["run_cmd"]
+
+
+def test_restore_indices_respects_system_client_secret_override(
+    restore_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATAHUB_SYSTEM_CLIENT_SECRET", "from-environment")
+    captured: Dict[str, str] = {}
+
+    def fake_run(*args: Any, **kwargs: Any) -> MagicMock:
+        cmd = _cmd_from_run_args(*args, **kwargs)
+        if "--env-file" in cmd:
+            env_file = cmd.split("--env-file ")[1].split(" ")[0]
+            captured["env"] = Path(env_file).read_text()
+        return MagicMock(returncode=0)
+
+    with patch("datahub.cli.docker_cli.subprocess.run", side_effect=fake_run):
+        rc = _restore(
+            restore_primary=False, restore_indices=True, primary_restore_file=None
+        )
+
+    assert rc == 0
+    assert "DATAHUB_SYSTEM_CLIENT_SECRET=from-environment" in captured["env"]
+
+
+def test_restore_indices_pull_failure_aborts_without_running(
+    restore_env: None,
+) -> None:
+    """A failed image pull must surface its exit code instead of proceeding to run a
+    stale or missing image."""
+    commands: List[str] = []
+
+    def fake_run(*args: Any, **kwargs: Any) -> MagicMock:
+        commands.append(_cmd_from_run_args(*args, **kwargs))
+        return MagicMock(returncode=18)
+
+    with patch("datahub.cli.docker_cli.subprocess.run", side_effect=fake_run):
+        rc = _restore(
+            restore_primary=False, restore_indices=True, primary_restore_file=None
+        )
+
+    assert rc == 18
+    assert len(commands) == 1
+    assert commands[0].startswith("docker pull")
+
+
+def test_restore_indices_uses_datahub_version_tag(
+    restore_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATAHUB_VERSION", "v9.9.9-test")
+    commands: List[str] = []
+
+    def fake_run(*args: Any, **kwargs: Any) -> MagicMock:
+        commands.append(_cmd_from_run_args(*args, **kwargs))
+        return MagicMock(returncode=0)
+
+    with patch("datahub.cli.docker_cli.subprocess.run", side_effect=fake_run):
+        rc = _restore(
+            restore_primary=False, restore_indices=True, primary_restore_file=None
+        )
+
+    assert rc == 0
+    assert all("acryldata/datahub-upgrade:v9.9.9-test" in cmd for cmd in commands)

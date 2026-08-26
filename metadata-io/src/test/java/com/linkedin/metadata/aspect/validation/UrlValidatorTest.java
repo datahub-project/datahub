@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.Embed;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -17,6 +18,7 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.util.List;
 import java.util.Set;
 import org.mockito.Mock;
@@ -27,6 +29,11 @@ import org.testng.annotations.Test;
 public class UrlValidatorTest {
   private static final Urn TEST_USER_URN = UrnUtils.getUrn("urn:li:corpuser:testUser");
   private static final Urn TEST_GROUP_URN = UrnUtils.getUrn("urn:li:corpGroup:testGroup");
+  private static final Urn TEST_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_table,PROD)");
+  private static final Urn TEST_CHART_URN = UrnUtils.getUrn("urn:li:chart:(looker,my_chart)");
+  private static final Urn TEST_DASHBOARD_URN =
+      UrnUtils.getUrn("urn:li:dashboard:(looker,my_dashboard)");
 
   private static final AspectPluginConfig TEST_PLUGIN_CONFIG =
       AspectPluginConfig.builder()
@@ -38,7 +45,11 @@ public class UrlValidatorTest {
                   new AspectPluginConfig.EntityAspectName(
                       CORP_USER_ENTITY_NAME, CORP_USER_EDITABLE_INFO_ASPECT_NAME),
                   new AspectPluginConfig.EntityAspectName(
-                      CORP_GROUP_ENTITY_NAME, CORP_GROUP_EDITABLE_INFO_ASPECT_NAME)))
+                      CORP_GROUP_ENTITY_NAME, CORP_GROUP_EDITABLE_INFO_ASPECT_NAME),
+                  new AspectPluginConfig.EntityAspectName(DATASET_ENTITY_NAME, EMBED_ASPECT_NAME),
+                  new AspectPluginConfig.EntityAspectName(CHART_ENTITY_NAME, EMBED_ASPECT_NAME),
+                  new AspectPluginConfig.EntityAspectName(
+                      DASHBOARD_ENTITY_NAME, EMBED_ASPECT_NAME)))
           .build();
 
   @Mock private RetrieverContext mockRetrieverContext;
@@ -379,6 +390,217 @@ public class UrlValidatorTest {
             .count(),
         1,
         "Corp group pictureLink should also be validated (HTTP rejected)");
+  }
+
+  // --- Embed renderUrl tests (scheme-allowlist only: http/https allowed, internal hosts allowed)
+  // ---
+
+  private long validateEmbedRenderUrl(String renderUrl) {
+    return validateEmbedRenderUrl(TEST_DATASET_URN, renderUrl);
+  }
+
+  private long validateEmbedRenderUrl(Urn urn, String renderUrl) {
+    Embed embed = new Embed();
+    embed.setRenderUrl(renderUrl);
+    return validator
+        .validateProposed(
+            OperationFingerprint.EMPTY,
+            Set.of(
+                TestMCP.builder()
+                    .changeType(ChangeType.UPSERT)
+                    .urn(urn)
+                    .entitySpec(entityRegistry.getEntitySpec(urn.getEntityType()))
+                    .aspectSpec(
+                        entityRegistry
+                            .getEntitySpec(urn.getEntityType())
+                            .getAspectSpec(EMBED_ASPECT_NAME))
+                    .recordTemplate(embed)
+                    .build()),
+            mockRetrieverContext,
+            null)
+        .count();
+  }
+
+  private long validateEmbedPatch(Urn urn, String renderUrl) {
+    String ops = "[{\"op\":\"add\",\"path\":\"/renderUrl\",\"value\":\"" + renderUrl + "\"}]";
+    return validator
+        .validateProposed(
+            OperationFingerprint.EMPTY,
+            Set.of(TestPatchMCP.of(urn, EMBED_ASPECT_NAME, ops)),
+            mockRetrieverContext,
+            null)
+        .count();
+  }
+
+  @Test
+  public void testEmbedJavascriptSchemeRejected() {
+    assertEquals(
+        validateEmbedRenderUrl("javascript:alert(document.cookie)"),
+        1,
+        "javascript: renderUrl should be rejected (stored XSS guard)");
+  }
+
+  @Test
+  public void testEmbedHttpsAccepted() {
+    assertEquals(
+        validateEmbedRenderUrl("https://bi.example.com/dashboard/1"),
+        0,
+        "HTTPS renderUrl should be accepted");
+  }
+
+  @Test
+  public void testEmbedHttpInternalHostAccepted() {
+    // Unlike pictureLink validation, embeds intentionally allow HTTP and internal hosts so that
+    // self-hosted/internal BI tools can be embedded. A private IP that pictureLink would reject
+    // must pass here.
+    assertEquals(
+        validateEmbedRenderUrl("http://192.168.1.10/dashboard"),
+        0,
+        "HTTP renderUrl to an internal host should be accepted for embeds");
+  }
+
+  @Test
+  public void testEmbedBlankRenderUrlAllowed() {
+    assertEquals(validateEmbedRenderUrl(""), 0, "Blank renderUrl (clearing the embed) is allowed");
+  }
+
+  @Test
+  public void testEmbedFtpAndMailtoAccepted() {
+    // The embed allowlist mirrors the frontend safeUrl allowlist (http/https/ftp/mailto) so the
+    // write-time check and the render-time guard agree. ftp:/mailto: are inert (not XSS vectors).
+    assertEquals(validateEmbedRenderUrl("ftp://files.example.com/report"), 0, "ftp: is allowed");
+    assertEquals(validateEmbedRenderUrl("mailto:team@example.com"), 0, "mailto: is allowed");
+  }
+
+  @Test
+  public void testEmbedDataSchemeRejected() {
+    assertEquals(
+        validateEmbedRenderUrl("data:text/html,<script>alert(1)</script>"),
+        1,
+        "data: renderUrl should be rejected (stored XSS guard)");
+  }
+
+  @Test
+  public void testEmbedRenderUrlValidatedForChartAndDashboard() {
+    // The validator is registered for chart and dashboard embeds too, not just dataset.
+    assertEquals(
+        validateEmbedRenderUrl(TEST_CHART_URN, "javascript:alert(1)"),
+        1,
+        "javascript: renderUrl on a chart embed should be rejected");
+    assertEquals(
+        validateEmbedRenderUrl(TEST_CHART_URN, "https://bi.example.com/chart/1"),
+        0,
+        "HTTPS renderUrl on a chart embed should be accepted");
+    assertEquals(
+        validateEmbedRenderUrl(TEST_DASHBOARD_URN, "javascript:alert(1)"),
+        1,
+        "javascript: renderUrl on a dashboard embed should be rejected");
+    assertEquals(
+        validateEmbedRenderUrl(TEST_DASHBOARD_URN, "https://bi.example.com/dash/1"),
+        0,
+        "HTTPS renderUrl on a dashboard embed should be accepted");
+  }
+
+  @Test
+  public void testEmbedPatchJavascriptSchemeRejected() {
+    // A PATCH carries only the delta (getAspect is null), so this covers the generic PATCH path
+    // that would otherwise bypass the stored-XSS guard.
+    assertEquals(
+        validateEmbedPatch(TEST_DATASET_URN, "javascript:alert(document.cookie)"),
+        1,
+        "javascript: renderUrl set via PATCH should be rejected");
+  }
+
+  @Test
+  public void testEmbedRelativeUrlRejected() {
+    // Scheme-less URLs fail the allowlist: the validator cannot prove where a
+    // relative path resolves at render time.
+    assertEquals(
+        validateEmbedRenderUrl("/superset/dashboard/1/"),
+        1,
+        "Scheme-less renderUrl should be rejected");
+  }
+
+  @Test
+  public void testEmbedMalformedUrlRejected() {
+    assertEquals(
+        validateEmbedRenderUrl("http://exa mple.com/embed"),
+        1,
+        "Unparseable renderUrl should be rejected as a syntax violation");
+  }
+
+  @Test
+  public void testEmbedSchemeCheckIsCaseInsensitive() {
+    assertEquals(
+        validateEmbedRenderUrl("JAVASCRIPT:alert(1)"),
+        1,
+        "Scheme casing must not bypass the deny of script-executing schemes");
+    assertEquals(
+        validateEmbedRenderUrl("HTTPS://example.com/embed"),
+        0,
+        "Upper-cased HTTPS is still an allowed scheme");
+  }
+
+  @Test
+  public void testEmbedWithoutRenderUrlAllowed() {
+    Embed embed = new Embed();
+    long count =
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_DATASET_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_DATASET_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_DATASET_URN.getEntityType())
+                                .getAspectSpec(EMBED_ASPECT_NAME))
+                        .recordTemplate(embed)
+                        .build()),
+                mockRetrieverContext,
+                null)
+            .count();
+    assertEquals(count, 0, "Embed aspect without a renderUrl has nothing to validate");
+  }
+
+  @Test
+  public void testEmbedPatchRemoveOpIgnored() {
+    String ops = "[{\"op\":\"remove\",\"path\":\"/renderUrl\"}]";
+    long count =
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(TEST_DATASET_URN, EMBED_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count();
+    assertEquals(count, 0, "A remove-only patch sets no renderUrl to validate");
+  }
+
+  @Test
+  public void testEmbedPatchUnparseableDeltaIgnored() {
+    // A delta that cannot coerce into the Embed schema is left for schema validation
+    // at merge time rather than failing here.
+    String ops = "[{\"op\":\"add\",\"path\":\"/renderUrl\",\"value\":{\"nested\":\"object\"}}]";
+    long count =
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(TEST_DATASET_URN, EMBED_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count();
+    assertEquals(count, 0, "Unparseable embed delta is not this validator's violation");
+  }
+
+  @Test
+  public void testEmbedPatchHttpsAccepted() {
+    assertEquals(
+        validateEmbedPatch(TEST_DATASET_URN, "https://bi.example.com/dashboard/1"),
+        0,
+        "HTTPS renderUrl set via PATCH should be accepted");
   }
 
   @Test
