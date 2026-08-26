@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any, Dict, Iterator, List
 from unittest.mock import MagicMock, patch
 
 import click
@@ -475,7 +476,7 @@ def test_resolve_secrets_generated_values_are_unique(tmp_path: Path) -> None:
 
 
 @pytest.fixture
-def restore_env(monkeypatch: pytest.MonkeyPatch):
+def restore_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Pin the env vars _restore expands into the upgrade container's env file, so the
     test neither depends on nor writes local quickstart secrets."""
     monkeypatch.setenv("DATAHUB_TOKEN_SERVICE_SIGNING_KEY", "test-signing-key")
@@ -490,7 +491,7 @@ def restore_env(monkeypatch: pytest.MonkeyPatch):
         yield
 
 
-def _cmd_from_run_args(*args, **kwargs) -> str:
+def _cmd_from_run_args(*args: Any, **kwargs: Any) -> str:
     call_args = kwargs.get("args") or args[0]
     return call_args[-1]
 
@@ -501,9 +502,9 @@ def test_restore_indices_env_file_carries_system_client_credentials(
     """The RestoreIndices upgrade container must receive the system client credentials
     via its env file: upgrade images no longer bake in a default secret, so omitting it
     leaves the container unable to authenticate and the restore stalls indefinitely."""
-    captured: dict = {}
+    captured: Dict[str, str] = {}
 
-    def fake_run(*args, **kwargs):
+    def fake_run(*args: Any, **kwargs: Any) -> MagicMock:
         cmd = _cmd_from_run_args(*args, **kwargs)
         if cmd.startswith("docker pull"):
             captured["pull_cmd"] = cmd
@@ -531,9 +532,9 @@ def test_restore_indices_respects_system_client_secret_override(
     restore_env: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("DATAHUB_SYSTEM_CLIENT_SECRET", "from-environment")
-    captured: dict = {}
+    captured: Dict[str, str] = {}
 
-    def fake_run(*args, **kwargs):
+    def fake_run(*args: Any, **kwargs: Any) -> MagicMock:
         cmd = _cmd_from_run_args(*args, **kwargs)
         if "--env-file" in cmd:
             env_file = cmd.split("--env-file ")[1].split(" ")[0]
@@ -554,9 +555,9 @@ def test_restore_indices_pull_failure_aborts_without_running(
 ) -> None:
     """A failed image pull must surface its exit code instead of proceeding to run a
     stale or missing image."""
-    commands: list = []
+    commands: List[str] = []
 
-    def fake_run(*args, **kwargs):
+    def fake_run(*args: Any, **kwargs: Any) -> MagicMock:
         commands.append(_cmd_from_run_args(*args, **kwargs))
         return MagicMock(returncode=18)
 
@@ -574,9 +575,9 @@ def test_restore_indices_uses_datahub_version_tag(
     restore_env: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("DATAHUB_VERSION", "v9.9.9-test")
-    commands: list = []
+    commands: List[str] = []
 
-    def fake_run(*args, **kwargs):
+    def fake_run(*args: Any, **kwargs: Any) -> MagicMock:
         commands.append(_cmd_from_run_args(*args, **kwargs))
         return MagicMock(returncode=0)
 
