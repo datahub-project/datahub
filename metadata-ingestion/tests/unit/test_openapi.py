@@ -14,6 +14,7 @@ from datahub.ingestion.source.openapi_parser import (
     get_url_basepath,
     guessing_url_name,
     maybe_theres_simple_id,
+    merge_allof_schemas,
     resolve_schema_references,
     try_guessing,
 )
@@ -1797,8 +1798,37 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         pattern_schema = resolved["patternProperties"]["^x"]
         self.assertEqual(pattern_schema.get("minLength"), 5)
         self.assertEqual(pattern_schema.get("maxLength"), 7)
+        # Merged integer bounds must stay ints (not coerced to float).
+        self.assertIsInstance(pattern_schema.get("minLength"), int)
+        self.assertIsInstance(pattern_schema.get("maxLength"), int)
 
-    def test_merge_allof_boolean_exclusive_bounds(self):
+    def test_merge_allof_integer_bounds_preserve_int_type(self):
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 10,
+            "allOf": [{"minLength": 5}],
+        }
+
+        resolved = merge_allof_schemas(schema, sw_dict, resolving_refs=True)
+
+        self.assertEqual(resolved.get("minLength"), 5)
+        self.assertIsInstance(resolved.get("minLength"), int)
+        self.assertIsInstance(resolved.get("maxLength"), int)
+
+    def test_merge_allof_pattern_properties_does_not_mutate_shared_dict(self):
+        shared: Dict[str, Any] = {"^x": {"type": "string"}}
+        schema = {
+            "patternProperties": shared,
+            "allOf": [{"patternProperties": {"^y": {"type": "integer"}}}],
+        }
+
+        resolved = merge_allof_schemas(schema, {}, resolving_refs=True)
+
+        self.assertIn("^y", resolved["patternProperties"])
+        self.assertEqual(shared, {"^x": {"type": "string"}})
+        self.assertIsNot(resolved["patternProperties"], shared)
         # OpenAPI 3.0 exclusiveMinimum/Maximum are booleans tied to minimum/maximum:
         # the bound stays exclusive if any member is exclusive (no min()/max() on bools).
         sw_dict = _EMPTY_OPENAPI_SW

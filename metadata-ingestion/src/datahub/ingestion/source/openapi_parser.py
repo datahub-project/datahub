@@ -1,7 +1,17 @@
 import json
 import logging
 import re
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Tuple,
+    TypeGuard,
+    Union,
+)
 
 import requests
 import yaml
@@ -681,8 +691,11 @@ def _merge_allof_map_keywords(
 
     pattern_props = resolved_allof.get("patternProperties")
     if isinstance(pattern_props, dict):
-        if not isinstance(merged_schema.get("patternProperties"), dict):
-            merged_schema["patternProperties"] = {}
+        # Copy before mutate — merged_schema may still alias the caller's nested dict.
+        existing_pp = merged_schema.get("patternProperties")
+        merged_schema["patternProperties"] = (
+            dict(existing_pp) if isinstance(existing_pp, dict) else {}
+        )
         for pattern, prop_schema in pattern_props.items():
             existing = merged_schema["patternProperties"].get(pattern)
             if existing is not None:
@@ -699,8 +712,10 @@ def _merge_allof_map_keywords(
 
 
 # Numeric allOf bounds: lower-bound keywords take max (most restrictive is largest),
-# upper-bound keywords take min (most restrictive is smallest).
-_ALLOF_NUMERIC_BOUNDS: Dict[str, Callable[[float, float], float]] = {
+# upper-bound keywords take min (most restrictive is smallest). max/min preserve the
+# operand types (int stays int), so do not coerce through float.
+_Number = Union[int, float]
+_ALLOF_NUMERIC_BOUNDS: Dict[str, Callable[[_Number, _Number], _Number]] = {
     "minLength": max,
     "minimum": max,
     "minItems": max,
@@ -723,9 +738,7 @@ def _merge_allof_validation_keywords(
             continue
         current = merged_schema.get(key)
         merged_schema[key] = (
-            more_restrictive(_as_float(current), _as_float(incoming))
-            if _is_number(current)
-            else incoming
+            more_restrictive(current, incoming) if _is_number(current) else incoming
         )
     # exclusiveMinimum/Maximum are booleans in OpenAPI 3.0 but numeric bounds in JSON
     # Schema draft-6+, so they need a dedicated merge that keeps numeric bounds when
@@ -744,21 +757,15 @@ def _merge_allof_validation_keywords(
             merged_schema[key] = resolved_allof[key]
 
 
-def _is_number(value: object) -> bool:
+def _is_number(value: object) -> TypeGuard[_Number]:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
-
-
-def _as_float(value: object) -> float:
-    # Caller must have already gated with _is_number.
-    assert isinstance(value, (int, float)) and not isinstance(value, bool)
-    return float(value)
 
 
 def _merge_exclusive_bound(
     merged_schema: Dict[str, Any],
     resolved_allof: Dict[str, Any],
     key: str,
-    numeric_more_restrictive: Callable[[float, float], float],
+    numeric_more_restrictive: Callable[[_Number, _Number], _Number],
 ) -> None:
     if key not in resolved_allof:
         return
@@ -766,7 +773,7 @@ def _merge_exclusive_bound(
     current = merged_schema.get(key)
     if _is_number(incoming):
         merged_schema[key] = (
-            numeric_more_restrictive(_as_float(current), _as_float(incoming))
+            numeric_more_restrictive(current, incoming)
             if _is_number(current)
             else incoming
         )
@@ -876,6 +883,10 @@ def enhance_schema_with_titles(
     if "patternProperties" in enhanced_schema and isinstance(
         enhanced_schema["patternProperties"], dict
     ):
+        # schema.copy() is shallow — copy the map before rewriting entries in place.
+        enhanced_schema["patternProperties"] = dict(
+            enhanced_schema["patternProperties"]
+        )
         for pattern, prop_schema in list(enhanced_schema["patternProperties"].items()):
             enhanced_schema["patternProperties"][pattern] = enhance_schema_with_titles(
                 prop_schema, sw_dict, "", is_top_level=False
@@ -925,6 +936,9 @@ def _resolve_pattern_and_property_names(
 ) -> None:
     pattern_properties = resolved_schema.get("patternProperties")
     if isinstance(pattern_properties, dict):
+        # resolved_schema may still alias sw_dict's nested map — copy before rewrite.
+        pattern_properties = dict(pattern_properties)
+        resolved_schema["patternProperties"] = pattern_properties
         for pattern, prop_schema in list(pattern_properties.items()):
             pattern_properties[pattern] = resolve_schema_references(
                 prop_schema, sw_dict, max_depth=max_depth - 1
