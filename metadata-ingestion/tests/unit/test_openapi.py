@@ -18,6 +18,34 @@ from datahub.ingestion.source.openapi_parser import (
     try_guessing,
 )
 
+# Shared fixtures for patternProperties / propertyNames / allOf merge tests.
+_EMPTY_OPENAPI_SW: Dict[str, Any] = {
+    "openapi": "3.0.0",
+    "components": {"schemas": {}},
+}
+_ITEM_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+    },
+}
+_ITEM_SW_DICT: Dict[str, Any] = {
+    "openapi": "3.0.0",
+    "components": {"schemas": {"Item": _ITEM_SCHEMA}},
+}
+_ITEM_ID_ONLY_SW: Dict[str, Any] = {
+    "openapi": "3.0.0",
+    "components": {
+        "schemas": {
+            "Item": {
+                "type": "object",
+                "properties": {"id": {"type": "string"}},
+            }
+        }
+    },
+}
+
 
 class TestGetUrlBasepath:
     def test_base_path_v2(self):
@@ -1448,20 +1476,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIsNotNone(resolved)
 
     def test_resolve_schema_references_pattern_properties_anyof_ref(self):
-        sw_dict = {
-            "openapi": "3.0.0",
-            "components": {
-                "schemas": {
-                    "Item": {
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "string"},
-                            "name": {"type": "string"},
-                        },
-                    }
-                }
-            },
-        }
+        sw_dict = _ITEM_SW_DICT
         schema = {
             "type": "object",
             "patternProperties": {
@@ -1488,17 +1503,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertTrue(any(".name" in path for path in field_paths))
 
     def test_resolve_schema_references_pattern_properties_keeps_named_properties(self):
-        sw_dict = {
-            "openapi": "3.0.0",
-            "components": {
-                "schemas": {
-                    "Item": {
-                        "type": "object",
-                        "properties": {"id": {"type": "string"}},
-                    }
-                }
-            },
-        }
+        sw_dict = _ITEM_ID_ONLY_SW
         schema = {
             "type": "object",
             "properties": {"fixed": {"type": "string"}},
@@ -1521,17 +1526,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertTrue(any(".fixed" in path for path in field_paths))
 
     def test_resolve_schema_references_pattern_properties_after_allof(self):
-        sw_dict = {
-            "openapi": "3.0.0",
-            "components": {
-                "schemas": {
-                    "Item": {
-                        "type": "object",
-                        "properties": {"id": {"type": "string"}},
-                    },
-                }
-            },
-        }
+        sw_dict = _ITEM_ID_ONLY_SW
         schema = {
             "type": "object",
             "patternProperties": {
@@ -1558,17 +1553,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertTrue(any(".fixed" in path for path in field_paths))
 
     def test_resolve_schema_references_empty_properties_still_promotes(self):
-        sw_dict = {
-            "openapi": "3.0.0",
-            "components": {
-                "schemas": {
-                    "Item": {
-                        "type": "object",
-                        "properties": {"id": {"type": "string"}},
-                    }
-                }
-            },
-        }
+        sw_dict = _ITEM_ID_ONLY_SW
         schema = {
             "type": "object",
             "properties": {},
@@ -1589,17 +1574,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertTrue(any(".id" in f.fieldPath for f in metadata.fields))
 
     def test_resolve_schema_references_pattern_properties_inside_allof(self):
-        sw_dict = {
-            "openapi": "3.0.0",
-            "components": {
-                "schemas": {
-                    "Item": {
-                        "type": "object",
-                        "properties": {"id": {"type": "string"}},
-                    }
-                }
-            },
-        }
+        sw_dict = _ITEM_ID_ONLY_SW
         schema = {
             "allOf": [
                 {
@@ -1618,7 +1593,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIn("id", resolved["additionalProperties"]["properties"])
 
     def test_merge_allof_same_pattern_combines_under_allof(self):
-        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        sw_dict = _EMPTY_OPENAPI_SW
         schema = {
             "allOf": [
                 {
@@ -1649,7 +1624,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIn("b", pattern_schema["properties"])
 
     def test_merge_allof_property_names_combines_under_allof(self):
-        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        sw_dict = _EMPTY_OPENAPI_SW
         schema = {
             "propertyNames": {"type": "string", "minLength": 1},
             "allOf": [
@@ -1668,7 +1643,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
     def test_merge_allof_same_pattern_three_members_keeps_all_fields(self):
         # 3+ members sharing a pattern must not nest, or earlier schemas get dropped.
-        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        sw_dict = _EMPTY_OPENAPI_SW
         schema = {
             "allOf": [
                 {
@@ -1700,7 +1675,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
     def test_merge_allof_property_names_three_members_flat(self):
         # 3+ propertyNames contributors flatten into one allOf list, not nested.
-        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        sw_dict = _EMPTY_OPENAPI_SW
         schema = {
             "propertyNames": {"type": "string", "minLength": 1},
             "allOf": [
@@ -1719,7 +1694,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
     def test_property_names_allof_preserves_sibling_constraints(self):
         # allOf alongside sibling keys (minLength) must keep the siblings on resolve.
-        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        sw_dict = _EMPTY_OPENAPI_SW
         schema = {
             "type": "object",
             "propertyNames": {
@@ -1792,7 +1767,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
     def test_merge_allof_same_pattern_preserves_value_constraints(self):
         # Colliding same-pattern value schemas keep scalar constraints after the
         # allOf collapse (merge_allof_schemas carries validation keywords through).
-        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        sw_dict = _EMPTY_OPENAPI_SW
         schema = {
             "allOf": [
                 {"patternProperties": {"^x": {"type": "string", "minLength": 3}}},
@@ -1809,7 +1784,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
     def test_merge_allof_conflicting_bounds_keep_most_restrictive(self):
         # Repeated same-keyword constraints across members collapse to the most
         # restrictive: max of the lower bounds, min of the upper bounds.
-        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        sw_dict = _EMPTY_OPENAPI_SW
         schema = {
             "allOf": [
                 {"patternProperties": {"^x": {"minLength": 2, "maxLength": 9}}},
@@ -1826,7 +1801,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
     def test_merge_allof_boolean_exclusive_bounds(self):
         # OpenAPI 3.0 exclusiveMinimum/Maximum are booleans tied to minimum/maximum:
         # the bound stays exclusive if any member is exclusive (no min()/max() on bools).
-        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        sw_dict = _EMPTY_OPENAPI_SW
         schema = {
             "allOf": [
                 {
@@ -1851,7 +1826,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
     def test_merge_allof_numeric_exclusive_bounds(self):
         # JSON Schema draft-6+ exclusiveMinimum/Maximum are numeric bounds: keep the
         # most restrictive (max of exclusiveMinimum, min of exclusiveMaximum).
-        sw_dict = {"openapi": "3.1.0", "components": {"schemas": {}}}
+        sw_dict = {**_EMPTY_OPENAPI_SW, "openapi": "3.1.0"}
         schema = {
             "allOf": [
                 {"patternProperties": {"^x": {"exclusiveMinimum": 2}}},
@@ -1867,7 +1842,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
     def test_pattern_properties_promoted_with_additional_properties_false(self):
         # Idiomatic closed-map form: patternProperties + additionalProperties: false.
         # Promotion must still run so json_schema_util can extract the map value type.
-        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        sw_dict = _EMPTY_OPENAPI_SW
         schema = {
             "type": "object",
             "patternProperties": {"^x": {"type": "string"}},
@@ -1880,7 +1855,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
     def test_pattern_properties_not_promoted_over_existing_value_schema(self):
         # An explicit dict additionalProperties value schema is left untouched.
-        sw_dict = {"openapi": "3.0.0", "components": {"schemas": {}}}
+        sw_dict = _EMPTY_OPENAPI_SW
         schema = {
             "type": "object",
             "patternProperties": {"^x": {"type": "string"}},
@@ -1915,7 +1890,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         # A numeric (draft-6+) exclusive bound in one member and a boolean (draft-4)
         # flag in another must not raise and must keep the numeric bound, regardless
         # of member order.
-        sw_dict = {"openapi": "3.1.0", "components": {"schemas": {}}}
+        sw_dict = {**_EMPTY_OPENAPI_SW, "openapi": "3.1.0"}
         schema = {
             "allOf": [
                 {"patternProperties": {"^x": {"exclusiveMinimum": 5}}},
@@ -1980,6 +1955,163 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             platform="openapi", name="property-names", json_schema=resolved
         )
         self.assertTrue(len(metadata.fields) > 0)
+
+    def test_merge_allof_unique_items_or_merge(self):
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "allOf": [
+                {"type": "array", "uniqueItems": False},
+                {"type": "array", "uniqueItems": True},
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertTrue(resolved.get("uniqueItems"))
+
+    def test_merge_allof_pattern_and_multiple_of_keep_first(self):
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "allOf": [
+                {"type": "string", "pattern": "^a", "multipleOf": 2},
+                {"type": "string", "pattern": "^b", "multipleOf": 3},
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertEqual(resolved.get("pattern"), "^a")
+        self.assertEqual(resolved.get("multipleOf"), 2)
+
+    def test_pattern_properties_promoted_with_additional_properties_true(self):
+        # additionalProperties: true is the JSON Schema default (≡ absent) and must
+        # still promote so map columns are extracted.
+        sw_dict = _EMPTY_OPENAPI_SW
+        value_schema: Dict[str, Any] = {"type": "string"}
+        schema = {
+            "type": "object",
+            "patternProperties": {"^x": value_schema},
+            "additionalProperties": True,
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertEqual(resolved["additionalProperties"], {"type": "string"})
+        self.assertIsNot(resolved["additionalProperties"], value_schema)
+
+    def test_merge_allof_mismatched_numeric_bounds_no_error(self):
+        # Type-mismatched minLength across allOf members must not TypeError.
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "allOf": [
+                {"type": "string", "minLength": 5},
+                {"type": "string", "minLength": "5"},
+                {"type": "string", "maxLength": None},
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertEqual(resolved.get("minLength"), 5)
+
+    def test_merge_allof_null_pattern_properties_no_error(self):
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "allOf": [
+                {"patternProperties": {"^x": {"type": "string"}}},
+                {"patternProperties": None},
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertEqual(
+            resolved["patternProperties"]["^x"],
+            {"type": "string"},
+        )
+
+    def test_property_names_malformed_allof_dict_ignored(self):
+        # allOf as a dict (not a list) must not emit garbage string keys.
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "type": "object",
+            "propertyNames": {
+                "type": "string",
+                "minLength": 2,
+                "allOf": {"maxLength": 10},
+            },
+            "additionalProperties": {"type": "string"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        property_names = resolved["propertyNames"]
+        self.assertEqual(property_names.get("minLength"), 2)
+        self.assertNotIn("allOf", property_names)
+
+    def test_multi_pattern_properties_collapse_logs_warning(self):
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "type": "object",
+            "patternProperties": {
+                "^str_": {"type": "string"},
+                "^num_": {"type": "integer"},
+            },
+        }
+
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ) as logs:
+            resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertIn("anyOf", resolved["additionalProperties"])
+        self.assertTrue(
+            any("Collapsing" in message for message in logs.output),
+            logs.output,
+        )
+
+    def test_circular_ref_through_pattern_properties(self):
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Node": {
+                        "type": "object",
+                        "patternProperties": {
+                            "^child_": {"$ref": "#/components/schemas/Node"},
+                        },
+                    }
+                }
+            },
+        }
+        schema = {"$ref": "#/components/schemas/Node"}
+
+        resolved = resolve_schema_references(schema, sw_dict, max_depth=5)
+
+        self.assertIsNotNone(resolved)
+        self.assertIn("patternProperties", resolved)
+
+    def test_circular_ref_through_property_names(self):
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Key": {
+                        "type": "string",
+                        "allOf": [{"$ref": "#/components/schemas/Key"}],
+                    }
+                }
+            },
+        }
+        schema = {
+            "type": "object",
+            "propertyNames": {"$ref": "#/components/schemas/Key"},
+            "additionalProperties": {"type": "string"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict, max_depth=5)
+
+        self.assertIsNotNone(resolved.get("propertyNames"))
 
     def test_extract_response_schema_malformed_no_content_type(self):
         """Test handling of response with content but no application/json."""
