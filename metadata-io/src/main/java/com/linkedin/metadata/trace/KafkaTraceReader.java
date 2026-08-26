@@ -25,7 +25,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -51,12 +50,13 @@ import org.apache.kafka.common.utils.Utils;
 @SuperBuilder
 public abstract class KafkaTraceReader<T extends RecordTemplate> {
   private final AdminClient adminClient;
-  private final Supplier<Consumer<String, GenericRecord>> consumerSupplier;
+  @Nonnull private final TraceConsumerPool consumerPool;
   private final int pollDurationMs;
   private final int pollMaxAttempts;
 
   @Nonnull private final ExecutorService executorService;
   private final long timeoutSeconds;
+  private final boolean cancelFuturesOnTimeout;
 
   private final Cache<String, TopicPartition> topicPartitionCache =
       Caffeine.newBuilder()
@@ -78,17 +78,19 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
 
   public KafkaTraceReader(
       AdminClient adminClient,
-      Supplier<Consumer<String, GenericRecord>> consumerSupplier,
+      TraceConsumerPool consumerPool,
       int pollDurationMillis,
       int pollMaxAttempts,
       ExecutorService executorService,
-      long timeoutSeconds) {
+      long timeoutSeconds,
+      boolean cancelFuturesOnTimeout) {
     this.adminClient = adminClient;
-    this.consumerSupplier = consumerSupplier;
+    this.consumerPool = consumerPool;
     this.pollDurationMs = pollDurationMillis;
     this.pollMaxAttempts = pollMaxAttempts;
     this.executorService = executorService;
     this.timeoutSeconds = timeoutSeconds;
+    this.cancelFuturesOnTimeout = cancelFuturesOnTimeout;
   }
 
   @Nonnull
@@ -145,21 +147,7 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
                         executorService))
             .collect(Collectors.toList());
 
-    try {
-      List<Map.Entry<Urn, Map<String, TraceStorageStatus>>> results =
-          CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]))
-              .thenApply(
-                  v -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()))
-              .get(timeoutSeconds, TimeUnit.SECONDS);
-
-      return results.stream()
-          .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey, Map.Entry::getValue, (existing, replacement) -> existing));
-    } catch (Exception e) {
-      log.error("Error processing parallel trace status requests", e);
-      throw new RuntimeException("Failed to process parallel trace status requests", e);
-    }
+    return collectParallelResults(futures, "Failed to process parallel trace status requests");
   }
 
   /**
@@ -208,24 +196,31 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
                             executorService))
                 .collect(Collectors.toList());
 
+    return collectParallelResults(futures, "Failed to process parallel trace requests");
+  }
+
+  private <R> Map<Urn, R> collectParallelResults(
+      List<CompletableFuture<Map.Entry<Urn, R>>> futures, String errorMessage) {
     try {
-      List<Map.Entry<Urn, Map<String, Pair<ConsumerRecord<String, GenericRecord>, SystemMetadata>>>>
-          results =
-              CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                  .thenApply(
-                      v ->
-                          futures.stream()
-                              .map(CompletableFuture::join)
-                              .collect(Collectors.toList()))
-                  .get(timeoutSeconds, TimeUnit.SECONDS);
+      List<Map.Entry<Urn, R>> results =
+          CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+              .thenApply(
+                  v -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()))
+              .get(timeoutSeconds, TimeUnit.SECONDS);
 
       return results.stream()
           .collect(
               Collectors.toMap(
                   Map.Entry::getKey, Map.Entry::getValue, (existing, replacement) -> existing));
+    } catch (TimeoutException e) {
+      if (cancelFuturesOnTimeout) {
+        futures.forEach(future -> future.cancel(true));
+      }
+      log.error("Timed out processing parallel trace requests", e);
+      throw new RuntimeException(errorMessage, e);
     } catch (Exception e) {
       log.error("Error processing parallel trace requests", e);
-      throw new RuntimeException("Failed to process parallel trace requests", e);
+      throw new RuntimeException(errorMessage, e);
     }
   }
 
@@ -356,26 +351,23 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
       }
 
       // Fetch missing end offsets using a consumer
-      try (Consumer<String, GenericRecord> consumer = consumerSupplier.get()) {
-        // Determine which partitions we need to fetch
-        List<TopicPartition> partitionsToFetch =
-            allPartitions.stream()
-                .filter(partition -> skipCache || !result.containsKey(partition))
-                .collect(Collectors.toList());
+      List<TopicPartition> partitionsToFetch =
+          allPartitions.stream()
+              .filter(partition -> skipCache || !result.containsKey(partition))
+              .collect(Collectors.toList());
 
-        if (!partitionsToFetch.isEmpty()) {
-          // Assign partitions to the consumer
-          consumer.assign(partitionsToFetch);
-
-          // Fetch end offsets for all partitions at once
-          Map<TopicPartition, Long> fetchedEndOffsets = consumer.endOffsets(partitionsToFetch);
-
-          // Update the cache and result map
-          for (Map.Entry<TopicPartition, Long> entry : fetchedEndOffsets.entrySet()) {
-            endOffsetCache.put(entry.getKey(), entry.getValue());
-            result.put(entry.getKey(), entry.getValue());
-          }
-        }
+      if (!partitionsToFetch.isEmpty()) {
+        consumerPool.withConsumer(
+            getTopicName(),
+            consumer -> {
+              consumer.assign(partitionsToFetch);
+              Map<TopicPartition, Long> fetchedEndOffsets = consumer.endOffsets(partitionsToFetch);
+              for (Map.Entry<TopicPartition, Long> entry : fetchedEndOffsets.entrySet()) {
+                endOffsetCache.put(entry.getKey(), entry.getValue());
+                result.put(entry.getKey(), entry.getValue());
+              }
+              return null;
+            });
       }
 
       return result;
@@ -426,15 +418,18 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
     }
 
     // Fetch end offsets for partitions not in cache
-    try (Consumer<String, GenericRecord> consumer = consumerSupplier.get()) {
-      consumer.assign(partitionsToFetch);
-      Map<TopicPartition, Long> fetchedOffsets = consumer.endOffsets(partitionsToFetch);
-
-      // Update cache and results
-      for (Map.Entry<TopicPartition, Long> entry : fetchedOffsets.entrySet()) {
-        endOffsetCache.put(entry.getKey(), entry.getValue());
-        result.put(entry.getKey(), entry.getValue());
-      }
+    try {
+      consumerPool.withConsumer(
+          getTopicName(),
+          consumer -> {
+            consumer.assign(partitionsToFetch);
+            Map<TopicPartition, Long> fetchedOffsets = consumer.endOffsets(partitionsToFetch);
+            for (Map.Entry<TopicPartition, Long> entry : fetchedOffsets.entrySet()) {
+              endOffsetCache.put(entry.getKey(), entry.getValue());
+              result.put(entry.getKey(), entry.getValue());
+            }
+            return null;
+          });
     } catch (Exception e) {
       log.error("Error fetching end offsets for specific partitions", e);
     }
@@ -552,66 +547,64 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
 
     TopicPartition topicPartition = getTopicPartition(urn);
 
-    try (Consumer<String, GenericRecord> consumer = consumerSupplier.get()) {
-      // Assign the partition we want to read from
-      consumer.assign(Collections.singleton(topicPartition));
+    return consumerPool.withConsumer(
+        getTopicName(),
+        consumer -> {
+          consumer.assign(Collections.singleton(topicPartition));
 
-      // Get offset for timestamp
-      OffsetAndTimestamp offsetAndTimestamp =
-          getOffsetByTime(consumer, topicPartition, traceTimestampMillis);
+          OffsetAndTimestamp offsetAndTimestamp =
+              getOffsetByTime(consumer, topicPartition, traceTimestampMillis);
 
-      if (offsetAndTimestamp == null) {
-        log.debug(
-            "No offset found for timestamp {} in partition {}",
-            traceTimestampMillis,
-            topicPartition);
-        return Collections.emptyMap();
-      }
-
-      // Seek to the offset for the timestamp
-      consumer.seek(topicPartition, offsetAndTimestamp.offset());
-      log.debug(
-          "Seeking to timestamp-based offset {} for partition {}",
-          offsetAndTimestamp.offset(),
-          topicPartition);
-
-      // Poll with a maximum number of attempts
-      int attempts = 0;
-      long lastProcessedOffset = -1;
-      Map<String, Pair<ConsumerRecord<String, GenericRecord>, SystemMetadata>> results =
-          new HashMap<>();
-
-      while (attempts < pollMaxAttempts && results.size() < aspectNames.size()) {
-        var records = consumer.poll(java.time.Duration.ofMillis(pollDurationMs));
-        attempts++;
-
-        if (records.isEmpty()) {
-          break;
-        }
-
-        // Check if we're making progress
-        long currentOffset = consumer.position(topicPartition);
-        if (currentOffset == lastProcessedOffset) {
-          break;
-        }
-        lastProcessedOffset = currentOffset;
-
-        // Process records for each aspect name we haven't found yet
-        for (String aspectName : aspectNames) {
-          if (!results.containsKey(aspectName)) {
-            var matchingRecord =
-                records.records(topicPartition).stream()
-                    .filter(record -> record.key().equals(urn.toString()))
-                    .flatMap(record -> matchConsumerRecord(record, traceId, aspectName).stream())
-                    .findFirst();
-
-            matchingRecord.ifPresent(pair -> results.put(aspectName, pair));
+          if (offsetAndTimestamp == null) {
+            log.debug(
+                "No offset found for timestamp {} in partition {}",
+                traceTimestampMillis,
+                topicPartition);
+            return Collections
+                .<String, Pair<ConsumerRecord<String, GenericRecord>, SystemMetadata>>emptyMap();
           }
-        }
-      }
 
-      return results;
-    }
+          consumer.seek(topicPartition, offsetAndTimestamp.offset());
+          log.debug(
+              "Seeking to timestamp-based offset {} for partition {}",
+              offsetAndTimestamp.offset(),
+              topicPartition);
+
+          int attempts = 0;
+          long lastProcessedOffset = -1;
+          Map<String, Pair<ConsumerRecord<String, GenericRecord>, SystemMetadata>> results =
+              new HashMap<>();
+
+          while (attempts < pollMaxAttempts && results.size() < aspectNames.size()) {
+            var records = consumer.poll(java.time.Duration.ofMillis(pollDurationMs));
+            attempts++;
+
+            if (records.isEmpty()) {
+              break;
+            }
+
+            long currentOffset = consumer.position(topicPartition);
+            if (currentOffset == lastProcessedOffset) {
+              break;
+            }
+            lastProcessedOffset = currentOffset;
+
+            for (String aspectName : aspectNames) {
+              if (!results.containsKey(aspectName)) {
+                var matchingRecord =
+                    records.records(topicPartition).stream()
+                        .filter(record -> record.key().equals(urn.toString()))
+                        .flatMap(
+                            record -> matchConsumerRecord(record, traceId, aspectName).stream())
+                        .findFirst();
+
+                matchingRecord.ifPresent(pair -> results.put(aspectName, pair));
+              }
+            }
+          }
+
+          return results;
+        });
   }
 
   protected static boolean traceIdMatch(@Nullable SystemMetadata systemMetadata, String traceId) {
