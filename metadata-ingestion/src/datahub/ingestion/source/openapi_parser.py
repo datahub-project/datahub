@@ -1070,37 +1070,33 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
 
     resolved_schema = schema.copy()
 
-    # Handle direct references
+    # Handle direct references. OAS 3.1 / JSON Schema draft-2019-09 allow sibling
+    # keywords alongside $ref — returning the target alone would drop them.
     if "$ref" in resolved_schema:
         ref_path = resolved_schema["$ref"]
+        referenced_schema: Dict[str, Any] = {}
 
-        # Handle v2 references (e.g., "#/definitions/Pet")
         if ref_path.startswith("#/definitions/"):
             schema_name = ref_path.split("/")[-1]
             referenced_schema = sw_dict.get("definitions", {}).get(schema_name, {})
-            if referenced_schema:
-                # Recursively resolve references in the referenced schema
-                resolved_referenced = resolve_schema_references(
-                    referenced_schema, sw_dict, max_depth=max_depth - 1
-                )
-                # Don't add title - let json_schema_util use the schema structure directly
-                # Titles cause definition names to appear in field paths
-                return resolved_referenced
-
-        # Handle v3 references (e.g., "#/components/schemas/Pet")
         elif ref_path.startswith("#/components/schemas/"):
             schema_name = ref_path.split("/")[-1]
             referenced_schema = (
                 sw_dict.get("components", {}).get("schemas", {}).get(schema_name, {})
             )
-            if referenced_schema:
-                # Recursively resolve references in the referenced schema
-                resolved_referenced = resolve_schema_references(
-                    referenced_schema, sw_dict, max_depth=max_depth - 1
-                )
-                # Don't add title - let json_schema_util use the schema structure directly
-                # Titles cause definition names to appear in field paths
+
+        if referenced_schema:
+            resolved_referenced = resolve_schema_references(
+                referenced_schema, sw_dict, max_depth=max_depth - 1
+            )
+            siblings = {k: v for k, v in resolved_schema.items() if k != "$ref"}
+            if not siblings:
                 return resolved_referenced
+            return resolve_schema_references(
+                _combine_under_allof(resolved_referenced, siblings),
+                sw_dict,
+                max_depth=max_depth - 1,
+            )
 
     # Recursively resolve references in properties
     if "properties" in resolved_schema:

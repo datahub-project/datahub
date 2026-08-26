@@ -2323,11 +2323,44 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         assert metadata is not None
         self.assertTrue(len(metadata.fields) > 0)
 
-    def test_create_schema_metadata_reports_conversion_failure(self):
-        # Broken $ref must not count as a successful OpenAPI-spec extract.
-        bad_schema = {"$ref": "#/components/schemas/Missing"}
+    def test_property_names_ref_preserves_sibling_allof(self):
+        # $ref + sibling allOf under propertyNames must keep the sibling constraints.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "KeyName": {"type": "string", "minLength": 1},
+                }
+            },
+        }
+        schema = {
+            "type": "object",
+            "propertyNames": {
+                "$ref": "#/components/schemas/KeyName",
+                "allOf": [{"maxLength": 8}],
+            },
+            "additionalProperties": {"type": "string"},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+        names = resolved["propertyNames"]
+        self.assertNotIn("$ref", json.dumps(names))
+        self.assertEqual(names.get("type"), "string")
+        self.assertEqual(names.get("minLength"), 1)
+        self.assertEqual(names.get("maxLength"), 8)
+
+    def test_extract_schema_from_openapi_spec_conversion_failure_not_counted(self):
+        # Failed conversion must not inflate from_openapi_spec (counter lives in
+        # _extract_schema_from_openapi_spec, not create_schema_metadata_from_schema).
         before = self.source.schema_extraction_stats.from_openapi_spec
-        result = self.source.create_schema_metadata_from_schema("bad", bad_schema)
+        with patch.object(
+            self.source,
+            "extract_schema_from_all_methods",
+            return_value={"type": "object", "properties": "not-a-schema"},
+        ):
+            result = self.source._extract_schema_from_openapi_spec(
+                "/bad", "bad", {"openapi": "3.0.0"}
+            )
         self.assertIsNone(result)
         self.assertEqual(self.source.schema_extraction_stats.from_openapi_spec, before)
         self.assertTrue(
