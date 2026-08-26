@@ -319,7 +319,7 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
             display_name=entity.title or entity.name,
             description=entity.description,
             subtype=(
-                DatasetSubTypes.SEMANTIC_VIEW
+                DatasetSubTypes.SEMANTIC_MODEL
                 if entity.is_view
                 else DatasetSubTypes.CUBE
             ),

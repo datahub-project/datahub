@@ -10,7 +10,7 @@ This source ingests the Cube data model into DataHub as datasets: each cube and 
 | ------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | Deployment / data model                                 | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container) | Subtype `Cube Deployment`                            |
 | Cube                                                    | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset)     | Subtype `Cube`                                       |
-| View                                                    | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset)     | Subtype `Semantic View`                              |
+| View                                                    | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset)     | Subtype `Semantic Model`                             |
 | Measure                                                 | Schema Field                                                                      | Tagged `Measure`; aggregation in native type         |
 | Dimension                                               | Schema Field                                                                      | Tagged `Dimension`; primary keys marked as key       |
 | `format` / `drillMembers` / `cumulative`                | Schema Field `jsonProps`                                                          | Measure presentation hints                           |

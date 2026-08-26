@@ -157,7 +157,7 @@ def test_column_meta_mapping_tags_and_terms_field() -> None:
     assert any("CustomerData" in t.urn for t in field.glossaryTerms.terms)
 
 
-def test_view_uses_semantic_view_subtype() -> None:
+def test_view_uses_semantic_model_subtype() -> None:
     source = _source()
     container = Container(source._container_key, display_name="demo")
     lineage_builder = MagicMock()
@@ -182,7 +182,7 @@ def test_view_uses_semantic_view_subtype() -> None:
         )
     )
     assert view_aspects["SubTypesClass"].typeNames == [  # type: ignore[attr-defined]
-        DatasetSubTypes.SEMANTIC_VIEW
+        DatasetSubTypes.SEMANTIC_MODEL
     ]
     assert cube_aspects["SubTypesClass"].typeNames == [  # type: ignore[attr-defined]
         DatasetSubTypes.CUBE
