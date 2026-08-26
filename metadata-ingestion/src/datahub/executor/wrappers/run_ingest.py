@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 
 from datahub.executor.execution.wrapper_common import (
+    FlagSupport,
     activate_venv,
     build_datahub_stdin,
     check_cli_flag_support,
@@ -53,15 +54,15 @@ def main():
     setup_memory_limit()
     register_secrets_for_masking(secrets)
 
-    has_report_to = check_cli_flag_support(venv_datahub, "report-to")
-    if has_report_to:
+    report_to_support = check_cli_flag_support(venv_datahub, "report-to")
+    if report_to_support is FlagSupport.SUPPORTED:
         print(
             "This version of datahub supports report-to functionality", file=sys.stderr
         )
         report_path = Path(report_out_file)
         if report_path.exists():
             report_path.unlink()
-    else:
+    elif report_to_support is FlagSupport.UNSUPPORTED:
         print(
             "Warning: This version of datahub does not support --report-to",
             file=sys.stderr,
@@ -73,7 +74,7 @@ def main():
     if debug_mode.lower() == "true":
         cmd.append("--debug")
     cmd.extend(["ingest", "run", "-c", "-"])
-    if has_report_to:
+    if report_to_support is FlagSupport.SUPPORTED:
         cmd.extend(["--report-to", report_out_file])
 
     sys.exit(run_datahub_subprocess(cmd, datahub_stdin))
