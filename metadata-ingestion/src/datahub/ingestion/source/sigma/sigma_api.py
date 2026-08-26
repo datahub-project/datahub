@@ -58,6 +58,11 @@ class SigmaAPI:
         self.config = config
         self.report = report
         self.workspaces: Dict[str, Workspace] = {}
+        # Requested workspace id -> the id Sigma actually answered with. The
+        # /files path walk can land on a folder inode rather than a workspace,
+        # and Sigma resolves such an id to its owning workspace. Caching the
+        # alias keeps the per-entity lookup a single API call.
+        self.workspace_id_aliases: Dict[str, str] = {}
         self.users: Dict[str, str] = {}
         # Track source_type values we've already warned about to keep the
         # report summary readable on large tenants with repeated unknown
@@ -148,8 +153,21 @@ class SigmaAPI:
         return get_response
 
     def get_workspace(self, workspace_id: str) -> Optional[Workspace]:
+        """Resolve a workspace id.
+
+        ``workspace_id`` is not always a workspace: ``_get_files_metadata``
+        derives it by walking ``parentId`` up the ``/files`` tree using the
+        segment count of ``path`` as the depth, so a tenant whose ``path``
+        does not start at the workspace leaves the walk on a folder inode.
+        Sigma resolves such an id to its owning workspace, meaning the
+        returned ``workspaceId`` can differ from the one requested. Callers
+        must re-key the entity onto ``Workspace.workspaceId`` -- parenting it
+        under the requested id yields a Container URN that nothing ever names.
+        """
         if workspace_id in self.workspaces:
             return self.workspaces[workspace_id]
+        if workspace_id in self.workspace_id_aliases:
+            return self.workspaces.get(self.workspace_id_aliases[workspace_id])
 
         logger.debug(f"Fetching workspace metadata with id '{workspace_id}'")
         try:
@@ -163,6 +181,9 @@ class SigmaAPI:
             response.raise_for_status()
             workspace = Workspace.model_validate(response.json())
             self.workspaces[workspace.workspaceId] = workspace
+            if workspace.workspaceId != workspace_id:
+                self.workspace_id_aliases[workspace_id] = workspace.workspaceId
+                self.report.workspace_ids_remapped[workspace_id] = workspace.workspaceId
             return workspace
         except Exception as e:
             self._log_http_error(
@@ -307,6 +328,9 @@ class SigmaAPI:
                         workspace = self.get_workspace(dataset.workspaceId)
 
                     if workspace:
+                        # Re-key onto the id Sigma answered with; see
+                        # get_workspace's docstring.
+                        dataset.workspaceId = workspace.workspaceId
                         if self.config.workspace_pattern.allowed(workspace.name):
                             self.report.datasets.processed(
                                 f"{dataset.name} ({dataset.datasetId}) in {workspace.name}"
@@ -1486,6 +1510,9 @@ class SigmaAPI:
                     workspace = self.get_workspace(candidate_workspace_id)
 
                 if workspace:
+                    # Re-key onto the id Sigma answered with; see
+                    # get_workspace's docstring.
+                    candidate_workspace_id = workspace.workspaceId
                     if self.config.workspace_pattern.allowed(workspace.name):
                         self.report.data_models.processed(
                             f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
@@ -1583,6 +1610,9 @@ class SigmaAPI:
                         workspace = self.get_workspace(workbook.workspaceId)
 
                     if workspace:
+                        # Re-key onto the id Sigma answered with; see
+                        # get_workspace's docstring.
+                        workbook.workspaceId = workspace.workspaceId
                         if self.config.workspace_pattern.allowed(workspace.name):
                             self.report.workbooks.processed(
                                 f"{workbook.name} ({workbook.workbookId}) in {workspace.name}"

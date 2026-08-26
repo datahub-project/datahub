@@ -2001,6 +2001,99 @@ def test_sigma_no_workspace_membership_names_all_containers(tmp_path, requests_m
     assert report.workspaces_without_metadata == [f"Acryl Data ({ws_id})"]
 
 
+@pytest.mark.integration
+def test_sigma_workspace_id_remapped_to_authoritative_id(tmp_path, requests_mock):
+    """Entities follow the id Sigma answers with, not the one requested.
+
+    ``_get_files_metadata`` derives a workspace id by walking ``parentId`` up
+    the ``/files`` tree, using the segment count of ``path`` as the depth. On
+    a tenant whose ``path`` does not start at the workspace, the walk stops on
+    a folder inode; Sigma resolves that id to its owning workspace and answers
+    with a *different* ``workspaceId``.
+
+    Parenting entities under the requested id then splits the tree in two: a
+    correctly-named Workspace Container with no children, and a populated
+    Container URN that nothing ever names -- which the UI renders as a raw
+    ``urn:li:container:<guid>`` folder. Re-keying onto the authoritative id
+    collapses both back into one named, populated container.
+    """
+    files_id = "3ee61405-3be2-4000-ba72-60d36757b95b"
+    real_ws_id = "aaaa1111-2222-3333-4444-555566667777"
+    override_data = {
+        # The account is a member of no workspace, so the listing is empty and
+        # every workspace is discovered through the per-entity lookup.
+        "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workspaces/{files_id}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "workspaceId": real_ws_id,
+                "name": "Acryl Data",
+                "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                "createdAt": "2024-03-12T08:31:04.826Z",
+                "updatedAt": "2024-03-12T08:31:04.826Z",
+            },
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path: str = f"{tmp_path}/sigma_workspace_id_remapped_mces.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {"client_id": "CLIENTID", "client_secret": "CLIENTSECRET"},
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    requested_urn = make_container_urn(
+        WorkspaceKey(workspaceId=files_id, platform="sigma")
+    )
+    authoritative_urn = make_container_urn(
+        WorkspaceKey(workspaceId=real_ws_id, platform="sigma")
+    )
+
+    referenced = set()
+    for mce in mces:
+        if mce["aspectName"] == "container":
+            referenced.add(mce["aspect"]["json"]["container"])
+        elif mce["aspectName"] == "browsePathsV2":
+            referenced.update(
+                entry["urn"]
+                for entry in mce["aspect"]["json"]["path"]
+                if entry.get("urn", "").startswith("urn:li:container:")
+            )
+    assert requested_urn not in referenced, (
+        "entities are still parented under the folder inode id"
+    )
+    assert authoritative_urn in referenced
+
+    named = {
+        mce["entityUrn"] for mce in mces if mce["aspectName"] == "containerProperties"
+    }
+    assert named == {authoritative_urn}, (
+        "expected exactly one Workspace Container, correctly named"
+    )
+
+    report = _sigma_report(pipeline)
+    assert report.workspace_ids_remapped == {files_id: real_ws_id}
+    # The workspace is no longer reported empty now that its entities land on it.
+    assert report.empty_workspaces == []
+
+
 def _minimal_sigma_pipeline_config(output_path: str, **extra: Any) -> Dict[str, Any]:
     # Every caller of this helper is a DM-focused test; ``ingest_data_models``
     # defaults to True so DM ingestion runs automatically.  Callers that want

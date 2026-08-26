@@ -17,6 +17,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyDict
 
 
 class Constant:
@@ -163,6 +164,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Workspaces whose Container had to be named from the entity path because
     # ``/workspaces/{id}`` withheld their metadata.
     workspaces_without_metadata: List[str] = field(default_factory=list)
+    # Requested workspace id -> the id Sigma answered with, when the two
+    # differ. A non-empty map means the /files path walk is landing on folder
+    # inodes rather than workspaces on this tenant.
+    workspace_ids_remapped: LossyDict[str, str] = field(default_factory=LossyDict)
 
     datasets: EntityFilterReport = EntityFilterReport.field(type="dataset")
     datasets_without_workspace: int = 0
