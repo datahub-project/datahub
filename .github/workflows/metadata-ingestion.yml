@@ -342,7 +342,7 @@ jobs:
         run: ./gradlew :metadata-ingestion:codegen
       - name: Run metadata-ingestion unit tests on Wolfi
         run: |
-          docker run --rm -v "$PWD:/workspace:ro" -w /workspace/metadata-ingestion \
+          docker run --rm -v "$PWD:/workspace" -w /workspace/metadata-ingestion \
             -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONDONTWRITEBYTECODE=1 \
             cgr.dev/chainguard/wolfi-base:latest sh -c '
               set -eux
