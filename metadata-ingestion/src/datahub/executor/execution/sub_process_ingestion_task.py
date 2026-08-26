@@ -55,17 +55,26 @@ from datahub.masking.secret_registry import SecretRegistry
 logger = logging.getLogger(__name__)
 
 
-def _mask_secrets(text: str, context: str) -> str:
+def _mask_secrets(
+    text: str, context: str, masking_filter: Optional[SecretMaskingFilter] = None
+) -> str:
     """Redact registered secrets from text bound for the execution report.
 
     LogHolder is filled by direct appends, so it never passes through the
     stdout/logging filters that mask the subprocess's own output. Both the
     progress reports and the final report publish that text, so both need this.
+
+    Pass `masking_filter` to reuse one across repeated calls: a filter caches its
+    compiled pattern per registry version, so a fresh one rebuilds it every call. A
+    reused filter also keeps its failure state, so repeated masking failures trip its
+    circuit breaker for the rest of the run -- reports then carry a fixed redaction
+    marker rather than leaking.
     """
     try:
         registry = SecretRegistry.get_instance()
-        if registry and registry.get_count() > 0:
-            return SecretMaskingFilter(registry).mask_text(text)
+        if registry.get_count() == 0:
+            return text
+        return (masking_filter or SecretMaskingFilter(registry)).mask_text(text)
     except Exception:
         logger.warning(
             "Failed to mask secrets in %s; publishing text unmasked", context
@@ -467,6 +476,7 @@ class SubProcessIngestionTask(Task):
     ) -> None:
         """Monitor subprocess execution with async tasks for output reading and progress reporting."""
         most_recent_log_ts: Optional[datetime] = None
+        progress_masking_filter = SecretMaskingFilter(SecretRegistry.get_instance())
 
         async def _read_output_lines() -> None:
             nonlocal most_recent_log_ts
@@ -533,6 +543,7 @@ class SubProcessIngestionTask(Task):
                                 shared_logs.get_lines()
                             ),
                             "progress report",
+                            progress_masking_filter,
                         )
                         current_time = datetime.now(tz=timezone.utc)
                         if most_recent_log_ts < current_time - timedelta(minutes=2):
