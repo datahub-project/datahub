@@ -1874,7 +1874,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             any("Unable to resolve schema $ref" in msg for msg in cm.output)
         )
         self.assertTrue(
-            any("removing to avoid jsonref failure" in msg for msg in cm.output)
+            any("removed to avoid jsonref failure" in msg for msg in cm.output)
         )
 
     def test_merge_allof_numeric_exclusive_bounds(self):
@@ -2560,10 +2560,13 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             )
         self.assertIsNone(result)
         self.assertEqual(self.source.schema_extraction_stats.from_openapi_spec, before)
+        # A warning, not a failure: _process_endpoint still tries example-data/live-API
+        # fallback after this, so a hard failure here would be sticky even if a
+        # fallback later succeeds for the same endpoint.
         self.assertTrue(
             any(
                 getattr(f, "title", None) == "Failed to Create Schema Metadata"
-                for f in self.source.report.failures
+                for f in self.source.report.warnings
             )
         )
 
@@ -3275,3 +3278,116 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             platform="openapi", name="circular", json_schema=resolved
         )
         self.assertIsNotNone(metadata)
+
+    def test_merge_allof_depth_cap_preserves_allof_members(self):
+        # Hitting max_depth inside merge_allof_schemas must not discard the allOf
+        # members outright (previously returned {} for a pure-allOf wrapper).
+        schema = {"allOf": [{"properties": {"a": {"type": "string"}}}]}
+        merged = merge_allof_schemas(schema, _EMPTY_OPENAPI_SW, max_depth=0)
+        self.assertIn("allOf", merged)
+        self.assertEqual(merged, schema)
+
+    def test_merge_allof_recursive_allof_chain_terminates(self):
+        # The actually-vulnerable shape for unbounded merge_allof_schemas recursion:
+        # allOf nested directly inside allOf, with no items/$ref to bound it via a
+        # different mechanism. Must terminate via the depth budget, not RecursionError.
+        schema: Dict[str, Any] = {"properties": {"leaf": {"type": "string"}}}
+        for _ in range(2000):
+            schema = {"allOf": [schema]}
+
+        merged = merge_allof_schemas(schema, _EMPTY_OPENAPI_SW, max_depth=10)
+        self.assertIsNotNone(merged)
+
+    def test_merge_allof_two_members_both_contribute_oneof(self):
+        # Two allOf members each contributing an independent oneOf must both survive
+        # (first-wins would silently drop the second member's discriminated union).
+        schema = {
+            "allOf": [
+                {"oneOf": [{"properties": {"catDog": {"type": "string"}}}]},
+                {"oneOf": [{"properties": {"sizeSmall": {"type": "string"}}}]},
+            ]
+        }
+        merged = merge_allof_schemas(schema, _EMPTY_OPENAPI_SW, max_depth=10)
+        merged_str = json.dumps(merged)
+        self.assertIn("catDog", merged_str)
+        self.assertIn("sizeSmall", merged_str)
+
+    def test_resolve_schema_references_ref_under_not_does_not_crash(self):
+        # A $ref nested under "not" isn't visited by the structural normalize walk;
+        # the generic strip pass (not an assert) must still remove it gracefully.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "definitions": {"Foo": {"type": "string"}},
+        }
+        schema = {
+            "type": "object",
+            "properties": {"value": {"not": {"$ref": "#/definitions/Foo"}}},
+        }
+        resolved = resolve_schema_references(schema, sw_dict)
+        self.assertNotIn('"$ref"', json.dumps(resolved))
+
+    def test_get_tok_error_does_not_leak_credentials_in_message(self):
+        # get_swagger substitutes {username}/{password} into the GET token URL before
+        # calling get_tok; its error messages must never echo that URL or the raw
+        # response body back into report.failure.
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(
+                status_code=200, content=b"not json", text="secret=hunter2"
+            )
+            with self.assertRaises(ValueError) as ctx:
+                get_tok(
+                    url="https://api.example.com",
+                    tok_url="/token?u=alice&p=hunter2",
+                    method="get",
+                )
+        self.assertNotIn("hunter2", str(ctx.exception))
+        self.assertNotIn("u=alice", str(ctx.exception))
+
+    def test_get_schema_from_response_empty_shapes_return_none(self):
+        # An empty/no-op object-shape schema ("properties": {}, "oneOf": [], etc.)
+        # carries no field information; accepting it here would suppress the
+        # example-data/live-API fallback for an endpoint whose spec schema is
+        # syntactically present but semantically empty.
+        for schema in (
+            {"properties": {}},
+            {"oneOf": []},
+            {"anyOf": []},
+            {"allOf": []},
+            {"additionalProperties": False},
+        ):
+            self.assertIsNone(get_schema_from_response(schema, {}), schema)
+        # additionalProperties: true is a meaningful "any properties allowed" map
+        # declaration (not a no-op), so it should still be accepted.
+        self.assertIsNotNone(
+            get_schema_from_response({"additionalProperties": True}, {})
+        )
+
+    def test_extract_schema_from_openapi_spec_zero_fields_not_counted_as_success(self):
+        # A schema that resolves without error but yields zero fields (e.g. an
+        # untyped additionalProperties-only map) must not be counted as a
+        # successful extraction or silently reported as one.
+        endpoint_spec = {
+            "get": {
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {"additionalProperties": {"type": "string"}}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        sw_dict = {"openapi": "3.0.0", "paths": {"/items": endpoint_spec}}
+        result = self.source._extract_schema_from_openapi_spec(
+            "/items", "items", sw_dict
+        )
+        self.assertIsNone(result)
+        self.assertEqual(self.source.schema_extraction_stats.from_openapi_spec, 0)
+        self.assertTrue(
+            any(
+                f.title == "Schema Extracted With No Fields"
+                for f in self.source.report.warnings
+            )
+        )

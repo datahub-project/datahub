@@ -488,8 +488,11 @@ def get_tok(
                 else:  # works only for bearer authentication scheme
                     token = f"Bearer {cont['tokens']['access']}"
             except (json.JSONDecodeError, KeyError, TypeError) as e:
+                # Do not include url4req/response body: for method="get" the caller
+                # substitutes the raw username/password into the URL before calling
+                # get_tok, and this exception's message ends up in report.failure.
                 raise ValueError(
-                    f"Unexpected token response shape from {url4req}"
+                    f"Unexpected token response shape (status {response.status_code})"
                 ) from e
     elif method == "get":
         # this will make a GET call with username and password
@@ -500,14 +503,16 @@ def get_tok(
                 token = cont["token"]
             except (json.JSONDecodeError, KeyError, TypeError) as e:
                 raise ValueError(
-                    f"Unexpected token response shape from {url4req}"
+                    f"Unexpected token response shape (status {response.status_code})"
                 ) from e
     else:
         raise ValueError(f"Method unrecognised: {method}")
     if token != "":
         return token
     else:
-        raise Exception(f"Unable to get a valid token: {response.text}")
+        raise Exception(
+            f"Unable to get a valid token: received status {response.status_code}"
+        )
 
 
 def set_metadata(
@@ -651,8 +656,9 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
             "Maximum recursion depth exceeded while merging allOf schemas. "
             "Leaving members unmerged."
         )
-        # Drop allOf so callers do not re-enter merge at the same depth forever.
-        return {k: v for k, v in schema.items() if k != "allOf"}
+        # Return unchanged rather than stripping "allOf": callers must still see the
+        # member schemas (e.g. a pure-allOf wrapper) instead of losing them outright.
+        return schema
 
     allof_schemas = schema.get("allOf", [])
     if not allof_schemas:
@@ -683,10 +689,27 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
             )
 
         # First-wins for keywords that cannot be meaningfully intersected under allOf.
-        # Includes oneOf/anyOf/discriminator so discriminated-union members survive.
         for key in _ALLOF_FIRST_WINS_KEYWORDS:
             if key in resolved_allof and key not in merged_schema:
                 merged_schema[key] = resolved_allof[key]
+
+        # oneOf/anyOf are independent constraints, not a single value to pick one
+        # winner from: two allOf members each contributing their own oneOf must
+        # BOTH be satisfied. First-wins would silently drop every member after the
+        # first, so a colliding contributor is deferred into a nested allOf instead
+        # (flattened by the recursive merge below, same as patternProperties).
+        for key in ("oneOf", "anyOf"):
+            if key not in resolved_allof:
+                continue
+            if key not in merged_schema:
+                merged_schema[key] = resolved_allof[key]
+            elif merged_schema[key] != resolved_allof[key]:
+                combined = _combine_under_allof(
+                    {key: merged_schema.pop(key)}, {key: resolved_allof[key]}
+                )
+                merged_schema["allOf"] = (
+                    merged_schema.get("allOf", []) + combined["allOf"]
+                )
 
         # Merge JSON-Schema validation keywords with allOf semantics (most
         # restrictive wins) so repeated contributors don't drop constraints.
@@ -1100,25 +1123,30 @@ def _normalize_map_schemas(schema: object) -> None:
         if isinstance(members, list):
             for member in members:
                 _normalize_map_schemas(member)
-    # Depth-limited resolution can leave a raw $ref that crashes jsonref later.
-    if "$ref" in schema:
-        ref = schema.pop("$ref")
-        logger.warning(
-            "Unresolved schema $ref %r remains after resolution; "
-            "removing to avoid jsonref failure",
-            ref,
-        )
     _promote_pattern_properties_to_additional(schema)
 
 
-def _schema_contains_ref(schema: object) -> bool:
+def _strip_unresolved_refs(schema: object) -> bool:
+    """Recursively remove any leftover "$ref" key anywhere in the tree.
+
+    This walk is intentionally generic (every dict value and list item, not just the
+    JSON-Schema keywords _normalize_map_schemas understands) so it also covers keys
+    normalization doesn't visit (e.g. "not", "if"/"then"/"else", "contains") — a
+    depth-limited resolution can leave a raw $ref under any of those, and an
+    unresolved $ref reaching jsonref crashes the whole endpoint. Returns True if any
+    $ref was found and removed, so the caller can log once rather than per-occurrence.
+    """
+    found = False
     if isinstance(schema, dict):
         if "$ref" in schema:
-            return True
-        return any(_schema_contains_ref(v) for v in schema.values())
-    if isinstance(schema, list):
-        return any(_schema_contains_ref(v) for v in schema)
-    return False
+            del schema["$ref"]
+            found = True
+        for value in schema.values():
+            found = _strip_unresolved_refs(value) or found
+    elif isinstance(schema, list):
+        for item in schema:
+            found = _strip_unresolved_refs(item) or found
+    return found
 
 
 def _resolve_schema_refs(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
@@ -1241,10 +1269,15 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
     resolved_schema = _resolve_schema_refs(schema, sw_dict, max_depth=max_depth)
     if isinstance(resolved_schema, dict):
         _normalize_map_schemas(resolved_schema)
-        # Postcondition: jsonref must never see a leftover $ref after normalize.
-        assert not _schema_contains_ref(resolved_schema), (
-            "Unresolved $ref survived schema normalization"
-        )
+        # Postcondition: jsonref must never see a leftover $ref after normalize. A
+        # generic sweep (not an assert) so a depth-limited $ref under a keyword
+        # normalize doesn't structurally walk (e.g. "not") degrades gracefully
+        # instead of crashing the endpoint — and isn't compiled out under -O.
+        if _strip_unresolved_refs(resolved_schema):
+            logger.warning(
+                "Unresolved schema $ref(s) remained after normalization; "
+                "removed to avoid jsonref failure"
+            )
     return resolved_schema
 
 
@@ -1260,9 +1293,22 @@ _OBJECT_SHAPE_KEYS = (
 
 
 def _looks_like_object_or_composition_schema(schema: Dict) -> bool:
-    return schema.get("type") == "object" or any(
-        key in schema for key in _OBJECT_SHAPE_KEYS
-    )
+    if schema.get("type") == "object":
+        return True
+    for key in _OBJECT_SHAPE_KEYS:
+        if key not in schema:
+            continue
+        value = schema[key]
+        # An empty/no-op contribution (e.g. "properties": {}, "oneOf": [],
+        # "additionalProperties": false) carries no field information — accepting
+        # it here would suppress the example-data/live-API fallbacks in
+        # get_workunits_internal for a schema that yields zero extractable fields.
+        if key == "additionalProperties":
+            if value is not False:
+                return True
+        elif value:
+            return True
+    return False
 
 
 def extract_schema_from_response_schema(

@@ -535,7 +535,11 @@ class APISource(Source, ABC):
                 swallow_exceptions=False,
             )
         except Exception as e:
-            self.report.failure(
+            # A warning, not a failure: the caller (_process_endpoint) still tries
+            # example-data and live-API fallback after this returns None, and a
+            # successful fallback would otherwise leave a sticky run failure behind
+            # even though the endpoint's schema was ultimately extracted.
+            self.report.warning(
                 title="Failed to Create Schema Metadata",
                 message="Error creating schema metadata from OpenAPI schema",
                 context=f"Dataset: {dataset_name}",
@@ -684,6 +688,17 @@ class APISource(Source, ABC):
                 dataset_name, schema
             )
             if not schema_metadata:
+                return None
+            if not schema_metadata.fields:
+                # A schema that resolves without error but yields zero fields (e.g. a
+                # map-only response with no explicit "type": "object") is not a
+                # successful extraction — counting it as one hides the gap from users.
+                self.report.warning(
+                    title="Schema Extracted With No Fields",
+                    message="OpenAPI spec schema resolved but produced no extractable fields",
+                    context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                    log=False,
+                )
                 return None
             logger.info(
                 f"Successfully extracted schema from OpenAPI spec for {dataset_name}"
