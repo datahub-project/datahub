@@ -339,6 +339,24 @@ embedding:
 - Fails if mismatch detected
 - Prevents broken semantic search
 
+**In-Process ONNX (matches the GMS built-in provider):**
+
+```yaml
+embedding:
+  provider: onnx
+  model: snowflake_arctic_embed_s
+  model_embedding_key: snowflake_arctic_embed_s # Must match server!
+  onnx_model_dir: /datahub/models/snowflake_arctic_embed_s # or ONNX_EMBEDDING_MODEL_DIR
+  onnx_pooling: cls # must match the GMS provider's pooling
+```
+
+- Embeds documents locally with the same ONNX model GMS uses for queries, so no
+  cloud embedding provider is required.
+- Requires the `onnx-embeddings` extra: `pip install 'acryl-datahub[datahub-documents,onnx-embeddings]'`.
+- `onnx_model_dir` must contain the same `model.onnx` (or `model_quantized.onnx`)
+  and `tokenizer.json` as the GMS query-side provider, or kNN results will not
+  match. Falls back to the `ONNX_EMBEDDING_MODEL_DIR` environment variable.
+
 **Break-Glass Override (NOT RECOMMENDED):**
 
 ```yaml

@@ -51,16 +51,27 @@ class EmbeddingConfig(ConfigModel):
     """
 
     # Core configuration (Optional - loaded from server if not set)
-    provider: Optional[Literal["bedrock", "cohere", "openai", "local", "vertex_ai"]] = (
-        Field(
-            default=None,
-            description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. If not set, loads from server.",
-        )
+    provider: Optional[
+        Literal["bedrock", "cohere", "openai", "local", "vertex_ai", "onnx"]
+    ] = Field(
+        default=None,
+        description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). If not set, loads from server.",
     )
     endpoint: Optional[str] = Field(
         default=None,
         description="Endpoint URL for local embedding server (e.g., http://localhost:11434/v1/embeddings). "
         "Only used when provider='local'. Falls back to LOCAL_EMBEDDING_ENDPOINT env var.",
+    )
+    onnx_model_dir: Optional[str] = Field(
+        default=None,
+        description="Directory containing model.onnx (or model_quantized.onnx) and tokenizer.json. "
+        "Only used when provider='onnx'. Falls back to ONNX_EMBEDDING_MODEL_DIR env var. "
+        "Must be the same model the GMS query-side provider uses, or semantic search will not match.",
+    )
+    onnx_pooling: str = Field(
+        default="cls",
+        description="Pooling strategy for provider='onnx': 'cls' (first-token, default) or 'mean' "
+        "(attention-masked mean). Must match the GMS provider's pooling for query/doc vector parity.",
     )
     model: Optional[str] = Field(
         default=None,
@@ -181,6 +192,13 @@ class EmbeddingConfig(ConfigModel):
                 _LOCAL_EMBEDDING_DEFAULT_ENDPOINT,
             )
 
+        # The server names the onnx model but not where its files live; the
+        # executor resolves the directory from the same env var GMS uses so both
+        # sides load the identical model.onnx + tokenizer.json.
+        onnx_model_dir: Optional[str] = None
+        if provider == "onnx":
+            onnx_model_dir = os.environ.get("ONNX_EMBEDDING_MODEL_DIR")
+
         config = cls(
             provider=provider,
             model=server_config.model_id,
@@ -190,6 +208,7 @@ class EmbeddingConfig(ConfigModel):
             vertex_location=server_config.vertex_location,
             api_key=api_key,
             endpoint=endpoint,
+            onnx_model_dir=onnx_model_dir,
         )
         # Set private field after construction
         config._server_config = server_config
@@ -284,12 +303,14 @@ class EmbeddingConfig(ConfigModel):
             return "local"
         if "vertex" in provider_lower:
             return "vertex_ai"
+        if "onnx" in provider_lower:
+            return "onnx"
         return provider_lower
 
     @staticmethod
     def _normalize_provider_from_server(
         server_provider: str,
-    ) -> Literal["bedrock", "cohere", "openai", "local", "vertex_ai"]:  # type: ignore
+    ) -> Literal["bedrock", "cohere", "openai", "local", "vertex_ai", "onnx"]:  # type: ignore
         """Convert server provider format to local config format."""
         normalized = EmbeddingConfig._normalize_provider(server_provider)
         if normalized == "bedrock":
@@ -302,6 +323,8 @@ class EmbeddingConfig(ConfigModel):
             return "local"
         elif normalized == "vertex_ai":
             return "vertex_ai"
+        elif normalized == "onnx":
+            return "onnx"
         else:
             raise ValueError(f"Unsupported provider from server: {server_provider}")
 
