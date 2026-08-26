@@ -1411,9 +1411,12 @@ def test_get_stable_venv_name_stable_when_env_var_unchanged(
 class TestRequirementLoggingDoesNotLeakCredentials:
     """Requirement lines are logged as configured, never expanded.
 
-    `${VAR}` expansion is intended for index-URL credentials, and these logs become the
-    execution report. Masking does not cover them: the values come from os.environ, so
-    they are never registered as secrets.
+    A `${VAR}` in a requirement is normally an index-URL credential. The log becomes the
+    execution report, so logging the expanded value puts the real token in front of
+    anyone who can view ingestion runs. Masking cannot catch it either: these values come
+    from os.environ, so they are never registered as secrets.
+
+    These tests cover the requirement lines setup_venv logs itself.
     """
 
     @pytest.fixture
