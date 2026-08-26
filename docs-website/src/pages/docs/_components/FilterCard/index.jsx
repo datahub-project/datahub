@@ -129,9 +129,9 @@ const FilterCard = ({
 
   function getSupportBadgeClass() {
     const status = supportStatus.trim().toLowerCase();
-    if (status === "certified") return styles.badgeCertified;
-    if (status === "incubating") return styles.badgeIncubating;
-    if (status === "testing") return styles.badgeTesting;
+    if (status === "ga") return styles.badgeGa;
+    if (status === "beta") return styles.badgeBeta;
+    if (status === "alpha") return styles.badgeAlpha;
     return "";
   }
 
@@ -144,7 +144,7 @@ const FilterCard = ({
       >
         {supportStatus && (
           <div className={clsx(styles.supportBadge, getSupportBadgeClass())}>
-            {supportStatus.trim() === "Certified" && "✓ "}
+            {supportStatus.trim() === "GA" && "✓ "}
             {supportStatus.trim()}
           </div>
         )}

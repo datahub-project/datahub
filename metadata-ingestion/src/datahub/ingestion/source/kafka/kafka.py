@@ -298,7 +298,7 @@ class KafkaConnectionTest:
 
 @platform_name("Kafka")
 @config_class(KafkaSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DESCRIPTIONS,
     "Set dataset description to top level doc field for Avro schema",

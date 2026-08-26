@@ -35,6 +35,23 @@ def sanitize_mdx_unsafe_tags(content: str) -> str:
         content
     )
 
+# ---- DEMOTE AUTO-LINKED URNs BACK TO INLINE CODE ----
+def demote_urn_autolinks(content: str) -> str:
+    # docutils treats a bare `urn:...` in a docstring as a standalone hyperlink,
+    # since `urn` is a registered URI scheme, so Sphinx emits it as a real link.
+    # Docusaurus then feeds the href to Node's url.parse(), which reads
+    # `urn:li:ownershipType:producer` as host `li` plus port `ownershipType:producer`
+    # and rejects it: a DeprecationWarning on Node 22, a hard build failure on 26+.
+    # URNs are identifiers, not links, so render them as code.
+    #
+    # The link text is anchored to `urn:` so that an auto-link nested inside a
+    # bracketed example (e.g. `["urn:li:entityType:datahub.corpuser"]`) matches the
+    # inner brackets only. The replacement uses the href rather than the text
+    # because the text carries markdown escapes (`_\_system_\_`) that would
+    # render literally inside a code span.
+    return re.sub(r"\[(urn:[^\]]*)\]\((urn:[^)]+)\)", r"`\2`", content)
+
+
 # ---- REPAIR BROKEN MARKDOWN BOLD ----
 def repair_broken_emphasis(content: str) -> str:
     content = re.sub(r'\[\*\*([^\*]+)\*\s+\*', r'[**\1**', content)
@@ -140,6 +157,7 @@ def convert_file(doc: pathlib.Path, outfile: pathlib.Path):
         content = content.replace(old, new)
 
     content = sanitize_mdx_unsafe_tags(content)
+    content = demote_urn_autolinks(content)
     content = repair_broken_emphasis(content)
     content = wrap_section_blocks(content, "h3-block")
     content = fix_parameter_dash(content)

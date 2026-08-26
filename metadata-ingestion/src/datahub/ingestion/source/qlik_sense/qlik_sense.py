@@ -88,7 +88,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("Qlik Sense")
 @config_class(QlikSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
