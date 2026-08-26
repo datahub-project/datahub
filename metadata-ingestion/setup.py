@@ -494,6 +494,15 @@ embedding_common = {
     "google-auth>=2.0.0,<3.0.0",
 }
 
+# In-process ONNX document embedding (mirrors the GMS built-in query-side
+# provider). Kept as a separate extra so the common embedding path doesn't pull
+# onnxruntime for users who embed via a cloud provider. `tokenizers` gives the
+# same HuggingFace tokenizer the Java side uses via DJL, for token-level parity.
+onnx_embeddings = {
+    "onnxruntime>=1.19.0,<2.0.0",
+    "tokenizers>=0.20.0,<1.0.0",
+}
+
 unstructured_lib = {
     # Unstructured.io core library for document partitioning with markdown support
     "unstructured[md]==0.18.24",
@@ -724,6 +733,10 @@ plugins: Dict[str, Set[str]] = {
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-gc": set(),
     "datahub-documents": unstructured_lib,
+    # Optional add-on: embed documents in-process with ONNX instead of a cloud
+    # provider, matching the GMS built-in query-side provider. Install alongside
+    # datahub-documents (e.g. acryl-datahub[datahub-documents,onnx-embeddings]).
+    "onnx-embeddings": onnx_embeddings,
     "mode": {"requests<3.0.0", "python-liquid>=2.0.0,<3.0.0", "tenacity>=8.0.1,<9.0.0"}
     | sqlglot_lib
     | cachetools_lib,

@@ -1123,11 +1123,29 @@ class DocumentChunkingSource(Source):
                 )
             return f"vertex_ai/{model}", None
 
+        elif provider == "onnx":
+            if not model:
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="ONNX model not specified in embedding config",
+                    mitigation_message="Set embedding.model to the model name (e.g., 'snowflake_arctic_embed_s')",
+                )
+            if not embedding_config.onnx_model_dir and not os.environ.get(
+                "ONNX_EMBEDDING_MODEL_DIR"
+            ):
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="ONNX model directory not provided",
+                    mitigation_message="Set embedding.onnx_model_dir or the ONNX_EMBEDDING_MODEL_DIR "
+                    "environment variable to the directory containing model.onnx and tokenizer.json.",
+                )
+            return f"onnx/{model}", None
+
         else:
             return None, CapabilityReport(
                 capable=False,
                 failure_reason=f"Unsupported embedding provider: {provider}",
-                mitigation_message="Supported providers: 'bedrock', 'cohere', 'openai', 'local', 'vertex_ai'",
+                mitigation_message="Supported providers: 'bedrock', 'cohere', 'openai', 'local', 'vertex_ai', 'onnx'",
             )
 
     @staticmethod
