@@ -11,11 +11,17 @@ Related references:
 
 ## Development Commands
 
+From the **repo root**:
+
 ```bash
-# Hot-reload dev server (preferred) — run from the repo root
+# Hot-reload dev server (preferred)
 scripts/dev/datahub-dev.sh setup frontend   # one-time setup
 scripts/dev/datahub-dev.sh frontend         # dev server with hot reload
+```
 
+From **`datahub-web-react/`**:
+
+```bash
 # Dev server proxying to a remote GMS instead of a local one
 ../gradlew yarnPreview -Pproxy="<remote-instance-url>"
 
@@ -24,6 +30,8 @@ yarn generate
 ```
 
 ### Lint, type-check, and test (before commit / PR)
+
+From **`datahub-web-react/`**:
 
 ```bash
 # Full lint (eslint + prettier + type-check)
