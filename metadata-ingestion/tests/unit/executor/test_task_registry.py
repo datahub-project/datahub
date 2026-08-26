@@ -78,12 +78,7 @@ class TestRegistryResolvesRetiredPaths:
 
 
 class TestIncompleteTasksAreRejected:
-    """`Task` is an ABC so the registry's isabstract check can fire.
-
-    Without it the check is dead code: an incomplete subclass registers, runs, and
-    reports SUCCESS, because a missing `async def execute` resolves to None and raises
-    nothing.
-    """
+    """The registry rejects a Task subclass that is missing a required method."""
 
     def test_a_subclass_missing_execute_is_rejected(self) -> None:
         class MissingExecute(Task):
@@ -96,6 +91,5 @@ class TestIncompleteTasksAreRejected:
 
         registry: TaskRegistry = TaskRegistry()
         with pytest.raises(ValueError, match="abstract"):
-            # mypy flags the abstract class here, which is exactly the contract
-            # this test asserts the registry enforces at runtime.
+            # The abstract class is the subject of the test; mypy flags it here.
             registry.register("RUN_INGEST", MissingExecute)  # type: ignore[type-abstract]

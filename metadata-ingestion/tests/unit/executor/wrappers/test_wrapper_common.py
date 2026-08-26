@@ -211,12 +211,7 @@ class TestWrapperStdinContent:
 
 
 class TestSigtermDuringSpawn:
-    """The window the ORDER test cannot cover.
-
-    The handler is installed before Popen, but `process` stays unbound until Popen
-    returns. A signal landing in between used to find None, assume there was nothing to
-    kill, and exit -- orphaning the child it had just spawned.
-    """
+    """SIGTERM arriving after the handler is installed but before Popen returns."""
 
     @pytest.fixture(autouse=True)
     def restore_sigterm(self):
@@ -252,8 +247,7 @@ class TestSigtermDuringSpawn:
         assert exc_info.value.code == 128 + signal.SIGTERM
 
     def test_a_signal_is_not_dropped_when_the_spawn_itself_fails(self) -> None:
-        """The replay after the assignment is unreachable if Popen raises, so the
-        deferred signal has to be honoured on that path too."""
+        """Exits with the signal's code when Popen itself raises."""
 
         def failing_popen(*_args: Any, **_kwargs: Any) -> MagicMock:
             signal.raise_signal(signal.SIGTERM)
@@ -272,11 +266,7 @@ class TestSigtermDuringSpawn:
 
 
 class TestCliFlagProbe:
-    """A probe that fails is not the same as a flag that is absent.
-
-    Callers turn "absent" into "you are likely running an old version" and, for test
-    connection, into a successful run. A broken venv must not be reported that way.
-    """
+    """The probe reports a failure, an absent flag and a present flag separately."""
 
     def _script(self, tmp_path: Path, name: str, body: str) -> Path:
         path = tmp_path / name
@@ -324,12 +314,7 @@ class TestCliFlagProbe:
 
 
 class TestIngestProbeOutcome:
-    """A probe that could not answer must not be treated as a working CLI.
-
-    Ingestion degrades to the legacy reporting path, same as for an old CLI -- the
-    run then fails on its own with the CLI's real error. The `--report-to` flag must
-    not be passed to a CLI that never confirmed it supports it.
-    """
+    """Ingestion passes --report-to only when the probe confirmed support."""
 
     def _cmd_for_probe(
         self, outcome: wrapper_common.FlagSupport, tmp_path: Path
@@ -379,11 +364,7 @@ class TestIngestProbeOutcome:
 
 
 class TestTestConnectionProbeOutcome:
-    """A broken CLI must fail the run; only a genuinely old CLI exits cleanly.
-
-    Both write an "internal failure" report, so the exit code is what separates a
-    reported failure from a run the task calls successful.
-    """
+    """Test connection exits nonzero for a failed probe, zero for an old CLI."""
 
     def _run_with_probe(
         self, outcome: wrapper_common.FlagSupport, tmp_path: Path
@@ -423,7 +404,7 @@ class TestTestConnectionProbeOutcome:
 
         assert code != 0
         assert report["internal_failure"] is True
-        # The old-version wording would send an operator after the wrong problem.
+        # The old-version wording belongs to the other report.
         assert "old version" not in report["internal_failure_reason"]
 
     def test_an_old_cli_still_exits_cleanly(self, tmp_path: Path) -> None:

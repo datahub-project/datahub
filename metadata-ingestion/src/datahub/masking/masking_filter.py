@@ -505,6 +505,8 @@ def mask_secrets(
     compiled pattern per registry version, so a fresh one rebuilds it every call. A
     reused filter also keeps its failure state, so repeated failures trip its circuit
     breaker -- reports then carry a fixed redaction marker rather than leaking.
+
+    Returns the text unmasked if masking cannot be attempted at all.
     """
     try:
         if masking_filter is not None:

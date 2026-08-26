@@ -53,9 +53,8 @@ _SETUP_VENV = "datahub.executor.execution.sub_process_ingestion_task.setup_venv"
 
 @pytest.fixture(autouse=True)
 def reset_secret_registry() -> Iterator[None]:
-    # SecretRegistry is a process-wide singleton that _handle_subprocess_completion
-    # reads to mask the report. Reset around every test so these tests neither inherit
-    # nor leak registered secrets under --random-order.
+    # SecretRegistry is a process-wide singleton. Reset around every test so these
+    # tests neither inherit nor leak registered secrets under --random-order.
     SecretRegistry.reset_instance()
     yield
     SecretRegistry.reset_instance()
@@ -751,10 +750,7 @@ class TestSubProcessIngestionTaskCompletion:
     def test_logs_are_masked_when_secrets_are_registered(
         self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
     ) -> None:
-        """Logs reach the same report as the structured report, so they need the same
-        masking. LogHolder is filled by direct appends, bypassing the stdout and
-        logging filters that mask the subprocess's own output.
-        """
+        """Masks registered secrets in the logs published at completion."""
         secret_value = "s3cr3t-p4ssw0rd"
         SecretRegistry.get_instance().register_secret("DB_PASSWORD", secret_value)
 
@@ -1107,9 +1103,7 @@ class TestSubProcessIngestionTaskProgressReporting:
         mock_execution_context: Mock,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Progress reports are published while the run is still in flight, so they
-        need the same masking as the report published at the end.
-        """
+        """Masks registered secrets in the progress reports sent during the run."""
         secret_value = "s3cr3t-p4ssw0rd"
         SecretRegistry.get_instance().register_secret("DB_PASSWORD", secret_value)
 
@@ -1155,8 +1149,7 @@ class TestSubProcessIngestionTaskProgressReporting:
 
         reported = " ".join(call[0][0] for call in progress_callback.call_args_list)
         assert secret_value not in reported
-        # The log line has to have reached the report for the absence above to mean
-        # anything -- an empty report would pass it too.
+        # The marker also shows the line reached the report at all.
         assert "***REDACTED:DB_PASSWORD***" in reported
 
 

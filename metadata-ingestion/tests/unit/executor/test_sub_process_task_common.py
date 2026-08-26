@@ -483,9 +483,7 @@ class TestGetCombinedEnvVars:
         ids=["int", "true", "false", "float"],
     )
     def test_non_string_scalars_are_coerced(self, value: object, expected: str) -> None:
-        """The UI field is free text holding JSON, so `{"PORT": 8080}` arrives as an int
-        and would reach Popen(env=...), which accepts only strings. Booleans lowercase
-        so a CLI reading the value does not get "True"."""
+        """Coerces ints and floats to strings, and bools to lowercase strings."""
         args = SubProcessRecipeTaskArgs(
             recipe='{"source": {"type": "test"}}',
             version="0.12.0",
@@ -497,8 +495,7 @@ class TestGetCombinedEnvVars:
     def test_none_values_are_dropped_rather_than_passed_through(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """A None reaching Popen(env=...) raises TypeError, so the key must be absent --
-        not present holding None."""
+        """Drops keys whose value is None, rather than passing None through."""
         monkeypatch.delenv("VAR", raising=False)
 
         args = SubProcessRecipeTaskArgs(
@@ -510,8 +507,7 @@ class TestGetCombinedEnvVars:
         assert "VAR" not in args.get_combined_env_vars()
 
     def test_container_values_are_rejected_naming_the_key(self) -> None:
-        """No sensible coercion exists, so fail during validation rather than as a
-        TypeError from subprocess creation mid-run."""
+        """Rejects a container value during validation, naming the key."""
         with pytest.raises(ValidationError) as exc_info:
             SubProcessRecipeTaskArgs(
                 recipe='{"source": {"type": "test"}}',

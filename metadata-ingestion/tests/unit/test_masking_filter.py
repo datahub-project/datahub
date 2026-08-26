@@ -1182,8 +1182,7 @@ if __name__ == "__main__":
 
 
 class TestMaskSecretsHelper:
-    """`mask_secrets` covers text that never reaches the installed filter -- report
-    lines, log buffers filled by direct appends, the structured report."""
+    """`mask_secrets` masks report lines, log buffers and the structured report."""
 
     @pytest.fixture(autouse=True)
     def empty_singleton(self):
@@ -1192,8 +1191,7 @@ class TestMaskSecretsHelper:
         SecretRegistry.reset_instance()
 
     def test_a_supplied_filter_is_used_even_when_the_singleton_is_empty(self) -> None:
-        """The filter carries its own registry, so the singleton says nothing about
-        whether it has anything to mask."""
+        """Masks from the supplied filter's registry while the singleton is empty."""
         own_registry = SecretRegistry()
         own_registry.register_secret("OTHER_PW", "other-secret-value")
         assert SecretRegistry.get_instance().get_count() == 0
@@ -1207,9 +1205,7 @@ class TestMaskSecretsHelper:
         assert masked == "connecting with ***REDACTED:OTHER_PW***"
 
     def test_the_report_survives_a_masking_failure(self) -> None:
-        """Deliberately fail-open: the report is what an operator debugs from, so
-        losing it costs more than the near-unreachable case suppressing it would guard.
-        """
+        """Returns the text unchanged when the registry lookup raises."""
         with patch.object(
             SecretRegistry, "get_instance", side_effect=RuntimeError("registry gone")
         ):

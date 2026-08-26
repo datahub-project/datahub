@@ -1409,15 +1409,7 @@ def test_get_stable_venv_name_stable_when_env_var_unchanged(
 
 
 class TestRequirementLoggingDoesNotLeakCredentials:
-    """Requirement lines are logged as configured, never expanded.
-
-    A `${VAR}` in a requirement is normally an index-URL credential. The log becomes the
-    execution report, so logging the expanded value puts the real token in front of
-    anyone who can view ingestion runs. Masking cannot catch it either: these values come
-    from os.environ, so they are never registered as secrets.
-
-    These tests cover the requirement lines setup_venv logs itself.
-    """
+    """The requirement lines setup_venv logs are as configured, never expanded."""
 
     @pytest.fixture
     def recording_runner(self) -> Iterator[tuple[SubprocessRunner, LogHolder]]:
@@ -1458,7 +1450,7 @@ class TestRequirementLoggingDoesNotLeakCredentials:
 
         text = "".join(logs.get_lines())
         assert "SUPERSECRET_TOKEN_abc123" not in text
-        # Still useful for debugging: the configured line is there, placeholder intact.
+        # The configured line is still logged, placeholder intact.
         assert "https://user:${PYPI_TOKEN}@pypi.acme.com/simple" in text
 
     async def test_a_supplied_requirements_file_is_summarised_not_dumped(

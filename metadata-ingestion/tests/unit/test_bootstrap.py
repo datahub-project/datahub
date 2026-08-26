@@ -438,16 +438,11 @@ class TestExceptionHookOptimization:
 
 
 class TestConcurrentExecutionTeardown:
-    """Masking must outlive the first execution to finish.
-
-    Masking state is process-wide -- one filter on the root logger, one registry --
-    while the executor runs several ingestions per process.
-    """
+    """Masking outlives the first execution to finish, and is torn down by the last."""
 
     @pytest.fixture(autouse=True)
     def clean_masking_state(self):
-        """Masking state is process-wide, so a hold leaked by any other test would
-        otherwise decide whether teardown happens here."""
+        """Resets the process-wide masking state around each test."""
         from datahub.masking.bootstrap import MaskingLifecycle
         from datahub.masking.secret_registry import SecretRegistry
 
@@ -493,8 +488,7 @@ class TestConcurrentExecutionTeardown:
                 "connecting with long-run-secret"
             )
             assert "long-run-secret" not in masked
-            # ...and the installed filter is still in place. Report masking builds its
-            # own filter, so registry contents alone would miss an eager uninstall.
+            # ...and the installed filter is still in place.
             assert self._filter_installed()
         finally:
             shutdown_secret_masking(owner="exec-long")
