@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 
-import { BOUNDING_BOX_MEMBER_PAGE_SIZE, FetchStatus, LineageEntity, NodeContext } from '@app/lineageV3/common';
+import {
+    BOUNDING_BOX_MEMBER_PAGE_SIZE,
+    FetchStatus,
+    LINEAGE_FILTER_PAGINATION,
+    LineageEntity,
+    NodeContext,
+} from '@app/lineageV3/common';
 
 import { Entity, LineageDirection } from '@types';
 
@@ -46,8 +52,8 @@ export function createBoundingBoxMemberNode({ urn, type }: Entity, rootBoundingB
             [LineageDirection.Downstream]: FetchStatus.COMPLETE,
         },
         filters: {
-            [LineageDirection.Upstream]: { limit: undefined, facetFilters: new Map() },
-            [LineageDirection.Downstream]: { limit: undefined, facetFilters: new Map() },
+            [LineageDirection.Upstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
+            [LineageDirection.Downstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
         },
     };
 }

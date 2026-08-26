@@ -1812,6 +1812,8 @@ cache:
           roleMembership: 20
           groupMembership: 20
           nativeGroupMembership: 20
+        corpGroup:
+          roleMembership: 20
         structuredProperty:
           status: 300 # 5 min
           propertyDefinition: 300 # 5 min
@@ -1965,6 +1967,8 @@ metadataChangeProposal:
     aspectAuthorization:
       domainWrite:
         enabled: ${MCP_VALIDATION_DOMAIN_WRITE:true}
+      privilegeGrant:
+        enabled: ${MCP_VALIDATION_PRIVILEGE_GRANT:true}
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
     urlValidation:

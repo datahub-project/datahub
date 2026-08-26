@@ -27,6 +27,7 @@ index-strategy = "unsafe-best-match"
 # Force wheels for packages known to hit that path
 no-build-package = [
     "beautifulsoup4",
+    "grpcio",
     "orjson",
     "pydantic",
     "pypdf",

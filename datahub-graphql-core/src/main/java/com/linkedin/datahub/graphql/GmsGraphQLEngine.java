@@ -411,6 +411,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.StaticDataFetcher;
 import graphql.schema.idl.RuntimeWiring;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import io.opentelemetry.context.Context;
@@ -448,6 +449,7 @@ public class GmsGraphQLEngine {
 
   private final EntityClient entityClient;
   private final SystemEntityClient systemEntityClient;
+  private final OperationContext systemOperationContext;
   private final GraphClient graphClient;
   private final UsageStatsJavaClient usageClient;
   private final SiblingGraphService siblingGraphService;
@@ -596,6 +598,7 @@ public class GmsGraphQLEngine {
 
     this.entityClient = args.entityClient;
     this.systemEntityClient = args.systemEntityClient;
+    this.systemOperationContext = args.systemOperationContext;
     this.incidentService = new IncidentService(this.systemEntityClient);
     this.graphClient = args.graphClient;
     this.usageClient = args.usageClient;
@@ -1565,13 +1568,18 @@ public class GmsGraphQLEngine {
                   "batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
               .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
               .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
-              .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
+              .dataFetcher(
+                  "batchAssignRole",
+                  new BatchAssignRoleResolver(this.roleService, this.systemEntityClient))
               .dataFetcher(
                   "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
               .dataFetcher(
                   "acceptRole",
                   new AcceptRoleResolver(
-                      this.roleService, this.inviteTokenService, this.systemEntityClient))
+                      this.roleService,
+                      this.inviteTokenService,
+                      this.systemEntityClient,
+                      this.systemOperationContext))
               .dataFetcher("createPost", new CreatePostResolver(this.postService))
               .dataFetcher("deletePost", new DeletePostResolver(this.postService))
               .dataFetcher("updatePost", new UpdatePostResolver(this.postService))
