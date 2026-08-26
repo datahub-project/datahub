@@ -106,15 +106,16 @@ Serve verified context to agents, tools, and custom workflows.
 
 > How ownership, vocabulary, compliance, and access are defined and enforced.
 
-| Feature Name                                                                   | Core | Cloud | Business Value                |                                                   Link                                                   |
-| :----------------------------------------------------------------------------- | :--: | :---: | :---------------------------- | :------------------------------------------------------------------------------------------------------: |
-| **Data Ownership Management**                                                  |  ✔  |  ✔   | Clear accountability          |    [Docs](https://docs.datahub.com/docs/metadata-integration/java/docs/sdk-v2/dataset-entity#owners)     |
-| **Business Glossary**                                                          |  ✔  |  ✔   | Common data language          |                         [Docs](https://docs.datahub.com/learn/business-glossary)                         |
-| **Bi-Directional Metadata Sync**                                               |  ❌  |  ✔   | Keep metadata current         |                 [Docs](https://docs.datahub.com/docs/automations/bigquery-metadata-sync)                 |
-| **Compliance Forms and Workflow Engine**                                       |  ❌  |  ✔   | Track regulatory compliance   |         [Docs](https://docs.datahub.com/docs/features/feature-guides/compliance-forms/analytics)         |
-| **Metadata Tests**                                                             |  ❌  |  ✔   | Validate governance rules     |                        [Docs](https://docs.datahub.com/docs/tests/metadata-tests)                        |
-| **Change Proposals: Documentation, Glossary, Tags, Terms, and Data Ownership** |  ❌  |  ✔   | Controlled vocabulary changes |                  [Docs](https://docs.datahub.com/docs/managed-datahub/change-proposals)                  |
-| **Access Request Workflows**                                                   |  ❌  |  ✔   | Self-service data access      | [Docs](https://docs.datahub.com/docs/managed-datahub/workflows/access-workflows#faq-and-troubleshooting) |
+| Feature Name                                                                   | Core | Cloud | Business Value                                                               |                                                   Link                                                   |
+| :----------------------------------------------------------------------------- | :--: | :---: | :--------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------: |
+| **Data Ownership Management**                                                  |  ✔  |  ✔   | Clear accountability                                                         |    [Docs](https://docs.datahub.com/docs/metadata-integration/java/docs/sdk-v2/dataset-entity#owners)     |
+| **Business Glossary**                                                          |  ✔  |  ✔   | Common data language                                                         |                         [Docs](https://docs.datahub.com/learn/business-glossary)                         |
+| **Bi-Directional Metadata Sync**                                               |  ❌  |  ✔   | Keep metadata current                                                        |                 [Docs](https://docs.datahub.com/docs/automations/bigquery-metadata-sync)                 |
+| **Compliance Forms and Workflow Engine**                                       |  ❌  |  ✔   | Track regulatory compliance                                                  |         [Docs](https://docs.datahub.com/docs/features/feature-guides/compliance-forms/analytics)         |
+| **Metadata Tests**                                                             |  ❌  |  ✔   | Validate governance rules                                                    |                        [Docs](https://docs.datahub.com/docs/tests/metadata-tests)                        |
+| **Change Proposals: Documentation, Glossary, Tags, Terms, and Data Ownership** |  ❌  |  ✔   | Controlled vocabulary changes                                                |                  [Docs](https://docs.datahub.com/docs/managed-datahub/change-proposals)                  |
+| **Access Request Workflows**                                                   |  ❌  |  ✔   | Self-service data access                                                     | [Docs](https://docs.datahub.com/docs/managed-datahub/workflows/access-workflows#faq-and-troubleshooting) |
+| **Action Workflows**                                                           |  ❌  |  ✔   | Approval flows beyond access requests (certification, governance, proposals) |             [Docs](https://docs.datahub.com/docs/managed-datahub/workflows/action-workflows)             |
 
 ## Enterprise & Security
 
