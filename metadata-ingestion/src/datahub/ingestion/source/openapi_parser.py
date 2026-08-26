@@ -1390,15 +1390,8 @@ def _normalize_map_schemas(schema: object) -> object:
 
 # Carried through verbatim: literal example/default instance data, never
 # schema-interpreted by _resolve_schema_refs (see its docstring) or by
-# merge_allof_schemas (_ALLOF_FIRST_WINS_KEYWORDS) either, so a "$ref" key
-# inside one of these is real data, not an unresolved schema reference.
-_OPAQUE_DATA_KEYWORDS = ("example", "default")
-
-
-def _strip_unresolved_refs(
-    schema: object, *, is_property_map: bool = False
-) -> Tuple[object, bool]:
-    """Recursively remove any leftover "$ref" *keyword* anywhere in the tree.
+def _strip_unresolved_refs(schema: object) -> Tuple[object, bool]:
+    """Recursively remove any leftover "$ref" key anywhere in the tree.
 
     This walk is intentionally generic (every dict value and list item, not just the
     JSON-Schema keywords _normalize_map_schemas understands) so it also covers keys
@@ -1406,35 +1399,30 @@ def _strip_unresolved_refs(
     depth-limited resolution can leave a raw $ref under any of those, and an
     unresolved $ref reaching jsonref crashes the whole endpoint.
 
-    ``is_property_map`` is True only for the dict directly under "properties" /
-    "patternProperties" — i.e. a map keyed by property *names*, not schema
-    keywords. A property can legitimately be named "$ref"; that key must not be
-    mistaken for a leftover reference. "example"/"default" values are skipped
-    entirely (kept exactly as-is) for the same reason: they're opaque instance
-    data, not schema, so a "$ref" inside one is real data too.
+    Unconditional, even for a property literally named "$ref" or a "$ref" key
+    inside "example"/"default" data: jsonref treats *every* dict with a "$ref"
+    key as a JSON Reference to resolve, with no way to tell it "this one is
+    just data" -- leaving such a key in place makes jsonref raise (dropping
+    the whole schema's fields, not just this one), which is far worse than
+    losing this one key's data.
 
-    Returns (possibly-rebuilt schema, True if any $ref keyword was found and
-    removed). Does NOT mutate the input in place: a node under one of the
-    unvisited keywords above may still be the exact same dict object as a shared
+    Returns (possibly-rebuilt schema, True if any $ref was found and removed).
+    Does NOT mutate the input in place: a node under one of the unvisited
+    keywords above may still be the exact same dict object as a shared
     sw_dict component (neither _resolve_schema_refs nor _normalize_map_schemas
     walks into "not"/"if"/"then"/"else"/"contains", so they never copy it
-    either), and deleting a key from it in place would permanently corrupt that
-    shared component for every other endpoint resolved later in the same run. A
-    branch with nothing to strip is returned unchanged (same object), so this
-    only allocates along paths that actually contained a $ref.
+    either), and deleting a key from it in place would permanently corrupt
+    that shared component for every other endpoint resolved later in the same
+    run. A branch with nothing to strip is returned unchanged (same object),
+    so this only allocates along paths that actually contained a $ref.
     """
     if isinstance(schema, dict):
-        found = ("$ref" in schema) and not is_property_map
+        found = "$ref" in schema
         new_dict = {}
         for key, value in schema.items():
-            if key == "$ref" and not is_property_map:
+            if key == "$ref":
                 continue
-            if key in _OPAQUE_DATA_KEYWORDS:
-                new_dict[key] = value
-                continue
-            new_value, child_found = _strip_unresolved_refs(
-                value, is_property_map=key in ("properties", "patternProperties")
-            )
+            new_value, child_found = _strip_unresolved_refs(value)
             found = found or child_found
             new_dict[key] = new_value
         return (new_dict if found else schema), found

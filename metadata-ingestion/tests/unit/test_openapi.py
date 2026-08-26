@@ -4094,44 +4094,31 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertNotIn("additionalProperties", shared_component)
         self.assertNotIn("type", shared_component)
 
-    def test_strip_unresolved_refs_preserves_property_named_ref(self):
-        # Regression: _strip_unresolved_refs walked every dict generically, so a
-        # property literally named "$ref" was indistinguishable from a leftover
-        # schema $ref keyword and got silently deleted along with its schema.
+    def test_strip_unresolved_refs_strips_ref_even_as_property_name_or_example_data(
+        self,
+    ):
+        # jsonref (invoked by get_schema_metadata with swallow_exceptions=False)
+        # treats *every* dict with a "$ref" key as a JSON Reference to resolve,
+        # regardless of whether it's really a schema keyword, a property
+        # literally named "$ref", or a "$ref" key inside "example"/"default"
+        # data. There's no way to tell jsonref "this one is just data" --
+        # leaving such a key in place makes jsonref raise and drop the whole
+        # schema's fields, which is far worse than losing this one key. So
+        # _strip_unresolved_refs must strip it unconditionally, even here.
         sw_dict: Dict[str, Any] = {"openapi": "3.0.0"}
         schema = {
             "type": "object",
             "properties": {
                 "$ref": {"type": "string", "description": "a field named $ref"},
-                "name": {"type": "string"},
-            },
-        }
-        resolved = resolve_schema_references(schema, sw_dict)
-        self.assertIn("$ref", resolved["properties"])
-        self.assertEqual(resolved["properties"]["$ref"]["type"], "string")
-
-    def test_strip_unresolved_refs_preserves_ref_inside_example_and_default(self):
-        # Regression: an "example"/"default" value is literal instance data, never
-        # schema-interpreted by _resolve_schema_refs or merge_allof_schemas -- but
-        # the generic strip walked into it anyway and deleted a "$ref" key that was
-        # part of the example payload, not a schema reference.
-        sw_dict: Dict[str, Any] = {"openapi": "3.0.0"}
-        schema = {
-            "type": "object",
-            "properties": {
                 "config": {
                     "type": "object",
                     "example": {"$ref": "not-a-schema-ref", "other": "value"},
                     "default": {"$ref": "also-not-a-schema-ref"},
-                }
+                },
             },
         }
         resolved = resolve_schema_references(schema, sw_dict)
-        config_schema = resolved["properties"]["config"]
-        self.assertEqual(
-            config_schema["example"], {"$ref": "not-a-schema-ref", "other": "value"}
-        )
-        self.assertEqual(config_schema["default"], {"$ref": "also-not-a-schema-ref"})
+        self.assertNotIn('"$ref"', json.dumps(resolved))
 
     def test_get_schema_from_response_array_with_boolean_items_falls_through(self):
         # Regression: get_schema_from_response returns None for a bare boolean
