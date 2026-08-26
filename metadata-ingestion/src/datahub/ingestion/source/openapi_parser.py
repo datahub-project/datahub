@@ -59,7 +59,7 @@ def flatten(d: dict, prefix: str = "") -> Generator:
             yield f"{prefix}.{k}".strip(".")  # Use dot instead of hyphen
 
 
-def flatten2list(d: dict) -> list:
+def flatten2list(d: dict) -> List[str]:
     """
     This function explodes dictionary keys such as:
         d = {"first":
@@ -76,8 +76,19 @@ def flatten2list(d: dict) -> list:
          "anotherone.third_a.last"
          ]
     """
-    fl_l = list(flatten(d))
-    return fl_l
+    return list(flatten(d))
+
+
+def _join_url(base: str, path: str) -> str:
+    # Docs/recipes often omit a trailing slash on url and a leading slash on
+    # swagger_file; naive concatenation would produce a broken host+path join.
+    if not path:
+        return base
+    if base.endswith("/") and path.startswith("/"):
+        return f"{base}{path[1:]}"
+    if not base.endswith("/") and not path.startswith("/"):
+        return f"{base}/{path}"
+    return f"{base}{path}"
 
 
 def request_call(
@@ -120,7 +131,7 @@ def get_swag_json(
     proxies: Optional[dict] = None,
     verify_ssl: bool = True,
 ) -> Dict:
-    tot_url = url + swagger_file
+    tot_url = _join_url(url, swagger_file)
     response = request_call(
         url=tot_url,
         token=token,
@@ -391,7 +402,7 @@ def clean_url(url: str) -> str:
 
 def extract_fields(
     response: requests.Response, dataset_name: str
-) -> Tuple[List[Any], Dict[Any, Any]]:
+) -> Tuple[List[str], Dict[Any, Any]]:
     """
     Given a URL, this function will extract the fields contained in the
     response of the call to that URL, supposing that the response is a JSON.
@@ -457,7 +468,7 @@ def get_tok(
     Trying to post username/password to get auth.
     """
     token = ""
-    url4req = url + tok_url
+    url4req = _join_url(url, tok_url)
     timeout = _REQUEST_TIMEOUT_SECONDS
     if method == "post":
         # this will make a POST call with username and password
@@ -615,8 +626,10 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
     According to JSON Schema, allOf means all schemas must be valid, which means
     we should merge their properties, required fields, and other attributes.
 
-    Each allOf member is fully resolved via resolve_schema_references before merge
+    Each allOf member is fully resolved via _resolve_schema_refs before merge
     so nested $refs (including those inside composed targets) cannot survive.
+    Map promotion (_promote_pattern_properties_to_additional) is deferred to the
+    public resolve_schema_references entry point so it runs once on the merged tree.
 
     Args:
         schema: Schema dictionary that may contain allOf
@@ -642,15 +655,12 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
 
     # Merge each schema in allOf
     for allof_schema in allof_schemas:
-        resolved_allof = resolve_schema_references(
+        resolved_allof = _resolve_schema_refs(
             allof_schema, sw_dict, max_depth=max_depth
         )
 
-        # Merge properties
-        if "properties" in resolved_allof:
-            if "properties" not in merged_schema:
-                merged_schema["properties"] = {}
-            merged_schema["properties"].update(resolved_allof["properties"])
+        # Merge properties — same-named fields combine under allOf (like map keywords).
+        _merge_allof_properties(merged_schema, resolved_allof, sw_dict, max_depth)
 
         # Merge required fields (union of all required lists)
         if "required" in resolved_allof:
@@ -663,8 +673,8 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
                 dict.fromkeys(existing_required + new_required)
             )
 
-        # Merge other schema attributes (type, format, description, etc.)
-        # Only merge if not already present in merged_schema.
+        # Scalar keywords are first-wins: JSON Schema allOf cannot collapse
+        # conflicting type/format/enum into one value, so we keep the earliest.
         for key in [
             "type",
             "format",
@@ -700,6 +710,36 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
         merged_schema = merge_allof_schemas(merged_schema, sw_dict, max_depth=max_depth)
 
     return merged_schema
+
+
+def _merge_allof_properties(
+    merged_schema: Dict[str, Any],
+    resolved_allof: Dict[str, Any],
+    sw_dict: Dict[str, Any],
+    max_depth: int,
+) -> None:
+    incoming_props = resolved_allof.get("properties")
+    if not isinstance(incoming_props, dict):
+        return
+    existing_props = merged_schema.get("properties")
+    # Copy before mutate — merged_schema may still alias a member's properties dict.
+    merged_schema["properties"] = (
+        dict(existing_props) if isinstance(existing_props, dict) else {}
+    )
+    for prop_name, prop_schema in incoming_props.items():
+        existing = merged_schema["properties"].get(prop_name)
+        if (
+            existing is not None
+            and isinstance(existing, dict)
+            and isinstance(prop_schema, dict)
+        ):
+            merged_schema["properties"][prop_name] = merge_allof_schemas(
+                _combine_under_allof(existing, prop_schema),
+                sw_dict,
+                max_depth=max_depth,
+            )
+        else:
+            merged_schema["properties"][prop_name] = prop_schema
 
 
 def _merge_allof_map_keywords(
@@ -968,7 +1008,7 @@ def _resolve_pattern_properties(
         pattern_properties = dict(pattern_properties)
         resolved_schema["patternProperties"] = pattern_properties
         for pattern, prop_schema in list(pattern_properties.items()):
-            pattern_properties[pattern] = resolve_schema_references(
+            pattern_properties[pattern] = _resolve_schema_refs(
                 prop_schema, sw_dict, max_depth=max_depth - 1
             )
 
@@ -1013,22 +1053,39 @@ def _promote_pattern_properties_to_additional(
         }
 
 
-def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
-    """
-    Recursively resolve all schema references in a Swagger v2 or OpenAPI v3 spec.
-    This ensures that all $ref references are resolved before passing to json_schema_util.py.
+def _normalize_map_schemas(schema: object) -> None:
+    """Post-order: promote patternProperties only after the full tree is merged."""
+    if not isinstance(schema, dict):
+        return
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for prop_schema in properties.values():
+            _normalize_map_schemas(prop_schema)
+    if "items" in schema:
+        _normalize_map_schemas(schema["items"])
+    additional = schema.get("additionalProperties")
+    if isinstance(additional, dict):
+        _normalize_map_schemas(additional)
+    pattern_properties = schema.get("patternProperties")
+    if isinstance(pattern_properties, dict):
+        for prop_schema in pattern_properties.values():
+            _normalize_map_schemas(prop_schema)
+    property_names = schema.get("propertyNames")
+    if isinstance(property_names, dict):
+        _normalize_map_schemas(property_names)
+    for union_key in ("oneOf", "anyOf", "allOf"):
+        members = schema.get(union_key)
+        if isinstance(members, list):
+            for member in members:
+                _normalize_map_schemas(member)
+    _promote_pattern_properties_to_additional(schema)
 
-    Args:
-        schema: Schema dictionary to resolve
-        sw_dict: Complete OpenAPI specification for resolving references
-        max_depth: Maximum recursion depth (default: 10) to prevent infinite recursion
 
-    Returns:
-        Resolved schema dictionary with all $ref references expanded
+def _resolve_schema_refs(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
+    """Expand $refs / allOf only — no patternProperties→additionalProperties promotion.
 
-    Note:
-        If max_depth is exceeded, returns partially resolved schema and logs a warning.
-        This prevents infinite recursion from deeply nested or circular references.
+    Promotion is lossy for mixed properties+patternProperties schemas and must run
+    once on the fully merged tree via resolve_schema_references / _normalize_map_schemas.
     """
     if not isinstance(schema, dict):
         return schema
@@ -1052,7 +1109,7 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
         referenced_schema = _lookup_local_ref_target(ref_path, sw_dict)
 
         if referenced_schema is not None:
-            resolved_referenced = resolve_schema_references(
+            resolved_referenced = _resolve_schema_refs(
                 referenced_schema, sw_dict, max_depth=max_depth - 1
             )
             siblings = {k: v for k, v in resolved_schema.items() if k != "$ref"}
@@ -1060,7 +1117,7 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
                 return resolved_referenced
             # Sibling keywords (incl. nested $refs / allOf) are resolved when
             # merge_allof_schemas fully expands each allOf member.
-            return resolve_schema_references(
+            return _resolve_schema_refs(
                 _combine_under_allof(resolved_referenced, siblings),
                 sw_dict,
                 max_depth=max_depth - 1,
@@ -1078,13 +1135,13 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
         properties = dict(properties)
         resolved_schema["properties"] = properties
         for prop_name, prop_schema in properties.items():
-            properties[prop_name] = resolve_schema_references(
+            properties[prop_name] = _resolve_schema_refs(
                 prop_schema, sw_dict, max_depth=max_depth - 1
             )
 
     # Recursively resolve references in array items
     if "items" in resolved_schema:
-        resolved_schema["items"] = resolve_schema_references(
+        resolved_schema["items"] = _resolve_schema_refs(
             resolved_schema["items"], sw_dict, max_depth=max_depth - 1
         )
 
@@ -1092,7 +1149,7 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
     if "additionalProperties" in resolved_schema and isinstance(
         resolved_schema["additionalProperties"], dict
     ):
-        resolved_schema["additionalProperties"] = resolve_schema_references(
+        resolved_schema["additionalProperties"] = _resolve_schema_refs(
             resolved_schema["additionalProperties"], sw_dict, max_depth=max_depth - 1
         )
 
@@ -1108,7 +1165,7 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
     # Resolve propertyNames so leftover $refs cannot break jsonref in json_schema_util.
     property_names = resolved_schema.get("propertyNames")
     if isinstance(property_names, dict):
-        resolved_schema["propertyNames"] = resolve_schema_references(
+        resolved_schema["propertyNames"] = _resolve_schema_refs(
             property_names, sw_dict, max_depth=max_depth - 1
         )
 
@@ -1116,14 +1173,34 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
     for union_key in ["oneOf", "anyOf"]:
         if union_key in resolved_schema:
             resolved_schema[union_key] = [
-                resolve_schema_references(
-                    union_schema, sw_dict, max_depth=max_depth - 1
-                )
+                _resolve_schema_refs(union_schema, sw_dict, max_depth=max_depth - 1)
                 for union_schema in resolved_schema[union_key]
             ]
 
-    _promote_pattern_properties_to_additional(resolved_schema)
+    return resolved_schema
 
+
+def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
+    """
+    Recursively resolve all schema references in a Swagger v2 or OpenAPI v3 spec.
+    This ensures that all $ref references are resolved before passing to json_schema_util.py.
+
+    Args:
+        schema: Schema dictionary to resolve
+        sw_dict: Complete OpenAPI specification for resolving references
+        max_depth: Maximum recursion depth (default: 10) to prevent infinite recursion
+
+    Returns:
+        Resolved schema dictionary with all $ref references expanded
+
+    Note:
+        If max_depth is exceeded, returns partially resolved schema and logs a warning.
+        This prevents infinite recursion from deeply nested or circular references.
+        patternProperties→additionalProperties promotion runs once after full merge.
+    """
+    resolved_schema = _resolve_schema_refs(schema, sw_dict, max_depth=max_depth)
+    if isinstance(resolved_schema, dict):
+        _normalize_map_schemas(resolved_schema)
     return resolved_schema
 
 

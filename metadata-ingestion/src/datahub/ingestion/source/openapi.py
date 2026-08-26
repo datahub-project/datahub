@@ -22,9 +22,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.extractor.json_schema_util import (
-    get_schema_metadata,
-)
+from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.openapi_parser import (
     SCHEMA_EXTRACTABLE_METHODS,
@@ -147,8 +145,9 @@ class OpenApiConfig(ConfigModel):
     swagger_file: str = Field(
         description="Route for access to the swagger file. e.g. openapi.json"
     )
-    ignore_endpoints: list = Field(
-        default=[], description="List of endpoints to ignore during ingestion."
+    ignore_endpoints: List[str] = Field(
+        default_factory=list,
+        description="List of endpoints to ignore during ingestion.",
     )
     username: str = Field(
         default="", description="Username used for basic HTTP authentication."
@@ -157,7 +156,7 @@ class OpenApiConfig(ConfigModel):
         default=SecretStr(""),
         description="Password used for basic HTTP authentication.",
     )
-    proxies: Optional[dict] = Field(
+    proxies: Optional[Dict[str, str]] = Field(
         default=None,
         description="Eg. "
         "`{'http': 'http://10.10.1.10:3128', 'https': 'http://10.10.1.10:1080'}`."
@@ -190,9 +189,11 @@ class OpenApiConfig(ConfigModel):
     )
     schema_resolution_max_depth: int = Field(
         default=10,
+        ge=1,
+        le=100,
         description="Maximum recursion depth for resolving schema references. "
         "Prevents infinite recursion from deeply nested or circular references. "
-        "Default is 10 levels.",
+        "Default is 10 levels; capped at 100 to avoid RecursionError.",
     )
 
     @field_validator("get_token", mode="before")
@@ -225,8 +226,21 @@ class OpenApiConfig(ConfigModel):
 
     @model_validator(mode="after")
     def ensure_only_one_token(self) -> "OpenApiConfig":
-        if self.bearer_token is not None and self.token is not None:
-            raise ValueError("Unable to use 'token' and 'bearer_token' together.")
+        configured = [
+            name
+            for name, value in (
+                ("token", self.token),
+                ("bearer_token", self.bearer_token),
+                ("get_token", self.get_token),
+            )
+            if value is not None
+        ]
+        if len(configured) > 1:
+            raise ValueError(
+                "Unable to use "
+                + ", ".join(repr(name) for name in configured)
+                + " together; configure only one of 'token', 'bearer_token', or 'get_token'."
+            )
         return self
 
     def get_swagger(self) -> Dict:
@@ -309,10 +323,7 @@ class ApiWorkUnit(MetadataWorkUnit):
     SourceCapability.DESCRIPTIONS,
     "Extracts endpoint descriptions and summaries from OpenAPI specifications",
 )
-@capability(
-    SourceCapability.TAGS,
-    "Extracts tags from OpenAPI specifications",
-)
+@capability(SourceCapability.TAGS, "Extracts tags from OpenAPI specifications")
 @capability(
     SourceCapability.OWNERSHIP,
     "Does not currently support extracting ownership",
@@ -361,7 +372,7 @@ class APISource(Source, ABC):
                 "Unexpected HTTP status when retrieving data from OpenAPI endpoint",
             ),
         )
-        self.report.warning(title=title, message=message, context=context, log=False)
+        self.report.warning(title=title, message=message, context=context)
 
     def extract_response_schema_from_endpoint(
         self, endpoint_spec: Dict, sw_dict: Dict
@@ -421,7 +432,6 @@ class APISource(Source, ABC):
                 message="Error extracting response schema from OpenAPI endpoint",
                 context=str(e),
                 exc=e,
-                log=False,
             )
             return None
 
@@ -467,7 +477,6 @@ class APISource(Source, ABC):
                 message="Error extracting request schema from OpenAPI endpoint",
                 context=str(e),
                 exc=e,
-                log=False,
             )
             return None
 
@@ -531,7 +540,6 @@ class APISource(Source, ABC):
                 message="Error creating schema metadata from OpenAPI schema",
                 context=f"Dataset: {dataset_name}",
                 exc=e,
-                log=False,
             )
             return None
 
@@ -761,7 +769,6 @@ class APISource(Source, ABC):
                 message="HTTP request to OpenAPI endpoint failed",
                 context=url,
                 exc=e,
-                log=False,
             )
             return None
 
@@ -840,7 +847,16 @@ class APISource(Source, ABC):
             Tracks statistics for final reporting
         """
         config = self.config
-        sw_dict = self.config.get_swagger()
+        try:
+            sw_dict = self.config.get_swagger()
+        except Exception as e:
+            self.report.failure(
+                title="Failed to Fetch OpenAPI Spec",
+                message="Unable to retrieve or parse the OpenAPI specification",
+                context=f"{config.url} / {config.swagger_file}",
+                exc=e,
+            )
+            return
         self.url_basepath = get_url_basepath(sw_dict)
 
         url_endpoints = get_endpoints(sw_dict)
@@ -906,7 +922,6 @@ class APISource(Source, ABC):
                     title="Failed to Extract Endpoint Metadata",
                     message="No schema found in OpenAPI spec for non-GET method (API calls only made for GET methods with credentials)",
                     context=f"method={endpoint_dets.get('method', 'unknown')}, endpoint={endpoint_k}, name={dataset_name}",
-                    log=False,
                 )
                 return
 
@@ -943,14 +958,12 @@ class APISource(Source, ABC):
                     title="No Schema Extracted - Missing Credentials",
                     message="Could not extract schema from OpenAPI spec and no API call made due to missing credentials (GET methods only)",
                     context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                    log=False,
                 )
             else:
                 self.report.warning(
                     title="No Schema Extracted",
                     message="Could not extract schema from OpenAPI spec (GET/POST/PUT/PATCH with 200 responses) or API calls for endpoint",
                     context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                    log=False,
                 )
 
     def get_report(self):

@@ -15,9 +15,12 @@ from datahub.ingestion.source.openapi import (
     OpenApiGetTokenConfig,
 )
 from datahub.ingestion.source.openapi_parser import (
+    _join_url,
     check_sw_version,
+    extract_fields,
     flatten2list,
     get_endpoints,
+    get_tok,
     get_url_basepath,
     guessing_url_name,
     maybe_theres_simple_id,
@@ -2881,3 +2884,311 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         ]
         self.assertTrue(any("keep" in (urn or "") for urn in urns))
         self.assertFalse(any("skip" in (urn or "") for urn in urns))
+
+    def test_allof_pattern_properties_with_named_properties_keeps_required(
+        self,
+    ):
+        # Critical: promoting patternProperties per allOf member before merge used to
+        # set dict additionalProperties and make json_schema_util drop required fields.
+        schema = {
+            "allOf": [
+                {
+                    "type": "object",
+                    "patternProperties": {"^a_": {"type": "string"}},
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "age": {"type": "integer"},
+                    },
+                    "required": ["name"],
+                },
+            ]
+        }
+        resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
+        self.assertIn("name", resolved["properties"])
+        self.assertIn("age", resolved["properties"])
+        self.assertEqual(resolved["required"], ["name"])
+        self.assertNotIn("additionalProperties", resolved)
+        metadata = get_schema_metadata(
+            platform="openapi", name="mixed-allof", json_schema=resolved
+        )
+        field_paths = [f.fieldPath for f in metadata.fields]
+        self.assertTrue(any(".name" in path for path in field_paths))
+        self.assertTrue(any(".age" in path for path in field_paths))
+
+    def test_allof_disjoint_pattern_properties_collapse_with_warning(self):
+        schema = {
+            "allOf": [
+                {
+                    "type": "object",
+                    "patternProperties": {"^a_": {"type": "string"}},
+                },
+                {
+                    "type": "object",
+                    "patternProperties": {"^b_": {"type": "integer"}},
+                },
+            ]
+        }
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ) as logs:
+            resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
+        self.assertIn("^a_", resolved["patternProperties"])
+        self.assertIn("^b_", resolved["patternProperties"])
+        self.assertIn("anyOf", resolved["additionalProperties"])
+        self.assertTrue(any("Collapsing" in msg for msg in logs.output))
+
+    def test_allof_ref_pattern_properties_plus_sibling_named_properties(self):
+        sw_dict = {
+            "openapi": "3.1.0",
+            "components": {
+                "schemas": {
+                    "MapLike": {
+                        "type": "object",
+                        "patternProperties": {"^x_": {"type": "string"}},
+                    }
+                }
+            },
+        }
+        schema = {
+            "allOf": [
+                {"$ref": "#/components/schemas/MapLike"},
+                {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}},
+                    "required": ["id"],
+                },
+            ]
+        }
+        resolved = resolve_schema_references(schema, sw_dict)
+        self.assertIn("id", resolved["properties"])
+        self.assertEqual(resolved["required"], ["id"])
+        self.assertNotIn("additionalProperties", resolved)
+        metadata = get_schema_metadata(
+            platform="openapi", name="ref-plus-props", json_schema=resolved
+        )
+        self.assertTrue(any(".id" in f.fieldPath for f in metadata.fields))
+
+    def test_allof_pattern_plus_named_nested_in_items(self):
+        schema = {
+            "type": "array",
+            "items": {
+                "allOf": [
+                    {
+                        "type": "object",
+                        "patternProperties": {"^m_": {"type": "string"}},
+                    },
+                    {
+                        "type": "object",
+                        "properties": {"label": {"type": "string"}},
+                    },
+                ]
+            },
+        }
+        resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
+        items = resolved["items"]
+        self.assertIn("label", items["properties"])
+        self.assertNotIn("additionalProperties", items)
+
+    def test_allof_pattern_plus_named_nested_in_additional_properties(self):
+        schema = {
+            "type": "object",
+            "additionalProperties": {
+                "allOf": [
+                    {
+                        "type": "object",
+                        "patternProperties": {"^m_": {"type": "string"}},
+                    },
+                    {
+                        "type": "object",
+                        "properties": {"label": {"type": "string"}},
+                    },
+                ]
+            },
+        }
+        resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
+        value_schema = resolved["additionalProperties"]
+        self.assertIn("label", value_schema["properties"])
+        self.assertNotIn("additionalProperties", value_schema)
+
+    def test_allof_same_named_properties_merge_nested_fields(self):
+        schema = {
+            "allOf": [
+                {
+                    "properties": {
+                        "p": {
+                            "type": "object",
+                            "properties": {"a": {"type": "string"}},
+                        }
+                    }
+                },
+                {
+                    "properties": {
+                        "p": {
+                            "type": "object",
+                            "properties": {"b": {"type": "integer"}},
+                        }
+                    }
+                },
+            ]
+        }
+        resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
+        nested = resolved["properties"]["p"]["properties"]
+        self.assertIn("a", nested)
+        self.assertIn("b", nested)
+
+    def test_allof_composition_equals_hand_merged_properties(self):
+        # Differential: resolve(allOf) should match resolve(hand-merged).
+        m1 = {
+            "type": "object",
+            "properties": {
+                "p": {"type": "object", "properties": {"a": {"type": "string"}}}
+            },
+        }
+        m2 = {
+            "type": "object",
+            "properties": {
+                "p": {"type": "object", "properties": {"b": {"type": "integer"}}}
+            },
+        }
+        composed = resolve_schema_references({"allOf": [m1, m2]}, _EMPTY_OPENAPI_SW)
+        hand = resolve_schema_references(
+            {
+                "type": "object",
+                "properties": {
+                    "p": {
+                        "type": "object",
+                        "properties": {
+                            "a": {"type": "string"},
+                            "b": {"type": "integer"},
+                        },
+                    }
+                },
+            },
+            _EMPTY_OPENAPI_SW,
+        )
+        self.assertEqual(
+            composed["properties"]["p"]["properties"],
+            hand["properties"]["p"]["properties"],
+        )
+
+    def test_join_url_inserts_slash_between_host_and_path(self):
+        self.assertEqual(
+            _join_url("https://api.example.com", "openapi.json"),
+            "https://api.example.com/openapi.json",
+        )
+        self.assertEqual(
+            _join_url("https://api.example.com/", "/openapi.json"),
+            "https://api.example.com/openapi.json",
+        )
+
+    def test_schema_resolution_max_depth_capped(self):
+        with self.assertRaises(ValidationError):
+            OpenApiConfig(
+                name="test_api",
+                url="https://api.example.com",
+                swagger_file="/openapi.json",
+                schema_resolution_max_depth=101,
+            )
+        with self.assertRaises(ValidationError):
+            OpenApiConfig(
+                name="test_api",
+                url="https://api.example.com",
+                swagger_file="/openapi.json",
+                schema_resolution_max_depth=0,
+            )
+
+    def test_ensure_only_one_token_rejects_token_and_get_token(self):
+        with self.assertRaises(ValidationError):
+            OpenApiConfig(
+                name="test_api",
+                url="https://api.example.com",
+                swagger_file="/openapi.json",
+                token="abc",
+                get_token={"request_type": "post", "url_complement": "/auth"},
+            )
+
+    def test_ensure_only_one_token_rejects_bearer_and_get_token(self):
+        with self.assertRaises(ValidationError):
+            OpenApiConfig(
+                name="test_api",
+                url="https://api.example.com",
+                swagger_file="/openapi.json",
+                bearer_token="abc",
+                get_token={"request_type": "post", "url_complement": "/auth"},
+            )
+
+    def test_get_workunits_reports_swagger_fetch_failure(self):
+        with patch.object(
+            OpenApiConfig, "get_swagger", side_effect=Exception("spec down")
+        ):
+            workunits = list(self.source.get_workunits_internal())
+        self.assertEqual(workunits, [])
+        self.assertTrue(
+            any(
+                getattr(f, "title", None) == "Failed to Fetch OpenAPI Spec"
+                for f in self.source.report.failures
+            )
+        )
+
+    def test_extract_schema_from_simple_endpoint_live_api_success(self):
+        self.source.config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            username="u",
+            password="p",
+            enable_api_calls_for_schema_extraction=True,
+        )
+        self.source.url_basepath = ""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b'{"id": 1, "name": "Rex"}'
+        with patch(
+            "datahub.ingestion.source.openapi.request_call",
+            return_value=mock_response,
+        ) as mock_call:
+            result = self.source._extract_schema_from_simple_endpoint(
+                "/pets", "pets", {}
+            )
+        mock_call.assert_called_once()
+        self.assertIsNotNone(result)
+        assert result is not None
+        field_paths = [f.fieldPath for f in result.fields]
+        self.assertTrue(any("id" in path for path in field_paths))
+        self.assertEqual(self.source.schema_extraction_stats.from_api_calls, 1)
+
+    def test_extract_fields_object_response(self):
+        response = MagicMock()
+        response.content = b'{"id": 1, "nested": {"x": true}}'
+        fields, sample = extract_fields(response, "pets")
+        self.assertIn("id", fields)
+        self.assertIn("nested.x", fields)
+        self.assertEqual(sample["id"], 1)
+
+    def test_get_tok_post_unexpected_shape_raises(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b'{"not_a_token": true}'
+        with patch(
+            "datahub.ingestion.source.openapi_parser.requests.post",
+            return_value=mock_response,
+        ):
+            with self.assertRaises(ValueError):
+                get_tok(
+                    url="https://api.example.com",
+                    username="u",
+                    password="p",
+                    tok_url="/auth",
+                    method="post",
+                )
+
+    def test_get_tok_unrecognised_method_raises(self):
+        with self.assertRaises(ValueError):
+            get_tok(
+                url="https://api.example.com",
+                tok_url="/auth",
+                method="put",
+            )
