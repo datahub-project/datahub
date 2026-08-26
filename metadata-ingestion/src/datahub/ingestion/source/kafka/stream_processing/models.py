@@ -21,9 +21,6 @@ class StreamProcessingJob(BaseModel):
     parse_query: Optional[str] = None
     sql_dialect: Optional[str] = None
     custom_properties: Dict[str, str] = Field(default_factory=dict)
-    # True when the edges are heuristic (e.g. Kafka Streams internal topics), so the
-    # builder can annotate the job rather than present them as authoritative.
-    low_confidence: bool = False
 
     @model_validator(mode="after")
     def parse_query_requires_dialect(self) -> "StreamProcessingJob":

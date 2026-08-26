@@ -120,6 +120,33 @@ Requirements and limitations:
   available through the [`kafka-connect`](/docs/generated/ingestion/sources/kafka-connect)
   source for environments that use Kafka Connect.
 
+#### Stream-processing lineage (Flink SQL)
+
+On Confluent Cloud, set `stream_processing_lineage.flink.enabled: true` to emit
+topic-to-topic lineage from Flink SQL `INSERT INTO ... SELECT ... FROM ...`
+statements. Each statement is modeled as a DataJob under a synthetic Flink
+DataFlow. Column-level lineage is on by default (`include_column_lineage: true`).
+
+Requires a Confluent Cloud resource-management API key plus `organization_id`,
+`environment_id`, and either `endpoint` or both `region` and `cloud`.
+
+```yaml
+source:
+  type: kafka
+  config:
+    connection:
+      bootstrap: "pkc-xxxxx.us-east-1.aws.confluent.cloud:9092"
+    stream_processing_lineage:
+      flink:
+        enabled: true
+        organization_id: "${CONFLUENT_ORG_ID}"
+        environment_id: "env-xxxxx"
+        region: "us-east-1"
+        cloud: "aws"
+        api_key: "${CONFLUENT_CLOUD_API_KEY}"
+        api_secret: "${CONFLUENT_CLOUD_API_SECRET}"
+```
+
 #### Custom Schema Registry
 
 The Kafka Source uses the schema registry to figure out the schema associated with both `key` and `value` for the topic.

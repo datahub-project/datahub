@@ -13,28 +13,15 @@ DATA_JOB_TYPE: Final[str] = "COMMAND"
 
 
 class StreamProcessingEngine(StrEnum):
-    KSQLDB = "ksqldb"
     FLINK = "flink"
-    KAFKA_STREAMS = "kafka-streams"
 
 
 # engine -> (flow_id, flow_name, flow_description)
 ENGINE_FLOW_METADATA: Final[Dict[StreamProcessingEngine, Tuple[str, str, str]]] = {
-    StreamProcessingEngine.KSQLDB: (
-        "ksqldb_queries",
-        "ksqlDB Queries",
-        "ksqlDB persistent queries reading from and writing to this Kafka cluster.",
-    ),
     StreamProcessingEngine.FLINK: (
         "flink_statements",
         "Flink SQL Statements",
         "Confluent Cloud Flink SQL statements reading from and writing to this Kafka cluster.",
-    ),
-    StreamProcessingEngine.KAFKA_STREAMS: (
-        "kafka_streams_apps",
-        "Kafka Streams Applications",
-        "Kafka Streams applications discovered via the Kafka Admin API. Input topics and "
-        "internal state topics only; true downstream output topics require the app topology.",
     ),
 }
 
@@ -42,31 +29,9 @@ ENGINE_FLOW_METADATA: Final[Dict[StreamProcessingEngine, Tuple[str, str, str]]] 
 PROP_ENGINE: Final[str] = "engine"
 PROP_QUERY: Final[str] = "query"
 PROP_STATE: Final[str] = "state"
-PROP_APPLICATION_ID: Final[str] = "application_id"
-PROP_CLIENT_IDS: Final[str] = "client_ids"
-PROP_LOW_CONFIDENCE: Final[str] = "low_confidence"
 
 # Keep a single query from bloating a DataJob's custom properties.
 MAX_QUERY_PROPERTY_CHARS: Final[int] = 10_000
-
-# --- ksqlDB REST API ---------------------------------------------------------
-KSQL_ENDPOINT_PATH: Final[str] = "/ksql"
-KSQL_MEDIA_TYPE: Final[str] = "application/vnd.ksql.v1+json"
-KSQL_STMT_SHOW_QUERIES: Final[str] = "SHOW QUERIES;"
-KSQL_STMT_LIST_STREAMS: Final[str] = "LIST STREAMS;"
-KSQL_STMT_LIST_TABLES: Final[str] = "LIST TABLES;"
-KSQL_KEY_TYPE: Final[str] = "@type"
-KSQL_KEY_QUERIES: Final[str] = "queries"
-KSQL_KEY_QUERY_STRING: Final[str] = "queryString"
-KSQL_KEY_SINK_TOPICS: Final[str] = "sinkKafkaTopics"
-KSQL_KEY_ID: Final[str] = "id"
-KSQL_KEY_STREAMS: Final[str] = "streams"
-KSQL_KEY_TABLES: Final[str] = "tables"
-KSQL_KEY_NAME: Final[str] = "name"
-KSQL_KEY_TOPIC: Final[str] = "topic"
-KSQL_KEY_QUERY_TYPE: Final[str] = "queryType"
-# ksqlDB SQL is not a sqlglot dialect; the closest for column parsing is ANSI/default.
-KSQL_SQL_DIALECT: Final[str] = "postgres"
 
 # --- Confluent Cloud Flink API ----------------------------------------------
 FLINK_HOST_TEMPLATE: Final[str] = "https://flink.{region}.{cloud}.confluent.cloud"
@@ -88,12 +53,6 @@ FLINK_DEFAULT_PAGE_SIZE: Final[int] = 100
 FLINK_MAX_PAGES: Final[int] = 1_000
 # Flink SQL is broadly ANSI; use the default dialect for best-effort column parsing.
 FLINK_SQL_DIALECT: Final[str] = "postgres"
-
-# --- Kafka Streams internal-topic detection ---------------------------------
-# Streams names its internal topics `<application.id>-<store>-changelog` and
-# `<application.id>-<name>-repartition`.
-STREAMS_CHANGELOG_SUFFIX: Final[str] = "-changelog"
-STREAMS_REPARTITION_SUFFIX: Final[str] = "-repartition"
 
 # --- SQL identifier extraction (table-level, dialect-agnostic) ---------------
 # Match the target of INSERT INTO and the sources after FROM / JOIN. Identifiers may

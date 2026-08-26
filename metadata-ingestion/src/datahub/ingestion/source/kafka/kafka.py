@@ -111,13 +111,6 @@ from datahub.ingestion.source.kafka.stream_processing.flink import (
     FlinkLineageExtractor,
     build_flink_client,
 )
-from datahub.ingestion.source.kafka.stream_processing.kafka_streams import (
-    KafkaStreamsLineageExtractor,
-)
-from datahub.ingestion.source.kafka.stream_processing.ksqldb import (
-    KsqlDBLineageExtractor,
-    build_ksqldb_client,
-)
 from datahub.ingestion.source.kafka.stream_processing.models import (
     StreamProcessingJob,
 )
@@ -338,14 +331,16 @@ class KafkaConnectionTest:
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Optionally emits topic-to-topic lineage from Stream Catalog cluster links / mirror "
-    "topics via `confluent_catalog.include_lineage`. For source/sink lineage to external "
+    "topics via `confluent_catalog.include_lineage`, and from Confluent Cloud Flink SQL "
+    "via `stream_processing_lineage.flink.enabled`. For source/sink lineage to external "
     "systems, use the kafka-connect source.",
     supported=True,
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Not supported",
-    supported=False,
+    "Optionally emits column-level lineage from Flink SQL statements when "
+    "`stream_processing_lineage.include_column_lineage` is enabled.",
+    supported=True,
 )
 @capability(
     SourceCapability.TAGS,
@@ -598,67 +593,24 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         jobs: List[StreamProcessingJob] = []
-
-        if config.ksqldb.enabled:
-            ksql_client = build_ksqldb_client(config.ksqldb, self.report)
-            if ksql_client is not None:
-                try:
-                    jobs.extend(
-                        KsqlDBLineageExtractor(ksql_client, self.report).extract()
-                    )
-                except Exception as e:
-                    self.report.warning(
-                        message="Failed to extract ksqlDB stream-processing lineage",
-                        context="ksqldb-lineage",
-                        exc=e,
-                    )
-                finally:
-                    ksql_client.close()
-
-        if config.flink.enabled:
-            flink_client = build_flink_client(config.flink, self.report)
-            if flink_client is not None:
-                try:
-                    jobs.extend(
-                        FlinkLineageExtractor(
-                            flink_client,
-                            self.report,
-                            config.flink.compute_pool_id,
-                        ).extract()
-                    )
-                except Exception as e:
-                    self.report.warning(
-                        message="Failed to extract Flink stream-processing lineage",
-                        context="flink-lineage",
-                        exc=e,
-                    )
-                finally:
-                    flink_client.close()
-
-        if config.kafka_streams.enabled:
-            if not hasattr(self, "admin_client"):
-                # init_kafka_admin_client already warned when the client could not be built.
-                self.report.warning(
-                    message="Kafka Streams lineage is enabled but no Kafka Admin client is "
-                    "available, so it will be skipped",
-                    context="kafka-streams-lineage",
+        flink_client = build_flink_client(config.flink, self.report)
+        if flink_client is not None:
+            try:
+                jobs.extend(
+                    FlinkLineageExtractor(
+                        flink_client,
+                        self.report,
+                        config.flink.compute_pool_id,
+                    ).extract()
                 )
-            else:
-                try:
-                    jobs.extend(
-                        KafkaStreamsLineageExtractor(
-                            admin_client=self.admin_client,
-                            config=config.kafka_streams,
-                            report=self.report,
-                            timeout_seconds=self.source_config.connection.client_timeout_seconds,
-                        ).extract()
-                    )
-                except Exception as e:
-                    self.report.warning(
-                        message="Failed to extract Kafka Streams lineage",
-                        context="kafka-streams-lineage",
-                        exc=e,
-                    )
+            except Exception as e:
+                self.report.warning(
+                    message="Failed to extract Flink stream-processing lineage",
+                    context="flink-lineage",
+                    exc=e,
+                )
+            finally:
+                flink_client.close()
 
         yield from build_stream_processing_workunits(
             jobs=jobs,

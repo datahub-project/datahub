@@ -703,7 +703,7 @@ plugins: Dict[str, Set[str]] = {
     # in the base install; JPype1/jdk4py bridge to the JDBC driver (no SQLAlchemy).
     "informix": sqlglot_lib | {"JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "json-schema": {"requests<3.0.0"},
-    # sqlglot_lib: stream-processing lineage (ksqlDB/Flink) parses transform SQL for
+    # sqlglot_lib: Flink stream-processing lineage parses transform SQL for
     # best-effort column-level lineage via datahub.sql_parsing.
     "kafka": kafka_common | kafka_protobuf | sqlglot_lib,
     "kafka-connect": sql_common

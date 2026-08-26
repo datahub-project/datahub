@@ -103,55 +103,6 @@ class ProfilerConfig(GEProfilingConfig):
     )
 
 
-class KsqlDBLineageConfig(ConfigModel):
-    enabled: bool = Field(
-        default=False,
-        description="Emit topic-to-topic lineage from Confluent Cloud / self-managed ksqlDB "
-        "persistent queries. Each CREATE STREAM/TABLE AS SELECT query is modeled as a DataJob "
-        "whose input datasets are the source topics and whose output dataset is the sink topic.",
-    )
-    endpoint: Optional[str] = Field(
-        default=None,
-        description="ksqlDB server endpoint, e.g. `https://pksqlc-xxxxx.us-east-1.aws.confluent.cloud:443`.",
-    )
-    api_key: Optional[SecretStr] = Field(
-        default=None,
-        description="ksqlDB API key (Basic auth). For Confluent Cloud this is a ksqlDB cluster "
-        "API key, distinct from the Kafka and Schema Registry keys.",
-    )
-    api_secret: Optional[SecretStr] = Field(
-        default=None, description="ksqlDB API secret (Basic auth)."
-    )
-    timeout_seconds: PositiveInt = Field(
-        default=30, description="Timeout in seconds for each ksqlDB REST request."
-    )
-
-    @model_validator(mode="after")
-    def validate_ksqldb(self) -> "KsqlDBLineageConfig":
-        if not self.enabled:
-            return self
-        if not self.endpoint:
-            raise ValueError(
-                "Configuration error: 'stream_processing_lineage.ksqldb.enabled' is true but "
-                "'stream_processing_lineage.ksqldb.endpoint' is not set."
-            )
-        _require_secret_pair(
-            self.api_key,
-            self.api_secret,
-            "stream_processing_lineage.ksqldb",
-            required=False,
-        )
-        has_creds = _secret_configured(self.api_key) or _secret_configured(
-            self.api_secret
-        )
-        self.endpoint = _normalize_endpoint(
-            self.endpoint,
-            "stream_processing_lineage.ksqldb.endpoint",
-            require_https=has_creds,
-        )
-        return self
-
-
 class FlinkLineageConfig(ConfigModel):
     enabled: bool = Field(
         default=False,
@@ -238,34 +189,16 @@ class FlinkLineageConfig(ConfigModel):
         return self
 
 
-class KafkaStreamsLineageConfig(ConfigModel):
-    enabled: bool = Field(
-        default=False,
-        description="Best-effort lineage for Kafka Streams applications, discovered via the Kafka "
-        "Admin API over the existing broker connection. Detects apps by their internal "
-        "changelog/repartition topics and emits input topics plus those internal topics. True "
-        "downstream output topics require the app topology, which no broker API exposes.",
-    )
-    application_patterns: AllowDenyPattern = Field(
-        default_factory=lambda: AllowDenyPattern(allow=[".*"], deny=["^_.*"]),
-        description="Regex patterns for Kafka Streams application ids (consumer group ids) to include.",
-    )
-
-
 class StreamProcessingLineageConfig(ConfigModel):
-    ksqldb: KsqlDBLineageConfig = Field(default_factory=KsqlDBLineageConfig)
     flink: FlinkLineageConfig = Field(default_factory=FlinkLineageConfig)
-    kafka_streams: KafkaStreamsLineageConfig = Field(
-        default_factory=KafkaStreamsLineageConfig
-    )
     include_column_lineage: bool = Field(
         default=True,
-        description="Parse the transform SQL (ksqlDB/Flink) to emit best-effort column-level "
-        "lineage, resolving topic schemas from DataHub when available.",
+        description="Parse Flink SQL to emit best-effort column-level lineage, resolving "
+        "topic schemas from DataHub when available.",
     )
 
     def any_enabled(self) -> bool:
-        return self.ksqldb.enabled or self.flink.enabled or self.kafka_streams.enabled
+        return self.flink.enabled
 
 
 class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
@@ -373,9 +306,8 @@ class KafkaSourceConfig(
     )
     stream_processing_lineage: StreamProcessingLineageConfig = Field(
         default_factory=StreamProcessingLineageConfig,
-        description="Emit topic-to-topic transform lineage from stream-processing engines "
-        "(ksqlDB persistent queries, Confluent Cloud Flink SQL statements, and Kafka Streams "
-        "applications), each modeled as a DataJob with input and output topics.",
+        description="Emit topic-to-topic transform lineage from Confluent Cloud Flink SQL "
+        "statements, each modeled as a DataJob with input and output topics.",
     )
 
     @model_validator(mode="after")

@@ -15,7 +15,6 @@ from datahub.ingestion.source.kafka.stream_processing.constants import (
     ENGINE_FLOW_METADATA,
     MAX_QUERY_PROPERTY_CHARS,
     PROP_ENGINE,
-    PROP_LOW_CONFIDENCE,
     PROP_QUERY,
     StreamProcessingEngine,
 )
@@ -150,6 +149,4 @@ def _job_properties(job: StreamProcessingJob) -> Dict[str, str]:
     properties[PROP_ENGINE] = job.engine.value
     if job.query:
         properties[PROP_QUERY] = job.query[:MAX_QUERY_PROPERTY_CHARS]
-    if job.low_confidence:
-        properties[PROP_LOW_CONFIDENCE] = "true"
     return properties

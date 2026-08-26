@@ -2296,7 +2296,13 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Optionally emits topic-to-topic lineage from Stream Catalog cluster links / mirror topics via `confluent_catalog.include_lineage`. For source/sink lineage to external systems, use the kafka-connect source.",
+          "description": "Optionally emits topic-to-topic lineage from Stream Catalog cluster links / mirror topics via `confluent_catalog.include_lineage`, and from Confluent Cloud Flink SQL via `stream_processing_lineage.flink.enabled`. For source/sink lineage to external systems, use the kafka-connect source.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Optionally emits column-level lineage from Flink SQL statements when `stream_processing_lineage.include_column_lineage` is enabled.",
           "subtype_modifier": null,
           "supported": true
         },
