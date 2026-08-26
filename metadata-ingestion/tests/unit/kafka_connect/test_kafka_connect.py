@@ -1220,7 +1220,7 @@ class TestConfluentCloudConnectors:
 
         lineages = connector.extract_lineages()
 
-        assert any(lineage.target_dataset == "pg-users" for lineage in lineages)
+        assert [lineage.target_dataset for lineage in lineages] == ["pg-users"]
 
     def test_get_job_id_prefixes_managed_postgres_source(self) -> None:
         lineage = KafkaConnectLineage(

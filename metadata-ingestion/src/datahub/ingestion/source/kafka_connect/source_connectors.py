@@ -593,7 +593,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         This method implements a hybrid approach that properly handles transforms while
         working within Cloud environment constraints.
         """
-        all_topics = self.available_topics()
+        all_topics = self._topics_for_this_connector(self.available_topics())
 
         # If we have topics and transforms, try the transform-aware approach
         if all_topics and parser.transforms:
@@ -613,6 +613,20 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         else:
             # Use available topics directly if no better strategy
             return self._create_direct_lineages_from_topics(all_topics, parser)
+
+    def _topics_for_this_connector(self, cluster_topics: List[str]) -> List[str]:
+        # Cloud connectors often leave topic_names empty. Prefer {topic.prefix}{table}
+        # (or other config-derived names) intersected with the cluster list so we
+        # do not emit lineage for every topic on the cluster.
+        expected = self.get_topics_from_config()
+        if expected:
+            expected_set = set(expected)
+            scoped = [topic for topic in cluster_topics if topic in expected_set]
+            if scoped:
+                return scoped
+        if self.connector_manifest.topic_names:
+            return list(self.connector_manifest.topic_names)
+        return cluster_topics
 
     def _has_one_to_one_topic_mapping(self, topics: Optional[List[str]] = None) -> bool:
         """Check if connector has clear 1:1 table to topic mapping from config."""
@@ -906,6 +920,8 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         )
 
         for topic in available_topics:
+            if parser.topic_prefix and not topic.startswith(parser.topic_prefix):
+                continue
             # Remove prefix to get source table name
             source_table = self._extract_source_table_from_topic(
                 topic, parser.topic_prefix
