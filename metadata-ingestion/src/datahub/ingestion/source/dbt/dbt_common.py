@@ -356,9 +356,6 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     catalog_stats_extracted: int = 0
     catalog_stats_skipped_no_data: int = 0
 
-    # Catalog generated_at timestamp (set by subclasses when loading catalog)
-    catalog_generated_at: Optional[datetime] = None
-
     # Exposure entity emission statistics
     num_exposures_emitted: int = 0
     num_exposures_by_type: Dict[str, int] = field(
@@ -1134,6 +1131,11 @@ class DBTNode:
     # Stats from catalog.json (e.g., num_rows, num_bytes from BigQuery/Snowflake)
     row_count: Optional[int] = None
     size_in_bytes: Optional[int] = None
+
+    # generated_at timestamp from this node's own project's catalog.json. Per-node
+    # rather than per-source for the same reason as artifact_props: a multi-project
+    # run has one catalog.json (and one generated_at) per project.
+    catalog_generated_at: Optional[datetime] = None
 
     convert_urns_to_lowercase: bool = False
 
@@ -2717,10 +2719,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     and self.config.entities_enabled.can_emit_catalog_stats
                 ):
                     if node.row_count is not None or node.size_in_bytes is not None:
-                        # Use catalog's generated_at timestamp if available, else fallback to now (UTC)
-                        profile_timestamp = (
-                            self.report.catalog_generated_at
-                            or datetime.now(tz=timezone.utc)
+                        # Use this node's own project's catalog generated_at timestamp
+                        # if available, else fallback to now (UTC).
+                        profile_timestamp = node.catalog_generated_at or datetime.now(
+                            tz=timezone.utc
                         )
                         dataset_profile = DatasetProfileClass(
                             timestampMillis=int(profile_timestamp.timestamp() * 1000),

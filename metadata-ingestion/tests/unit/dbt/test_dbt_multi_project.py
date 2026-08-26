@@ -1,6 +1,6 @@
 import json
 import pathlib
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import pytest
 
@@ -102,7 +102,11 @@ def test_non_glob_manifest_still_accepts_explicit_catalog_path() -> None:
 
 
 def _write_project(
-    root: pathlib.Path, project: str, models: List[Dict[str, str]]
+    root: pathlib.Path,
+    project: str,
+    models: List[Dict[str, str]],
+    exposures: Optional[Dict[str, Dict[str, Any]]] = None,
+    catalog_generated_at: Optional[str] = None,
 ) -> None:
     """Write a minimal dbt target/ directory for one project."""
     project_dir = root / project
@@ -142,7 +146,7 @@ def _write_project(
         },
         "nodes": nodes,
         "sources": {},
-        "exposures": {},
+        "exposures": exposures or {},
         "metrics": {},
         "macros": {},
         "child_map": {},
@@ -151,6 +155,18 @@ def _write_project(
         "semantic_models": {},
     }
     (project_dir / "manifest.json").write_text(json.dumps(manifest))
+
+    if catalog_generated_at is not None:
+        catalog = {
+            "metadata": {
+                "dbt_schema_version": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "dbt_version": "1.8.0",
+                "generated_at": catalog_generated_at,
+            },
+            "nodes": {},
+            "sources": {},
+        }
+        (project_dir / "catalog.json").write_text(json.dumps(catalog))
 
 
 def test_glob_fans_out_over_multiple_projects(tmp_path: pathlib.Path) -> None:
@@ -240,7 +256,9 @@ def test_glob_missing_sibling_artifacts_warns_and_continues(
     tmp_path: pathlib.Path,
 ) -> None:
     """A project that never ran `dbt docs generate` has no catalog.json/sources.json.
-    That must not fail the whole multi-project run."""
+    That must not fail the whole multi-project run, and must actually warn - a prior
+    version of this test never checked report.warnings, so it would have kept passing
+    even if the warning silently stopped firing."""
     _write_project(
         tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
     )
@@ -251,3 +269,58 @@ def test_glob_missing_sibling_artifacts_warns_and_continues(
     assert {node.dbt_name for node in nodes} == {"model.project_a.orders"}
     assert source.report.manifests_loaded == 1
     assert source.report.manifests_failed == 0
+
+
+def test_glob_accumulates_exposures_across_projects(tmp_path: pathlib.Path) -> None:
+    """loadManifestAndCatalog is called once per project under fan-out, and
+    self._exposures is read exactly once at emit time (load_exposures), so
+    overwriting it per project - instead of accumulating - would silently drop
+    every project's exposures but the alphabetically-last one."""
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "sch_a"}],
+        exposures={"exposure.project_a.dashboard_a": {"name": "dashboard_a"}},
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "events", "database": "db", "schema": "sch_b"}],
+        exposures={"exposure.project_b.dashboard_b": {"name": "dashboard_b"}},
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    source.load_nodes()
+
+    assert {e.name for e in source.load_exposures()} == {
+        "dashboard_a",
+        "dashboard_b",
+    }
+
+
+def test_glob_attributes_catalog_generated_at_per_project(
+    tmp_path: pathlib.Path,
+) -> None:
+    """catalog_generated_at used to live on the report - one slot, so under fan-out
+    the last-loaded project's timestamp silently applied to every node's dataset
+    profile. It must now be attributed per-node to that node's own project."""
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "sch_a"}],
+        catalog_generated_at="2020-01-01T00:00:00.000000Z",
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "events", "database": "db", "schema": "sch_b"}],
+        catalog_generated_at="2021-06-01T00:00:00.000000Z",
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes_by_name = {node.dbt_name: node for node in source.load_nodes()}
+
+    orders_generated_at = nodes_by_name["model.project_a.orders"].catalog_generated_at
+    events_generated_at = nodes_by_name["model.project_b.events"].catalog_generated_at
+    assert orders_generated_at is not None and orders_generated_at.year == 2020
+    assert events_generated_at is not None and events_generated_at.year == 2021

@@ -1,6 +1,7 @@
 import dataclasses
 import json
 import logging
+from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 
 from packaging import version
@@ -892,67 +893,119 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             expanded_paths.extend(self._expand_glob_path(path))
         return expanded_paths
 
+    def _load_optional_artifact_json(
+        self, path: Optional[str], *, optional_artifacts: bool
+    ) -> Optional[Dict[str, Any]]:
+        """Load catalog.json or sources.json, tolerating absence when optional.
+
+        Returns None if path is None. If the file doesn't exist, returns None when
+        optional_artifacts is True (a glob-derived sibling guess) and re-raises when
+        False (an explicitly-configured path is a real misconfiguration). A file
+        that exists but is corrupt JSON always raises either way - only "not found"
+        is ever treated as absence.
+        """
+        if path is None:
+            return None
+        try:
+            return self.load_file_as_json(
+                path, self.config.aws_connection, self.config.gcs_connection
+            )
+        except json.JSONDecodeError:
+            raise  # corrupt JSON is never "just missing"
+        except (FileNotFoundError, ValueError):
+            if not optional_artifacts:
+                raise
+            return None
+
     def loadManifestAndCatalog(
         self,
         manifest_path: str,
         catalog_path: Optional[str],
         sources_path: Optional[str],
+        *,
+        optional_artifacts: bool = False,
     ) -> Tuple[List[DBTNode], Optional[str]]:
+        """Load one project's manifest/catalog/sources.
+
+        optional_artifacts distinguishes two callers: a single, explicitly-configured
+        project (default, False) where a missing catalog_path/sources_path is a real
+        misconfiguration and must fail loudly, versus a glob-derived sibling guess
+        (True) where the file simply not existing beside this particular manifest is
+        expected and must warn rather than fail.
+        """
         dbt_manifest_json = self.load_file_as_json(
             manifest_path,
             self.config.aws_connection,
             self.config.gcs_connection,
         )
         dbt_manifest_metadata = dbt_manifest_json["metadata"]
-        self.report.manifest_info = dict(
-            generated_at=dbt_manifest_metadata.get("generated_at", "unknown"),
-            dbt_version=dbt_manifest_metadata.get("dbt_version", "unknown"),
-            project_name=dbt_manifest_metadata.get("project_name", "unknown"),
-        )
+        if not optional_artifacts:
+            # manifest_info/catalog_info are single report-level fields, so in glob
+            # mode "last project wins" would misrepresent the whole run as one
+            # project's data. manifest_paths_expanded already lists every project.
+            self.report.manifest_info = dict(
+                generated_at=dbt_manifest_metadata.get("generated_at", "unknown"),
+                dbt_version=dbt_manifest_metadata.get("dbt_version", "unknown"),
+                project_name=dbt_manifest_metadata.get("project_name", "unknown"),
+            )
 
-        dbt_catalog_json = None
+        dbt_catalog_json = self._load_optional_artifact_json(
+            catalog_path, optional_artifacts=optional_artifacts
+        )
         dbt_catalog_metadata = None
-        if catalog_path is not None:
-            dbt_catalog_json = self.load_file_as_json(
-                catalog_path,
-                self.config.aws_connection,
-                self.config.gcs_connection,
-            )
+        # This project's catalog generated_at, stamped onto each node below
+        # (per-project, like artifact_props) rather than kept on the report, since
+        # the report has only one slot and a multi-project run has one catalog per
+        # project.
+        catalog_generated_at: Optional[datetime] = None
+        if dbt_catalog_json is not None:
             dbt_catalog_metadata = dbt_catalog_json.get("metadata", {})
-            self.report.catalog_info = dict(
-                generated_at=dbt_catalog_metadata.get("generated_at", "unknown"),
-                dbt_version=dbt_catalog_metadata.get("dbt_version", "unknown"),
-                project_name=dbt_catalog_metadata.get("project_name", "unknown"),
-            )
+            if not optional_artifacts:
+                self.report.catalog_info = dict(
+                    generated_at=dbt_catalog_metadata.get("generated_at", "unknown"),
+                    dbt_version=dbt_catalog_metadata.get("dbt_version", "unknown"),
+                    project_name=dbt_catalog_metadata.get("project_name", "unknown"),
+                )
             # Parse and store catalog's generated_at for use in DatasetProfile timestamps
             if generated_at_str := dbt_catalog_metadata.get("generated_at"):
                 try:
-                    self.report.catalog_generated_at = parse_dbt_timestamp(
-                        generated_at_str
-                    )
+                    catalog_generated_at = parse_dbt_timestamp(generated_at_str)
                 except Exception:
                     logger.debug(
                         f"Failed to parse catalog generated_at: {generated_at_str}"
                     )
-        else:
+        elif catalog_path is None:
             self.report.warning(
                 title="No catalog file configured",
                 message="Some metadata, particularly schema information, will be missing.",
             )
-
-        sources_invocation_id = None
-        if sources_path is not None:
-            dbt_sources_json = self.load_file_as_json(
-                sources_path,
-                self.config.aws_connection,
-                self.config.gcs_connection,
+        else:
+            # catalog_path was a glob-derived sibling guess, and nothing was there.
+            self.report.warning(
+                title="No catalog file found for project",
+                message="This dbt project has no catalog.json beside its manifest; "
+                "some metadata, particularly schema information, will be missing.",
+                context=manifest_path,
             )
+
+        dbt_sources_json = self._load_optional_artifact_json(
+            sources_path, optional_artifacts=optional_artifacts
+        )
+        sources_invocation_id = None
+        sources_results: Any = {}
+        if dbt_sources_json is not None:
             sources_results = dbt_sources_json["results"]
             sources_invocation_id = dbt_sources_json.get("metadata", {}).get(
                 "invocation_id"
             )
-        else:
-            sources_results = {}
+        elif sources_path is not None and optional_artifacts:
+            # sources_path was a glob-derived sibling guess, and nothing was there.
+            self.report.warning(
+                title="No sources file found for project",
+                message="This dbt project has no sources.json beside its manifest; "
+                "last-modified fields will not be populated.",
+                context=manifest_path,
+            )
 
         manifest_schema = dbt_manifest_json["metadata"].get("dbt_schema_version")
         manifest_version = dbt_manifest_json["metadata"].get("dbt_version")
@@ -1000,14 +1053,23 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             only_include_if_in_catalog=self.config.only_include_if_in_catalog,
             include_database_name=self.config.include_database_name,
             report=self.report,
+            # extract_dbt_entities also stamps artifact_props onto each node it
+            # builds via the DBTNode constructor, but the consolidated loop below is
+            # the authoritative site - it re-stamps every node from every extractor,
+            # so this kwarg is redundant rather than load-bearing.
             artifact_props=artifact_props,
             sources_invocation_id=sources_invocation_id,
         )
 
-        # Extract exposures from manifest
-        self._exposures = extract_dbt_exposures(
-            manifest_exposures=manifest_exposures,
-            tag_prefix=self.config.tag_prefix,
+        # Extract exposures from manifest. Accumulate rather than overwrite: this
+        # method is called once per project under fan-out, and self._exposures is
+        # read exactly once at emit time (load_exposures), so overwriting here would
+        # silently drop every project's exposures but the last.
+        self._exposures.extend(
+            extract_dbt_exposures(
+                manifest_exposures=manifest_exposures,
+                tag_prefix=self.config.tag_prefix,
+            )
         )
 
         # Extract semantic models from manifest (dbt 1.6+)
@@ -1022,18 +1084,19 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 tag_prefix=self.config.tag_prefix,
             )
             nodes.extend(semantic_model_nodes)
-            self.report.num_semantic_models_emitted = len(semantic_model_nodes)
+            self.report.num_semantic_models_emitted += len(semantic_model_nodes)
             if semantic_model_nodes:
                 logger.info(
                     f"Extracted {len(semantic_model_nodes)} semantic models from manifest"
                 )
 
         # Stamp every node - regardless of which extractor produced it - with this
-        # project's artifact provenance in one place. This is the single authoritative
-        # site for artifact_props, so a future extractor can't silently ship
+        # project's artifact provenance and catalog timestamp in one place. This is
+        # the single authoritative site, so a future extractor can't silently ship
         # provenance-less nodes the way extract_semantic_models once did.
         for node in nodes:
             node.artifact_props = artifact_props
+            node.catalog_generated_at = catalog_generated_at
 
         return nodes, catalog_version
 
@@ -1050,30 +1113,13 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         prefix, _, _ = manifest_path.rpartition("/")
         return f"{prefix}/{filename}" if prefix else filename
 
-    def _resolve_optional_sibling_path(
-        self, manifest_path: str, filename: str
-    ) -> Optional[str]:
-        """Resolve a sibling artifact for glob mode, or None if it isn't present.
-
-        catalog.json and sources.json are both optional even for a single project.
-        In glob mode we can't know ahead of time which matched projects ran
-        `dbt docs generate`, so we probe by attempting the load rather than
-        assuming presence.
-        """
-        sibling_path = self._sibling_artifact_path(manifest_path, filename)
-        try:
-            self.load_file_as_json(
-                sibling_path, self.config.aws_connection, self.config.gcs_connection
-            )
-        except Exception:
-            return None
-        return sibling_path
-
     def _load_project_nodes(
         self,
         manifest_path: str,
         catalog_path: Optional[str],
         sources_path: Optional[str],
+        *,
+        optional_artifacts: bool,
     ) -> List[DBTNode]:
         """Load one project's manifest/catalog/sources and return its nodes.
 
@@ -1082,7 +1128,10 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         than the whole estate's.
         """
         nodes, catalog_version = self.loadManifestAndCatalog(
-            manifest_path, catalog_path, sources_path
+            manifest_path,
+            catalog_path,
+            sources_path,
+            optional_artifacts=optional_artifacts,
         )
         self.report.manifests_loaded += 1
 
@@ -1121,11 +1170,19 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
         all_nodes: List[DBTNode] = []
         for manifest_path in manifest_paths:
+            catalog_path: Optional[str]
+            sources_path: Optional[str]
             if is_multi_project:
-                catalog_path = self._resolve_optional_sibling_path(
+                # No existence probe: pass the sibling guess straight through and let
+                # loadManifestAndCatalog's single load site handle absence. Probing
+                # first would read and parse catalog.json/sources.json twice per
+                # project - for wide schemas catalog.json is the largest dbt artifact,
+                # and at this feature's scale (many projects, often on S3) that
+                # doubles the dominant cost of the run.
+                catalog_path = self._sibling_artifact_path(
                     manifest_path, "catalog.json"
                 )
-                sources_path = self._resolve_optional_sibling_path(
+                sources_path = self._sibling_artifact_path(
                     manifest_path, "sources.json"
                 )
             else:
@@ -1134,7 +1191,10 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
             try:
                 project_nodes = self._load_project_nodes(
-                    manifest_path, catalog_path, sources_path
+                    manifest_path,
+                    catalog_path,
+                    sources_path,
+                    optional_artifacts=is_multi_project,
                 )
             except Exception as e:
                 # In single-project mode, a bad manifest fails the run exactly as it
