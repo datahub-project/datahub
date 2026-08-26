@@ -334,7 +334,9 @@ jobs:
           docker run --rm -v "$PWD:/workspace" -w /workspace/metadata-ingestion \
             cgr.dev/chainguard/wolfi-base:latest sh -c '
               set -eux
-              apk add --no-cache python-3.11 python-3.11-dev uv git bash
+              apk add --no-cache python-3.11 python-3.11-dev uv git bash \
+                build-base krb5-dev krb5-libs openldap-2.6-dev cyrus-sasl-mit-dev \
+                libaio-dev librdkafka-dev unixodbc-dev
               ln -sf /usr/bin/python3.11 /usr/bin/python3
               uv venv .venv
               . .venv/bin/activate
