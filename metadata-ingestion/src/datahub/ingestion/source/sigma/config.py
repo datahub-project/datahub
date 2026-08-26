@@ -160,6 +160,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
         default_factory=SigmaWorkspaceEntityFilterReport
     )
     non_accessible_workspaces_count: int = 0
+    # Workspaces whose Container had to be named from the entity path because
+    # ``/workspaces/{id}`` withheld their metadata.
+    workspaces_without_metadata: List[str] = field(default_factory=list)
 
     datasets: EntityFilterReport = EntityFilterReport.field(type="dataset")
     datasets_without_workspace: int = 0

@@ -117,3 +117,9 @@ Before running ingestion, ensure network connectivity to the source, valid authe
 
 We have observed issues with the Sigma API, where certain API endpoints do not return the expected results, even when the user is an admin. In those cases, a workaround is to manually add the user associated with the Client ID/Secret to each workspace with missing metadata.
 Empty workspaces are listed in the ingestion report in the logs with the key `empty_workspaces`.
+
+The same permission gap can hide a workspace entirely: `/workspaces/{id}` answers 403 while the
+workbooks and datasets inside it are still reachable. With `ingest_shared_entities` enabled those
+entities are ingested anyway, and their Workspace Container is named from the entity path rather
+than from Sigma's workspace metadata (so it carries no owner or timestamps). Affected workspaces are
+listed in the report under `workspaces_without_metadata`.

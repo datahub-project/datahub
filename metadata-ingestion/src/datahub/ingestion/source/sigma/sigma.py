@@ -435,6 +435,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._bridge_unresolved_warned: Set[Tuple[str, str]] = set()
         # Once-per-run gate flags so noisy global conditions don't flood logs.
         self._registry_empty_warned: bool = False
+        # Workspaces that entities parent under but ``/workspaces`` never
+        # returned. Maps workspaceId -> name recovered from the entity path
+        # (None when no path was available). Drained by
+        # ``_gen_inaccessible_workspace_workunits`` at the end of the run.
+        self._inaccessible_workspace_names: Dict[str, Optional[str]] = {}
         # Per-platform set: platforms for which we've emitted a "first emission"
         # info message noting that casing is unverified.
         self._warned_unvalidated_platforms: Set[str] = set()
@@ -561,6 +566,61 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             last_modified=int(workspace.updatedAt.timestamp() * 1000),
         )
 
+    def _note_inaccessible_workspace(
+        self, workspace_id: str, path: Optional[str]
+    ) -> None:
+        """Record a Workspace that entities are parented under but whose
+        metadata Sigma withheld.
+
+        ``/workspaces/{id}`` answers 403 when the ingestion service account
+        reaches an entity through ``/files`` without being a member of the
+        workspace holding it. Under ``ingest_shared_entities`` those entities
+        are still emitted beneath the Workspace Container URN, so that
+        Container needs a name of its own -- otherwise DataHub has no
+        ``containerProperties`` to render and the UI prints the raw
+        ``urn:li:container:<guid>`` as the folder label.
+
+        ``path`` begins with the workspace name, the same assumption
+        ``_gen_entity_browsepath_aspect`` callers make when they drop index 0.
+        """
+        if workspace_id in self.sigma_api.workspaces:
+            return
+        if self._inaccessible_workspace_names.get(workspace_id):
+            return
+        self._inaccessible_workspace_names[workspace_id] = (
+            path.split("/")[0] if path else None
+        )
+
+    def _gen_inaccessible_workspace_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Emit a named Container for every Workspace recorded by
+        ``_note_inaccessible_workspace``.
+
+        Must run after all entity work units so the map is fully populated.
+        """
+        if not self._inaccessible_workspace_names:
+            return
+        for workspace_id, name in sorted(self._inaccessible_workspace_names.items()):
+            self.reporter.workspaces_without_metadata.append(
+                f"{name or 'unknown'} ({workspace_id})"
+            )
+            yield from gen_containers(
+                container_key=self._gen_workspace_key(workspace_id),
+                # Falling back to the id keeps the Container identifiable when
+                # Sigma returned no path either; still preferable to the UI
+                # rendering an opaque container guid.
+                name=name or workspace_id,
+                sub_types=[BIContainerSubTypes.SIGMA_WORKSPACE],
+            )
+        self.reporter.warning(
+            title="Workspace metadata not accessible",
+            message="Sigma did not return metadata for one or more workspaces "
+            "that ingested entities belong to, so their Containers were named "
+            "from the entity path instead. Add the user associated with the "
+            "Client ID/Secret to these workspaces to pick up the real "
+            "workspace name, owner and timestamps.",
+            context=f"workspaces={self.reporter.workspaces_without_metadata}",
+        )
+
     def _gen_sigma_dataset_urn(self, dataset_identifier: str) -> str:
         return builder.make_dataset_urn_with_platform_instance(
             name=dataset_identifier,
@@ -650,6 +710,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         if dataset.workspaceId:
             self.reporter.workspaces.increment_datasets_count(dataset.workspaceId)
+            self._note_inaccessible_workspace(dataset.workspaceId, dataset.path)
             yield from add_entity_to_container(
                 container_key=self._gen_workspace_key(dataset.workspaceId),
                 entity_type="dataset",
@@ -2800,11 +2861,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if data_model.createdBy
             else None
         )
-        parent_container_key: Optional[WorkspaceKey] = (
-            self._gen_workspace_key(data_model.workspaceId)
-            if data_model.workspaceId
-            else None
-        )
+        parent_container_key: Optional[WorkspaceKey] = None
+        if data_model.workspaceId:
+            parent_container_key = self._gen_workspace_key(data_model.workspaceId)
+            self._note_inaccessible_workspace(data_model.workspaceId, data_model.path)
         extra_properties: Dict[str, str] = {
             "dataModelId": data_model.dataModelId,
             "dataModelUrlId": data_model.get_url_id(),
@@ -4108,6 +4168,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         paths = workbook.path.split("/")[1:]
         if workbook.workspaceId:
             self.reporter.workspaces.increment_workbooks_count(workbook.workspaceId)
+            self._note_inaccessible_workspace(workbook.workspaceId, workbook.path)
 
             yield self._gen_entity_browsepath_aspect(
                 entity_urn=dashboard_urn,
@@ -4168,6 +4229,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._customsql_extra_fgls.clear()
         self._workbook_customsql_registered_urns.clear()
         self._workbook_customsql_formula_fields.clear()
+        self._inaccessible_workspace_names.clear()
+        self.reporter.workspaces_without_metadata.clear()
         self.sigma_api.fill_workspaces()
 
         # Materialize the Sigma Dataset list once and populate the
@@ -4400,6 +4463,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.empty_workspaces.append(
                     f"{workspace.name} ({workspace.workspaceId})"
                 )
+        yield from self._gen_inaccessible_workspace_workunits()
         yield from self._gen_sigma_dataset_upstream_lineage_workunit()
         yield from self._drain_sql_aggregators()
 

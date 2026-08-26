@@ -1756,11 +1756,14 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
     assert report.chart_input_fields_skipped_sibling == 1
 
 
-@pytest.mark.integration
-def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+def _shared_entities_override_data() -> Dict[str, Any]:
+    """Mock overrides for a workbook whose workspace returns 403.
 
-    override_data = {
+    Mirrors a real Sigma tenant where the ingestion service account can
+    read a workbook through ``/files`` but is not a member of the
+    workspace holding it, so ``/workspaces/{id}`` is forbidden.
+    """
+    return {
         "https://aws-api.sigmacomputing.com/v2/workbooks": {
             "method": "GET",
             "status_code": 200,
@@ -1820,7 +1823,14 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
         },
     }
 
-    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+@pytest.mark.integration
+def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    register_mock_api(
+        request_mock=requests_mock, override_data=_shared_entities_override_data()
+    )
 
     output_path: str = f"{tmp_path}/sigma_ingest_shared_entities_mces.json"
 
@@ -1858,6 +1868,137 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
         output_path=output_path,
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@pytest.mark.integration
+def test_sigma_inaccessible_workspace_container_is_named(tmp_path, requests_mock):
+    """Every referenced Workspace Container carries a human-readable name.
+
+    When ``/workspaces/{id}`` is forbidden but ``ingest_shared_entities``
+    keeps the workbook, the connector still parents that workbook under the
+    Workspace Container URN. Without ``containerProperties`` on that URN the
+    DataHub UI has no name to render and falls back to printing the raw
+    ``urn:li:container:<guid>`` as the top-level folder label.
+
+    The name is recovered from the entity ``path``, whose first segment is
+    the workspace name (the same assumption ``_gen_entity_browsepath_aspect``
+    already relies on when it drops index 0).
+    """
+    register_mock_api(
+        request_mock=requests_mock, override_data=_shared_entities_override_data()
+    )
+
+    output_path: str = f"{tmp_path}/sigma_inaccessible_workspace_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "ingest_shared_entities": True,
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    named_containers = {
+        mce["entityUrn"]: mce["aspect"]["json"]["name"]
+        for mce in mces
+        if mce["entityType"] == "container"
+        and mce["aspectName"] == "containerProperties"
+    }
+
+    referenced_containers = set()
+    for mce in mces:
+        if mce["aspectName"] == "container":
+            referenced_containers.add(mce["aspect"]["json"]["container"])
+        elif mce["aspectName"] == "browsePathsV2":
+            referenced_containers.update(
+                entry["urn"]
+                for entry in mce["aspect"]["json"]["path"]
+                if entry.get("urn", "").startswith("urn:li:container:")
+            )
+
+    assert not referenced_containers - set(named_containers), (
+        "container URNs referenced with no containerProperties -- the UI "
+        f"renders these as raw URNs: {sorted(referenced_containers - set(named_containers))}"
+    )
+
+    # "New Acryl Data" is the workbook's ``path``; the workspace behind it
+    # returns 403 so the name cannot come from ``/workspaces/{id}``.
+    assert "New Acryl Data" in named_containers.values()
+
+
+@pytest.mark.integration
+def test_sigma_no_workspace_membership_names_all_containers(tmp_path, requests_mock):
+    """A service account that is a member of no workspace still gets names.
+
+    This is the reported failure mode: the ingestion credentials can list
+    ``/files``, ``/workbooks``, ``/datasets`` and ``/dataModels`` through
+    admin access, but ``/workspaces`` returns nothing and every
+    ``/workspaces/{id}`` is forbidden. Every Workspace Container is then
+    referenced without properties and the UI shows a wall of raw URNs where
+    the top-level folder names belong.
+    """
+    ws_id = "3ee61405-3be2-4000-ba72-60d36757b95b"
+    override_data = get_mock_data_model_api()
+    override_data["https://aws-api.sigmacomputing.com/v2/workspaces?limit=50"] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": [], "total": 0, "nextPage": None},
+    }
+    override_data[f"https://aws-api.sigmacomputing.com/v2/workspaces/{ws_id}"] = {
+        "method": "GET",
+        "status_code": 403,
+        "json": {},
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path: str = f"{tmp_path}/sigma_no_workspace_membership_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    workspace_urn = make_container_urn(
+        WorkspaceKey(workspaceId=ws_id, platform="sigma")
+    )
+    props = [
+        mce["aspect"]["json"]
+        for mce in mces
+        if mce["entityUrn"] == workspace_urn
+        and mce["aspectName"] == "containerProperties"
+    ]
+    assert props, (
+        "no containerProperties for the inaccessible workspace -- datasets, "
+        "workbooks and data models all hang off an unnamed container"
+    )
+    assert props[0]["name"] == "Acryl Data"
+
+    # Datasets, workbooks and data models must all reach the named container.
+    parents = {
+        mce["entityType"]
+        for mce in mces
+        if mce["aspectName"] == "container"
+        and mce["aspect"]["json"]["container"] == workspace_urn
+    }
+    assert parents == {"dataset", "dashboard", "container"}, parents
+
+    report = _sigma_report(pipeline)
+    assert report.workspaces_without_metadata == [f"Acryl Data ({ws_id})"]
 
 
 def _minimal_sigma_pipeline_config(output_path: str, **extra: Any) -> Dict[str, Any]:
