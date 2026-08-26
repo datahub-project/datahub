@@ -48,8 +48,12 @@ def demote_urn_autolinks(content: str) -> str:
     # bracketed example (e.g. `["urn:li:entityType:datahub.corpuser"]`) matches the
     # inner brackets only. The replacement uses the href rather than the text
     # because the text carries markdown escapes (`_\_system_\_`) that would
-    # render literally inside a code span.
-    return re.sub(r"\[(urn:[^\]]*)\]\((urn:[^)]+)\)", r"`\2`", content)
+    # render literally inside a code span. The href alternation allows one level of
+    # nested parentheses so that composed urns (`urn:li:dataset:(urn:li:dataPlatform
+    # :snowflake,db.table,PROD)`) are captured whole rather than cut at the first `)`.
+    return re.sub(
+        r"\[(urn:[^\]]*)\]\((urn:(?:[^()]+|\([^)]*\))+)\)", r"`\2`", content
+    )
 
 
 # ---- REPAIR BROKEN MARKDOWN BOLD ----
