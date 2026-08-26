@@ -457,9 +457,9 @@ project.ext.externalDependency = [
     'javaxMail': 'com.sun.mail:jakarta.mail:2.0.2',
     // Standard compatibility artifact to satisfy legacy javax.mail references while keeping jakarta.mail upgraded.
     'javaxMailCompat': 'com.sun.mail:javax.mail:1.6.2',
-    'onnxRuntime': 'com.microsoft.onnxruntime:onnxruntime:1.21.0',
-    'djlApi': 'ai.djl:api:0.31.1',
-    'djlHuggingFaceTokenizers': 'ai.djl.huggingface:tokenizers:0.31.1'
+    'onnxRuntime': 'com.microsoft.onnxruntime:onnxruntime:1.29.0',
+    'djlApi': 'ai.djl:api:0.36.0',
+    'djlHuggingFaceTokenizers': 'ai.djl.huggingface:tokenizers:0.36.0'
 ]
 
 allprojects {
