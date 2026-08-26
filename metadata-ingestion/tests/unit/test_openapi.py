@@ -1723,8 +1723,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIsInstance(pattern_schema.get("maxLength"), int)
 
     def test_merge_allof_boolean_exclusive_bounds(self):
-        # OpenAPI 3.0 exclusiveMinimum/Maximum are booleans tied to minimum/maximum:
-        # the bound stays exclusive if any member is exclusive (no min()/max() on bools).
+        # Equal bounds: exclusivity ORs (True + False → exclusive).
         sw_dict = _EMPTY_OPENAPI_SW
         schema = {
             "allOf": [
@@ -1746,6 +1745,22 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         pattern_schema = resolved["patternProperties"]["^x"]
         self.assertEqual(pattern_schema.get("maximum"), 10)
         self.assertIs(pattern_schema.get("exclusiveMaximum"), True)
+
+    def test_merge_allof_exclusive_bound_follows_winning_minimum(self):
+        # Weaker exclusive bound must not make a stricter inclusive minimum exclusive.
+        # Independent max(minimum)+OR(exclusiveMinimum) would wrongly yield >10.
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "allOf": [
+                {"minimum": 5, "exclusiveMinimum": True},
+                {"minimum": 10, "exclusiveMinimum": False},
+            ]
+        }
+
+        resolved = merge_allof_schemas(schema, sw_dict, resolving_refs=True)
+
+        self.assertEqual(resolved.get("minimum"), 10)
+        self.assertIs(resolved.get("exclusiveMinimum"), False)
 
     def test_merge_allof_integer_bounds_preserve_int_type(self):
         sw_dict = _EMPTY_OPENAPI_SW
@@ -1774,29 +1789,6 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIn("^y", resolved["patternProperties"])
         self.assertEqual(shared, {"^x": {"type": "string"}})
         self.assertIsNot(resolved["patternProperties"], shared)
-        # OpenAPI 3.0 exclusiveMinimum/Maximum are booleans tied to minimum/maximum:
-        # the bound stays exclusive if any member is exclusive (no min()/max() on bools).
-        sw_dict = _EMPTY_OPENAPI_SW
-        schema = {
-            "allOf": [
-                {
-                    "patternProperties": {
-                        "^x": {"maximum": 10, "exclusiveMaximum": True}
-                    }
-                },
-                {
-                    "patternProperties": {
-                        "^x": {"maximum": 10, "exclusiveMaximum": False}
-                    }
-                },
-            ]
-        }
-
-        resolved = resolve_schema_references(schema, sw_dict)
-
-        pattern_schema = resolved["patternProperties"]["^x"]
-        self.assertEqual(pattern_schema.get("maximum"), 10)
-        self.assertIs(pattern_schema.get("exclusiveMaximum"), True)
 
     def test_merge_allof_numeric_exclusive_bounds(self):
         # JSON Schema draft-6+ exclusiveMinimum/Maximum are numeric bounds: keep the
@@ -2224,3 +2216,13 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             ),
             warning_titles,
         )
+
+    def test_forced_examples_coerce_numeric_path_params(self):
+        # Docs use integers (e.g. /pet/{petId}: [1]); config stores strings for URLs.
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            forced_examples={"/pet/{petId}": [1]},
+        )
+        self.assertEqual(config.forced_examples["/pet/{petId}"], ["1"])

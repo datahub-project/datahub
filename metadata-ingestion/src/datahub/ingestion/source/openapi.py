@@ -134,7 +134,8 @@ class OpenApiConfig(ConfigModel):
     )
     forced_examples: Dict[str, List[str]] = Field(
         default_factory=dict,
-        description="If no example is provided for a route, it is possible to create one using forced_example.",
+        description="Path-parameter examples keyed by endpoint path. Values may be "
+        "scalars (str/int/float/bool) and are stringified for URL composition.",
     )
     token: Optional[TransparentSecretStr] = Field(
         default=None, description="Token for endpoint authentication."
@@ -168,6 +169,20 @@ class OpenApiConfig(ConfigModel):
         if value == {} or value is None:
             return None
         return value
+
+    @field_validator("forced_examples", mode="before")
+    @classmethod
+    def stringify_forced_examples(cls, value: Any) -> Any:
+        # Docs/recipes use numeric path params (e.g. /pet/{petId}: [1]).
+        if not isinstance(value, dict):
+            return value
+        coerced: Dict[str, Any] = {}
+        for endpoint, examples in value.items():
+            if not isinstance(examples, list):
+                coerced[endpoint] = examples
+                continue
+            coerced[endpoint] = [str(item) for item in examples]
+        return coerced
 
     @model_validator(mode="after")
     def ensure_only_one_token(self) -> "OpenApiConfig":

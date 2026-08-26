@@ -738,17 +738,15 @@ def _merge_allof_map_keywords(
             merged_schema["patternProperties"][pattern] = prop_schema
 
 
-# Numeric allOf bounds: lower-bound keywords take max (most restrictive is largest),
-# upper-bound keywords take min (most restrictive is smallest). max/min preserve the
-# operand types (int stays int), so do not coerce through float.
+# Numeric allOf bounds without exclusive* modifiers. minimum/maximum are merged
+# jointly with exclusiveMinimum/Maximum so OpenAPI 3.0 boolean exclusivity stays
+# tied to the winning bound (independent OR of exclusivity over-restricts).
 _Number = Union[int, float]
 _ALLOF_NUMERIC_BOUNDS: Dict[str, Callable[[_Number, _Number], _Number]] = {
     "minLength": max,
-    "minimum": max,
     "minItems": max,
     "minProperties": max,
     "maxLength": min,
-    "maximum": min,
     "maxItems": min,
     "maxProperties": min,
 }
@@ -767,12 +765,17 @@ def _merge_allof_validation_keywords(
         merged_schema[key] = (
             more_restrictive(current, incoming) if _is_number(current) else incoming
         )
-    # exclusiveMinimum/Maximum are booleans in OpenAPI 3.0 but numeric bounds in JSON
-    # Schema draft-6+, so they need a dedicated merge that keeps numeric bounds when
-    # mixed with boolean flags (bool is an int subclass, so plain max/min would not
-    # TypeError — it would silently treat True as 1).
-    _merge_exclusive_bound(merged_schema, resolved_allof, "exclusiveMinimum", max)
-    _merge_exclusive_bound(merged_schema, resolved_allof, "exclusiveMaximum", min)
+    # minimum/maximum + exclusive* (OpenAPI 3.0 bool modifiers / draft-6 numerics).
+    _merge_bound_with_exclusivity(
+        merged_schema, resolved_allof, "minimum", "exclusiveMinimum", prefer_higher=True
+    )
+    _merge_bound_with_exclusivity(
+        merged_schema,
+        resolved_allof,
+        "maximum",
+        "exclusiveMaximum",
+        prefer_higher=False,
+    )
     if "uniqueItems" in resolved_allof:
         merged_schema["uniqueItems"] = (
             merged_schema.get("uniqueItems", False) or resolved_allof["uniqueItems"]
@@ -786,6 +789,107 @@ def _merge_allof_validation_keywords(
 
 def _is_number(value: object) -> TypeGuard[_Number]:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _apply_bool_exclusivity(
+    merged_schema: Dict[str, Any], exclusive_key: str, incoming_excl: object
+) -> None:
+    """Attach exclusivity from the member that owns the winning bound.
+
+    Absent exclusivity clears a stale OpenAPI 3.0 boolean so a stricter inclusive
+    bound is not left exclusive from a weaker member.
+    """
+    if isinstance(incoming_excl, bool):
+        merged_schema[exclusive_key] = incoming_excl
+    elif exclusive_key in merged_schema and isinstance(
+        merged_schema.get(exclusive_key), bool
+    ):
+        del merged_schema[exclusive_key]
+
+
+def _merge_bound_with_exclusivity(
+    merged_schema: Dict[str, Any],
+    resolved_allof: Dict[str, Any],
+    bound_key: str,
+    exclusive_key: str,
+    prefer_higher: bool,
+) -> None:
+    """Merge a numeric bound with its exclusive* keyword as one constraint.
+
+    OpenAPI 3.0 exclusiveMinimum/Maximum are boolean modifiers of minimum/maximum.
+    Taking max(minimum) then OR(exclusiveMinimum) rejects valid boundary values when
+    the exclusivity belonged to a weaker bound. Draft-6+ numeric exclusive* values
+    remain independent bounds and use the numeric merge path.
+    """
+    incoming_bound = resolved_allof.get(bound_key)
+    incoming_excl = resolved_allof.get(exclusive_key)
+    has_bound = bound_key in resolved_allof and _is_number(incoming_bound)
+    has_excl = exclusive_key in resolved_allof
+
+    if not has_bound and not has_excl:
+        return
+
+    # Draft-6+ numeric exclusive bound: merge independently of minimum/maximum.
+    if has_excl and _is_number(incoming_excl):
+        if has_bound:
+            assert _is_number(incoming_bound)
+            current_bound = merged_schema.get(bound_key)
+            reducer: Callable[[_Number, _Number], _Number] = (
+                max if prefer_higher else min
+            )
+            merged_schema[bound_key] = (
+                reducer(current_bound, incoming_bound)
+                if _is_number(current_bound)
+                else incoming_bound
+            )
+        _merge_exclusive_bound(
+            merged_schema,
+            resolved_allof,
+            exclusive_key,
+            max if prefer_higher else min,
+        )
+        return
+
+    if has_bound:
+        assert _is_number(incoming_bound)
+        current_bound = merged_schema.get(bound_key)
+        current_excl = merged_schema.get(exclusive_key)
+        # Mixed draft: keep an already-merged numeric exclusive* untouched.
+        if _is_number(current_excl):
+            reducer = max if prefer_higher else min
+            merged_schema[bound_key] = (
+                reducer(current_bound, incoming_bound)
+                if _is_number(current_bound)
+                else incoming_bound
+            )
+            return
+
+        if not _is_number(current_bound):
+            merged_schema[bound_key] = incoming_bound
+            _apply_bool_exclusivity(merged_schema, exclusive_key, incoming_excl)
+            return
+
+        incoming_wins = (
+            incoming_bound > current_bound
+            if prefer_higher
+            else incoming_bound < current_bound
+        )
+        if incoming_wins:
+            merged_schema[bound_key] = incoming_bound
+            _apply_bool_exclusivity(merged_schema, exclusive_key, incoming_excl)
+        elif incoming_bound == current_bound:
+            current_strict = isinstance(current_excl, bool) and current_excl
+            incoming_strict = isinstance(incoming_excl, bool) and incoming_excl
+            if current_strict or incoming_strict:
+                merged_schema[exclusive_key] = True
+        return
+
+    # Exclusive-only contribution (no bound on this member).
+    if isinstance(incoming_excl, bool):
+        current_excl = merged_schema.get(exclusive_key)
+        if _is_number(current_excl):
+            return
+        merged_schema[exclusive_key] = bool(current_excl) or incoming_excl
 
 
 def _merge_exclusive_bound(
