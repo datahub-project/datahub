@@ -324,10 +324,6 @@ jobs:
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-  # ── Canary: catch Wolfi (apk/glibc) packaging quirks in the executor's base
-  # image early. Deliberately NOT pinned and NOT part of integration-tests-gate:
-  # floating `latest` doubles as an early-warning signal for upstream Wolfi
-  # changes, and a break here shouldn't block PRs unrelated to it.
   wolfi-smoke:
     runs-on: ubuntu-latest
     continue-on-error: true
