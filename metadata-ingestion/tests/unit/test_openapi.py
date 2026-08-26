@@ -1853,7 +1853,9 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             "id": {"type": "string"},
             "nested": {"$ref": "#/components/schemas/Nested"},
         }
-        sw_dict = {
+        # Annotate: bare dict + openapi str value otherwise becomes
+        # dict[str, Collection[str]] under mypy (str is a Collection[str]).
+        sw_dict: Dict[str, Any] = {
             "openapi": "3.0.0",
             "components": {
                 "schemas": {
