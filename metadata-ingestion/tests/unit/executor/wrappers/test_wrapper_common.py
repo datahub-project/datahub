@@ -86,6 +86,61 @@ class TestSetupMemoryLimit:
             wrapper_common.setup_memory_limit()
 
 
+class TestSigtermDuringSpawn:
+    """SIGTERM arriving after the handler is installed but before Popen returns."""
+
+    @pytest.fixture(autouse=True)
+    def restore_sigterm(self):
+        previous = signal.getsignal(signal.SIGTERM)
+        yield
+        signal.signal(signal.SIGTERM, previous)
+
+    def _child(self) -> MagicMock:
+        proc = MagicMock()
+        proc.stdin = MagicMock()
+        proc.stdout = iter([])
+        proc.poll.return_value = None  # still running when the handler looks
+        proc.wait.return_value = 0
+        return proc
+
+    def test_the_child_is_terminated_rather_than_orphaned(self) -> None:
+        proc = self._child()
+
+        def fake_popen(*_args: Any, **_kwargs: Any) -> MagicMock:
+            signal.raise_signal(signal.SIGTERM)  # `process` is still None here
+            return proc
+
+        with (
+            patch(
+                "datahub.executor.execution.wrapper_common.subprocess.Popen",
+                side_effect=fake_popen,
+            ),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            wrapper_common.run_datahub_subprocess(["/bin/true"], "recipe: {}")
+
+        proc.terminate.assert_called_once()
+        assert exc_info.value.code == 128 + signal.SIGTERM
+
+    def test_a_signal_is_not_dropped_when_the_spawn_itself_fails(self) -> None:
+        """Exits with the signal's code when Popen itself raises."""
+
+        def failing_popen(*_args: Any, **_kwargs: Any) -> MagicMock:
+            signal.raise_signal(signal.SIGTERM)
+            raise FileNotFoundError("no such binary")
+
+        with (
+            patch(
+                "datahub.executor.execution.wrapper_common.subprocess.Popen",
+                side_effect=failing_popen,
+            ),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            wrapper_common.run_datahub_subprocess(["/nonexistent"], "recipe: {}")
+
+        assert exc_info.value.code == 128 + signal.SIGTERM
+
+
 class TestWrapperStdinContent:
     """Tests for what the wrapper pipes to `datahub ingest -c -` stdin.
 
