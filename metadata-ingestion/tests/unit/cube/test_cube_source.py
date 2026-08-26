@@ -243,6 +243,54 @@ def test_emit_semantic_model_entities_skips_view_dataset() -> None:
     assert source.report.semantic_models_emitted == 1
 
 
+def test_empty_view_does_not_emit_orphan_semantic_model_meta() -> None:
+    source = _source(
+        emit_semantic_model_entities=True,
+        meta_mapping={
+            "owner": {
+                "match": ".*",
+                "operation": "add_owner",
+                "config": {"owner_type": "user"},
+            }
+        },
+    )
+    view = CubeEntity(
+        name="empty_view",
+        is_view=True,
+        meta={"owner": "jdoe@example.com"},
+    )
+    with (
+        patch.object(source.api_client, "get_entities", return_value=[view]),
+        patch.object(source.api_client, "get_reports", return_value=[]),
+        patch.object(source.api_client, "get_workbooks", return_value=[]),
+        patch.object(source.api_client, "get_data_sources", return_value=[]),
+    ):
+        urns = {wu.get_urn() for wu in source.get_workunits_internal()}
+
+    assert not any("semanticModel" in urn for urn in urns)
+    assert "urn:li:dataset:(urn:li:dataPlatform:cube,empty_view,PROD)" not in urns
+    assert source.report.semantic_models_emitted == 0
+
+
+def test_chart_inputs_omit_skipped_semantic_model_view() -> None:
+    source = _source(emit_semantic_model_entities=True, platform_instance="cube_demo")
+    source._sm_mapper = MagicMock()
+    source._sm_mapper.view_chart_inputs = {"empty_view": []}
+    chart = source._build_chart(
+        CubeReport(
+            id=1,
+            public_id="rpt1",
+            name="r1",
+            referenced_entities=["empty_view", "orders"],
+        )
+    )
+    aspects = _aspects(list(chart.as_workunits()))
+    info = aspects["ChartInfoClass"]
+    assert set(info.inputs or []) == {  # type: ignore[attr-defined]
+        "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders,PROD)",
+    }
+
+
 def test_view_definition_uses_sql_for_cube() -> None:
     source = _source()
     entity = CubeEntity(name="orders", sql="SELECT * FROM public.orders")

@@ -3,6 +3,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.cube.config import CubeSourceConfig, CubeSourceReport
 from datahub.ingestion.source.cube.constants import (
+    CUBE_JOIN_CUBE_PLACEHOLDER,
     CUBE_JOIN_EQ_RE,
     CUBE_PLATFORM,
 )
@@ -35,13 +36,17 @@ _CUBE_JOIN_RELATIONSHIP_TO_CARDINALITY: Dict[str, str] = {
 
 
 def parse_cube_join_sql(sql: Optional[str]) -> List[Tuple[str, str, str]]:
-    # Returns (from_column, to_cube, to_column) pairs from Cube's `{CUBE}.x = {y}.z`.
+    # Returns (from_column, to_cube, to_column) with `{CUBE}` as the from side.
     if not sql:
         return []
-    return [
-        (match.group(1), match.group(2), match.group(3))
-        for match in CUBE_JOIN_EQ_RE.finditer(sql)
-    ]
+    pairs: List[Tuple[str, str, str]] = []
+    for match in CUBE_JOIN_EQ_RE.finditer(sql):
+        left_cube, left_col, right_cube, right_col = match.groups()
+        if left_cube.upper() == CUBE_JOIN_CUBE_PLACEHOLDER:
+            pairs.append((left_col, right_cube, right_col))
+        elif right_cube.upper() == CUBE_JOIN_CUBE_PLACEHOLDER:
+            pairs.append((right_col, left_cube, left_col))
+    return pairs
 
 
 class CubeSemanticModelMapper:
@@ -85,6 +90,9 @@ class CubeSemanticModelMapper:
             view, cubes_by_name, field_paths_by_cube, model_urn
         )
         if datasets is None:
+            # Record an empty mapping so charts do not fall back to a view
+            # dataset URN that SM mode never emits.
+            self.view_chart_inputs[view.name] = []
             return
 
         dataset_by_alias = {ds.alias: ds for ds in datasets}
@@ -239,7 +247,7 @@ class CubeSemanticModelMapper:
             )
         return Metric(
             platform=CUBE_PLATFORM,
-            path=f"{self.path}.{view.name}",
+            path=f"{self.path}.{view.name}.{alias}",
             id=member.name,
             semantic_model=model_urn,
             platform_instance=self.config.platform_instance,
@@ -290,6 +298,15 @@ class CubeSemanticModelMapper:
     ) -> Optional[SemanticModelRelationshipInput]:
         pairs = parse_cube_join_sql(join.sql)
         if not pairs:
+            if join.sql and join.sql.strip():
+                self.report.warning(
+                    title="Could not parse Cube join SQL",
+                    message=(
+                        "Skipping this join as a semantic-model relationship; "
+                        "expected `{CUBE}.col = {other}.col` (either order)."
+                    ),
+                    context=f"{from_alias}->{join.name}: {join.sql}",
+                )
             return None
         from_columns: List[str] = []
         to_columns: List[str] = []

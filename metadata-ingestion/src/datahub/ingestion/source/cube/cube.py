@@ -297,6 +297,8 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 if self._sm_mapper is not None:
                     yield from self._sm_mapper.emit(entity, cubes_by_name)
+                    if not self._sm_mapper.view_chart_inputs.get(entity.name):
+                        continue
                     yield from self._emit_entity_meta(
                         entity, self._semantic_model_urn(entity.name)
                     )
@@ -387,7 +389,7 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
     def _chart_input_urns(self, entity_name: str) -> List[str]:
         if self._sm_mapper is not None:
             mapped = self._sm_mapper.view_chart_inputs.get(entity_name)
-            if mapped:
+            if mapped is not None:
                 return mapped
         return [self._dataset_urn(entity_name)]
 

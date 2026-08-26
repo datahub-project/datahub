@@ -120,9 +120,11 @@ TAG_MEASURE = "Measure"
 TAG_DIMENSION = "Dimension"
 TAG_TEMPORAL = "Temporal"
 
-# Cube join SQL: `{CUBE}.customer_id = {customers}.id` (and AND-chained copies).
+# Cube join SQL: `{CUBE}.customer_id = {customers}.id` or the reverse order.
+_CUBE_IDENT = r"[A-Za-z_][A-Za-z0-9_]*"
+CUBE_JOIN_CUBE_PLACEHOLDER = "CUBE"
 CUBE_JOIN_EQ_RE: Pattern[str] = re.compile(
-    r"\{CUBE\}\.([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"
-    r"\{([A-Za-z_][A-Za-z0-9_]*)\}\.([A-Za-z_][A-Za-z0-9_]*)",
+    rf"\{{({_CUBE_IDENT})\}}\.({_CUBE_IDENT})\s*=\s*"
+    rf"\{{({_CUBE_IDENT})\}}\.({_CUBE_IDENT})",
     re.IGNORECASE,
 )

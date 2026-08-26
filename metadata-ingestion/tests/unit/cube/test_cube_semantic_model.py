@@ -141,7 +141,14 @@ def test_parse_cube_join_sql() -> None:
     assert parse_cube_join_sql("{CUBE}.customer_id = {customers}.id") == [
         ("customer_id", "customers", "id")
     ]
+    assert parse_cube_join_sql("{customers}.id = {CUBE}.customer_id") == [
+        ("customer_id", "customers", "id")
+    ]
     assert parse_cube_join_sql("{CUBE}.a = {other}.b AND {CUBE}.c = {other}.d") == [
+        ("a", "other", "b"),
+        ("c", "other", "d"),
+    ]
+    assert parse_cube_join_sql("{other}.b = {CUBE}.a AND {CUBE}.c = {other}.d") == [
         ("a", "other", "b"),
         ("c", "other", "d"),
     ]
@@ -185,9 +192,11 @@ def test_view_emits_semantic_model_metrics_and_logical_datasets() -> None:
     assert props.alias == "orders"
     assert props.semanticModel == model_urn
 
-    count_metric = "urn:li:metric:(urn:li:dataPlatform:cube,demo.orders_view,count)"
+    count_metric = (
+        "urn:li:metric:(urn:li:dataPlatform:cube,demo.orders_view.orders,count)"
+    )
     amount_metric = (
-        "urn:li:metric:(urn:li:dataPlatform:cube,demo.orders_view,total_amount)"
+        "urn:li:metric:(urn:li:dataPlatform:cube,demo.orders_view.orders,total_amount)"
     )
     assert count_metric in aspects
     assert amount_metric in aspects
@@ -224,6 +233,150 @@ def test_core_view_without_cube_references_uses_alias_member() -> None:
     assert (
         "urn:li:dataset:(urn:li:dataPlatform:cube,demo.orders_view,PROD)" not in aspects
     )
+
+
+def test_empty_view_does_not_emit_semantic_model() -> None:
+    view = CubeEntity(name="empty_view", is_view=True)
+    mapper = _mapper()
+    wus = list(mapper.emit(view, {}))
+    assert wus == []
+    assert mapper.view_chart_inputs["empty_view"] == []
+    assert mapper.report.semantic_models_emitted == 0
+
+
+def test_same_named_measures_from_different_cubes_get_distinct_metric_urns() -> None:
+    view = CubeEntity(
+        name="orders_view",
+        is_view=True,
+        cube_references=["orders", "customers"],
+        measures=[
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                member_references=["orders.count"],
+            ),
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                title="Customer count",
+                member_references=["customers.count"],
+            ),
+        ],
+    )
+    cubes = {
+        "orders": _orders_cube(),
+        "customers": CubeEntity(
+            name="customers",
+            measures=[CubeMember(name="count", is_measure=True, agg_type="count")],
+            dimensions=[CubeMember(name="id", is_measure=False, is_primary_key=True)],
+        ),
+    }
+    mapper = _mapper()
+    aspects = _aspects_by_urn(list(mapper.emit(view, cubes)))
+    orders_metric = (
+        "urn:li:metric:(urn:li:dataPlatform:cube,demo.orders_view.orders,count)"
+    )
+    customers_metric = (
+        "urn:li:metric:(urn:li:dataPlatform:cube,demo.orders_view.customers,count)"
+    )
+    assert orders_metric in aspects
+    assert customers_metric in aspects
+    customer_info = aspects[customers_metric]["MetricInfoClass"]
+    assert isinstance(customer_info, MetricInfoClass)
+    assert customer_info.name == "Customer count"
+
+
+def test_reversed_join_sql_emits_relationship() -> None:
+    cube = CubeEntity(
+        name="orders",
+        joins=[
+            CubeJoin(
+                name="customers",
+                relationship="many_to_one",
+                sql="{customers}.id = {CUBE}.customer_id",
+            )
+        ],
+        measures=[CubeMember(name="count", is_measure=True, agg_type="count")],
+        dimensions=[CubeMember(name="customer_id", is_measure=False)],
+    )
+    view = CubeEntity(
+        name="orders_view",
+        is_view=True,
+        cube_references=["orders", "customers"],
+        measures=[
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                member_references=["orders.count"],
+            )
+        ],
+        dimensions=[
+            CubeMember(
+                name="name",
+                is_measure=False,
+                member_references=["customers.name"],
+            )
+        ],
+    )
+    mapper = _mapper()
+    aspects = _aspects_by_urn(
+        list(mapper.emit(view, {"orders": cube, "customers": _customers_cube()}))
+    )
+    model_urn = "urn:li:semanticModel:(urn:li:dataPlatform:cube,demo,orders_view)"
+    info = aspects[model_urn]["SemanticModelInfoClass"]
+    assert isinstance(info, SemanticModelInfoClass)
+    assert info.relationships
+    rel = info.relationships[0]
+    assert rel.from_ == "orders"
+    assert rel.to == "customers"
+    assert rel.fromColumns == ["customer_id"]
+    assert rel.toColumns == ["id"]
+
+
+def test_unparsed_join_sql_is_warned_and_skipped() -> None:
+    cube = CubeEntity(
+        name="orders",
+        joins=[
+            CubeJoin(
+                name="customers",
+                relationship="many_to_one",
+                sql="{CUBE}.customer_id > {customers}.id",
+            )
+        ],
+        measures=[CubeMember(name="count", is_measure=True, agg_type="count")],
+    )
+    view = CubeEntity(
+        name="orders_view",
+        is_view=True,
+        cube_references=["orders", "customers"],
+        measures=[
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                member_references=["orders.count"],
+            )
+        ],
+        dimensions=[
+            CubeMember(
+                name="name",
+                is_measure=False,
+                member_references=["customers.name"],
+            )
+        ],
+    )
+    mapper = _mapper()
+    aspects = _aspects_by_urn(
+        list(mapper.emit(view, {"orders": cube, "customers": _customers_cube()}))
+    )
+    model_urn = "urn:li:semanticModel:(urn:li:dataPlatform:cube,demo,orders_view)"
+    info = aspects[model_urn]["SemanticModelInfoClass"]
+    assert isinstance(info, SemanticModelInfoClass)
+    assert not info.relationships
+    assert mapper.report.warnings
 
 
 def test_join_without_sql_is_skipped() -> None:
