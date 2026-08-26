@@ -1084,8 +1084,14 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
             siblings = {k: v for k, v in resolved_schema.items() if k != "$ref"}
             if not siblings:
                 return resolved_referenced
+            # merge_allof_schemas(resolving_refs=True) only expands top-level $ref;
+            # resolve nested refs under sibling properties/items/additionalProperties
+            # before combining so they cannot survive into strict schema conversion.
+            resolved_siblings = resolve_schema_references(
+                siblings, sw_dict, max_depth=max_depth - 1
+            )
             return resolve_schema_references(
-                _combine_under_allof(resolved_referenced, siblings),
+                _combine_under_allof(resolved_referenced, resolved_siblings),
                 sw_dict,
                 max_depth=max_depth - 1,
             )

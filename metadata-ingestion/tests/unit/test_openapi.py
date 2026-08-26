@@ -2411,6 +2411,45 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertEqual(names.get("minLength"), 1)
         self.assertEqual(names.get("maxLength"), 8)
 
+    def test_ref_plus_sibling_nested_ref_resolved(self):
+        # $ref + sibling properties that themselves contain $refs must fully resolve;
+        # leftover component refs break strict get_schema_metadata conversion.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Base": {
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                    },
+                    "Extra": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string"}},
+                    },
+                }
+            },
+        }
+        schema = {
+            "$ref": "#/components/schemas/Base",
+            "properties": {
+                "extra": {"$ref": "#/components/schemas/Extra"},
+            },
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertIn("id", resolved["properties"])
+        self.assertIn("name", resolved["properties"]["extra"]["properties"])
+
+        metadata = self.source.create_schema_metadata_from_schema(
+            "ref-sibling", resolved
+        )
+        self.assertIsNotNone(metadata)
+        assert metadata is not None
+        field_paths = [f.fieldPath for f in metadata.fields]
+        self.assertTrue(any(".id" in path for path in field_paths))
+        self.assertTrue(any(".name" in path for path in field_paths))
+
     def test_extract_schema_from_openapi_spec_conversion_failure_not_counted(self):
         # Failed conversion must not inflate from_openapi_spec (counter lives in
         # _extract_schema_from_openapi_spec, not create_schema_metadata_from_schema).
