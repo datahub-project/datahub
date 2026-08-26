@@ -97,17 +97,18 @@ public class CancelIngestionExecutionRequestResolver
                       executionRequestUrn),
                   DataHubGraphQLErrorCode.BAD_REQUEST);
             }
+
+            if (!IngestionAuthUtils.canExecuteIngestion(context, actualIngestionSourceUrn)) {
+              throw new AuthorizationException(
+                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
+            }
+
             if (!Objects.equals(actualIngestionSourceUrn, claimedIngestionSourceUrn)) {
               throw new DataHubGraphQLException(
                   String.format(
                       "Execution request %s does not belong to ingestion source %s",
                       executionRequestUrn, claimedIngestionSourceUrn),
                   DataHubGraphQLErrorCode.BAD_REQUEST);
-            }
-
-            if (!IngestionAuthUtils.canExecuteIngestion(context, actualIngestionSourceUrn)) {
-              throw new AuthorizationException(
-                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
             }
 
             final Map<Urn, EntityResponse> response =

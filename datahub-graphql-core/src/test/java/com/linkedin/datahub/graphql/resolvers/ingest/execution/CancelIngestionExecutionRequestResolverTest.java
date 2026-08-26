@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CancelIngestionExecutionRequestInput;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -60,6 +61,7 @@ public class CancelIngestionExecutionRequestResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     // Execution request belongs to a different source than the one claimed in input.
     mockExecutionRequestBelongingTo(mockClient, OTHER_INGESTION_SOURCE_URN);
+    mockIngestionSource(mockClient, OTHER_INGESTION_SOURCE_URN);
 
     CancelIngestionExecutionRequestResolver resolver =
         new CancelIngestionExecutionRequestResolver(mockClient);
@@ -70,6 +72,36 @@ public class CancelIngestionExecutionRequestResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
+  }
+
+  @Test
+  public void testGetUnauthorizedBeforeSourceMismatchCheck() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    mockExecutionRequestBelongingTo(mockClient, OTHER_INGESTION_SOURCE_URN);
+
+    CancelIngestionExecutionRequestResolver resolver =
+        new CancelIngestionExecutionRequestResolver(mockClient);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockDenyContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    try {
+      resolver.get(mockEnv).join();
+      fail("Expected unauthorized before source-mismatch validation");
+    } catch (RuntimeException e) {
+      assertTrue(
+          e.getCause() instanceof AuthorizationException,
+          "Unauthorized callers must fail on EXECUTE before source-mismatch validation");
+    }
+    Mockito.verify(mockClient, Mockito.times(0))
+        .batchGetV2(
+            any(),
+            Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+            Mockito.anySet(),
+            Mockito.anySet());
     Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
