@@ -18,7 +18,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterable, Optional
+from typing import TYPE_CHECKING, Any, Generator, Iterable, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -272,7 +272,8 @@ class DocumentChunkingSource(Source):
             logger.warning(f"No elements provided for document {document_urn}")
             return
 
-        # Chunk the elements
+        # Chunk the elements. A chunking failure raises so the calling source
+        # does not record the document as successfully processed.
         chunks = self._chunk_elements(elements)
         if not chunks:
             logger.warning(f"No chunks created for document {document_urn}")
@@ -435,12 +436,20 @@ class DocumentChunkingSource(Source):
                         "custom_properties": custom_props,
                     }
                     self.report.report_document_fetched()
-                    yield from self._process_single_document(doc)
+                    processed_ok = yield from self._process_single_document(doc)
+                    if processed_ok is False:
+                        # The document produced no semanticContent; committing the
+                        # offset would acknowledge its event and it would never be
+                        # retried.
+                        event_consumer.suppress_offset_commits = True
 
                 except Exception as e:
                     error_msg = f"Failed to process MCL event for {document_urn}: {e}"
                     logger.error(error_msg, exc_info=True)
                     self.report.report_error(error_msg)
+                    # The failed document produced no semanticContent; committing the
+                    # offset would acknowledge its event and it would never be retried.
+                    event_consumer.suppress_offset_commits = True
 
         finally:
             event_consumer.close()
@@ -459,10 +468,11 @@ class DocumentChunkingSource(Source):
                     continue
 
             # Process document and yield any workunits (SemanticContent aspects)
-            yield from self._process_single_document(doc)
+            processed_ok = yield from self._process_single_document(doc)
 
-            # Update state after successful processing
-            if self.config.incremental_mode:
+            # Update state only when processing did not fail — recording the hash
+            # for a failed document would skip it as "unchanged" forever.
+            if self.config.incremental_mode and processed_ok is not False:
                 self._update_document_state(doc)
 
         # Save state file after processing all documents
@@ -567,25 +577,31 @@ class DocumentChunkingSource(Source):
 
     def _process_single_document(
         self, doc: dict[str, Any]
-    ) -> Iterable[MetadataWorkUnit]:
-        """Process a single document: extract elements, chunk, embed, emit SemanticContent."""
+    ) -> Generator[MetadataWorkUnit, None, bool]:
+        """Process a single document: extract elements, chunk, embed, emit SemanticContent.
+
+        Returns False when processing failed (failure swallowed and reported), so
+        the caller must not record incremental state; True on success or a
+        legitimate skip.
+        """
         try:
             # Extract unstructured elements
             elements = self._extract_elements(doc)
             if not elements:
                 logger.warning(f"No elements found for document {doc['urn']}")
                 self.report.report_document_skipped()
-                return
+                return True
 
             # Chunk the elements
             chunks = self._chunk_elements(elements)
             if not chunks:
                 logger.warning(f"No chunks created for document {doc['urn']}")
                 self.report.report_document_skipped()
-                return
+                return True
 
             # Generate embeddings (only if configured)
             embeddings = []
+            embed_failed = False
             if self.embedding_model:
                 try:
                     embeddings = self._generate_embeddings(chunks)
@@ -600,6 +616,7 @@ class DocumentChunkingSource(Source):
                         exc=e,
                         log=False,
                     )
+                    embed_failed = True
             else:
                 logger.debug(
                     f"Skipping embedding generation for {doc['urn']} - no embedding provider configured"
@@ -611,11 +628,15 @@ class DocumentChunkingSource(Source):
 
             self.report.report_document_processed(len(chunks))
             self.report.report_embeddings_generated(len(embeddings))
+            # A failed embedding means no semanticContent was written — the caller
+            # must not record the document as done, so it is retried next run.
+            return not embed_failed
 
         except Exception as e:
             error_msg = f"Failed to process document {doc.get('urn', 'unknown')}: {e}"
             logger.error(error_msg, exc_info=True)
             self.report.report_error(error_msg)
+            return False
 
     def _fetch_documents(self) -> list[dict[str, Any]]:
         """Fetch documents from DataHub using GraphQL."""
@@ -723,11 +744,19 @@ class DocumentChunkingSource(Source):
             logger.debug(f"Extracted {len(elements)} elements from {doc['urn']}")
             return elements
         except json.JSONDecodeError as e:
+            # Raise instead of returning [] — an empty result reads as a legitimately
+            # empty document and the caller would record its hash as processed.
             logger.error(f"Failed to parse elements JSON for {doc['urn']}: {e}")
-            return []
+            raise
 
     def _chunk_elements(self, elements: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Chunk elements using Unstructured's chunking strategies."""
+        """Chunk elements using Unstructured's chunking strategies.
+
+        A chunking failure raises instead of returning [] — an empty result is
+        indistinguishable from "nothing to chunk", and callers that record
+        per-document incremental state would mark the document as successfully
+        processed. Both callers handle the exception per document.
+        """
         try:
             from unstructured.chunking.basic import chunk_elements as basic_chunk
             from unstructured.chunking.title import chunk_by_title
@@ -759,7 +788,7 @@ class DocumentChunkingSource(Source):
 
         except Exception as e:
             logger.error(f"Failed to chunk elements: {e}", exc_info=True)
-            return []
+            raise
 
     def _generate_embeddings(self, chunks: list[dict[str, Any]]) -> list[list[float]]:
         """Generate embeddings via the configured provider."""
