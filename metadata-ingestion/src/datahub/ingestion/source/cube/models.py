@@ -52,6 +52,7 @@ class RawJoin(BaseModel):
 
     name: str
     relationship: Optional[str] = None
+    sql: Optional[str] = None
 
 
 class RawHierarchy(BaseModel):
@@ -328,6 +329,7 @@ class ResolvedWarehouseTable(BaseModel):
 class CubeJoin(BaseModel):
     name: str
     relationship: Optional[str] = None
+    sql: Optional[str] = None
 
 
 class CubeHierarchy(BaseModel):
@@ -356,6 +358,14 @@ class CubeMember(BaseModel):
     column_references: List[CubeColumnReference] = Field(default_factory=list)
     member_references: List[str] = Field(default_factory=list)
     meta: Dict[str, object] = Field(default_factory=dict)
+
+    def source_cube_name(self) -> Optional[str]:
+        # View members carry aliasMember / member_references like "orders.count".
+        for ref in self.member_references:
+            cube_name, sep, _rest = ref.partition(".")
+            if sep and cube_name:
+                return cube_name
+        return None
 
 
 def _normalise_member(
@@ -392,7 +402,7 @@ def _normalise_member(
 
 
 def _build_joins(raw: List[RawJoin]) -> List[CubeJoin]:
-    return [CubeJoin(name=j.name, relationship=j.relationship) for j in raw]
+    return [CubeJoin(name=j.name, relationship=j.relationship, sql=j.sql) for j in raw]
 
 
 def _build_hierarchies(raw: List[RawHierarchy]) -> List[CubeHierarchy]:
@@ -441,6 +451,24 @@ class CubeEntity(BaseModel):
         if include_hidden:
             return self.members
         return [m for m in self.members if not m.is_hidden]
+
+    def referenced_cube_names(self) -> List[str]:
+        # Cloud Metadata API lists included cubes explicitly; Core views only
+        # expose them via aliasMember on each member.
+        if self.cube_references:
+            return list(dict.fromkeys(self.cube_references))
+        names: List[str] = []
+        for member in self.members:
+            cube_name = member.source_cube_name()
+            if cube_name:
+                names.append(cube_name)
+        return list(dict.fromkeys(names))
+
+    def includes_yaml(self) -> Optional[str]:
+        includes = [ref for member in self.members for ref in member.member_references]
+        if not includes:
+            return None
+        return "includes:\n" + "\n".join(f"  - {ref}" for ref in includes)
 
     @classmethod
     def from_core_cube(cls, cube: CoreCube) -> "CubeEntity":

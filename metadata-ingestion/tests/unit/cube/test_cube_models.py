@@ -112,6 +112,7 @@ def test_from_core_cube_normalizes_members_and_alias() -> None:
     assert entity.measures[0].agg_type == "count"
     # aliasMember becomes a member reference for view -> cube lineage.
     assert entity.measures[0].member_references == ["base_orders.count"]
+    assert entity.referenced_cube_names() == ["base_orders"]
     assert entity.dimensions[0].name == "id"
     assert entity.dimensions[0].is_primary_key is True
     assert entity.segment_names == ["completed"]
@@ -190,7 +191,13 @@ def test_core_cube_captures_structural_metadata_and_visibility() -> None:
                     "type": "cube",
                     "fileName": "cubes/orders.yml",
                     "public": True,
-                    "joins": [{"name": "users", "relationship": "belongsTo"}],
+                    "joins": [
+                        {
+                            "name": "users",
+                            "relationship": "belongsTo",
+                            "sql": "{CUBE}.user_id = {users}.id",
+                        }
+                    ],
                     "hierarchies": [
                         {"name": "geo", "levels": ["orders.country", "orders.city"]}
                     ],
@@ -223,6 +230,7 @@ def test_core_cube_captures_structural_metadata_and_visibility() -> None:
     assert entity.file_name == "cubes/orders.yml"
     assert entity.joins[0].name == "users"
     assert entity.joins[0].relationship == "belongsTo"
+    assert entity.joins[0].sql == "{CUBE}.user_id = {users}.id"
     assert entity.hierarchies[0].levels == ["country", "city"]
     # Flat and nested folders are combined; member names are unqualified.
     assert {f.name for f in entity.folders} == {"Core", "Nested"}

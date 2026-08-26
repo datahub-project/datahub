@@ -40,6 +40,7 @@ from datahub.ingestion.source.cube.constants import (
 )
 from datahub.ingestion.source.cube.cube_api import CubeAPIClient
 from datahub.ingestion.source.cube.cube_lineage import CubeLineageBuilder
+from datahub.ingestion.source.cube.cube_semantic_model import CubeSemanticModelMapper
 from datahub.ingestion.source.cube.models import (
     CubeEntity,
     CubeMember,
@@ -62,7 +63,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
     _Aspect,
 )
-from datahub.metadata.urns import CorpUserUrn, TagUrn
+from datahub.metadata.urns import CorpUserUrn, SemanticModelUrn, TagUrn
 from datahub.sdk.chart import Chart
 from datahub.sdk.container import Container
 from datahub.sdk.dashboard import Dashboard
@@ -152,6 +153,8 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
             self.domain_registry = DomainRegistry(
                 cached_domains=list(config.domain), graph=ctx.graph
             )
+
+        self._sm_mapper: Optional[CubeSemanticModelMapper] = None
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "CubeSource":
@@ -259,13 +262,46 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
         entities = self.api_client.get_entities()
         logger.info(f"Fetched {len(entities)} cubes/views from Cube")
 
-        for entity in entities:
-            if not self._should_emit(entity):
-                continue
-            # Isolate per-entity failures so one malformed cube/view does not
-            # abort ingestion of the rest.
+        to_emit = [entity for entity in entities if self._should_emit(entity)]
+        cubes = [entity for entity in to_emit if not entity.is_view]
+        views = [entity for entity in to_emit if entity.is_view]
+        # Join metadata lives on cubes even when a cube itself is filtered out
+        # of dataset emission (`include_cubes: false`).
+        cubes_by_name = {
+            entity.name: entity for entity in entities if not entity.is_view
+        }
+
+        emit_sm = self.config.emit_semantic_model_entities
+        self.report.semantic_model_emission_effective = emit_sm
+        if emit_sm:
+            self._sm_mapper = CubeSemanticModelMapper(
+                config=self.config,
+                path=self._deployment,
+                cube_dataset_urn_fn=self._dataset_urn,
+                container_urn=str(container.urn),
+                report=self.report,
+            )
+
+        for entity in cubes:
             try:
                 yield from self._emit_entity(entity, container, lineage_builder)
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to emit Cube entity",
+                    message="Skipping this cube/view; ingestion continues.",
+                    context=entity.name,
+                    exc=e,
+                )
+
+        for entity in views:
+            try:
+                if self._sm_mapper is not None:
+                    yield from self._sm_mapper.emit(entity, cubes_by_name)
+                    yield from self._emit_entity_meta(
+                        entity, self._semantic_model_urn(entity.name)
+                    )
+                else:
+                    yield from self._emit_entity(entity, container, lineage_builder)
             except Exception as e:
                 self.report.warning(
                     title="Failed to emit Cube entity",
@@ -341,6 +377,20 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
 
+    def _semantic_model_urn(self, view_name: str) -> str:
+        return str(
+            SemanticModelUrn(
+                platform=self.platform, path=self._deployment, id=view_name
+            )
+        )
+
+    def _chart_input_urns(self, entity_name: str) -> List[str]:
+        if self._sm_mapper is not None:
+            mapped = self._sm_mapper.view_chart_inputs.get(entity_name)
+            if mapped:
+                return mapped
+        return [self._dataset_urn(entity_name)]
+
     @staticmethod
     def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
         if not value:
@@ -397,9 +447,13 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
                     )
 
     def _build_chart(self, report: CubeReport) -> Chart:
-        input_datasets = [
-            self._dataset_urn(entity) for entity in report.referenced_entities
-        ]
+        input_datasets = list(
+            dict.fromkeys(
+                urn
+                for entity in report.referenced_entities
+                for urn in self._chart_input_urns(entity)
+            )
+        )
         owners = [CorpUserUrn(report.owner_email)] if report.owner_email else None
         return Chart(
             platform=self.platform,
@@ -482,12 +536,9 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
                 viewLogic=entity.sql,
             )
         if entity.is_view:
-            includes = [
-                ref for member in entity.members for ref in member.member_references
-            ]
-            if not includes:
+            view_logic = entity.includes_yaml()
+            if not view_logic:
                 return None
-            view_logic = "includes:\n" + "\n".join(f"  - {ref}" for ref in includes)
             return ViewPropertiesClass(
                 materialized=False,
                 viewLanguage="YAML",
