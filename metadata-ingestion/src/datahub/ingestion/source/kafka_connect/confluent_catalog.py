@@ -2,12 +2,12 @@ from typing import List, Optional
 
 from pydantic import Field
 
+from datahub.ingestion.source.confluent.catalog_index import CatalogIndex
 from datahub.ingestion.source.confluent.client import ConfluentStreamCatalogClient
 from datahub.ingestion.source.confluent.models import (
     CatalogEntity,
     NameIndex,
     NullAsEmptyList,
-    index_by_name,
 )
 from datahub.ingestion.source.kafka_connect.common import (
     ConfluentCatalogConfig,
@@ -26,44 +26,35 @@ class CatalogConnector(CatalogEntity):
         return list(dict.fromkeys(topic.name for topic in self.topics if topic.name))
 
 
-class ConnectorCatalog:
+class ConnectorCatalog(CatalogIndex[CatalogConnector, KafkaConnectSourceReport]):
     def __init__(
         self,
         config: ConfluentCatalogConfig,
         report: KafkaConnectSourceReport,
         client: Optional[ConfluentStreamCatalogClient] = None,
     ) -> None:
-        self.config = config
-        self.report = report
-        self.client = client or ConfluentStreamCatalogClient(config, report)
-        self._connectors: Optional[NameIndex[CatalogConnector]] = None
-        self._complete = True
-
-    def is_complete(self) -> bool:
-        self.get_connectors()
-        return self._complete
+        super().__init__(
+            config,
+            report,
+            query=CONNECTOR_CATALOG_QUERY,
+            root_key=CONNECTOR_ROOT_KEY,
+            model=CatalogConnector,
+            entity_label="connector",
+            client=client,
+        )
 
     def get_connectors(self) -> NameIndex[CatalogConnector]:
-        if self._connectors is None:
-            result = self.client.fetch_entities(
-                CONNECTOR_CATALOG_QUERY, CONNECTOR_ROOT_KEY, CatalogConnector
-            )
-            self._complete = result.complete
-            connectors = result.entities
-            index = index_by_name(connectors)
-            index.report_issues(self.report, "connector")
-            for name in index.ambiguous:
-                self.report.warning(
-                    message="Skipping Stream Catalog metadata for a connector name that the "
-                    "catalog reports more than once in this environment.",
-                    context=f"connector={name}",
-                )
-            self._connectors = index
-            self.report.catalog_connectors_indexed = len(index.by_name)
-        return self._connectors
+        return self._ensure_indexed()
 
     def get_connector(self, connector_name: str) -> Optional[CatalogConnector]:
-        return self.get_connectors().get(connector_name)
+        return self._get(connector_name)
 
-    def close(self) -> None:
-        self.client.close()
+    def _warn_ambiguous(self, name: str, candidates: List[CatalogConnector]) -> None:
+        self.report.warning(
+            message="Skipping Stream Catalog metadata for a connector name that the "
+            "catalog reports more than once in this environment.",
+            context=f"connector={name}",
+        )
+
+    def _record_indexed(self, count: int) -> None:
+        self.report.catalog_connectors_indexed = count
