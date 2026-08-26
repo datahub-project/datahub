@@ -15,6 +15,7 @@ from datahub.ingestion.source.cube.models import (
 from datahub.metadata.schema_classes import (
     ERModelRelationshipCardinalityClass,
     MetricInfoClass,
+    NumberTypeClass,
     SemanticModelInfoClass,
     SemanticModelPropertiesClass,
 )
@@ -211,6 +212,49 @@ def test_view_emits_semantic_model_metrics_and_logical_datasets() -> None:
     assert mapper.report.semantic_models_emitted == 1
     assert mapper.report.metrics_emitted == 2
     assert mapper.report.semantic_model_datasets_emitted == 2
+
+
+def test_cloud_measure_without_agg_type_gets_numeric_field_and_expression() -> None:
+    # Regression: Cloud view measures often report the aggregation only via
+    # `type` (e.g. "count") and leave `aggType` unset. The semantic-model
+    # path used to pass that raw Cube type straight through as the field's
+    # native type, which resolves to NullType downstream, and left the
+    # metric with no expression since it only consulted `agg_type`.
+    cube = CubeEntity(
+        name="orders",
+        measures=[CubeMember(name="count", is_measure=True, data_type="count")],
+    )
+    view = CubeEntity(
+        name="orders_view",
+        is_view=True,
+        cube_references=["orders"],
+        measures=[
+            CubeMember(
+                name="count",
+                is_measure=True,
+                data_type="count",
+                member_references=["orders.count"],
+            )
+        ],
+    )
+    mapper = _mapper()
+    aspects = _aspects_by_urn(list(mapper.emit(view, {"orders": cube})))
+
+    orders_logical = (
+        "urn:li:dataset:(urn:li:dataPlatform:cube,demo.orders_view.orders,PROD)"
+    )
+    schema_meta = aspects[orders_logical]["SchemaMetadataClass"]
+    fields = schema_meta.fields  # type: ignore[attr-defined]
+    count_field = next(f for f in fields if f.fieldPath == "count")
+    assert isinstance(count_field.type.type, NumberTypeClass)
+
+    count_metric = (
+        "urn:li:metric:(urn:li:dataPlatform:cube,demo.orders_view.orders,count)"
+    )
+    metric_info = aspects[count_metric]["MetricInfoClass"]
+    assert isinstance(metric_info, MetricInfoClass)
+    assert metric_info.expression is not None
+    assert metric_info.expression.dialects[0].expression == "count(orders.count)"
 
 
 def _orders_cube_with_hidden_join_key() -> CubeEntity:

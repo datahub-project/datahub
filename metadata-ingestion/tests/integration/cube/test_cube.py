@@ -2,8 +2,9 @@ import base64
 import hashlib
 import hmac
 import json
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterator, Optional
 from unittest.mock import patch
 
 import pytest
@@ -163,9 +164,11 @@ def test_cube_core_ingest(
     )
 
 
-def test_cube_cloud_metadata_api(pytestconfig: pytest.Config, tmp_path: Any) -> None:
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/cube"
-    output_path = tmp_path / "cube_cloud_mces.json"
+@contextmanager
+def _mocked_cloud_apis(test_resources_dir: Path) -> Iterator[None]:
+    # Shared Cloud-API mocking for tests that only differ in recipe and
+    # golden file: /v1/meta + Metadata API responses, and the Platform API's
+    # reports/workbooks responses.
     meta_response = _load(test_resources_dir, "cloud_meta.json")
     entities_response = _load(test_resources_dir, "cloud_entities.json")
     data_sources_response = _load(test_resources_dir, "cloud_data_sources.json")
@@ -205,6 +208,14 @@ def test_cube_cloud_metadata_api(pytestconfig: pytest.Config, tmp_path: Any) -> 
         patch.object(CubeAPIClient, "_request", mock_request),
         patch.object(CubeAPIClient, "_platform_request", mock_platform_request),
     ):
+        yield
+
+
+def test_cube_cloud_metadata_api(pytestconfig: pytest.Config, tmp_path: Any) -> None:
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/cube"
+    output_path = tmp_path / "cube_cloud_mces.json"
+
+    with _mocked_cloud_apis(test_resources_dir):
         _run_pipeline(test_resources_dir / "cube_cloud_to_file.yml", output_path)
 
     mce_helpers.check_golden_file(
@@ -225,43 +236,8 @@ def test_cube_cloud_semantic_model_entities(
     # lineage pointing at the logical dataset instead of a view dataset.
     test_resources_dir = pytestconfig.rootpath / "tests/integration/cube"
     output_path = tmp_path / "cube_cloud_semantic_model_mces.json"
-    meta_response = _load(test_resources_dir, "cloud_meta.json")
-    entities_response = _load(test_resources_dir, "cloud_entities.json")
-    data_sources_response = _load(test_resources_dir, "cloud_data_sources.json")
-    reports_response = _load(test_resources_dir, "cloud_reports.json")
-    workbooks_response = _load(test_resources_dir, "cloud_workbooks.json")
 
-    def mock_request(
-        self: Any,
-        method: str,
-        endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        json_body: Optional[Dict[str, Any]] = None,
-        bearer: bool = False,
-    ) -> Dict[str, Any]:
-        if endpoint == API_ENDPOINT_META:
-            return meta_response
-        if endpoint == API_ENDPOINT_ENTITIES_ALL:
-            return entities_response
-        if endpoint == API_ENDPOINT_DATA_SOURCES:
-            return data_sources_response
-        if endpoint == API_ENDPOINT_ENTITIES:
-            return {"data": {"entities": []}}
-        return {}
-
-    def mock_platform_request(
-        self: Any, endpoint: str, params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        if endpoint.endswith("reports"):
-            return reports_response
-        if endpoint.endswith("workbooks"):
-            return workbooks_response
-        return {}
-
-    with (
-        patch.object(CubeAPIClient, "_request", mock_request),
-        patch.object(CubeAPIClient, "_platform_request", mock_platform_request),
-    ):
+    with _mocked_cloud_apis(test_resources_dir):
         _run_pipeline(
             test_resources_dir / "cube_cloud_semantic_model_to_file.yml", output_path
         )

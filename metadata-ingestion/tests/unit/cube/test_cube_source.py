@@ -653,3 +653,19 @@ def test_build_dashboard_warns_on_unknown_report_id() -> None:
     warning = list(source.report.warnings)[0]
     assert warning.title == "Cube workbook references an unknown report"
     assert any("report_id=99" in c for c in warning.context)
+
+
+def test_build_dashboard_no_warning_when_reports_disabled() -> None:
+    # Regression: with include_reports=False, no report ids are ever fetched
+    # on purpose, so seen_report_ids stays empty; every workbook report_id
+    # used to be (wrongly) treated as "unknown" and warned about.
+    source = _source(platform_instance="cube_demo", include_reports=False)
+    container = Container(source._container_key, display_name="demo")
+    dashboard = source._build_dashboard(
+        CubeWorkbook(id=9, name="wb", title="Workbook", report_ids=[1, 2]),
+        {},
+        set(),
+        container,
+    )
+    assert dashboard.charts == []
+    assert len(source.report.warnings) == 0

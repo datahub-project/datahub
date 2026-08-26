@@ -6,6 +6,7 @@ from datahub.ingestion.source.cube.constants import (
     CUBE_JOIN_CUBE_PLACEHOLDER,
     CUBE_JOIN_EQ_RE,
     CUBE_PLATFORM,
+    KNOWN_MEASURE_AGG_TYPES,
 )
 from datahub.ingestion.source.cube.models import CubeEntity, CubeJoin, CubeMember
 from datahub.metadata.schema_classes import (
@@ -290,8 +291,24 @@ class CubeSemanticModelMapper:
             deduped[cube_name] = kept
         return deduped
 
+    @staticmethod
+    def _measure_agg_type(member: CubeMember) -> Optional[str]:
+        # Cube Cloud view members often report the aggregation only via
+        # `type` (e.g. "count") and leave `aggType` unset.
+        if member.agg_type:
+            return member.agg_type
+        # "number" is Cube's type for a measure with no built-in aggregation
+        # (e.g. a custom SQL measure); it isn't a real aggregation function.
+        if member.data_type in KNOWN_MEASURE_AGG_TYPES and member.data_type != "number":
+            return member.data_type
+        return None
+
     def _semantic_field(self, member: CubeMember) -> SemanticFieldInput:
-        native_type = member.data_type or ("number" if member.is_measure else "string")
+        # `data_type` on a measure is Cube's aggregation type (e.g. "count"),
+        # not a SQL/native type -- passing it through as-is resolves to
+        # NullType downstream. Match the classic dataset path, which always
+        # types measures as numeric.
+        native_type = "number" if member.is_measure else (member.data_type or "string")
         return SemanticFieldInput(
             field_path=member.name,
             type=native_type,
@@ -303,7 +320,9 @@ class CubeSemanticModelMapper:
             description=member.description or member.title,
             is_part_of_key=member.is_primary_key,
             is_time_dimension=member.is_temporal,
-            aggregation_function=member.agg_type if member.is_measure else None,
+            aggregation_function=(
+                self._measure_agg_type(member) if member.is_measure else None
+            ),
         )
 
     def _metric(
@@ -316,9 +335,10 @@ class CubeSemanticModelMapper:
         model_urn: str,
     ) -> Metric:
         expression = None
-        if member.agg_type:
+        agg_type = self._measure_agg_type(member)
+        if agg_type:
             expression = DialectExpressionInput(
-                expression=f"{member.agg_type}({alias}.{member.name})",
+                expression=f"{agg_type}({alias}.{member.name})",
                 dialect=DialectClass.ANSI_SQL,
             )
         return Metric(

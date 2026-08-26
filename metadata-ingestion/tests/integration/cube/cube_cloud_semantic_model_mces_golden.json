@@ -550,10 +550,10 @@
                     "description": "Count",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "count",
+                    "nativeDataType": "number",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -574,7 +574,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1787776835274,
+        "lastObserved": 1787781062145,
         "runId": "cube-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -644,11 +644,12 @@
                         "expression": "orders.count"
                     }
                 ]
-            }
+            },
+            "aggregationFunction": "count"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1787776835275,
+        "lastObserved": 1787781062146,
         "runId": "cube-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -721,11 +722,19 @@
     "aspect": {
         "json": {
             "name": "Count",
-            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:cube,cube_demo,orders_view)"
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:cube,cube_demo,orders_view)",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "ANSI_SQL",
+                        "expression": "count(orders.count)"
+                    }
+                ]
+            }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1787776835275,
+        "lastObserved": 1787781062146,
         "runId": "cube-test",
         "lastRunId": "no-run-id-provided"
     }

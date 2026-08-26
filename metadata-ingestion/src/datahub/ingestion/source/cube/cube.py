@@ -507,10 +507,12 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
             chart = chart_by_report_id.get(report_id)
             if chart is not None:
                 charts.append(chart)
-            elif report_id not in seen_report_ids:
+            elif self.config.include_reports and report_id not in seen_report_ids:
                 # Not filtered and not a build failure (both already tracked
                 # elsewhere) -- the Reports and Workbooks Platform API calls
-                # disagree about which reports exist.
+                # disagree about which reports exist. When include_reports is
+                # disabled, no report ids were ever fetched on purpose, so
+                # this isn't a disagreement worth warning about.
                 self.report.warning(
                     title="Cube workbook references an unknown report",
                     message=(
