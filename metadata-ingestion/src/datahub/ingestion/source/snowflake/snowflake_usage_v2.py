@@ -1,6 +1,5 @@
 import json
 import logging
-import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -457,8 +456,12 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             operation_type = OPERATION_STATEMENT_TYPES.get(
                 query_type, OperationTypeClass.CUSTOM
             )
-            reported_time: int = int(time.time() * 1000)
-            last_updated_timestamp: int = int(start_time.timestamp() * 1000)
+            # Operation is a timeseries aspect, so timestampMillis carries the event
+            # time -- when the write happened -- not when we observed it. It is also
+            # hashed into the ES docId, so an ingestion-time stamp would give the same
+            # write a fresh document on every overlapping run. Matches the
+            # DatasetUsageStatistics aspect built above, which stamps BUCKET_START_TIME.
+            operation_time: int = int(start_time.timestamp() * 1000)
             user_urn = make_user_urn(
                 self.identifiers.get_user_identifier(user_name, user_email)
             )
@@ -480,8 +483,8 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                     continue
 
                 operation_aspect = OperationClass(
-                    timestampMillis=reported_time,
-                    lastUpdatedTimestamp=last_updated_timestamp,
+                    timestampMillis=operation_time,
+                    lastUpdatedTimestamp=operation_time,
                     actor=user_urn,
                     operationType=operation_type,
                     customOperationType=(

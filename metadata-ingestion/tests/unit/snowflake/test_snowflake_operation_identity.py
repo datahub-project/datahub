@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import List
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -85,14 +85,39 @@ def test_operations_for_same_table_are_distinct_timeseries_documents() -> None:
     )
 
 
-def test_operation_message_id_is_stable_across_runs() -> None:
+def test_operation_timestamp_is_the_write_time_not_the_ingestion_time() -> None:
+    """timestampMillis must carry the time of the write itself.
+
+    It is part of the timeseries docId, and it is the field the 30-day write window
+    is evaluated against -- so stamping it with the ingestion time makes the window
+    mean "last 30 days of ingestion" rather than "last 30 days of writes".
+    """
+    event = _event("q1", minute=0)
+    assert event.query_start_time is not None
+    expected = int(event.query_start_time.timestamp() * 1000)
+
+    (aspect,) = _operations_for([event])
+
+    assert aspect.timestampMillis == expected
+    assert aspect.lastUpdatedTimestamp == expected
+
+
+def test_operation_document_identity_is_stable_across_runs() -> None:
     """Re-ingesting the same window must not duplicate the write.
 
-    messageId has to be derived from the operation itself (query id + table), not
-    from the ingestion run, or an overlapping window double counts writes.
+    Both halves of the docId key that we control -- timestampMillis and messageId --
+    have to be derived from the operation itself, not from the ingestion run. A
+    stable messageId alone is not enough: timestampMillis is hashed into the docId
+    too, so an ingestion-time stamp gives the same write a fresh document on every
+    overlapping run.
     """
-    first = _operations_for([_event("q1", minute=0)])
-    second = _operations_for([_event("q1", minute=0)])
+    with patch("time.time", return_value=1_000.0):
+        first = _operations_for([_event("q1", minute=0)])
+    with patch("time.time", return_value=999_999.0):
+        second = _operations_for([_event("q1", minute=0)])
 
     assert first[0].messageId is not None
-    assert first[0].messageId == second[0].messageId
+    assert (first[0].timestampMillis, first[0].messageId) == (
+        second[0].timestampMillis,
+        second[0].messageId,
+    )

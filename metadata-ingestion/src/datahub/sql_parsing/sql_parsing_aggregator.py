@@ -2004,13 +2004,14 @@ class SqlParsingAggregator(Closeable):
 
         self.report.num_operations_generated += 1
         aspect = models.OperationClass(
-            timestampMillis=make_ts_millis(datetime.now(tz=timezone.utc)),
+            # Operation is a timeseries aspect: timestampMillis is the event time, i.e.
+            # when the write happened. Both it and messageId are hashed into the ES
+            # docId, so deriving both from the query keeps two writes to the same table
+            # apart while letting an overlapping re-ingestion overwrite idempotently
+            # rather than double count.
+            timestampMillis=make_ts_millis(query.latest_timestamp),
             operationType=operation_type,
             lastUpdatedTimestamp=make_ts_millis(query.latest_timestamp),
-            # timestampMillis is the ingestion time, so the timeseries docId
-            # (timestampMillis + urn + messageId) would collide for two queries writing
-            # the same table in the same millisecond. The query fingerprint keeps them
-            # apart and is stable across runs.
             messageId=query.query_id,
             actor=query.actor.urn() if query.actor else None,
             sourceType=models.OperationSourceTypeClass.DATA_PLATFORM,
