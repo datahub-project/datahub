@@ -19,6 +19,7 @@ import com.linkedin.datahub.upgrade.system.ingestion.IngestEntityTypes;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.migrations.MigrateAspects;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
+import com.linkedin.datahub.upgrade.system.policyprivileges.BackfillViewAllQueriesPrivilege;
 import com.linkedin.datahub.upgrade.system.policyprivileges.BackfillViewEntityQueriesPrivilege;
 import com.linkedin.datahub.upgrade.system.restoreindices.RestoreDbtSiblingsIndices;
 import com.linkedin.datahub.upgrade.system.restoreindices.columnlineage.RestoreColumnLineageIndices;
@@ -155,6 +156,19 @@ public class NonBlockingConfigs {
           final boolean reprocessEnabled,
       @Value("${systemUpdate.viewEntityQueriesPrivilege.batchSize}") final Integer batchSize) {
     return new BackfillViewEntityQueriesPrivilege(
+        opContext, entityService, searchService, enabled, reprocessEnabled, batchSize);
+  }
+
+  @Bean
+  public BackfillViewAllQueriesPrivilege backfillViewAllQueriesPrivilege(
+      final OperationContext opContext,
+      EntityService<?> entityService,
+      SearchService searchService,
+      @Value("${systemUpdate.viewAllQueriesPrivilege.enabled}") final boolean enabled,
+      @Value("${systemUpdate.viewAllQueriesPrivilege.reprocess.enabled}")
+          final boolean reprocessEnabled,
+      @Value("${systemUpdate.viewAllQueriesPrivilege.batchSize}") final Integer batchSize) {
+    return new BackfillViewAllQueriesPrivilege(
         opContext, entityService, searchService, enabled, reprocessEnabled, batchSize);
   }
 

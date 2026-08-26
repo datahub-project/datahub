@@ -127,6 +127,73 @@ public class DatasetUsageStatsResolverTest {
         "strict mode cannot verify per-statement associations, so SQL selections must be denied");
   }
 
+  /**
+   * VIEW_ALL_QUERIES bypasses even strict mode's unconditional denial. The authorizer here grants
+   * ONLY VIEW_ALL_QUERIES (VIEW_ENTITY_QUERIES / EDIT_QUERIES / EDIT_ENTITY are all explicitly
+   * denied), so this proves VIEW_ALL_QUERIES itself unlocks the SQL — not some fallback via the
+   * ordinary per-dataset privilege group.
+   */
+  @Test
+  public void testTopSqlQueriesReturnedInStrictModeWithViewAllQueries() throws Exception {
+    DatasetUsageStatsResolver resolver = new DatasetUsageStatsResolver(mockUsageClient());
+    DataFetchingEnvironment mockEnv =
+        mockEnvironment(
+            viewAllQueriesOnlyAuthorizer(),
+            ViewAuthorizationConfiguration.builder()
+                .enabled(false)
+                .queryEntities(
+                    ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
+                        .enabled(true)
+                        .requireAllSubjects(true)
+                        .build())
+                .build(),
+            /* selectsTopSqlQueries= */ true);
+
+    UsageQueryResult result = resolver.get(mockEnv).get();
+
+    assertEquals(
+        result.getBuckets().get(0).getMetrics().getTopSqlQueries(),
+        List.of(TEST_SQL),
+        "VIEW_ALL_QUERIES grants visibility into every query platform-wide, so per-statement "
+            + "dataset association is moot for an actor holding it");
+  }
+
+  /**
+   * Regression test for a divergence Cursor Bugbot flagged on PR #16319: with the dedicated {@code
+   * authorization.view.queryEntities} flag explicitly disabled but the legacy {@code
+   * VIEW_AUTHORIZATION_ENABLED} master switch on, {@link
+   * com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils#isQueryViewAuthorizationEnabled}
+   * treats enforcement as active (the legacy switch is an OR'd activation path), but this
+   * resolver's own inline copy of that check previously ignored the legacy switch entirely and
+   * always treated the dedicated flag alone as authoritative — so SQL stayed visible here even
+   * though Query entities and view/transform-logic SQL were already being denied by the same actor.
+   * Now that this resolver delegates to the shared check, denial is consistent.
+   */
+  @Test
+  public void testTopSqlQueriesDeniedWhenOnlyLegacyViewAuthorizationSwitchEnables()
+      throws Exception {
+    DatasetUsageStatsResolver resolver = new DatasetUsageStatsResolver(mockUsageClient());
+    DataFetchingEnvironment mockEnv =
+        mockEnvironment(
+            usageStatsAuthorizer(false),
+            ViewAuthorizationConfiguration.builder()
+                .enabled(true)
+                .queryEntities(
+                    ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
+                        .enabled(false)
+                        .build())
+                .build(),
+            /* selectsTopSqlQueries= */ true);
+
+    CompletionException thrown =
+        org.testng.Assert.expectThrows(
+            CompletionException.class, () -> resolver.get(mockEnv).join());
+    assertTrue(
+        thrown.getCause() instanceof AuthorizationException,
+        "the legacy VIEW_AUTHORIZATION_ENABLED switch alone must activate enforcement, matching"
+            + " isQueryViewAuthorizationEnabled's OR logic");
+  }
+
   /** Escape valve: with query-read authorization explicitly disabled, the SQL is served. */
   @Test
   public void testTopSqlQueriesReturnedWhenQueryAuthorizationDisabled() throws Exception {
@@ -238,8 +305,39 @@ public class DatasetUsageStatsResolverTest {
         .thenAnswer(
             invocation -> {
               AuthorizationRequest request = invocation.getArgument(0);
+              // Deny VIEW_ALL_QUERIES unconditionally: this authorizer isolates
+              // VIEW_ENTITY_QUERIES-only behavior, and the naive "allow anything not in
+              // queryViewPrivileges" rule below would otherwise grant it by omission.
               boolean allowed =
-                  hasQueryViewPrivilege || !queryViewPrivileges.contains(request.getPrivilege());
+                  !PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE
+                          .getType()
+                          .equals(request.getPrivilege())
+                      && (hasQueryViewPrivilege
+                          || !queryViewPrivileges.contains(request.getPrivilege()));
+              return new AuthorizationResult(
+                  request,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  "");
+            });
+    return mockAuthorizer;
+  }
+
+  /**
+   * Authorizer granting VIEW_DATASET_USAGE (needed just to reach the topSqlQueries decision at all)
+   * and VIEW_ALL_QUERIES — every other privilege, including VIEW_ENTITY_QUERIES / EDIT_QUERIES /
+   * EDIT_ENTITY, is explicitly denied.
+   */
+  private Authorizer viewAllQueriesOnlyAuthorizer() {
+    Set<String> allowedPrivileges =
+        ImmutableSet.of(
+            PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE.getType(),
+            PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE.getType());
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              boolean allowed = allowedPrivileges.contains(request.getPrivilege());
               return new AuthorizationResult(
                   request,
                   allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,

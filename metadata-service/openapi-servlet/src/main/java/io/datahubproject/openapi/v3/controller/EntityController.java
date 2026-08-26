@@ -712,6 +712,12 @@ public class EntityController
                   aspectItemMap.putAll(
                       toTimeseriesAspectItemMap(u, timeseriesAspects.get(u), withSystemMetadata));
                 }
+                aspectItemMap
+                    .keySet()
+                    .removeIf(
+                        aspectName ->
+                            EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+                                opContext, u, aspectName));
 
                 return GenericEntityV3.builder().build(objectMapper, u, aspectItemMap);
               })

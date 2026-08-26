@@ -532,7 +532,8 @@ public class QueryTypeTest {
         ImmutableSet.of(
             PoliciesConfig.VIEW_ENTITY_QUERIES_PRIVILEGE.getType(),
             PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType(),
-            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType());
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
+            PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE.getType());
     Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
     Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
         .thenAnswer(

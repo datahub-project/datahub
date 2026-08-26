@@ -252,6 +252,28 @@ public class PoliciesConfig {
           "Get Topic Events",
           "The ability to use the Events API to read events from custom Kafka topics.");
 
+  /**
+   * A distinct, platform-level privilege, not a resource-scoped one: it is not checked against any
+   * particular query's subject datasets, so an actor who holds it can view every Query entity's SQL
+   * text unconditionally, with no per-dataset restriction — see {@code
+   * EntityAspectAuthorizationUtils#filterViewableQueryEntities}, which checks this privilege first
+   * and short-circuits the ordinary {@code VIEW_ENTITY_QUERIES} subject-dataset logic entirely when
+   * it is held. This is what makes it useful for the one case {@code VIEW_ENTITY_QUERIES} can never
+   * cover on its own: a query with no recorded {@code querySubjects} has no dataset for a
+   * resource-scoped policy to grant against and is otherwise fail-closed to every actor, including
+   * root/admin — but the privilege is not limited to that case; holding it means seeing every
+   * query, subjects or not. It is READ-only by construction and is never consulted by any
+   * CREATE/EDIT/DELETE check, so granting it (e.g. to a read-only "Reader" role) cannot confer any
+   * write capability — unlike {@code MANAGE_} privileges, which this deliberately is not one of.
+   */
+  public static final Privilege VIEW_ALL_QUERIES_PRIVILEGE =
+      Privilege.of(
+          "VIEW_ALL_QUERIES",
+          "View All Queries",
+          "The ability to view every Query's SQL text unconditionally, with no per-dataset "
+              + "restriction — including queries with no recorded subject dataset (orphan "
+              + "queries), which VIEW_ENTITY_QUERIES alone can never grant access to.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -297,7 +319,8 @@ public class PoliciesConfig {
           GET_PLATFORM_EVENTS_PRIVILEGE,
           GET_METADATA_CHANGE_LOG_EVENTS,
           MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE,
-          GET_TOPIC_EVENTS_PRIVILEGE);
+          GET_TOPIC_EVENTS_PRIVILEGE,
+          VIEW_ALL_QUERIES_PRIVILEGE);
 
   // Resource Privileges //
 

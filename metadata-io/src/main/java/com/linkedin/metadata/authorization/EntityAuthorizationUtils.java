@@ -1,13 +1,19 @@
 package com.linkedin.metadata.authorization;
 
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_TRANSFORM_LOGIC_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.VIEW_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -109,7 +115,8 @@ public final class EntityAuthorizationUtils {
    * EntityAspectAuthorizationUtils#filterViewableQueryEntities} — active only when REST API
    * authorization is enabled AND query-read authorization is enabled (see {@link
    * EntityAspectAuthorizationUtils#isQueryViewAuthorizationEnabled}); when inactive, no subject
-   * lookups are performed. Query entities with no subjects are fail-closed. Other operations use
+   * lookups are performed. System-auth requests bypass this filtering entirely, as the GraphQL
+   * query paths already do. Query entities with no subjects are fail-closed. Other operations use
    * {@link AuthUtil} without inheritance.
    */
   private static boolean isAPIAuthorizedQueryUrns(
@@ -123,7 +130,8 @@ public final class EntityAuthorizationUtils {
       return AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, queryUrns);
     }
     if (!AuthUtil.isRestApiAuthorizationEnabled()
-        || !EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(opContext)) {
+        || !EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(opContext)
+        || opContext.isSystemAuth()) {
       return true;
     }
     return EntityAspectAuthorizationUtils.filterViewableQueryEntities(
@@ -330,6 +338,53 @@ public final class EntityAuthorizationUtils {
         result.getEntities().stream()
             .map(entity -> entity.getEntity())
             .collect(Collectors.toList()));
+  }
+
+  /**
+   * Whether {@code aspectName} on {@code entityUrn} carries SQL text ({@code viewProperties} on
+   * datasets, {@code dataTransformLogic} on data jobs — the same fields GraphQL's {@code
+   * DatasetMapper}/{@code VersionedDatasetMapper}/{@code DataTransformLogicMapper} withhold) that
+   * the actor lacks {@link EntityAspectAuthorizationUtils#canViewQueriesOnEntity} to see. OpenAPI
+   * (v1/v2/v3) and Rest.li entity-read surfaces serialize aspect content generically — there is no
+   * per-field mapper the way GraphQL has — so every one of them must consult this for these two
+   * aspect names specifically before including them in a response, withholding the whole aspect
+   * (coarser than GraphQL's field-level redaction, which keeps {@code materialized}/{@code
+   * language} visible) rather than not at all.
+   */
+  public static boolean isQuerySqlAspectRestricted(
+      @Nonnull OperationContext opContext, @Nonnull Urn entityUrn, @Nonnull String aspectName) {
+    boolean isSqlBearingAspect =
+        (DATASET_ENTITY_NAME.equals(entityUrn.getEntityType())
+                && VIEW_PROPERTIES_ASPECT_NAME.equals(aspectName))
+            || (DATA_JOB_ENTITY_NAME.equals(entityUrn.getEntityType())
+                && DATA_TRANSFORM_LOGIC_ASPECT_NAME.equals(aspectName));
+    return isSqlBearingAspect
+        && !EntityAspectAuthorizationUtils.canViewQueriesOnEntity(opContext, entityUrn);
+  }
+
+  /**
+   * Removes SQL-bearing aspects (per {@link #isQuerySqlAspectRestricted}) from {@code responses} in
+   * place — the shared redaction step for OpenAPI/Rest.li surfaces that fetch full {@link
+   * EntityResponse} objects (v1 {@code EntitiesController}, Rest.li {@code EntityV2Resource});
+   * surfaces that build a generic per-aspect map directly (v2/v3 {@code EntityController}) call
+   * {@link #isQuerySqlAspectRestricted} themselves against their own map shape.
+   */
+  public static void redactUnauthorizedQuerySqlAspects(
+      @Nonnull OperationContext opContext, @Nonnull Map<Urn, EntityResponse> responses) {
+    for (Map.Entry<Urn, EntityResponse> entry : responses.entrySet()) {
+      Urn urn = entry.getKey();
+      EnvelopedAspectMap aspects = entry.getValue().getAspects();
+      if (aspects == null) {
+        continue;
+      }
+      for (String aspectName :
+          List.of(VIEW_PROPERTIES_ASPECT_NAME, DATA_TRANSFORM_LOGIC_ASPECT_NAME)) {
+        if (aspects.containsKey(aspectName)
+            && isQuerySqlAspectRestricted(opContext, urn, aspectName)) {
+          aspects.remove(aspectName);
+        }
+      }
+    }
   }
 
   /**

@@ -50,6 +50,8 @@ Reference Links:
 | `REST_API_AUTHORIZATION_ENABLED`                        | `true`                 | Enable authorization of reads, writes, and deletes on REST APIs                                                                                                                                                                                                                                                                                               | GMS        |
 | `VIEW_AUTHORIZATION_ENABLED`                            | `false`                | Enable View-Based Access Control (VBAC) — restrict entity visibility based on policies (core; search access-control pushdown is Cloud-only)                                                                                                                                                                                                                   | GMS        |
 | `VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED` | `true`                 | Enable peer group recommendations for view authorization                                                                                                                                                                                                                                                                                                      | GMS        |
+| `QUERY_ENTITY_AUTHORIZATION_ENABLED`                    | `true`                 | Enable `VIEW_ENTITY_QUERIES`/`VIEW_ALL_QUERIES` enforcement on Query entity reads (GraphQL, REST). Independent of `VIEW_AUTHORIZATION_ENABLED` — disabling that switch does not disable this one. Does not override `VIEW_AUTHORIZATION_ENABLED` if enabled                                                                                                  | GMS        |
+| `QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS`       | `false`                | When `true`, reading a Query requires `VIEW_ENTITY_QUERIES` on every dataset in its `querySubjects` (or `VIEW_ALL_QUERIES`) instead of any single one                                                                                                                                                                                                         | GMS        |
 | `VIEW_UNRESTRICTED_ENTITY_TYPES`                        | _(empty)_              | Optional full override of view-unrestricted entity types when `VIEW_AUTHORIZATION_ENABLED=true`. Empty keeps the `entity-registry.yml` `viewUnrestricted: true` baseline. Shared GMS config for Cloud [Search Access Controls](../features/feature-guides/search-access-controls.md) and OSS entity-page VBAC — query-time search pushdown remains Cloud-only | GMS        |
 | `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD`                    | see `application.yaml` | Comma-separated registry names to append after the registry baseline (or after `VIEW_UNRESTRICTED_ENTITY_TYPES` when set). Stock default excludes `document`, `schemaField`, and `container` (those are view-restricted when view auth is on; `container` is also no longer `viewUnrestricted` in the registry)                                               | GMS        |
 | `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE`                 | _(empty)_              | Comma-separated registry names to remove from the effective view-unrestricted list. Stock `_ADD` already omits `document` and `schemaField`; keep them (and `container`) out of unrestricted overlays unless you intentionally want view bypass                                                                                                               | GMS        |
@@ -934,6 +936,26 @@ Reference Links:
 | `BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_ENABLED`    | `true`  | Enable policy fields updates    | System Update |
 | `BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_BATCH_SIZE` | `5000`  | Policy fields batch size        | System Update |
 | `REPROCESS_DEFAULT_POLICY_FIELDS`                  | `false` | Reprocess default policy fields | System Update |
+
+### View Entity Queries Privilege Configuration
+
+One-time upgrade step that grants `VIEW_ENTITY_QUERIES` to every existing policy that already grants `VIEW_ENTITY_PAGE`, preserving existing query visibility across the upgrade. See [Query entities](../authorization/policies.md#query-entities).
+
+| Environment Variable                                               | Default | Description                               | Components    |
+| ------------------------------------------------------------------ | ------- | ----------------------------------------- | ------------- |
+| `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ENTITY_QUERIES_PRIVILEGE_ENABLED`    | `true`  | Enable the `VIEW_ENTITY_QUERIES` backfill | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ENTITY_QUERIES_PRIVILEGE_BATCH_SIZE` | `5000`  | `VIEW_ENTITY_QUERIES` backfill batch size | System Update |
+| `REPROCESS_VIEW_ENTITY_QUERIES_PRIVILEGE`                          | `false` | Re-run the `VIEW_ENTITY_QUERIES` backfill | System Update |
+
+### View All Queries Privilege Configuration
+
+One-time upgrade step that grants `VIEW_ALL_QUERIES` to every existing policy that already grants `VIEW_ENTITY_PAGE`, preserving pre-upgrade behavior where page visibility implied visibility into all of an entity's queries. `VIEW_ALL_QUERIES` is a distinct, platform-level privilege from `VIEW_ENTITY_QUERIES` — it grants unconditional visibility into every query's SQL text, subjects or not, and short-circuits `VIEW_ENTITY_QUERIES`'s per-dataset check entirely. Disabling this backfill leaves upgraded installs unable to view queries with no recorded subject dataset (orphan queries) that they could see pre-upgrade; it has no effect on `VIEW_ENTITY_QUERIES` itself. See [Query entities](../authorization/policies.md#query-entities).
+
+| Environment Variable                                            | Default | Description                            | Components    |
+| --------------------------------------------------------------- | ------- | -------------------------------------- | ------------- |
+| `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_ENABLED`    | `true`  | Enable the `VIEW_ALL_QUERIES` backfill | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_BATCH_SIZE` | `5000`  | `VIEW_ALL_QUERIES` backfill batch size | System Update |
+| `REPROCESS_VIEW_ALL_QUERIES_PRIVILEGE`                          | `false` | Re-run the `VIEW_ALL_QUERIES` backfill | System Update |
 
 ### Ownership Types Configuration
 

@@ -4,8 +4,10 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -41,12 +43,12 @@ import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class BackfillViewEntityQueriesPrivilegeStepTest {
+public class BackfillViewAllQueriesPrivilegeStepTest {
 
   private static final String VIEW_ENTITY_PAGE =
       PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType();
-  private static final String VIEW_ENTITY_QUERIES =
-      PoliciesConfig.VIEW_ENTITY_QUERIES_PRIVILEGE.getType();
+  private static final String VIEW_ALL_QUERIES =
+      PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE.getType();
 
   private static final Urn POLICY_URN = UrnUtils.getUrn("urn:li:dataHubPolicy:test-policy");
 
@@ -74,16 +76,16 @@ public class BackfillViewEntityQueriesPrivilegeStepTest {
 
   @Test
   public void testShouldBackfillOnlyPoliciesGrantingEntityPageWithoutQueries() {
-    assertTrue(BackfillViewEntityQueriesPrivilegeStep.shouldBackfill(policyInfo(VIEW_ENTITY_PAGE)));
+    assertTrue(BackfillViewAllQueriesPrivilegeStep.shouldBackfill(policyInfo(VIEW_ENTITY_PAGE)));
     assertFalse(
-        BackfillViewEntityQueriesPrivilegeStep.shouldBackfill(
-            policyInfo(VIEW_ENTITY_PAGE, VIEW_ENTITY_QUERIES)),
+        BackfillViewAllQueriesPrivilegeStep.shouldBackfill(
+            policyInfo(VIEW_ENTITY_PAGE, VIEW_ALL_QUERIES)),
         "already granted — must be idempotent");
     assertFalse(
-        BackfillViewEntityQueriesPrivilegeStep.shouldBackfill(policyInfo("EDIT_ENTITY_TAGS")),
+        BackfillViewAllQueriesPrivilegeStep.shouldBackfill(policyInfo("EDIT_ENTITY_TAGS")),
         "policies that don't grant entity-page view are untouched");
     assertFalse(
-        BackfillViewEntityQueriesPrivilegeStep.shouldBackfill(new DataHubPolicyInfo()),
+        BackfillViewAllQueriesPrivilegeStep.shouldBackfill(new DataHubPolicyInfo()),
         "policies without privileges are untouched");
   }
 
@@ -96,8 +98,8 @@ public class BackfillViewEntityQueriesPrivilegeStepTest {
             anyBoolean()))
         .thenReturn(true);
 
-    BackfillViewEntityQueriesPrivilegeStep step =
-        new BackfillViewEntityQueriesPrivilegeStep(
+    BackfillViewAllQueriesPrivilegeStep step =
+        new BackfillViewAllQueriesPrivilegeStep(
             opContext, mockEntityService, mockSearchService, false, 100);
     assertTrue(step.skip(mockUpgradeContext));
   }
@@ -111,8 +113,8 @@ public class BackfillViewEntityQueriesPrivilegeStepTest {
             anyBoolean()))
         .thenReturn(true);
 
-    BackfillViewEntityQueriesPrivilegeStep step =
-        new BackfillViewEntityQueriesPrivilegeStep(
+    BackfillViewAllQueriesPrivilegeStep step =
+        new BackfillViewAllQueriesPrivilegeStep(
             opContext, mockEntityService, mockSearchService, true, 100);
     assertFalse(step.skip(mockUpgradeContext));
   }
@@ -122,8 +124,8 @@ public class BackfillViewEntityQueriesPrivilegeStepTest {
     mockScrollWithSinglePolicy();
     mockPolicyResponse(policyInfo(VIEW_ENTITY_PAGE, "EDIT_ENTITY_TAGS"));
 
-    BackfillViewEntityQueriesPrivilegeStep step =
-        new BackfillViewEntityQueriesPrivilegeStep(
+    BackfillViewAllQueriesPrivilegeStep step =
+        new BackfillViewAllQueriesPrivilegeStep(
             opContext, mockEntityService, mockSearchService, false, 100);
     UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
@@ -135,17 +137,17 @@ public class BackfillViewEntityQueriesPrivilegeStepTest {
     MetadataChangeProposal proposal = policyProposals.get(0);
     assertEquals(proposal.getEntityUrn(), POLICY_URN);
     String serialized = proposal.getAspect().getValue().asString("UTF-8");
-    assertTrue(serialized.contains(VIEW_ENTITY_QUERIES), "backfilled privilege must be present");
+    assertTrue(serialized.contains(VIEW_ALL_QUERIES), "backfilled privilege must be present");
     assertTrue(serialized.contains(VIEW_ENTITY_PAGE), "existing privileges must be preserved");
   }
 
   @Test
   public void testExecutableLeavesAlreadyGrantedPolicyAlone() throws Exception {
     mockScrollWithSinglePolicy();
-    mockPolicyResponse(policyInfo(VIEW_ENTITY_PAGE, VIEW_ENTITY_QUERIES));
+    mockPolicyResponse(policyInfo(VIEW_ENTITY_PAGE, VIEW_ALL_QUERIES));
 
-    BackfillViewEntityQueriesPrivilegeStep step =
-        new BackfillViewEntityQueriesPrivilegeStep(
+    BackfillViewAllQueriesPrivilegeStep step =
+        new BackfillViewAllQueriesPrivilegeStep(
             opContext, mockEntityService, mockSearchService, false, 100);
     UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
@@ -153,6 +155,35 @@ public class BackfillViewEntityQueriesPrivilegeStepTest {
     assertTrue(
         capturePolicyInfoProposals().isEmpty(),
         "already-granted policy must not be re-ingested (only the upgrade marker may be written)");
+  }
+
+  @Test
+  public void testExecutableLeavesMarkerUnwrittenAndFailsWhenAPolicyFailsToIngest()
+      throws Exception {
+    mockScrollWithSinglePolicy();
+    mockPolicyResponse(policyInfo(VIEW_ENTITY_PAGE, "EDIT_ENTITY_TAGS"));
+    when(mockEntityService.ingestProposal(
+            any(OperationContext.class),
+            argThat(p -> DATAHUB_POLICY_INFO_ASPECT_NAME.equals(p.getAspectName())),
+            any(),
+            anyBoolean()))
+        .thenThrow(new RuntimeException("simulated ingest failure"));
+
+    BackfillViewAllQueriesPrivilegeStep step =
+        new BackfillViewAllQueriesPrivilegeStep(
+            opContext, mockEntityService, mockSearchService, false, 100);
+    UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
+
+    assertEquals(
+        result.result(),
+        DataHubUpgradeState.FAILED,
+        "a failed policy ingest must fail the step, not silently succeed");
+    verify(mockEntityService, never())
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(p -> DATA_HUB_UPGRADE_RESULT_ASPECT_NAME.equals(p.getAspectName())),
+            any(),
+            anyBoolean());
   }
 
   /** Captures all ingested proposals and returns only the dataHubPolicyInfo ones. */

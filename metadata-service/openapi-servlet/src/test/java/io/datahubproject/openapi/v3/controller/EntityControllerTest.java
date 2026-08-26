@@ -8,6 +8,7 @@ import static com.linkedin.metadata.Constants.QUERY_SUBJECTS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.VIEW_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.utils.GenericRecordUtils.JSON;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
@@ -155,6 +156,7 @@ import org.testng.annotations.Test;
 @AutoConfigureMockMvc
 public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   private static final String TEST_QUERY_STATEMENT = "SELECT sensitive FROM restricted_table";
+  private static final String TEST_VIEW_LOGIC = "SELECT sensitive FROM restricted_view_table";
 
   @Autowired private EntityController entityController;
   @Autowired private MockMvc mockMvc;
@@ -685,6 +687,58 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                     .string(org.hamcrest.Matchers.containsString(TEST_QUERY_STATEMENT)));
       } else {
         result.andExpect(status().isForbidden());
+      }
+    }
+  }
+
+  /**
+   * Regression test for the gap Cursor Bugbot flagged on PR #16319: unlike GraphQL's {@code
+   * DatasetMapper}, this generic, schema-driven read path had no per-field redaction, so {@code
+   * viewProperties} (the dataset's view SQL) was returned unconditionally regardless of {@code
+   * VIEW_ENTITY_QUERIES}. Read enforcement happens in {@code
+   * EntityController#buildEntityVersionedAspectList} via {@link
+   * com.linkedin.metadata.authorization.EntityAuthorizationUtils#isQuerySqlAspectRestricted},
+   * withholding the whole aspect (coarser than GraphQL's field-level redaction) since this API has
+   * no concept of individual fields within an aspect.
+   */
+  @Test(dataProvider = "queryViewEntityQueriesCases")
+  public void testGetViewPropertiesAspectRequiresViewEntityQueries(boolean hasPrivilege)
+      throws Exception {
+    Urn datasetUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,view-props-test,PROD)");
+
+    stubQueryViewAuthorization(hasPrivilege);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                datasetUrn,
+                List.of(
+                    new EnvelopedAspect()
+                        .setName(VIEW_PROPERTIES_ASPECT_NAME)
+                        .setValue(new Aspect(testViewProperties().data())))));
+
+    try (MockedStatic<AuthUtil> authUtil =
+        Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      org.springframework.test.web.servlet.ResultActions result =
+          mockMvc.perform(
+              MockMvcRequestBuilders.get(
+                      String.format("/openapi/v3/entity/dataset/%s/viewProperties", datasetUrn))
+                  .accept(MediaType.APPLICATION_JSON));
+
+      if (hasPrivilege) {
+        result
+            .andExpect(status().is2xxSuccessful())
+            .andExpect(
+                MockMvcResultMatchers.content()
+                    .string(org.hamcrest.Matchers.containsString(TEST_VIEW_LOGIC)));
+      } else {
+        // Whole-aspect redaction (this API has no per-field concept) removes the only aspect
+        // requested by this single-aspect endpoint, so the framework's existing "aspect not
+        // found" fallback applies — a 404, not the 403 a Query-entity read gets, since here the
+        // dataset entity itself is never denied, only this one aspect on it.
+        result.andExpect(status().isNotFound());
       }
     }
   }
@@ -2162,7 +2216,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         Set.of(
             PoliciesConfig.VIEW_ENTITY_QUERIES_PRIVILEGE.getType(),
             PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType(),
-            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType());
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
+            PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE.getType());
     reset(authorizerChain);
     org.mockito.stubbing.Answer<AuthorizationResult> answer =
         invocation -> {
@@ -2186,6 +2241,13 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             .setSubjects(
                 new QuerySubjectArray(List.of(new QuerySubject().setEntity(subjectDatasetUrn))));
     return Map.of(QUERY_SUBJECTS_ASPECT_NAME, new Aspect(querySubjects.data()));
+  }
+
+  private static com.linkedin.dataset.ViewProperties testViewProperties() {
+    return new com.linkedin.dataset.ViewProperties()
+        .setMaterialized(false)
+        .setViewLanguage("SQL")
+        .setViewLogic(TEST_VIEW_LOGIC);
   }
 
   private static QueryProperties testQueryProperties() {

@@ -12,6 +12,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.parseq.Task;
@@ -102,7 +103,16 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
                   ? opContext.getEntityAspectNames(entityName)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
-            return _entityService.getEntityV2(opContext, entityName, urn, projectedAspects, alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
+            EntityResponse response =
+                _entityService.getEntityV2(
+                    opContext,
+                    entityName,
+                    urn,
+                    projectedAspects,
+                    alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
+            EntityAuthorizationUtils.redactUnauthorizedQuerySqlAspects(
+                opContext, Map.of(urn, response));
+            return response;
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(
@@ -148,7 +158,15 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
                   ? opContext.getEntityAspectNames(entityName)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
-            return _entityService.getEntitiesV2(opContext, entityName, urns, projectedAspects, alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
+            Map<Urn, EntityResponse> response =
+                _entityService.getEntitiesV2(
+                    opContext,
+                    entityName,
+                    urns,
+                    projectedAspects,
+                    alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
+            EntityAuthorizationUtils.redactUnauthorizedQuerySqlAspects(opContext, response);
+            return response;
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(

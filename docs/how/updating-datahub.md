@@ -111,7 +111,39 @@ Requirements:
 
 - **(Metadata Model / Data Products)** `dataProductProperties` now includes an optional `parentDataProduct` URN so Data Products can nest in a parent-child taxonomy (mirroring Domains' `parentDomain`). The field is additive; existing Data Products are unchanged (null parent). No migration or reindex is required. Free-text search may match child products on the parent URN string, the same way `parentDomain` already behaves.
 
-- #16319: Adds a new `VIEW_ENTITY_QUERIES` privilege (Dataset, Chart, Data Job) that controls whether a user can view queries and view definitions (SQL logic); a one-time system-update step grants it to every policy that already grants `View Entity Page`, so existing permissions are unimpacted and administrators can then revoke it for more granular control. The privilege is enforced on UI and API query reads: a user can read a query if they hold it on at least one of the query's datasets (`QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS=true` to require all of them, `QUERY_ENTITY_AUTHORIZATION_ENABLED=false` to disable read enforcement). It also gates the SQL embedded in dataset usage statistics: requests selecting `topSqlQueries` are denied with an authorization error when the user lacks the privilege on the dataset (numeric usage data remains gated by `View Dataset Usage` alone); in the require-all mode such requests are always denied, a documented limitation, since the stored statements don't record which other datasets they reference.
+- #16319: Adds two new query-visibility privileges. They are distinct and not interchangeable:
+
+  - **`VIEW_ENTITY_QUERIES`** (Dataset, Chart, Data Job): dataset-scoped privilege controlling
+    whether a user can view queries and view definitions (SQL logic). A user can read a query
+    if they hold this privilege on at least one of the query's subject datasets
+    (`QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS=true` requires all of them;
+    `QUERY_ENTITY_AUTHORIZATION_ENABLED=false` disables read enforcement; does not override
+    `VIEW_AUTHORIZATION_ENABLED` if enabled). It also gates the
+    SQL embedded in dataset usage statistics: requests selecting `topSqlQueries` are denied
+    with an authorization error when the user lacks the privilege on the dataset (numeric usage
+    data remains gated by `View Dataset Usage` alone). A one-time system-update step grants it
+    to every policy that already grants `View Entity Page`, so existing permissions are
+    unimpacted by the upgrade; administrators may then revoke it for more granular control.
+    `VIEW_ENTITY_QUERIES` alone has no resource to grant against a query with no recorded
+    subject datasets, so that privilege by itself never authorizes reading one — see
+    `VIEW_ALL_QUERIES` below for the only way to. In `REQUIRE_ALL_SUBJECTS` mode, holding
+    `VIEW_ENTITY_QUERIES` on every subject dataset likewise is not sufficient by itself; here too
+    `VIEW_ALL_QUERIES` is the only privilege that restores visibility.
+
+  - **`VIEW_ALL_QUERIES`**: platform-level privilege that grants unconditional visibility into
+    every query's SQL text, subjects or not, with no per-dataset restriction — it is checked
+    before, and short-circuits, the `VIEW_ENTITY_QUERIES` subject-dataset logic entirely. It is
+    not consulted by any query create/edit/delete check. On fresh installs, the default policies
+    grant it to Root, Admin, Editor, Reader, and all users — so by default nobody's query
+    visibility is actually restricted by `VIEW_ENTITY_QUERIES` yet; an administrator who wants
+    the new per-dataset restriction to take effect must revoke `VIEW_ALL_QUERIES` from the
+    relevant policies first. It was granted this broadly on fresh installs for consistency with
+    the upgrade path below, where the same grant preserves pre-upgrade behavior for existing
+    installs. On upgrade, a one-time system-update step grants it to every policy that already
+    grants `View Entity Page`, matching pre-upgrade behavior (page visibility implied visibility
+    into all of an entity's queries, subjects or not) and covering the same policies as the
+    fresh-install default. Set `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_ENABLED=false`
+    to skip this backfill.
 
 ## v1.7.0
 

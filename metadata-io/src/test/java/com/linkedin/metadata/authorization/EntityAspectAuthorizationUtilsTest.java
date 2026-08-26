@@ -737,6 +737,100 @@ public class EntityAspectAuthorizationUtilsTest {
   }
 
   @Test
+  public void testFilterViewableQueryEntities_viewAllQueriesPrivilegeGrantsOrphanQuery() {
+    // No subjects aspect at all — the case VIEW_ENTITY_QUERIES can never satisfy.
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(Map.of(QUERY_URN, Map.of()));
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession), eq(PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE)))
+        .thenReturn(true);
+
+    Set<Urn> viewable =
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            OperationFingerprint.EMPTY, mockAuthSession, mockAspectRetriever, List.of(QUERY_URN));
+
+    Assert.assertEquals(
+        viewable,
+        Set.of(QUERY_URN),
+        "VIEW_ALL_QUERIES is the deliberate escape valve for orphan queries");
+  }
+
+  @Test
+  public void
+      testFilterViewableQueryEntities_viewAllQueriesPrivilegeGrantsOrphanQueryInStrictMode() {
+    // The documented limitation ("orphans always denied in requireAllSubjects mode") is about
+    // VIEW_ENTITY_QUERIES specifically; VIEW_ALL_QUERIES bypasses it in both modes.
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(Map.of(QUERY_URN, Map.of()));
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession), eq(PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE)))
+        .thenReturn(true);
+
+    Set<Urn> viewable =
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            OperationFingerprint.EMPTY,
+            mockAuthSession,
+            mockAspectRetriever,
+            List.of(QUERY_URN),
+            /* requireAllSubjects= */ true);
+
+    Assert.assertEquals(viewable, Set.of(QUERY_URN));
+  }
+
+  @Test
+  public void testFilterViewableQueryEntities_withoutViewAllQueriesPrivilegeOrphanStillDenied() {
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(Map.of(QUERY_URN, Map.of()));
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession), eq(PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE)))
+        .thenReturn(false);
+
+    Set<Urn> viewable =
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            OperationFingerprint.EMPTY, mockAuthSession, mockAspectRetriever, List.of(QUERY_URN));
+
+    Assert.assertTrue(viewable.isEmpty());
+  }
+
+  @Test
+  public void
+      testFilterViewableQueryEntities_viewAllQueriesPrivilegeShortCircuitsPerSubjectDenial() {
+    // Proves a true tier-1 short-circuit, not merely an orphan-case special case: even a query
+    // WITH subjects, where the per-dataset check would deny, is granted via VIEW_ALL_QUERIES.
+    stubTwoSubjectQuery();
+    stubSubjectGrant(SUBJECT_DATASET, false);
+    stubSubjectGrant(ASSET_URN, false);
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession), eq(PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE)))
+        .thenReturn(true);
+
+    Set<Urn> viewable =
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            OperationFingerprint.EMPTY, mockAuthSession, mockAspectRetriever, List.of(QUERY_URN));
+
+    Assert.assertEquals(viewable, Set.of(QUERY_URN));
+  }
+
+  @Test
   public void testFilterViewableQueryEntities_allowsViaViewEntityQueriesPrivilegeOnSubject() {
     QuerySubjects querySubjects = new QuerySubjects();
     QuerySubject subject = new QuerySubject();

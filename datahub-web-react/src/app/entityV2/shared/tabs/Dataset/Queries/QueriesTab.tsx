@@ -38,7 +38,7 @@ export default function QueriesTab() {
     const isSeparateSiblings = useIsSeparateSiblingsMode();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const entityUrn = baseEntity?.dataset?.urn;
-    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? true; // Default to true for backward compatibility
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? false;
     const canEditQueries = baseEntity?.dataset?.privileges?.canEditQueries || false;
     const siblingUrn = isSeparateSiblings
         ? undefined
@@ -59,23 +59,28 @@ export default function QueriesTab() {
         pagination: highlightedPagination,
         total: highlightedTotal,
         sorting: highlightedSorting,
-    } = useHighlightedQueries({ entityUrn, siblingUrn, filterText });
+    } = useHighlightedQueries({ entityUrn, siblingUrn, filterText, canViewQueries });
 
     /**
      * Fetch the List of Popular Queries
      */
     const { selectedUsersFilter, setSelectedUsersFilter, selectedColumnsFilter, setSelectedColumnsFilter } =
-        usePopularQueries({ entityUrn, siblingUrn, filterText });
+        usePopularQueries({ entityUrn, siblingUrn, filterText, canViewQueries });
 
     /**
      * Fetch the List of Downstream Queries
      */
-    const { downstreamQueries, loading: downstreamQueriesLoading } = useDownstreamQueries(filterText);
+    const { downstreamQueries, loading: downstreamQueriesLoading } = useDownstreamQueries(filterText, canViewQueries);
 
     /**
      * Fetch the List of Recent (auto-extracted) Queries
      */
-    const { recentQueries, loading: recentQueriesLoading } = useRecentQueries({ entityUrn, siblingUrn, filterText });
+    const { recentQueries, loading: recentQueriesLoading } = useRecentQueries({
+        entityUrn,
+        siblingUrn,
+        filterText,
+        canViewQueries,
+    });
 
     const onQueryCreated = (newQuery) => {
         addQueryToListQueriesCache(newQuery, client, highlightedPagination.count, entityUrn, siblingUrn);

@@ -79,7 +79,7 @@ export default function ViewDefinitionTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const logic = baseEntity?.dataset?.viewProperties?.logic || 'UNKNOWN';
     const formattedLogic = baseEntity?.dataset?.viewProperties?.formattedLogic;
-    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? true; // Default to true for backward compatibility
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? false;
 
     const materialized = (baseEntity?.dataset?.viewProperties?.materialized && true) || false;
     const language = baseEntity?.dataset?.viewProperties?.language || 'UNKNOWN';

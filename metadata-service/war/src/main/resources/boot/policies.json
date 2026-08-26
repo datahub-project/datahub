@@ -47,7 +47,8 @@
         "MANAGE_HOME_PAGE_TEMPLATES",
         "GET_METADATA_CHANGE_LOG_EVENTS",
         "MANAGE_DOCUMENTS",
-        "GET_TOPIC_EVENTS"
+        "GET_TOPIC_EVENTS",
+        "VIEW_ALL_QUERIES"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -207,6 +208,7 @@
       "privileges": [
         "VIEW_ENTITY_PAGE",
         "VIEW_ENTITY_QUERIES",
+        "VIEW_ALL_QUERIES",
         "SEARCH_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
@@ -292,7 +294,8 @@
         "MANAGE_HOME_PAGE_TEMPLATES",
         "GET_METADATA_CHANGE_LOG_EVENTS",
         "MANAGE_DOCUMENTS",
-        "GET_TOPIC_EVENTS"
+        "GET_TOPIC_EVENTS",
+        "VIEW_ALL_QUERIES"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",
@@ -386,7 +389,8 @@
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES",
-        "MANAGE_DOCUMENTS"
+        "MANAGE_DOCUMENTS",
+        "VIEW_ALL_QUERIES"
       ],
       "displayName": "Editors - Platform Policy",
       "description": "Editors can manage ingestion and view analytics.",
@@ -514,7 +518,7 @@
           "urn:li:dataHubRole:Reader"
         ]
       },
-      "privileges": [],
+      "privileges": ["VIEW_ALL_QUERIES"],
       "displayName": "Readers - Platform Policy",
       "description": "Readers can view analytics.",
       "state": "ACTIVE",

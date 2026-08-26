@@ -11,9 +11,11 @@ interface Props {
     entityUrn?: string;
     siblingUrn?: string;
     filterText: string;
+    /** Skips the query rather than waiting on a result the actor can't see. */
+    canViewQueries: boolean;
 }
 
-export const useHighlightedQueries = ({ entityUrn, siblingUrn, filterText }: Props) => {
+export const useHighlightedQueries = ({ entityUrn, siblingUrn, filterText, canViewQueries }: Props) => {
     const pagination = usePagination(DEFAULT_PAGE_SIZE);
     const { start, count } = pagination;
     const sorting = useSorting();
@@ -34,7 +36,7 @@ export const useHighlightedQueries = ({ entityUrn, siblingUrn, filterText }: Pro
                 sortInput: sortField && sortOrder ? { sortCriterion: { field: sortField, sortOrder } } : undefined,
             },
         },
-        skip: !entityUrn,
+        skip: !entityUrn || !canViewQueries,
         fetchPolicy: 'cache-first',
     });
 
