@@ -9,6 +9,8 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -51,7 +53,6 @@ import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import io.datahubproject.metadata.context.RetrieverContext;
 import jakarta.json.JsonArray;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -70,6 +71,9 @@ public class DataProductUnsetSideEffectTest {
 
   private static final Urn TEST_PRODUCT_URN_2 =
       UrnUtils.getUrn("urn:li:dataProduct:someOtherDataProductId");
+
+  private static final Urn TEST_PRODUCT_URN_3 =
+      UrnUtils.getUrn("urn:li:dataProduct:thirdDataProductId");
 
   private static final Urn DATASET_URN_1 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)");
@@ -123,7 +127,7 @@ public class DataProductUnsetSideEffectTest {
             eq(EMPTY_FILTER),
             eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-            eq(Collections.emptyList()),
+            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
             any(),
             eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
             isNull(),
@@ -341,7 +345,7 @@ public class DataProductUnsetSideEffectTest {
             eq(EMPTY_FILTER),
             eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-            eq(Collections.emptyList()),
+            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
             any(),
             eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
             isNull(),
@@ -354,6 +358,170 @@ public class DataProductUnsetSideEffectTest {
 
     JsonArray patchArray = ((PatchItemImpl) patchItem).getPatch().toJsonArray();
     assertEquals(patchArray.size(), 100, "Should have 100 remove operations");
+  }
+
+  @Test
+  public void testBulkAssetMoveUsesMultipleChunks() {
+    DataProductUnsetSideEffect test = new DataProductUnsetSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+
+    List<Urn> datasetUrns = new ArrayList<>();
+    for (int i = 0; i < 150; i++) {
+      Urn datasetUrn =
+          UrnUtils.getUrn(
+              String.format("urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_%d,PROD)", i));
+      datasetUrns.add(datasetUrn);
+      registerAssetInProduct(datasetUrn, TEST_PRODUCT_URN_2);
+    }
+
+    DataProductProperties dataProductProperties = new DataProductProperties();
+    DataProductAssociationArray dataProductAssociations = new DataProductAssociationArray();
+    for (Urn datasetUrn : datasetUrns) {
+      DataProductAssociation association = new DataProductAssociation();
+      association.setDestinationUrn(datasetUrn);
+      dataProductAssociations.add(association);
+    }
+    dataProductProperties.setAssets(dataProductAssociations);
+
+    ChangeItemImpl dataProductPropertiesChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_PRODUCT_URN)
+            .aspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATA_PRODUCT_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATA_PRODUCT_ENTITY_NAME)
+                    .getAspectSpec(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
+            .recordTemplate(dataProductProperties)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> testOutput =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            dataProductPropertiesChangeItem,
+                            null,
+                            null,
+                            retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .toList();
+
+    assertEquals(testOutput.size(), 1, "Expected one patch to remove assets from old data product");
+    verify(graphRetriever, times(2))
+        .scrollRelatedEntities(
+            isNull(),
+            any(),
+            isNull(),
+            eq(EMPTY_FILTER),
+            eq(ImmutableSet.of("DataProductContains")),
+            eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
+            any(),
+            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
+            isNull(),
+            isNull());
+
+    JsonArray patchArray = ((PatchItemImpl) testOutput.get(0)).getPatch().toJsonArray();
+    assertEquals(patchArray.size(), 150, "Should have 150 remove operations");
+  }
+
+  @Test
+  public void testGraphScrollPaginatesUntilScrollIdExhausted() {
+    reset(graphRetriever);
+    DataProductUnsetSideEffect test = new DataProductUnsetSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+
+    RelatedEntities firstPage =
+        new RelatedEntities(
+            "DataProductContains",
+            TEST_PRODUCT_URN_2.toString(),
+            DATASET_URN_2.toString(),
+            RelationshipDirection.INCOMING,
+            null);
+    RelatedEntities secondPage =
+        new RelatedEntities(
+            "DataProductContains",
+            TEST_PRODUCT_URN_3.toString(),
+            DATASET_URN_2.toString(),
+            RelationshipDirection.INCOMING,
+            null);
+
+    when(graphRetriever.scrollRelatedEntities(
+            isNull(),
+            any(),
+            isNull(),
+            eq(EMPTY_FILTER),
+            eq(ImmutableSet.of("DataProductContains")),
+            eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
+            isNull(),
+            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                1,
+                DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE,
+                "page-2",
+                List.of(firstPage)));
+
+    when(graphRetriever.scrollRelatedEntities(
+            isNull(),
+            any(),
+            isNull(),
+            eq(EMPTY_FILTER),
+            eq(ImmutableSet.of("DataProductContains")),
+            eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
+            eq("page-2"),
+            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                1, DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE, null, List.of(secondPage)));
+
+    ChangeItemImpl changeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_PRODUCT_URN)
+            .aspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATA_PRODUCT_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATA_PRODUCT_ENTITY_NAME)
+                    .getAspectSpec(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
+            .recordTemplate(getTestDataProductProperties(DATASET_URN_2))
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> output =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(changeItem, null, null, retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .toList();
+
+    assertEquals(output.size(), 2, "Both paginated graph pages should produce unset patches");
+    verify(graphRetriever, times(2))
+        .scrollRelatedEntities(
+            isNull(),
+            any(),
+            isNull(),
+            eq(EMPTY_FILTER),
+            eq(ImmutableSet.of("DataProductContains")),
+            eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
+            any(),
+            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
+            isNull(),
+            isNull());
   }
 
   @Test
@@ -413,7 +581,7 @@ public class DataProductUnsetSideEffectTest {
             eq(EMPTY_FILTER),
             eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
-            eq(Collections.emptyList()),
+            eq(DataProductUnsetSideEffect.GRAPH_SCROLL_SORT),
             any(),
             eq(DataProductUnsetSideEffect.GRAPH_SCROLL_CHUNK_SIZE),
             isNull(),
@@ -422,6 +590,7 @@ public class DataProductUnsetSideEffectTest {
 
   @Test
   public void testRestateWithPreviousUsesDeltaOnly() {
+    registerAssetInProduct(DATASET_URN_1, TEST_PRODUCT_URN_3);
     registerAssetInProduct(DATASET_URN_2, TEST_PRODUCT_URN_2);
     DataProductUnsetSideEffect test = new DataProductUnsetSideEffect();
     test.setConfig(TEST_PLUGIN_CONFIG);
@@ -455,6 +624,7 @@ public class DataProductUnsetSideEffectTest {
             .toList();
 
     assertEquals(output.size(), 1, "Only the newly added asset should trigger unset");
+    assertEquals(output.get(0).getUrn(), TEST_PRODUCT_URN_2);
   }
 
   @Test
