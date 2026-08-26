@@ -498,8 +498,12 @@ embedding_common = {
 # provider). Kept as a separate extra so the common embedding path doesn't pull
 # onnxruntime for users who embed via a cloud provider. `tokenizers` gives the
 # same HuggingFace tokenizer the Java side uses via DJL, for token-level parity.
+# onnxruntime capped below 1.24: 1.24+ dropped cp310 wheels, and ingestion
+# still supports Python 3.10. The library version is independent of the Java
+# query-side onnxruntime; vector parity comes from the shared model + tokenizer,
+# not the runtime version (inference is deterministic across versions).
 onnx_embeddings = {
-    "onnxruntime>=1.19.0,<2.0.0",
+    "onnxruntime>=1.19.0,<1.24",
     "tokenizers>=0.20.0,<1.0.0",
 }
 

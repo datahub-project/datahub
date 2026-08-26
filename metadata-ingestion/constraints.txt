@@ -32,7 +32,9 @@ alembic==1.18.4
     #   databricks-sql-connector
     #   starrocks
 annotated-doc==0.0.4
-    # via fastapi
+    # via
+    #   fastapi
+    #   typer
 annotated-types==0.7.0
     # via pydantic
 anyio==4.12.1
@@ -240,7 +242,10 @@ colorama==0.4.6
     #   loguru
     #   pytest
     #   tqdm
+    #   typer
     #   uvicorn
+coloredlogs==15.0.1
+    # via onnxruntime
 confluent-kafka==2.12.2
     # via acryl-datahub
 coverage==7.13.4
@@ -365,6 +370,7 @@ feast==0.47.0
 filelock==3.25.0
     # via
     #   acryl-datahub
+    #   huggingface-hub
     #   snowflake-connector-python
 filetype==1.2.0
     # via unstructured
@@ -372,6 +378,8 @@ flask==3.1.3
     # via flask-openid
 flask-openid==1.3.1
     # via acryl-datahub
+flatbuffers==25.12.19
+    # via onnxruntime
 flatdict==4.1.0
     # via
     #   acryl-datahub
@@ -385,6 +393,7 @@ fsspec==2026.2.0
     #   adlfs
     #   dask
     #   dlt
+    #   huggingface-hub
     #   pyathena
     #   pyiceberg
     #   s3fs
@@ -533,6 +542,8 @@ hdbcli==2.27.24 ; platform_machine != 'aarch64' and platform_machine != 'arm64'
     # via
     #   acryl-datahub
     #   sqlalchemy-hana
+hf-xet==1.6.0 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
+    # via huggingface-hub
 html5lib==1.1
     # via unstructured
 htmlbuilder==1.0.0
@@ -547,12 +558,17 @@ httpx==0.28.1
     # via
     #   confluent-kafka
     #   google-genai
+    #   huggingface-hub
     #   mixpanel
     #   notion-client
     #   unstructured-client
     #   unstructured-ingest
+huggingface-hub==1.16.1
+    # via tokenizers
 humanfriendly==10.0
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   coloredlogs
 humanize==4.15.0
     # via dlt
 hypothesis==6.152.7
@@ -720,6 +736,8 @@ more-itertools==10.8.0
     #   simple-salesforce
 moto==5.1.22
     # via acryl-datahub
+mpmath==1.3.0
+    # via sympy
 msal==1.37.0
     # via
     #   acryl-datahub
@@ -783,6 +801,7 @@ numpy==1.26.4
     #   datasketches
     #   db-dtypes
     #   feast
+    #   onnxruntime
     #   pandas
     #   unstructured
     #   unstructured-ingest
@@ -795,6 +814,8 @@ okta==1.7.0
     # via acryl-datahub
 olefile==0.47
     # via python-oxmsg
+onnxruntime==1.23.2
+    # via acryl-datahub
 openpyxl==3.1.5
     # via
     #   acryl-datahub
@@ -837,9 +858,11 @@ packaging==24.2
     #   google-cloud-aiplatform
     #   google-cloud-bigquery
     #   gunicorn
+    #   huggingface-hub
     #   jpype1
     #   marshmallow
     #   mlflow-skinny
+    #   onnxruntime
     #   pytest
     #   pytest-rerunfailures
     #   redshift-connector
@@ -929,6 +952,7 @@ protobuf==5.29.6
     #   grpcio-status
     #   grpcio-tools
     #   mlflow-skinny
+    #   onnxruntime
     #   opensearch-protobufs
     #   proto-plus
 psutil==7.2.2
@@ -1131,6 +1155,7 @@ pyyaml==6.0.3
     #   dask
     #   dlt
     #   feast
+    #   huggingface-hub
     #   mlflow-skinny
     #   moto
     #   okta
@@ -1237,6 +1262,7 @@ rich==14.3.3
     #   rich-argparse
     #   textual
     #   twine
+    #   typer
 rich-argparse==1.8.0
     # via dlt
 rpds-py==0.30.0
@@ -1269,6 +1295,8 @@ setuptools==81.0.0
     #   dlt
     #   grpcio-tools
     #   redshift-connector
+shellingham==1.5.4
+    # via typer
 simple-salesforce==1.12.9
     # via acryl-datahub
 simplejson==4.1.1
@@ -1366,6 +1394,8 @@ stopit==1.1.2
     # via acryl-datahub
 strictyaml==1.7.3
     # via pyiceberg
+sympy==1.14.0
+    # via onnxruntime
 tableauserverclient==0.40
     # via acryl-datahub
 tableschema==1.21.0
@@ -1401,6 +1431,8 @@ thrift-sasl==0.4.3
     # via acryl-pyhive
 time-machine==3.2.0
     # via acryl-datahub
+tokenizers==0.23.1
+    # via acryl-datahub
 toml==0.10.2
     # via
     #   acryl-datahub
@@ -1423,6 +1455,7 @@ toolz==1.1.0
 tqdm==4.67.3
     # via
     #   feast
+    #   huggingface-hub
     #   nltk
     #   pinecone-client
     #   unstructured
@@ -1433,6 +1466,8 @@ twine==6.2.0
     # via acryl-datahub
 typeguard==4.5.1
     # via feast
+typer==0.27.1
+    # via huggingface-hub
 types-awscrt==0.31.3
     # via botocore-stubs
 types-cachetools==6.2.0.20251022
@@ -1501,6 +1536,7 @@ typing-extensions==4.15.0
     #   google-cloud-aiplatform
     #   google-genai
     #   grpcio
+    #   huggingface-hub
     #   looker-sdk
     #   mlflow-skinny
     #   multidict

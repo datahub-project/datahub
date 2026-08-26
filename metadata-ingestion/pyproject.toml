@@ -777,6 +777,11 @@ omni = [
     "tenacity>=8.0.1,<9.0.0",
 ]
 
+onnx-embeddings = [
+    "onnxruntime>=1.19.0,<1.24",
+    "tokenizers>=0.20.0,<1.0.0",
+]
+
 oracle = [
     "cachetools<6.0.0",
     "greenlet<4.0.0",
@@ -1218,6 +1223,7 @@ all = [
     "nltk!=3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
+    "onnxruntime>=1.19.0,<1.24",
     "openpyxl>=3.1.5,<4.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
     "oracledb<4.0.0",
@@ -1267,6 +1273,7 @@ all = [
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
+    "tokenizers>=0.20.0,<1.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==0.7.2",
