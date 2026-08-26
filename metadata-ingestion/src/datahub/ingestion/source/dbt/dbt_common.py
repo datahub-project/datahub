@@ -1137,6 +1137,11 @@ class DBTNode:
 
     convert_urns_to_lowercase: bool = False
 
+    # Provenance of the dbt artifacts this node was read from. Per-node rather than
+    # per-source because one source run may span multiple dbt projects, each with its
+    # own dbt version and adapter.
+    artifact_props: Dict[str, str] = field(default_factory=dict)
+
     @staticmethod
     def _join_parts(parts: List[Optional[str]]) -> str:
         joined = ".".join([part for part in parts if part])
@@ -1606,7 +1611,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def create_test_entity_mcps(
         self,
         test_nodes: List[DBTNode],
-        extra_custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataChangeProposalWrapper]:
         action_processor = OperationProcessor(
@@ -1663,7 +1667,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     custom_props = {
                         "dbt_unique_id": node.dbt_name,
                         "dbt_test_upstream_unique_id": upstream_node_name,
-                        **extra_custom_props,
+                        **node.artifact_props,
                     }
 
                     if self.config.entities_enabled.can_emit_test_definitions:
@@ -1712,7 +1716,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def create_freshness_assertion_mcps(
         self,
         source_nodes: List[DBTNode],
-        extra_custom_props: Dict[str, str],
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Create assertions for dbt freshness tests on source nodes."""
         for node in sorted(source_nodes, key=lambda n: n.dbt_name):
@@ -1752,7 +1755,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
                 custom_props = {
                     "dbt_unique_id": node.dbt_name,
-                    **extra_custom_props,
+                    **node.artifact_props,
                 }
 
                 if self.config.entities_enabled.can_emit_test_definitions:
@@ -1814,8 +1817,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
 
     @abstractmethod
-    def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
-        # return dbt nodes (including semantic models) + global custom properties
+    def load_nodes(self) -> List[DBTNode]:
+        # return dbt nodes (including semantic models); each node carries its own
+        # artifact provenance in DBTNode.artifact_props
         raise NotImplementedError()
 
     def load_exposures(self) -> List[DBTExposure]:
@@ -1992,18 +1996,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 "Using dbt with skip_missing_upstreams_in_lineage=True"
             )
 
-        all_nodes, additional_custom_props = self.load_nodes()
+        all_nodes = self.load_nodes()
 
         if self.config.convert_urns_to_lowercase:
             for node in all_nodes:
                 node.convert_urns_to_lowercase = True
 
         all_nodes_map = {node.dbt_name: node for node in all_nodes}
-        additional_custom_props_filtered = {
-            key: value
-            for key, value in additional_custom_props.items()
-            if value is not None
-        }
 
         # We need to run this before filtering nodes, because the info generated
         # for a filtered node may be used by an unfiltered node.
@@ -2024,7 +2023,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         logger.info(f"Creating dbt metadata for {len(nodes)} nodes")
         yield from self.create_dbt_platform_mces(
             non_test_nodes,
-            additional_custom_props_filtered,
             all_nodes_map,
         )
 
@@ -2033,13 +2031,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         yield from self.create_test_entity_mcps(
             test_nodes,
-            additional_custom_props_filtered,
             all_nodes_map,
         )
 
         yield from self.create_freshness_assertion_mcps(
             non_test_nodes,
-            additional_custom_props_filtered,
         )
 
         # Load and emit exposures if enabled
@@ -2572,7 +2568,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def create_dbt_platform_mces(
         self,
         dbt_nodes: List[DBTNode],
-        additional_custom_props_filtered: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
         """Create MCEs and MCPs for the dbt platform."""
@@ -2613,7 +2608,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
                 aspects = self._generate_base_dbt_aspects(
                     node,
-                    additional_custom_props_filtered,
                     DBT_PLATFORM,
                     meta_aspects,
                     column_meta_aspects=column_meta_aspects,
@@ -3198,13 +3192,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return mce
 
     def _create_dataset_properties_aspect(
-        self, node: DBTNode, additional_custom_props_filtered: Dict[str, str]
+        self, node: DBTNode
     ) -> DatasetPropertiesClass:
         description = node.description
 
         custom_props = {
             **get_custom_properties(node),
-            **additional_custom_props_filtered,
+            **node.artifact_props,
         }
         dbt_properties = DatasetPropertiesClass(
             description=description,
@@ -3252,7 +3246,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _generate_base_dbt_aspects(
         self,
         node: DBTNode,
-        additional_custom_props_filtered: Dict[str, str],
         mce_platform: str,
         meta_aspects: Dict[str, Any],
         column_meta_aspects: Optional[Dict[str, Dict[str, Any]]] = None,
@@ -3266,9 +3259,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         aspects: List[Any] = []
 
         # add dataset properties aspect
-        dbt_properties = self._create_dataset_properties_aspect(
-            node, additional_custom_props_filtered
-        )
+        dbt_properties = self._create_dataset_properties_aspect(node)
         aspects.append(dbt_properties)
 
         # add status aspect

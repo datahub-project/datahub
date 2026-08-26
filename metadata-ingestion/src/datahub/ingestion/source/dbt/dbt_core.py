@@ -264,6 +264,7 @@ def extract_dbt_entities(
     only_include_if_in_catalog: bool,
     include_database_name: bool,
     report: DBTSourceReport,
+    artifact_props: Dict[str, str],
     sources_invocation_id: Optional[str] = None,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
@@ -435,6 +436,7 @@ def extract_dbt_entities(
                 freshness_info=freshness_info,
                 row_count=row_count,
                 size_in_bytes=size_in_bytes,
+                artifact_props=artifact_props,
             )
 
             # Load columns from catalog, and override some properties from manifest.
@@ -889,14 +891,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
     def loadManifestAndCatalog(
         self,
-    ) -> Tuple[
-        List[DBTNode],
-        Optional[str],
-        Optional[str],
-        Optional[str],
-        Optional[str],
-        Optional[str],
-    ]:
+    ) -> Tuple[List[DBTNode], Optional[str]]:
         dbt_manifest_json = self.load_file_as_json(
             self.config.manifest_path,
             self.config.aws_connection,
@@ -977,6 +972,18 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
             all_catalog_entities = {**catalog_nodes, **catalog_sources}
 
+        artifact_props: Dict[str, str] = {
+            key: value
+            for key, value in {
+                "manifest_schema": manifest_schema,
+                "manifest_version": manifest_version,
+                "manifest_adapter": manifest_adapter,
+                "catalog_schema": catalog_schema,
+                "catalog_version": catalog_version,
+            }.items()
+            if value is not None
+        }
+
         nodes = extract_dbt_entities(
             all_manifest_entities=all_manifest_entities,
             all_catalog_entities=all_catalog_entities,
@@ -987,6 +994,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             only_include_if_in_catalog=self.config.only_include_if_in_catalog,
             include_database_name=self.config.include_database_name,
             report=self.report,
+            artifact_props=artifact_props,
             sources_invocation_id=sources_invocation_id,
         )
 
@@ -1007,6 +1015,8 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 manifest_adapter=manifest_adapter,
                 tag_prefix=self.config.tag_prefix,
             )
+            for semantic_model_node in semantic_model_nodes:
+                semantic_model_node.artifact_props = artifact_props
             nodes.extend(semantic_model_nodes)
             self.report.num_semantic_models_emitted = len(semantic_model_nodes)
             if semantic_model_nodes:
@@ -1014,24 +1024,10 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     f"Extracted {len(semantic_model_nodes)} semantic models from manifest"
                 )
 
-        return (
-            nodes,
-            manifest_schema,
-            manifest_version,
-            manifest_adapter,
-            catalog_schema,
-            catalog_version,
-        )
+        return nodes, catalog_version
 
-    def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
-        (
-            all_nodes,
-            manifest_schema,
-            manifest_version,
-            manifest_adapter,
-            catalog_schema,
-            catalog_version,
-        ) = self.loadManifestAndCatalog()
+    def load_nodes(self) -> List[DBTNode]:
+        all_nodes, catalog_version = self.loadManifestAndCatalog()
 
         # If catalog_version is between 1.7.0 and 1.7.2, report a warning.
         try:
@@ -1057,14 +1053,6 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 exc=e,
             )
 
-        additional_custom_props = {
-            "manifest_schema": manifest_schema,
-            "manifest_version": manifest_version,
-            "manifest_adapter": manifest_adapter,
-            "catalog_schema": catalog_schema,
-            "catalog_version": catalog_version,
-        }
-
         expanded_run_results_paths = self._expand_run_results_paths()
         if expanded_run_results_paths:
             self.report.run_results_paths_expanded = expanded_run_results_paths
@@ -1079,7 +1067,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 all_nodes,
             )
 
-        return all_nodes, additional_custom_props
+        return all_nodes
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes = super()._filter_nodes(all_nodes)

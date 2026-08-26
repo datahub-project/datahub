@@ -687,7 +687,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         )
         return filtered_job_ids
 
-    def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
+    def load_nodes(self) -> List[DBTNode]:
         # TODO: In dbt Cloud, commands are scheduled as part of jobs, where
         # each job can have multiple runs. We currently only fully support
         # jobs that do a full / mostly full build of the project, and will
@@ -704,7 +704,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             job_ids_to_ingest = self._auto_discover_projects_and_jobs()
             if not job_ids_to_ingest:
                 logger.warning("No jobs discovered in auto-discovery mode")
-                return [], {}
+                return []
             run_id = None  # Always use latest run in auto-discovery
         else:
             assert self.config.job_id is not None
@@ -782,11 +782,11 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 f"Fetched {semantic_model_count} semantic models from dbt Cloud"
             )
 
-        additional_metadata: Dict[str, Optional[str]] = {
-            "account_id": str(self.config.account_id),
-        }
+        artifact_props: Dict[str, str] = {"account_id": str(self.config.account_id)}
+        for node in nodes:
+            node.artifact_props = artifact_props
 
-        return nodes, additional_metadata
+        return nodes
 
     def _extract_code_fields(
         self, node: Dict, materialization: Optional[str]

@@ -2899,7 +2899,7 @@ def test_create_test_entity_mcps_emits_assertion_ownership_from_test_owner():
 
     mcps = list(
         source.create_test_entity_mcps(
-            [test_node], {}, {"model.project.my_model": model_node}
+            [test_node], {"model.project.my_model": model_node}
         )
     )
 
@@ -2932,7 +2932,7 @@ def test_create_freshness_assertion_mcps_does_not_copy_source_owner():
         error_after=None,
     )
 
-    mcps = list(source.create_freshness_assertion_mcps([source_node], {}))
+    mcps = list(source.create_freshness_assertion_mcps([source_node]))
 
     assert not any(isinstance(mcp.aspect, OwnershipClass) for mcp in mcps)
 
@@ -3348,6 +3348,7 @@ def test_extract_catalog_stats_with_row_count_and_size() -> None:
         only_include_if_in_catalog=False,
         include_database_name=True,
         report=report,
+        artifact_props={},
     )
 
     assert len(nodes) == 1
@@ -3376,6 +3377,7 @@ def test_extract_catalog_stats_without_stats() -> None:
         only_include_if_in_catalog=False,
         include_database_name=True,
         report=report,
+        artifact_props={},
     )
 
     assert len(nodes) == 1
@@ -3407,6 +3409,7 @@ def test_extract_catalog_stats_with_include_false() -> None:
         only_include_if_in_catalog=False,
         include_database_name=True,
         report=report,
+        artifact_props={},
     )
 
     assert len(nodes) == 1
@@ -3433,6 +3436,7 @@ def test_extract_catalog_stats_no_catalog() -> None:
         only_include_if_in_catalog=False,
         include_database_name=True,
         report=report,
+        artifact_props={},
     )
 
     assert len(nodes) == 1
@@ -3459,6 +3463,7 @@ def test_extract_catalog_stats_partial_only_row_count() -> None:
         only_include_if_in_catalog=False,
         include_database_name=True,
         report=report,
+        artifact_props={},
     )
 
     assert len(nodes) == 1
@@ -4030,7 +4035,6 @@ def test_dbt_meta_mapping_add_structured_property_model_level():
 
     aspects = source._generate_base_dbt_aspects(
         node,
-        additional_custom_props_filtered={},
         mce_platform="dbt",
         meta_aspects=meta_aspects,
     )
@@ -4075,7 +4079,6 @@ def test_dbt_meta_mapping_add_structured_property_disabled_when_meta_mapping_off
     )
     aspects = source._generate_base_dbt_aspects(
         node,
-        additional_custom_props_filtered={},
         mce_platform="dbt",
         meta_aspects={
             Constants.ADD_STRUCTURED_PROPERTY_OPERATION: pre_computed_sp_aspect,
@@ -4294,7 +4297,6 @@ def test_dbt_column_meta_processed_once_per_column_across_schema_and_sp():
     ):
         source._generate_base_dbt_aspects(
             node,
-            additional_custom_props_filtered={},
             mce_platform="dbt",
             meta_aspects={},
             column_meta_aspects=column_meta_aspects,
