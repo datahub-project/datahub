@@ -27,6 +27,7 @@ import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
+import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericRelationship;
@@ -34,9 +35,12 @@ import io.datahubproject.openapi.v3.models.LineageRelationship;
 import io.datahubproject.openapi.v3.models.ScrollRelationshipsRequestBody;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -144,6 +148,7 @@ public final class ScrollUtils {
   public static ResponseEntity<GenericScrollResult<LineageRelationship>> doScrollLineage(
       OperationContext systemOperationContext,
       AuthorizerChain authorizationChain,
+      RestrictedService restrictedService,
       GraphService graphService,
       HttpServletRequest request,
       String operationName,
@@ -191,16 +196,8 @@ public final class ScrollUtils {
     List<LineageRelationship> lineage =
         toLineageRelationships(result.getEntities(), lineageRegistry).stream()
             .filter(edge -> keepByLineageDirection(edge, urns, direction))
+            .map(edge -> restrictUnauthorizedLineageEndpoints(opContext, restrictedService, edge))
             .collect(Collectors.toList());
-
-    Set<Urn> resultUrns =
-        lineage.stream()
-            .flatMap(
-                edge ->
-                    Stream.of(
-                        UrnUtils.getUrn(edge.getUpstream()), UrnUtils.getUrn(edge.getDownstream())))
-            .collect(Collectors.toSet());
-    checkAuthorizedOnUrns(opContext, resultUrns);
 
     return ResponseEntity.ok(
         GenericScrollResult.<LineageRelationship>builder()
@@ -244,10 +241,38 @@ public final class ScrollUtils {
     }
   }
 
-  private static void checkAuthorizedOnUrns(OperationContext opContext, Set<Urn> urns) {
-    if (!AuthUtil.isAPIAuthorizedUrns(opContext, RELATIONSHIP, READ, urns)) {
-      throw unauthorized();
-    }
+  /**
+   * Replaces endpoints the caller cannot {@link ApiOperation#READ} via {@link
+   * ApiGroup#RELATIONSHIP} with encrypted {@code urn:li:restricted:…} placeholders — same contract
+   * as GraphQL lineage and Rest.li {@code scrollAcrossLineage}.
+   */
+  static LineageRelationship restrictUnauthorizedLineageEndpoints(
+      OperationContext opContext, RestrictedService restrictedService, LineageRelationship edge) {
+    Map<Urn, Urn> cache = new HashMap<>();
+    Function<Urn, Urn> cachedRestrict =
+        urn ->
+            cache.computeIfAbsent(
+                urn,
+                key -> {
+                  if (AuthUtil.isAPIAuthorizedUrns(opContext, RELATIONSHIP, READ, List.of(key))) {
+                    return key;
+                  }
+                  return restrictedService.encryptRestrictedUrn(key);
+                });
+
+    Urn upstream = cachedRestrict.apply(UrnUtils.getUrn(edge.getUpstream()));
+    Urn downstream = cachedRestrict.apply(UrnUtils.getUrn(edge.getDownstream()));
+    Urn source = cachedRestrict.apply(UrnUtils.getUrn(edge.getSource().getUrn()));
+    Urn destination = cachedRestrict.apply(UrnUtils.getUrn(edge.getDestination().getUrn()));
+
+    return LineageRelationship.builder()
+        .relationshipType(edge.getRelationshipType())
+        .source(GenericRelationship.GenericNode.fromUrn(source))
+        .destination(GenericRelationship.GenericNode.fromUrn(destination))
+        .upstream(upstream.toString())
+        .downstream(downstream.toString())
+        .properties(edge.getProperties())
+        .build();
   }
 
   private static UnauthorizedException unauthorized() {
