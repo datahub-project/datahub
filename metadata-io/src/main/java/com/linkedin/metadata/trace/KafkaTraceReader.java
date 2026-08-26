@@ -137,6 +137,8 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
                                     traceTimestampMillis,
                                     skipCache);
                             return Map.entry(entry.getKey(), result);
+                          } catch (TraceConsumerPoolExhaustedException e) {
+                            throw e;
                           } catch (Exception e) {
                             log.error(
                                 "Error processing trace status for URN: {}", entry.getKey(), e);
@@ -181,6 +183,8 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
                                             traceId,
                                             traceTimestampMillis);
                                 return Map.entry(entry.getKey(), result);
+                              } catch (TraceConsumerPoolExhaustedException e) {
+                                throw e;
                               } catch (Exception e) {
                                 log.error("Error processing trace for URN: {}", entry.getKey(), e);
                                 return Map.entry(

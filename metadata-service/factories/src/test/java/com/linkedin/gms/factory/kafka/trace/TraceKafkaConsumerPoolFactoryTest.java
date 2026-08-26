@@ -63,4 +63,13 @@ public class TraceKafkaConsumerPoolFactoryTest {
     assertEquals(factory.getGroupIdForPoolType("mclVersioned"), "trace-reader-mcl-versioned");
     assertEquals(factory.getGroupIdForPoolType("mclTimeseries"), "trace-reader-mcl-timeseries");
   }
+
+  @Test
+  public void testCreatePool_RejectsInitialSizeGreaterThanMaxSize() {
+    ReflectionTestUtils.setField(factory, "initialPoolSize", 5);
+    ReflectionTestUtils.setField(factory, "maxPoolSize", 2);
+
+    org.testng.Assert.expectThrows(
+        IllegalArgumentException.class, () -> factory.mcpTraceConsumerPool(baseConsumerFactory));
+  }
 }

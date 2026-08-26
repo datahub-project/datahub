@@ -142,6 +142,8 @@ public class KafkaTraceReaderTimeoutTest {
         tasksBlocked.await(5, TimeUnit.SECONDS),
         "Both worker tasks should reach the blocking offsets lookup");
 
+    // cancel(true) is best-effort for parked worker threads; stop the executor to
+    // unblock workers and verify borrowed consumers are always released.
     executorService.shutdownNow();
 
     long deadline = System.currentTimeMillis() + 5000;
@@ -152,6 +154,6 @@ public class KafkaTraceReaderTimeoutTest {
         activeBorrows.get(), 0, "Borrowed consumers should be released after cancellation");
     assertTrue(
         interruptedTasks.get() >= 1,
-        "At least one blocked task should be interrupted when futures are cancelled");
+        "Stopping the executor should interrupt blocked trace worker tasks");
   }
 }

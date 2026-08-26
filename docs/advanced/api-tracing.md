@@ -447,9 +447,12 @@ on every request. This reduces consumer-group rebalance churn under sustained tr
 | `trace.kafka.consumerPool.initialSize`     | `TRACE_KAFKA_CONSUMER_POOL_INITIAL_SIZE`      | `4`                | Consumers created at pool startup, per reader type                               |
 | `trace.kafka.consumerPool.maxSize`         | `TRACE_KAFKA_CONSUMER_POOL_MAX_SIZE`          | `16`               | Hard cap on live consumers per pool per pod                                      |
 | `trace.kafka.consumerPool.borrowTimeoutMs` | `TRACE_KAFKA_CONSUMER_POOL_BORROW_TIMEOUT_MS` | `5000`             | Max wait when borrowing from an exhausted pool                                   |
-| `trace.kafka.consumerPool.groupId.mcp`     | `TRACE_KAFKA_CONSUMER_POOL_GROUP_ID_MCP`      | `trace-reader-mcp` | Stable consumer group for MCP trace reads                                        |
-| `trace.executor.thread-pool-size`          | `TRACE_EXECUTOR_THREAD_POOL_SIZE`             | `10`               | Worker threads for parallel per-URN trace scans                                  |
-| `trace.executor.queue-size`                | `TRACE_EXECUTOR_QUEUE_SIZE`                   | `10`               | Max queued per-URN tasks; overflow runs on the servlet thread                    |
+| `trace.kafka.consumerPool.groupId.mcp`             | `TRACE_KAFKA_CONSUMER_POOL_GROUP_ID_MCP`             | `trace-reader-mcp`              | Stable consumer group for MCP trace reads                                        |
+| `trace.kafka.consumerPool.groupId.mcpFailed`       | `TRACE_KAFKA_CONSUMER_POOL_GROUP_ID_MCP_FAILED`      | `trace-reader-mcp-failed`       | Stable consumer group for failed MCP trace reads                                 |
+| `trace.kafka.consumerPool.groupId.mclVersioned`    | `TRACE_KAFKA_CONSUMER_POOL_GROUP_ID_MCL_VERSIONED`   | `trace-reader-mcl-versioned`    | Stable consumer group for versioned MCL trace reads                              |
+| `trace.kafka.consumerPool.groupId.mclTimeseries`   | `TRACE_KAFKA_CONSUMER_POOL_GROUP_ID_MCL_TIMESERIES`  | `trace-reader-mcl-timeseries`   | Stable consumer group for timeseries MCL trace reads                             |
+| `trace.executor.thread-pool-size`                  | `TRACE_EXECUTOR_THREAD_POOL_SIZE`                    | `10`                            | Worker threads for parallel per-URN trace scans                                  |
+| `trace.executor.queue-size`                        | `TRACE_EXECUTOR_QUEUE_SIZE`                          | same as `thread-pool-size`      | Max queued per-URN tasks; overflow runs on the servlet thread (`CallerRunsPolicy`) |
 | `trace.executor.keep-alive-seconds`        | `TRACE_EXECUTOR_KEEP_ALIVE_SECONDS`           | `60`               | Idle worker threads are reclaimed after this interval                            |
 | `trace.timeout-seconds`                    | `TRACE_TIMEOUT_SECONDS`                       | `30`               | Deadline for parallel trace batch waits                                          |
 | `trace.futures.cancel-on-timeout`          | `TRACE_FUTURES_CANCEL_ON_TIMEOUT`             | `true`             | Cancel outstanding per-URN work when the batch deadline elapses                  |
@@ -461,6 +464,7 @@ Micrometer metrics:
 - `trace_kafka_consumer_pool_total_created` — live consumers in the pool (tag: `type`)
 - Executor metrics registered under `api-trace` (queue depth, active threads)
 
-When the consumer pool is exhausted, trace requests fail with an error rather than blocking
-indefinitely. Increase `trace.kafka.consumerPool.maxSize` or reduce parallel demand via
+When the consumer pool is exhausted, trace requests fail fast with an error rather than
+blocking indefinitely or returning empty partial results. Increase
+`trace.kafka.consumerPool.maxSize` or reduce parallel demand via
 `trace.executor.thread-pool-size` / `trace.executor.queue-size` if borrow timeouts occur.

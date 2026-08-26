@@ -101,6 +101,7 @@ public class TraceKafkaConsumerPoolFactory {
       String poolType,
       String groupId,
       DefaultKafkaConsumerFactory<String, GenericRecord> baseConsumerFactory) {
+    validatePoolSize();
     TraceConsumerPool pool;
     if (poolEnabled) {
       DefaultKafkaConsumerFactory<String, GenericRecord> traceConsumerFactory =
@@ -145,6 +146,17 @@ public class TraceKafkaConsumerPoolFactory {
         ConsumerConfig.CLIENT_ID_CONFIG,
         groupId + "-" + Thread.currentThread().getId() + "-" + System.nanoTime());
     return baseConsumerFactory.createConsumer(groupId, null, null, consumerProps);
+  }
+
+  private void validatePoolSize() {
+    if (initialPoolSize > maxPoolSize) {
+      throw new IllegalArgumentException(
+          "trace.kafka.consumerPool.initialSize ("
+              + initialPoolSize
+              + ") must not exceed trace.kafka.consumerPool.maxSize ("
+              + maxPoolSize
+              + ")");
+    }
   }
 
   /** Visible for testing group id wiring on pooled consumer factories. */

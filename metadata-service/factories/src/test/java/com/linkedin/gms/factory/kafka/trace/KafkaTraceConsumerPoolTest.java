@@ -1,12 +1,14 @@
 package com.linkedin.gms.factory.kafka.trace;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.trace.TraceConsumerPoolExhaustedException;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.event.kafka.CheckedConsumer;
 import io.datahubproject.event.kafka.KafkaConsumerPool;
 import java.time.Duration;
@@ -135,7 +137,24 @@ public class KafkaTraceConsumerPoolTest {
     pool.withConsumer("MetadataChangeProposal_v1", consumer -> null);
     pool.shutdown();
 
+    verify(kafkaConsumer).close();
     assertTrue(delegate.isShuttingDown());
     assertEquals(delegate.getTotalConsumersCreated().get(), 0);
+  }
+
+  @Test
+  public void testRegisterMetricsSkipsNullRegistry() {
+    KafkaConsumer<String, GenericRecord> kafkaConsumer = mock(KafkaConsumer.class);
+    when(kafkaConsumer.assignment()).thenReturn(Collections.emptySet());
+    when(consumerFactory.createConsumer()).thenReturn(kafkaConsumer);
+
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    when(metricUtils.getRegistry()).thenReturn(null);
+
+    KafkaConsumerPool delegate =
+        new KafkaConsumerPool(
+            consumerFactory, 1, 1, Duration.ofSeconds(2), Duration.ofMinutes(5), null);
+
+    org.testng.Assert.assertNotNull(new KafkaTraceConsumerPool(delegate, 1000, "mcp", metricUtils));
   }
 }

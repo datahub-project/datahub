@@ -12,8 +12,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.kafka.clients.consumer.Consumer;
 
 @Slf4j
 public final class KafkaTraceConsumerPool implements TraceConsumerPool {
@@ -39,14 +37,16 @@ public final class KafkaTraceConsumerPool implements TraceConsumerPool {
     CheckedConsumer checkedConsumer = borrowConsumer(topic);
     activeBorrows.incrementAndGet();
     try {
-      return executeAction(action, checkedConsumer.getConsumer());
+      return action.execute(checkedConsumer.getConsumer());
     } catch (RuntimeException e) {
       throw e;
     } catch (Exception e) {
       throw new RuntimeException(e);
     } finally {
       activeBorrows.decrementAndGet();
-      pool.returnConsumer(checkedConsumer);
+      if (!pool.isShuttingDown()) {
+        pool.returnConsumer(checkedConsumer);
+      }
     }
   }
 
@@ -79,22 +79,14 @@ public final class KafkaTraceConsumerPool implements TraceConsumerPool {
     }
   }
 
-  private static <T> T executeAction(
-      TraceConsumerAction<T> action, Consumer<String, GenericRecord> consumer) throws Exception {
-    try {
-      return action.execute(consumer);
-    } catch (RuntimeException e) {
-      throw e;
-    } catch (Exception e) {
-      throw e;
-    }
-  }
-
   private void registerMetrics(@Nullable MetricUtils metricUtils) {
     if (metricUtils == null) {
       return;
     }
     MeterRegistry registry = metricUtils.getRegistry();
+    if (registry == null) {
+      return;
+    }
     Gauge.builder("trace_kafka_consumer_pool_active", activeBorrows, AtomicInteger::get)
         .tag("type", poolType)
         .description("Trace Kafka consumer pool active borrows")
