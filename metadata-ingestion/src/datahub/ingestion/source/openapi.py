@@ -890,7 +890,7 @@ class APISource(Source, ABC):
             sw_dict = self.config.get_swagger()
             self.url_basepath = get_url_basepath(sw_dict)
             url_endpoints = get_endpoints(sw_dict)
-        except Exception as e:
+        except Exception:
             # get_url_basepath/get_endpoints are included here (not just get_swagger)
             # because a spec that fetches/parses fine but is missing an expected key
             # (e.g. "paths") would otherwise raise an unhandled KeyError and crash
@@ -899,7 +899,9 @@ class APISource(Source, ABC):
                 title="Failed to Fetch OpenAPI Spec",
                 message="Unable to retrieve, parse, or interpret the OpenAPI specification",
                 context=f"{config.url} / {config.swagger_file}",
-                exc=RuntimeError("Unable to retrieve or parse the OpenAPI specification"),
+                exc=RuntimeError(
+                    "Unable to retrieve or parse the OpenAPI specification"
+                ),
             )
             return
 

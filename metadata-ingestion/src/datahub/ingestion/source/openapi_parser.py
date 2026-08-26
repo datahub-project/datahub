@@ -1312,7 +1312,6 @@ def _normalize_map_schemas(schema: object) -> None:
     _promote_pattern_properties_to_additional(schema)
 
 
-
 # Carried through verbatim: literal example/default instance data, never
 # schema-interpreted by _resolve_schema_refs (see its docstring) or by
 # merge_allof_schemas (_ALLOF_FIRST_WINS_KEYWORDS) either, so a "$ref" key
