@@ -4,6 +4,7 @@ from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import yaml
+from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
@@ -1783,6 +1784,28 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertEqual(resolved.get("minimum"), 10)
         self.assertIs(resolved.get("exclusiveMinimum"), False)
 
+    def test_merge_allof_orphan_boolean_exclusivity_ignored(self):
+        # exclusiveMinimum without a minimum on the same member must not attach to
+        # another member's bound (order-dependent otherwise).
+        sw_dict = _EMPTY_OPENAPI_SW
+        for schema in (
+            {
+                "allOf": [
+                    {"minimum": 10, "exclusiveMinimum": False},
+                    {"exclusiveMinimum": True},
+                ]
+            },
+            {
+                "allOf": [
+                    {"exclusiveMinimum": True},
+                    {"minimum": 10, "exclusiveMinimum": False},
+                ]
+            },
+        ):
+            resolved = merge_allof_schemas(schema, sw_dict, resolving_refs=True)
+            self.assertEqual(resolved.get("minimum"), 10)
+            self.assertIs(resolved.get("exclusiveMinimum"), False)
+
     def test_merge_allof_integer_bounds_preserve_int_type(self):
         sw_dict = _EMPTY_OPENAPI_SW
         schema = {
@@ -2247,6 +2270,15 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             forced_examples={"/pet/{petId}": [1]},
         )
         self.assertEqual(config.forced_examples["/pet/{petId}"], ["1"])
+
+    def test_forced_examples_reject_null_path_params(self):
+        with self.assertRaises(ValidationError):
+            OpenApiConfig(
+                name="test_api",
+                url="https://api.example.com",
+                swagger_file="/openapi.json",
+                forced_examples={"/pet/{petId}": [None]},
+            )
 
     def test_get_token_empty_dict_coerces_to_none(self):
         config = OpenApiConfig(

@@ -906,12 +906,10 @@ def _merge_bound_with_exclusivity(
                 merged_schema[exclusive_key] = True
         return
 
-    # Exclusive-only contribution (no bound on this member).
-    if isinstance(incoming_excl, bool):
-        current_excl = merged_schema.get(exclusive_key)
-        if _is_number(current_excl):
-            return
-        merged_schema[exclusive_key] = bool(current_excl) or incoming_excl
+    # Boolean exclusivity with no bound on this member is ignored. Attaching it to
+    # another member's bound is order-dependent (OpenAPI 3.0 exclusive* modifies
+    # that member's minimum/maximum, not a later sibling's).
+    return
 
 
 def _merge_exclusive_bound(

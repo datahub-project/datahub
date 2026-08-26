@@ -206,6 +206,8 @@ class OpenApiConfig(ConfigModel):
     @classmethod
     def stringify_forced_examples(cls, value: Any) -> Any:
         # Docs/recipes use numeric path params (e.g. /pet/{petId}: [1]).
+        # Only coerce documented scalars — leave null/objects untouched so List[str]
+        # validation rejects them instead of silently emitting "None" in URLs.
         if not isinstance(value, dict):
             return value
         coerced: Dict[str, Any] = {}
@@ -213,7 +215,10 @@ class OpenApiConfig(ConfigModel):
             if not isinstance(examples, list):
                 coerced[endpoint] = examples
                 continue
-            coerced[endpoint] = [str(item) for item in examples]
+            coerced[endpoint] = [
+                str(item) if isinstance(item, (str, int, float, bool)) else item
+                for item in examples
+            ]
         return coerced
 
     @model_validator(mode="after")
