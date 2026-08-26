@@ -1601,7 +1601,7 @@ The following commands will hard delete the test property. First soft delete it 
 
 ```shell
 curl -v -X 'POST' \
-  'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/status' \
+  'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/status?createIfNotExists=false' \
   -H 'Content-Type: application/json' \
   -d '{"value": {"removed": true}}'
 

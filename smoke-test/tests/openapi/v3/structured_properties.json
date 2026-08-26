@@ -423,9 +423,7 @@
       }
     },
     "response": {
-      "status_codes": [
-        400
-      ],
+      "status_codes": [400],
       "exclude_regex_paths": [
         "root\\['message'\\]"
       ],
@@ -455,9 +453,7 @@
       }
     },
     "response": {
-      "status_codes": [
-        400
-      ],
+      "status_codes": [400],
       "exclude_regex_paths": [
         "root\\['message'\\]"
       ],
@@ -487,9 +483,7 @@
       }
     },
     "response": {
-      "status_codes": [
-        400
-      ],
+      "status_codes": [400],
       "exclude_regex_paths": [
         "root\\['message'\\]"
       ],
@@ -519,9 +513,7 @@
       }
     },
     "response": {
-      "status_codes": [
-        400
-      ],
+      "status_codes": [400],
       "exclude_regex_paths": [
         "root\\['message'\\]"
       ],
@@ -551,9 +543,7 @@
       }
     },
     "response": {
-      "status_codes": [
-        400
-      ],
+      "status_codes": [400],
       "exclude_regex_paths": [
         "root\\['message'\\]"
       ],
@@ -583,9 +573,7 @@
       }
     },
     "response": {
-      "status_codes": [
-        400
-      ],
+      "status_codes": [400],
       "exclude_regex_paths": [
         "root\\['message'\\]"
       ],
