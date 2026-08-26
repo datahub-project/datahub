@@ -39,12 +39,22 @@ def test_expand_glob_path_passes_through_non_glob_path() -> None:
     ]
 
 
-def test_expand_run_results_paths_is_sorted(tmp_path: pathlib.Path) -> None:
-    for name in ["run_results_z.json", "run_results_a.json"]:
+def test_expand_run_results_paths_preserves_config_order(
+    tmp_path: pathlib.Path,
+) -> None:
+    # Two literal entries, declared newest-first. run_results files are appended
+    # per node, so the caller's declared order must survive expansion.
+    for name in ["run_results_a.json", "run_results_z.json"]:
         (tmp_path / name).write_text("{}")
 
-    source = _make_source(run_results_paths=[f"{tmp_path}/run_results_*.json"])
-    expanded = source._expand_run_results_paths()
+    source = _make_source(
+        run_results_paths=[
+            f"{tmp_path}/run_results_z.json",
+            f"{tmp_path}/run_results_a.json",
+        ]
+    )
 
-    assert expanded == sorted(expanded)
-    assert len(expanded) == 2
+    assert source._expand_run_results_paths() == [
+        f"{tmp_path}/run_results_z.json",
+        f"{tmp_path}/run_results_a.json",
+    ]

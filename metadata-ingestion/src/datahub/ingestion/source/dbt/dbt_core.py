@@ -858,9 +858,11 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
     def _expand_run_results_paths(self) -> List[str]:
         expanded_paths: List[str] = []
         for path in self.config.run_results_paths:
+            # Config order is preserved: each glob is already sorted internally, and
+            # run_results files are appended per node, so the user's declared order
+            # (typically successive dbt invocations) is meaningful.
             expanded_paths.extend(self._expand_glob_path(path))
-        # Sorted so that repeated runs process artifacts in a stable order.
-        return sorted(expanded_paths)
+        return expanded_paths
 
     def loadManifestAndCatalog(
         self,
