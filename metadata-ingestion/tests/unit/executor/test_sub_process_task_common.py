@@ -476,3 +476,43 @@ class TestGetCombinedEnvVars:
         assert combined_env.get("TEST_VAR1") == "user_override1"
         assert combined_env.get("TEST_VAR2") == "user_override2"
         assert combined_env.get("NEW_VAR") == "new_value"
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [(8080, "8080"), (True, "true"), (False, "false"), (1.5, "1.5")],
+        ids=["int", "true", "false", "float"],
+    )
+    def test_non_string_scalars_are_coerced(self, value: object, expected: str) -> None:
+        """Coerces ints and floats to strings, and bools to lowercase strings."""
+        args = SubProcessRecipeTaskArgs(
+            recipe='{"source": {"type": "test"}}',
+            version="0.12.0",
+            extra_env_vars={"VAR": value},
+        )
+
+        assert args.get_combined_env_vars().get("VAR") == expected
+
+    def test_none_values_are_dropped_rather_than_passed_through(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Drops keys whose value is None, rather than passing None through."""
+        monkeypatch.delenv("VAR", raising=False)
+
+        args = SubProcessRecipeTaskArgs(
+            recipe='{"source": {"type": "test"}}',
+            version="0.12.0",
+            extra_env_vars={"VAR": None},
+        )
+
+        assert "VAR" not in args.get_combined_env_vars()
+
+    def test_container_values_are_rejected_naming_the_key(self) -> None:
+        """Rejects a container value during validation, naming the key."""
+        with pytest.raises(ValidationError) as exc_info:
+            SubProcessRecipeTaskArgs(
+                recipe='{"source": {"type": "test"}}',
+                version="0.12.0",
+                extra_env_vars={"NESTED": {"a": 1}},
+            )
+
+        assert "NESTED" in str(exc_info.value)

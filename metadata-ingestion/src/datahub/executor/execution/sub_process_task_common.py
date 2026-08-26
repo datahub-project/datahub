@@ -246,7 +246,7 @@ class SubProcessRecipeTaskArgs(PermissiveConfigModel):
 
     extra_pip_requirements: list[str] = []
     extra_pip_plugins: list[str] = []
-    extra_env_vars: dict = {}
+    extra_env_vars: dict[str, str] = {}
 
     @pydantic.field_validator(
         "extra_pip_requirements", "extra_pip_plugins", mode="before"
@@ -263,8 +263,20 @@ class SubProcessRecipeTaskArgs(PermissiveConfigModel):
     def parse_json_dict_field(cls, v: Any) -> dict:
         if isinstance(v, str):
             # Handle corner case where UI passes an empty string
-            return {} if v == "" else json.loads(v)
-        return v
+            v = {} if v == "" else json.loads(v)
+        if not isinstance(v, dict):
+            return v
+        coerced = {}
+        for key, value in v.items():
+            if value is None:
+                continue
+            if isinstance(value, bool):
+                coerced[key] = str(value).lower()
+            elif isinstance(value, (int, float)):
+                coerced[key] = str(value)
+            else:
+                coerced[key] = value
+        return coerced
 
     def get_venv_name(self, plugin: str) -> str:
         """Generate venv name, consistent with VenvConfig.get_stable_venv_name().
