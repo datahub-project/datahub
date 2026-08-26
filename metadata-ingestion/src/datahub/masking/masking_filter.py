@@ -507,10 +507,12 @@ def mask_secrets(
     breaker -- reports then carry a fixed redaction marker rather than leaking.
     """
     try:
+        if masking_filter is not None:
+            return masking_filter.mask_text(text)
         registry = SecretRegistry.get_instance()
         if registry.get_count() == 0:
             return text
-        return (masking_filter or SecretMaskingFilter(registry)).mask_text(text)
+        return SecretMaskingFilter(registry).mask_text(text)
     except Exception:
         logger.warning(
             "Failed to mask secrets in %s; publishing text unmasked", context
