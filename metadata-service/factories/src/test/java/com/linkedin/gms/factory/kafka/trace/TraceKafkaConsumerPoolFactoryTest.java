@@ -15,7 +15,6 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class TraceKafkaConsumerPoolFactoryTest {
@@ -61,34 +60,39 @@ public class TraceKafkaConsumerPoolFactoryTest {
         "false");
   }
 
-  @DataProvider
-  public Object[][] poolBeanGroupIds() {
-    return new Object[][] {
-      {
-        (Function<DefaultKafkaConsumerFactory<String, GenericRecord>, TraceConsumerPool>)
-            factory::mcpTraceConsumerPool,
-        "trace-reader-mcp"
-      },
-      {
-        (Function<DefaultKafkaConsumerFactory<String, GenericRecord>, TraceConsumerPool>)
-            factory::mcpFailedTraceConsumerPool,
-        "trace-reader-mcp-failed"
-      },
-      {
-        (Function<DefaultKafkaConsumerFactory<String, GenericRecord>, TraceConsumerPool>)
-            factory::mclVersionedTraceConsumerPool,
-        "trace-reader-mcl-versioned"
-      },
-      {
-        (Function<DefaultKafkaConsumerFactory<String, GenericRecord>, TraceConsumerPool>)
-            factory::mclTimeseriesTraceConsumerPool,
-        "trace-reader-mcl-timeseries"
-      },
-    };
+  @Test
+  public void testMcpPoolBeanUsesConfiguredGroupId() {
+    assertPoolBeanUsesConfiguredGroupId(factory::mcpTraceConsumerPool, "trace-reader-mcp");
   }
 
-  @Test(dataProvider = "poolBeanGroupIds")
-  public void testPoolBeanUsesConfiguredGroupId(
+  @Test
+  public void testMcpFailedPoolBeanUsesConfiguredGroupId() {
+    assertPoolBeanUsesConfiguredGroupId(
+        factory::mcpFailedTraceConsumerPool, "trace-reader-mcp-failed");
+  }
+
+  @Test
+  public void testMclVersionedPoolBeanUsesConfiguredGroupId() {
+    assertPoolBeanUsesConfiguredGroupId(
+        factory::mclVersionedTraceConsumerPool, "trace-reader-mcl-versioned");
+  }
+
+  @Test
+  public void testMclTimeseriesPoolBeanUsesConfiguredGroupId() {
+    assertPoolBeanUsesConfiguredGroupId(
+        factory::mclTimeseriesTraceConsumerPool, "trace-reader-mcl-timeseries");
+  }
+
+  @Test
+  public void testCreatePool_RejectsInitialSizeGreaterThanMaxSize() {
+    ReflectionTestUtils.setField(factory, "initialPoolSize", 5);
+    ReflectionTestUtils.setField(factory, "maxPoolSize", 2);
+
+    org.testng.Assert.expectThrows(
+        IllegalArgumentException.class, () -> factory.mcpTraceConsumerPool(baseConsumerFactory));
+  }
+
+  private void assertPoolBeanUsesConfiguredGroupId(
       Function<DefaultKafkaConsumerFactory<String, GenericRecord>, TraceConsumerPool> poolBean,
       String expectedGroupId) {
     TraceConsumerPool pool = poolBean.apply(baseConsumerFactory);
@@ -104,14 +108,5 @@ public class TraceKafkaConsumerPoolFactoryTest {
         traceConsumerFactory.getConfigurationProperties().get(ConsumerConfig.GROUP_ID_CONFIG),
         expectedGroupId);
     pool.shutdown();
-  }
-
-  @Test
-  public void testCreatePool_RejectsInitialSizeGreaterThanMaxSize() {
-    ReflectionTestUtils.setField(factory, "initialPoolSize", 5);
-    ReflectionTestUtils.setField(factory, "maxPoolSize", 2);
-
-    org.testng.Assert.expectThrows(
-        IllegalArgumentException.class, () -> factory.mcpTraceConsumerPool(baseConsumerFactory));
   }
 }
