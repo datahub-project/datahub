@@ -40,7 +40,7 @@ public class OnnxEmbeddingProviderTest {
         .thenReturn(Set.of("input_ids", "attention_mask", "token_type_ids"));
     provider =
         new OnnxEmbeddingProvider(
-            ortEnvironment, mockSession, mockTokenizer, "test-model", MAX_CHAR_LENGTH);
+            ortEnvironment, mockSession, mockTokenizer, "test-model", MAX_CHAR_LENGTH, "mean", "");
   }
 
   @Test
@@ -160,7 +160,13 @@ public class OnnxEmbeddingProviderTest {
     when(noTokenTypeSession.getInputNames()).thenReturn(Set.of("input_ids", "attention_mask"));
     OnnxEmbeddingProvider noTokenTypeProvider =
         new OnnxEmbeddingProvider(
-            ortEnvironment, noTokenTypeSession, mockTokenizer, "no-ttype", MAX_CHAR_LENGTH);
+            ortEnvironment,
+            noTokenTypeSession,
+            mockTokenizer,
+            "no-ttype",
+            MAX_CHAR_LENGTH,
+            "mean",
+            "");
 
     float[][] pooledOutput = {{0.1f}};
     setupMocks(new long[] {101, 102}, new long[] {1, 1}, new long[] {0, 0});
@@ -197,7 +203,7 @@ public class OnnxEmbeddingProviderTest {
       expectedExceptions = IllegalArgumentException.class,
       expectedExceptionsMessageRegExp = ".*does not exist.*")
   public void testConstructorWithNonexistentDirectory() {
-    new OnnxEmbeddingProvider(Path.of("/nonexistent/model/dir"), 0, 0);
+    new OnnxEmbeddingProvider(Path.of("/nonexistent/model/dir"), 0, 0, "cls", "");
   }
 
   @Test(
@@ -207,7 +213,7 @@ public class OnnxEmbeddingProviderTest {
     Path tempDir = Files.createTempDirectory("onnx-test-no-model");
     try {
       Files.writeString(tempDir.resolve("tokenizer.json"), "{}");
-      new OnnxEmbeddingProvider(tempDir, 0, 0);
+      new OnnxEmbeddingProvider(tempDir, 0, 0, "cls", "");
     } finally {
       Files.deleteIfExists(tempDir.resolve("tokenizer.json"));
       Files.deleteIfExists(tempDir);
@@ -221,7 +227,7 @@ public class OnnxEmbeddingProviderTest {
     Path tempDir = Files.createTempDirectory("onnx-test-no-tokenizer");
     try {
       Files.writeString(tempDir.resolve("model.onnx"), "fake model content");
-      new OnnxEmbeddingProvider(tempDir, 0, 0);
+      new OnnxEmbeddingProvider(tempDir, 0, 0, "cls", "");
     } finally {
       Files.deleteIfExists(tempDir.resolve("model.onnx"));
       Files.deleteIfExists(tempDir);
@@ -234,7 +240,8 @@ public class OnnxEmbeddingProviderTest {
     try {
       Files.writeString(tempDir.resolve("model.onnx"), "not a valid onnx model");
       Files.writeString(tempDir.resolve("tokenizer.json"), "{}");
-      assertThrows(RuntimeException.class, () -> new OnnxEmbeddingProvider(tempDir, 4, 2048));
+      assertThrows(
+          RuntimeException.class, () -> new OnnxEmbeddingProvider(tempDir, 4, 2048, "cls", ""));
     } finally {
       Files.deleteIfExists(tempDir.resolve("model.onnx"));
       Files.deleteIfExists(tempDir.resolve("tokenizer.json"));
@@ -250,7 +257,8 @@ public class OnnxEmbeddingProviderTest {
       Files.writeString(tempDir.resolve("model_quantized.onnx"), "quantized model");
       Files.writeString(tempDir.resolve("tokenizer.json"), "{}");
       // Will fail loading the invalid model, but exercises the quantized-model resolution path
-      assertThrows(RuntimeException.class, () -> new OnnxEmbeddingProvider(tempDir, 0, 0));
+      assertThrows(
+          RuntimeException.class, () -> new OnnxEmbeddingProvider(tempDir, 0, 0, "cls", ""));
     } finally {
       Files.deleteIfExists(tempDir.resolve("model.onnx"));
       Files.deleteIfExists(tempDir.resolve("model_quantized.onnx"));
@@ -274,7 +282,8 @@ public class OnnxEmbeddingProviderTest {
   @Test
   public void testMaxCharacterLengthTruncation() throws Exception {
     OnnxEmbeddingProvider shortProvider =
-        new OnnxEmbeddingProvider(ortEnvironment, mockSession, mockTokenizer, "short-model", 10);
+        new OnnxEmbeddingProvider(
+            ortEnvironment, mockSession, mockTokenizer, "short-model", 10, "mean", "");
 
     float[][] pooledOutput = {{0.5f}};
     setupMocks(new long[] {101, 102}, new long[] {1, 1}, new long[] {0, 0});
@@ -395,7 +404,13 @@ public class OnnxEmbeddingProviderTest {
     when(noTokenTypeSession.getInputNames()).thenReturn(Set.of("input_ids", "attention_mask"));
     OnnxEmbeddingProvider noTTypeProvider =
         new OnnxEmbeddingProvider(
-            ortEnvironment, noTokenTypeSession, mockTokenizer, "no-ttype", MAX_CHAR_LENGTH);
+            ortEnvironment,
+            noTokenTypeSession,
+            mockTokenizer,
+            "no-ttype",
+            MAX_CHAR_LENGTH,
+            "mean",
+            "");
 
     float[][] pooledOutput = {{0.1f, 0.2f}};
     setupMocks(new long[] {101, 102}, new long[] {1, 1}, new long[] {0, 0});
@@ -407,6 +422,54 @@ public class OnnxEmbeddingProviderTest {
 
     assertNotNull(embedding);
     assertEquals(embedding.length, 2);
+  }
+
+  @Test
+  public void testClsPoolingSelectsFirstToken() throws Exception {
+    OnnxEmbeddingProvider clsProvider =
+        new OnnxEmbeddingProvider(
+            ortEnvironment, mockSession, mockTokenizer, "cls-model", MAX_CHAR_LENGTH, "cls", "");
+    float[][][] tokenOutput = {{{1.0f, 2.0f}, {3.0f, 4.0f}, {5.0f, 6.0f}}};
+
+    setupMocks(new long[] {101, 2023, 102}, new long[] {1, 1, 1}, new long[] {0, 0, 0});
+    setupSessionResult(tokenOutput);
+
+    float[] embedding = clsProvider.embed("test", null);
+
+    // CLS pooling returns the first ([CLS]) token vector, not the mean.
+    assertEquals(embedding.length, 2);
+    assertEquals(embedding[0], 1.0f, 0.001);
+    assertEquals(embedding[1], 2.0f, 0.001);
+  }
+
+  @Test
+  public void testQueryInstructionPrependedForQueryOnly() throws Exception {
+    OnnxEmbeddingProvider instrProvider =
+        new OnnxEmbeddingProvider(
+            ortEnvironment,
+            mockSession,
+            mockTokenizer,
+            "instr-model",
+            MAX_CHAR_LENGTH,
+            "mean",
+            "Represent: ");
+    float[][] pooledOutput = {{0.5f}};
+    setupMocks(new long[] {101, 102}, new long[] {1, 1}, new long[] {0, 0});
+    setupSessionResult(pooledOutput);
+
+    instrProvider.embed("weather", null, EmbeddingTaskType.QUERY);
+    verify(mockTokenizer).encode("Represent: weather");
+
+    instrProvider.embed("weather", null, EmbeddingTaskType.DOCUMENT);
+    verify(mockTokenizer).encode("weather");
+  }
+
+  @Test(
+      expectedExceptions = IllegalArgumentException.class,
+      expectedExceptionsMessageRegExp = ".*Unsupported ONNX pooling.*")
+  public void testInvalidPoolingRejected() {
+    new OnnxEmbeddingProvider(
+        ortEnvironment, mockSession, mockTokenizer, "bad-pool", MAX_CHAR_LENGTH, "bogus", "");
   }
 
   // --- Helper methods ---

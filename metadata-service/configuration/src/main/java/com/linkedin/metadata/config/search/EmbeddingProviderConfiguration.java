@@ -241,5 +241,23 @@ public class EmbeddingProviderConfiguration {
      * container's CPU limit (e.g., 2 or 4) to avoid thread over-subscription. Defaults to 4.
      */
     private int intraOpThreads = 4;
+
+    /**
+     * Sentence-pooling strategy applied to token-level ONNX output ({@code last_hidden_state}):
+     * {@code "cls"} takes the [CLS] token vector, {@code "mean"} averages tokens weighted by the
+     * attention mask. This must match the pooling the model was trained with and the pooling used
+     * to embed documents, or query and document vectors land in different subspaces and kNN recall
+     * collapses. All bundled models (Arctic-embed-s/l, BGE-base-en-v1.5) are CLS-pooled, so the
+     * default is {@code "cls"}. Ignored when the model already outputs a pooled sentence embedding.
+     */
+    private String pooling = "cls";
+
+    /**
+     * Instruction prefix prepended to query text before embedding (task type {@code QUERY} only);
+     * document embeddings are never prefixed. Asymmetric retrieval models require this — e.g.
+     * Arctic-embed and BGE expect {@code "Represent this sentence for searching relevant passages:
+     * "}. Empty (the default) disables prefixing for symmetric models.
+     */
+    private String queryInstruction = "";
   }
 }

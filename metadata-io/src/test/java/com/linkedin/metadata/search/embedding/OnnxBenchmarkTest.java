@@ -75,7 +75,7 @@ public class OnnxBenchmarkTest {
     long rssBefore = getRssBytes();
     long coldStartBegin = System.nanoTime();
 
-    OnnxEmbeddingProvider provider = new OnnxEmbeddingProvider(modelPath, 0, 0);
+    OnnxEmbeddingProvider provider = new OnnxEmbeddingProvider(modelPath, 0, 0, "cls", "");
 
     long loadTimeNs = System.nanoTime() - coldStartBegin;
 

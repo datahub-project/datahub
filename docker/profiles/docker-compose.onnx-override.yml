@@ -1,7 +1,12 @@
 ---
 # Override file for ONNX-based semantic search in debug quickstart.
-# Mounts the host-side model directory into the GMS debug container so that
-# OnnxEmbeddingProvider can load the model at startup.
+# Mounts the host-side model directory into the GMS debug container AND sets the
+# semantic-search / ONNX environment directly on the GMS service so that
+# OnnxEmbeddingProvider loads and activates at startup.
+#
+# The environment MUST live on the service here (not in the Gradle compose
+# plugin's process env), because Compose does not inject the plugin's process
+# environment into sibling service containers.
 #
 # Used automatically by the quickstartDebugBuiltinEmbedding Gradle target.
 # Not meant to be activated manually — use:
@@ -9,5 +14,15 @@
 
 services:
   datahub-gms-debug:
+    environment:
+      EMBEDDING_PROVIDER_TYPE: onnx
+      ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED: "true"
+      SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED: "true"
+      ONNX_EMBEDDING_MODEL_NAME: snowflake_arctic_embed_s
+      ONNX_EMBEDDING_MODEL_DIR: /datahub/models/snowflake_arctic_embed_s
+      ELASTICSEARCH_ENTITY_INDEX_SEMANTIC_SEARCH_MODELS_SNOWFLAKE_ARCTIC_EMBED_S_VECTORDIMENSION: "384"
+      # Arctic-embed is CLS-pooled and expects a query instruction prefix.
+      ONNX_EMBEDDING_POOLING: cls
+      ONNX_EMBEDDING_QUERY_INSTRUCTION: "Represent this sentence for searching relevant passages: "
     volumes:
       - ../datahub-gms-onnx/models:/datahub/models:ro

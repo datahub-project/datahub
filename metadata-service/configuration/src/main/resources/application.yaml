@@ -860,6 +860,12 @@ elasticsearch:
           modelName: ${ONNX_EMBEDDING_MODEL_NAME:}
           modelDir: ${ONNX_EMBEDDING_MODEL_DIR:}
           intraOpThreads: ${ONNX_EMBEDDING_INTRA_OP_THREADS:4}
+          # Pooling for token-level output: "cls" (Arctic-embed, BGE) or "mean". Must match the
+          # model's training and the document-side pooling, or kNN recall collapses.
+          pooling: ${ONNX_EMBEDDING_POOLING:cls}
+          # Query-only instruction prefix for asymmetric models (documents are not prefixed).
+          # Arctic-embed/BGE expect "Represent this sentence for searching relevant passages: ".
+          queryInstruction: ${ONNX_EMBEDDING_QUERY_INSTRUCTION:}
 
         # Google Vertex AI configuration (used when type is "vertex_ai")
         vertexai:

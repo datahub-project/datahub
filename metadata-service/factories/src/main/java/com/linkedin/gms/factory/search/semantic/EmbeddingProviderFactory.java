@@ -202,7 +202,11 @@ public class EmbeddingProviderFactory {
 
     OnnxEmbeddingProvider provider =
         new OnnxEmbeddingProvider(
-            modelDir, onnxConfig.getIntraOpThreads(), config.getMaxCharacterLength());
+            modelDir,
+            onnxConfig.getIntraOpThreads(),
+            config.getMaxCharacterLength(),
+            onnxConfig.getPooling(),
+            onnxConfig.getQueryInstruction());
 
     try {
       int actualDim = provider.getOutputDimension();

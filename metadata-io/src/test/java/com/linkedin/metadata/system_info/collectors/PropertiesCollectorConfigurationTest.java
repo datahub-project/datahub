@@ -1173,6 +1173,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.onnx.modelName",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.onnx.modelDir",
           "elasticsearch.entityIndex.semanticSearch.embeddingProvider.onnx.intraOpThreads",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.onnx.pooling",
+          "elasticsearch.entityIndex.semanticSearch.embeddingProvider.onnx.queryInstruction",
           "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.vectorDimension",
           "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.knnEngine",
           "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.spaceType",
