@@ -1001,7 +1001,7 @@ public class GmsGraphQLEngine {
             DashboardUsageBucketsBatchLoader.LOADER_NAME,
             context ->
                 DashboardUsageBucketsBatchLoader.createDataLoader(timeseriesAspectService, context))
-       .addDataLoader(
+        .addDataLoader(
             EntityHealthBatchLoader.LOADER_NAME,
             context ->
                 EntityHealthBatchLoader.createDataLoader(
@@ -2595,7 +2595,6 @@ public class GmsGraphQLEngine {
                         featureFlags.isTimeseriesAspectAggBatchLoadEnabled()))
                 .dataFetcher(
                     "parentContainers", new ParentContainersResolver(entityClient, featureFlags))
-                .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
                 .dataFetcher(
                     "statsSummary",
                     new DashboardStatsSummaryResolver(timeseriesAspectService, featureFlags))
