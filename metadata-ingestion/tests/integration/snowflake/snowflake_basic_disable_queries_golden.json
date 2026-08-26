@@ -6496,7 +6496,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -6520,7 +6520,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -6544,7 +6544,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -6568,7 +6568,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -6592,7 +6592,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -6616,7 +6616,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -6640,7 +6640,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -6664,7 +6664,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -6688,7 +6688,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -6712,7 +6712,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

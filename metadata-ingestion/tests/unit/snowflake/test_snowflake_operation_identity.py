@@ -71,14 +71,16 @@ def test_operations_for_same_table_are_distinct_timeseries_documents() -> None:
 
     GMS derives the timeseries docId from
     (timestampMillis, eventGranularity, urn, collectionId, messageId, partitionSpec).
-    Every Snowflake operation aspect in a run is stamped with `timestampMillis =
-    now()`, so without a messageId two operations on the same table that are emitted
-    within the same millisecond overwrite each other and the write is lost.
+    Both queries start in the same millisecond and write the same table, so urn and
+    timestampMillis are identical and messageId is the only thing keeping them apart.
+    Two concurrent loads into one table is the ordinary case for this, not a corner.
     """
-    aspects = _operations_for([_event("q1", minute=0), _event("q2", minute=30)])
+    aspects = _operations_for([_event("q1", minute=0), _event("q2", minute=0)])
 
     assert len(aspects) == 2
-    # Same table, same run -> identical urn, and timestampMillis may well be identical.
+    assert len({a.timestampMillis for a in aspects}) == 1, (
+        "precondition: both operations must share a timestamp for this to test anything"
+    )
     doc_keys = {(a.timestampMillis, a.messageId) for a in aspects}
     assert len(doc_keys) == 2, (
         f"Both operations collapse to the same timeseries document: {doc_keys}"
