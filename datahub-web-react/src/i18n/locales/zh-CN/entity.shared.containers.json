@@ -152,7 +152,7 @@
     "sidebar.lineage.usedBy": "被使用于 <summary/>",
     "sidebar.logic.logicTitle": "逻辑",
     "sidebar.logic.seeFullButton": "查看全部",
-    "sidebar.logic.viewDefinitionTitle": "查看定义",
+    "sidebar.logic.viewDefinitionTitle": "定义",
     "sidebar.logical.andMoreCount": "还有 {{count}} 个",
     "sidebar.logical.childrenInfo": "此逻辑模型的物理实现。对此资产元数据的更改将自动传播到这些子资产。",
     "sidebar.logical.childrenTitle": "物理子资产",

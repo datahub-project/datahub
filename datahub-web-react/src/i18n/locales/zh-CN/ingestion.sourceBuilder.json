@@ -256,7 +256,7 @@
     "selectTemplate.searchPlaceholder": "搜索数据源...",
     "sqlmesh.auditResultsPath.helper": "SQLMesh 审计结果 JSON 文件的路径",
     "sqlmesh.auditResultsPath.label": "审计结果路径",
-    "sqlmesh.auditResultsPath.tooltip": "包含 SQLMesh 审计通过/失败结果的 JSON 文件的路径。设置后，连接器会发出断言运行事件，使通过/失败状态显示在数据质量选项卡上。文件必须在采集时存在。",
+    "sqlmesh.auditResultsPath.tooltip": "包含 SQLMesh 审计通过/失败结果的 JSON 文件的路径。设置后，连接器会发出校验运行事件，使通过/失败状态显示在数据质量选项卡上。文件必须在采集时存在。",
     "sqlmesh.defaultCatalog.helper": "添加到两部分模型名称前面的目录",
     "sqlmesh.defaultCatalog.label": "默认目录",
     "sqlmesh.defaultCatalog.tooltip": "默认目录（数据库）添加到两部分模型名称（schema.model）前面，使仓库同级 URN 为三部分（catalog.schema.table）。当您的仓库连接器发出三部分 URN 但 SQLMesh 模型名称省略目录时设置此项。例如：'analytics' 将 'star.dim_developer' 转换为 'analytics.star.dim_developer'。",

@@ -52,7 +52,7 @@
     "entityProfileV2.propertiesDescription2": "属性是来自源数据平台的键值对信息。",
     "entityProfileV2.propertiesTitle": "属性 📋",
     "entityProfileV2.qualityDescription1": "在此选项卡中查看<bold>质量</bold>信息。",
-    "entityProfileV2.qualityDescription2": "质量信息包括<bold>数据契约</bold>和数据质量测试结果。",
+    "entityProfileV2.qualityDescription2": "质量信息包括<bold>数据规范</bold>和数据质量测试结果。",
     "entityProfileV2.qualityTitle": "质量 ✔️",
     "entityProfileV2.queriesDescription1": "您可以在此选项卡中查看与资产相关的<bold>查询</bold>。",
     "entityProfileV2.queriesDescription2": "查询显示了用于访问或操作此资产的 SQL 语句。",
