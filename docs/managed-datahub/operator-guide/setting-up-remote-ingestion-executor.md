@@ -592,23 +592,22 @@ The pod running the executor needs the following IAM permissions. Attach this po
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "AllowBatchGetSecretValueApi",
       "Effect": "Allow",
-      "Action": [
-        "secretsmanager:BatchGetSecretValue",
-        "secretsmanager:GetSecretValue"
-      ],
-      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:datahub-*"
+      "Action": "secretsmanager:BatchGetSecretValue",
+      "Resource": "*"
     },
     {
+      "Sid": "AllowPrefixedSecretsRead",
       "Effect": "Allow",
-      "Action": "secretsmanager:ListSecrets",
-      "Resource": "*"
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": "arn:aws:secretsmanager:<region>:<account-id>:secret:datahub-*"
     }
   ]
 }
 ```
 
-If you use a custom prefix, update the `Resource` pattern to match (e.g., `myapp-*` instead of `datahub-*`).
+If you use a custom prefix, update the `Resource` pattern in the `AllowPrefixedSecretsRead` statement to match (e.g., `myapp-*` instead of `datahub-*`).
 
 #### 3. Enable on the executor
 
