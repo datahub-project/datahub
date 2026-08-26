@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -6,6 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from datahub.ingestion.source.cube.constants import (
     ENTITY_TYPE_VIEW,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _short_member_name(name: str) -> str:
@@ -576,7 +579,9 @@ def _overlay_lineage(base: CubeEntity, lineage: CubeEntity) -> None:
             member.member_references = list(source.member_references)
 
 
-def _entities_from_query_members(json_query: Optional[str]) -> List[str]:
+def _entities_from_query_members(
+    json_query: Optional[str], report_name: str = ""
+) -> List[str]:
     # A report's jsonQuery references members as "<cube/view>.<member>"; the
     # prefix identifies the cube/view the chart reads from. Collect the distinct
     # prefixes across measures, dimensions, segments, time dimensions and filters.
@@ -584,9 +589,18 @@ def _entities_from_query_members(json_query: Optional[str]) -> List[str]:
         return []
     try:
         query = json.loads(json_query)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError) as e:
+        logger.debug(
+            f"Could not parse jsonQuery for Cube report '{report_name}': {e}. "
+            "This report's chart will have no input lineage."
+        )
         return []
     if not isinstance(query, dict):
+        logger.debug(
+            f"jsonQuery for Cube report '{report_name}' was not a JSON object "
+            f"(got {type(query).__name__}); this report's chart will have no "
+            "input lineage."
+        )
         return []
 
     members: List[str] = []
@@ -623,7 +637,9 @@ class CubeReport(BaseModel):
             name=report.name,
             title=report.title,
             description=report.description,
-            referenced_entities=_entities_from_query_members(report.json_query),
+            referenced_entities=_entities_from_query_members(
+                report.json_query, report_name=report.name
+            ),
             owner_email=report.user.email if report.user else None,
             workbook_id=report.workbook_id,
             updated_at=report.updated_at,

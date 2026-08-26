@@ -401,7 +401,6 @@ class CubeSourceReport(StaleEntityRemovalSourceReport):
     semantic_models_emitted: int = 0
     semantic_model_datasets_emitted: int = 0
     metrics_emitted: int = 0
-    semantic_model_emission_effective: bool = False
 
     def report_entity_scanned(self, name: str, is_view: bool) -> None:
         if is_view:

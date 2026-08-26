@@ -1,3 +1,7 @@
+import logging
+
+import pytest
+
 from datahub.ingestion.source.cube.models import (
     CloudEntitiesResponse,
     CloudEntity,
@@ -36,19 +40,27 @@ def test_report_extracts_referenced_entities_from_json_query() -> None:
     assert report.workbook_id == 7
 
 
-def test_report_handles_missing_or_invalid_json_query() -> None:
+def test_report_handles_missing_or_invalid_json_query(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     assert (
         CubeReport.from_cloud(
             CloudReport.model_validate({"id": 1, "name": "r1"})
         ).referenced_entities
         == []
     )
-    assert (
-        CubeReport.from_cloud(
-            CloudReport.model_validate({"id": 1, "name": "r1", "jsonQuery": "not-json"})
-        ).referenced_entities
-        == []
-    )
+    with caplog.at_level(logging.DEBUG):
+        assert (
+            CubeReport.from_cloud(
+                CloudReport.model_validate(
+                    {"id": 1, "name": "r1", "jsonQuery": "not-json"}
+                )
+            ).referenced_entities
+            == []
+        )
+    # Regression: a malformed jsonQuery used to be swallowed with no trace,
+    # leaving no way to tell why a report's chart has no input lineage.
+    assert any("r1" in record.message for record in caplog.records)
 
 
 def test_workbook_collects_report_ids_from_published_dashboard() -> None:

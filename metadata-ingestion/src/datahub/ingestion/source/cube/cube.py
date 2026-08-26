@@ -1,7 +1,7 @@
 import json
 import logging
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Set, Union
 from urllib.parse import urlparse
 
 from requests import RequestException
@@ -63,7 +63,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
     _Aspect,
 )
-from datahub.metadata.urns import CorpUserUrn, SemanticModelUrn, TagUrn
+from datahub.metadata.urns import CorpUserUrn, TagUrn
 from datahub.sdk.chart import Chart
 from datahub.sdk.container import Container
 from datahub.sdk.dashboard import Dashboard
@@ -155,6 +155,7 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         self._sm_mapper: Optional[CubeSemanticModelMapper] = None
+        self._sm_view_names: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "CubeSource":
@@ -263,17 +264,13 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
         logger.info(f"Fetched {len(entities)} cubes/views from Cube")
 
         to_emit = [entity for entity in entities if self._should_emit(entity)]
-        cubes = [entity for entity in to_emit if not entity.is_view]
-        views = [entity for entity in to_emit if entity.is_view]
         # Join metadata lives on cubes even when a cube itself is filtered out
         # of dataset emission (`include_cubes: false`).
         cubes_by_name = {
             entity.name: entity for entity in entities if not entity.is_view
         }
 
-        emit_sm = self.config.emit_semantic_model_entities
-        self.report.semantic_model_emission_effective = emit_sm
-        if emit_sm:
+        if self.config.emit_semantic_model_entities:
             self._sm_mapper = CubeSemanticModelMapper(
                 config=self.config,
                 path=self._deployment,
@@ -281,30 +278,38 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
                 container_urn=str(container.urn),
                 report=self.report,
             )
+            # From `entities` (all fetched views), not `to_emit`: a view
+            # excluded by view_pattern/include_views/include_hidden must still
+            # be recognized here so a report referencing it gets an omit-and-
+            # warn from _chart_input_urns, not a dangling dataset URN that
+            # semantic-model mode never emits for any view.
+            self._sm_view_names = {entity.name for entity in entities if entity.is_view}
+            self.report.warning(
+                title="Some config options do not apply in semantic-model mode",
+                message=(
+                    "tag_measures_and_dimensions, column_meta_mapping, "
+                    "emit_member_details, and fine-grained include_column_lineage "
+                    "are not applied to semanticModel/metric entities; only coarse "
+                    "view->cube lineage is emitted for views in this mode."
+                ),
+                context="emit_semantic_model_entities=true",
+            )
 
-        for entity in cubes:
+        for entity in to_emit:
             try:
-                yield from self._emit_entity(entity, container, lineage_builder)
-            except Exception as e:
-                self.report.warning(
-                    title="Failed to emit Cube entity",
-                    message="Skipping this cube/view; ingestion continues.",
-                    context=entity.name,
-                    exc=e,
-                )
-
-        for entity in views:
-            try:
-                if self._sm_mapper is not None:
+                if entity.is_view and self._sm_mapper is not None:
                     yield from self._sm_mapper.emit(entity, cubes_by_name)
-                    if not self._sm_mapper.view_chart_inputs.get(entity.name):
-                        continue
-                    yield from self._emit_entity_meta(
-                        entity, self._semantic_model_urn(entity.name)
-                    )
+                    model_urn = self._sm_mapper.emitted_model_urns.get(entity.name)
+                    if model_urn is not None:
+                        yield from self._emit_entity_meta(entity, model_urn)
                 else:
                     yield from self._emit_entity(entity, container, lineage_builder)
             except Exception as e:
+                if entity.is_view and self._sm_mapper is not None:
+                    # Ensure _chart_input_urns sees a definitive (if empty)
+                    # answer for this view rather than falling back to a
+                    # dataset URN that semantic-model mode never emits.
+                    self._sm_mapper.view_chart_inputs.setdefault(entity.name, [])
                 self.report.warning(
                     title="Failed to emit Cube entity",
                     message="Skipping this cube/view; ingestion continues.",
@@ -379,27 +384,46 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
 
-    def _semantic_model_urn(self, view_name: str) -> str:
-        return str(
-            SemanticModelUrn(
-                platform=self.platform, path=self._deployment, id=view_name
-            )
-        )
-
     def _chart_input_urns(self, entity_name: str) -> List[str]:
         if self._sm_mapper is not None:
             mapped = self._sm_mapper.view_chart_inputs.get(entity_name)
             if mapped is not None:
                 return mapped
+            if entity_name in self._sm_view_names:
+                # A view that either was filtered by view_pattern/include_views/
+                # include_hidden (never reached the mapper -- a real, everyday
+                # case, since _sm_view_names is sourced from all fetched views,
+                # not just the post-filter list) or whose mapper crashed before
+                # setdefault'ing an entry. Either way, the plain dataset URN
+                # below is guaranteed dangling in this mode, so omit it instead
+                # of pointing at nothing.
+                self.report.warning(
+                    title="No semantic-model lineage for chart input",
+                    message=(
+                        "This report/chart references a view that was not "
+                        "mapped to semanticModel logical datasets; omitting "
+                        "it from chart input lineage rather than pointing at "
+                        "a dataset URN that was never emitted."
+                    ),
+                    context=entity_name,
+                )
+                return []
         return [self._dataset_urn(entity_name)]
 
-    @staticmethod
-    def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
+    def _parse_timestamp(
+        self, value: Optional[str], context: str
+    ) -> Optional[datetime]:
         if not value:
             return None
         try:
             return datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
+        except ValueError as e:
+            self.report.warning(
+                title="Could not parse Cube timestamp",
+                message="last_modified will be unset for this entry.",
+                context=context,
+                exc=e,
+            )
             return None
 
     def _emit_reports_and_workbooks(
@@ -409,9 +433,11 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
         # Cube Cloud Platform API feature. They map onto DataHub charts and
         # dashboards respectively, extending lineage down from the views/cubes.
         chart_by_report_id: Dict[int, Chart] = {}
+        seen_report_ids: Set[int] = set()
         if self.config.include_reports:
             for report in self.api_client.get_reports():
                 self.report.reports_scanned += 1
+                seen_report_ids.add(report.id)
                 if not self.config.report_pattern.allowed(report.name):
                     self.report.filtered_reports.append(report.name)
                     continue
@@ -436,7 +462,7 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
                     continue
                 try:
                     dashboard = self._build_dashboard(
-                        workbook, chart_by_report_id, container
+                        workbook, chart_by_report_id, seen_report_ids, container
                     )
                     yield from dashboard.as_workunits()
                     self.report.workbooks_emitted += 1
@@ -464,7 +490,7 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
             display_name=report.title or report.name,
             description=report.description,
             input_datasets=input_datasets or None,
-            last_modified=self._parse_timestamp(report.updated_at),
+            last_modified=self._parse_timestamp(report.updated_at, context=report.name),
             owners=owners,
             custom_properties={"report_id": str(report.id)},
         )
@@ -473,13 +499,26 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
         self,
         workbook: CubeWorkbook,
         chart_by_report_id: Dict[int, Chart],
+        seen_report_ids: Set[int],
         container: Container,
     ) -> Dashboard:
-        charts = [
-            chart_by_report_id[report_id]
-            for report_id in workbook.report_ids
-            if report_id in chart_by_report_id
-        ]
+        charts = []
+        for report_id in workbook.report_ids:
+            chart = chart_by_report_id.get(report_id)
+            if chart is not None:
+                charts.append(chart)
+            elif report_id not in seen_report_ids:
+                # Not filtered and not a build failure (both already tracked
+                # elsewhere) -- the Reports and Workbooks Platform API calls
+                # disagree about which reports exist.
+                self.report.warning(
+                    title="Cube workbook references an unknown report",
+                    message=(
+                        "This chart will be missing from the dashboard; the "
+                        "referenced report was not returned by the Reports API."
+                    ),
+                    context=f"{workbook.name}: report_id={report_id}",
+                )
         owners = [CorpUserUrn(workbook.owner_email)] if workbook.owner_email else None
         return Dashboard(
             platform=self.platform,
@@ -489,7 +528,9 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
             description=workbook.description,
             charts=charts or None,
             parent_container=container,
-            last_modified=self._parse_timestamp(workbook.updated_at),
+            last_modified=self._parse_timestamp(
+                workbook.updated_at, context=workbook.name
+            ),
             owners=owners,
         )
 

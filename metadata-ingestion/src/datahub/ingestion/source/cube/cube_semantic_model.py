@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.cube.config import CubeSourceConfig, CubeSourceReport
@@ -35,17 +35,24 @@ _CUBE_JOIN_RELATIONSHIP_TO_CARDINALITY: Dict[str, str] = {
 }
 
 
-def parse_cube_join_sql(sql: Optional[str]) -> List[Tuple[str, str, str]]:
-    # Returns (from_column, to_cube, to_column) with `{CUBE}` as the from side.
+class CubeJoinColumnPair(NamedTuple):
+    from_column: str
+    to_cube: str
+    to_column: str
+
+
+def parse_cube_join_sql(sql: Optional[str]) -> List[CubeJoinColumnPair]:
+    # `{CUBE}` is always normalized to the from side, regardless of which
+    # operand of `=` it appeared on in the source SQL.
     if not sql:
         return []
-    pairs: List[Tuple[str, str, str]] = []
+    pairs: List[CubeJoinColumnPair] = []
     for match in CUBE_JOIN_EQ_RE.finditer(sql):
         left_cube, left_col, right_cube, right_col = match.groups()
         if left_cube.upper() == CUBE_JOIN_CUBE_PLACEHOLDER:
-            pairs.append((left_col, right_cube, right_col))
+            pairs.append(CubeJoinColumnPair(left_col, right_cube, right_col))
         elif right_cube.upper() == CUBE_JOIN_CUBE_PLACEHOLDER:
-            pairs.append((right_col, left_cube, left_col))
+            pairs.append(CubeJoinColumnPair(right_col, left_cube, left_col))
     return pairs
 
 
@@ -65,19 +72,29 @@ class CubeSemanticModelMapper:
         self.container_urn = container_urn
         self.report = report
         self.view_chart_inputs: Dict[str, List[str]] = {}
+        # view name -> semanticModel urn, set only once a model is fully emitted.
+        # Kept separate from view_chart_inputs (which is populated for every
+        # outcome, including "skipped" as []) so callers have an unambiguous
+        # signal for "did a semanticModel actually get emitted for this view".
+        self.emitted_model_urns: Dict[str, str] = {}
 
     def emit(
         self,
         view: CubeEntity,
         cubes_by_name: Dict[str, CubeEntity],
     ) -> Iterable[MetadataWorkUnit]:
+        # Count all measures/dimensions (not just visible_members()), matching
+        # _emit_entity's counting for the classic dataset path -- otherwise
+        # toggling emit_semantic_model_entities on the same view would change
+        # what these counters mean.
+        self.report.measures_scanned += len(view.measures)
+        self.report.dimensions_scanned += len(view.dimensions)
         members = view.visible_members(self.config.include_hidden)
-        members_by_cube = self._members_by_cube(view, members)
+        members_by_cube = self._dedupe_members_by_cube(
+            view, self._members_by_cube(view, members)
+        )
         field_paths_by_cube: Dict[str, Dict[str, SemanticFieldInput]] = {
-            cube_name: {
-                field.field_path: field
-                for field in (self._semantic_field(m) for m in cube_members)
-            }
+            cube_name: {m.name: self._semantic_field(m) for m in cube_members}
             for cube_name, cube_members in members_by_cube.items()
         }
 
@@ -95,6 +112,9 @@ class CubeSemanticModelMapper:
             self.view_chart_inputs[view.name] = []
             return
 
+        # members_by_cube is already deduped by name (see _dedupe_members_by_cube),
+        # so a Metric's id=member.name can't collide with another member of the
+        # same cube here.
         dataset_by_alias = {ds.alias: ds for ds in datasets}
         metrics: List[Metric] = []
         for cube_name, cube_members in members_by_cube.items():
@@ -134,6 +154,7 @@ class CubeSemanticModelMapper:
             yield from metric.as_workunits()
 
         self.view_chart_inputs[view.name] = [str(ds.urn) for ds in datasets]
+        self.emitted_model_urns[view.name] = model_urn
         self.report.semantic_models_emitted += 1
         self.report.semantic_model_datasets_emitted += len(datasets)
         self.report.metrics_emitted += len(metrics)
@@ -151,6 +172,22 @@ class CubeSemanticModelMapper:
             if not fields_by_path:
                 continue
             cube = cubes_by_name.get(cube_name)
+            if cube is None and cube_name != view.name:
+                # A stale/renamed aliasMember or cube_references entry: don't
+                # fabricate an upstream lineage edge to a cube we just
+                # confirmed doesn't exist in the fetched model. Excludes the
+                # cube_name == view.name case: that's _members_by_cube's own
+                # ambiguous-member fallback bucket (already warned there),
+                # not a genuinely missing cube reference.
+                self.report.warning(
+                    title="Cube reference not found",
+                    message=(
+                        "The logical dataset will have no description and no "
+                        "upstream lineage; the referenced cube was not found "
+                        "in the fetched model."
+                    ),
+                    context=f"{view.name} -> {cube_name}",
+                )
             dataset = SemanticModelDataset(
                 platform=CUBE_PLATFORM,
                 name=self._logical_dataset_name(view.name, cube_name),
@@ -162,16 +199,15 @@ class CubeSemanticModelMapper:
                 description=cube.description if cube is not None else None,
                 extra_aspects=self._container_aspects(),
             )
-            if self.config.include_lineage and cube_name != view.name:
+            if (
+                self.config.include_lineage
+                and cube_name != view.name
+                and cube is not None
+            ):
                 dataset.set_upstreams([self._cube_dataset_urn_fn(cube_name)])
             datasets.append(dataset)
 
-        if datasets:
-            return datasets
-
-        members = view.visible_members(self.config.include_hidden)
-        fields = [self._semantic_field(member) for member in members]
-        if not fields:
+        if not datasets:
             self.report.warning(
                 title="Cube view has no members to emit as a semantic model",
                 message=(
@@ -181,18 +217,7 @@ class CubeSemanticModelMapper:
                 context=view.name,
             )
             return None
-        return [
-            SemanticModelDataset(
-                platform=CUBE_PLATFORM,
-                name=self._logical_dataset_name(view.name, view.name),
-                semantic_model=model_urn,
-                alias=view.name,
-                schema=fields,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-                extra_aspects=self._container_aspects(),
-            )
-        ]
+        return datasets
 
     def _logical_dataset_name(self, view_name: str, cube_name: str) -> str:
         # Dataset URN constructor prefixes platform_instance; do not bake it in.
@@ -208,11 +233,62 @@ class CubeSemanticModelMapper:
     ) -> Dict[str, List[CubeMember]]:
         referenced = view.referenced_cube_names()
         grouped: Dict[str, List[CubeMember]] = {name: [] for name in referenced}
-        fallback = referenced[0] if len(referenced) == 1 else view.name
+        # Only a single-cube view has an unambiguous fallback cube; a
+        # multi-cube view with a member that can't be attributed to a specific
+        # cube (e.g. missing aliasMember on Cube Core) has no good answer, so
+        # it's bucketed under the view's own (non-cube) name and reported.
+        single_cube_fallback = referenced[0] if len(referenced) == 1 else None
         for member in members:
-            cube_name = member.source_cube_name() or fallback
+            cube_name = member.source_cube_name()
+            if cube_name is None:
+                if single_cube_fallback is not None:
+                    cube_name = single_cube_fallback
+                else:
+                    cube_name = view.name
+                    self.report.warning(
+                        title="Could not attribute Cube view member to a cube",
+                        message=(
+                            "This member could not be matched to one of the "
+                            "view's referenced cubes; it will still be emitted, "
+                            "but in a fallback logical dataset aliased to the "
+                            "view itself, with no cube-level description or "
+                            "upstream lineage."
+                        ),
+                        context=f"{view.name}.{member.name}",
+                    )
             grouped.setdefault(cube_name, []).append(member)
         return grouped
+
+    def _dedupe_members_by_cube(
+        self, view: CubeEntity, members_by_cube: Dict[str, List[CubeMember]]
+    ) -> Dict[str, List[CubeMember]]:
+        # A duplicate name within one cube would otherwise silently collide:
+        # last-write-wins in the schema-field dict keyed by field_path, but
+        # first-write-wins if a naive per-loop dedup were applied only to
+        # measures (as an earlier version of this fix did) -- giving the
+        # metric and its own schema field two different descriptions for
+        # "the same" field. Dedupe once, up front, for both measures and
+        # dimensions, so every downstream consumer sees the same member.
+        deduped: Dict[str, List[CubeMember]] = {}
+        for cube_name, cube_members in members_by_cube.items():
+            seen: Set[str] = set()
+            kept: List[CubeMember] = []
+            for member in cube_members:
+                if member.name in seen:
+                    self.report.warning(
+                        title="Duplicate Cube member name",
+                        message=(
+                            "Skipping duplicate member; only the first "
+                            "occurrence is emitted (as a schema field, and as "
+                            "a metric if it's a measure)."
+                        ),
+                        context=f"{view.name}.{cube_name}.{member.name}",
+                    )
+                    continue
+                seen.add(member.name)
+                kept.append(member)
+            deduped[cube_name] = kept
+        return deduped
 
     def _semantic_field(self, member: CubeMember) -> SemanticFieldInput:
         native_type = member.data_type or ("number" if member.is_measure else "string")
@@ -269,9 +345,17 @@ class CubeSemanticModelMapper:
         for cube_name in view.referenced_cube_names():
             cube = cubes_by_name.get(cube_name)
             if cube is None:
+                self.report.warning(
+                    title="Cube reference not found",
+                    message=(
+                        "Skipping this cube's joins as semantic-model "
+                        "relationships; it was not found in the fetched model."
+                    ),
+                    context=f"{view.name} -> {cube_name}",
+                )
                 continue
             for join in cube.joins:
-                if join.name not in known or cube_name not in known:
+                if join.name not in known:
                     continue
                 key = (cube_name, join.name)
                 if key in seen:
@@ -324,12 +408,33 @@ class CubeSemanticModelMapper:
             from_columns.append(from_field)
             to_columns.append(to_field)
         if not from_columns:
+            # The SQL parsed, but every pair either targeted a different cube
+            # than this join, or named a column that doesn't exist on either
+            # side (e.g. a typo) -- unlike the unparseable-SQL case above,
+            # this degraded silently before.
+            self.report.warning(
+                title="Could not resolve Cube join columns",
+                message=(
+                    "Skipping this join as a semantic-model relationship; its "
+                    "SQL parsed, but no column pair resolved to real members "
+                    "of both cubes."
+                ),
+                context=f"{from_alias}->{join.name}: {join.sql}",
+            )
             return None
         cardinality = None
         if join.relationship:
             cardinality = _CUBE_JOIN_RELATIONSHIP_TO_CARDINALITY.get(
                 join.relationship.lower()
             )
+            if cardinality is None:
+                self.report.warning(
+                    title="Unrecognized Cube join relationship",
+                    message=(
+                        "This relationship will be emitted without a cardinality."
+                    ),
+                    context=f"{from_alias}->{join.name}: {join.relationship}",
+                )
         return SemanticModelRelationshipInput(
             from_alias=from_alias,
             from_columns=from_columns,
@@ -348,13 +453,24 @@ class CubeSemanticModelMapper:
     ) -> Optional[str]:
         # Join keys often are not in the view's `includes`; pull them from the
         # cube so the relationship still has columns the SDK can validate.
+        # visible_members(), not the raw member list: every other schema/
+        # lineage path in this connector treats include_hidden as an absolute
+        # filter, and a hidden FK/PK used only as a join key (a common Cube
+        # modeling pattern) must not become an unintended exception to that.
         fields = field_paths_by_cube.setdefault(cube_name, {})
         if column in fields:
             return column
         cube = cubes_by_name.get(cube_name)
         if cube is None:
             return None
-        member = next((m for m in cube.members if m.name == column), None)
+        member = next(
+            (
+                m
+                for m in cube.visible_members(self.config.include_hidden)
+                if m.name == column
+            ),
+            None,
+        )
         if member is None:
             return None
         fields[column] = self._semantic_field(member)

@@ -62,7 +62,7 @@ def _orders_cube() -> CubeEntity:
             CubeMember(name="id", is_measure=False, is_primary_key=True),
             CubeMember(name="status", is_measure=False),
             CubeMember(name="created_at", is_measure=False, is_temporal=True),
-            CubeMember(name="customer_id", is_measure=False, is_hidden=True),
+            CubeMember(name="customer_id", is_measure=False),
         ],
     )
 
@@ -211,6 +211,65 @@ def test_view_emits_semantic_model_metrics_and_logical_datasets() -> None:
     assert mapper.report.semantic_models_emitted == 1
     assert mapper.report.metrics_emitted == 2
     assert mapper.report.semantic_model_datasets_emitted == 2
+
+
+def _orders_cube_with_hidden_join_key() -> CubeEntity:
+    cube = _orders_cube()
+    cube.dimensions = [
+        d
+        if d.name != "customer_id"
+        else CubeMember(name="customer_id", is_measure=False, is_hidden=True)
+        for d in cube.dimensions
+    ]
+    return cube
+
+
+def test_hidden_join_column_excluded_from_schema_when_include_hidden_false() -> None:
+    # Regression: customer_id is a hidden dimension on `orders`, used only as
+    # the join key to `customers`. _ensure_join_column used to pull it from
+    # cube.members (unfiltered), leaking it into the schema regardless of
+    # include_hidden. It must only appear via visible_members().
+    mapper = _mapper(include_hidden=False)
+    cubes = {
+        "orders": _orders_cube_with_hidden_join_key(),
+        "customers": _customers_cube(),
+    }
+    aspects = _aspects_by_urn(list(mapper.emit(_orders_view(), cubes)))
+
+    orders_logical = (
+        "urn:li:dataset:(urn:li:dataPlatform:cube,demo.orders_view.orders,PROD)"
+    )
+    schema_meta = aspects[orders_logical]["SchemaMetadataClass"]
+    field_paths = [f.fieldPath for f in schema_meta.fields]  # type: ignore[attr-defined]
+    assert "customer_id" not in field_paths
+
+    model_urn = "urn:li:semanticModel:(urn:li:dataPlatform:cube,demo,orders_view)"
+    info = aspects[model_urn]["SemanticModelInfoClass"]
+    assert isinstance(info, SemanticModelInfoClass)
+    assert not info.relationships
+
+
+def test_hidden_join_column_included_when_include_hidden_true() -> None:
+    mapper = _mapper(include_hidden=True)
+    cubes = {
+        "orders": _orders_cube_with_hidden_join_key(),
+        "customers": _customers_cube(),
+    }
+    aspects = _aspects_by_urn(list(mapper.emit(_orders_view(), cubes)))
+
+    orders_logical = (
+        "urn:li:dataset:(urn:li:dataPlatform:cube,demo.orders_view.orders,PROD)"
+    )
+    schema_meta = aspects[orders_logical]["SchemaMetadataClass"]
+    field_paths = [f.fieldPath for f in schema_meta.fields]  # type: ignore[attr-defined]
+    assert "customer_id" in field_paths
+
+    model_urn = "urn:li:semanticModel:(urn:li:dataPlatform:cube,demo,orders_view)"
+    info = aspects[model_urn]["SemanticModelInfoClass"]
+    assert isinstance(info, SemanticModelInfoClass)
+    assert info.relationships
+    rel = info.relationships[0]
+    assert rel.fromColumns == ["customer_id"]
 
 
 def test_core_view_without_cube_references_uses_alias_member() -> None:
@@ -377,6 +436,293 @@ def test_unparsed_join_sql_is_warned_and_skipped() -> None:
     assert isinstance(info, SemanticModelInfoClass)
     assert not info.relationships
     assert mapper.report.warnings
+
+
+def test_view_referencing_missing_cube_skips_lineage_with_warning() -> None:
+    # Regression: a view's cube_references naming a cube that isn't in
+    # cubes_by_name (stale/renamed aliasMember, malformed API response) used to
+    # still build a logical dataset with a fabricated upstream lineage edge to
+    # that nonexistent cube, with zero warning.
+    view = CubeEntity(
+        name="orders_view",
+        is_view=True,
+        cube_references=["orders", "missing_cube"],
+        measures=[
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                member_references=["orders.count"],
+            )
+        ],
+        dimensions=[
+            CubeMember(
+                name="region",
+                is_measure=False,
+                member_references=["missing_cube.region"],
+            )
+        ],
+    )
+    mapper = _mapper()
+    aspects = _aspects_by_urn(list(mapper.emit(view, {"orders": _orders_cube()})))
+    missing_logical = (
+        "urn:li:dataset:(urn:li:dataPlatform:cube,demo.orders_view.missing_cube,PROD)"
+    )
+    assert missing_logical in aspects
+    upstream = aspects[missing_logical].get("UpstreamLineageClass")
+    assert upstream is None
+    assert any(
+        "Cube reference not found" in (w.title or "") for w in mapper.report.warnings
+    )
+
+
+def test_relationship_skipped_when_referenced_cube_not_found() -> None:
+    # Regression: _relationships silently dropped a cube's joins when the cube
+    # itself was missing from cubes_by_name, with no warning -- same root
+    # cause as the logical-dataset case above, different code path. This
+    # fixture deliberately gives "missing_cube" NO members (unlike the
+    # logical-dataset test above): that way field_paths_by_cube["missing_cube"]
+    # is empty, so _logical_datasets' `continue` on empty fields skips it
+    # before ever reaching its own "cube is None" check -- isolating this test
+    # to _relationships' independent iteration over referenced_cube_names().
+    view = CubeEntity(
+        name="orders_view",
+        is_view=True,
+        cube_references=["orders", "missing_cube"],
+        measures=[
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                member_references=["orders.count"],
+            )
+        ],
+    )
+    mapper = _mapper()
+    list(mapper.emit(view, {"orders": _orders_cube()}))
+    assert any(
+        "Cube reference not found" in (w.title or "") for w in mapper.report.warnings
+    )
+
+
+def test_duplicate_measure_name_within_cube_is_deduped_with_warning() -> None:
+    # Regression: two measures with the same name from the SAME cube produced
+    # two Metric objects with an identical URN (id=member.name); last write
+    # won silently. The cross-cube alias suffix does not disambiguate this.
+    # Also regression: an earlier version of this fix deduped only the Metric
+    # objects (first-write-wins) while a separate, undeduped dict built the
+    # schema field (last-write-wins) -- so the metric and its own logical
+    # dataset's schema field reported two different descriptions for "the
+    # same" field. Both must now agree (first-write-wins for both).
+    cube = CubeEntity(
+        name="orders",
+        measures=[
+            CubeMember(name="count", is_measure=True, agg_type="count"),
+        ],
+        dimensions=[CubeMember(name="id", is_measure=False, is_primary_key=True)],
+    )
+    view = CubeEntity(
+        name="orders_view",
+        is_view=True,
+        cube_references=["orders"],
+        measures=[
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                title="First count",
+                member_references=["orders.count"],
+            ),
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                title="Second count",
+                member_references=["orders.count"],
+            ),
+        ],
+    )
+    mapper = _mapper()
+    aspects = _aspects_by_urn(list(mapper.emit(view, {"orders": cube})))
+    count_metric = (
+        "urn:li:metric:(urn:li:dataPlatform:cube,demo.orders_view.orders,count)"
+    )
+    assert count_metric in aspects
+    info = aspects[count_metric]["MetricInfoClass"]
+    assert isinstance(info, MetricInfoClass)
+    assert info.name == "First count"
+    assert mapper.report.metrics_emitted == 1
+
+    orders_logical = (
+        "urn:li:dataset:(urn:li:dataPlatform:cube,demo.orders_view.orders,PROD)"
+    )
+    schema_meta = aspects[orders_logical]["SchemaMetadataClass"]
+    count_fields = [f for f in schema_meta.fields if f.fieldPath == "count"]  # type: ignore[attr-defined]
+    assert len(count_fields) == 1
+    assert count_fields[0].description == "First count"
+
+    assert any(
+        "Duplicate Cube member name" in (w.title or "") for w in mapper.report.warnings
+    )
+
+
+def test_ambiguous_member_warns_and_falls_back_to_view_bucket() -> None:
+    # Regression: a multi-cube view member with no resolvable source cube
+    # (missing aliasMember) was silently bucketed under the view's own name
+    # with no warning that it couldn't be attributed to a specific cube. Also
+    # verifies the fallback actually happens (a mutation that instead dropped
+    # the member entirely would still pass a warning-only assertion).
+    view = CubeEntity(
+        name="orders_view",
+        is_view=True,
+        cube_references=["orders", "customers"],
+        measures=[
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                member_references=["orders.count"],
+            )
+        ],
+        dimensions=[
+            CubeMember(name="unattributed_field", is_measure=False),
+        ],
+    )
+    mapper = _mapper()
+    aspects = _aspects_by_urn(
+        list(
+            mapper.emit(
+                view, {"orders": _orders_cube(), "customers": _customers_cube()}
+            )
+        )
+    )
+    assert any(
+        "Could not attribute Cube view member to a cube" in (w.title or "")
+        for w in mapper.report.warnings
+    )
+    # No spurious "Cube reference not found" for the view's own fallback
+    # bucket -- that's a distinct, already-warned-about situation.
+    assert not any(
+        "Cube reference not found" in (w.title or "") for w in mapper.report.warnings
+    )
+    fallback_logical = (
+        "urn:li:dataset:(urn:li:dataPlatform:cube,demo.orders_view.orders_view,PROD)"
+    )
+    assert fallback_logical in aspects
+    schema_meta = aspects[fallback_logical]["SchemaMetadataClass"]
+    assert [f.fieldPath for f in schema_meta.fields] == [  # type: ignore[attr-defined]
+        "unattributed_field"
+    ]
+    props = aspects[fallback_logical]["SemanticModelPropertiesClass"]
+    assert props.alias == "orders_view"  # type: ignore[attr-defined]
+
+
+def test_unrecognized_join_relationship_warns() -> None:
+    cube = CubeEntity(
+        name="orders",
+        joins=[
+            CubeJoin(
+                name="customers",
+                relationship="some_future_relationship_type",
+                sql="{CUBE}.customer_id = {customers}.id",
+            )
+        ],
+        measures=[CubeMember(name="count", is_measure=True, agg_type="count")],
+        dimensions=[CubeMember(name="customer_id", is_measure=False)],
+    )
+    view = CubeEntity(
+        name="orders_view",
+        is_view=True,
+        cube_references=["orders", "customers"],
+        measures=[
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                member_references=["orders.count"],
+            )
+        ],
+        dimensions=[
+            CubeMember(
+                name="name",
+                is_measure=False,
+                member_references=["customers.name"],
+            )
+        ],
+    )
+    mapper = _mapper()
+    aspects = _aspects_by_urn(
+        list(mapper.emit(view, {"orders": cube, "customers": _customers_cube()}))
+    )
+    model_urn = "urn:li:semanticModel:(urn:li:dataPlatform:cube,demo,orders_view)"
+    info = aspects[model_urn]["SemanticModelInfoClass"]
+    assert isinstance(info, SemanticModelInfoClass)
+    assert info.relationships
+    assert info.relationships[0].cardinality is None
+    assert any(
+        "Unrecognized Cube join relationship" in (w.title or "")
+        for w in mapper.report.warnings
+    )
+
+
+def test_join_with_unresolvable_column_warns_and_skips() -> None:
+    # Regression: SQL that parses fine but names a column that doesn't exist
+    # on either cube (e.g. a typo) silently dropped the whole relationship,
+    # unlike the sibling "could not parse" case which already warned.
+    cube = CubeEntity(
+        name="orders",
+        joins=[
+            CubeJoin(
+                name="customers",
+                relationship="many_to_one",
+                sql="{CUBE}.typo_col = {customers}.id",
+            )
+        ],
+        measures=[CubeMember(name="count", is_measure=True, agg_type="count")],
+    )
+    view = CubeEntity(
+        name="orders_view",
+        is_view=True,
+        cube_references=["orders", "customers"],
+        measures=[
+            CubeMember(
+                name="count",
+                is_measure=True,
+                agg_type="count",
+                member_references=["orders.count"],
+            )
+        ],
+        dimensions=[
+            CubeMember(
+                name="name",
+                is_measure=False,
+                member_references=["customers.name"],
+            )
+        ],
+    )
+    mapper = _mapper()
+    aspects = _aspects_by_urn(
+        list(mapper.emit(view, {"orders": cube, "customers": _customers_cube()}))
+    )
+    model_urn = "urn:li:semanticModel:(urn:li:dataPlatform:cube,demo,orders_view)"
+    info = aspects[model_urn]["SemanticModelInfoClass"]
+    assert isinstance(info, SemanticModelInfoClass)
+    assert not info.relationships
+    assert any(
+        "Could not resolve Cube join columns" in (w.title or "")
+        for w in mapper.report.warnings
+    )
+
+
+def test_emit_increments_measures_and_dimensions_scanned() -> None:
+    # Regression: _emit_entity increments report.measures_scanned/
+    # dimensions_scanned; the semantic-model mapper's emit() did not, silently
+    # zeroing these stats for views whenever the flag was enabled.
+    mapper = _mapper()
+    cubes = {"orders": _orders_cube(), "customers": _customers_cube()}
+    list(mapper.emit(_orders_view(), cubes))
+    assert mapper.report.measures_scanned == 2
+    assert mapper.report.dimensions_scanned == 4
 
 
 def test_join_without_sql_is_skipped() -> None:

@@ -212,3 +212,62 @@ def test_cube_cloud_metadata_api(pytestconfig: pytest.Config, tmp_path: Any) -> 
         output_path=output_path,
         golden_path=test_resources_dir / "cube_cloud_mces_golden.json",
     )
+
+
+def test_cube_cloud_semantic_model_entities(
+    pytestconfig: pytest.Config, tmp_path: Any
+) -> None:
+    # End-to-end coverage for emit_semantic_model_entities: true -- the prior
+    # test only exercises the default (view-as-dataset) path. Reuses the same
+    # mocked Cloud fixtures (a view aliasing measures/dimensions from the
+    # "orders" cube, and a report querying that view) so the golden file
+    # captures semanticModel/metric/logical-dataset entities and chart
+    # lineage pointing at the logical dataset instead of a view dataset.
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/cube"
+    output_path = tmp_path / "cube_cloud_semantic_model_mces.json"
+    meta_response = _load(test_resources_dir, "cloud_meta.json")
+    entities_response = _load(test_resources_dir, "cloud_entities.json")
+    data_sources_response = _load(test_resources_dir, "cloud_data_sources.json")
+    reports_response = _load(test_resources_dir, "cloud_reports.json")
+    workbooks_response = _load(test_resources_dir, "cloud_workbooks.json")
+
+    def mock_request(
+        self: Any,
+        method: str,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+        json_body: Optional[Dict[str, Any]] = None,
+        bearer: bool = False,
+    ) -> Dict[str, Any]:
+        if endpoint == API_ENDPOINT_META:
+            return meta_response
+        if endpoint == API_ENDPOINT_ENTITIES_ALL:
+            return entities_response
+        if endpoint == API_ENDPOINT_DATA_SOURCES:
+            return data_sources_response
+        if endpoint == API_ENDPOINT_ENTITIES:
+            return {"data": {"entities": []}}
+        return {}
+
+    def mock_platform_request(
+        self: Any, endpoint: str, params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        if endpoint.endswith("reports"):
+            return reports_response
+        if endpoint.endswith("workbooks"):
+            return workbooks_response
+        return {}
+
+    with (
+        patch.object(CubeAPIClient, "_request", mock_request),
+        patch.object(CubeAPIClient, "_platform_request", mock_platform_request),
+    ):
+        _run_pipeline(
+            test_resources_dir / "cube_cloud_semantic_model_to_file.yml", output_path
+        )
+
+    mce_helpers.check_golden_file(
+        pytestconfig=pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "cube_cloud_semantic_model_mces_golden.json",
+    )
