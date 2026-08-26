@@ -808,58 +808,59 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
         return matched_paths
 
-    def _expand_run_results_paths(self) -> List[str]:
-        expanded_paths: List[str] = []
+    def _expand_glob_path(self, path: str) -> List[str]:
+        """Expand a single path that may contain glob characters.
 
-        for path in self.config.run_results_paths:
-            if not has_glob_characters(path):
-                expanded_paths.append(path)
-                continue
+        Returns [path] unchanged when there are no glob characters, so callers can
+        use this unconditionally. Results are sorted by the caller.
+        """
+        if not has_glob_characters(path):
+            return [path]
 
-            if is_s3_uri(path):
-                expanded_paths.extend(
-                    self._expand_cloud_glob(
-                        path,
-                        self.config.aws_connection,
-                        "s3",
-                        store_label="S3",
-                        connection_field="aws_connection",
-                    )
-                )
-            elif is_gcs_uri(path):
-                gcs_connection = self.config.gcs_connection
-                expanded_paths.extend(
-                    self._expand_cloud_glob(
-                        path,
-                        gcs_connection.s3_compatible_connection
-                        if gcs_connection
-                        else None,
-                        "gs",
-                        store_label="GCS",
-                        connection_field="gcs_connection",
-                    )
-                )
-            elif is_http_uri(path):
+        if is_s3_uri(path):
+            return self._expand_cloud_glob(
+                path,
+                self.config.aws_connection,
+                "s3",
+                store_label="S3",
+                connection_field="aws_connection",
+            )
+        elif is_gcs_uri(path):
+            gcs_connection = self.config.gcs_connection
+            return self._expand_cloud_glob(
+                path,
+                gcs_connection.s3_compatible_connection if gcs_connection else None,
+                "gs",
+                store_label="GCS",
+                connection_field="gcs_connection",
+            )
+        elif is_http_uri(path):
+            self.report.warning(
+                title="Glob patterns not supported for HTTP(S) URIs",
+                message="Glob patterns are not supported for HTTP(S) URIs, please provide explicit file paths",
+                context=path,
+            )
+            return []
+        else:
+            local_paths = expand_local_glob(path)
+            if not local_paths:
                 self.report.warning(
-                    title="Glob patterns not supported for HTTP(S) URIs",
-                    message="Glob patterns are not supported for HTTP(S) URIs, please provide explicit file paths",
+                    title="Local glob pattern matched no files",
+                    message="Glob pattern did not match any local files",
                     context=path,
                 )
             else:
-                local_paths = expand_local_glob(path)
-                if not local_paths:
-                    self.report.warning(
-                        title="Local glob pattern matched no files",
-                        message="Glob pattern did not match any local files",
-                        context=path,
-                    )
-                else:
-                    logger.info(
-                        f"Local glob pattern '{path}' expanded to {len(local_paths)} file(s)"
-                    )
-                expanded_paths.extend(local_paths)
+                logger.info(
+                    f"Local glob pattern '{path}' expanded to {len(local_paths)} file(s)"
+                )
+            return local_paths
 
-        return expanded_paths
+    def _expand_run_results_paths(self) -> List[str]:
+        expanded_paths: List[str] = []
+        for path in self.config.run_results_paths:
+            expanded_paths.extend(self._expand_glob_path(path))
+        # Sorted so that repeated runs process artifacts in a stable order.
+        return sorted(expanded_paths)
 
     def loadManifestAndCatalog(
         self,
