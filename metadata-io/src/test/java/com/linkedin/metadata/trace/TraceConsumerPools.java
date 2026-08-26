@@ -11,6 +11,30 @@ public final class TraceConsumerPools {
 
   public static TraceConsumerPool singleConsumer(
       @Nonnull Consumer<String, GenericRecord> consumer) {
-    return new EphemeralTraceConsumerPool(() -> consumer);
+    return new NoCloseTraceConsumerPool(consumer);
+  }
+
+  /** Reuses the same consumer without calling {@link Consumer#close()} on return. */
+  private static final class NoCloseTraceConsumerPool implements TraceConsumerPool {
+
+    private final Consumer<String, GenericRecord> consumer;
+
+    private NoCloseTraceConsumerPool(Consumer<String, GenericRecord> consumer) {
+      this.consumer = consumer;
+    }
+
+    @Override
+    public <T> T withConsumer(@Nonnull String topic, @Nonnull TraceConsumerAction<T> action) {
+      try {
+        return action.execute(consumer);
+      } catch (RuntimeException e) {
+        throw e;
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public void shutdown() {}
   }
 }

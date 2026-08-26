@@ -44,9 +44,7 @@ public final class KafkaTraceConsumerPool implements TraceConsumerPool {
       throw new RuntimeException(e);
     } finally {
       activeBorrows.decrementAndGet();
-      if (!pool.isShuttingDown()) {
-        pool.returnConsumer(checkedConsumer);
-      }
+      pool.returnConsumer(checkedConsumer);
     }
   }
 

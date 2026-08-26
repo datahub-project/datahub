@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -222,10 +223,24 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
       }
       log.error("Timed out processing parallel trace requests", e);
       throw new RuntimeException(errorMessage, e);
+    } catch (ExecutionException e) {
+      throw unwrapParallelFailure(e.getCause(), errorMessage);
     } catch (Exception e) {
-      log.error("Error processing parallel trace requests", e);
-      throw new RuntimeException(errorMessage, e);
+      throw unwrapParallelFailure(e, errorMessage);
     }
+  }
+
+  @Nonnull
+  private RuntimeException unwrapParallelFailure(Throwable cause, String errorMessage) {
+    Throwable unwrapped = cause;
+    while (unwrapped instanceof CompletionException && unwrapped.getCause() != null) {
+      unwrapped = unwrapped.getCause();
+    }
+    if (unwrapped instanceof TraceConsumerPoolExhaustedException) {
+      return (TraceConsumerPoolExhaustedException) unwrapped;
+    }
+    log.error("Error processing parallel trace requests", cause);
+    return new RuntimeException(errorMessage, cause);
   }
 
   /**

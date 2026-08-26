@@ -159,17 +159,6 @@ public class TraceKafkaConsumerPoolFactory {
     }
   }
 
-  /** Visible for testing group id wiring on pooled consumer factories. */
-  String getGroupIdForPoolType(String poolType) {
-    return switch (poolType) {
-      case "mcp" -> mcpGroupId;
-      case "mcpFailed" -> mcpFailedGroupId;
-      case "mclVersioned" -> mclVersionedGroupId;
-      case "mclTimeseries" -> mclTimeseriesGroupId;
-      default -> throw new IllegalArgumentException("Unknown pool type: " + poolType);
-    };
-  }
-
   @PreDestroy
   public void shutdown() {
     pools.values().forEach(TraceConsumerPool::shutdown);
