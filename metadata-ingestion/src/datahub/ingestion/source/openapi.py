@@ -890,18 +890,25 @@ class APISource(Source, ABC):
             sw_dict = self.config.get_swagger()
             self.url_basepath = get_url_basepath(sw_dict)
             url_endpoints = get_endpoints(sw_dict)
-        except Exception:
+        except Exception as e:
             # get_url_basepath/get_endpoints are included here (not just get_swagger)
             # because a spec that fetches/parses fine but is missing an expected key
             # (e.g. "paths") would otherwise raise an unhandled KeyError and crash
             # the whole run instead of surfacing a report failure.
+            #
+            # Attaching the real exception is safe: get_tok (the only place a
+            # get_token password is ever substituted into a URL) already sanitizes
+            # every exception it raises down to response.status_code / exception
+            # type, with no url4req/password in the message -- see
+            # test_get_tok_error_does_not_leak_credentials_in_message and
+            # test_get_tok_connection_error_does_not_leak_credentials_in_message.
+            # Hiding it behind a generic RuntimeError would just deprive operators
+            # of the real cause (401, parse error, missing "paths", TLS failure).
             self.report.failure(
                 title="Failed to Fetch OpenAPI Spec",
                 message="Unable to retrieve, parse, or interpret the OpenAPI specification",
                 context=f"{config.url} / {config.swagger_file}",
-                exc=RuntimeError(
-                    "Unable to retrieve or parse the OpenAPI specification"
-                ),
+                exc=e,
             )
             return
 

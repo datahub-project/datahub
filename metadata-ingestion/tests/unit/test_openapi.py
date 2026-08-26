@@ -3400,17 +3400,23 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             )
 
     def test_get_workunits_reports_swagger_fetch_failure(self):
+        # The real exception must reach the report (not a generic placeholder):
+        # operators need to see the actual cause (401, parse error, TLS failure).
+        # This is safe because get_tok already sanitizes every exception it raises
+        # (see test_get_tok_*_does_not_leak_credentials_in_message) -- nothing
+        # reaching this handler can carry a get_token password.
         with patch.object(
             OpenApiConfig, "get_swagger", side_effect=Exception("spec down")
         ):
             workunits = list(self.source.get_workunits_internal())
         self.assertEqual(workunits, [])
-        self.assertTrue(
-            any(
-                getattr(f, "title", None) == "Failed to Fetch OpenAPI Spec"
-                for f in self.source.report.failures
-            )
-        )
+        failures = [
+            f
+            for f in self.source.report.failures
+            if getattr(f, "title", None) == "Failed to Fetch OpenAPI Spec"
+        ]
+        self.assertTrue(failures)
+        self.assertTrue(any("spec down" in c for c in failures[0].context))
 
     def test_get_workunits_reports_malformed_spec_missing_paths(self):
         # Regression: a spec that fetches/parses fine but lacks "paths" used to
@@ -4033,6 +4039,57 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             {"$ref": "#/components/schemas/Shared"}, sw_dict
         )
         self.assertNotIn('"$ref"', json.dumps(resolved_again))
+
+    def test_promote_pattern_properties_sets_missing_type_to_object(self):
+        # Regression: JsonSchemaTranslator._get_type_from_schema only reaches its
+        # "map" branch when type == "object"; a typeless patternProperties-only
+        # schema (valid and common in JSON Schema) was promoted to a dict
+        # additionalProperties but never got type: object, so it still resolved
+        # to zero fields.
+        sw_dict = _ITEM_ID_ONLY_SW
+        schema = {
+            "patternProperties": {
+                "^[a-z]+$": {"$ref": "#/components/schemas/Item"},
+            },
+        }
+        resolved = resolve_schema_references(schema, sw_dict)
+        self.assertEqual(resolved["type"], "object")
+
+        metadata = get_schema_metadata(
+            platform="openapi", name="typeless-map", json_schema=resolved
+        )
+        self.assertTrue(any(".id" in f.fieldPath for f in metadata.fields))
+
+    def test_resolve_schema_references_depth_capped_node_does_not_mutate_shared_component(
+        self,
+    ):
+        # Regression: when max_depth is exhausted, _resolve_schema_refs returns
+        # the original sw_dict component unchanged (not a copy). If that
+        # component has a promotable patternProperties shape,
+        # _promote_pattern_properties_to_additional/_normalize_map_schemas used
+        # to mutate it in place, permanently rewriting the live spec for every
+        # other endpoint resolved later in the same run.
+        sw_dict: Dict[str, Any] = {
+            "openapi": "3.0.0",
+            "definitions": {
+                f"Level{i}": {"$ref": f"#/definitions/Level{i + 1}"} for i in range(9)
+            },
+        }
+        sw_dict["definitions"]["Level9"] = {
+            "patternProperties": {"^x_": {"type": "string"}},
+        }
+        shared_component = sw_dict["definitions"]["Level9"]
+
+        resolved = resolve_schema_references(
+            {"$ref": "#/definitions/Level0"}, sw_dict, max_depth=10
+        )
+
+        # The resolved result is promoted...
+        self.assertIn("additionalProperties", resolved)
+        self.assertEqual(resolved["type"], "object")
+        # ...but the shared component itself must be untouched.
+        self.assertNotIn("additionalProperties", shared_component)
+        self.assertNotIn("type", shared_component)
 
     def test_strip_unresolved_refs_preserves_property_named_ref(self):
         # Regression: _strip_unresolved_refs walked every dict generically, so a

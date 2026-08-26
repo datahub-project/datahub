@@ -1250,27 +1250,35 @@ def _shallow_schema_copy(schema: object) -> object:
 
 def _promote_pattern_properties_to_additional(
     resolved_schema: Dict[str, Any],
-) -> None:
+) -> Dict[str, Any]:
     # json_schema_util treats dict additionalProperties as a map and skips
     # named properties — only promote on map-only schemas, after allOf merge.
+    # Non-mutating (returns the same object when nothing is promoted, else a
+    # copy): resolved_schema may still be the exact same dict object as a
+    # shared sw_dict component (e.g. a depth-capped _resolve_schema_refs
+    # return), and mutating it in place would corrupt that component for
+    # every other endpoint resolved later in the same run.
     pattern_properties = resolved_schema.get("patternProperties")
     if not isinstance(pattern_properties, dict):
-        return
+        return resolved_schema
     # An existing dict value schema already lets json_schema_util extract the map.
     # Absent, false, and true (JSON Schema default ≡ absent) all still need promotion
     # so closed / unrestricted maps yield extractable columns.
     existing_additional = resolved_schema.get("additionalProperties")
     if isinstance(existing_additional, dict):
-        return
+        return resolved_schema
     # Empty properties: {} has no named fields to protect.
     if resolved_schema.get("properties"):
-        return
+        return resolved_schema
     pattern_schemas = list(pattern_properties.values())
+    if not pattern_schemas:
+        return resolved_schema
+    promoted_schema = dict(resolved_schema)
     if len(pattern_schemas) == 1:
-        resolved_schema["additionalProperties"] = _shallow_schema_copy(
+        promoted_schema["additionalProperties"] = _shallow_schema_copy(
             pattern_schemas[0]
         )
-    elif pattern_schemas:
+    else:
         # Disjoint pattern namespaces (e.g. ^str_ → string, ^num_ → int) collapse to
         # one map value type — a lossy approximation of the original patterns.
         logger.warning(
@@ -1279,37 +1287,105 @@ def _promote_pattern_properties_to_additional(
             "value type.",
             len(pattern_schemas),
         )
-        resolved_schema["additionalProperties"] = {
+        promoted_schema["additionalProperties"] = {
             "anyOf": [_shallow_schema_copy(s) for s in pattern_schemas]
         }
+    # JsonSchemaTranslator only reaches its "map" branch when type == "object"
+    # (see _get_type_from_schema); a typeless patternProperties map -- valid
+    # and common in JSON Schema -- would otherwise still resolve to zero
+    # fields despite the additionalProperties promotion above. Only fill in
+    # a missing type; an explicit conflicting type is left alone as already
+    # malformed input.
+    if "type" not in promoted_schema:
+        promoted_schema["type"] = "object"
+    return promoted_schema
 
 
-def _normalize_map_schemas(schema: object) -> None:
-    """Post-order: strip leftover $refs, then promote patternProperties."""
+def _normalize_map_schemas_mapping(
+    mapping: Dict[str, Any],
+) -> Tuple[Dict[str, Any], bool]:
+    new_mapping = {}
+    changed = False
+    for key, value in mapping.items():
+        normalized = _normalize_map_schemas(value)
+        if normalized is not value:
+            changed = True
+        new_mapping[key] = normalized
+    return new_mapping, changed
+
+
+def _normalize_map_schemas_list(members: List[Any]) -> Tuple[List[Any], bool]:
+    new_members = []
+    changed = False
+    for member in members:
+        normalized = _normalize_map_schemas(member)
+        if normalized is not member:
+            changed = True
+        new_members.append(normalized)
+    return new_members, changed
+
+
+def _normalize_map_schemas(schema: object) -> object:
+    """Post-order: strip leftover $refs, then promote patternProperties.
+
+    Non-mutating, matching _strip_unresolved_refs: a node reached only via a
+    depth-capped _resolve_schema_refs return may still be the exact same dict
+    object as a shared sw_dict component, so rewriting it in place would
+    corrupt that component for every other endpoint resolved later in the
+    same run. A branch with nothing to normalize is returned unchanged (same
+    object), so this only allocates along paths that actually changed.
+    """
     if not isinstance(schema, dict):
-        return
+        return schema
+    new_schema = dict(schema)
+    changed = False
+
     properties = schema.get("properties")
     if isinstance(properties, dict):
-        for prop_schema in properties.values():
-            _normalize_map_schemas(prop_schema)
+        new_properties, props_changed = _normalize_map_schemas_mapping(properties)
+        if props_changed:
+            new_schema["properties"] = new_properties
+            changed = True
+
     if "items" in schema:
-        _normalize_map_schemas(schema["items"])
+        normalized_items = _normalize_map_schemas(schema["items"])
+        if normalized_items is not schema["items"]:
+            new_schema["items"] = normalized_items
+            changed = True
+
     additional = schema.get("additionalProperties")
     if isinstance(additional, dict):
-        _normalize_map_schemas(additional)
+        normalized_additional = _normalize_map_schemas(additional)
+        if normalized_additional is not additional:
+            new_schema["additionalProperties"] = normalized_additional
+            changed = True
+
     pattern_properties = schema.get("patternProperties")
     if isinstance(pattern_properties, dict):
-        for prop_schema in pattern_properties.values():
-            _normalize_map_schemas(prop_schema)
+        new_pattern_properties, pattern_changed = _normalize_map_schemas_mapping(
+            pattern_properties
+        )
+        if pattern_changed:
+            new_schema["patternProperties"] = new_pattern_properties
+            changed = True
+
     property_names = schema.get("propertyNames")
     if isinstance(property_names, dict):
-        _normalize_map_schemas(property_names)
+        normalized_names = _normalize_map_schemas(property_names)
+        if normalized_names is not property_names:
+            new_schema["propertyNames"] = normalized_names
+            changed = True
+
     for union_key in ("oneOf", "anyOf", "allOf"):
         members = schema.get(union_key)
         if isinstance(members, list):
-            for member in members:
-                _normalize_map_schemas(member)
-    _promote_pattern_properties_to_additional(schema)
+            new_members, members_changed = _normalize_map_schemas_list(members)
+            if members_changed:
+                new_schema[union_key] = new_members
+                changed = True
+
+    working_schema = new_schema if changed else schema
+    return _promote_pattern_properties_to_additional(working_schema)
 
 
 # Carried through verbatim: literal example/default instance data, never
@@ -1497,7 +1573,9 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
     """
     resolved_schema = _resolve_schema_refs(schema, sw_dict, max_depth=max_depth)
     if isinstance(resolved_schema, dict):
-        _normalize_map_schemas(resolved_schema)
+        normalized_schema = _normalize_map_schemas(resolved_schema)
+        assert isinstance(normalized_schema, dict)
+        resolved_schema = normalized_schema
         # Postcondition: jsonref must never see a leftover $ref after normalize. A
         # generic sweep (not an assert) so a depth-limited $ref under a keyword
         # normalize doesn't structurally walk (e.g. "not") degrades gracefully
