@@ -12,6 +12,8 @@ from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
     MYSQL_SINK_CLOUD,
     POSTGRES_SINK_CLOUD,
+    POSTGRES_SOURCE_CLOUD,
+    S3_SOURCE_CLOUD,
     SINK,
     SNOWFLAKE_SINK_CLOUD,
     SNOWFLAKE_SOURCE_CLOUD,
@@ -169,19 +171,49 @@ class ConnectorRegistry:
             DEBEZIUM_SOURCE_CONNECTOR_PREFIX,
             JDBC_SOURCE_CONNECTOR_CLASS,
             MONGO_SOURCE_CONNECTOR_CLASS,
+            S3_SOURCE_CONNECTOR_CLASS,
             ConfluentJDBCSourceConnector,
+            ConfluentS3SourceConnector,
             DebeziumSourceConnector,
             MongoSourceConnector,
             SnowflakeSourceConnector,
         )
 
-        # Traditional JDBC source connector
-        if connector_class_value == JDBC_SOURCE_CONNECTOR_CLASS:
+        # Traditional JDBC source connector, plus Confluent Cloud managed
+        # PostgresSource (non-CDC). Managed JDBC topics are {topic.prefix}{table};
+        # the Debezium path would emit {server}.{schema}.{table} instead.
+        if connector_class_value in (
+            JDBC_SOURCE_CONNECTOR_CLASS,
+            POSTGRES_SOURCE_CLOUD,
+        ):
             return ConfluentJDBCSourceConnector(manifest, config, report)
         # Snowflake Source connector (Confluent Cloud managed)
         elif connector_class_value == SNOWFLAKE_SOURCE_CLOUD:
             return SnowflakeSourceConnector(manifest, config, report)
-        # Cloud CDC connectors (use Debezium-style naming)
+        # S3 source connectors (self-hosted and Confluent Cloud managed).
+        # Explicit generic_connectors mappings win over class-name auto-detection,
+        # matching the sink path.
+        elif connector_class_value in (S3_SOURCE_CONNECTOR_CLASS, S3_SOURCE_CLOUD):
+            generic = ConnectorRegistry._generic_connector_for_name(
+                manifest, config, report
+            )
+            if generic is not None:
+                if (
+                    generic.generic_config.target_dataset
+                    or generic.generic_config.target_platform
+                ):
+                    report.warning(
+                        message=(
+                            "generic_connectors entry includes target_dataset/"
+                            "target_platform, which is sink-direction; ignoring it "
+                            "for this source so lineage is not inverted"
+                        ),
+                        context=manifest.name,
+                    )
+                else:
+                    return generic
+            return ConfluentS3SourceConnector(manifest, config, report)
+        # Cloud CDC source connectors (use Debezium-style naming)
         elif (
             connector_class_value in CLOUD_JDBC_SOURCE_CLASSES
             or connector_class_value.startswith(DEBEZIUM_SOURCE_CONNECTOR_PREFIX)

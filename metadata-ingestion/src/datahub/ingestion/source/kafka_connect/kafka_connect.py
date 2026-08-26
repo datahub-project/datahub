@@ -45,6 +45,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
     CONNECTOR_CLASS,
     KAFKA,
+    POSTGRES_SOURCE_CLOUD,
     SINK,
     SOURCE,
     ConnectorManifest,
@@ -1062,6 +1063,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 "JdbcSourceConnector" in connector_class
                 or connector_class.startswith("io.debezium.connector")
                 or connector_class in CLOUD_JDBC_SOURCE_CLASSES
+                or connector_class == POSTGRES_SOURCE_CLOUD
             )
             and lineage.source_dataset
             and config.connect_to_platform_map
