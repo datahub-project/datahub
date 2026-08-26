@@ -15,6 +15,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
@@ -29,6 +30,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.testng.annotations.Test;
 
@@ -128,13 +130,40 @@ public class DeleteEntityServiceGuardHandlingTest {
             any(OperationContext.class), eq(dataset2.getEntityType()), eq(dataset2), anySet()))
         .thenReturn(datasetWithContainerAspect(dataset2, container));
 
-    // Every aspect deletion is rejected by a delete-time guard (e.g. the structured-property
-    // soft-delete-first precondition maps to IllegalArgumentException).
+    // dataset1's aspect deletion is rejected by a delete-time guard (e.g. the structured-property
+    // soft-delete-first precondition maps to IllegalArgumentException)...
     when(_entityService.deleteAspect(
-            any(OperationContext.class), anyString(), anyString(), anyMap(), anyBoolean()))
+            any(OperationContext.class),
+            eq(dataset1.toString()),
+            anyString(),
+            anyMap(),
+            anyBoolean()))
         .thenThrow(
             new IllegalArgumentException(
                 "Hard delete rejected for structured property qualifiedName 'io.acryl.example'."));
+    // ...while dataset2's deletion succeeds: a deleted-aspect result has newValue == null, so the
+    // helper's post-delete error branch is not taken and the success path completes.
+    final Container deletedAspect = new Container();
+    deletedAspect.setContainer(container);
+    when(_entityService.deleteAspect(
+            any(OperationContext.class),
+            eq(dataset2.toString()),
+            anyString(),
+            anyMap(),
+            anyBoolean()))
+        .thenReturn(
+            Optional.of(
+                new RollbackResult(
+                    dataset2,
+                    Constants.DATASET_ENTITY_NAME,
+                    Constants.CONTAINER_ASPECT_NAME,
+                    deletedAspect,
+                    null,
+                    null,
+                    null,
+                    ChangeType.DELETE,
+                    false,
+                    1)));
 
     // The rejection must not escape deleteReferencesTo.
     final DeleteReferencesResponse response =
@@ -144,7 +173,8 @@ public class DeleteEntityServiceGuardHandlingTest {
     assertEquals(2, (int) response.getTotal());
     assertFalse(response.getRelatedAspects().isEmpty());
 
-    // Both references were still attempted: the first rejection did not abort the cascade.
+    // The cascade continued past the rejection to a SUCCESSFUL delete: dataset1's rejection was
+    // contained, and dataset2's aspect deletion was still attempted and completed.
     verify(_entityService)
         .deleteAspect(
             any(OperationContext.class),
