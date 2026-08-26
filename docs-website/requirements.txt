@@ -2,4 +2,5 @@ tenacity==9.1.2
 requests==2.32.4
 
 # Runs the sphinx -> docusaurus converter tests (see sphinx/tests).
-pytest==9.0.3
+# Range rather than a pin: the tests are plain stdlib and pin nothing themselves.
+pytest>=6.2.2,<10.0.0
