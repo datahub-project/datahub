@@ -1907,6 +1907,34 @@ public class EntityServiceImplTest {
   }
 
   @Test
+  public void testHardDeleteStructuredPropertyWithoutDefinitionSucceeds() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, true, "no-run-id-provided");
+    // Degenerate but reachable state: a status-only structured property (e.g. created by
+    // POSTing status via the aspect API) has no propertyDefinition aspect, and
+    // getLatestAspect returns null for it rather than throwing. The pre-hard-delete
+    // definition capture must tolerate that instead of NPE-ing inside the transaction.
+    when(dao.getLatestAspect(
+            any(OperationContext.class),
+            eq(GUARDED_PROPERTY_URN.toString()),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(null);
+
+    RollbackResult result =
+        service.deleteAspectWithoutMCL(
+            newUserContext(),
+            GUARDED_PROPERTY_URN.toString(),
+            STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+            Collections.emptyMap(),
+            true);
+
+    assertNotNull(result);
+    verify(dao).deleteUrn(any(OperationContext.class), any(), eq(GUARDED_PROPERTY_URN.toString()));
+  }
+
+  @Test
   public void testRemediationDeletionBypassesStructuredPropertyGuard() throws Exception {
     AspectDao dao = mock(AspectDao.class);
     EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);

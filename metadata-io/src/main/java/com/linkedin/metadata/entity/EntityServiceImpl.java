@@ -3878,16 +3878,28 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           // If Using CDCs, need to ensure key aspect is the deleted last.
                           if (STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())) {
                             try {
+                              // getLatestAspect returns null (rather than throwing) when the
+                              // entity row exists but this aspect does not — e.g. a status-only
+                              // structured property created via the aspect API. Nothing to
+                              // capture; the hard delete proceeds and the definition-delete side
+                              // effect simply has nothing to clean up.
                               SystemAspect definitionAspect =
                                   aspectDao.getLatestAspect(
                                       opContext,
                                       urn,
                                       STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                                       false);
-                              propertyDefinitionBeforeHardDelete.definition =
-                                  definitionAspect.getRecordTemplate();
-                              propertyDefinitionBeforeHardDelete.metadata =
-                                  definitionAspect.getSystemMetadata();
+                              if (definitionAspect != null) {
+                                propertyDefinitionBeforeHardDelete.definition =
+                                    definitionAspect.getRecordTemplate();
+                                propertyDefinitionBeforeHardDelete.metadata =
+                                    definitionAspect.getSystemMetadata();
+                              } else {
+                                log.debug(
+                                    "No {} aspect to capture before hard delete of {}",
+                                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                    urn);
+                              }
                             } catch (EntityNotFoundException e) {
                               log.debug(
                                   "No {} aspect to capture before hard delete of {}",
