@@ -61,6 +61,9 @@ class DBTCoreReport(DBTSourceReport):
     catalog_info: Optional[dict] = None
     manifest_info: Optional[dict] = None
     run_results_paths_expanded: Optional[List[str]] = None
+    manifests_loaded: int = 0
+    manifests_failed: int = 0
+    manifest_paths_expanded: Optional[List[str]] = None
 
 
 class DBTCoreConfig(DBTCommonConfig):
@@ -891,9 +894,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
     def loadManifestAndCatalog(
         self,
+        manifest_path: str,
+        catalog_path: Optional[str],
+        sources_path: Optional[str],
     ) -> Tuple[List[DBTNode], Optional[str]]:
         dbt_manifest_json = self.load_file_as_json(
-            self.config.manifest_path,
+            manifest_path,
             self.config.aws_connection,
             self.config.gcs_connection,
         )
@@ -906,9 +912,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
         dbt_catalog_json = None
         dbt_catalog_metadata = None
-        if self.config.catalog_path is not None:
+        if catalog_path is not None:
             dbt_catalog_json = self.load_file_as_json(
-                self.config.catalog_path,
+                catalog_path,
                 self.config.aws_connection,
                 self.config.gcs_connection,
             )
@@ -935,9 +941,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
 
         sources_invocation_id = None
-        if self.config.sources_path is not None:
+        if sources_path is not None:
             dbt_sources_json = self.load_file_as_json(
-                self.config.sources_path,
+                sources_path,
                 self.config.aws_connection,
                 self.config.gcs_connection,
             )
@@ -1015,8 +1021,6 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 manifest_adapter=manifest_adapter,
                 tag_prefix=self.config.tag_prefix,
             )
-            for semantic_model_node in semantic_model_nodes:
-                semantic_model_node.artifact_props = artifact_props
             nodes.extend(semantic_model_nodes)
             self.report.num_semantic_models_emitted = len(semantic_model_nodes)
             if semantic_model_nodes:
@@ -1024,12 +1028,66 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     f"Extracted {len(semantic_model_nodes)} semantic models from manifest"
                 )
 
+        # Stamp every node - regardless of which extractor produced it - with this
+        # project's artifact provenance in one place. This is the single authoritative
+        # site for artifact_props, so a future extractor can't silently ship
+        # provenance-less nodes the way extract_semantic_models once did.
+        for node in nodes:
+            node.artifact_props = artifact_props
+
         return nodes, catalog_version
 
-    def load_nodes(self) -> List[DBTNode]:
-        all_nodes, catalog_version = self.loadManifestAndCatalog()
+    @staticmethod
+    def _sibling_artifact_path(manifest_path: str, filename: str) -> str:
+        """Resolve an artifact that sits beside the manifest.
 
-        # If catalog_version is between 1.7.0 and 1.7.2, report a warning.
+        dbt writes manifest.json, catalog.json, and sources.json into a single
+        target/ directory, so co-location is dbt's own layout rather than a
+        convention we impose. A plain string split is correct for both
+        object-store URIs and local POSIX paths, which is why no os.path or
+        URL parsing is needed.
+        """
+        prefix, _, _ = manifest_path.rpartition("/")
+        return f"{prefix}/{filename}" if prefix else filename
+
+    def _resolve_optional_sibling_path(
+        self, manifest_path: str, filename: str
+    ) -> Optional[str]:
+        """Resolve a sibling artifact for glob mode, or None if it isn't present.
+
+        catalog.json and sources.json are both optional even for a single project.
+        In glob mode we can't know ahead of time which matched projects ran
+        `dbt docs generate`, so we probe by attempting the load rather than
+        assuming presence.
+        """
+        sibling_path = self._sibling_artifact_path(manifest_path, filename)
+        try:
+            self.load_file_as_json(
+                sibling_path, self.config.aws_connection, self.config.gcs_connection
+            )
+        except Exception:
+            return None
+        return sibling_path
+
+    def _load_project_nodes(
+        self,
+        manifest_path: str,
+        catalog_path: Optional[str],
+        sources_path: Optional[str],
+    ) -> List[DBTNode]:
+        """Load one project's manifest/catalog/sources and return its nodes.
+
+        The raw JSON for this project goes out of scope on return, so fanning out
+        over many projects keeps peak memory at one project's artifacts rather
+        than the whole estate's.
+        """
+        nodes, catalog_version = self.loadManifestAndCatalog(
+            manifest_path, catalog_path, sources_path
+        )
+        self.report.manifests_loaded += 1
+
+        # If catalog_version is between 1.7.0 and 1.7.2, report a warning. This is
+        # per-project because a multi-project run can mix dbt versions across projects.
         try:
             if (
                 catalog_version
@@ -1052,6 +1110,48 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 message="Failed to determine the catalog version",
                 exc=e,
             )
+
+        return nodes
+
+    def load_nodes(self) -> List[DBTNode]:
+        manifest_paths = sorted(self._expand_glob_path(self.config.manifest_path))
+        is_multi_project = has_glob_characters(self.config.manifest_path)
+        if is_multi_project:
+            self.report.manifest_paths_expanded = manifest_paths
+
+        all_nodes: List[DBTNode] = []
+        for manifest_path in manifest_paths:
+            if is_multi_project:
+                catalog_path = self._resolve_optional_sibling_path(
+                    manifest_path, "catalog.json"
+                )
+                sources_path = self._resolve_optional_sibling_path(
+                    manifest_path, "sources.json"
+                )
+            else:
+                catalog_path = self.config.catalog_path
+                sources_path = self.config.sources_path
+
+            try:
+                project_nodes = self._load_project_nodes(
+                    manifest_path, catalog_path, sources_path
+                )
+            except Exception as e:
+                # In single-project mode, a bad manifest fails the run exactly as it
+                # always has. In glob mode, one broken project shouldn't take down
+                # ingestion of every other matched project.
+                if not is_multi_project:
+                    raise
+                self.report.manifests_failed += 1
+                self.report.failure(
+                    title="Failed to load dbt project",
+                    message="Failed to load one dbt project matched by the globbed manifest_path; skipping it",
+                    context=manifest_path,
+                    exc=e,
+                )
+                continue
+
+            all_nodes.extend(project_nodes)
 
         expanded_run_results_paths = self._expand_run_results_paths()
         if expanded_run_results_paths:

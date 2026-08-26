@@ -1,5 +1,6 @@
+import json
 import pathlib
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import pytest
 
@@ -98,3 +99,155 @@ def test_non_glob_manifest_still_accepts_explicit_catalog_path() -> None:
         target_platform="postgres",
     )
     assert config.catalog_path == "/tmp/project_a/catalog.json"
+
+
+def _write_project(
+    root: pathlib.Path, project: str, models: List[Dict[str, str]]
+) -> None:
+    """Write a minimal dbt target/ directory for one project."""
+    project_dir = root / project
+    project_dir.mkdir(parents=True, exist_ok=True)
+    nodes: Dict[str, Any] = {}
+    for model in models:
+        unique_id = f"model.{project}.{model['name']}"
+        nodes[unique_id] = {
+            "unique_id": unique_id,
+            "name": model["name"],
+            "database": model["database"],
+            "schema": model["schema"],
+            "resource_type": "model",
+            "package_name": project,
+            "config": {"materialized": "table"},
+            "description": "",
+            "columns": {},
+            "meta": {},
+            "tags": [],
+            "depends_on": {"nodes": []},
+            "compiled": True,
+            "compiled_code": "select 1 as col_a",
+            "raw_code": "select 1 as col_a",
+            "language": "sql",
+            "original_file_path": f"models/{model['name']}.sql",
+            "alias": model["name"],
+            "checksum": {"name": "none", "checksum": ""},
+        }
+    manifest = {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json",
+            "dbt_version": "1.8.0",
+            "adapter_type": "postgres",
+            "project_name": project,
+            "generated_at": "2026-01-01T00:00:00.000000Z",
+            "invocation_id": f"invocation-{project}",
+        },
+        "nodes": nodes,
+        "sources": {},
+        "exposures": {},
+        "metrics": {},
+        "macros": {},
+        "child_map": {},
+        "parent_map": {},
+        "disabled": {},
+        "semantic_models": {},
+    }
+    (project_dir / "manifest.json").write_text(json.dumps(manifest))
+
+
+def test_glob_fans_out_over_multiple_projects(tmp_path: pathlib.Path) -> None:
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+    _write_project(
+        tmp_path, "project_b", [{"name": "events", "database": "db", "schema": "sch_b"}]
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes = source.load_nodes()
+
+    assert {node.dbt_name for node in nodes} == {
+        "model.project_a.orders",
+        "model.project_b.events",
+    }
+    assert source.report.manifests_loaded == 2
+    assert source.report.manifests_failed == 0
+
+
+def test_glob_stamps_per_project_provenance(tmp_path: pathlib.Path) -> None:
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+
+    nodes = source.load_nodes()
+
+    assert nodes[0].artifact_props["manifest_version"] == "1.8.0"
+    assert nodes[0].artifact_props["manifest_adapter"] == "postgres"
+
+
+def test_glob_stamps_semantic_model_provenance(tmp_path: pathlib.Path) -> None:
+    """Task 3 review item: semantic-model nodes must carry provenance too, not just
+    regular model nodes. Uses a hand-written manifest rather than _write_project,
+    since folding a semantic_model entry into that helper's signature would ripple
+    into Tasks 5/6, which consume _write_project as-is.
+    """
+    project_dir = tmp_path / "project_a"
+    project_dir.mkdir(parents=True)
+    manifest = {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json",
+            "dbt_version": "1.8.0",
+            "adapter_type": "postgres",
+            "project_name": "project_a",
+            "generated_at": "2026-01-01T00:00:00.000000Z",
+            "invocation_id": "invocation-project_a",
+        },
+        "nodes": {},
+        "sources": {},
+        "exposures": {},
+        "metrics": {},
+        "macros": {},
+        "child_map": {},
+        "parent_map": {},
+        "disabled": {},
+        "semantic_models": {
+            "semantic_model.project_a.order_metrics": {
+                "name": "order_metrics",
+                "description": "",
+                "node_relation": {"database": "db", "schema": "sch_a"},
+                "depends_on": {"nodes": []},
+                "entities": [],
+                "dimensions": [],
+                "measures": [{"name": "count", "agg": "count", "description": ""}],
+                "tags": [],
+                "meta": {},
+            }
+        },
+    }
+    (project_dir / "manifest.json").write_text(json.dumps(manifest))
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes = source.load_nodes()
+
+    semantic_model_nodes = [
+        node for node in nodes if node.node_type == "semantic_model"
+    ]
+    assert len(semantic_model_nodes) == 1
+    assert semantic_model_nodes[0].artifact_props["manifest_version"] == "1.8.0"
+    assert semantic_model_nodes[0].artifact_props["manifest_adapter"] == "postgres"
+
+
+def test_glob_missing_sibling_artifacts_warns_and_continues(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A project that never ran `dbt docs generate` has no catalog.json/sources.json.
+    That must not fail the whole multi-project run."""
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes = source.load_nodes()
+
+    assert {node.dbt_name for node in nodes} == {"model.project_a.orders"}
+    assert source.report.manifests_loaded == 1
+    assert source.report.manifests_failed == 0

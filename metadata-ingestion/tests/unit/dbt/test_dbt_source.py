@@ -921,10 +921,16 @@ def test_extract_dbt_entities() -> None:
         target_platform="dummy",
     )
     source = DBTCoreSource(config, ctx)
-    assert all(node.database is not None for node in source.loadManifestAndCatalog()[0])
+    nodes = source.loadManifestAndCatalog(
+        config.manifest_path, config.catalog_path, config.sources_path
+    )[0]
+    assert all(node.database is not None for node in nodes)
     config.include_database_name = False
     source = DBTCoreSource(config, ctx)
-    assert all(node.database is None for node in source.loadManifestAndCatalog()[0])
+    nodes = source.loadManifestAndCatalog(
+        config.manifest_path, config.catalog_path, config.sources_path
+    )[0]
+    assert all(node.database is None for node in nodes)
 
 
 def test_drop_duplicate_sources() -> None:

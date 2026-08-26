@@ -1140,6 +1140,10 @@ class DBTNode:
     # Provenance of the dbt artifacts this node was read from. Per-node rather than
     # per-source because one source run may span multiple dbt projects, each with its
     # own dbt version and adapter.
+    # NOTE: all nodes from the same project share one dict instance (not a per-node
+    # copy, to avoid allocating one dict per node at scale). Nothing mutates it today,
+    # but a future per-node merge must replace the dict rather than mutate it in
+    # place, or it will silently corrupt every sibling node from that project.
     artifact_props: Dict[str, str] = field(default_factory=dict)
 
     @staticmethod
