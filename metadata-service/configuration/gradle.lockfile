@@ -1,8 +1,8 @@
 # This is a Gradle generated file for dependency locking.
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
-ai.djl.huggingface:tokenizers:0.31.1=testRuntimeClasspath
-ai.djl:api:0.31.1=testRuntimeClasspath
+ai.djl.huggingface:tokenizers:0.36.0=testRuntimeClasspath
+ai.djl:api:0.36.0=testRuntimeClasspath
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 aopalliance:aopalliance:1.0=testCompileClasspath,testRuntimeClasspath
 at.yawk.lz4:lz4-java:1.11.1=testRuntimeClasspath
@@ -109,7 +109,7 @@ com.linkedin.pegasus:restli-client:29.74.2=testCompileClasspath,testRuntimeClass
 com.linkedin.pegasus:restli-common:29.74.2=testCompileClasspath,testRuntimeClasspath
 com.linkedin.pegasus:restli-disruptor:29.74.2=testCompileClasspath,testRuntimeClasspath
 com.linkedin.pegasus:restli-server:29.74.2=testRuntimeClasspath
-com.microsoft.onnxruntime:onnxruntime:1.21.0=testRuntimeClasspath
+com.microsoft.onnxruntime:onnxruntime:1.29.0=testRuntimeClasspath
 com.mixpanel:mixpanel-java:1.4.4=testRuntimeClasspath
 com.sun.activation:jakarta.activation:2.0.1=testRuntimeClasspath
 com.sun.activation:javax.activation:1.2.0=testCompileClasspath,testRuntimeClasspath
@@ -308,7 +308,7 @@ joda-time:joda-time:2.12.7=testCompileClasspath,testRuntimeClasspath
 net.bytebuddy:byte-buddy-agent:1.18.11=testCompileClasspath,testRuntimeClasspath
 net.bytebuddy:byte-buddy:1.18.11=testCompileClasspath,testRuntimeClasspath
 net.java.dev.jna:jna:5.13.0=testCompileClasspath
-net.java.dev.jna:jna:5.14.0=testRuntimeClasspath
+net.java.dev.jna:jna:5.17.0=testRuntimeClasspath
 net.minidev:accessors-smart:2.6.0=testCompileClasspath,testRuntimeClasspath
 net.minidev:json-smart:2.6.0=testCompileClasspath,testRuntimeClasspath
 net.openhft:zero-allocation-hashing:0.7=testCompileClasspath,testRuntimeClasspath
