@@ -432,7 +432,9 @@ class APISource(Source, ABC):
 
             return None
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Error extracting response schema: {str(e)}", exc_info=True)
+            # self.report.warning already logs this (WARN level, plus the full
+            # traceback at DEBUG via exc=e) -- a separate logger.warning call
+            # here would just duplicate it.
             self.report.warning(
                 title="Failed to Extract Response Schema",
                 message="Error extracting response schema from OpenAPI endpoint",
@@ -706,9 +708,8 @@ class APISource(Source, ABC):
                     log=False,
                 )
                 return None
-            logger.info(
-                f"Successfully extracted schema from OpenAPI spec for {dataset_name}"
-            )
+            # self.report.info already logs this at INFO level -- a separate
+            # logger.info call here would just duplicate it.
             self.report.info(
                 message="Schema extracted from OpenAPI specification",
                 context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",

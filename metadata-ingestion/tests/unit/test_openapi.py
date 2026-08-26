@@ -1399,7 +1399,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             )
 
     def test_extract_response_schema_handles_exceptions(self):
-        """Test that exceptions in response extraction are caught and logged."""
+        """Test that exceptions in response extraction are caught and reported."""
         endpoint_spec = {
             "responses": {
                 "200": {
@@ -1414,12 +1414,9 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             }
         }
 
-        with (
-            patch(
-                "datahub.ingestion.source.openapi.get_schema_from_response"
-            ) as mock_get_schema,
-            patch("datahub.ingestion.source.openapi.logger") as mock_logger,
-        ):
+        with patch(
+            "datahub.ingestion.source.openapi.get_schema_from_response"
+        ) as mock_get_schema:
             # Make get_schema_from_response raise an exception
             mock_get_schema.side_effect = TypeError("Cannot process schema")
 
@@ -1427,9 +1424,15 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                 endpoint_spec, {}
             )
 
-            # Should return None and log warning
+            # Should return None and report a warning (self.report.warning
+            # already logs it -- no separate logger.warning call).
             self.assertIsNone(result)
-            mock_logger.warning.assert_called()
+            self.assertTrue(
+                any(
+                    getattr(f, "title", None) == "Failed to Extract Response Schema"
+                    for f in self.source.report.warnings
+                )
+            )
 
     def test_extract_request_schema_handles_exceptions(self):
         """Test that exceptions in request extraction are caught and reported."""
