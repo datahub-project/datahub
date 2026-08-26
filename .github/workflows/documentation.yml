@@ -66,6 +66,7 @@ jobs:
       - name: Run tests
         run: |
           ./gradlew --info :metadata-ingestion:testScripts
+          ./gradlew --info :docs-website:testPythonScripts
       - name: Report test results
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
