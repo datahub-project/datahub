@@ -1907,6 +1907,38 @@ public class EntityServiceImplTest {
   }
 
   @Test
+  public void testRemediationDeletionBypassesStructuredPropertyGuard() throws Exception {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "no-run-id-provided");
+
+    // Same construction as processPendingDeletions: oversized-aspect remediation must be able
+    // to delete a poisoned propertyDefinition even while the property is active.
+    OperationContext userContext = newUserContext();
+    OperationContext remediationContext =
+        userContext.toBuilder()
+            .validationContext(
+                userContext.getValidationContext().toBuilder().isRemediationDeletion(true).build())
+            .build(userContext.getSessionActorContext(), false);
+
+    RollbackResult result =
+        service.deleteAspectWithoutMCL(
+            remediationContext,
+            GUARDED_PROPERTY_URN.toString(),
+            STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+            Collections.emptyMap(),
+            false);
+
+    assertNotNull(result);
+    verify(dao)
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(GUARDED_PROPERTY_URN),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
+            anyLong());
+  }
+
+  @Test
   public void testHardDeleteNonexistentStructuredPropertyRemainsNoOp() {
     AspectDao dao = mock(AspectDao.class);
     EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);

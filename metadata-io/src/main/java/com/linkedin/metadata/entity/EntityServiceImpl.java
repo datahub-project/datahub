@@ -99,6 +99,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.common.Attributes;
@@ -3356,6 +3357,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * cleanup). Overrides the interface default so ordinary deletion is distinguished from ingestion
    * rollback: the default delegates to {@link #rollbackWithConditions}, which bypasses the
    * structured-property delete guard in {@link #deleteAspectWithoutMCL}.
+   *
+   * <p>{@code preProcessHooks} is inert: the rollback body it previously flowed into never read it,
+   * so the private overload does not carry it.
    */
   @Override
   public Optional<RollbackResult> deleteAspect(
@@ -3672,7 +3676,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             && (entityWideHardDelete
                 || STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectName))
             && deletePurpose == DeletePurpose.ORDINARY
-            && !opContext.isSystemAuth();
+            && !opContext.isSystemAuth()
+            // Oversized-aspect remediation must be able to remove a poisoned propertyDefinition
+            // regardless of soft-delete state (same exemption as AspectSizePayloadValidator);
+            // its rejection would otherwise be swallowed by processPendingDeletions and the
+            // aspect would stay oversized forever.
+            && !(opContext.getValidationContext() != null
+                && opContext.getValidationContext().isRemediationDeletion());
 
     // Gate the shared DB-delete primitive at the (urn, aspect) conflict unit, off the DB
     // connection,
@@ -3701,10 +3711,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final RollbackResult result;
     try (EntityWriteLock.LockHandle writeGate = acquireWriteGate(opContext, gateKeys)) {
       // Deleting a nonexistent target aspect is a no-op today and must stay one (idempotent
-      // cleanup), so the guard only fires when the aspect being deleted actually exists.
+      // cleanup), so the guard only fires when the aspect being deleted actually exists. Both
+      // precondition reads are pinned to PRIMARY: the documented two-step (soft-delete, then
+      // hard delete) is read-your-writes, and a lagging read replica could miss the
+      // just-committed status row and wrongly reject the hard delete. (The reverse staleness —
+      // missing the target aspect and skipping the guard — would be benign: the delete
+      // transaction's own primary read would find nothing and no-op.)
+      final OperationContext primaryReadOpContext =
+          guardStructuredPropertyDelete
+              ? opContext.withReadPreference(ReadPreference.PRIMARY)
+              : opContext;
       if (guardStructuredPropertyDelete
-          && !isSoftDeleted(opContext, urn)
-          && latestAspectExists(opContext, urn, aspectName)) {
+          && !isSoftDeleted(primaryReadOpContext, urn)
+          && latestAspectExists(primaryReadOpContext, urn, aspectName)) {
         throw new IllegalArgumentException(
             String.format(
                 "Hard delete rejected for structured property qualifiedName '%s'. Hard deletion "
