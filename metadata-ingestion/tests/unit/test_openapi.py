@@ -20,6 +20,7 @@ from datahub.ingestion.source.openapi_parser import (
     extract_fields,
     flatten2list,
     get_endpoints,
+    get_schema_from_response,
     get_tok,
     get_url_basepath,
     guessing_url_name,
@@ -768,25 +769,15 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             }
         }
 
-        with patch(
-            "datahub.ingestion.source.openapi.get_schema_from_response"
-        ) as mock_get_schema:
-            expected_schema = {
-                "type": "object",
-                "properties": {
-                    "id": {"type": "integer", "format": "int64"},
-                    "name": {"type": "string"},
-                },
-            }
-            mock_get_schema.return_value = expected_schema
+        result = self.source.extract_response_schema_from_endpoint(
+            endpoint_spec, sw_dict
+        )
 
-            result = self.source.extract_response_schema_from_endpoint(
-                endpoint_spec, sw_dict
-            )
-
-            self.assertIsNotNone(result)
-            mock_get_schema.assert_called_once()
-            self.assertEqual(result, expected_schema)
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result["type"], "object")
+        self.assertIn("id", result["properties"])
+        self.assertIn("name", result["properties"])
 
     def test_extract_response_schema_from_endpoint_v3(self):
         """Test extracting schema from OpenAPI v3 response."""
@@ -818,25 +809,15 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             }
         }
 
-        with patch(
-            "datahub.ingestion.source.openapi.get_schema_from_response"
-        ) as mock_get_schema:
-            expected_schema = {
-                "type": "object",
-                "properties": {
-                    "id": {"type": "integer", "format": "int64"},
-                    "name": {"type": "string"},
-                },
-            }
-            mock_get_schema.return_value = expected_schema
+        result = self.source.extract_response_schema_from_endpoint(
+            endpoint_spec, sw_dict
+        )
 
-            result = self.source.extract_response_schema_from_endpoint(
-                endpoint_spec, sw_dict
-            )
-
-            self.assertIsNotNone(result)
-            mock_get_schema.assert_called_once()
-            self.assertEqual(result, expected_schema)
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result["type"], "object")
+        self.assertIn("id", result["properties"])
+        self.assertIn("name", result["properties"])
 
     def test_extract_response_schema_no_200_response(self):
         """Test that None is returned when no 200 response exists."""
@@ -925,25 +906,15 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             }
         }
 
-        with patch(
-            "datahub.ingestion.source.openapi.get_schema_from_response"
-        ) as mock_get_schema:
-            expected_schema = {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "tag": {"type": "string"},
-                },
-            }
-            mock_get_schema.return_value = expected_schema
+        result = self.source.extract_request_schema_from_endpoint(
+            endpoint_spec, sw_dict
+        )
 
-            result = self.source.extract_request_schema_from_endpoint(
-                endpoint_spec, sw_dict
-            )
-
-            self.assertIsNotNone(result)
-            mock_get_schema.assert_called_once()
-            self.assertEqual(result, expected_schema)
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result["type"], "object")
+        self.assertIn("name", result["properties"])
+        self.assertIn("tag", result["properties"])
 
     def test_extract_request_schema_from_parameters(self):
         """Test extracting schema from parameters (both v2 and v3)."""
@@ -1897,9 +1868,13 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             "datahub.ingestion.source.openapi_parser", level="WARNING"
         ) as cm:
             resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
-        self.assertEqual(resolved.get("$ref"), "#/components/schemas/Missing")
+        # Normalize strips leftover $refs so jsonref never sees them.
+        self.assertNotIn("$ref", resolved)
         self.assertTrue(
             any("Unable to resolve schema $ref" in msg for msg in cm.output)
+        )
+        self.assertTrue(
+            any("removing to avoid jsonref failure" in msg for msg in cm.output)
         )
 
     def test_merge_allof_numeric_exclusive_bounds(self):
@@ -3192,3 +3167,111 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                 tok_url="/auth",
                 method="put",
             )
+
+    def test_get_schema_from_response_untyped_properties(self):
+        schema = {"properties": {"id": {"type": "string"}}}
+        resolved = get_schema_from_response(schema, _EMPTY_OPENAPI_SW)
+        self.assertIsNotNone(resolved)
+        assert resolved is not None
+        self.assertIn("id", resolved["properties"])
+
+    def test_get_schema_from_response_top_level_oneof(self):
+        schema = {
+            "oneOf": [
+                {"type": "object", "properties": {"a": {"type": "string"}}},
+                {"type": "object", "properties": {"b": {"type": "integer"}}},
+            ]
+        }
+        resolved = get_schema_from_response(schema, _EMPTY_OPENAPI_SW)
+        self.assertIsNotNone(resolved)
+        assert resolved is not None
+        self.assertEqual(len(resolved["oneOf"]), 2)
+        self.assertIn("a", resolved["oneOf"][0]["properties"])
+
+    def test_get_schema_from_response_top_level_allof(self):
+        schema = {
+            "allOf": [
+                {"properties": {"id": {"type": "string"}}},
+                {"properties": {"name": {"type": "string"}}},
+            ]
+        }
+        resolved = get_schema_from_response(schema, _EMPTY_OPENAPI_SW)
+        self.assertIsNotNone(resolved)
+        assert resolved is not None
+        self.assertIn("id", resolved["properties"])
+        self.assertIn("name", resolved["properties"])
+
+    def test_merge_allof_preserves_oneof_and_discriminator(self):
+        schema = {
+            "allOf": [
+                {"properties": {"id": {"type": "string"}}},
+                {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "properties": {"kind": {"const": "a"}},
+                        },
+                        {
+                            "type": "object",
+                            "properties": {"kind": {"const": "b"}},
+                        },
+                    ],
+                    "discriminator": {"propertyName": "kind"},
+                    "nullable": True,
+                    "deprecated": True,
+                },
+            ]
+        }
+        merged = merge_allof_schemas(schema, _EMPTY_OPENAPI_SW, max_depth=10)
+        self.assertIn("id", merged["properties"])
+        self.assertEqual(len(merged["oneOf"]), 2)
+        self.assertEqual(merged["discriminator"]["propertyName"], "kind")
+        self.assertTrue(merged["nullable"])
+        self.assertTrue(merged["deprecated"])
+
+    def test_merge_allof_decrements_depth_on_nested_items(self):
+        # Deeply nested items allOf must terminate via depth budget, not RecursionError.
+        schema: Dict[str, Any] = {"type": "array", "items": {"allOf": []}}
+        cursor = schema["items"]
+        for _ in range(30):
+            nxt = {"type": "array", "items": {"allOf": []}}
+            cursor["allOf"] = [
+                {"type": "object", "properties": {"x": {"type": "string"}}},
+                nxt,
+            ]
+            cursor = nxt["items"]
+        cursor["allOf"] = [
+            {"type": "object", "properties": {"leaf": {"type": "string"}}}
+        ]
+
+        resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW, max_depth=5)
+        self.assertIsNotNone(resolved)
+        self.assertNotIn("$ref", json.dumps(resolved))
+
+    def test_max_depth_leaves_no_raw_ref_for_jsonref(self):
+        # Circular $ref that hits the depth cap must not hand a raw $ref to jsonref.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Node": {
+                        "type": "object",
+                        "properties": {
+                            "child": {"$ref": "#/components/schemas/Node"},
+                        },
+                    }
+                }
+            },
+        }
+        resolved = resolve_schema_references(
+            {"$ref": "#/components/schemas/Node"}, sw_dict, max_depth=3
+        )
+        self.assertFalse(
+            '"$ref"' in json.dumps(resolved),
+            resolved,
+        )
+        # Must be consumable by get_schema_metadata without crashing.
+        metadata = get_schema_metadata(
+            platform="openapi", name="circular", json_schema=resolved
+        )
+        self.assertIsNotNone(metadata)

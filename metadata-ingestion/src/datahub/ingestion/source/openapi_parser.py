@@ -646,21 +646,30 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
     if "allOf" not in schema:
         return schema
 
+    if max_depth <= 0:
+        logger.warning(
+            "Maximum recursion depth exceeded while merging allOf schemas. "
+            "Leaving members unmerged."
+        )
+        # Drop allOf so callers do not re-enter merge at the same depth forever.
+        return {k: v for k, v in schema.items() if k != "allOf"}
+
     allof_schemas = schema.get("allOf", [])
     if not allof_schemas:
         return schema
 
     # Start with a base schema (copy everything except allOf)
     merged_schema = {k: v for k, v in schema.items() if k != "allOf"}
+    child_depth = max_depth - 1
 
     # Merge each schema in allOf
     for allof_schema in allof_schemas:
         resolved_allof = _resolve_schema_refs(
-            allof_schema, sw_dict, max_depth=max_depth
+            allof_schema, sw_dict, max_depth=child_depth
         )
 
         # Merge properties — same-named fields combine under allOf (like map keywords).
-        _merge_allof_properties(merged_schema, resolved_allof, sw_dict, max_depth)
+        _merge_allof_properties(merged_schema, resolved_allof, sw_dict, child_depth)
 
         # Merge required fields (union of all required lists)
         if "required" in resolved_allof:
@@ -673,17 +682,9 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
                 dict.fromkeys(existing_required + new_required)
             )
 
-        # Scalar keywords are first-wins: JSON Schema allOf cannot collapse
-        # conflicting type/format/enum into one value, so we keep the earliest.
-        for key in [
-            "type",
-            "format",
-            "description",
-            "title",
-            "enum",
-            "default",
-            "example",
-        ]:
+        # First-wins for keywords that cannot be meaningfully intersected under allOf.
+        # Includes oneOf/anyOf/discriminator so discriminated-union members survive.
+        for key in _ALLOF_FIRST_WINS_KEYWORDS:
             if key in resolved_allof and key not in merged_schema:
                 merged_schema[key] = resolved_allof[key]
 
@@ -700,16 +701,37 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
                 merged_schema["items"] = merge_allof_schemas(
                     {"allOf": [merged_schema["items"], resolved_allof["items"]]},
                     sw_dict,
-                    max_depth=max_depth,
+                    max_depth=child_depth,
                 )
 
-        _merge_allof_map_keywords(merged_schema, resolved_allof, sw_dict, max_depth)
+        _merge_allof_map_keywords(merged_schema, resolved_allof, sw_dict, child_depth)
 
     # Recursively handle any nested allOf in the merged result
     if "allOf" in merged_schema:
-        merged_schema = merge_allof_schemas(merged_schema, sw_dict, max_depth=max_depth)
+        merged_schema = merge_allof_schemas(
+            merged_schema, sw_dict, max_depth=child_depth
+        )
 
     return merged_schema
+
+
+# Scalar / composition keywords that cannot collapse under allOf — keep the first.
+_ALLOF_FIRST_WINS_KEYWORDS = (
+    "type",
+    "format",
+    "description",
+    "title",
+    "enum",
+    "default",
+    "example",
+    "oneOf",
+    "anyOf",
+    "discriminator",
+    "nullable",
+    "deprecated",
+    "readOnly",
+    "writeOnly",
+)
 
 
 def _merge_allof_properties(
@@ -1054,7 +1076,7 @@ def _promote_pattern_properties_to_additional(
 
 
 def _normalize_map_schemas(schema: object) -> None:
-    """Post-order: promote patternProperties only after the full tree is merged."""
+    """Post-order: strip leftover $refs, then promote patternProperties."""
     if not isinstance(schema, dict):
         return
     properties = schema.get("properties")
@@ -1078,7 +1100,25 @@ def _normalize_map_schemas(schema: object) -> None:
         if isinstance(members, list):
             for member in members:
                 _normalize_map_schemas(member)
+    # Depth-limited resolution can leave a raw $ref that crashes jsonref later.
+    if "$ref" in schema:
+        ref = schema.pop("$ref")
+        logger.warning(
+            "Unresolved schema $ref %r remains after resolution; "
+            "removing to avoid jsonref failure",
+            ref,
+        )
     _promote_pattern_properties_to_additional(schema)
+
+
+def _schema_contains_ref(schema: object) -> bool:
+    if isinstance(schema, dict):
+        if "$ref" in schema:
+            return True
+        return any(_schema_contains_ref(v) for v in schema.values())
+    if isinstance(schema, list):
+        return any(_schema_contains_ref(v) for v in schema)
+    return False
 
 
 def _resolve_schema_refs(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
@@ -1201,7 +1241,28 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
     resolved_schema = _resolve_schema_refs(schema, sw_dict, max_depth=max_depth)
     if isinstance(resolved_schema, dict):
         _normalize_map_schemas(resolved_schema)
+        # Postcondition: jsonref must never see a leftover $ref after normalize.
+        assert not _schema_contains_ref(resolved_schema), (
+            "Unresolved $ref survived schema normalization"
+        )
     return resolved_schema
+
+
+# Keywords that imply an object (or composition) schema even without type: object.
+_OBJECT_SHAPE_KEYS = (
+    "properties",
+    "patternProperties",
+    "additionalProperties",
+    "allOf",
+    "oneOf",
+    "anyOf",
+)
+
+
+def _looks_like_object_or_composition_schema(schema: Dict) -> bool:
+    return schema.get("type") == "object" or any(
+        key in schema for key in _OBJECT_SHAPE_KEYS
+    )
 
 
 def extract_schema_from_response_schema(
@@ -1244,14 +1305,13 @@ def get_schema_from_response(
         # Resolve all references in the schema
         return resolve_schema_references(resolved_items_schema, sw_dict, max_depth)
 
-    # Handle direct object schemas
-    elif response_schema.get("type") == "object":
-        return resolve_schema_references(response_schema, sw_dict, max_depth)
-
-    # Handle references
-    elif "$ref" in response_schema:
+    # Handle references (before object-shape fallthrough — $ref may carry siblings)
+    if "$ref" in response_schema:
         resolved_schema = extract_schema_from_response_schema(response_schema, sw_dict)
-        # Resolve all references in the schema
         return resolve_schema_references(resolved_schema, sw_dict, max_depth)
+
+    # type is optional in JSON Schema — bare properties / allOf / oneOf are valid objects.
+    if _looks_like_object_or_composition_schema(response_schema):
+        return resolve_schema_references(response_schema, sw_dict, max_depth)
 
     return None
