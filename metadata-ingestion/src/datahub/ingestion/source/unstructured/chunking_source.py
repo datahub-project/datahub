@@ -436,7 +436,12 @@ class DocumentChunkingSource(Source):
                         "custom_properties": custom_props,
                     }
                     self.report.report_document_fetched()
-                    yield from self._process_single_document(doc)
+                    processed_ok = yield from self._process_single_document(doc)
+                    if processed_ok is False:
+                        # The document produced no semanticContent; committing the
+                        # offset would acknowledge its event and it would never be
+                        # retried.
+                        event_consumer.suppress_offset_commits = True
 
                 except Exception as e:
                     error_msg = f"Failed to process MCL event for {document_urn}: {e}"
@@ -739,8 +744,10 @@ class DocumentChunkingSource(Source):
             logger.debug(f"Extracted {len(elements)} elements from {doc['urn']}")
             return elements
         except json.JSONDecodeError as e:
+            # Raise instead of returning [] — an empty result reads as a legitimately
+            # empty document and the caller would record its hash as processed.
             logger.error(f"Failed to parse elements JSON for {doc['urn']}: {e}")
-            return []
+            raise
 
     def _chunk_elements(self, elements: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Chunk elements using Unstructured's chunking strategies.

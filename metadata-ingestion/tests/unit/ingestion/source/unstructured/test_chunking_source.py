@@ -1201,3 +1201,27 @@ def test_batch_success_recorded_in_state(pipeline_context, chunking_config):
         list(source._process_batch())
 
     assert doc["urn"] in source.document_state
+
+
+def test_malformed_elements_json_not_recorded_in_state(
+    pipeline_context, chunking_config
+):
+    """Malformed unstructured_elements JSON is a failure, not an empty document —
+    the hash must not be recorded."""
+    with patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph"):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=True, graph=None
+        )
+    source.config.incremental_mode = True
+
+    doc = {
+        "urn": "urn:li:document:(test,doc1,PROD)",
+        "custom_properties": {"unstructured_elements": "{not valid json"},
+    }
+    with (
+        patch.object(source, "_fetch_documents", return_value=[doc]),
+        patch.object(source, "_save_state"),
+    ):
+        list(source._process_batch())
+
+    assert doc["urn"] not in source.document_state
