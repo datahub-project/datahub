@@ -26,10 +26,6 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
     catalog_topics_with_business_metadata: int = 0
     catalog_mirror_lineage_edges: int = 0
 
-    consumer_groups_scanned: int = 0
-    consumer_groups_with_lineage: int = 0
-    consumer_group_lineage_edges: int = 0
-
     def report_topic_scanned(self) -> None:
         self.topics_scanned += 1
 

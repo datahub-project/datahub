@@ -92,10 +92,6 @@ from datahub.ingestion.source.confluent.models import (
     non_colliding_business_metadata,
 )
 from datahub.ingestion.source.kafka.confluent_catalog import KafkaTopicCatalog
-from datahub.ingestion.source.kafka.consumer_group_lineage import (
-    ConsumerGroupLineageExtractor,
-    build_consumer_group_lineage_workunits,
-)
 from datahub.ingestion.source.kafka.kafka_config import (
     KafkaConfluentCatalogConfig,
     KafkaSourceConfig,
@@ -324,8 +320,9 @@ class KafkaConnectionTest:
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Optionally emits consumer-group-to-topic lineage via `consumer_group_lineage.enabled`. "
-    "For source/sink lineage to external systems, use the kafka-connect source.",
+    "Optionally emits topic-to-topic lineage from Stream Catalog cluster links / mirror "
+    "topics via `confluent_catalog.include_lineage`. For source/sink lineage to external "
+    "systems, use the kafka-connect source.",
     supported=True,
 )
 @capability(
@@ -558,8 +555,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         if collection_tasks:
             yield from self.generate_profiles_in_parallel(collection_tasks)
 
-        yield from self._emit_consumer_group_lineage()
-
         if self.source_config.ingest_schemas_as_entities:
             # Get all subjects from schema registry and ingest them as SCHEMA DatasetSubTypes
             for subject in self.schema_registry_client.get_subjects():
@@ -577,29 +572,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         exc=e,
                         log=False,
                     )
-
-    def _emit_consumer_group_lineage(self) -> Iterable[MetadataWorkUnit]:
-        if not self.source_config.consumer_group_lineage.enabled:
-            return
-        if not hasattr(self, "admin_client"):
-            # init_kafka_admin_client already warned when the admin client could not be built.
-            return
-
-        extractor = ConsumerGroupLineageExtractor(
-            admin_client=self.admin_client,
-            config=self.source_config.consumer_group_lineage,
-            report=self.report,
-            timeout_seconds=self.source_config.connection.client_timeout_seconds,
-        )
-        groups = extractor.extract()
-        yield from build_consumer_group_lineage_workunits(
-            groups=groups,
-            platform=self.platform,
-            platform_instance=self.source_config.platform_instance,
-            env=self.source_config.env,
-            report=self.report,
-            topic_allowed=self.source_config.topic_patterns.allowed,
-        )
 
     def _locked_warning(self, message: LiteralString, context: str) -> None:
         # report.warning is not thread-safe; serialize the profiling worker calls.

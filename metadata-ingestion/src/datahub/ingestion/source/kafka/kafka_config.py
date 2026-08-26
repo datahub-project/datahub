@@ -69,21 +69,6 @@ class ProfilerConfig(GEProfilingConfig):
     )
 
 
-class KafkaConsumerGroupLineageConfig(ConfigModel):
-    enabled: bool = Field(
-        default=False,
-        description="Emit lineage from Kafka consumer groups to the topics they consume. "
-        "Each consumer group is modeled as a DataJob whose input datasets are the topics it "
-        "reads, using the same broker connection already configured under `connection`. Works "
-        "for any Kafka (including Confluent Cloud) and requires no additional credentials.",
-    )
-    consumer_group_patterns: AllowDenyPattern = Field(
-        default_factory=lambda: AllowDenyPattern(allow=[".*"], deny=["^_.*"]),
-        description="Regex patterns for consumer group ids to include. Internal groups "
-        "(those starting with an underscore, e.g. `_confluent-*`) are excluded by default.",
-    )
-
-
 class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
     cluster_id: Optional[str] = Field(
         default=None,
@@ -186,11 +171,6 @@ class KafkaSourceConfig(
         default_factory=KafkaConfluentCatalogConfig,
         description="Read topic tags and business metadata from the Confluent Cloud Stream Catalog. "
         "Connection details default to the Schema Registry ones already set under `connection`.",
-    )
-    consumer_group_lineage: KafkaConsumerGroupLineageConfig = Field(
-        default_factory=KafkaConsumerGroupLineageConfig,
-        description="Emit lineage from consumer groups to the topics they consume, discovered "
-        "via the Kafka Admin API over the existing broker connection.",
     )
 
     @model_validator(mode="after")
