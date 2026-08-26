@@ -967,6 +967,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.entityConsistency.dryRun",
           "systemUpdate.entityConsistency.entityTypes",
           "systemUpdate.entityConsistency.gracePeriodSeconds",
+          "systemUpdate.entityConsistency.progressLogIntervalMs",
+          "systemUpdate.entityConsistency.progressWarmupMs",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.aspectFilters",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.entityTypes",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.gePitEpochMs",
