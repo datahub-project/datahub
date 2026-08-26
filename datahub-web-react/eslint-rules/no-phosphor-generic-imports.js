@@ -1,25 +1,30 @@
 /**
  * ESLint rule: no-phosphor-generic-imports
  *
- * Enforces that Phosphor icons must be imported from specific icon paths (not generic folders):
+ * Enforces that Phosphor icons must be imported from specific icon paths (allow-list pattern):
  * - ❌ import { Icon } from '@phosphor-icons/react'
  * - ❌ import { Icon } from '@phosphor-icons/react/dist'
  * - ❌ import { Icon } from '@phosphor-icons/react/dist/csr'
  * - ❌ import { Icon } from '@phosphor-icons/react/dist/ssr'
+ * - ❌ import { Icon } from '@phosphor-icons/react/dist/lib'
  * - ✅ import { Icon } from '@phosphor-icons/react/dist/csr/IconName'
  * - ✅ import { Icon } from '@phosphor-icons/react/dist/ssr/IconName'
+ * - ✅ import { Icon } from '@phosphor-icons/react/dist/lib/types' (type definitions)
  * - ✅ import type { Icon } from '@phosphor-icons/react'
  */
 
-function isPhosphorSource(value) {
-    return typeof value === 'string' && value.startsWith('@phosphor-icons/react');
-}
+const BLOCK_MESSAGE =
+    'Import Phosphor icons from individual icon paths: @phosphor-icons/react/dist/csr/IconName or @phosphor-icons/react/dist/ssr/IconName.';
+
+// Allow only specific icon imports (csr/ssr/IconName), excluding index and other special files
+const ALLOWED_ICON_PATTERN = /^@phosphor-icons\/react\/dist\/(csr|ssr)\/(?!index)\w+$/;
 
 function checkPhosphorImport(node, context) {
-    if (!node || typeof node.value !== 'string') return;
-    if (!isPhosphorSource(node.value)) return;
+    if (!node?.value || typeof node.value !== 'string') return;
 
     const source = node.value;
+    if (!source.startsWith('@phosphor-icons/react')) return;
+
     const parent = node.parent || {};
 
     // Allow: import type { Icon } from '@phosphor-icons/react'
@@ -27,26 +32,18 @@ function checkPhosphorImport(node, context) {
         return;
     }
 
-    const blockMessage =
-        'Import Phosphor icons from individual CSR paths: @phosphor-icons/react/dist/csr/IconName.';
+    // Allow: type imports from /dist/lib/types (type definitions)
+    if (source.includes('/dist/lib/types')) {
+        return;
+    }
 
-    // Block: '@phosphor-icons/react' or '@phosphor-icons/react/' (root)
-    if (source === '@phosphor-icons/react' || source === '@phosphor-icons/react/') {
-        context.report({ node, message: blockMessage });
+    // Allow: specific icon imports matching @phosphor-icons/react/dist/(csr|ssr)/IconName
+    if (ALLOWED_ICON_PATTERN.test(source)) {
+        return;
     }
-    // Block: '@phosphor-icons/react/dist' or '@phosphor-icons/react/dist/' (generic dist)
-    else if (source === '@phosphor-icons/react/dist' || source === '@phosphor-icons/react/dist/') {
-        context.report({ node, message: blockMessage });
-    }
-    // Block: '@phosphor-icons/react/dist/ssr' or '@phosphor-icons/react/dist/ssr/' (generic SSR folder)
-    else if (source === '@phosphor-icons/react/dist/ssr' || source === '@phosphor-icons/react/dist/ssr/') {
-        context.report({ node, message: blockMessage });
-    }
-    // Block: '@phosphor-icons/react/dist/csr' or '@phosphor-icons/react/dist/csr/' (generic CSR folder)
-    else if (source === '@phosphor-icons/react/dist/csr' || source === '@phosphor-icons/react/dist/csr/') {
-        context.report({ node, message: blockMessage });
-    }
-    // Allow: '@phosphor-icons/react/dist/csr/IconName' and '@phosphor-icons/react/dist/ssr/IconName'
+
+    // Block everything else
+    context.report({ node, message: BLOCK_MESSAGE });
 }
 
 module.exports = {
