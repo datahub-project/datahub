@@ -1,20 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { filterResultsForMove } from '@app/entityV2/shared/EntityDropdown/dataProductParentSelectUtils';
 import useParentSelector from '@app/entityV2/shared/EntityDropdown/useParentSelector';
+import { DataProductLink } from '@app/sharedV2/tags/DataProductLink';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { SelectOption, SimpleSelect, Text } from '@src/alchemy-components';
 
 import { DataProduct, EntityType } from '@types';
-
-/** Exclude self and any result that already lists self as an ancestor. */
-export function filterResultsForMove(entity: DataProduct, entityUrn: string) {
-    return (
-        entity.urn !== entityUrn &&
-        entity.type === EntityType.DataProduct &&
-        !entity.parentDataProducts?.some((ancestor) => ancestor.urn === entityUrn)
-    );
-}
 
 type Props = {
     selectedParentUrn: string;
@@ -58,6 +51,28 @@ export default function DataProductParentSelect({
     const filteredResults = excludeUrn
         ? searchResults.filter((r) => filterResultsForMove(r as DataProduct, excludeUrn))
         : searchResults;
+
+    const entitiesByUrn = useMemo(() => {
+        const map = new Map<string, DataProduct>();
+        filteredResults.forEach((entity) => {
+            if (entity.type === EntityType.DataProduct) {
+                map.set(entity.urn, entity as DataProduct);
+            }
+        });
+        return map;
+    }, [filteredResults]);
+
+    const renderDataProductOption = useCallback(
+        (option: SelectOption) => {
+            const dataProduct = entitiesByUrn.get(option.value);
+            if (!dataProduct) {
+                return option.label;
+            }
+
+            return <DataProductLink dataProduct={dataProduct} readOnly fontSize={14} />;
+        },
+        [entitiesByUrn],
+    );
 
     const searchOptions: SelectOption[] = filteredResults.map((entity) => ({
         value: entity.urn,
@@ -107,6 +122,9 @@ export default function DataProductParentSelect({
             width="full"
             dataTestId="parent-data-product-select"
             emptyState={<Text size="sm">{t('dataProductSelect.notFound')}</Text>}
+            renderCustomOptionText={renderDataProductOption}
+            renderCustomSelectedValue={renderDataProductOption}
+            selectLabelProps={{ variant: 'custom' }}
         />
     );
 }
