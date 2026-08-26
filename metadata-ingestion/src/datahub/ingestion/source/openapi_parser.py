@@ -501,7 +501,7 @@ def get_tok(
 
 def set_metadata(
     dataset_name: str,
-    fields: List,
+    fields: List[str],
     platform: str = "api",
     original_data: Optional[Dict] = None,
 ) -> SchemaMetadata:
@@ -608,19 +608,19 @@ def set_metadata(
     return schema_metadata
 
 
-def merge_allof_schemas(
-    schema: Dict, sw_dict: Dict, resolving_refs: bool = False, max_depth: int = 10
-) -> Dict:
+def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
     """
     Merge allOf schemas into a single schema object.
 
     According to JSON Schema, allOf means all schemas must be valid, which means
     we should merge their properties, required fields, and other attributes.
 
+    Each allOf member is fully resolved via resolve_schema_references before merge
+    so nested $refs (including those inside composed targets) cannot survive.
+
     Args:
         schema: Schema dictionary that may contain allOf
         sw_dict: Complete OpenAPI specification for resolving references
-        resolving_refs: Flag to prevent infinite recursion when called from resolve_schema_references
         max_depth: Maximum recursion depth for resolving schema references (default: 10)
 
     Returns:
@@ -642,15 +642,9 @@ def merge_allof_schemas(
 
     # Merge each schema in allOf
     for allof_schema in allof_schemas:
-        # Resolve any references in the allOf entry first
-        # Use resolving_refs flag to prevent infinite recursion
-        if resolving_refs:
-            # If we're already resolving refs, just resolve $ref directly
-            resolved_allof = _resolve_ref_directly(allof_schema, sw_dict)
-        else:
-            resolved_allof = resolve_schema_references(
-                allof_schema, sw_dict, max_depth=max_depth
-            )
+        resolved_allof = resolve_schema_references(
+            allof_schema, sw_dict, max_depth=max_depth
+        )
 
         # Merge properties
         if "properties" in resolved_allof:
@@ -696,18 +690,14 @@ def merge_allof_schemas(
                 merged_schema["items"] = merge_allof_schemas(
                     {"allOf": [merged_schema["items"], resolved_allof["items"]]},
                     sw_dict,
-                    resolving_refs=True,
                     max_depth=max_depth,
                 )
 
         _merge_allof_map_keywords(merged_schema, resolved_allof, sw_dict, max_depth)
 
     # Recursively handle any nested allOf in the merged result
-    # But don't call resolve_schema_references again to avoid recursion
     if "allOf" in merged_schema:
-        merged_schema = merge_allof_schemas(
-            merged_schema, sw_dict, resolving_refs=True, max_depth=max_depth
-        )
+        merged_schema = merge_allof_schemas(merged_schema, sw_dict, max_depth=max_depth)
 
     return merged_schema
 
@@ -734,7 +724,6 @@ def _merge_allof_map_keywords(
                     ]
                 },
                 sw_dict,
-                resolving_refs=True,
                 max_depth=max_depth,
             )
 
@@ -932,8 +921,8 @@ def _combine_under_allof(
     existing: Dict[str, Any], addition: Dict[str, Any]
 ) -> Dict[str, Any]:
     # Flatten a pure allOf wrapper from an earlier merge before appending, so a 3rd+
-    # contributor is a sibling not a nested member — merge_allof_schemas(resolving_refs)
-    # does not expand nested member allOf and would drop the earlier schemas.
+    # contributor is a sibling not a nested member — merge_allof_schemas does not
+    # expand nested member allOf and would drop the earlier schemas.
     members: List[Dict] = []
     for part in (existing, addition):
         if (
@@ -968,22 +957,6 @@ def _lookup_local_ref_target(
         return missing
     target = schemas_map.get(ref_path.split("/")[-1])
     return target if isinstance(target, dict) else missing
-
-
-def _resolve_ref_directly(schema: Dict, sw_dict: Dict) -> Dict:
-    """
-    Resolve a direct $ref reference without full schema resolution.
-    Used internally to avoid infinite recursion.
-    """
-    if not isinstance(schema, dict):
-        return schema
-
-    if "$ref" in schema:
-        referenced_schema = _lookup_local_ref_target(schema["$ref"], sw_dict)
-        if referenced_schema:
-            return referenced_schema.copy()
-
-    return schema
 
 
 def _resolve_pattern_properties(
@@ -1075,23 +1048,20 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
     # keywords alongside $ref — returning the target alone would drop them.
     if "$ref" in resolved_schema:
         ref_path = resolved_schema["$ref"]
+        # missing=None so a found empty {} target is distinct from "not found".
         referenced_schema = _lookup_local_ref_target(ref_path, sw_dict)
 
-        if referenced_schema:
+        if referenced_schema is not None:
             resolved_referenced = resolve_schema_references(
                 referenced_schema, sw_dict, max_depth=max_depth - 1
             )
             siblings = {k: v for k, v in resolved_schema.items() if k != "$ref"}
             if not siblings:
                 return resolved_referenced
-            # merge_allof_schemas(resolving_refs=True) only expands top-level $ref;
-            # resolve nested refs under sibling properties/items/additionalProperties
-            # before combining so they cannot survive into strict schema conversion.
-            resolved_siblings = resolve_schema_references(
-                siblings, sw_dict, max_depth=max_depth - 1
-            )
+            # Sibling keywords (incl. nested $refs / allOf) are resolved when
+            # merge_allof_schemas fully expands each allOf member.
             return resolve_schema_references(
-                _combine_under_allof(resolved_referenced, resolved_siblings),
+                _combine_under_allof(resolved_referenced, siblings),
                 sw_dict,
                 max_depth=max_depth - 1,
             )
@@ -1129,7 +1099,7 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
     # Handle allOf by merging schemas (before treating as union)
     if "allOf" in resolved_schema:
         resolved_schema = merge_allof_schemas(
-            resolved_schema, sw_dict, resolving_refs=True, max_depth=max_depth
+            resolved_schema, sw_dict, max_depth=max_depth
         )
 
     # After allOf so keywords contributed by members are resolved too.

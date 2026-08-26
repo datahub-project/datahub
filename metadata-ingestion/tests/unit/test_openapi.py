@@ -3,8 +3,9 @@ import unittest
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
+import requests
 import yaml
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
@@ -1788,7 +1789,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             ]
         }
 
-        resolved = merge_allof_schemas(schema, sw_dict, resolving_refs=True)
+        resolved = merge_allof_schemas(schema, sw_dict)
 
         self.assertEqual(resolved.get("minimum"), 10)
         self.assertIs(resolved.get("exclusiveMinimum"), False)
@@ -1811,7 +1812,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                 ]
             },
         ):
-            resolved = merge_allof_schemas(schema, sw_dict, resolving_refs=True)
+            resolved = merge_allof_schemas(schema, sw_dict)
             self.assertEqual(resolved.get("minimum"), 10)
             self.assertIs(resolved.get("exclusiveMinimum"), False)
 
@@ -1824,7 +1825,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             "allOf": [{"minLength": 5}],
         }
 
-        resolved = merge_allof_schemas(schema, sw_dict, resolving_refs=True)
+        resolved = merge_allof_schemas(schema, sw_dict)
 
         self.assertEqual(resolved.get("minLength"), 5)
         self.assertIsInstance(resolved.get("minLength"), int)
@@ -1837,7 +1838,7 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             "allOf": [{"patternProperties": {"^y": {"type": "integer"}}}],
         }
 
-        resolved = merge_allof_schemas(schema, {}, resolving_refs=True)
+        resolved = merge_allof_schemas(schema, {})
 
         self.assertIn("^y", resolved["patternProperties"])
         self.assertEqual(shared, {"^x": {"type": "string"}})
@@ -2452,6 +2453,121 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertTrue(any(".id" in path for path in field_paths))
         self.assertTrue(any(".name" in path for path in field_paths))
 
+    def test_plain_allof_refs_resolve_nested_component_refs(self):
+        # Standard OpenAPI composition: allOf: [{$ref: A}, {$ref: B}] where B
+        # itself nests a $ref must fully expand (not leave B's nested pointer).
+        sw_dict: Dict[str, Any] = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "A": {
+                        "type": "object",
+                        "properties": {"a1": {"type": "string"}},
+                    },
+                    "B": {
+                        "type": "object",
+                        "properties": {
+                            "b1": {"$ref": "#/components/schemas/C"},
+                        },
+                    },
+                    "C": {
+                        "type": "object",
+                        "properties": {"c1": {"type": "integer"}},
+                    },
+                }
+            },
+        }
+        schema = {
+            "allOf": [
+                {"$ref": "#/components/schemas/A"},
+                {"$ref": "#/components/schemas/B"},
+            ]
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertIn("a1", resolved["properties"])
+        self.assertIn("c1", resolved["properties"]["b1"]["properties"])
+
+        metadata = self.source.create_schema_metadata_from_schema(
+            "allof-compose", resolved
+        )
+        self.assertIsNotNone(metadata)
+
+    def test_ref_sibling_nested_allof_refs_resolved(self):
+        # $ref + sibling property whose value is allOf: [{$ref}, {$ref}] with a
+        # further nested $ref must fully resolve (same shallow-merge root cause).
+        sw_dict: Dict[str, Any] = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "Base": {
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                    },
+                    "X": {
+                        "type": "object",
+                        "properties": {"x1": {"type": "string"}},
+                    },
+                    "Y": {
+                        "type": "object",
+                        "properties": {
+                            "y1": {"$ref": "#/components/schemas/Z"},
+                        },
+                    },
+                    "Z": {
+                        "type": "object",
+                        "properties": {"z1": {"type": "boolean"}},
+                    },
+                }
+            },
+        }
+        schema = {
+            "$ref": "#/components/schemas/Base",
+            "properties": {
+                "combo": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/X"},
+                        {"$ref": "#/components/schemas/Y"},
+                    ]
+                }
+            },
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+        self.assertNotIn("$ref", json.dumps(resolved))
+        combo = resolved["properties"]["combo"]
+        self.assertIn("x1", combo["properties"])
+        self.assertIn("z1", combo["properties"]["y1"]["properties"])
+
+        metadata = self.source.create_schema_metadata_from_schema(
+            "sibling-allof", resolved
+        )
+        self.assertIsNotNone(metadata)
+
+    def test_empty_object_ref_target_with_siblings_resolves(self):
+        # {} is a valid component (any-JSON placeholder); truthy-checks must not
+        # treat it as unresolvable and leave a raw $ref for jsonref to choke on.
+        sw_dict: Dict[str, Any] = {
+            "openapi": "3.0.0",
+            "components": {
+                "schemas": {
+                    "EmptyObject": {},
+                }
+            },
+        }
+        schema = {
+            "$ref": "#/components/schemas/EmptyObject",
+            "properties": {"note": {"type": "string"}},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertEqual(resolved["properties"]["note"]["type"], "string")
+
+        metadata = self.source.create_schema_metadata_from_schema("empty-ref", resolved)
+        self.assertIsNotNone(metadata)
+
     def test_extract_schema_from_openapi_spec_conversion_failure_not_counted(self):
         # Failed conversion must not inflate from_openapi_spec (counter lives in
         # _extract_schema_from_openapi_spec, not create_schema_metadata_from_schema).
@@ -2648,3 +2764,120 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertEqual(mock_tok.call_args.kwargs["tok_url"], "/auth/token")
         self.assertEqual(mock_tok.call_args.kwargs["username"], "alice")
         self.assertEqual(mock_tok.call_args.kwargs["password"], "s3cret")
+
+    def test_get_swagger_bearer_token_formats_authorization_header(self):
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            bearer_token="raw-bearer",
+        )
+        with patch(
+            "datahub.ingestion.source.openapi.get_swag_json",
+            return_value={"openapi": "3.0.0", "paths": {}},
+        ) as mock_swag:
+            config.get_swagger()
+
+        self.assertEqual(mock_swag.call_args.kwargs["token"], "Bearer raw-bearer")
+        assert config.token is not None
+        self.assertEqual(config.token.get_secret_value(), "Bearer raw-bearer")
+
+    def test_get_swagger_plain_token_passed_through(self):
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            token="already-set",
+        )
+        with patch(
+            "datahub.ingestion.source.openapi.get_swag_json",
+            return_value={"openapi": "3.0.0", "paths": {}},
+        ) as mock_swag:
+            config.get_swagger()
+
+        self.assertEqual(mock_swag.call_args.kwargs["token"], "already-set")
+
+    def test_get_swagger_basic_auth_branch(self):
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            username="alice",
+            password="s3cret",
+        )
+        with patch(
+            "datahub.ingestion.source.openapi.get_swag_json",
+            return_value={"openapi": "3.0.0", "paths": {}},
+        ) as mock_swag:
+            config.get_swagger()
+
+        self.assertEqual(mock_swag.call_args.kwargs["username"], "alice")
+        self.assertEqual(mock_swag.call_args.kwargs["password"], "s3cret")
+        self.assertNotIn("token", mock_swag.call_args.kwargs)
+
+    def test_make_api_request_request_exception_warns_and_returns_none(self):
+        self.config.token = SecretStr("tok")
+        with patch(
+            "datahub.ingestion.source.openapi.request_call",
+            side_effect=requests.exceptions.ConnectionError("down"),
+        ):
+            result = self.source._make_api_request("https://api.example.com/x")
+
+        self.assertIsNone(result)
+        self.assertTrue(
+            any(
+                getattr(w, "title", None) == "Failed to Call OpenAPI Endpoint"
+                for w in self.source.report.warnings
+            )
+        )
+
+    def test_ignore_endpoints_skips_workunits(self):
+        self.config.ignore_endpoints = ["/skip"]
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/keep": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {"id": {"type": "string"}},
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "/skip": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {"x": {"type": "string"}},
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+            },
+            "components": {"schemas": {}},
+        }
+        with patch.object(OpenApiConfig, "get_swagger", return_value=sw_dict):
+            workunits = list(self.source.get_workunits_internal())
+
+        urns = [
+            wu.metadata.entityUrn
+            for wu in workunits
+            if hasattr(wu.metadata, "entityUrn")
+        ]
+        self.assertTrue(any("keep" in (urn or "") for urn in urns))
+        self.assertFalse(any("skip" in (urn or "") for urn in urns))

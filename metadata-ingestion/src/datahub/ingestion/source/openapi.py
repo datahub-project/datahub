@@ -717,44 +717,25 @@ class APISource(Source, ABC):
         )
 
     def _should_make_api_call(self, endpoint_k: str, endpoint_dets: Dict) -> bool:
+        """Return True when a live GET is allowed for schema extraction fallback.
+
+        Requires enable_api_calls_for_schema_extraction, GET method, credentials,
+        and an endpoint not listed in ignore_endpoints. Callers also gate on
+        failed OpenAPI/example extraction before invoking this.
         """
-        Determine if we should make an API call based on configuration and endpoint details.
-
-        This method implements the logic for when API calls are allowed:
-        - API calls must be explicitly enabled
-        - Method must be GET (for safety)
-        - Credentials must be provided
-        - Endpoint must not be in ignore list
-
-        Args:
-            endpoint_k: The endpoint path/key
-            endpoint_dets: Endpoint details including method information
-
-        Returns:
-            True if API call should be made, False otherwise
-
-        Note:
-            This ensures API calls are only made when safe and necessary
-        """
-        # Don't make API calls if not explicitly enabled
         if not self.config.enable_api_calls_for_schema_extraction:
             return False
 
-        # Only make API calls for GET methods
         method = endpoint_dets.get("method", "").lower()
         if method != "get":
             return False
 
-        # Only make API calls if credentials are provided
         if not self._has_credentials():
             return False
 
-        # Don't make API calls if endpoint is in ignore list
         if endpoint_k in self.config.ignore_endpoints:
             return False
 
-        # Only make API calls if we have forced examples or no schema was found
-        # This should be rare with improved schema extraction
         return True
 
     def _make_api_request(self, url: str) -> Optional[requests.Response]:
