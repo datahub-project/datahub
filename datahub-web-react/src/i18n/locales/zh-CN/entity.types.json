@@ -90,7 +90,7 @@
     "dataset.rowsCount_one": "{{formattedCount}} 行",
     "dataset.rowsCount_other": "{{formattedCount}} 行",
     "dataset.statDistinctCount": "去重数量",
-    "dataset.statDistinctPercent": "不同%",
+"dataset.statDistinctPercent": "去重%",
     "dataset.statMax": "最大值",
     "dataset.statMean": "平均值",
     "dataset.statMedian": "中位数",
