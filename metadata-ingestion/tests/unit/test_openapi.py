@@ -4047,6 +4047,21 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIn("nested.x", fields)
         self.assertEqual(sample["id"], 1)
 
+    def test_extract_fields_list_of_scalars_degrades_gracefully(self):
+        # Regression: a JSON array whose first element is neither a dict nor
+        # a string (e.g. a number) used to raise ValueError("unknown
+        # format"), escalating a benign, valid response shape into a hard
+        # "Failed to Process Endpoint" failure instead of degrading
+        # gracefully like every other unparseable shape in this function.
+        response = MagicMock()
+        response.content = b"[1, 2, 3]"
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ):
+            fields, sample = extract_fields(response, "pets")
+        self.assertEqual(fields, [])
+        self.assertEqual(sample, {})
+
     def test_get_tok_post_unexpected_shape_raises(self):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -4565,6 +4580,38 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             max_depth=10,
         )
         self.assertEqual(merged["patternProperties"]["^x"], {"type": "string"})
+
+    def test_merge_allof_additional_properties_false_wins_collision(self):
+        # Regression: unlike the sibling patternProperties merge, a
+        # bool/dict collision on additionalProperties fell through both
+        # isinstance checks and silently did nothing -- "false" (no extra
+        # properties allowed) must win over a dict schema from another
+        # allOf member, not be silently dropped.
+        merged = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"additionalProperties": {"type": "string"}},
+                    {"additionalProperties": False},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertIs(merged["additionalProperties"], False)
+
+    def test_merge_allof_additional_properties_true_is_noop_against_real_schema(self):
+        # "true" colliding with a real schema must not clobber it.
+        merged = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"additionalProperties": {"type": "string"}},
+                    {"additionalProperties": True},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertEqual(merged["additionalProperties"], {"type": "string"})
 
     def test_merge_allof_root_required_cleaned_even_with_boolean_member(self):
         # Regression: the required-sanitization ran only inside the dict-only

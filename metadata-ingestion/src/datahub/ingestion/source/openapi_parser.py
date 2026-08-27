@@ -273,17 +273,18 @@ def get_endpoints(sw_dict: dict) -> dict:
             method_spec = p_o.get(method)
             if not method_spec:
                 continue
-            if not _is_object(method_spec, "method spec", f"{method} {p_k}"):
+            context = f"{method} {p_k}"
+            if not _is_object(method_spec, "method spec", context):
                 continue
 
             responses = method_spec.get("responses", {})
-            if not _is_object(responses, "responses", f"{method} {p_k}"):
+            if not _is_object(responses, "responses", context):
                 continue
             base_res = responses.get("200") or responses.get(200)
             if not base_res:
                 # if there is no 200 response, we skip this method
                 continue
-            if not _is_object(base_res, "200 response", f"{method} {p_k}"):
+            if not _is_object(base_res, "200 response", context):
                 continue
 
             # Initialize endpoint details if it doesn't exist
@@ -302,7 +303,7 @@ def get_endpoints(sw_dict: dict) -> dict:
                         "Skipping malformed 'description'/'summary' %r on %r "
                         "(expected string, got %s)",
                         desc,
-                        f"{method} {p_k}",
+                        context,
                         type(desc).__name__,
                     )
                     desc = ""
@@ -318,7 +319,7 @@ def get_endpoints(sw_dict: dict) -> dict:
                         "Skipping malformed 'tags' %r on %r (expected list of "
                         "strings, got %s)",
                         tags,
-                        f"{method} {p_k}",
+                        context,
                         type(tags).__name__,
                     )
                     tags = []
@@ -346,24 +347,13 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
         # get_endpoints calls this once per spec, outside the per-endpoint try/except
         # in APISource.get_workunits_internal -- an unguarded crash here would abort
         # extraction for every endpoint, not just the one with the malformed example.
-        if not isinstance(res_cont, dict):
-            logger.warning(
-                "Skipping malformed 'content' %r for endpoint %r (expected object, got %s)",
-                res_cont,
-                key,
-                type(res_cont).__name__,
-            )
+        if not _is_object(res_cont, "'content'", f"endpoint {key!r}"):
             return data
         if "application/json" in res_cont:
             json_content = res_cont["application/json"]
-            if not isinstance(json_content, dict):
-                logger.warning(
-                    "Skipping malformed 'application/json' content %r for endpoint %r "
-                    "(expected object, got %s)",
-                    json_content,
-                    key,
-                    type(json_content).__name__,
-                )
+            if not _is_object(
+                json_content, "'application/json' content", f"endpoint {key!r}"
+            ):
                 return data
 
             # Check for single example (OpenAPI v3)
@@ -411,14 +401,9 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
         v2_examples = base_res["examples"]
         # The value itself may legitimately be a raw string (literal example text)
         # rather than a parsed object -- only the container needs to be a dict.
-        if isinstance(v2_examples, dict):
-            data = v2_examples.get("application/json", {})
-        else:
-            logger.warning(
-                "Skipping malformed v2 'examples' %r for endpoint %r",
-                v2_examples,
-                key,
-            )
+        if not _is_object(v2_examples, "v2 'examples'", f"endpoint {key!r}"):
+            return data
+        data = v2_examples.get("application/json", {})
 
     return data
 
@@ -531,7 +516,7 @@ def clean_url(url: str) -> str:
 
 def extract_fields(
     response: requests.Response, dataset_name: str
-) -> Tuple[List[str], Dict[Any, Any]]:
+) -> Tuple[List[str], Dict[str, Any]]:
     """
     Given a URL, this function will extract the fields contained in the
     response of the call to that URL, supposing that the response is a JSON.
@@ -545,8 +530,9 @@ def extract_fields(
         logger.warning(f"Non-JSON response --- {dataset_name}")
         return [], {}
     if isinstance(dict_data, str):
-        # no sense
-        logger.warning(f"Empty data --- {dataset_name}")
+        logger.warning(
+            f"Scalar string response, no fields to extract --- {dataset_name}"
+        )
         return [], {}
     elif isinstance(dict_data, list):
         # it's maybe just a list
@@ -561,7 +547,15 @@ def extract_fields(
             # this is actually data
             return ["contains_a_string"], {"contains_a_string": dict_data[0]}
         else:
-            raise ValueError("unknown format")
+            # An unrecognized element shape (e.g. a number, null, or nested
+            # list) is a valid-but-unhelpful response, not a processing
+            # error -- degrade gracefully like every other unparseable shape
+            # in this function instead of aborting the whole endpoint.
+            logger.warning(
+                f"Unrecognized list element type {type(dict_data[0]).__name__} "
+                f"--- {dataset_name}"
+            )
+            return [], {}
     elif not dict_data:  # Handle empty dict case
         return [], {}
     if len(dict_data) > 1:
@@ -1006,23 +1000,33 @@ def _merge_allof_map_keywords(
     max_depth: int,
 ) -> None:
     if "additionalProperties" in resolved_allof:
+        incoming_additional = resolved_allof["additionalProperties"]
         if "additionalProperties" not in merged_schema:
-            merged_schema["additionalProperties"] = resolved_allof[
-                "additionalProperties"
-            ]
-        elif isinstance(merged_schema["additionalProperties"], dict) and isinstance(
-            resolved_allof["additionalProperties"], dict
-        ):
-            merged_schema["additionalProperties"] = merge_allof_schemas(
-                {
-                    "allOf": [
-                        merged_schema["additionalProperties"],
-                        resolved_allof["additionalProperties"],
-                    ]
-                },
-                sw_dict,
-                max_depth=max_depth,
-            )
+            merged_schema["additionalProperties"] = incoming_additional
+        else:
+            existing_additional = merged_schema["additionalProperties"]
+            # Same JSON-Schema boolean intersection semantics as
+            # patternProperties above: false wins any collision outright,
+            # true colliding with anything is a no-op that must not clobber
+            # a real schema on the other side.
+            if existing_additional is False or incoming_additional is False:
+                merged_schema["additionalProperties"] = False
+            elif existing_additional is True:
+                merged_schema["additionalProperties"] = incoming_additional
+            elif incoming_additional is True:
+                pass
+            elif isinstance(existing_additional, dict) and isinstance(
+                incoming_additional, dict
+            ):
+                merged_schema["additionalProperties"] = merge_allof_schemas(
+                    _combine_under_allof(existing_additional, incoming_additional),
+                    sw_dict,
+                    max_depth=max_depth,
+                )
+            elif not isinstance(existing_additional, dict):
+                merged_schema["additionalProperties"] = incoming_additional
+            # else: existing is a real schema and incoming is malformed --
+            # keep existing rather than clobbering a good schema with junk.
 
     pattern_props = resolved_allof.get("patternProperties")
     if isinstance(pattern_props, dict):
@@ -1178,7 +1182,7 @@ def _merge_bound_with_exclusivity(
     """
     incoming_bound = resolved_allof.get(bound_key)
     incoming_excl = resolved_allof.get(exclusive_key)
-    has_bound = bound_key in resolved_allof and _is_number(incoming_bound)
+    has_bound = _is_number(incoming_bound)
     has_excl = exclusive_key in resolved_allof
     reducer: Callable[[_Number, _Number], _Number] = max if prefer_higher else min
 

@@ -584,9 +584,7 @@ class APISource(Source, ABC):
         path_spec = sw_dict["paths"].get(endpoint_k, {})
 
         # Focus on the HTTP methods that can provide useful schemas
-        methods = SCHEMA_EXTRACTABLE_METHODS
-
-        for method in methods:
+        for method in SCHEMA_EXTRACTABLE_METHODS:
             method_spec = path_spec.get(method, {})
             if method_spec:
                 # Try response schema first
@@ -596,8 +594,9 @@ class APISource(Source, ABC):
                 if response_schema:
                     return response_schema
 
-                # If no response schema, try request schema for POST/PUT/PATCH
-                if method in ["post", "put", "patch"]:
+                # If no response schema, try request schema -- only methods
+                # other than GET can carry a requestBody worth reading.
+                if method != "get":
                     request_schema = self.extract_request_schema_from_endpoint(
                         method_spec, sw_dict
                     )
@@ -1115,17 +1114,16 @@ class APISource(Source, ABC):
                 and self.config.enable_api_calls_for_schema_extraction
                 and not self._has_credentials()
             ):
-                self.report.warning(
-                    title="No Schema Extracted - Missing Credentials",
-                    message="Could not extract schema from OpenAPI spec and no API call made due to missing credentials (GET methods only)",
-                    context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                )
+                title = "No Schema Extracted - Missing Credentials"
+                message = "Could not extract schema from OpenAPI spec and no API call made due to missing credentials (GET methods only)"
             else:
-                self.report.warning(
-                    title="No Schema Extracted",
-                    message="Could not extract schema from OpenAPI spec (GET/POST/PUT/PATCH with 200 responses) or API calls for endpoint",
-                    context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                )
+                title = "No Schema Extracted"
+                message = "Could not extract schema from OpenAPI spec (GET/POST/PUT/PATCH with 200 responses) or API calls for endpoint"
+            self.report.warning(
+                title=title,
+                message=message,
+                context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+            )
 
     def get_report(self):
         return self.report
