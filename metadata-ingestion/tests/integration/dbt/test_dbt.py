@@ -3,7 +3,7 @@ import json
 import shutil
 from dataclasses import dataclass
 from os import PathLike
-from typing import Any, Dict, List, Sequence, Union
+from typing import Any, Dict, List, Union
 
 import pytest
 import time_machine
@@ -122,9 +122,7 @@ class DbtTestConfig:
         )
 
 
-def run_and_verify(
-    config: DbtTestConfig, tmp_path: PathLike, ignore_paths: Sequence[str] = ()
-) -> None:
+def run_and_verify(config: DbtTestConfig, tmp_path: PathLike) -> None:
     pipeline = Pipeline.create(
         {
             "run_id": config.run_id,
@@ -143,7 +141,6 @@ def run_and_verify(
         pytestconfig=None,  # type: ignore[arg-type]
         output_path=config.output_path,
         golden_path=config.golden_path,
-        ignore_paths=ignore_paths,
     )
 
 
@@ -427,18 +424,7 @@ def test_dbt_multi_project_glob(pytestconfig, tmp_path):
         test_resources_dir=test_resources_dir,
         tmp_path=tmp_path,
     )
-    # manifest_path is stamped from the glob-matched project directory, which
-    # lives under pytest's tmp_path and so is different on every run - it can't
-    # be pinned in the golden file, only asserted to exist (see the collision
-    # unit tests in test_dbt_multi_project.py for coverage of its content).
-    run_and_verify(
-        config,
-        tmp_path,
-        ignore_paths=[
-            r"root\[\d+\]\['proposedSnapshot'\].*\['customProperties'\]\['manifest_path'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['manifest_path'\]",
-        ],
-    )
+    run_and_verify(config, tmp_path)
 
 
 @pytest.mark.parametrize(

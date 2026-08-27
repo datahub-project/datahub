@@ -3354,7 +3354,6 @@ def test_extract_catalog_stats_with_row_count_and_size() -> None:
         only_include_if_in_catalog=False,
         include_database_name=True,
         report=report,
-        artifact_props={},
     )
 
     assert len(nodes) == 1
@@ -3383,7 +3382,6 @@ def test_extract_catalog_stats_without_stats() -> None:
         only_include_if_in_catalog=False,
         include_database_name=True,
         report=report,
-        artifact_props={},
     )
 
     assert len(nodes) == 1
@@ -3415,7 +3413,6 @@ def test_extract_catalog_stats_with_include_false() -> None:
         only_include_if_in_catalog=False,
         include_database_name=True,
         report=report,
-        artifact_props={},
     )
 
     assert len(nodes) == 1
@@ -3442,7 +3439,6 @@ def test_extract_catalog_stats_no_catalog() -> None:
         only_include_if_in_catalog=False,
         include_database_name=True,
         report=report,
-        artifact_props={},
     )
 
     assert len(nodes) == 1
@@ -3469,7 +3465,6 @@ def test_extract_catalog_stats_partial_only_row_count() -> None:
         only_include_if_in_catalog=False,
         include_database_name=True,
         report=report,
-        artifact_props={},
     )
 
     assert len(nodes) == 1

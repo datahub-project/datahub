@@ -1,6 +1,7 @@
 import dataclasses
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 
@@ -267,6 +268,30 @@ def _extract_catalog_stats(
     return row_count, size_in_bytes
 
 
+_NOT_FOUND_ERROR_CODES = {"NoSuchKey", "NoSuchBucket", "NotFound", "404"}
+
+
+def _is_missing_file_error(err: Optional[BaseException]) -> bool:
+    """Whether a failed artifact read definitely means the file is not there.
+
+    A local read raises FileNotFoundError. Object-store reads all surface as the
+    same generic ValueError from read_file_as_bytes, but that wrapper preserves the
+    original botocore ClientError as __cause__, whose error code separates a
+    missing key from a genuinely ambiguous failure (permissions, throttling,
+    network). Without this split, an estate where many projects never run
+    `dbt docs generate` reports a benign absence as an alarming infrastructure
+    fault, once per project, on every run.
+    """
+    if isinstance(err, FileNotFoundError):
+        return True
+    response = getattr(getattr(err, "__cause__", None), "response", None)
+    if not isinstance(response, dict):
+        return False
+    code = str(response.get("Error", {}).get("Code", ""))
+    status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+    return code in _NOT_FOUND_ERROR_CODES or status == 404
+
+
 def extract_dbt_entities(
     all_manifest_entities: Dict[str, Dict[str, Any]],
     all_catalog_entities: Optional[Dict[str, Dict[str, Any]]],
@@ -277,7 +302,6 @@ def extract_dbt_entities(
     only_include_if_in_catalog: bool,
     include_database_name: bool,
     report: DBTSourceReport,
-    artifact_props: Dict[str, str],
     sources_invocation_id: Optional[str] = None,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
@@ -449,7 +473,6 @@ def extract_dbt_entities(
                 freshness_info=freshness_info,
                 row_count=row_count,
                 size_in_bytes=size_in_bytes,
-                artifact_props=artifact_props,
             )
 
             # Load columns from catalog, and override some properties from manifest.
@@ -915,10 +938,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         explicitly-configured path is a real misconfiguration). A file that
         exists but is corrupt JSON always raises either way - only "not found"
         is ever treated as absence. The caught exception is handed back so the
-        caller can tell a local FileNotFoundError (genuinely absent) apart from
-        the generic ValueError that object-store reads raise for every
-        get_object failure - missing key, permission denied, throttling - which
-        looks identical from here.
+        caller can classify it with _is_missing_file_error.
         """
         if path is None:
             return None, None
@@ -998,9 +1018,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 title="No catalog file configured",
                 message="Some metadata, particularly schema information, will be missing.",
             )
-        elif isinstance(catalog_load_error, FileNotFoundError):
+        elif _is_missing_file_error(catalog_load_error):
             # catalog_path was a glob-derived sibling guess, and the file is
-            # genuinely not there - a local FileNotFoundError is unambiguous.
+            # definitely not there - a project that never ran `dbt docs generate`.
             self.report.warning(
                 title="No catalog file found for project",
                 message="This dbt project has no catalog.json beside its manifest; "
@@ -1008,18 +1028,16 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 context=manifest_path,
             )
         else:
-            # catalog_path was a glob-derived sibling guess, but the read failed
-            # rather than reporting the key missing. read_file_as_bytes wraps
-            # every object-store get_object failure - missing key, permission
-            # denied, throttling, transient network error - into the same
-            # generic ValueError, so we can't claim the file is absent here.
+            # catalog_path was a glob-derived sibling guess, and the read failed
+            # for a reason that does not establish absence - permissions,
+            # throttling, a transient network error - so don't claim the file is
+            # missing.
             self.report.warning(
                 title="Could not read catalog file for project",
-                message="Failed to read this project's catalog.json. This may mean "
-                "the file is absent, or that the read itself failed (e.g. "
-                "permissions, throttling, network) - object storage does not "
-                "distinguish the two. Some metadata, particularly schema "
-                "information, will be missing.",
+                message="Failed to read this project's catalog.json, and the failure "
+                "does not indicate the file is absent (e.g. permissions, throttling, "
+                "network). Some metadata, particularly schema information, will be "
+                "missing.",
                 context=f"{manifest_path}: {catalog_load_error}",
             )
 
@@ -1027,17 +1045,15 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             sources_path, optional_artifacts=optional_artifacts
         )
         sources_invocation_id = None
-        sources_results: Any = {}
+        sources_results: List[Dict[str, Any]] = []
         if dbt_sources_json is not None:
             sources_results = dbt_sources_json["results"]
             sources_invocation_id = dbt_sources_json.get("metadata", {}).get(
                 "invocation_id"
             )
-        elif sources_path is not None and isinstance(
-            sources_load_error, FileNotFoundError
-        ):
+        elif sources_path is not None and _is_missing_file_error(sources_load_error):
             # sources_path was a glob-derived sibling guess, and the file is
-            # genuinely not there - a local FileNotFoundError is unambiguous.
+            # definitely not there - see the catalog.json warning above.
             self.report.warning(
                 title="No sources file found for project",
                 message="This dbt project has no sources.json beside its manifest; "
@@ -1045,15 +1061,11 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 context=manifest_path,
             )
         elif sources_path is not None and sources_load_error is not None:
-            # sources_path was a glob-derived sibling guess, but the read failed
-            # rather than reporting the key missing - see the catalog.json
-            # warning above for why we can't claim absence in that case.
             self.report.warning(
                 title="Could not read sources file for project",
-                message="Failed to read this project's sources.json. This may mean "
-                "the file is absent, or that the read itself failed (e.g. "
-                "permissions, throttling, network) - object storage does not "
-                "distinguish the two. Last-modified fields will not be populated.",
+                message="Failed to read this project's sources.json, and the failure "
+                "does not indicate the file is absent (e.g. permissions, throttling, "
+                "network). Last-modified fields will not be populated.",
                 context=f"{manifest_path}: {sources_load_error}",
             )
 
@@ -1084,11 +1096,6 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         artifact_props: Dict[str, str] = {
             key: value
             for key, value in {
-                # Only stamped under multi-project fan-out (optional_artifacts=True):
-                # this is what collision reporting names to point at a project, and
-                # it must not perturb customProperties for the historical single-
-                # project golden output.
-                "manifest_path": manifest_path if optional_artifacts else None,
                 "manifest_schema": manifest_schema,
                 "manifest_version": manifest_version,
                 "manifest_adapter": manifest_adapter,
@@ -1108,11 +1115,6 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             only_include_if_in_catalog=self.config.only_include_if_in_catalog,
             include_database_name=self.config.include_database_name,
             report=self.report,
-            # extract_dbt_entities also stamps artifact_props onto each node it
-            # builds via the DBTNode constructor, but the consolidated loop below is
-            # the authoritative site - it re-stamps every node from every extractor,
-            # so this kwarg is redundant rather than load-bearing.
-            artifact_props=artifact_props,
             sources_invocation_id=sources_invocation_id,
         )
 
@@ -1147,11 +1149,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 )
 
         # Stamp every node - regardless of which extractor produced it - with this
-        # project's artifact provenance and catalog timestamp in one place. This is
-        # the single authoritative site, so a future extractor can't silently ship
-        # provenance-less nodes the way extract_semantic_models once did.
+        # project's artifact provenance, manifest path, and catalog timestamp in one
+        # place. This is the single authoritative site, so a future extractor can't
+        # silently ship provenance-less nodes the way extract_semantic_models once did.
         for node in nodes:
             node.artifact_props = artifact_props
+            node.manifest_path = manifest_path
             node.catalog_generated_at = catalog_generated_at
 
         return nodes, catalog_version
@@ -1162,11 +1165,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
         dbt writes manifest.json, catalog.json, and sources.json into a single
         target/ directory, so co-location is dbt's own layout rather than a
-        convention we impose. A plain string split is correct for both
-        object-store URIs and local POSIX paths, which is why no os.path or
-        URL parsing is needed.
+        convention we impose. os.path.dirname is used to strip the filename because
+        it recognises both separators, so a backslash path from glob.glob on Windows
+        resolves as correctly as a POSIX path. The result is always rejoined with a
+        forward slash, which every OS accepts and which object-store URIs require.
         """
-        prefix, _, _ = manifest_path.rpartition("/")
+        prefix = os.path.dirname(manifest_path)
         return f"{prefix}/{filename}" if prefix else filename
 
     def _load_project_nodes(

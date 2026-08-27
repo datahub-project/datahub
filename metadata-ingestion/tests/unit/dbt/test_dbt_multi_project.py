@@ -5,8 +5,14 @@ from unittest import mock
 
 import pytest
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    UpstreamLineageClass,
+)
 
 
 def _make_source(**config_overrides: Any) -> DBTCoreSource:
@@ -109,10 +115,12 @@ def _write_project(
     exposures: Optional[Dict[str, Dict[str, Any]]] = None,
     catalog_generated_at: Optional[str] = None,
     package_name: Optional[str] = None,
+    depends_on: Optional[Dict[str, List[str]]] = None,
 ) -> None:
     """Write a minimal dbt target/ directory for one project.
 
-    package_name overrides the dbt package name embedded in each model's
+    depends_on maps a model name to the unique_ids it refs, for tests that need a
+    real downstream edge. package_name overrides the dbt package name embedded in each model's
     unique_id (defaults to `project`), so a test can put two distinct project
     directories on a dbt package name that collides across them. Each entry in
     `models` may set "resource_type" (defaults to "model") to write a seed or
@@ -137,7 +145,7 @@ def _write_project(
             "columns": {},
             "meta": {},
             "tags": [],
-            "depends_on": {"nodes": []},
+            "depends_on": {"nodes": (depends_on or {}).get(model["name"], [])},
             "compiled": True,
             "compiled_code": "select 1 as col_a",
             "raw_code": "select 1 as col_a",
@@ -209,27 +217,27 @@ def test_glob_stamps_per_project_provenance(tmp_path: pathlib.Path) -> None:
 
     assert nodes[0].artifact_props["manifest_version"] == "1.8.0"
     assert nodes[0].artifact_props["manifest_adapter"] == "postgres"
-    # Needed so a cross-project collision report can name which project a
-    # contending node came from (see _check_duplicate_unique_ids).
-    assert (
-        nodes[0].artifact_props["manifest_path"]
-        == f"{tmp_path}/project_a/manifest.json"
-    )
 
 
-def test_non_glob_manifest_path_not_stamped_in_artifact_props(
-    tmp_path: pathlib.Path,
+@pytest.mark.parametrize("glob_mode", [True, False])
+def test_manifest_path_is_a_node_field_not_a_custom_property(
+    tmp_path: pathlib.Path, glob_mode: bool
 ) -> None:
-    """manifest_path is only useful for locating a project under multi-project
-    fan-out, where collisions are possible. Stamping it unconditionally would add
-    a new customProperties key to every existing single-project golden output."""
+    """manifest_path is internal provenance, used to name the originating project in
+    a collision report. It must never reach customProperties: it would publish
+    bucket names and prefix layout to every catalog user, and a prefix carrying a
+    run id or timestamp would churn a new datasetProperties version every run."""
     _write_project(
         tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
     )
-    source = _make_source(manifest_path=f"{tmp_path}/project_a/manifest.json")
+    manifest_path = f"{tmp_path}/project_a/manifest.json"
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json" if glob_mode else manifest_path
+    )
 
     nodes = source.load_nodes()
 
+    assert nodes[0].manifest_path == manifest_path
     assert "manifest_path" not in nodes[0].artifact_props
 
 
@@ -487,7 +495,8 @@ def test_cross_project_collision_fails_and_drops_all_contenders(
     nodes = source._check_duplicate_models(source.load_nodes())
 
     assert nodes == []
-    assert source.report.duplicate_models_detected == 1
+    # Counts colliding entities, not colliding keys.
+    assert source.report.duplicate_models_detected == 2
     failures_by_title = {f.title: f for f in source.report.failures}
     assert "Duplicate model names across dbt projects" in failures_by_title
 
@@ -525,23 +534,29 @@ def test_cross_project_seed_collision_fails(tmp_path: pathlib.Path) -> None:
     nodes = source._check_duplicate_models(source.load_nodes())
 
     assert nodes == []
-    assert source.report.duplicate_models_detected == 1
+    assert source.report.duplicate_models_detected == 2
     failures_by_title = {f.title: f for f in source.report.failures}
     assert "Duplicate model names across dbt projects" in failures_by_title
 
 
-def test_cross_project_collision_drop_mode_keeps_first_by_dbt_name(
+def test_cross_project_collision_drop_mode_keeps_lowest_dbt_name(
     tmp_path: pathlib.Path,
 ) -> None:
+    # The winning contender is deliberately NOT the first one loaded: project_a
+    # sorts first by path, but its package name puts its dbt_name last. Only the
+    # documented rule - lowest-sorting dbt_name - picks project_z's node, so this
+    # fixture actually pins the tie-break instead of passing under any rule.
     _write_project(
         tmp_path,
         "project_a",
         [{"name": "orders", "database": "db", "schema": "shared"}],
+        package_name="zzz_pkg",
     )
     _write_project(
         tmp_path,
-        "project_b",
+        "project_z",
         [{"name": "orders", "database": "db", "schema": "shared"}],
+        package_name="aaa_pkg",
     )
 
     source = _make_source(
@@ -550,11 +565,11 @@ def test_cross_project_collision_drop_mode_keeps_first_by_dbt_name(
     )
     nodes = source._check_duplicate_models(source.load_nodes())
 
-    assert [node.dbt_name for node in nodes] == ["model.project_a.orders"]
-    assert source.report.duplicate_models_detected == 1
+    assert [node.dbt_name for node in nodes] == ["model.aaa_pkg.orders"]
+    assert source.report.duplicate_models_detected == 2
     warnings_by_title = {w.title: w for w in source.report.warnings}
     warning = warnings_by_title["Duplicate model names across dbt projects"]
-    assert any("keeping model.project_a.orders" in entry for entry in warning.context)
+    assert any("keeping model.aaa_pkg.orders" in entry for entry in warning.context)
 
 
 def test_distinct_schemas_do_not_collide(tmp_path: pathlib.Path) -> None:
@@ -598,7 +613,7 @@ def test_duplicate_unique_id_across_projects_fails_and_drops_all_contenders(
     )
 
     assert nodes == []
-    assert source.report.duplicate_unique_ids_detected == 1
+    assert source.report.duplicate_node_unique_ids_detected == 2
     failures_by_title = {f.title: f for f in source.report.failures}
     failure = failures_by_title["Duplicate dbt unique_id across projects"]
     # An operator with many colliding projects needs the actual directories, not
@@ -611,16 +626,19 @@ def test_duplicate_unique_id_across_projects_fails_and_drops_all_contenders(
 def test_duplicate_unique_id_drop_mode_keeps_first_loaded(
     tmp_path: pathlib.Path,
 ) -> None:
+    # The surviving node's own attributes deliberately sort last: project_a wins
+    # only because its manifest path sorts first, so this fixture pins the
+    # documented rule rather than passing under any ordering.
     _write_project(
         tmp_path,
         "project_a",
-        [{"name": "orders", "database": "db", "schema": "sch_a"}],
+        [{"name": "orders", "database": "db", "schema": "sch_z"}],
         package_name="shared_pkg",
     )
     _write_project(
         tmp_path,
-        "project_b",
-        [{"name": "orders", "database": "db", "schema": "sch_b"}],
+        "project_z",
+        [{"name": "orders", "database": "db", "schema": "sch_a"}],
         package_name="shared_pkg",
     )
 
@@ -635,8 +653,8 @@ def test_duplicate_unique_id_drop_mode_keeps_first_loaded(
 
     # Manifests are loaded in sorted path order, so project_a is "first loaded".
     assert len(nodes) == 1
-    assert nodes[0].schema == "sch_a"
-    assert source.report.duplicate_unique_ids_detected == 1
+    assert nodes[0].schema == "sch_z"
+    assert source.report.duplicate_node_unique_ids_detected == 2
     warnings_by_title = {w.title: w for w in source.report.warnings}
     warning = warnings_by_title["Duplicate dbt unique_id across projects"]
     manifest_a = f"{tmp_path}/project_a/manifest.json"
@@ -670,7 +688,7 @@ def test_duplicate_exposure_unique_id_across_projects_fails(
 
     assert exposures == []
     assert len(nodes) == 2  # the models themselves don't collide
-    assert source.report.duplicate_unique_ids_detected == 1
+    assert source.report.duplicate_exposure_unique_ids_detected == 2
     failures_by_title = {f.title: f for f in source.report.failures}
     failure = failures_by_title["Duplicate dbt unique_id across projects"]
     manifest_a = f"{tmp_path}/project_a/manifest.json"
@@ -681,17 +699,19 @@ def test_duplicate_exposure_unique_id_across_projects_fails(
 def test_duplicate_exposure_unique_id_drop_mode_keeps_first_loaded(
     tmp_path: pathlib.Path,
 ) -> None:
+    # As above, the surviving exposure's name sorts last, so only manifest-path
+    # order selects it.
     _write_project(
         tmp_path,
         "project_a",
         [{"name": "orders_a", "database": "db", "schema": "sch_a"}],
-        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_a"}},
+        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_zeta"}},
     )
     _write_project(
         tmp_path,
-        "project_b",
+        "project_z",
         [{"name": "orders_b", "database": "db", "schema": "sch_b"}],
-        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_b"}},
+        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_alpha"}},
     )
 
     source = _make_source(
@@ -705,8 +725,8 @@ def test_duplicate_exposure_unique_id_drop_mode_keeps_first_loaded(
 
     # Manifests are loaded in sorted path order, so project_a's exposure is
     # "first loaded" and survives.
-    assert [e.name for e in exposures] == ["dashboard_a"]
-    assert source.report.duplicate_unique_ids_detected == 1
+    assert [e.name for e in exposures] == ["dashboard_zeta"]
+    assert source.report.duplicate_exposure_unique_ids_detected == 2
     warnings_by_title = {w.title: w for w in source.report.warnings}
     warning = warnings_by_title["Duplicate dbt unique_id across projects"]
     manifest_a = f"{tmp_path}/project_a/manifest.json"
@@ -730,4 +750,127 @@ def test_distinct_package_names_do_not_collide_on_unique_id(
     )
 
     assert len(nodes) == 2
-    assert source.report.duplicate_unique_ids_detected == 0
+    assert source.report.duplicate_node_unique_ids_detected == 0
+
+
+def test_case_only_collision_detected_when_urns_are_lowercased(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Two projects whose relation names differ only in case still share one URN.
+
+    convert_urns_to_lowercase folds the case when the URN is built, so grouping on
+    the raw database.schema.name would miss this collision and let the two projects
+    silently clobber each other's aspects - which is exactly what the check exists
+    to prevent. Snowflake dbt projects commonly write uppercase relation names,
+    which is why the option exists at all.
+    """
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "ORDERS", "database": "DB", "schema": "SHARED"}],
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "orders", "database": "db", "schema": "shared"}],
+    )
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        convert_urns_to_lowercase=True,
+    )
+    all_nodes = source.load_nodes()
+    # get_workunits_internal sets this flag on every node before the collision
+    # check runs; mirror that here since this test calls the check directly.
+    for node in all_nodes:
+        node.convert_urns_to_lowercase = True
+
+    assert source._check_duplicate_models(all_nodes) == []
+    assert source.report.duplicate_models_detected == 2
+
+
+def test_case_only_collision_not_reported_without_lowercasing(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Without convert_urns_to_lowercase the two relations really are distinct URNs,
+    so the same fixture must not fail the run."""
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "ORDERS", "database": "DB", "schema": "SHARED"}],
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "orders", "database": "db", "schema": "shared"}],
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+
+    assert len(source._check_duplicate_models(source.load_nodes())) == 2
+    assert source.report.duplicate_models_detected == 0
+
+
+def test_collision_emits_nothing_for_colliding_urn_end_to_end(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Drive a collision through the real pipeline, not just the check in isolation.
+
+    Asserting the check's return value proves nothing about emission: the contenders
+    used to survive in all_nodes_map, so downstream references still produced an
+    upstreamLineage edge to a URN that was never itself emitted - materializing a
+    key-only stub dataset for the very relation the projects were fighting over.
+    """
+    _write_project(
+        tmp_path,
+        "project_a",
+        [
+            {"name": "orders", "database": "db", "schema": "shared"},
+            {"name": "orders_summary", "database": "db", "schema": "sch_a"},
+        ],
+        depends_on={"orders_summary": ["model.project_a.orders"]},
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "orders", "database": "db", "schema": "shared"}],
+    )
+    _write_project(
+        tmp_path,
+        "project_c",
+        [{"name": "events", "database": "db", "schema": "sch_c"}],
+    )
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        # The default PATCH semantics require a graph, which this offline test has no
+        # need for otherwise.
+        write_semantics="OVERRIDE",
+    )
+    workunits = list(source.get_workunits())
+
+    metadata_workunits = [wu for wu in workunits if isinstance(wu, MetadataWorkUnit)]
+    described_urns = {
+        wu.get_urn()
+        for wu in metadata_workunits
+        if wu.get_aspect_of_type(DatasetPropertiesClass) is not None
+    }
+    referenced_urns = {wu.get_urn() for wu in metadata_workunits} | {
+        upstream.dataset
+        for wu in metadata_workunits
+        for lineage in [wu.get_aspect_of_type(UpstreamLineageClass)]
+        if lineage is not None
+        for upstream in lineage.upstreams
+    }
+
+    non_colliding_urn = make_dataset_urn_with_platform_instance(
+        platform="dbt", name="db.sch_c.events", platform_instance=None, env="PROD"
+    )
+    assert non_colliding_urn in described_urns
+
+    # The colliding relation must not be described, and must not be referenced at
+    # all - a surviving lineage edge to it would materialize a key-only stub
+    # dataset for the very relation the two projects were fighting over.
+    assert not any("db.shared.orders" in urn for urn in described_urns)
+    assert not any("db.shared.orders" in urn for urn in referenced_urns)
+    assert source.report.failures

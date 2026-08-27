@@ -13,6 +13,7 @@ from typing import (
     Iterable,
     List,
     Literal,
+    Mapping,
     Optional,
     Sequence,
     Set,
@@ -346,10 +347,13 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     duplicate_sources_dropped: Optional[int] = None
     duplicate_sources_references_updated: Optional[int] = None
 
-    # Cross-project identity collisions (fan-out only; impossible within a
-    # single dbt project since dbt itself enforces uniqueness there).
-    duplicate_models_detected: int = 0
-    duplicate_unique_ids_detected: int = 0
+    # Cross-project identity collisions (fan-out only; impossible within a single dbt
+    # project since dbt itself enforces uniqueness there). Counts colliding entities,
+    # not colliding keys, so a three-way collision reads as 3. Left as None until the
+    # corresponding pass runs, matching the duplicate_sources_* counters above.
+    duplicate_models_detected: Optional[int] = None
+    duplicate_node_unique_ids_detected: Optional[int] = None
+    duplicate_exposure_unique_ids_detected: Optional[int] = None
 
     # Query entity emission statistics
     num_queries_emitted: int = 0
@@ -1159,14 +1163,22 @@ class DBTNode:
 
     convert_urns_to_lowercase: bool = False
 
-    # Provenance of the dbt artifacts this node was read from. Per-node rather than
-    # per-source because one source run may span multiple dbt projects, each with its
-    # own dbt version and adapter.
+    # Provenance of the dbt artifacts this node was read from, merged into the
+    # dataset's customProperties. Per-node rather than per-source because one source
+    # run may span multiple dbt projects, each with its own dbt version and adapter.
     # NOTE: all nodes from the same project share one dict instance (not a per-node
     # copy, to avoid allocating one dict per node at scale). Nothing mutates it today,
     # but a future per-node merge must replace the dict rather than mutate it in
     # place, or it will silently corrupt every sibling node from that project.
     artifact_props: Dict[str, str] = field(default_factory=dict)
+
+    # Path to the manifest.json this node was loaded from. Deliberately NOT part of
+    # artifact_props: it is internal diagnostic provenance, used to name the
+    # originating project in a cross-project collision report. Exposing it as a
+    # custom property would publish bucket names and prefix layout to every catalog
+    # user, and would churn a new datasetProperties version on every run for any
+    # prefix carrying a run id or timestamp.
+    manifest_path: Optional[str] = None
 
     @staticmethod
     def _join_parts(parts: List[Optional[str]]) -> str:
@@ -1318,6 +1330,12 @@ class DBTExposure:
             name=self.unique_id,
             platform_instance=platform_instance,
         ).urn()
+
+
+# Entities keyed by a dbt-assigned unique_id, and so subject to cross-project
+# unique_id collisions. Both carry manifest_path, which is how a collision report
+# names the projects to go fix.
+_DBTIdentity = Union[DBTNode, DBTExposure]
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -2043,6 +2061,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             for node in all_nodes:
                 node.convert_urns_to_lowercase = True
 
+        # Must run after the lowercasing flag is set (it groups on the URN, which
+        # folds case) and before all_nodes_map is built and column lineage is
+        # inferred - see _check_duplicate_models for why both matter.
+        all_nodes = self._check_duplicate_models(all_nodes)
+
         all_nodes_map = {node.dbt_name: node for node in all_nodes}
 
         # We need to run this before filtering nodes, because the info generated
@@ -2055,7 +2078,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         nodes = self._filter_nodes(all_nodes)
         nodes = self._drop_duplicate_sources(nodes)
-        nodes = self._check_duplicate_models(nodes)
 
         non_test_nodes = [
             dataset_node for dataset_node in nodes if dataset_node.node_type != "test"
@@ -2203,34 +2225,60 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return nodes
 
     def _check_duplicate_models(self, nodes: List[DBTNode]) -> List[DBTNode]:
-        """Detect models, seeds, or snapshots from different dbt projects that resolve to the same target-platform table.
+        """Detect models, seeds, or snapshots from different dbt projects that resolve to the same dataset URN.
 
-        get_db_fqn() -> database.schema.name becomes the dataset URN, and dbt's
+        The URN is derived from get_db_fqn() -> database.schema.name, and dbt's
         unique_id (which carries the project name) is not part of it. dbt guarantees
         uniqueness within a single project, so this can only arise under multi-project
         fan-out, where two projects that materialize the same relation would otherwise
         silently overwrite each other's aspects. Sources are excluded: two projects
         legitimately declaring the same upstream raw table is normal and must not
         fail a correct configuration.
+
+        Grouping is on the URN itself rather than on the raw fqn, because
+        convert_urns_to_lowercase folds case when the URN is built - two projects whose
+        manifests differ only in the case of a relation name still land on one URN, and
+        grouping on the raw fqn would miss exactly that collision.
+
+        Must run before all_nodes_map is built, for two reasons. Contenders left in
+        that map are resolved as upstreams of downstream nodes, so an
+        upstreamLineage edge would be emitted to a URN that is itself never emitted,
+        materializing a key-only stub dataset for the very relation the projects were
+        fighting over. And _infer_schemas_and_update_cll keys its schema resolver on
+        the target-platform URN, which contenders share by definition, so leaving them
+        in place lets one project's schema drive the other project's inferred column
+        lineage.
+
+        Tie-break when fail_on_duplicate_models is disabled: the contender with the
+        lowest-sorting dbt_name wins. That is independent of manifest load order, so
+        the surviving entity is stable across runs.
         """
-        by_fqn: Dict[str, List[DBTNode]] = defaultdict(list)
+        by_urn: Dict[str, List[DBTNode]] = defaultdict(list)
         for node in nodes:
             if (
                 node.node_type in {"model", "seed", "snapshot"}
                 and node.exists_in_target_platform
+                # Restricted to entities that can actually be emitted, so a collision
+                # between two nodes the user has excluded never fails the run.
+                and self._is_allowed_node(node)
             ):
-                by_fqn[node.get_db_fqn()].append(node)
+                by_urn[
+                    node.get_urn(
+                        DBT_PLATFORM, self.config.env, self.config.platform_instance
+                    )
+                ].append(node)
 
+        self.report.duplicate_models_detected = 0
         drop: Set[str] = set()
         rewire: Dict[str, str] = {}  # loser dbt_name -> winner dbt_name
-        for fqn, contenders in sorted(by_fqn.items()):
+        for urn, contenders in sorted(by_urn.items()):
             if len(contenders) < 2:
                 continue
 
             # Sorted so the winner does not depend on manifest load order.
             contenders.sort(key=lambda node: node.dbt_name)
-            self.report.duplicate_models_detected += 1
-            context = f"{fqn} is claimed by " + ", ".join(
+            self.report.duplicate_models_detected += len(contenders)
+            context = f"{urn} is claimed by " + ", ".join(
                 node.dbt_name for node in contenders
             )
 
@@ -2292,58 +2340,32 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         Since all contenders in one collision share an identical dbt_name/unique_id,
         that string can't tell an operator which projects to go fix - the failure
-        and warning context instead names each contender's originating manifest
-        path (DBTNode.artifact_props["manifest_path"] / DBTExposure.manifest_path).
+        and warning context instead names each contender's originating manifest path.
+
+        Tie-break when fail_on_duplicate_models is disabled: the first contender
+        loaded wins, which - because manifests are expanded in sorted path order - is
+        the one from the lowest-sorting manifest path.
         """
-
-        def _manifest_path(item: Any) -> str:
-            path = (
-                item.manifest_path
-                if isinstance(item, DBTExposure)
-                else item.artifact_props.get("manifest_path")
-            )
-            return path or "<unknown manifest>"
-
-        def _find_ids_to_drop(
-            by_unique_id: Dict[str, List[Any]], kind: str
-        ) -> Set[int]:
-            drop: Set[int] = set()
-            for unique_id, contenders in sorted(by_unique_id.items()):
-                if len(contenders) < 2:
-                    continue
-                self.report.duplicate_unique_ids_detected += 1
-                paths = [_manifest_path(item) for item in contenders]
-                context = f"{unique_id} is claimed by {kind}s from: " + ", ".join(paths)
-                if self.config.fail_on_duplicate_models:
-                    self.report.failure(
-                        title="Duplicate dbt unique_id across projects",
-                        message="Multiple dbt entities share one dbt-assigned "
-                        "unique_id, which is also the key used to resolve lineage "
-                        "between dbt projects. None of them were emitted. Fix the "
-                        "dbt projects so each package name is unique.",
-                        context=context,
-                    )
-                    drop.update(id(item) for item in contenders)
-                else:
-                    self.report.warning(
-                        title="Duplicate dbt unique_id across projects",
-                        message="Multiple dbt entities share one dbt-assigned "
-                        "unique_id. Keeping the first one loaded and dropping the "
-                        "rest; their metadata will be lost.",
-                        context=f"{context}; keeping {paths[0]}",
-                    )
-                    drop.update(id(item) for item in contenders[1:])
-            return drop
-
+        # Restricted to entities that can actually be emitted, so a collision between
+        # entities the user has excluded never fails the run.
         by_node_id: Dict[str, List[DBTNode]] = defaultdict(list)
         for node in nodes:
-            by_node_id[node.dbt_name].append(node)
-        drop_nodes = _find_ids_to_drop(by_node_id, "node")
+            if self._is_allowed_node(node):
+                by_node_id[node.dbt_name].append(node)
+        (
+            drop_nodes,
+            self.report.duplicate_node_unique_ids_detected,
+        ) = self._find_unique_id_collisions(by_node_id, "node")
 
-        by_exposure_id: Dict[str, List[DBTExposure]] = defaultdict(list)
-        for exposure in exposures:
-            by_exposure_id[exposure.unique_id].append(exposure)
-        drop_exposures = _find_ids_to_drop(by_exposure_id, "exposure")
+        drop_exposures: Set[int] = set()
+        if self.config.entities_enabled.can_emit_exposures:
+            by_exposure_id: Dict[str, List[DBTExposure]] = defaultdict(list)
+            for exposure in exposures:
+                by_exposure_id[exposure.unique_id].append(exposure)
+            (
+                drop_exposures,
+                self.report.duplicate_exposure_unique_ids_detected,
+            ) = self._find_unique_id_collisions(by_exposure_id, "exposure")
 
         kept_nodes = (
             [node for node in nodes if id(node) not in drop_nodes]
@@ -2356,6 +2378,43 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             else exposures
         )
         return kept_nodes, kept_exposures
+
+    def _find_unique_id_collisions(
+        self, by_unique_id: Mapping[str, Sequence[_DBTIdentity]], kind: str
+    ) -> Tuple[Set[int], int]:
+        """Report every unique_id claimed more than once.
+
+        Returns the ids of the entities to drop (by `id()`, since colliding entities
+        are indistinguishable by their own key) and how many entities collided.
+        """
+        drop: Set[int] = set()
+        colliding = 0
+        for unique_id, contenders in sorted(by_unique_id.items()):
+            if len(contenders) < 2:
+                continue
+            colliding += len(contenders)
+            paths = [item.manifest_path or "<unknown manifest>" for item in contenders]
+            context = f"{unique_id} is claimed by {kind}s from: " + ", ".join(paths)
+            if self.config.fail_on_duplicate_models:
+                self.report.failure(
+                    title="Duplicate dbt unique_id across projects",
+                    message="Multiple dbt entities share one dbt-assigned "
+                    "unique_id, which is also the key used to resolve lineage "
+                    "between dbt projects. None of them were emitted. Fix the "
+                    "dbt projects so each package name is unique.",
+                    context=context,
+                )
+                drop.update(id(item) for item in contenders)
+            else:
+                self.report.warning(
+                    title="Duplicate dbt unique_id across projects",
+                    message="Multiple dbt entities share one dbt-assigned "
+                    "unique_id. Keeping the first one loaded and dropping the "
+                    "rest; their metadata will be lost.",
+                    context=f"{context}; keeping {paths[0]}",
+                )
+                drop.update(id(item) for item in contenders[1:])
+        return drop, colliding
 
     @staticmethod
     def _to_schema_info(schema_fields: List[SchemaField]) -> SchemaInfo:

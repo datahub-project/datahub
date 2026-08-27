@@ -273,7 +273,6 @@ def test_extract_dbt_entities_isolates_malformed_node():
         only_include_if_in_catalog=False,
         include_database_name=True,
         report=report,
-        artifact_props={},
     )
 
     assert [node.dbt_name for node in nodes] == ["model.test.good_model"]
