@@ -47,7 +47,7 @@ def _validate_identifier_format(identifier_type: str, clean_identifier: str) -> 
             )
     else:
         # Datasets and columns: letters, numbers, underscores only (no hyphens).
-        if not VALID_COLUMN_NAME_PATTERN.match(clean_identifier):
+        if not VALID_COLUMN_NAME_PATTERN.fullmatch(clean_identifier):
             raise ValueError(
                 f"Invalid {identifier_type} identifier format: {clean_identifier}"
             )
@@ -71,18 +71,21 @@ def validate_bigquery_identifier(
 
     identifier = identifier.strip()
 
-    if identifier == "INFORMATION_SCHEMA" or identifier.startswith(
-        "INFORMATION_SCHEMA."
+    if identifier_type in ("general", "table") and (
+        identifier == "INFORMATION_SCHEMA"
+        or identifier.startswith("INFORMATION_SCHEMA.")
     ):
         # INFORMATION_SCHEMA views are referenced by their bare dotted name
         # (project.dataset.INFORMATION_SCHEMA.VIEW). Wrapping "INFORMATION_SCHEMA.VIEW"
         # in a single backtick pair makes BigQuery treat the whole dotted string as one
         # identifier — it then looks for a table literally named "INFORMATION_SCHEMA.VIEW"
         # and the query fails. Validate the view suffix so this branch still rejects
-        # injection, then return the reference unquoted.
-        view_suffix = identifier[len("INFORMATION_SCHEMA.") :]
-        if view_suffix and not VALID_COLUMN_NAME_PATTERN.match(view_suffix):
-            raise ValueError(f"Invalid INFORMATION_SCHEMA view name: {identifier}")
+        # injection, then return the reference unquoted. The fast path is limited to
+        # table/general references; a project/dataset must never be INFORMATION_SCHEMA.
+        if identifier != "INFORMATION_SCHEMA":
+            view_suffix = identifier[len("INFORMATION_SCHEMA.") :]
+            if not VALID_COLUMN_NAME_PATTERN.fullmatch(view_suffix):
+                raise ValueError(f"Invalid INFORMATION_SCHEMA view name: {identifier}")
         return identifier
 
     # Injection/escape chars that must never appear in an identifier we backtick ourselves.
@@ -144,7 +147,7 @@ def validate_column_name(col_name: str, context: str = "") -> bool:
         )
         return False
 
-    if not VALID_COLUMN_NAME_PATTERN.match(col_name):
+    if not VALID_COLUMN_NAME_PATTERN.fullmatch(col_name):
         logger.warning(
             f"Column name fails validation{' in ' + context if context else ''}: {col_name}"
         )
