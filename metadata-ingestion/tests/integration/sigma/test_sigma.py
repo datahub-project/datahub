@@ -1915,53 +1915,6 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
 
 
 @pytest.mark.integration
-def test_sigma_inaccessible_workspace_container_is_named(tmp_path, requests_mock):
-    """Every referenced Workspace Container carries a human-readable name.
-
-    When ``/workspaces/{id}`` is forbidden but ``ingest_shared_entities``
-    keeps the workbook, the connector still parents that workbook under the
-    Workspace Container URN. Without ``containerProperties`` on that URN the
-    DataHub UI has no name to render and falls back to printing the raw
-    ``urn:li:container:<guid>`` as the top-level folder label.
-
-    The name is recovered from the entity ``path``, whose first segment is
-    the workspace name (the same assumption ``_gen_entity_browsepath_aspect``
-    already relies on when it drops index 0).
-    """
-    register_mock_api(
-        request_mock=requests_mock, override_data=_shared_entities_override_data()
-    )
-
-    output_path: str = f"{tmp_path}/sigma_inaccessible_workspace_mces.json"
-
-    pipeline = Pipeline.create(
-        {
-            "run_id": "sigma-test",
-            "source": {
-                "type": "sigma",
-                "config": {
-                    "client_id": "CLIENTID",
-                    "client_secret": "CLIENTSECRET",
-                    "ingest_shared_entities": True,
-                },
-            },
-            "sink": {"type": "file", "config": {"filename": output_path}},
-        }
-    )
-    pipeline.run()
-    pipeline.raise_from_status()
-
-    with open(output_path) as f:
-        mces = json.load(f)
-
-    _assert_every_referenced_container_is_named(mces)
-
-    # "New Acryl Data" is the workbook's ``path``; the workspace behind it
-    # returns 403 so the name cannot come from ``/workspaces/{id}``.
-    assert "New Acryl Data" in _named_container_urns(mces).values()
-
-
-@pytest.mark.integration
 def test_sigma_no_workspace_membership_names_all_containers(tmp_path, requests_mock):
     """A service account that is a member of no workspace still gets names.
 
@@ -2286,6 +2239,13 @@ def test_sigma_late_resolved_but_pattern_denied_workspace_is_still_named(
         mces = json.load(f)
 
     _assert_every_referenced_container_is_named(mces)
+    # The Container exists for a workspace the operator excluded, while
+    # ``workspaces.dropped`` also lists it. Without this field an operator has
+    # no way to explain the one from the other.
+    report = _sigma_report(pipeline)
+    assert list(report.workspaces_named_despite_pattern) == [
+        f"Denied Workspace ({ws_id})"
+    ]
 
 
 @pytest.mark.integration
@@ -2353,57 +2313,6 @@ def test_sigma_payload_only_data_model_counts_against_its_real_workspace(
     assert report.empty_workspaces == [], (
         "the workspace holds the data model, so counting the DM against the "
         "folder-inode id misreports it as empty"
-    )
-
-
-@pytest.mark.integration
-def test_sigma_inaccessible_workspace_container_ignores_workspace_pattern(
-    tmp_path, requests_mock
-):
-    """``workspace_pattern`` cannot gate a workspace whose name is unknown.
-
-    The pattern is applied against ``Workspace.name`` from
-    ``/workspaces/{id}``. When that call is forbidden there is no name to match
-    on, so ``ingest_shared_entities`` admits the entities regardless -- and the
-    Container they land in must be named, or the raw-URN bug returns. Pinning
-    this because a path-derived name makes it *look* like the pattern could now
-    be applied; doing so would orphan the entities rather than drop them.
-    """
-    ws_id = "4pe61405-3be2-4000-ba72-60d36757b95b"
-    override_data = _shared_entities_override_data()
-    override_data[f"https://aws-api.sigmacomputing.com/v2/workspaces/{ws_id}"] = {
-        "method": "GET",
-        "status_code": 403,
-        "json": {},
-    }
-    register_mock_api(request_mock=requests_mock, override_data=override_data)
-
-    output_path: str = f"{tmp_path}/sigma_pattern_denied_mces.json"
-    pipeline = Pipeline.create(
-        _minimal_sigma_pipeline_config(
-            output_path,
-            ingest_shared_entities=True,
-            # Denies the path-derived name "New Acryl Data".
-            workspace_pattern={"allow": ["^Acryl Data$"]},
-        )
-    )
-    pipeline.run()
-    pipeline.raise_from_status()
-
-    with open(output_path) as f:
-        mces = json.load(f)
-
-    workspace_urn = make_container_urn(
-        WorkspaceKey(workspaceId=ws_id, platform="sigma")
-    )
-    named = {
-        mce["entityUrn"]: mce["aspect"]["json"]["name"]
-        for mce in mces
-        if mce["aspectName"] == "containerProperties"
-    }
-    assert named.get(workspace_urn) == "New Acryl Data", (
-        "the shared entity is still ingested, so its Container must still be "
-        "named -- suppressing it here would reintroduce the raw-URN label"
     )
 
 

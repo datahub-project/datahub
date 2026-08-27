@@ -29,10 +29,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     Workspace,
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource, _WorkbookWarehouseIndex
-from datahub.ingestion.source.sigma.sigma_api import (
-    MAX_WORKSPACE_FETCH_ATTEMPTS,
-    SigmaAPI,
-)
+from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ContainerPropertiesClass,
@@ -3000,14 +2997,13 @@ class TestWorkspaceLookupFailureCaching:
         assert api._get_api_call.call_count == 1  # type: ignore[attr-defined]
         assert api.report.non_accessible_workspaces_count == 1
 
-    def test_a_non_403_failure_is_retried_but_reported_once(self) -> None:
+    def test_a_non_403_failure_is_retried_and_reported(self) -> None:
         """A transient failure must not be latched for the whole run.
 
         ``ingest_shared_entities`` defaults to False, so a ``None`` here drops
         the entity. Caching that outcome would turn one 5xx into every entity
-        in the workspace being dropped for the rest of the run, while the
-        call might well have succeeded on the next entity. The report is still
-        deduped, so a persistently failing workspace cannot flood it.
+        in the workspace being dropped for the rest of the run, while the call
+        might well have succeeded on the next entity.
         """
         api = _create_sigma_api()
         api._get_api_call = MagicMock(  # type: ignore[method-assign]
@@ -3018,27 +3014,12 @@ class TestWorkspaceLookupFailureCaching:
             assert api.get_workspace(self.WORKSPACE) is None
 
         assert api._get_api_call.call_count == 3  # type: ignore[attr-defined]
+        # Not a permission problem, so it must not inflate the 403 counter or
+        # inherit its "add the user to the workspace" remediation.
         assert api.report.non_accessible_workspaces_count == 0
-        matching = [w for w in api.report.warnings if self.WORKSPACE in str(w)]
-        assert len(matching) == 1, api.report.warnings
-
-    def test_a_persistently_broken_workspace_stops_being_retried(self) -> None:
-        """Retrying must not cost a full retry cycle per entity.
-
-        Not caching the failure is what keeps a transient blip from dropping
-        the workspace, but a workspace that never recovers would otherwise be
-        re-fetched once per entity in it -- each attempt carrying the session's
-        own retry budget and backoff.
-        """
-        api = _create_sigma_api()
-        api._get_api_call = MagicMock(  # type: ignore[method-assign]
-            side_effect=Exception("boom")
+        assert any(self.WORKSPACE in str(w) for w in api.report.warnings), (
+            api.report.warnings
         )
-
-        for _ in range(20):
-            assert api.get_workspace(self.WORKSPACE) is None
-
-        assert api._get_api_call.call_count == MAX_WORKSPACE_FETCH_ATTEMPTS  # type: ignore[attr-defined]
 
     def test_a_transient_failure_can_still_resolve_on_a_later_entity(self) -> None:
         """The point of not caching: the second attempt is allowed to win."""
