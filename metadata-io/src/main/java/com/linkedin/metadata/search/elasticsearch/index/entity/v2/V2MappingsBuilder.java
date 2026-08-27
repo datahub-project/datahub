@@ -202,21 +202,27 @@ public class V2MappingsBuilder implements MappingsBuilder {
                   .collect(Collectors.toSet()));
     }
 
+    // Always emit the structuredProperties container as dynamic:false so a value written for a
+    // not-yet-mapped property stays unindexed in _source instead of being dynamic-mapped as text
+    // (which permanently poisons the field type and breaks terms aggregations across multi-index
+    // searches). Emitted even when the entity currently has no applicable structured property, so a
+    // fresh or recreated index refuses the first such write rather than dynamic-mapping it.
+    HashMap<String, Map<String, Object>> props =
+        (HashMap<String, Map<String, Object>>)
+            ((Map<String, Object>) mappings.get(PROPERTIES))
+                .computeIfAbsent(
+                    STRUCTURED_PROPERTY_MAPPING_FIELD,
+                    (key) ->
+                        new HashMap<>(
+                            Map.of(
+                                TYPE,
+                                ESUtils.OBJECT_FIELD_TYPE,
+                                "dynamic",
+                                false,
+                                PROPERTIES,
+                                new HashMap<>())));
+
     if (!structuredPropertiesForEntity.isEmpty()) {
-      HashMap<String, Map<String, Object>> props =
-          (HashMap<String, Map<String, Object>>)
-              ((Map<String, Object>) mappings.get(PROPERTIES))
-                  .computeIfAbsent(
-                      STRUCTURED_PROPERTY_MAPPING_FIELD,
-                      (key) ->
-                          new HashMap<>(
-                              Map.of(
-                                  TYPE,
-                                  ESUtils.OBJECT_FIELD_TYPE,
-                                  "dynamic",
-                                  true,
-                                  PROPERTIES,
-                                  new HashMap<>())));
 
       props.merge(
           PROPERTIES,

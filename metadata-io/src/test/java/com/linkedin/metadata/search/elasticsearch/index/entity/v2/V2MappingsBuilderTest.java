@@ -294,7 +294,7 @@ public class V2MappingsBuilderTest {
   }
 
   @Test
-  public void testStructuredPropertiesMappingHasDynamicTrue() throws URISyntaxException {
+  public void testStructuredPropertiesMappingHasDynamicFalse() throws URISyntaxException {
     when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
     StructuredPropertyDefinition structPropForThisEntity =
         new StructuredPropertyDefinition()
@@ -332,8 +332,9 @@ public class V2MappingsBuilderTest {
         "structuredProperties root must be type object");
     assertEquals(
         structuredPropsMapping.get("dynamic"),
-        true,
-        "structuredProperties root must have dynamic=true for nested indexing");
+        false,
+        "structuredProperties root must have dynamic=false so unmapped property values stay"
+            + " unindexed instead of being dynamic-mapped as text");
   }
 
   @Test

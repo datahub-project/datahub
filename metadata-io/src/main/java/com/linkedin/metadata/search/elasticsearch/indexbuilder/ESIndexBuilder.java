@@ -445,12 +445,28 @@ public class ESIndexBuilder {
             .getSourceAsMap();
     builder.currentMappings(currentMappings);
 
-    if (copyStructuredPropertyMappings) {
+    if (shouldPreserveStructuredPropertyMappings(copyStructuredPropertyMappings)) {
       mergeStructuredPropertyMappings(mappings, currentMappings);
     }
 
     builder.targetMappings(mappings);
     return builder.build();
+  }
+
+  /**
+   * Whether the current index's structured-property field mappings should be carried into the
+   * target mappings. Always true when the caller explicitly asks for it (the definition-driven
+   * mapping-update path). Also true when the structured-property system-update machinery is not
+   * managing SP mappings (disabled, the default): the target then contains an empty
+   * structuredProperties container, and since the container is mapped dynamic:false, a reindex from
+   * such a target would leave every pre-existing SP value unindexed and invisible to search with no
+   * later convergence. When the system-update machinery IS enabled it owns the SP mapping diff
+   * (including removals), so the current mappings must not be merged into the target there.
+   */
+  @VisibleForTesting
+  public boolean shouldPreserveStructuredPropertyMappings(boolean copyStructuredPropertyMappings) {
+    return copyStructuredPropertyMappings
+        || !(structPropConfig.isEnabled() && structPropConfig.isSystemUpdateEnabled());
   }
 
   private static boolean isKnnEnabled(Map<String, Object> baseSettings) {
