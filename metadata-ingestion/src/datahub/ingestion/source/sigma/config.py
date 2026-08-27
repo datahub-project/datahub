@@ -162,7 +162,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     )
     non_accessible_workspaces_count: int = 0
     # Workspaces whose Container had to be named from the entity path because
-    # ``/workspaces/{id}`` withheld their metadata.
+    # ``/workspaces/{id}`` withheld their metadata. ``LossyList`` stores
+    # ``(index, item)`` pairs internally, so comparing one against a plain list
+    # is always False even when the contents match -- assert on
+    # ``list(...)`` instead. The same applies if ``empty_workspaces`` below is
+    # ever converted.
     workspaces_without_metadata: LossyList[str] = field(default_factory=LossyList)
     # Requested workspace id -> the id Sigma answered with, when the two
     # differ. A non-empty map means the /files path walk is landing on folder

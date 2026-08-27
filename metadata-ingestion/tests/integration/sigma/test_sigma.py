@@ -2058,13 +2058,13 @@ def test_sigma_no_workspace_membership_names_all_containers(tmp_path, requests_m
 
 @pytest.mark.integration
 def test_sigma_late_resolved_workspace_keeps_its_real_name(tmp_path, requests_mock):
-    """A workspace can resolve *after* it was recorded as inaccessible.
+    """A workspace can resolve *after* the reference to it was recorded.
 
     Sigma can refuse ``/workspaces/{id}`` outright while happily answering for
     a folder inside that workspace, and the folder response carries the
     workspace record. Datasets are emitted before workbooks run their lookups,
-    so a workspace noted while emitting datasets can be in the cache by the
-    time workbooks are done -- properly named by ``_gen_workspace_workunit``.
+    so a workspace referenced while emitting datasets can be in the cache by
+    the time workbooks are done -- properly named by ``_gen_workspace_workunit``.
     The backstop runs last, so re-emitting it there would replace the real
     name, owner and timestamps with a path-derived name.
     """

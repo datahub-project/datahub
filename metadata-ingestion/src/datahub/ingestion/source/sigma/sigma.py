@@ -436,13 +436,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._bridge_unresolved_warned: Set[Tuple[str, str]] = set()
         # Once-per-run gate flags so noisy global conditions don't flood logs.
         self._registry_empty_warned: bool = False
-        # Workspaces that entities parent under but ``/workspaces`` never
-        # returned. Drained by ``_gen_inaccessible_workspace_workunits`` at the
-        # end of the run. Membership and name-known are independent facts: an
-        # entity can register the need for a Container before any entity
+        # Every Workspace an entity was parented under, and the name recovered
+        # from that entity's ``path``. Both are recorded unconditionally;
+        # ``_gen_unnamed_workspace_workunits`` decides at the end of the run
+        # which of them still need a Container of their own. The two are
+        # separate because a reference can be recorded before any entity
         # carrying a usable ``path`` turns up.
         self._referenced_workspace_ids: Set[str] = set()
-        self._inaccessible_workspace_names: Dict[str, str] = {}
+        self._workspace_names_from_path: Dict[str, str] = {}
         # Per-platform set: platforms for which we've emitted a "first emission"
         # info message noting that casing is unverified.
         self._warned_unvalidated_platforms: Set[str] = set()
@@ -579,7 +580,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         Records *every* reference, not just the ones that look unresolvable
         here. Whether something else ends up naming the Container is decided
-        once, in ``_gen_inaccessible_workspace_workunits``, which runs after
+        once, in ``_gen_unnamed_workspace_workunits``, which runs after
         all lookups and all entity work units. Deciding it here instead makes
         the outcome depend on how far through the run we happen to be: a
         workspace can be forbidden when its entity is admitted and resolved by
@@ -597,9 +598,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         name = path.split("/")[0] if path else ""
         # First usable name wins; a later pathless entity must not clobber it.
         if name:
-            self._inaccessible_workspace_names.setdefault(workspace_id, name)
+            self._workspace_names_from_path.setdefault(workspace_id, name)
 
-    def _gen_inaccessible_workspace_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def _gen_unnamed_workspace_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Name every referenced Workspace Container that nothing else named.
 
         ``_note_referenced_workspace`` records every Workspace an entity was
@@ -642,9 +643,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     sub_types=[BIContainerSubTypes.SIGMA_WORKSPACE],
                 )
                 continue
-            name = self._inaccessible_workspace_names.get(
+            name = self._workspace_names_from_path.get(
                 noted_id
-            ) or self._inaccessible_workspace_names.get(workspace_id)
+            ) or self._workspace_names_from_path.get(workspace_id)
             entry = f"{name or 'unknown'} ({workspace_id})"
             recorded.append(entry)
             self.reporter.workspaces_without_metadata.append(entry)
@@ -4286,7 +4287,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._workbook_customsql_registered_urns.clear()
         self._workbook_customsql_formula_fields.clear()
         self._referenced_workspace_ids.clear()
-        self._inaccessible_workspace_names.clear()
+        self._workspace_names_from_path.clear()
         self.sigma_api.fill_workspaces()
 
         # Materialize the Sigma Dataset list once and populate the
@@ -4519,7 +4520,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.empty_workspaces.append(
                     f"{workspace.name} ({workspace.workspaceId})"
                 )
-        yield from self._gen_inaccessible_workspace_workunits()
+        yield from self._gen_unnamed_workspace_workunits()
         yield from self._gen_sigma_dataset_upstream_lineage_workunit()
         yield from self._drain_sql_aggregators()
 

@@ -3041,12 +3041,14 @@ class TestWorkspaceKeyResolution:
         assert source._gen_workspace_key("real-ws").workspaceId == "real-ws"
 
 
-class TestInaccessibleWorkspaceContainers:
-    """Workspaces Sigma withholds still need a named Container.
+class TestUnnamedWorkspaceContainers:
+    """A referenced Workspace Container must always end up named.
 
-    Entities admitted by ``ingest_shared_entities`` stay parented under the
-    Workspace Container URN even when ``/workspaces/{id}`` is forbidden. With
-    no ``containerProperties`` the UI renders the raw URN as the folder label.
+    Entities stay parented under the Workspace Container URN whether Sigma
+    withheld the workspace (``ingest_shared_entities`` admits them anyway) or
+    returned it and ``workspace_pattern`` then denied it. In both cases nothing
+    on the normal path emits ``containerProperties``, and without them the UI
+    renders the raw ``urn:li:container:<guid>`` as the folder label.
     """
 
     def _make_source(self) -> SigmaSource:
@@ -3055,7 +3057,7 @@ class TestInaccessibleWorkspaceContainers:
         source.reporter = SigmaSourceReport()
         source.platform = "sigma"
         source._referenced_workspace_ids = set()
-        source._inaccessible_workspace_names = {}
+        source._workspace_names_from_path = {}
         source.sigma_api = MagicMock()
         source.sigma_api.workspaces = {}
         source.sigma_api.resolve_workspace_id = lambda workspace_id: workspace_id  # type: ignore[method-assign]
@@ -3066,7 +3068,7 @@ class TestInaccessibleWorkspaceContainers:
 
         source._note_referenced_workspace("ws-1", "Analytics/Finance/Q3")
 
-        assert source._inaccessible_workspace_names == {"ws-1": "Analytics"}
+        assert source._workspace_names_from_path == {"ws-1": "Analytics"}
 
     def test_a_known_allowed_workspace_emits_nothing(self) -> None:
         """Recorded like any other reference, but named by
@@ -3079,7 +3081,7 @@ class TestInaccessibleWorkspaceContainers:
         source._note_referenced_workspace("ws-1", "Analytics")
 
         assert source._referenced_workspace_ids == {"ws-1"}
-        assert list(source._gen_inaccessible_workspace_workunits()) == []
+        assert list(source._gen_unnamed_workspace_workunits()) == []
         assert source.reporter.warnings == []
 
     def test_a_known_denied_workspace_is_still_named(self) -> None:
@@ -3101,7 +3103,7 @@ class TestInaccessibleWorkspaceContainers:
         }
 
         source._note_referenced_workspace("ws-1", "PathDerived/Finance")
-        names = _emitted_container_names(source._gen_inaccessible_workspace_workunits())
+        names = _emitted_container_names(source._gen_unnamed_workspace_workunits())
 
         # Real name from the cache beats the one recovered from the path.
         assert names == ["Real Name"]
@@ -3122,17 +3124,17 @@ class TestInaccessibleWorkspaceContainers:
         source._note_referenced_workspace("inode", "Analytics")
 
         assert source._referenced_workspace_ids == {"real-ws"}
-        assert list(source._gen_inaccessible_workspace_workunits()) == []
+        assert list(source._gen_unnamed_workspace_workunits()) == []
 
     def test_a_real_name_replaces_a_pathless_placeholder(self) -> None:
         source = self._make_source()
 
         source._note_referenced_workspace("ws-1", None)
         assert source._referenced_workspace_ids == {"ws-1"}
-        assert source._inaccessible_workspace_names == {}
+        assert source._workspace_names_from_path == {}
 
         source._note_referenced_workspace("ws-1", "Analytics")
-        assert source._inaccessible_workspace_names == {"ws-1": "Analytics"}
+        assert source._workspace_names_from_path == {"ws-1": "Analytics"}
 
     def test_a_recovered_name_is_not_clobbered_by_a_pathless_entity(self) -> None:
         """``data_model.path`` is optional while ``workbook.path`` is not, so
@@ -3142,13 +3144,13 @@ class TestInaccessibleWorkspaceContainers:
         source._note_referenced_workspace("ws-1", "Analytics")
         source._note_referenced_workspace("ws-1", None)
 
-        assert source._inaccessible_workspace_names == {"ws-1": "Analytics"}
+        assert source._workspace_names_from_path == {"ws-1": "Analytics"}
 
     def test_container_is_emitted_with_the_recovered_name(self) -> None:
         source = self._make_source()
         source._note_referenced_workspace("ws-1", "Analytics/Finance")
 
-        names = _emitted_container_names(source._gen_inaccessible_workspace_workunits())
+        names = _emitted_container_names(source._gen_unnamed_workspace_workunits())
 
         assert names == ["Analytics"]
         assert list(source.reporter.workspaces_without_metadata) == ["Analytics (ws-1)"]
@@ -3158,7 +3160,7 @@ class TestInaccessibleWorkspaceContainers:
         source = self._make_source()
         source._note_referenced_workspace("ws-1", None)
 
-        names = _emitted_container_names(source._gen_inaccessible_workspace_workunits())
+        names = _emitted_container_names(source._gen_unnamed_workspace_workunits())
 
         # Still preferable to the UI rendering an opaque container guid.
         assert names == ["ws-1"]
@@ -3167,5 +3169,5 @@ class TestInaccessibleWorkspaceContainers:
     def test_nothing_emitted_when_every_workspace_resolved(self) -> None:
         source = self._make_source()
 
-        assert list(source._gen_inaccessible_workspace_workunits()) == []
+        assert list(source._gen_unnamed_workspace_workunits()) == []
         assert source.reporter.warnings == []
