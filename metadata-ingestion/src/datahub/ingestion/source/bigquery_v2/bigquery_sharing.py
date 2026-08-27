@@ -1,39 +1,28 @@
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Protocol, Set, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
 from google.api_core.exceptions import GoogleAPIError, PermissionDenied
 from google.cloud import bigquery, resourcemanager_v3
 
 if TYPE_CHECKING:
-    # google-cloud-bigquery-analyticshub ships only with the `bigquery` extra. This
-    # module is reached from bigquery.py, which bigquery-slim installs also load, so
-    # importing it at runtime here would break that install. The one runtime use is a
-    # local import inside _apply_subscription.
-    from google.cloud.bigquery_analyticshub_v1 import AnalyticsHubServiceClient
+    # analyticshub ships only with the `bigquery` extra, not bigquery-slim, so it is
+    # imported locally in _apply_subscription rather than at runtime module scope.
+    from google.cloud.bigquery_analyticshub_v1 import (
+        AnalyticsHubServiceClient,
+        Subscription,
+    )
 
-from datahub.emitter.mce_builder import make_schema_field_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigQueryTableRef
+from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     LINK_STATE_LINKED,
-    LINKED_DATASET_TYPE,
-    BigqueryColumn,
     BigqueryDataset,
 )
 from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilder
-from datahub.metadata.schema_classes import (
-    DatasetLineageTypeClass,
-    FineGrainedLineageClass,
-    FineGrainedLineageDownstreamTypeClass,
-    FineGrainedLineageUpstreamTypeClass,
-    UpstreamClass,
-    UpstreamLineageClass,
-)
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
-# Split rather than one `project.dataset` string: the publisher is in a different
-# project from the `project_id` already on this container, and each half is filterable
-# on its own. Mirrors the container's existing project_id / dataset_id pair.
+# Two fields: the publisher's project differs from the container's own project_id.
 PROP_SOURCE_PROJECT_ID: str = "source_project_id"
 PROP_SOURCE_DATASET_ID: str = "source_dataset_id"
 PROP_LINK_STATE: str = "link_state"
@@ -61,19 +50,6 @@ def _last_segment(resource_name: Optional[str]) -> Optional[str]:
     return resource_name.rsplit("/", 1)[-1] or None
 
 
-class BigQuerySharingConfigProtocol(Protocol):
-    """The narrow config slice this handler needs."""
-
-    include_linked_datasets: bool
-    extract_subscriptions_from_analytics_hub: bool
-    include_table_lineage: Optional[bool]
-    convert_column_urns_to_lowercase: bool
-
-    def get_sharing_client(
-        self,
-    ) -> "AnalyticsHubServiceClient": ...
-
-
 @dataclass(frozen=True)
 class PublisherRef:
     """The publisher side of a share. Holds a project ID, never a project number,
@@ -85,8 +61,6 @@ class PublisherRef:
 
 @dataclass(frozen=True)
 class LinkedDatasetInfo:
-    consumer_project_id: str
-    consumer_dataset: str
     publisher: Optional[PublisherRef] = None
     link_state: Optional[str] = None
 
@@ -128,7 +102,7 @@ class BigQuerySharingHandler:
 
     def __init__(
         self,
-        config: BigQuerySharingConfigProtocol,
+        config: BigQueryV2Config,
         report: BigQueryV2Report,
         identifiers: BigQueryIdentifierBuilder,
         client: bigquery.Client,
@@ -141,10 +115,11 @@ class BigQuerySharingHandler:
         self.projects_client = projects_client
 
         self._lookup: Dict[Tuple[str, str], LinkedDatasetInfo] = {}
-        self._entities: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
         self._publisher_project_ids: Dict[str, Optional[str]] = {}
         self._project_number_map: Optional[Dict[str, str]] = None
         self._sharing_client: Optional["AnalyticsHubServiceClient"] = None
+        # Warn once per run, not once per project, when Dataset.type is wholesale absent.
+        self._warned_all_dataset_types_missing: bool = False
 
     # ---- population -------------------------------------------------------
 
@@ -156,8 +131,26 @@ class BigQuerySharingHandler:
         Must run before the per-dataset thread pool fans out: this writes the shared
         lookup that the workers only read.
         """
-        linked = [ds for ds in datasets if ds.type == LINKED_DATASET_TYPE]
+        linked = [ds for ds in datasets if ds.is_linked_dataset()]
         if not linked:
+            # If Dataset.type stops being returned, every dataset reads as non-linked
+            # and the feature silently no-ops; warn once so that is visible.
+            if (
+                not self._warned_all_dataset_types_missing
+                and datasets
+                and all(ds.type is None for ds in datasets)
+            ):
+                self._warned_all_dataset_types_missing = True
+                self.report.warning(
+                    title="Linked datasets enabled but no dataset types returned",
+                    message=(
+                        "`include_linked_dataset_lineage` is enabled but no dataset "
+                        "reported a type, so linked datasets cannot be detected. This "
+                        "usually means the BigQuery datasets.list response omitted the "
+                        "type field."
+                    ),
+                    context=project_id,
+                )
             return
 
         self.report.num_linked_datasets_detected[project_id] = len(linked)
@@ -231,8 +224,6 @@ class BigQuerySharingHandler:
             )
 
         return LinkedDatasetInfo(
-            consumer_project_id=project_id,
-            consumer_dataset=dataset_name,
             publisher=publisher,
             link_state=link_state,
         )
@@ -255,10 +246,8 @@ class BigQuerySharingHandler:
         try:
             sharing_client = self._get_sharing_client()
         except ImportError as e:
-            # google-cloud-bigquery-analyticshub ships with the `bigquery` extra but
-            # not with bigquery-slim, so this flag can be set on an install that has
-            # no client to build. Reported like every other enrichment failure here:
-            # the linked datasets and their lineage are already emitted.
+            # analyticshub is absent on bigquery-slim, so the flag can be set with no
+            # client to build. Non-fatal; lineage is already emitted.
             self.report.warning(
                 title="BigQuery Sharing client unavailable",
                 message=(
@@ -272,9 +261,7 @@ class BigQuerySharingHandler:
             )
             return
         except Exception as e:
-            # Construction resolves credentials and opens a channel, so it fails on
-            # more than a missing package. Kept separate from ImportError because the
-            # remedy differs.
+            # Client construction resolves credentials, so it fails beyond ImportError.
             self.report.warning(
                 title="BigQuery Sharing client could not be created",
                 message=(
@@ -321,9 +308,8 @@ class BigQuerySharingHandler:
     def _report_sharing_denied(
         self, project_id: str, location: str, exc: PermissionDenied
     ) -> None:
-        # `reason` carries the response's ErrorInfo and is the precise signal, but it
-        # is only populated when grpcio-status is importable, a google-api-core extra
-        # this package does not require. The message match covers that case.
+        # `reason` (ErrorInfo) is precise but only set when grpcio-status is importable,
+        # an extra this package does not require, so we match on the message too.
         reason = getattr(exc, "reason", None)
         detail = str(exc)
         if reason == REASON_SERVICE_DISABLED or (
@@ -356,28 +342,23 @@ class BigQuerySharingHandler:
                 exc=exc,
             )
 
-    def _apply_subscription(self, project_id: str, subscription: object) -> None:
+    def _apply_subscription(
+        self, project_id: str, subscription: "Subscription"
+    ) -> None:
         from google.cloud.bigquery_analyticshub_v1 import SharedResourceType
 
-        if getattr(subscription, "resource_type", None) != (
-            SharedResourceType.BIGQUERY_DATASET
-        ):
+        if subscription.resource_type != SharedResourceType.BIGQUERY_DATASET:
             # A project's Pub/Sub subscriptions come back from the same call.
             return
 
-        # Read from `destination_dataset`, which reports IDs.
-        # `linked_resources[].linked_dataset` looks equally usable but reports project
-        # NUMBERS, and matching on it parses cleanly and silently finds nothing.
-        reference = getattr(
-            getattr(subscription, "destination_dataset", None),
-            "dataset_reference",
-            None,
-        )
         # Counted before the dataset_id check so a subscription naming no dataset still
         # leaves a trace.
         self.report.num_sharing_subscriptions_scanned += 1
 
-        consumer_dataset = getattr(reference, "dataset_id", None)
+        # Use `destination_dataset` (reports IDs); `linked_resources[].linked_dataset`
+        # reports project NUMBERS, so matching on it silently finds nothing.
+        reference = subscription.destination_dataset.dataset_reference
+        consumer_dataset = reference.dataset_id
         if not consumer_dataset:
             self.report.num_sharing_subscriptions_unmatched += 1
             return
@@ -389,11 +370,10 @@ class BigQuerySharingHandler:
             self.report.num_sharing_subscriptions_unmatched += 1
             return
 
-        state = getattr(subscription, "state", None)
-        state_name = getattr(state, "name", None)
+        state_name = subscription.state.name
         self._lookup[(project_id, consumer_dataset)] = replace(
             existing,
-            listing=_last_segment(getattr(subscription, "listing", None)),
+            listing=_last_segment(subscription.listing),
             subscription_state=(
                 state_name[len(_STATE_PREFIX) :]
                 if state_name and state_name.startswith(_STATE_PREFIX)
@@ -410,7 +390,17 @@ class BigQuerySharingHandler:
         IDs, and a URN built from a number matches nothing.
         """
         if project_number in self._publisher_project_ids:
-            return self._publisher_project_ids[project_number]
+            cached = self._publisher_project_ids[project_number]
+            if cached is not None:
+                return cached
+            # A cached None may be stale: a later publisher's lookup can rebuild the
+            # project-number map, so recheck it before honouring the negative result.
+            if self._project_number_map is None:
+                return None
+            resolved = self._from_project_list(project_number)
+            if resolved is not None:
+                self._publisher_project_ids[project_number] = resolved
+            return resolved
 
         resolved = self._from_project_list(project_number)
         if resolved is None:
@@ -425,9 +415,8 @@ class BigQuerySharingHandler:
         if self._project_number_map is None:
             mapping: Dict[str, str] = {}
             try:
-                # The client's DEFAULT_RETRY already covers the rate-limit errors
-                # projects.list is prone to at its 2 req/s quota. Only the timeout is
-                # left unset, so that is all this passes.
+                # DEFAULT_RETRY already covers projects.list's rate-limit errors at its
+                # 2 req/s quota, so only the timeout is set here.
                 for project in self.client.list_projects(
                     timeout=_LIST_PROJECTS_TIMEOUT
                 ):
@@ -435,9 +424,8 @@ class BigQuerySharingHandler:
                     if numeric_id is not None:
                         mapping[str(numeric_id)] = project.project_id
             except Exception as e:
-                # Broad on purpose, matching _resolve_from_dataset: the client raises
-                # more than GoogleAPIError, and tier 1 failing must fall through to
-                # Resource Manager rather than end the project.
+                # Broad on purpose: tier 1 failing must fall through to Resource Manager,
+                # not end the project, and the client raises more than GoogleAPIError.
                 self.report.warning(
                     title="Could not list projects to resolve publisher project numbers",
                     message=(
@@ -448,10 +436,8 @@ class BigQuerySharingHandler:
                     ),
                     exc=e,
                 )
-                # Left unset rather than cached: list_projects() paginates lazily, so
-                # `mapping` holds only the pages that arrived, and caching it would deny
-                # lineage to every publisher past the failure. Retrying costs one call
-                # per distinct publisher number, which _publisher_project_ids bounds.
+                # Not cached: list_projects() paginates lazily, so a partial map from a
+                # failed pass would deny lineage to every later publisher.
                 return None
             self._project_number_map = mapping
 
@@ -470,10 +456,8 @@ class BigQuerySharingHandler:
             self.report.num_publisher_lookups_from_resource_manager += 1
             return project.project_id
         except Exception as e:
-            # Broad on purpose, matching tier 1: this client shares its credentials, so
-            # a credential refresh raises GoogleAuthError rather than GoogleAPIError.
-            # Nothing between here and get_workunits_internal catches, so a narrow
-            # except would end the run rather than this one lookup.
+            # Broad on purpose: a credential refresh raises GoogleAuthError, not
+            # GoogleAPIError, and a narrow except here would end the whole run.
             self.report.warning(
                 title="Cannot resolve publisher project",
                 message=(
@@ -495,106 +479,32 @@ class BigQuerySharingHandler:
     ) -> Optional[LinkedDatasetInfo]:
         return self._lookup.get((project_id, dataset_name))
 
-    # ---- deferred emission ------------------------------------------------
+    # ---- lineage registration ---------------------------------------------
 
-    def record_entity(
-        self,
-        project_id: str,
-        dataset_name: str,
-        entity_name: str,
-        columns: List[BigqueryColumn],
+    def register_known_lineage(
+        self, aggregator: SqlParsingAggregator, table_refs: Set[str]
     ) -> None:
-        """Note one table or view of a linked dataset, for emission at the end.
+        """Register a COPY mapping from each linked table, view, and snapshot to its publisher.
 
-        Called from the schema workers once the entity has passed its own
-        table_pattern/view_pattern check, so the filtering is not repeated here.
-        `_entities` needs no lock only because a single worker owns each
-        (project, dataset); sharding the fan-out below dataset level breaks that.
+        A share exposes the publisher's objects read-only, so each linked object is a
+        verbatim copy of the publisher's same-named object. The mapping goes through the
+        aggregator's add_known_lineage_mapping, which handles emission and builds the
+        identity column lineage from the resolved consumer schema.
+
+        `table_refs` is already filtered by each object's *_pattern, so it is used as-is.
         """
-        info = self._lookup.get((project_id, dataset_name))
-        if info is None or not info.is_live_link:
-            return
-        self._entities.setdefault((project_id, dataset_name), {})[entity_name] = [
-            column.name for column in columns
-        ]
-
-    def gen_all_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """Emit every linked dataset's lineage, last in the run.
-
-        Four code paths write `upstreamLineage` destructively and nothing reports the
-        loss, so position is load-bearing.
-        """
-        if not self.config.include_table_lineage:
-            return
-
-        for (project_id, dataset_name), entities in self._entities.items():
-            info = self._lookup.get((project_id, dataset_name))
-            publisher = info.publisher if info is not None else None
-            if publisher is None:
+        for ref in table_refs:
+            entity = BigQueryTableRef.from_string_name(ref).table_identifier
+            info = self._lookup.get((entity.project_id, entity.dataset))
+            if info is None or not info.is_live_link or info.publisher is None:
                 continue
-            for entity_name, column_names in entities.items():
-                yield from self._gen_lineage_for_entity(
-                    project_id, dataset_name, entity_name, column_names, publisher
-                )
-
-    # ---- emission ---------------------------------------------------------
-
-    def _gen_lineage_for_entity(
-        self,
-        project_id: str,
-        dataset_name: str,
-        entity_name: str,
-        column_names: List[str],
-        publisher: PublisherRef,
-    ) -> Iterable[MetadataWorkUnit]:
-        consumer_urn = self.identifiers.gen_dataset_urn(
-            project_id, dataset_name, entity_name
-        )
-        publisher_urn = self.identifiers.gen_dataset_urn(
-            publisher.project_id, publisher.dataset, entity_name
-        )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=consumer_urn,
-            aspect=UpstreamLineageClass(
-                upstreams=[
-                    UpstreamClass(
-                        dataset=publisher_urn, type=DatasetLineageTypeClass.COPY
-                    )
-                ],
-                fineGrainedLineages=self._build_fine_grained_lineages(
-                    publisher_urn=publisher_urn,
-                    consumer_urn=consumer_urn,
-                    column_names=column_names,
-                )
-                or None,
-            ),
-        ).as_workunit()
-        self.report.num_linked_dataset_lineage_emitted += 1
-
-    def _build_fine_grained_lineages(
-        self, publisher_urn: str, consumer_urn: str, column_names: List[str]
-    ) -> List[FineGrainedLineageClass]:
-        """One edge per column. A share copies nothing, so the mapping is identity.
-
-        A STRUCT arrives as one entry per leaf path, all sharing a name, hence the
-        dedup. Lowercasing must happen before the field URN is built, not after.
-        """
-        lineages: List[FineGrainedLineageClass] = []
-        seen: Set[str] = set()
-        lowercase = self.config.convert_column_urns_to_lowercase
-
-        for raw_name in column_names:
-            column_name = raw_name.lower() if lowercase else raw_name
-            if column_name in seen:
-                continue
-            seen.add(column_name)
-            lineages.append(
-                FineGrainedLineageClass(
-                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    upstreams=[make_schema_field_urn(publisher_urn, column_name)],
-                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                    downstreams=[make_schema_field_urn(consumer_urn, column_name)],
-                )
+            consumer_urn = self.identifiers.gen_dataset_urn(
+                entity.project_id, entity.dataset, entity.table
             )
-        return lineages
+            publisher_urn = self.identifiers.gen_dataset_urn(
+                info.publisher.project_id, info.publisher.dataset, entity.table
+            )
+            aggregator.add_known_lineage_mapping(
+                upstream_urn=publisher_urn, downstream_urn=consumer_urn
+            )
+            self.report.num_linked_dataset_lineage_emitted += 1

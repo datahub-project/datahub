@@ -395,8 +395,12 @@
             "upstreams": [
                 {
                     "auditStamp": {
+                        "time": 1643871600000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
                         "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
+                        "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,publisher-project-1.source-dataset-1.table-1,PROD)",
                     "type": "COPY"
@@ -430,7 +434,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00-em8dkc",
+        "runId": "bigquery-2022_02_03-07_00_00-k8kvlo",
         "lastRunId": "no-run-id-provided"
     }
 }

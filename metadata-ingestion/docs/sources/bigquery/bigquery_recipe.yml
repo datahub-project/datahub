@@ -16,9 +16,9 @@ source:
     include_usage_statistics: true
     # Detect BigQuery Sharing linked datasets and emit lineage to the dataset each
     # was shared from. Off by default; needs no permission beyond the above.
-    # include_linked_datasets: true
+    # include_linked_dataset_lineage: true
     # Additionally record the listing and subscription state. Only takes effect
-    # alongside include_linked_datasets, and needs `analyticshub.subscriptions.list`
+    # alongside include_linked_dataset_lineage, and needs `analyticshub.subscriptions.list`
     # plus the Analytics Hub API enabled.
     # extract_subscriptions_from_analytics_hub: true
     profiling:

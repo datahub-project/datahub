@@ -249,7 +249,6 @@ class BigQuerySchemaGenerator:
 
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
-
         # Dataset locations seen during schema extraction; consumed downstream
         # to auto-extend region_qualifiers and avoid silent INFORMATION_SCHEMA misses.
         self.discovered_locations: Set[str] = set()
@@ -480,10 +479,9 @@ class BigQuerySchemaGenerator:
             bigquery_project.datasets
         )
         if self.sharing_handler is not None and self.config.include_schema_metadata:
-            # Must precede the fan-out below: this writes the shared lookup that the
-            # per-dataset workers only read. Gated on include_schema_metadata because
-            # _process_schema returns before _record_linked_entities without it, so the
-            # get_dataset calls this makes would buy nothing.
+            # Must precede the fan-out: it writes the shared lookup the per-dataset workers
+            # read. Gated on include_schema_metadata, without which its get_dataset calls
+            # would buy nothing.
             self.sharing_handler.populate_for_project(
                 project_id, bigquery_project.datasets
             )
@@ -598,7 +596,7 @@ class BigQuerySchemaGenerator:
                     project_id, dataset_name, bigquery_dataset
                 ),
                 is_linked_dataset=(
-                    self.config.include_linked_datasets
+                    self.config.include_linked_dataset_lineage
                     and bigquery_dataset.is_linked_dataset()
                 ),
                 description=bigquery_dataset.comment,
@@ -800,14 +798,6 @@ class BigQuerySchemaGenerator:
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        # Recorded here, past the pattern gate, because the columns are only in scope
-        # during the schema pass but the lineage is emitted last. See
-        # BigQuerySharingHandler.gen_all_lineage_workunits.
-        if self.sharing_handler is not None:
-            self.sharing_handler.record_entity(
-                project_id, dataset_name, table.name, columns
-            )
-
         if self.store_table_refs:
             table_ref = str(
                 BigQueryTableRef(table_identifier).get_sanitized_table_ref()
@@ -857,11 +847,6 @@ class BigQuerySchemaGenerator:
             )
             self.report.report_dropped(table_identifier.raw_table_name())
             return
-
-        if self.sharing_handler is not None:
-            self.sharing_handler.record_entity(
-                project_id, dataset_name, view.name, columns
-            )
 
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         self.table_refs.add(table_ref)

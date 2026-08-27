@@ -28,6 +28,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_queries import (
+    BigQueryQueriesSourceConfig,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryDataset,
@@ -2158,9 +2161,30 @@ def test_linked_entities_recorded_only_past_the_pattern_gates(
             )
         )
 
+    # The new path reads table_refs, which _process_view / _process_table populate only
+    # past their pattern gate, so a denied entity is absent from table_refs and gets no
+    # COPY edge. add_known_lineage_mapping emits the table-level edge even with an empty
+    # resolver, which is all this asserts.
+    from datahub.ingestion.api.source_helpers import auto_workunit
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
+    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+
+    aggregator = SqlParsingAggregator(
+        platform="bigquery",
+        platform_instance=None,
+        env="PROD",
+        schema_resolver=SchemaResolver(platform="bigquery", env="PROD"),
+        eager_graph_load=False,
+        generate_lineage=True,
+        generate_queries=True,
+        generate_usage_statistics=False,
+        generate_query_usage_statistics=False,
+        generate_operations=False,
+    )
+    handler.register_known_lineage(aggregator, schema_gen.table_refs)
     with_lineage = {
         wu.metadata.entityUrn  # type: ignore[union-attr]
-        for wu in handler.gen_all_lineage_workunits()
+        for wu in auto_workunit(aggregator.gen_metadata())
         if isinstance(wu.metadata.aspect, UpstreamLineageClass)  # type: ignore[union-attr]
     }
 
@@ -2176,15 +2200,15 @@ def test_linked_entities_recorded_only_past_the_pattern_gates(
 def test_sharing_properties_without_linked_datasets_warns(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # The handler is only built when include_linked_datasets is on, so this pairing
-    # costs a permission grant and an enabled API for no output. Warn rather than
-    # raise, matching warn_legacy_only_usage_fields_under_queries_v2.
+    # The handler is only built when include_linked_dataset_lineage is on, so this
+    # pairing costs a permission grant and an enabled API for no output. Warn rather
+    # than raise, matching warn_legacy_only_usage_fields_under_queries_v2.
     caplog.clear()
     with caplog.at_level(logging.WARNING):
         BigQueryV2Config.model_validate(
             {
                 "project_ids": ["p"],
-                "include_linked_datasets": False,
+                "include_linked_dataset_lineage": False,
                 "extract_subscriptions_from_analytics_hub": True,
             }
         )
@@ -2195,8 +2219,92 @@ def test_sharing_properties_without_linked_datasets_warns(
         BigQueryV2Config.model_validate(
             {
                 "project_ids": ["p"],
-                "include_linked_datasets": True,
+                "include_linked_dataset_lineage": True,
                 "extract_subscriptions_from_analytics_hub": True,
             }
         )
     assert not any("has no effect" in r.msg for r in caplog.records)
+
+
+def test_linked_dataset_lineage_flag_renamed() -> None:
+    # I11: the flag is include_linked_dataset_lineage. The pre-release name
+    # include_linked_datasets is not accepted -- no deprecation shim, since it never
+    # shipped -- so a recipe still using it fails loudly rather than silently no-op'ing.
+    assert (
+        BigQueryV2Config.model_validate(
+            {"project_ids": ["p"], "include_linked_dataset_lineage": True}
+        ).include_linked_dataset_lineage
+        is True
+    )
+    with pytest.raises(ValidationError):
+        BigQueryV2Config.model_validate(
+            {"project_ids": ["p"], "include_linked_datasets": True}
+        )
+
+
+def test_queries_config_rejects_linked_dataset_flag() -> None:
+    # I12: the bigquery-queries source has no schema pass, so linked-dataset detection
+    # cannot run there. Its config must reject the flag (extra="forbid") rather than
+    # accept and silently ignore it, so a misplaced flag surfaces at validation.
+    with pytest.raises(ValidationError):
+        BigQueryQueriesSourceConfig.model_validate(
+            {"project_id": "p", "include_linked_dataset_lineage": True}
+        )
+
+
+def test_linked_dataset_lineage_without_table_lineage_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # I13: the feature's whole output is the COPY lineage edge, which is gated on
+    # include_table_lineage. On with lineage off produces subtype/properties but no
+    # lineage -- warn so the user knows the main output is suppressed.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "project_ids": ["p"],
+                "include_linked_dataset_lineage": True,
+                "include_table_lineage": False,
+            }
+        )
+    assert any("include_table_lineage" in r.msg for r in caplog.records)
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "project_ids": ["p"],
+                "include_linked_dataset_lineage": True,
+                "include_table_lineage": True,
+            }
+        )
+    assert not any("include_table_lineage" in r.msg for r in caplog.records)
+
+
+def test_linked_dataset_lineage_without_schema_metadata_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # I14: detection runs during the schema pass, so with include_schema_metadata off
+    # nothing is detected and the feature is inert -- warn rather than silently do
+    # nothing.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "project_ids": ["p"],
+                "include_linked_dataset_lineage": True,
+                "include_schema_metadata": False,
+            }
+        )
+    assert any("include_schema_metadata" in r.msg for r in caplog.records)
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "project_ids": ["p"],
+                "include_linked_dataset_lineage": True,
+                "include_schema_metadata": True,
+            }
+        )
+    assert not any("include_schema_metadata" in r.msg for r in caplog.records)

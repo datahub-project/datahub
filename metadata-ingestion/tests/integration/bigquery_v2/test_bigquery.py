@@ -1,3 +1,4 @@
+import json
 import random
 import string
 from datetime import datetime, timezone
@@ -1024,7 +1025,7 @@ def test_bigquery_linked_dataset_ingest(
     # feature regardless of which way the default goes.
     pipeline_config_dict: Dict[str, Any] = recipe(
         mcp_output_path=mcp_output_path,
-        source_config_override={"include_linked_datasets": True},
+        source_config_override={"include_linked_dataset_lineage": True},
     )
 
     run_and_get_pipeline(pipeline_config_dict)
@@ -1033,4 +1034,126 @@ def test_bigquery_linked_dataset_ingest(
         pytestconfig,
         output_path=mcp_output_path,
         golden_path=mcp_golden_path,
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_views_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQuerySchemaGenerator, "get_core_table_details")
+@patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
+@patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
+@patch.object(BigQueryDataReader, "get_sample_data_for_table")
+@patch("google.cloud.bigquery.Client")
+@patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
+@patch("google.cloud.resourcemanager_v3.ProjectsClient")
+def test_bigquery_linked_dataset_no_copy_edge_without_table_lineage(
+    projects_client,
+    policy_tag_manager_client,
+    client,
+    get_sample_data_for_table,
+    get_columns_for_dataset,
+    get_datasets_for_project_id,
+    get_core_table_details,
+    get_tables_for_dataset,
+    get_views_for_dataset,
+    get_snapshots_for_dataset,
+    pytestconfig,
+    tmp_path,
+):
+    # I7: with include_table_lineage off, a linked dataset is still catalogued (subtype +
+    # source reference) but its COPY upstream is gated off. Asserted directly rather than
+    # against a golden, since the invariant is the absence of upstreamLineage.
+    mcp_output_path = f"{tmp_path}/linked_no_lineage_output.json"
+
+    dataset_name = "linked-dataset-1"
+    get_datasets_for_project_id.return_value = [
+        BigqueryDataset(name=dataset_name, location="US", type="LINKED")
+    ]
+
+    bq_client = client.return_value
+    bq_client.get_dataset.return_value = MagicMock(
+        _properties={
+            "type": "LINKED",
+            "linkedDatasetSource": {
+                "sourceDataset": {
+                    "projectId": "123456789012",
+                    "datasetId": "source-dataset-1",
+                }
+            },
+            "linkedDatasetMetadata": {"linkState": "LINKED"},
+        }
+    )
+    bq_client.list_projects.return_value = [
+        SimpleNamespace(
+            project_id="publisher-project-1",
+            numeric_id="123456789012",
+            friendly_name="",
+        )
+    ]
+
+    table_name = "table-1"
+    get_core_table_details.return_value = {
+        table_name: TableListItem(
+            {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
+        )
+    }
+    get_columns_for_dataset.return_value = {
+        table_name: [
+            BigqueryColumn(
+                name="age",
+                ordinal_position=1,
+                is_nullable=False,
+                field_path="age",
+                data_type="INT",
+                comment="comment",
+                is_partition_column=False,
+                cluster_column_position=None,
+                policy_tags=[],
+            ),
+        ]
+    }
+    get_sample_data_for_table.return_value = {
+        "age": [random.randint(1, 80) for _ in range(20)],
+    }
+    get_tables_for_dataset.return_value = iter(
+        [
+            BigqueryTable(
+                name=table_name,
+                comment=None,
+                created=None,
+                last_altered=None,
+                size_in_bytes=None,
+                rows_count=None,
+            )
+        ]
+    )
+    get_views_for_dataset.return_value = iter([])
+    get_snapshots_for_dataset.return_value = iter([])
+
+    pipeline_config_dict: Dict[str, Any] = recipe(
+        mcp_output_path=mcp_output_path,
+        source_config_override={
+            "include_linked_dataset_lineage": True,
+            "include_table_lineage": False,
+        },
+    )
+    run_and_get_pipeline(pipeline_config_dict)
+
+    with open(mcp_output_path) as f:
+        mcps = json.load(f)
+
+    # The COPY edge is this feature's only lineage here, and it is gated on table lineage,
+    # so nothing emits an upstreamLineage aspect.
+    assert not [m for m in mcps if m.get("aspectName") == "upstreamLineage"]
+
+    # Detection still runs: the dataset keeps its Linked Dataset subtype and source reference.
+    assert any(
+        m.get("aspectName") == "subTypes"
+        and "Linked Dataset" in m["aspect"]["json"].get("typeNames", [])
+        for m in mcps
+    ), "linked dataset should still be subtyped 'Linked Dataset'"
+    assert any("source_project_id" in json.dumps(m["aspect"]["json"]) for m in mcps), (
+        "linked dataset should still carry its source reference"
     )

@@ -487,7 +487,7 @@ class BigQueryV2Config(
         description="Option to enable/disable lineage generation. Is enabled by default.",
     )
 
-    include_linked_datasets: bool = Field(
+    include_linked_dataset_lineage: bool = Field(
         default=False,
         description=(
             "Detect BigQuery Sharing linked datasets and emit their source dataset, "
@@ -722,16 +722,35 @@ class BigQueryV2Config(
 
     @model_validator(mode="after")
     def warn_sharing_properties_without_linked_datasets(self) -> "BigQueryV2Config":
-        # The handler is only constructed when include_linked_datasets is on, so this
-        # pairing requires a permission grant and an enabled API but produces nothing.
+        # The handler is only constructed when include_linked_dataset_lineage is on, so
+        # this pairing requires a permission grant and an enabled API but produces nothing.
         if (
             self.extract_subscriptions_from_analytics_hub
-            and not self.include_linked_datasets
+            and not self.include_linked_dataset_lineage
         ):
             logger.warning(
                 "`extract_subscriptions_from_analytics_hub` has no effect while "
-                "`include_linked_datasets` is False - linked datasets are not "
+                "`include_linked_dataset_lineage` is False - linked datasets are not "
                 "detected, so there is nothing to attach subscription properties to."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def warn_linked_dataset_lineage_missing_dependencies(self) -> "BigQueryV2Config":
+        # The COPY edge, this feature's main output, is gated on table lineage; with it
+        # off the flag produces nothing, so warn rather than silently no-op.
+        if self.include_linked_dataset_lineage and not self.include_table_lineage:
+            logger.warning(
+                "`include_linked_dataset_lineage` is set but `include_table_lineage` "
+                "is False - the linked-dataset COPY lineage is the feature's main "
+                "output and will not be emitted. Subtype and source properties are "
+                "still emitted."
+            )
+        if self.include_linked_dataset_lineage and not self.include_schema_metadata:
+            logger.warning(
+                "`include_linked_dataset_lineage` is set but `include_schema_metadata` "
+                "is False - linked datasets are detected during the schema pass, so "
+                "with it disabled nothing is detected and the feature is inert."
             )
         return self
 

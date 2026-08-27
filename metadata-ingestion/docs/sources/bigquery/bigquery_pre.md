@@ -91,7 +91,7 @@ list at no extra cost; otherwise it falls back to the Resource Manager API, whic
 
 :::
 
-This is off by default; set `include_linked_datasets: true` to enable it. Set
+This is off by default; set `include_linked_dataset_lineage: true` to enable it. Set
 `extract_subscriptions_from_analytics_hub: true` to additionally record the listing and
 subscription state. That reads the BigQuery Sharing API and needs
 `analyticshub.subscriptions.list` plus the `analyticshub.googleapis.com` service enabled on the
