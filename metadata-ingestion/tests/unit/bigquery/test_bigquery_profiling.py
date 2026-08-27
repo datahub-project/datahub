@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -42,6 +42,18 @@ def make_table(
         external=external,
         max_partition_id=max_partition_id,
         **kwargs,
+    )
+
+
+def make_partition_info(type_: str, field: str, fields: List[str]) -> SimpleNamespace:
+    # The tests only read type/field/fields/columns/require_partition_filter off
+    # partition_info, so a lightweight SimpleNamespace stands in for PartitionInfo.
+    return SimpleNamespace(
+        type=type_,
+        field=field,
+        fields=fields,
+        columns=None,
+        require_partition_filter=True,
     )
 
 
@@ -96,13 +108,7 @@ def test_max_partition_id_used_before_information_schema():
         return []
 
     table = make_table(max_partition_id="20241201")
-    table.partition_info = SimpleNamespace(  # type: ignore[assignment]
-        type_="DAY",
-        field="run_date",
-        fields=["run_date"],
-        columns=None,
-        require_partition_filter=True,
-    )
+    table.partition_info = make_partition_info("DAY", "run_date", ["run_date"])  # type: ignore[assignment]
 
     filters = discovery.get_required_partition_filters(
         table, "proj", "ds", tracking_execute
@@ -114,9 +120,10 @@ def test_max_partition_id_used_before_information_schema():
 
 
 def test_partition_detection_via_query_error():
-    """When INFORMATION_SCHEMA returns nothing and the table has require_partition_filter,
-    BigQuery raises an error whose text names the required columns.  The profiler extracts
-    those column names from the error message and continues discovery.
+    """When the INFORMATION_SCHEMA.COLUMNS lookup is unavailable and the table has
+    require_partition_filter, BigQuery raises an error whose text names the required
+    columns.  The profiler falls back to a probe query, extracts those column names from
+    the error message, and continues discovery.
 
     Real BigQuery error format: "filter over column(s) 'event_date'"  (column in quotes).
     """
@@ -129,6 +136,10 @@ def test_partition_detection_via_query_error():
     )
 
     def execute(query: str, job_config: Any, context: str) -> list:
+        # A successful-but-empty COLUMNS result is authoritative ("unpartitioned"), so the
+        # probe is only reached when the COLUMNS lookup itself fails.
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            raise Exception("COLUMNS unavailable")
         if "INFORMATION_SCHEMA" in query:
             return []
         if "COUNT(*)" in query and "LIMIT" in query:
@@ -152,10 +163,14 @@ def test_unpartitioned_table_returns_empty_list():
     discovery = PartitionDiscovery(make_config())
 
     def execute(query: str, job_config: Any, context: str) -> list:
+        # An authoritative (successful) COLUMNS lookup with no partition columns means the
+        # table is genuinely unpartitioned; the probe is skipped and [] is returned.
+        if "INFORMATION_SCHEMA" in query:
+            return []
         return [SimpleNamespace(cnt=42)]
 
     filters = discovery.get_required_partition_filters(
-        make_table(name="unpartitioned"), "proj", "ds", execute
+        make_table(name="unpartitioned"), "test-project-123456", "ds", execute
     )
     assert filters == []
 
@@ -173,6 +188,10 @@ def test_all_value_queries_fail_returns_is_not_null_fallback():
     )
 
     def execute(query: str, job_config: Any, context: str) -> list:
+        # COLUMNS lookup fails, so the probe runs and its error names the column; every
+        # value query then fails, exercising the IS NOT NULL last-resort fallback.
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            raise Exception("COLUMNS unavailable")
         if "INFORMATION_SCHEMA" in query:
             return []
         if "COUNT(*)" in query:
@@ -205,13 +224,7 @@ def test_non_date_partition_columns_find_most_frequent_value():
         return []
 
     table = make_table(name="region_partitioned")
-    table.partition_info = SimpleNamespace(  # type: ignore[assignment]
-        type_="RANGE",
-        field="region_id",
-        fields=["region_id"],
-        columns=None,
-        require_partition_filter=True,
-    )
+    table.partition_info = make_partition_info("RANGE", "region_id", ["region_id"])  # type: ignore[assignment]
 
     filters = discovery.get_required_partition_filters(
         table, "my-project", "ds", execute
@@ -247,12 +260,8 @@ def test_compound_partition_date_plus_string():
         return []
 
     table = make_table(name="compound_partitioned")
-    table.partition_info = SimpleNamespace(  # type: ignore[assignment]
-        type_="DAY",
-        field="event_date",
-        fields=["event_date", "feed"],
-        columns=None,
-        require_partition_filter=True,
+    table.partition_info = make_partition_info(  # type: ignore[assignment]
+        "DAY", "event_date", ["event_date", "feed"]
     )
 
     filters = discovery.get_required_partition_filters(
@@ -289,12 +298,8 @@ def test_compound_partition_non_date_query_failure_still_returns_date_filter():
         return []
 
     table = make_table(name="compound_partitioned_partial_failure")
-    table.partition_info = SimpleNamespace(  # type: ignore[assignment]
-        type_="DAY",
-        field="event_date",
-        fields=["event_date", "feed"],
-        columns=None,
-        require_partition_filter=True,
+    table.partition_info = make_partition_info(  # type: ignore[assignment]
+        "DAY", "event_date", ["event_date", "feed"]
     )
 
     filters = discovery.get_required_partition_filters(
@@ -344,13 +349,7 @@ def test_information_schema_partitions_path():
         return []
 
     table = make_table(name="t")
-    table.partition_info = SimpleNamespace(  # type: ignore[assignment]
-        type_="DAY",
-        field="event_date",
-        fields=["event_date"],
-        columns=None,
-        require_partition_filter=True,
-    )
+    table.partition_info = make_partition_info("DAY", "event_date", ["event_date"])  # type: ignore[assignment]
 
     filters = discovery.get_required_partition_filters(
         table, "my-project", "ds", execute
@@ -478,3 +477,39 @@ def test_ingestion_time_partition_datetime_override_applies():
     assert len(filters) == 1
     assert "_PARTITIONTIME" in filters[0]
     assert ">=" in filters[0]
+
+
+def test_first_complete_row_requires_coexisting_tuple():
+    """A composite partition filter must come from a single co-occurring row, not the
+    first non-null value of each column picked across different rows (which could
+    fabricate a tuple that never exists together)."""
+    rows = [
+        SimpleNamespace(a=1, b=None),
+        SimpleNamespace(a=None, b=2),
+    ]
+    # No single row has both columns populated -> no safe composite tuple.
+    assert PartitionDiscovery._first_complete_row(["a", "b"], rows) is None
+
+    rows_with_complete = rows + [SimpleNamespace(a=3, b=4)]
+    assert PartitionDiscovery._first_complete_row(["a", "b"], rows_with_complete) == {
+        "a": 3,
+        "b": 4,
+    }
+
+
+def test_direct_discovery_timestamp_value_yields_range():
+    """A TIMESTAMP value discovered from the latest row must widen to a half-open range
+    covering the whole day, not an equality to the single instant."""
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(name="ts_partitioned")
+    table.partition_info = make_partition_info("DAY", "ts", ["ts"])  # type: ignore[assignment]
+
+    filters = discovery._filters_from_partition_values(
+        table,
+        {"ts": datetime(2024, 11, 20, 15, 30, 0)},
+        {"ts": "TIMESTAMP"},
+    )
+
+    assert len(filters) == 1
+    assert ">=" in filters[0] and "<" in filters[0]
+    assert "2024-11-20" in filters[0] and "2024-11-21" in filters[0]

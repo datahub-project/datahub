@@ -1035,16 +1035,27 @@ class PartitionDiscovery:
         return required_partition_columns, True
 
     @staticmethod
-    def _first_non_null_per_column(
+    def _first_complete_row(
         columns: Iterable[str], rows: List[Row]
-    ) -> Dict[str, PartitionValue]:
-        values: Dict[str, PartitionValue] = {}
-        for col_name in columns:
-            for row in rows:
-                if hasattr(row, col_name) and getattr(row, col_name) is not None:
-                    values[col_name] = getattr(row, col_name)
+    ) -> Optional[Dict[str, PartitionValue]]:
+        # A composite partition filter must describe a tuple that actually co-occurs in
+        # the table. Picking the first non-null value for each column *independently*
+        # across different sampled rows can fabricate a (col_a, col_b) pair that never
+        # exists together, which then passes existence verification (each value exists
+        # somewhere) while widening profiling across the missing dimension. Return the
+        # first sampled row in which *every* partition column is populated, so the
+        # resulting filter set is a genuine co-occurring key, or None when no single row
+        # covers all columns.
+        cols = list(columns)
+        for row in rows:
+            values: Dict[str, PartitionValue] = {}
+            for col_name in cols:
+                if not hasattr(row, col_name) or getattr(row, col_name) is None:
                     break
-        return values
+                values[col_name] = getattr(row, col_name)
+            else:
+                return values
+        return None
 
     def _get_partitions_with_sampling(
         self,
@@ -1111,14 +1122,22 @@ class PartitionDiscovery:
                 logger.debug("Sample query returned no results")
                 return None
 
-            sampled_values = self._first_non_null_per_column(
+            sampled_values = self._first_complete_row(
                 partition_cols_with_types.keys(), partition_sample_rows
             )
 
+            if sampled_values is None:
+                # No single sampled row populated every partition column, so a composite
+                # filter built from these rows could describe a non-existent tuple.
+                logger.debug(
+                    "No sampled row covered all partition columns; skipping sampling"
+                )
+                return None
+
             filters = []
             for col_name, val in sampled_values.items():
-                filter_str = self._create_safe_filter(
-                    col_name, val, partition_cols_with_types.get(col_name, "")
+                filter_str = self._value_filter(
+                    table, col_name, val, partition_cols_with_types.get(col_name, "")
                 )
                 filters.append(filter_str)
                 logger.debug(f"Found partition value from sample: {col_name}={val}")
@@ -1299,7 +1318,11 @@ class PartitionDiscovery:
         for col, val in actual_partition_values.items():
             try:
                 col_type = column_types.get(col, "")
-                actual_filters.append(self._create_safe_filter(col, val, col_type))
+                # A DATE/DATETIME/TIMESTAMP value discovered from the latest row is a
+                # single instant; _value_filter widens it to the granularity-aware
+                # half-open range covering the whole partition (equality would match only
+                # that instant and drop the rest of the hour/day/month).
+                actual_filters.append(self._value_filter(table, col, val, col_type))
             except ValueError as e:
                 # Dropping a column here widens the scan on that dimension, so surface it.
                 warn(
@@ -1428,8 +1451,11 @@ class PartitionDiscovery:
                     )
 
         # Strategic candidates don't mutate the direct-query result, so re-querying is wasted.
+        # Pass the resolved column_types so the fallback builds typed predicates (e.g.
+        # unquoted integers for INT64 year/month/day) rather than quoting every value as a
+        # string, which BigQuery rejects as an INT64 = STRING comparison.
         return self._get_fallback_partition_filters(
-            table, project, schema, required_columns
+            table, project, schema, required_columns, column_types
         )
 
     def _get_fallback_partition_filters(
