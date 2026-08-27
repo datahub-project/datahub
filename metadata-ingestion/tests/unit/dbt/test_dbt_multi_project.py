@@ -153,6 +153,34 @@ def test_test_connection_reports_glob_matching_nothing(tmp_path: pathlib.Path) -
     assert f"{tmp_path}/*/manifest.json" in failure_reason
 
 
+def test_test_connection_reports_object_store_failure_detail() -> None:
+    """An object-store error must not be reported as "matched no files".
+
+    Glob expansion returns an empty list both when the store refuses the request -
+    bad credentials, a missing bucket, a throttled listing - and when it succeeds
+    over a prefix holding no manifests. Collapsing the first into the second sends
+    an operator looking for a wrong prefix instead of at their credentials."""
+    with mock.patch(
+        "datahub.ingestion.source.dbt.dbt_core.expand_object_store_glob",
+        side_effect=ValueError("InvalidAccessKeyId: key is not valid"),
+    ):
+        report = DBTCoreSource.test_connection(
+            {
+                "manifest_path": "s3://bucket/*/manifest.json",
+                "target_platform": "postgres",
+                "aws_connection": {"aws_region": "us-east-1"},
+            }
+        )
+
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    failure_reason = report.basic_connectivity.failure_reason or ""
+    assert "InvalidAccessKeyId" in failure_reason
+    # A genuine zero-match reads differently - see
+    # test_test_connection_reports_glob_matching_nothing.
+    assert "matched no files" not in failure_reason
+
+
 def test_test_connection_non_glob_path_unchanged(tmp_path: pathlib.Path) -> None:
     """The historical single-manifest behaviour must be untouched: a good path is
     capable, a missing one is not."""

@@ -804,10 +804,27 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             # it - the pattern itself is neither a file nor an object key. One
             # matched manifest is enough: this validates credentials and
             # reachability, not every project the glob will pick up.
+            expansion_report = DBTCoreReport()
             manifest_paths = DBTCoreSource._expand_glob_path_with(
-                source_config.manifest_path, source_config, DBTCoreReport()
+                source_config.manifest_path, source_config, expansion_report
             )
             if not manifest_paths:
+                # Expansion yields nothing both when the object store refused the
+                # request - bad credentials, a missing bucket, a throttled listing -
+                # and when it succeeded over a prefix that holds no manifests. Those
+                # are different things to go fix, so the recorded failure detail is
+                # surfaced rather than flattened into "matched no files", which
+                # sends an operator looking in the wrong place.
+                expansion_failures = [
+                    f"{failure.message}: {'; '.join(failure.context)}"
+                    for failure in expansion_report.failures
+                ]
+                if expansion_failures:
+                    raise ValueError(
+                        f"Could not expand manifest_path glob "
+                        f"{source_config.manifest_path}: "
+                        + " | ".join(expansion_failures)
+                    )
                 raise ValueError(
                     f"manifest_path matched no files: {source_config.manifest_path}"
                 )
