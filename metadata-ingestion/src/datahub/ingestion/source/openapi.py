@@ -548,7 +548,7 @@ class APISource(Source, ABC):
 
             # Check for parameters (both v2 and v3)
             parameters = endpoint_spec.get("parameters", [])
-            if parameters and not isinstance(parameters, list):
+            if not isinstance(parameters, list):
                 logger.warning(
                     "Skipping malformed 'parameters' %r (expected list, got %s)",
                     parameters,

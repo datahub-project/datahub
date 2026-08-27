@@ -1264,6 +1264,18 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             any("malformed 'parameters'" in message for message in cm.output)
         )
 
+    def test_extract_request_schema_null_parameters_still_warns(self):
+        # Regression: an explicit "parameters: null" is falsy, so a
+        # truthiness-first check (`if parameters and not isinstance(...)`)
+        # skipped the malformed-input warning entirely for this case.
+        endpoint_spec = {"parameters": None}
+        with self.assertLogs("datahub.ingestion.source.openapi", level="WARNING") as cm:
+            result = self.source.extract_request_schema_from_endpoint(endpoint_spec, {})
+        self.assertIsNone(result)
+        self.assertTrue(
+            any("malformed 'parameters'" in message for message in cm.output)
+        )
+
     def test_extract_schema_method_priority(self):
         """Test that GET is preferred over POST when both have 200 responses."""
         sw_dict = {
