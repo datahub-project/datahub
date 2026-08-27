@@ -4,8 +4,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.expectThrows;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.DataHubConfiguration;
@@ -106,14 +104,12 @@ public class AwsClientFactoryObjectStorageTest {
   }
 
   @Test
-  public void roleArnWithRegionButMissingCredentialsFailsFast() {
+  public void roleArnWithRegionButMissingCredentialsSoftSkips() {
     dataHubConfiguration.getObjectStorage().setRoleArn("arn:aws:iam::123456789012:role/test-role");
     System.setProperty("aws.region", "us-east-1");
 
-    IllegalStateException thrown =
-        expectThrows(
-            IllegalStateException.class, () -> awsClientFactory.objectStorageS3Client(null));
-    assertTrue(thrown.getMessage().contains("roleArn"));
+    S3Client client = awsClientFactory.objectStorageS3Client(null);
+    assertNull(client);
   }
 
   @Test

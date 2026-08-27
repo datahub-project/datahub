@@ -2,7 +2,6 @@ package com.linkedin.gms.factory.s3;
 
 import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.config.ObjectStorageConfiguration;
 import jakarta.annotation.PreDestroy;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +48,8 @@ public class StsClientFactory {
     boolean hasAwsRegion =
         (awsRegion != null && !awsRegion.trim().isEmpty())
             || (awsRegionProp != null && !awsRegionProp.trim().isEmpty());
-    boolean hasObjectStorageRoleArn = isObjectStorageRoleArnConfigured();
+    boolean hasObjectStorageRoleArn =
+        AwsClientFactory.isObjectStorageRoleArnConfigured(configurationProvider);
 
     if (!hasAwsEndpoint && !hasAwsRegion && !hasObjectStorageRoleArn) {
       log.debug(
@@ -97,19 +97,6 @@ public class StsClientFactory {
       }
       return null;
     }
-  }
-
-  private boolean isObjectStorageRoleArnConfigured() {
-    if (configurationProvider == null || configurationProvider.getDatahub() == null) {
-      return false;
-    }
-    ObjectStorageConfiguration objectStorage =
-        configurationProvider.getDatahub().getObjectStorage();
-    if (objectStorage == null) {
-      return false;
-    }
-    String roleArn = objectStorage.getRoleArn();
-    return roleArn != null && !roleArn.trim().isEmpty();
   }
 
   @PreDestroy

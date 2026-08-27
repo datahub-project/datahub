@@ -113,14 +113,11 @@ public class AwsClientFactory {
     }
 
     if (hasRoleArn && credentialsProvider == null) {
-      if (hasAwsRegion || hasAwsEndpoint) {
-        throw new IllegalStateException(
-            "StsClient / object-storage credentials are required when datahub.objectStorage.roleArn "
-                + "is configured with AWS region or endpoint");
-      }
+      // Soft-skip so search-only contexts that import AwsClientFactory without StsClientFactory
+      // (e.g. MAE) still start when DATAHUB_ROLE_ARN is present alongside AWS_REGION.
       log.warn(
-          "datahub.objectStorage.roleArn is set but assume-role credentials are unavailable "
-              + "(no AWS region/endpoint); skipping shared S3Client for non-AWS environments");
+          "datahub.objectStorage.roleArn is set but assume-role credentials are unavailable; "
+              + "skipping shared S3Client (object storage will be unavailable until StsClient is wired)");
       return null;
     }
 
@@ -201,15 +198,23 @@ public class AwsClientFactory {
 
   @Nullable
   private ObjectStorageConfiguration getObjectStorageConfiguration() {
-    if (configurationProvider == null || configurationProvider.getDatahub() == null) {
-      return null;
-    }
-    return configurationProvider.getDatahub().getObjectStorage();
+    return resolveObjectStorageConfiguration(configurationProvider);
   }
 
   @Nullable
   private String getObjectStorageRoleArn() {
-    ObjectStorageConfiguration objectStorageConfiguration = getObjectStorageConfiguration();
+    return resolveObjectStorageRoleArn(configurationProvider);
+  }
+
+  /**
+   * Shared object-storage roleArn lookup for factories that need to know whether STS/S3 should be
+   * created for assume-role.
+   */
+  @Nullable
+  public static String resolveObjectStorageRoleArn(
+      @Nullable ConfigurationProvider configurationProvider) {
+    ObjectStorageConfiguration objectStorageConfiguration =
+        resolveObjectStorageConfiguration(configurationProvider);
     if (objectStorageConfiguration == null) {
       return null;
     }
@@ -218,6 +223,20 @@ public class AwsClientFactory {
       return null;
     }
     return roleArn.trim();
+  }
+
+  public static boolean isObjectStorageRoleArnConfigured(
+      @Nullable ConfigurationProvider configurationProvider) {
+    return resolveObjectStorageRoleArn(configurationProvider) != null;
+  }
+
+  @Nullable
+  private static ObjectStorageConfiguration resolveObjectStorageConfiguration(
+      @Nullable ConfigurationProvider configurationProvider) {
+    if (configurationProvider == null || configurationProvider.getDatahub() == null) {
+      return null;
+    }
+    return configurationProvider.getDatahub().getObjectStorage();
   }
 
   static boolean isAwsConfigured() {
@@ -259,7 +278,7 @@ public class AwsClientFactory {
 
   /** True when object storage is configured to assume an IAM role. */
   boolean isObjectStorageRoleArnConfigured() {
-    return getObjectStorageRoleArn() != null;
+    return isObjectStorageRoleArnConfigured(configurationProvider);
   }
 
   boolean isAwsCredentialsRequired() {
