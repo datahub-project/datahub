@@ -296,6 +296,12 @@ BIGQUERY_NUMERIC_TYPES: Set[str] = {
     "BIGDECIMAL",
     "FLOAT64",
     "FLOAT",
+}
+
+# Boolean types need the unquoted TRUE/FALSE keyword literal in a WHERE clause; they
+# must not go through numeric parsing (int("true") raises) or the string branch
+# (BOOL = 'true' is an invalid typed comparison in BigQuery).
+BIGQUERY_BOOLEAN_TYPES: Set[str] = {
     "BOOL",
     "BOOLEAN",
 }

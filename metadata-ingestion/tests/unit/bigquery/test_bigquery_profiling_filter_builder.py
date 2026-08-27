@@ -388,3 +388,57 @@ class TestFilterBuilderPartitionDatetime:
         assert result == (
             "`dt` >= '2025-01-15 10:00:00' AND `dt` < '2025-01-15 11:00:00'"
         )
+
+
+class TestFilterBuilderCompactPartitionIdRanges:
+    """A compact partition-id (YYYYMM / YYYYMMDDHH, or YYYYMMDD on a sub-day
+    DATETIME/TIMESTAMP column) denotes a whole time-unit bucket and must become a
+    granularity-aware half-open range, not an equality to the bucket start."""
+
+    def test_month_id_on_date_column_is_month_range(self):
+        result = FilterBuilder.create_safe_filter("d", "202501", "DATE")
+        assert result == "`d` >= '2025-01-01' AND `d` < '2025-02-01'"
+
+    def test_hour_id_on_timestamp_column_is_hour_range(self):
+        result = FilterBuilder.create_safe_filter("ts", "2025011510", "TIMESTAMP")
+        assert result == (
+            "`ts` >= TIMESTAMP('2025-01-15 10:00:00') "
+            "AND `ts` < TIMESTAMP('2025-01-15 11:00:00')"
+        )
+
+    def test_day_id_on_datetime_column_is_day_range(self):
+        result = FilterBuilder.create_safe_filter("dt", "20250115", "DATETIME")
+        assert result == (
+            "`dt` >= '2025-01-15 00:00:00' AND `dt` < '2025-01-16 00:00:00'"
+        )
+
+    def test_day_id_on_date_column_stays_equality(self):
+        # A DATE day-partition equals exactly that date; no range needed.
+        result = FilterBuilder.create_safe_filter("d", "20250115", "DATE")
+        assert result == "`d` = '2025-01-15'"
+
+
+class TestFilterBuilderBooleanValues:
+    def test_true_value_emits_unquoted_keyword(self):
+        assert (
+            FilterBuilder.create_safe_filter("flag", "true", "BOOL") == "`flag` = TRUE"
+        )
+
+    def test_false_value_emits_unquoted_keyword(self):
+        assert (
+            FilterBuilder.create_safe_filter("flag", "False", "BOOLEAN")
+            == "`flag` = FALSE"
+        )
+
+    def test_non_boolean_value_raises(self):
+        with pytest.raises(ValueError, match="Non-boolean value"):
+            FilterBuilder.create_safe_filter("flag", "maybe", "BOOL")
+
+
+class TestFilterBuilderStringEscaping:
+    def test_backslash_is_escaped_not_rejected(self):
+        # A legitimate value with a backslash must be encoded, not dropped.
+        assert (
+            FilterBuilder.create_safe_filter("path", "a\\b", "STRING")
+            == "`path` = 'a\\\\b'"
+        )
