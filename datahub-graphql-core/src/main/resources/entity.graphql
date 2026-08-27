@@ -6985,9 +6985,11 @@ The query that was used to populate a Chart
 """
 type ChartQuery {
   """
-  Raw query to build a chart from input datasets
+  Raw query to build a chart from input datasets. Null when the requesting actor lacks
+  VIEW_ENTITY_QUERIES (or VIEW_ALL_QUERIES) on the chart -- only the query text itself is
+  privilege-gated.
   """
-  rawQuery: String!
+  rawQuery: String
 
   """
   The type of the chart query

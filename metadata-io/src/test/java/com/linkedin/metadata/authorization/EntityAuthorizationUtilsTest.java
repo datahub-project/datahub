@@ -10,11 +10,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.dataset.DatasetUsageStatistics;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -42,6 +46,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -62,6 +67,7 @@ public class EntityAuthorizationUtilsTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,facade,PROD)");
   private static final Urn ALLOWED_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,allowed,PROD)");
+  private static final Urn CHART_URN = UrnUtils.getUrn("urn:li:chart:(looker,facade-chart)");
   private static final Urn DATA_JOB_URN =
       UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,flow,PROD),task)");
   private static final Urn QUERY_URN = UrnUtils.getUrn("urn:li:query:facade-query");
@@ -612,6 +618,9 @@ public class EntityAuthorizationUtilsTest {
           .when(
               () -> EntityAspectAuthorizationUtils.canViewQueriesOnEntity(opContext, DATA_JOB_URN))
           .thenReturn(false);
+      queryAuth
+          .when(() -> EntityAspectAuthorizationUtils.canViewQueriesOnEntity(opContext, CHART_URN))
+          .thenReturn(false);
 
       assertTrue(
           EntityAuthorizationUtils.isQuerySqlAspectRestricted(
@@ -621,6 +630,10 @@ public class EntityAuthorizationUtilsTest {
           EntityAuthorizationUtils.isQuerySqlAspectRestricted(
               opContext, DATA_JOB_URN, Constants.DATA_TRANSFORM_LOGIC_ASPECT_NAME),
           "dataJob dataTransformLogic must be restricted when the actor lacks query-view access");
+      assertTrue(
+          EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+              opContext, CHART_URN, Constants.CHART_QUERY_ASPECT_NAME),
+          "chart chartQuery must be restricted when the actor lacks query-view access");
       assertFalse(
           EntityAuthorizationUtils.isQuerySqlAspectRestricted(
               opContext, DATASET_URN, Constants.DATASET_PROPERTIES_ASPECT_NAME),
@@ -629,6 +642,10 @@ public class EntityAuthorizationUtilsTest {
           EntityAuthorizationUtils.isQuerySqlAspectRestricted(
               opContext, DATA_JOB_URN, Constants.VIEW_PROPERTIES_ASPECT_NAME),
           "viewProperties is only SQL-bearing on datasets, not data jobs");
+      assertFalse(
+          EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+              opContext, DATASET_URN, Constants.CHART_QUERY_ASPECT_NAME),
+          "chartQuery is only SQL-bearing on charts, not datasets");
     }
   }
 
@@ -646,8 +663,114 @@ public class EntityAuthorizationUtilsTest {
     }
   }
 
+  /**
+   * Regression coverage for the confirmed disclosure path where generic timeseries-aspect reads
+   * (Rest.li {@code AspectResource#getTimeseriesAspectValues}, OpenAPI v2 {@code
+   * TimeseriesController}, v3 {@code EntityController}'s timeseries branch, GraphQL's raw-aspect
+   * resolver) returned {@code topSqlQueries} unconditionally, since none of them consulted the
+   * escape hatch GraphQL's {@code DatasetUsageStatsResolver} already had. Unlike {@code
+   * viewProperties}/{@code dataTransformLogic}/{@code chartQuery}, only this one field is
+   * withheld — the numeric usage counts alongside it must survive.
+   */
   @Test
-  public void testRedactUnauthorizedQuerySqlAspects_removesOnlyRestrictedAspects() {
+  public void testStripTopSqlQueriesFromRawAspect_removesFieldOnlyWhenRestricted() {
+    try (MockedStatic<EntityAspectAuthorizationUtils> queryAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class)) {
+      queryAuth
+          .when(
+              () ->
+                  EntityAspectAuthorizationUtils.isTopSqlQueriesRestricted(opContext, DATASET_URN))
+          .thenReturn(true);
+
+      DataMap aspectValue = new DataMap();
+      aspectValue.put("topSqlQueries", new StringArray("select secret").data());
+      aspectValue.put("totalSqlQueries", 5);
+
+      EntityAuthorizationUtils.stripTopSqlQueriesFromRawAspect(
+          opContext, DATASET_URN, Constants.DATASET_USAGE_STATISTICS_ASPECT_NAME, aspectValue);
+
+      assertFalse(
+          aspectValue.containsKey("topSqlQueries"),
+          "topSqlQueries must be stripped when restricted");
+      assertTrue(
+          aspectValue.containsKey("totalSqlQueries"), "numeric usage stats must remain intact");
+    }
+  }
+
+  @Test
+  public void testStripTopSqlQueriesFromRawAspect_keepsFieldWhenActorHasAccess() {
+    try (MockedStatic<EntityAspectAuthorizationUtils> queryAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class)) {
+      queryAuth
+          .when(
+              () ->
+                  EntityAspectAuthorizationUtils.isTopSqlQueriesRestricted(opContext, DATASET_URN))
+          .thenReturn(false);
+
+      DataMap aspectValue = new DataMap();
+      aspectValue.put("topSqlQueries", new StringArray("select allowed").data());
+
+      EntityAuthorizationUtils.stripTopSqlQueriesFromRawAspect(
+          opContext, DATASET_URN, Constants.DATASET_USAGE_STATISTICS_ASPECT_NAME, aspectValue);
+
+      assertTrue(aspectValue.containsKey("topSqlQueries"));
+    }
+  }
+
+  @Test
+  public void testStripTopSqlQueriesFromRawAspect_noopForNonUsageStatisticsAspect() {
+    DataMap aspectValue = new DataMap();
+    aspectValue.put("topSqlQueries", new StringArray("select secret").data());
+
+    EntityAuthorizationUtils.stripTopSqlQueriesFromRawAspect(
+        opContext, DATASET_URN, Constants.VIEW_PROPERTIES_ASPECT_NAME, aspectValue);
+
+    assertTrue(
+        aspectValue.containsKey("topSqlQueries"),
+        "only datasetUsageStatistics is ever subject to this check");
+  }
+
+  /**
+   * Same coverage as {@link
+   * #testStripTopSqlQueriesFromRawAspect_removesFieldOnlyWhenRestricted}, but for the {@code
+   * GenericAspect}-serialized-bytes shape Rest.li's {@code getTimeseriesAspectValues} and OpenAPI
+   * v2's {@code TimeseriesController} carry timeseries values in, rather than a live DataMap.
+   */
+  @Test
+  public void testStripTopSqlQueriesFromEnvelopedAspect_stripsFieldWhenRestricted() {
+    try (MockedStatic<EntityAspectAuthorizationUtils> queryAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class)) {
+      queryAuth
+          .when(
+              () ->
+                  EntityAspectAuthorizationUtils.isTopSqlQueriesRestricted(opContext, DATASET_URN))
+          .thenReturn(true);
+
+      DatasetUsageStatistics stats =
+          new DatasetUsageStatistics()
+              .setTimestampMillis(0L)
+              .setTopSqlQueries(new StringArray("select secret"))
+              .setTotalSqlQueries(1);
+      com.linkedin.metadata.aspect.EnvelopedAspect envelopedAspect =
+          new com.linkedin.metadata.aspect.EnvelopedAspect()
+              .setAspect(GenericRecordUtils.serializeAspect(stats));
+
+      EntityAuthorizationUtils.stripTopSqlQueriesFromEnvelopedAspect(
+          opContext, DATASET_URN, Constants.DATASET_USAGE_STATISTICS_ASPECT_NAME, envelopedAspect);
+
+      DatasetUsageStatistics result =
+          GenericRecordUtils.deserializeAspect(
+              envelopedAspect.getAspect().getValue(),
+              envelopedAspect.getAspect().getContentType(),
+              DatasetUsageStatistics.class);
+      assertNull(result.getTopSqlQueries(), "topSqlQueries must be stripped when restricted");
+      assertEquals(
+          (int) result.getTotalSqlQueries(), 1, "numeric usage stats must survive the round trip");
+    }
+  }
+
+  @Test
+  public void testCompletelyRedactUnauthorizedQuerySqlAspects_removesOnlyRestrictedAspects() {
     try (MockedStatic<EntityAspectAuthorizationUtils> queryAuth =
         Mockito.mockStatic(EntityAspectAuthorizationUtils.class)) {
       queryAuth
@@ -665,7 +788,7 @@ public class EntityAuthorizationUtilsTest {
       Map<Urn, EntityResponse> responses =
           Map.of(DATASET_URN, restrictedDataset, ALLOWED_DATASET_URN, allowedDataset);
 
-      EntityAuthorizationUtils.redactUnauthorizedQuerySqlAspects(opContext, responses);
+      EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(opContext, responses);
 
       assertFalse(
           restrictedDataset.getAspects().containsKey(Constants.VIEW_PROPERTIES_ASPECT_NAME),

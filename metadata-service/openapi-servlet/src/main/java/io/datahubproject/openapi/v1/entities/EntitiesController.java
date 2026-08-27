@@ -153,7 +153,7 @@ public class EntitiesController {
     try {
       Map<Urn, EntityResponse> serviceResponse =
           _entityService.getEntitiesV2(opContext, entityName, entityUrns, projectedAspects);
-      EntityAuthorizationUtils.redactUnauthorizedQuerySqlAspects(opContext, serviceResponse);
+      EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(opContext, serviceResponse);
       return ResponseEntity.ok(
           UrnResponseMap.builder()
               .responses(

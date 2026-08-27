@@ -239,10 +239,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     return RestliUtils.toTask(opContext,
         () -> {
-          final Set<String> projectedAspects =
+          // This legacy Snapshot-based API has no per-field mapper the way GraphQL has, so
+          // SQL-bearing aspects the actor lacks VIEW_ENTITY_QUERIES for are pruned from the
+          // requested set before the fetch, rather than redacted from the returned Snapshot
+          // afterward.
+          final Set<String> requestedAspects =
               aspectNames == null
-                  ? Collections.emptySet()
+                  ? opContext.getEntityAspectNames(urn)
                   : new HashSet<>(Arrays.asList(aspectNames));
+          final Set<String> projectedAspects = new HashSet<>(requestedAspects);
+          projectedAspects.removeIf(
+              aspectName ->
+                  EntityAuthorizationUtils.isQuerySqlAspectRestricted(opContext, urn, aspectName));
           final Entity entity = entityService.getEntity(opContext, urn, projectedAspects, true);
           if (entity == null) {
             throw RestliUtils.resourceNotFoundException(String.format("Did not find %s", urnStr));
@@ -280,15 +288,34 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     return RestliUtils.toTask(opContext,
         () -> {
-          final Set<String> projectedAspects =
-              aspectNames == null
-                  ? Collections.emptySet()
-                  : new HashSet<>(Arrays.asList(aspectNames));
-          return entityService.getEntities(opContext, urns, projectedAspects, true).entrySet().stream()
-              .collect(
-                  Collectors.toMap(
-                      entry -> entry.getKey().toString(),
-                      entry -> new AnyRecord(entry.getValue().data())));
+          final Set<String> explicitAspects =
+              aspectNames == null ? null : new HashSet<>(Arrays.asList(aspectNames));
+
+          // Same pruning as get() above, but urns in one batch can span entity types (or differ
+          // in which SQL-bearing aspect is restricted for them), so each urn's final projected
+          // set is resolved individually; urns that land on the same set (the common case) still
+          // share a single getEntities call.
+          final Map<Set<String>, Set<Urn>> urnsByProjectedAspects = new HashMap<>();
+          for (Urn urn : urns) {
+            final Set<String> requestedAspects =
+                explicitAspects == null ? opContext.getEntityAspectNames(urn) : explicitAspects;
+            final Set<String> projectedAspects = new HashSet<>(requestedAspects);
+            projectedAspects.removeIf(
+                aspectName ->
+                    EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+                        opContext, urn, aspectName));
+            urnsByProjectedAspects
+                .computeIfAbsent(projectedAspects, k -> new HashSet<>())
+                .add(urn);
+          }
+
+          final Map<String, AnyRecord> result = new HashMap<>();
+          for (Map.Entry<Set<String>, Set<Urn>> group : urnsByProjectedAspects.entrySet()) {
+            entityService
+                .getEntities(opContext, group.getValue(), group.getKey(), true)
+                .forEach((urn, entity) -> result.put(urn.toString(), new AnyRecord(entity.data())));
+          }
+          return result;
         },
         MetricRegistry.name(this.getClass(), "batchGet"));
   }
