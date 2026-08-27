@@ -4,6 +4,7 @@ import logging
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Tuple, cast
+from urllib.parse import urlparse
 
 from packaging import version
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -56,6 +57,32 @@ from datahub.ingestion.source.dbt.dbt_tests import (
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 logger = logging.getLogger(__name__)
+
+
+def _is_glob_pattern(path: str) -> bool:
+    """Whether a configured artifact path should be glob-expanded rather than read as-is.
+
+    Deliberately narrower than has_glob_characters, because two shapes carry those
+    characters without being patterns, and expanding either one matches nothing -
+    which would turn a previously working recipe into a run that quietly ingests
+    no assets.
+
+    An HTTP(S) URL's `?` opens its query string, which is where a presigned URL
+    carries its signature, so only the URL's path component can make it a pattern.
+    And a local file or directory may simply be named with them: `dbt[prod]` is a
+    legitimate directory name that fnmatch reads as a character class matching
+    nothing, so a path that already resolves literally is read literally.
+
+    The literal-path check does not extend to object stores: os.path.exists is
+    always False for an s3:// or gs:// URI, so those keep expanding. Recognising an
+    object key that literally contains glob characters would need an existence
+    probe against the store per path.
+    """
+    if is_http_uri(path):
+        return has_glob_characters(urlparse(path).path)
+    if not has_glob_characters(path):
+        return False
+    return not os.path.exists(path)
 
 
 @dataclasses.dataclass
@@ -162,7 +189,7 @@ class DBTCoreConfig(DBTCommonConfig):
 
     @model_validator(mode="after")
     def artifact_paths_must_not_be_set_with_globbed_manifest(self) -> "DBTCoreConfig":
-        if not has_glob_characters(self.manifest_path):
+        if not _is_glob_pattern(self.manifest_path):
             return self
 
         conflicting = [
@@ -919,7 +946,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         reports a failure for a recipe that would ingest fine. Passing a throwaway
         report keeps every diagnostic here intact for the ingestion path.
         """
-        if not has_glob_characters(path):
+        if not _is_glob_pattern(path):
             return [path]
 
         if is_s3_uri(path):
@@ -1280,7 +1307,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
     def load_nodes(self) -> List[DBTNode]:
         manifest_paths = sorted(self._expand_glob_path(self.config.manifest_path))
-        is_multi_project = has_glob_characters(self.config.manifest_path)
+        is_multi_project = _is_glob_pattern(self.config.manifest_path)
         if is_multi_project:
             self.report.manifest_paths_expanded = manifest_paths
 

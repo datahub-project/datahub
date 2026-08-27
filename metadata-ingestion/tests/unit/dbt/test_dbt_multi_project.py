@@ -52,6 +52,63 @@ def test_expand_glob_path_passes_through_non_glob_path() -> None:
     ]
 
 
+def test_presigned_http_url_is_not_a_glob() -> None:
+    """A '?' starts an HTTP(S) URL's query string, where presigned URLs carry their
+    signature - it is not a glob metacharacter there. Treating it as one expanded the
+    URL to nothing and turned a working recipe into a green run with zero assets."""
+    url = "https://bucket.s3.amazonaws.com/manifest.json?X-Amz-Signature=abc"
+    source = _make_source()
+
+    assert source._expand_glob_path(url) == [url]
+    assert source.report.warnings == []
+
+
+def test_http_url_with_a_globbed_path_still_warns() -> None:
+    """Only the URL's query string is exempt. A real pattern in the path component is
+    still an unsupported glob, and must keep saying so rather than 404 later."""
+    source = _make_source()
+
+    assert source._expand_glob_path("https://host/*/manifest.json") == []
+    assert [w.title for w in source.report.warnings] == [
+        "Glob patterns not supported for HTTP(S) URIs"
+    ]
+
+
+def test_literal_local_path_containing_glob_characters_is_read_literally(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A directory may simply be named with glob metacharacters. `dbt[prod]` char-classes
+    to a class that matches nothing, so expanding it silently found no manifest."""
+    project_dir = tmp_path / "dbt[prod]"
+    project_dir.mkdir()
+    manifest_path = str(project_dir / "manifest.json")
+    (project_dir / "manifest.json").write_text("{}")
+
+    source = _make_source()
+
+    assert source._expand_glob_path(manifest_path) == [manifest_path]
+    assert source.report.warnings == []
+
+
+def test_literal_path_with_glob_characters_accepts_explicit_catalog_path(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The config validator rejects catalog_path only for a real glob. A literal path
+    that happens to contain those characters names exactly one manifest, so its
+    catalog_path can be paired with it."""
+    project_dir = tmp_path / "dbt[prod]"
+    project_dir.mkdir()
+    (project_dir / "manifest.json").write_text("{}")
+
+    config = DBTCoreConfig(
+        manifest_path=str(project_dir / "manifest.json"),
+        catalog_path=str(project_dir / "catalog.json"),
+        target_platform="postgres",
+    )
+
+    assert config.catalog_path == str(project_dir / "catalog.json")
+
+
 def test_expand_run_results_paths_preserves_config_order(
     tmp_path: pathlib.Path,
 ) -> None:
