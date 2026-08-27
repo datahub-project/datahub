@@ -932,6 +932,71 @@ def test_semantic_model_aliasing_its_own_project_model_is_not_a_collision(
     assert not source.report.failures
 
 
+def _write_two_semantic_models(
+    tmp_path: pathlib.Path, models: List[Dict[str, str]]
+) -> None:
+    """One project whose two packages both declare a semantic model named `orders`.
+
+    Semantic-model names are unique within a package, so two of them can only land
+    on one URN when they come from different packages of the same manifest - an
+    installed package and the root project, say. Both resolve to db.shared.orders.
+    """
+    _write_project(
+        tmp_path,
+        "project_a",
+        models,
+        semantic_models={
+            f"semantic_model.{package}.orders": _semantic_model(
+                f"semantic_model.{package}.orders", "orders", "db", "shared"
+            )
+            for package in ["pkg_a", "pkg_b"]
+        },
+    )
+
+
+def test_two_semantic_models_without_a_wrapped_model_collide(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Two semantic models must not exempt each other.
+
+    The aliasing exemption exists because a semantic model wraps a *model*. With no
+    non-semantic node on the URN, neither of these is aliasing anything - they would
+    simply overwrite each other's aspects, which is a collision."""
+    _write_two_semantic_models(
+        tmp_path, [{"name": "other", "database": "db", "schema": "shared"}]
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/project_a/manifest.json")
+    nodes = source._check_duplicate_models(source.load_nodes())
+
+    assert [node.dbt_name for node in nodes] == ["model.project_a.other"]
+    assert source.report.duplicate_models_detected == 2
+    failures_by_title = {f.title: f for f in source.report.failures}
+    assert "Duplicate model names across dbt projects" in failures_by_title
+
+
+def test_two_semantic_models_wrapping_one_model_are_benign(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Both are aliases of the same non-semantic node, so the URN is not contested.
+
+    Requiring the same-manifest sibling to be non-semantic must not turn a model
+    plus two semantic models over it into a reported collision."""
+    _write_two_semantic_models(
+        tmp_path, [{"name": "orders", "database": "db", "schema": "shared"}]
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/project_a/manifest.json")
+    all_nodes = source.load_nodes()
+    # Precondition: all three share one URN, so the exemption is what makes this pass.
+    assert len({node.get_db_fqn() for node in all_nodes}) == 1
+    assert len(all_nodes) == 3
+
+    assert source._check_duplicate_models(all_nodes) == all_nodes
+    assert source.report.duplicate_models_detected == 0
+    assert not source.report.failures
+
+
 def test_cross_project_collision_drop_mode_keeps_lowest_dbt_name(
     tmp_path: pathlib.Path,
 ) -> None:

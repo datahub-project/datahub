@@ -2261,6 +2261,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         exists to catch, and treating it as a collision would hard-fail a correct
         single-project configuration.
 
+        The same-manifest sibling has to be non-semantic, because the rationale is
+        that a semantic model wraps a *model*. Two semantic models in one manifest
+        alias no one; letting them exempt each other would hide a collision in
+        which they overwrite each other's aspects.
+
         A semantic model whose URN is claimed by a node from a *different* manifest
         is a real collision and stays in the group, so two projects whose semantic
         models resolve to the same relation are still detected.
@@ -2270,7 +2275,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             for node in contenders
             if node.node_type != "semantic_model"
             or not any(
-                other is not node and other.manifest_path == node.manifest_path
+                other is not node
+                and other.manifest_path == node.manifest_path
+                and other.node_type != "semantic_model"
                 for other in contenders
             )
         ]
