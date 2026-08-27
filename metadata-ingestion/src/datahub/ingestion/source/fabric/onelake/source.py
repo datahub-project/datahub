@@ -34,10 +34,9 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
-    GenericContainerSubTypes,
 )
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
-from datahub.ingestion.source.fabric.common.models import WorkspaceKey
+from datahub.ingestion.source.fabric.common.models import FabricWorkspace, WorkspaceKey
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_lakehouse_name,
     make_schema_name,
@@ -56,7 +55,6 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricTable,
     FabricView,
     FabricWarehouse,
-    FabricWorkspace,
 )
 from datahub.ingestion.source.fabric.onelake.report import (
     FabricOneLakeClientReport,

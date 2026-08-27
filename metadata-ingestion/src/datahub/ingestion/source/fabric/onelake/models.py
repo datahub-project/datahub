@@ -12,20 +12,6 @@ from typing import List, Literal, Optional
 
 
 @dataclass
-class FabricWorkspace:
-    """Microsoft Fabric workspace metadata.
-
-    Reference: https://learn.microsoft.com/en-us/rest/api/fabric/workspaces/list
-    """
-
-    id: str
-    name: str
-    description: Optional[str] = None
-    type: Optional[str] = None  # Workspace type
-    capacity_id: Optional[str] = None
-
-
-@dataclass
 class FabricItem:
     """Base class for Fabric items (lakehouses, warehouses, etc.).
 

@@ -5,10 +5,10 @@ from unittest.mock import MagicMock
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.ingestion.source.fabric.common.models import (
     FABRIC_WORKSPACE_PLATFORM,
+    FabricWorkspace,
     WorkspaceKey,
 )
 from datahub.ingestion.source.fabric.common.utils import build_workspace_container
-from datahub.ingestion.source.fabric.onelake.models import FabricWorkspace
 from datahub.ingestion.source.fabric.onelake.source import (
     PLATFORM,
     FabricOneLakeSource,
