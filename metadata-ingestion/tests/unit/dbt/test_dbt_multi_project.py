@@ -633,6 +633,56 @@ def test_ambiguous_sibling_read_failure_does_not_assert_absence(
     assert any("403 Forbidden" in entry for entry in sources_warning.context)
 
 
+def test_undecodable_sibling_catalog_is_corrupt_not_absent(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Invalid UTF-8 in a sibling catalog.json must not be downgraded to absence.
+
+    UnicodeDecodeError is a ValueError subclass but not a JSONDecodeError, so a
+    catalog.json that exists and is unreadable was reported as "no catalog file
+    found" and the project ingested silently without any column metadata.
+    """
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+    _write_project(
+        tmp_path, "project_b", [{"name": "events", "database": "db", "schema": "sch_b"}]
+    )
+    # Real bytes, not a mock: structurally valid JSON carrying one latin-1 byte, so
+    # json.loads' encoding sniffing settles on UTF-8 and the decode - not the parse -
+    # is what fails. (UTF-16 would not exercise this: json.detect_encoding spots it
+    # and decodes it happily.)
+    (tmp_path / "project_b" / "catalog.json").write_bytes(
+        b'{"metadata": {"project_name": "caf\xe9"}, "nodes": {}, "sources": {}}'
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes = source.load_nodes()
+
+    # project_a genuinely has no catalog.json, so that warning is expected for it -
+    # what must not happen is project_b's undecodable file being described as absent
+    # or as an ambiguous read failure.
+    manifest_b = f"{tmp_path}/project_b/manifest.json"
+    absence_warnings = [
+        w
+        for w in source.report.warnings
+        if w.title
+        in {
+            "No catalog file found for project",
+            "Could not read catalog file for project",
+        }
+        and any(manifest_b in entry for entry in w.context)
+    ]
+    assert absence_warnings == []
+
+    # Per-project isolation still applies: the corrupt project is skipped as a
+    # failure and the healthy one still ingests.
+    assert {node.dbt_name for node in nodes} == {"model.project_a.orders"}
+    assert source.report.manifests_failed == 1
+    failures_by_title = {f.title: f for f in source.report.failures}
+    assert "Failed to load dbt project" in failures_by_title
+
+
 def test_object_store_not_found_code_reported_as_definite_absence(
     tmp_path: pathlib.Path,
 ) -> None:

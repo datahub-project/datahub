@@ -963,8 +963,8 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         fails, returns (None, exception) when optional_artifacts is True (a
         glob-derived sibling guess) and re-raises when False (an
         explicitly-configured path is a real misconfiguration). A file that
-        exists but is corrupt JSON always raises either way - only "not found"
-        is ever treated as absence. The caught exception is handed back so the
+        exists but cannot be decoded or parsed always raises either way - only
+        "not found" is ever treated as absence. The caught exception is handed back so the
         caller can classify it with _is_missing_file_error.
         """
         if path is None:
@@ -976,8 +976,13 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 ),
                 None,
             )
-        except json.JSONDecodeError:
-            raise  # corrupt JSON is never "just missing"
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            # A file that exists but cannot be decoded is corrupt, never missing.
+            # UnicodeDecodeError is a ValueError subclass but not a JSONDecodeError,
+            # so without naming it here invalid UTF-8 was caught below and reported
+            # as "no catalog file found" - silently ingesting the project with no
+            # column metadata.
+            raise
         except (FileNotFoundError, ValueError) as e:
             if not optional_artifacts:
                 raise
