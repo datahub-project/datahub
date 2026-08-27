@@ -1335,6 +1335,11 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 return []
 
         all_nodes: List[DBTNode] = []
+        # Known ceiling: artifacts are fetched strictly sequentially, one project at a
+        # time, so wall time over many projects on an object store is dominated by
+        # serialized single-stream GETs rather than by parsing. Bounded parallel
+        # prefetch would trade that for "workers x largest artifact" peak memory,
+        # against the deliberate one-project-at-a-time footprint below.
         for manifest_path in manifest_paths:
             catalog_path: Optional[str]
             sources_path: Optional[str]
