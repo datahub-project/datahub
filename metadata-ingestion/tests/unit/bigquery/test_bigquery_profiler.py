@@ -36,6 +36,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.profiler import (
 from datahub.ingestion.source.bigquery_v2.profiling.query_executor import QueryExecutor
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
     build_safe_table_reference,
+    mask_string_literals,
     validate_and_filter_expressions,
     validate_bigquery_identifier,
     validate_column_name,
@@ -1959,7 +1960,7 @@ def test_queries_templates_pass_sql_validation():
             unpartitioned_id="__UNPARTITIONED__",
             streaming_id="__STREAMING_UNPARTITIONED__",
         ),
-        queries.COUNT_STAR_PROBE.format(table_ref="`p.d.t`"),
+        queries.PARTITION_FILTER_PROBE.format(table_ref="`p.d.t`"),
         queries.PARTITION_EXISTS_CHECK.format(
             table_ref="`p.d.t`", where="`event_date` = '2023-12-25'"
         ),
@@ -2066,7 +2067,9 @@ def test_security_validate_sql_structure_cte():
     )
     assert validate_sql_structure(valid_cte) is True
 
-    with pytest.raises(ValueError, match="Query contains dangerous pattern"):
+    # A second statement after the CTE's SELECT is rejected by the single-statement
+    # guard before the dangerous-pattern scan even runs.
+    with pytest.raises(ValueError, match="single statement"):
         validate_sql_structure(
             "WITH x AS (SELECT 1) SELECT 1; DROP TABLE `project.dataset.table`"
         )
@@ -3245,6 +3248,66 @@ def test_validate_filter_expression_blocks_union_distinct_and_hash_comment():
 def test_validate_column_name_rejects_trailing_newline():
     # A trailing newline must not slip through (fullmatch, not match with a `$` anchor).
     assert validate_column_name("valid_col\n") is False
+
+
+def test_build_safe_table_reference_allows_digit_leading_shard():
+    # BigQuery date-sharded tables are digit-leading, backtick-quoted names.
+    assert (
+        build_safe_table_reference("my-project", "my_dataset", "20200101")
+        == "`my-project`.`my_dataset`.`20200101`"
+    )
+
+
+def test_mask_string_literals_blanks_interior_keeps_structure():
+    # Interior blanked, delimiters kept, non-literal SQL untouched.
+    assert mask_string_literals("`c` = 'a; DROP'") == "`c` = 'xxxxxxx'"
+    # Backslash-escaped quote does not close the literal.
+    assert mask_string_literals(r"`c` = 'a\'b'") == "`c` = 'xxxx'"
+    # Doubled-quote escape stays inside the literal.
+    assert mask_string_literals("`c` = 'a''b'") == "`c` = 'xxxx'"
+    # A token outside any literal is preserved verbatim.
+    assert mask_string_literals("SELECT 1 -- x") == "SELECT 1 -- x"
+
+
+@pytest.mark.parametrize(
+    "safe_filter",
+    [
+        # Comment/injection tokens that are inert *inside* a quoted partition value.
+        "`uri` = 'gs://bucket/data:image/png'",
+        "`path` = 'a--b/c'",
+        "`note` = 'value # 1'",
+        "`raw` = 'a; b'",
+    ],
+)
+def test_validate_filter_expression_allows_tokens_inside_literal(
+    safe_filter: str,
+) -> None:
+    # Quote-aware scanning must not reject legitimate partition strings that happen to
+    # contain SQL comment / URI-scheme characters inside the quoted literal.
+    assert validate_filter_expression(safe_filter) is True
+
+
+def test_validate_filter_expression_still_blocks_tokens_outside_literal():
+    # The same tokens outside a literal are genuine injection and must be rejected.
+    assert validate_filter_expression("`c` = '2023-01-01' -- drop") is False
+    assert validate_filter_expression("`c` = 1 # ") is False
+
+
+def test_validate_sql_structure_allows_uri_literal_with_scheme():
+    # A `data:`/`javascript:` substring inside a quoted literal is inert.
+    assert (
+        validate_sql_structure(
+            "SELECT * FROM `p.d.t` WHERE `uri` = 'gs://b/data:image'"
+        )
+        is True
+    )
+
+
+def test_validate_sql_structure_rejects_second_statement():
+    # A single read-only statement is required; a trailing ';' alone is fine.
+    assert validate_sql_structure("SELECT 1 FROM `p.d.t`;") is True
+    with pytest.raises(ValueError):
+        validate_sql_structure("SELECT 1 FROM `p.d.t`; SELECT 2 FROM `p.d.t2`")
 
 
 if __name__ == "__main__":
