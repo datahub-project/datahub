@@ -1003,7 +1003,9 @@ def test_drop_mode_rewires_exposure_depends_on_to_the_survivor(
     )
     all_nodes = source.load_nodes()
     exposure = next(
-        e for e in source.load_exposures() if e.unique_id == "exposure.zzz_pkg.dashboard"
+        e
+        for e in source.load_exposures()
+        if e.unique_id == "exposure.zzz_pkg.dashboard"
     )
     # Precondition: the exposure points at the contender that is about to be dropped.
     assert exposure.depends_on == ["model.zzz_pkg.orders"]
