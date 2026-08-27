@@ -270,6 +270,17 @@ def test_glob_missing_sibling_artifacts_warns_and_continues(
     assert source.report.manifests_loaded == 1
     assert source.report.manifests_failed == 0
 
+    warnings_by_title = {w.title: w for w in source.report.warnings}
+    assert "No catalog file found for project" in warnings_by_title
+    assert "No sources file found for project" in warnings_by_title
+    manifest_path = f"{tmp_path}/project_a/manifest.json"
+    assert manifest_path in list(
+        warnings_by_title["No catalog file found for project"].context
+    )
+    assert manifest_path in list(
+        warnings_by_title["No sources file found for project"].context
+    )
+
 
 def test_glob_accumulates_exposures_across_projects(tmp_path: pathlib.Path) -> None:
     """loadManifestAndCatalog is called once per project under fan-out, and
