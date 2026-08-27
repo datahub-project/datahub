@@ -901,3 +901,71 @@ def test_project_lineage_apis_skipped_when_all_dashboards_filtered() -> None:
     assert not lineage_context._context_resolved
     assert fake_client.model_table_calls == 0
     assert fake_client.connection_calls == 0
+
+
+def test_model_tables_shared_between_lineage_and_semantic_model() -> None:
+    source = _source(
+        {"extract_model_lineage": True, "emit_semantic_model_entities": True}
+    )
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.model_table_calls = 0
+
+        def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
+            self.model_table_calls += 1
+            return ModelTablesResponse(
+                tables=[
+                    {
+                        "physicalTable": {"tableName": "T1"},
+                        "attributes": [],
+                        "facts": [],
+                    }
+                ],
+                total=1,
+            )
+
+    fake_client = FakeClient()
+    source.client = fake_client  # type: ignore[assignment]
+
+    datasource = Datasource.model_validate(
+        {"id": "source-1", "name": "Warehouse", "database": {"type": "snowflake"}}
+    )
+    lineage_context = _LazyProjectLineage(source, "project-1", [datasource])
+
+    # Classic model-lineage path and the semantic-model path both read the
+    # same underlying data.
+    _ = lineage_context.model_lineage_index
+    _ = lineage_context.model_tables
+
+    assert fake_client.model_table_calls == 1
+
+
+def _assert_semantic_model_called_only_when_enabled(enabled: bool) -> None:
+    project = Project.model_validate({"id": "project-1", "name": "Project 1"})
+    source = _source(
+        {
+            "emit_semantic_model_entities": enabled,
+            "extract_dashboards": False,
+            "extract_reports": False,
+            "extract_source_warehouses": False,
+        }
+    )
+    calls: List[bool] = []
+
+    def fake_process_project_semantic_model(
+        project: Project, lineage_context: _LazyProjectLineage
+    ) -> Iterator[Any]:
+        calls.append(True)
+        return iter([])
+
+    source._process_project_semantic_model = (  # type: ignore[method-assign]
+        fake_process_project_semantic_model
+    )
+    list(source._process_project(project))
+    assert bool(calls) is enabled
+
+
+def test_process_project_calls_semantic_model_only_when_enabled() -> None:
+    _assert_semantic_model_called_only_when_enabled(True)
+    _assert_semantic_model_called_only_when_enabled(False)
