@@ -229,12 +229,14 @@ class TestAutoDiscoveryEndToEnd:
         for call in mock_graphql.call_args_list:
             assert call[1]["variables"]["runId"] is None
 
-        # Verify nodes were collected (2 models + 2 semantic models from 2 jobs)
-        assert len(nodes) == 4
+        # Both jobs return the same model and semantic model under the same
+        # unique_id - the normal shape when several jobs build one project - so
+        # load_nodes dedupes them into one node each.
+        assert len(nodes) == 2
 
         # Verify semantic models were parsed correctly
         semantic_models = [n for n in nodes if n.node_type == "semantic_model"]
-        assert len(semantic_models) == 2
+        assert len(semantic_models) == 1
 
         for sm in semantic_models:
             assert len(sm.columns) > 0
@@ -292,11 +294,67 @@ class TestAutoDiscoveryEndToEnd:
         # Execute
         nodes = source.load_nodes()
 
-        # Should have nodes from jobs 100 and 300 only (2 models + 2 semantic models)
-        assert len(nodes) == 4
+        # Jobs 100 and 300 both succeed and return the same model and semantic
+        # model under the same unique_id, so load_nodes dedupes to one each.
+        assert len(nodes) == 2
 
         # Verify warning was logged for job 200 failure
         # (This is implicit - the source continues without raising)
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_auto_discovery_dedupes_overlapping_jobs(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+        mock_graphql_response: Dict[str, Any],
+    ) -> None:
+        """Overlapping jobs must not look like a cross-project identity collision.
+
+        Several dbt Cloud jobs building the same project - an hourly incremental
+        plus a nightly full refresh, which is what auto-discovery exists to
+        combine - legitimately return the same unique_id. load_nodes must collapse
+        those, or the cross-project collision check would treat an expected dbt
+        Cloud shape as a hard failure and drop every contender.
+        """
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=True),
+            DBTCloudJob(id=200, generate_docs=True),
+            DBTCloudJob(id=300, generate_docs=True),
+        ]
+        mock_graphql_response["job"]["exposures"] = [
+            {"uniqueId": "exposure.test_project.dashboard", "name": "dashboard"}
+        ]
+        mock_graphql.return_value = mock_graphql_response
+
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            auto_discovery=AutoDiscoveryConfig(enabled=True),
+            target_platform="snowflake",
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        source = DBTCloudSource(config, ctx)
+
+        nodes = source.load_nodes()
+
+        assert [node.dbt_name for node in nodes] == [
+            "model.test_project.test_model",
+            "semantic_model.test_project.test_metrics",
+        ]
+        # The identity collision checks run on these lists, so a surviving
+        # duplicate here would become a run-wide report.failure.
+        assert len({node.dbt_name for node in nodes}) == len(nodes)
+        assert [exposure.unique_id for exposure in source.load_exposures()] == [
+            "exposure.test_project.dashboard"
+        ]
 
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")

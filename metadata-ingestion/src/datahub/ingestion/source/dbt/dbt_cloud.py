@@ -751,6 +751,13 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
 
+        # Auto-discovery combines several dbt Cloud jobs, and two jobs that both build
+        # the same model - e.g. an hourly incremental plus a nightly full refresh -
+        # legitimately return it under the same unique_id. Collapse those here, so
+        # duplicates that are expected in dbt Cloud never reach the cross-project
+        # identity collision checks, which exist for genuinely distinct dbt projects.
+        nodes = list({node.dbt_name: node for node in nodes}.values())
+
         # Resolve database/schema for semantic models from their upstream nodes
         semantic_models_needing_resolution = [
             n
@@ -769,8 +776,15 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                             object.__setattr__(node, "schema", ref_node.schema)
                         break
 
-        # Parse exposures
-        self._exposures = [self._parse_into_dbt_exposure(exp) for exp in raw_exposures]
+        # Parse exposures, deduping by unique_id for the same reason as nodes above.
+        self._exposures = list(
+            {
+                exposure.unique_id: exposure
+                for exposure in (
+                    self._parse_into_dbt_exposure(exp) for exp in raw_exposures
+                )
+            }.values()
+        )
 
         # Track semantic model count
         semantic_model_count = sum(
