@@ -271,6 +271,41 @@ source:
 
 To create HMAC keys, see the [GCS HMAC key documentation](https://cloud.google.com/storage/docs/authentication/managing-hmackeys).
 
+#### Multi-Project Ingestion (glob patterns)
+
+If you run many independent dbt projects against the same target platform, `manifest_path` can be a glob pattern instead of a single file, so one ingestion recipe covers every matched project in a single run:
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: "s3://my-bucket/dbt-artifacts/*/manifest.json"
+    run_results_paths:
+      - "s3://my-bucket/dbt-artifacts/*/run_results.json"
+    aws_connection:
+      aws_region: us-east-1
+    target_platform: postgres
+```
+
+Each match is loaded as an independent dbt project. **`catalog.json` and `sources.json` are read automatically from the same directory as the matched `manifest.json` and must not be configured separately** — setting `catalog_path` or `sources_path` alongside a globbed `manifest_path` is a configuration error. A project directory missing its catalog or sources file is only affected for that artifact (with a warning); it does not fail the project.
+
+A broken manifest in one project is reported as a failure for that project only, so every other matched project still ingests fully.
+
+##### Cross-project identity collisions
+
+dbt guarantees identities are unique within a single project, but that guarantee doesn't extend across independently-developed projects combined by a glob:
+
+- **Same target table**: two projects that materialize to the same `database.schema.table` would resolve to the same dataset URN and silently overwrite each other's metadata.
+- **Same dbt `unique_id`**: two projects that share a dbt package name (for example, both scaffolded from the same template and never renamed) produce identical `unique_id`s for their models and exposures. Since `unique_id` is also the key used to resolve lineage between dbt nodes, an undetected collision doesn't just lose metadata — it can point one project's lineage at another project's model.
+
+Both are reported as a failure, and none of the colliding models or exposures are emitted, controlled by `fail_on_duplicate_models` (default `true`). Set it to `false` to instead keep one of them deterministically and emit a warning.
+
+:::note Failures suppress stale-entity removal for the whole run
+
+A reported failure — from either collision above, or from any other project failing to load — disables stale-entity soft-deletion for the **entire run**, across every project, not just the one that failed. This is deliberately the safe direction: a run with a reported problem should not delete metadata. If a persistent naming collision between two projects is blocking stale-entity cleanup for every other project, either fix the colliding dbt project(s), or set `fail_on_duplicate_models: false` as an explicit escape hatch.
+
+:::
+
 ### Prerequisites
 
 The artifacts used by this source are:

@@ -346,6 +346,11 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     duplicate_sources_dropped: Optional[int] = None
     duplicate_sources_references_updated: Optional[int] = None
 
+    # Cross-project identity collisions (fan-out only; impossible within a
+    # single dbt project since dbt itself enforces uniqueness there).
+    duplicate_models_detected: int = 0
+    duplicate_unique_ids_detected: int = 0
+
     # Query entity emission statistics
     num_queries_emitted: int = 0
     num_queries_failed: int = 0
@@ -733,6 +738,21 @@ class DBTCommonConfig(
         default=True,
         description="When enabled, drops sources that have the same name in the target platform as a model. "
         "This ensures that lineage is generated reliably, but will lose any documentation associated only with the source.",
+    )
+
+    fail_on_duplicate_models: bool = Field(
+        default=True,
+        description="When enabled, a cross-project identity collision is reported as a failure and none of the "
+        "colliding entities are emitted. This covers two cases that only arise when ingesting multiple dbt "
+        "projects together (see manifest_path), since dbt guarantees uniqueness within a single project: (1) a "
+        "model that resolves to the same target-platform table as a model in another project, and (2) a node or "
+        "exposure whose dbt-assigned unique_id collides with another one, typically because two projects share a "
+        "dbt package name. Note that a reported failure also suppresses stale-entity soft-deletion for the "
+        "entire run, across all projects, since the stale-entity-removal handler skips soft-deletion whenever "
+        "the source reports any failure. That is deliberately the safe direction - nothing gets wrongly deleted "
+        "- and it applies pressure to fix the underlying dbt naming collision. Set to False to instead keep one "
+        "entity deterministically and emit a warning, if permanent soft-deletion suppression is worse for your "
+        "use case than the collision.",
     )
 
     @field_validator("target_platform", mode="after")
@@ -2004,6 +2024,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         all_nodes = self.load_nodes()
 
+        # Must run before all_nodes_map is built below: a duplicate dbt_name here
+        # would otherwise collapse silently (last-one-wins) into that map, both
+        # losing a node without a trace and corrupting lineage resolution for every
+        # other node whose upstream_nodes references the collapsed dbt_name.
+        all_nodes, self._exposures = self._check_duplicate_unique_ids(
+            all_nodes, self.load_exposures()
+        )
+
         if self.config.convert_urns_to_lowercase:
             for node in all_nodes:
                 node.convert_urns_to_lowercase = True
@@ -2020,6 +2048,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         nodes = self._filter_nodes(all_nodes)
         nodes = self._drop_duplicate_sources(nodes)
+        nodes = self._check_duplicate_models(nodes)
 
         non_test_nodes = [
             dataset_node for dataset_node in nodes if dataset_node.node_type != "test"
@@ -2165,6 +2194,145 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     self.report.duplicate_sources_references_updated += 1
 
         return nodes
+
+    def _check_duplicate_models(self, nodes: List[DBTNode]) -> List[DBTNode]:
+        """Detect models from different dbt projects that resolve to the same target-platform table.
+
+        get_db_fqn() -> database.schema.name becomes the dataset URN, and dbt's
+        unique_id (which carries the project name) is not part of it. dbt guarantees
+        uniqueness within a single project, so this can only arise under multi-project
+        fan-out, where two projects that materialize the same relation would otherwise
+        silently overwrite each other's aspects.
+        """
+        by_fqn: Dict[str, List[DBTNode]] = defaultdict(list)
+        for node in nodes:
+            if node.node_type == "model" and node.exists_in_target_platform:
+                by_fqn[node.get_db_fqn()].append(node)
+
+        drop: Set[str] = set()
+        rewire: Dict[str, str] = {}  # loser dbt_name -> winner dbt_name
+        for fqn, contenders in sorted(by_fqn.items()):
+            if len(contenders) < 2:
+                continue
+
+            # Sorted so the winner does not depend on manifest load order.
+            contenders.sort(key=lambda node: node.dbt_name)
+            self.report.duplicate_models_detected += 1
+            context = f"{fqn} is claimed by " + ", ".join(
+                node.dbt_name for node in contenders
+            )
+
+            if self.config.fail_on_duplicate_models:
+                self.report.failure(
+                    title="Duplicate model names across dbt projects",
+                    message="Multiple dbt models materialize to the same table in the "
+                    "target platform, so they would share one URN and overwrite each "
+                    "other. None of them were emitted. Fix the dbt projects so that "
+                    "each model materializes to a distinct relation.",
+                    context=context,
+                )
+                drop.update(node.dbt_name for node in contenders)
+            else:
+                winner, *losers = contenders
+                self.report.warning(
+                    title="Duplicate model names across dbt projects",
+                    message="Multiple dbt models materialize to the same table. "
+                    "Keeping one of them and dropping the rest; their metadata will "
+                    "be lost.",
+                    context=context,
+                )
+                for loser in losers:
+                    drop.add(loser.dbt_name)
+                    # The URNs are identical, so pointing at the winner preserves
+                    # the lineage edge exactly.
+                    rewire[loser.dbt_name] = winner.dbt_name
+
+        if not drop:
+            return nodes
+
+        kept = [node for node in nodes if node.dbt_name not in drop]
+        if rewire:
+            for node in kept:
+                for i, upstream in enumerate(node.upstream_nodes):
+                    if upstream in rewire:
+                        node.upstream_nodes[i] = rewire[upstream]
+        return kept
+
+    def _check_duplicate_unique_ids(
+        self, nodes: List[DBTNode], exposures: List[DBTExposure]
+    ) -> Tuple[List[DBTNode], List[DBTExposure]]:
+        """Detect dbt nodes or exposures whose dbt-assigned unique_id collides across projects.
+
+        get_workunits_internal collapses `nodes` into all_nodes_map keyed by
+        dbt_name (dbt's unique_id), and every upstream_nodes reference is resolved
+        through that same map. Two projects that share a package name - e.g.
+        scaffolded from the same template and never renamed - produce identical
+        unique_ids for their models. Left undetected, the dict comprehension would
+        silently keep whichever node loaded last, and any other node's
+        upstream_nodes entry pointing at that dbt_name would then resolve to the
+        wrong project's data rather than simply losing the edge. DBTExposure.get_urn
+        is built from unique_id the same way, so exposures collide for the same
+        reason.
+
+        Must run before all_nodes_map is built (and operate on the raw node list,
+        not that map), or the collision has already collapsed by the time it's
+        detected.
+        """
+
+        def _find_ids_to_drop(
+            by_unique_id: Dict[str, List[Any]], kind: str
+        ) -> Set[int]:
+            drop: Set[int] = set()
+            for unique_id, contenders in sorted(by_unique_id.items()):
+                if len(contenders) < 2:
+                    continue
+                self.report.duplicate_unique_ids_detected += 1
+                context = (
+                    f"{unique_id} is claimed by {len(contenders)} {kind}s "
+                    "across projects"
+                )
+                if self.config.fail_on_duplicate_models:
+                    self.report.failure(
+                        title="Duplicate dbt unique_id across projects",
+                        message="Multiple dbt entities share one dbt-assigned "
+                        "unique_id, which is also the key used to resolve lineage "
+                        "between dbt projects. None of them were emitted. Fix the "
+                        "dbt projects so each package name is unique.",
+                        context=context,
+                    )
+                    drop.update(id(item) for item in contenders)
+                else:
+                    self.report.warning(
+                        title="Duplicate dbt unique_id across projects",
+                        message="Multiple dbt entities share one dbt-assigned "
+                        "unique_id. Keeping the first one loaded and dropping the "
+                        "rest; their metadata will be lost.",
+                        context=context,
+                    )
+                    drop.update(id(item) for item in contenders[1:])
+            return drop
+
+        by_node_id: Dict[str, List[DBTNode]] = defaultdict(list)
+        for node in nodes:
+            by_node_id[node.dbt_name].append(node)
+        drop_nodes = _find_ids_to_drop(by_node_id, "node")
+
+        by_exposure_id: Dict[str, List[DBTExposure]] = defaultdict(list)
+        for exposure in exposures:
+            by_exposure_id[exposure.unique_id].append(exposure)
+        drop_exposures = _find_ids_to_drop(by_exposure_id, "exposure")
+
+        kept_nodes = (
+            [node for node in nodes if id(node) not in drop_nodes]
+            if drop_nodes
+            else nodes
+        )
+        kept_exposures = (
+            [exposure for exposure in exposures if id(exposure) not in drop_exposures]
+            if drop_exposures
+            else exposures
+        )
+        return kept_nodes, kept_exposures
 
     @staticmethod
     def _to_schema_info(schema_fields: List[SchemaField]) -> SchemaInfo:

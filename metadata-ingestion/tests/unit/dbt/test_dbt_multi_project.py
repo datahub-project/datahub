@@ -108,20 +108,27 @@ def _write_project(
     models: List[Dict[str, str]],
     exposures: Optional[Dict[str, Dict[str, Any]]] = None,
     catalog_generated_at: Optional[str] = None,
+    package_name: Optional[str] = None,
 ) -> None:
-    """Write a minimal dbt target/ directory for one project."""
+    """Write a minimal dbt target/ directory for one project.
+
+    package_name overrides the dbt package name embedded in each model's
+    unique_id (defaults to `project`), so a test can put two distinct project
+    directories on a dbt package name that collides across them.
+    """
     project_dir = root / project
     project_dir.mkdir(parents=True, exist_ok=True)
+    pkg = package_name or project
     nodes: Dict[str, Any] = {}
     for model in models:
-        unique_id = f"model.{project}.{model['name']}"
+        unique_id = f"model.{pkg}.{model['name']}"
         nodes[unique_id] = {
             "unique_id": unique_id,
             "name": model["name"],
             "database": model["database"],
             "schema": model["schema"],
             "resource_type": "model",
-            "package_name": project,
+            "package_name": pkg,
             "config": {"materialized": "table"},
             "description": "",
             "columns": {},
@@ -434,3 +441,177 @@ def test_ambiguous_sibling_read_failure_does_not_assert_absence(
     sources_warning = warnings_by_title["Could not read sources file for project"]
     assert any("403 Forbidden" in entry for entry in catalog_warning.context)
     assert any("403 Forbidden" in entry for entry in sources_warning.context)
+
+
+def test_cross_project_collision_fails_and_drops_all_contenders(
+    tmp_path: pathlib.Path,
+) -> None:
+    # Both projects materialise db.shared.orders -> identical URN.
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "shared"}],
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "orders", "database": "db", "schema": "shared"}],
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes = source._check_duplicate_models(source.load_nodes())
+
+    assert nodes == []
+    assert source.report.duplicate_models_detected == 1
+    assert source.report.failures
+
+
+def test_cross_project_collision_drop_mode_keeps_first_by_dbt_name(
+    tmp_path: pathlib.Path,
+) -> None:
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "shared"}],
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "orders", "database": "db", "schema": "shared"}],
+    )
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        fail_on_duplicate_models=False,
+    )
+    nodes = source._check_duplicate_models(source.load_nodes())
+
+    assert [node.dbt_name for node in nodes] == ["model.project_a.orders"]
+    assert source.report.duplicate_models_detected == 1
+
+
+def test_distinct_schemas_do_not_collide(tmp_path: pathlib.Path) -> None:
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+    _write_project(
+        tmp_path, "project_b", [{"name": "orders", "database": "db", "schema": "sch_b"}]
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes = source._check_duplicate_models(source.load_nodes())
+
+    assert len(nodes) == 2
+    assert source.report.duplicate_models_detected == 0
+
+
+def test_duplicate_unique_id_across_projects_fails_and_drops_all_contenders(
+    tmp_path: pathlib.Path,
+) -> None:
+    # Two projects scaffolded from the same template, package name never renamed:
+    # both models resolve to model.shared_pkg.orders, even though they target
+    # different tables (so this is not also a target-table collision).
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "sch_a"}],
+        package_name="shared_pkg",
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "orders", "database": "db", "schema": "sch_b"}],
+        package_name="shared_pkg",
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    all_nodes = source.load_nodes()
+    nodes, exposures = source._check_duplicate_unique_ids(
+        all_nodes, source.load_exposures()
+    )
+
+    assert nodes == []
+    assert source.report.duplicate_unique_ids_detected == 1
+    assert source.report.failures
+
+
+def test_duplicate_unique_id_drop_mode_keeps_first_loaded(
+    tmp_path: pathlib.Path,
+) -> None:
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "sch_a"}],
+        package_name="shared_pkg",
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "orders", "database": "db", "schema": "sch_b"}],
+        package_name="shared_pkg",
+    )
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        fail_on_duplicate_models=False,
+    )
+    all_nodes = source.load_nodes()
+    nodes, exposures = source._check_duplicate_unique_ids(
+        all_nodes, source.load_exposures()
+    )
+
+    # Manifests are loaded in sorted path order, so project_a is "first loaded".
+    assert len(nodes) == 1
+    assert nodes[0].schema == "sch_a"
+    assert source.report.duplicate_unique_ids_detected == 1
+
+
+def test_duplicate_exposure_unique_id_across_projects_fails(
+    tmp_path: pathlib.Path,
+) -> None:
+    # Same collision, but on an exposure: both projects declare an exposure
+    # under the same unique_id (shared package name), so DBTExposure.get_urn
+    # would collide the same way DBTNode.get_urn does for models.
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders_a", "database": "db", "schema": "sch_a"}],
+        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_a"}},
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "orders_b", "database": "db", "schema": "sch_b"}],
+        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_b"}},
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    all_nodes = source.load_nodes()
+    nodes, exposures = source._check_duplicate_unique_ids(
+        all_nodes, source.load_exposures()
+    )
+
+    assert exposures == []
+    assert len(nodes) == 2  # the models themselves don't collide
+    assert source.report.duplicate_unique_ids_detected == 1
+    assert source.report.failures
+
+
+def test_distinct_package_names_do_not_collide_on_unique_id(
+    tmp_path: pathlib.Path,
+) -> None:
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+    _write_project(
+        tmp_path, "project_b", [{"name": "orders", "database": "db", "schema": "sch_b"}]
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    all_nodes = source.load_nodes()
+    nodes, exposures = source._check_duplicate_unique_ids(
+        all_nodes, source.load_exposures()
+    )
+
+    assert len(nodes) == 2
+    assert source.report.duplicate_unique_ids_detected == 0
