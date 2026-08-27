@@ -325,7 +325,7 @@ See the [Databricks Agent Bricks](../../dev-guides/agent-context/databricks-agen
 OAuth + DCR is the recommended path for **interactive** clients where a human signs in. Stick with personal access tokens (described below) for:
 
 - **Service accounts** and unattended agentic workflows (CI/CD, scheduled jobs)
-- **DataHub Cloud < v1.0.2** or self-hosted DataHub Core
+- **DataHub Cloud < v1.0.2** or DataHub Core
 - MCP clients that don't yet implement OAuth-based remote MCP
 
 # Connecting to Managed MCP Server with Access Tokens

@@ -33,10 +33,18 @@ def is_vertica_responsive(container_name: str) -> bool:
 
 
 @pytest.fixture(scope="module")
-def vertica_runner(docker_compose_runner, test_resources_dir):
+def vertica_runner(docker_compose_runner, test_resources_dir, request):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "vertica"
     ) as docker_services:
+        # The compose file exposes the client port ephemerally, so a leaked
+        # container from a prior run can never hold onto the port a fresh
+        # run needs. vertica_to_file.yml picks it up via ${VERTICA_PORT}.
+        vertica_port = docker_services.port_for("vertica", 5433)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("VERTICA_PORT", str(vertica_port))
+        request.addfinalizer(mp.undo)
+
         wait_for_port(
             docker_services,
             "vertica-ce",

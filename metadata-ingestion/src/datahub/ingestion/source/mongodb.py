@@ -214,6 +214,8 @@ PYMONGO_TYPE_TO_MONGO_TYPE = {
     bson.dbref.DBRef: "dbref",
     bson.objectid.ObjectId: "oid",
     bson.Decimal128: "numberDecimal",
+    bytes: "binary",
+    bson.datetime_ms.DatetimeMS: "date",
     "mixed": "mixed",
 }
 
@@ -231,6 +233,8 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
     bson.dbref.DBRef: BytesTypeClass,
     bson.objectid.ObjectId: BytesTypeClass,
     bson.Decimal128: NumberTypeClass,
+    bytes: BytesTypeClass,
+    bson.datetime_ms.DatetimeMS: TimeTypeClass,
     dict: RecordTypeClass,
     "mixed": UnionTypeClass,
 }
