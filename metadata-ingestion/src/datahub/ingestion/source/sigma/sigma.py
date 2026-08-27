@@ -110,6 +110,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -4272,6 +4273,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._workbook_customsql_formula_fields.clear()
         self._referenced_workspace_ids.clear()
         self._workspace_names_from_path.clear()
+        # These are derived from the state above, so they are reset with it
+        # rather than accumulated across runs of this generator.
+        self.reporter.workspaces_without_metadata = LossyList()
+        self.reporter.workspaces_named_despite_pattern = LossyList()
         self.sigma_api.fill_workspaces()
 
         # Materialize the Sigma Dataset list once and populate the

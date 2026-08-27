@@ -52,6 +52,12 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
+# Non-403 ``/workspaces/{id}`` failures tolerated per workspace before the id
+# is abandoned for the rest of the run. Each attempt already carries the
+# session's own retry budget, so this bounds a persistently broken workspace to
+# a handful of cycles instead of one per entity in it.
+MAX_WORKSPACE_FETCH_ATTEMPTS = 3
+
 
 class SigmaAPI:
     def __init__(self, config: SigmaSourceConfig, report: SigmaSourceReport) -> None:
@@ -70,8 +76,13 @@ class SigmaAPI:
         # latching one would drop every entity in the workspace for the rest of
         # the run (``ingest_shared_entities`` defaults to False).
         self._forbidden_workspace_ids: Set[str] = set()
-        # Ids a non-403 fetch failure has already been reported for. Bounds the
-        # report without suppressing the retry.
+        # Non-403 fetch failures per workspace id. Retrying matters -- a 5xx
+        # may succeed for the next entity, and giving up immediately drops the
+        # whole workspace -- but a workspace that is genuinely broken must not
+        # cost one retry cycle per entity, so attempts are capped.
+        self._workspace_fetch_failures: Dict[str, int] = {}
+        # Ids a non-403 fetch failure has already been reported for, so the
+        # report carries one entry per workspace rather than one per attempt.
         self._workspace_fetch_warned: Set[str] = set()
         self.users: Dict[str, str] = {}
         # Track source_type values we've already warned about to keep the
@@ -151,7 +162,8 @@ class SigmaAPI:
             )
 
     def _get_api_call(self, url: str) -> requests.Response:
-        """Make an API call with automatic retry on 429/503 and token refresh on 401."""
+        """Make an API call with automatic retry on 429/500/502/503/504 and
+        token refresh on 401."""
         get_response = self.session.get(url)
 
         # Handle token refresh on 401
@@ -184,15 +196,23 @@ class SigmaAPI:
         that nothing ever names.
 
         Returns ``None`` when Sigma withholds the workspace (403) or the call
-        fails. Only the 403 is cached; a failed call is retried for the next
-        entity, because latching a transient error would drop every entity in
-        the workspace for the rest of the run.
+        fails. A 403 is cached immediately -- it is a stable answer. Other
+        failures are retried for the next entity, because latching a transient
+        error would drop every entity in the workspace for the rest of the run
+        (``ingest_shared_entities`` defaults to False), but are abandoned after
+        ``MAX_WORKSPACE_FETCH_ATTEMPTS`` so a genuinely broken workspace cannot
+        cost a retry cycle per entity.
         """
         if workspace_id in self.workspaces:
             return self.workspaces[workspace_id]
         if workspace_id in self._workspace_id_aliases:
             return self.workspaces.get(self._workspace_id_aliases[workspace_id])
         if workspace_id in self._forbidden_workspace_ids:
+            return None
+        if (
+            self._workspace_fetch_failures.get(workspace_id, 0)
+            >= MAX_WORKSPACE_FETCH_ATTEMPTS
+        ):
             return None
 
         logger.debug(f"Fetching workspace metadata with id '{workspace_id}'")
@@ -218,6 +238,9 @@ class SigmaAPI:
             # remediation. Reported once per id -- the call itself stays
             # retryable, so without this gate the report would carry one entry
             # per entity in the workspace.
+            self._workspace_fetch_failures[workspace_id] = (
+                self._workspace_fetch_failures.get(workspace_id, 0) + 1
+            )
             if workspace_id not in self._workspace_fetch_warned:
                 self._workspace_fetch_warned.add(workspace_id)
                 self.report.warning(

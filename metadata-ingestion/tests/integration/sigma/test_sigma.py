@@ -2069,8 +2069,23 @@ def test_sigma_transient_workspace_failure_does_not_cost_the_workspace(
     Here ``/workspaces/{id}`` fails once and then succeeds.
     """
     ws_id = "3ee61405-3be2-4000-ba72-60d36757b95b"
-    override_data = {
-        f"https://aws-api.sigmacomputing.com/v2/workspaces/{ws_id}": [
+    register_mock_api(
+        request_mock=requests_mock,
+        override_data={
+            # The listing must be empty, or fill_workspaces() caches the
+            # workspace up front and the per-id lookup under test never runs.
+            "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {"entries": [], "total": 0, "nextPage": None},
+            },
+        },
+    )
+    # requests_mock honours a response list as successive replies, so the
+    # first lookup fails and the next one succeeds.
+    requests_mock.get(
+        f"https://aws-api.sigmacomputing.com/v2/workspaces/{ws_id}",
+        [
             {"status_code": 500, "json": {}},
             {
                 "status_code": 200,
@@ -2084,12 +2099,6 @@ def test_sigma_transient_workspace_failure_does_not_cost_the_workspace(
                 },
             },
         ],
-    }
-    register_mock_api(request_mock=requests_mock, override_data={})
-    # requests_mock honours a response list as successive replies.
-    requests_mock.get(
-        f"https://aws-api.sigmacomputing.com/v2/workspaces/{ws_id}",
-        override_data[f"https://aws-api.sigmacomputing.com/v2/workspaces/{ws_id}"],
     )
 
     output_path: str = f"{tmp_path}/sigma_transient_failure_mces.json"
