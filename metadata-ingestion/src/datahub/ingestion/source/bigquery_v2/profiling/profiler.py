@@ -1,4 +1,5 @@
 import logging
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -37,6 +38,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     PARTITION_HANDLING_ENABLED,
     PARTITION_HANDLING_KWARG,
     PARTITION_LE_BOUND_RE,
+    PARTITION_RANGE_COLUMN_RE,
     PARTITION_RANGE_OPERATOR_RE,
     PARTITIONING_COLUMN_FLAG,
     STRFTIME_FORMATS,
@@ -126,6 +128,11 @@ class BigqueryProfiler(GenericProfiler):
         self._partition_metadata_cache: Dict[
             Tuple[str, str], Dict[str, CachedPartitionMetadata]
         ] = {}
+        # External-table discovery runs the cache lookups from a ThreadPoolExecutor, so
+        # the check-then-populate and the hit/miss counters must be serialized. Without
+        # this, workers for tables in the same dataset each see an empty cache and run the
+        # dataset-wide INFORMATION_SCHEMA query concurrently, defeating the cache.
+        self._cache_lock = threading.Lock()
         self._cache_hits = 0
         self._cache_misses = 0
 
@@ -237,16 +244,17 @@ class BigqueryProfiler(GenericProfiler):
     ) -> Optional[CachedPartitionMetadata]:
         cache_key = (project, dataset)
 
-        if cache_key not in self._partition_metadata_cache:
-            self._populate_partition_metadata_cache(project, dataset)
+        with self._cache_lock:
+            if cache_key not in self._partition_metadata_cache:
+                self._populate_partition_metadata_cache(project, dataset)
 
-        dataset_cache = self._partition_metadata_cache.get(cache_key, {})
-        table_metadata = dataset_cache.get(table_name)
+            dataset_cache = self._partition_metadata_cache.get(cache_key, {})
+            table_metadata = dataset_cache.get(table_name)
 
-        if table_metadata:
-            self._cache_hits += 1
-        else:
-            self._cache_misses += 1
+            if table_metadata:
+                self._cache_hits += 1
+            else:
+                self._cache_misses += 1
 
         return table_metadata
 
@@ -268,15 +276,6 @@ class BigqueryProfiler(GenericProfiler):
         return PartitionDiscovery.get_partition_range_from_partition_id(
             partition_id, partition_datetime
         )
-
-    def _sample_percent(self, rows_count: int) -> float:
-        # A zero/non-positive sample size (or empty table) would produce a
-        # `TABLESAMPLE SYSTEM (0 PERCENT)`, which BigQuery rejects. Fall back to no
-        # downsampling rather than emitting an invalid percentage.
-        if rows_count <= 0 or self.config.profiling.sample_size <= 0:
-            return 100.0
-        sample_pc = self.config.profiling.sample_size / rows_count
-        return min(100 * sample_pc, 100.0)
 
     def _should_sample(self, rows_count: Optional[int]) -> TypeGuard[int]:
         return bool(
@@ -322,22 +321,27 @@ class BigqueryProfiler(GenericProfiler):
     def _build_custom_sql(
         self, safe_table_ref: str, table_ref: str, bq_table: BigqueryTable
     ) -> Optional[str]:
-        # Custom SQL for a table without a partition filter: sample, cap at the row
-        # limit, or apply the safety cap for very large tables. Returns None when the
-        # table fits within limits so GE profiles it normally (FULL_TABLE partitionSpec).
+        # Custom SQL for a table without a partition filter: cap at the row limit, or
+        # apply the safety cap for very large tables. Returns None when the table should
+        # be profiled without custom SQL (FULL_TABLE partitionSpec) — including when it
+        # is large enough to sample, because sampling is applied downstream (see below).
         rows_count = getattr(bq_table, "rows_count", None)
         select_all = queries.SELECT_ALL.format(table_ref=safe_table_ref)
 
         if self._should_sample(rows_count):
-            sample_percent = self._sample_percent(rows_count)
-            logger.info(
-                f"Applied {sample_percent:.4f}% sampling to {table_ref} "
-                f"({rows_count:,} rows)"
+            # Do NOT emit TABLESAMPLE here. The SQLAlchemy profiler adapter
+            # (_setup_sampling, mirrored by the GE profiler) already runs a single
+            # TABLESAMPLE on the source table when use_sampling is on and no LIMIT is
+            # configured. Emitting it here as well would double-sample (adapter re-samples
+            # the materialized custom-SQL result) and change the default profiling path
+            # vs. the pre-rewrite profiler, which emitted no TABLESAMPLE. Returning None
+            # lets the adapter sample the whole table directly, which is more
+            # representative than sampling a first-N LIMIT slice.
+            logger.debug(
+                f"{table_ref} exceeds sample_size ({rows_count:,} rows); deferring "
+                f"sampling to the profiler adapter (no inline TABLESAMPLE)"
             )
-            return (
-                f"{select_all}\n"
-                f"{queries.TABLESAMPLE_SYSTEM.format(sample_percent=sample_percent)}"
-            )
+            return None
 
         row_limit = self.config.profiling.profiling_row_limit
 
@@ -851,6 +855,15 @@ class BigqueryProfiler(GenericProfiler):
                 f"Processing partition discovery for {len(deferred_external)} external table(s) in parallel"
             )
 
+            # Warm the per-dataset partition-metadata cache in this thread before fanning
+            # out. The workers then hit an already-populated cache (a fast locked dict
+            # read) instead of racing to run the dataset-wide INFORMATION_SCHEMA query,
+            # and the cache lock never wraps network I/O during the parallel phase.
+            for project, dataset in {
+                (d.db_name, d.schema_name) for d in deferred_external
+            }:
+                self._populate_partition_metadata_cache(project, dataset)
+
             with ThreadPoolExecutor(
                 max_workers=min(max_workers, len(deferred_external))
             ) as executor:
@@ -958,8 +971,15 @@ class BigqueryProfiler(GenericProfiler):
         for col_name in date_columns:
             literal = self._find_equality_literal(partition_filters, col_name)
             if literal is None:
-                # No pinned date (e.g. an IS NOT NULL fallback): window from today
-                # using a quoted ISO literal, which BigQuery coerces for
+                if self._column_has_range_predicate(partition_filters, col_name):
+                    # Discovery already produced a bounded range for this column (a
+                    # half-open month/year DATE range, or a TIMESTAMP/DATETIME range).
+                    # A today-based window would be ANDed onto that range and, for any
+                    # partition older than the window, match nothing — emptying the
+                    # profile. Leave the discovered range untouched.
+                    continue
+                # No pinned date and no range (e.g. an IS NOT NULL fallback): window from
+                # today using a quoted ISO literal, which BigQuery coerces for
                 # STRING/DATE/TIMESTAMP columns.
                 spec = DateLiteralSpec(
                     DATE_FORMAT_YYYY_MM_DD,
@@ -1004,6 +1024,18 @@ class BigqueryProfiler(GenericProfiler):
         )
 
         return windowed_filters
+
+    @staticmethod
+    def _column_has_range_predicate(
+        partition_filters: List[str], col_name: str
+    ) -> bool:
+        # True when any filter constrains col_name with a range operator (>=, <=, >, <,
+        # BETWEEN) rather than an equality — i.e. discovery already bounded this column.
+        for filter_expr in partition_filters:
+            for match in PARTITION_RANGE_COLUMN_RE.finditer(filter_expr):
+                if match.group(1) == col_name:
+                    return True
+        return False
 
     def _find_equality_literal(
         self, partition_filters: List[str], col_name: str

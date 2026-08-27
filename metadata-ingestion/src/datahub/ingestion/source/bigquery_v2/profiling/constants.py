@@ -263,6 +263,16 @@ PARTITION_RANGE_OPERATOR_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Same shape as PARTITION_RANGE_OPERATOR_RE but captures the column name, so date
+# windowing can tell whether a given column already carries a discovered range
+# predicate (a half-open month/timestamp partition) that must not be overwritten with a
+# today-based window. Anchored on the backtick-quoted column so a range operator inside a
+# quoted STRING value is not misread.
+PARTITION_RANGE_COLUMN_RE = re.compile(
+    r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*(?:>=|<=|>|<|BETWEEN\b)",
+    re.IGNORECASE,
+)
+
 # Inclusive lower/upper bounds of a `col` >= X / `col` <= Y range, used to recognise
 # a zero-day window whose same-day (X == Y) range still scans exactly one partition.
 PARTITION_GE_BOUND_RE = re.compile(
