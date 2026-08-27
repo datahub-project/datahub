@@ -895,27 +895,35 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
     def _load_optional_artifact_json(
         self, path: Optional[str], *, optional_artifacts: bool
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[Exception]]:
         """Load catalog.json or sources.json, tolerating absence when optional.
 
-        Returns None if path is None. If the file doesn't exist, returns None when
-        optional_artifacts is True (a glob-derived sibling guess) and re-raises when
-        False (an explicitly-configured path is a real misconfiguration). A file
-        that exists but is corrupt JSON always raises either way - only "not found"
-        is ever treated as absence.
+        Returns (json, None) if path is None or the load succeeded. If the load
+        fails, returns (None, exception) when optional_artifacts is True (a
+        glob-derived sibling guess) and re-raises when False (an
+        explicitly-configured path is a real misconfiguration). A file that
+        exists but is corrupt JSON always raises either way - only "not found"
+        is ever treated as absence. The caught exception is handed back so the
+        caller can tell a local FileNotFoundError (genuinely absent) apart from
+        the generic ValueError that object-store reads raise for every
+        get_object failure - missing key, permission denied, throttling - which
+        looks identical from here.
         """
         if path is None:
-            return None
+            return None, None
         try:
-            return self.load_file_as_json(
-                path, self.config.aws_connection, self.config.gcs_connection
+            return (
+                self.load_file_as_json(
+                    path, self.config.aws_connection, self.config.gcs_connection
+                ),
+                None,
             )
         except json.JSONDecodeError:
             raise  # corrupt JSON is never "just missing"
-        except (FileNotFoundError, ValueError):
+        except (FileNotFoundError, ValueError) as e:
             if not optional_artifacts:
                 raise
-            return None
+            return None, e
 
     def loadManifestAndCatalog(
         self,
@@ -949,7 +957,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 project_name=dbt_manifest_metadata.get("project_name", "unknown"),
             )
 
-        dbt_catalog_json = self._load_optional_artifact_json(
+        dbt_catalog_json, catalog_load_error = self._load_optional_artifact_json(
             catalog_path, optional_artifacts=optional_artifacts
         )
         dbt_catalog_metadata = None
@@ -979,16 +987,32 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 title="No catalog file configured",
                 message="Some metadata, particularly schema information, will be missing.",
             )
-        else:
-            # catalog_path was a glob-derived sibling guess, and nothing was there.
+        elif isinstance(catalog_load_error, FileNotFoundError):
+            # catalog_path was a glob-derived sibling guess, and the file is
+            # genuinely not there - a local FileNotFoundError is unambiguous.
             self.report.warning(
                 title="No catalog file found for project",
                 message="This dbt project has no catalog.json beside its manifest; "
                 "some metadata, particularly schema information, will be missing.",
                 context=manifest_path,
             )
+        else:
+            # catalog_path was a glob-derived sibling guess, but the read failed
+            # rather than reporting the key missing. read_file_as_bytes wraps
+            # every object-store get_object failure - missing key, permission
+            # denied, throttling, transient network error - into the same
+            # generic ValueError, so we can't claim the file is absent here.
+            self.report.warning(
+                title="Could not read catalog file for project",
+                message="Failed to read this project's catalog.json. This may mean "
+                "the file is absent, or that the read itself failed (e.g. "
+                "permissions, throttling, network) - object storage does not "
+                "distinguish the two. Some metadata, particularly schema "
+                "information, will be missing.",
+                context=f"{manifest_path}: {catalog_load_error}",
+            )
 
-        dbt_sources_json = self._load_optional_artifact_json(
+        dbt_sources_json, sources_load_error = self._load_optional_artifact_json(
             sources_path, optional_artifacts=optional_artifacts
         )
         sources_invocation_id = None
@@ -998,13 +1022,28 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             sources_invocation_id = dbt_sources_json.get("metadata", {}).get(
                 "invocation_id"
             )
-        elif sources_path is not None and optional_artifacts:
-            # sources_path was a glob-derived sibling guess, and nothing was there.
+        elif sources_path is not None and isinstance(
+            sources_load_error, FileNotFoundError
+        ):
+            # sources_path was a glob-derived sibling guess, and the file is
+            # genuinely not there - a local FileNotFoundError is unambiguous.
             self.report.warning(
                 title="No sources file found for project",
                 message="This dbt project has no sources.json beside its manifest; "
                 "last-modified fields will not be populated.",
                 context=manifest_path,
+            )
+        elif sources_path is not None and sources_load_error is not None:
+            # sources_path was a glob-derived sibling guess, but the read failed
+            # rather than reporting the key missing - see the catalog.json
+            # warning above for why we can't claim absence in that case.
+            self.report.warning(
+                title="Could not read sources file for project",
+                message="Failed to read this project's sources.json. This may mean "
+                "the file is absent, or that the read itself failed (e.g. "
+                "permissions, throttling, network) - object storage does not "
+                "distinguish the two. Last-modified fields will not be populated.",
+                context=f"{manifest_path}: {sources_load_error}",
             )
 
         manifest_schema = dbt_manifest_json["metadata"].get("dbt_schema_version")

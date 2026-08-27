@@ -335,3 +335,58 @@ def test_glob_attributes_catalog_generated_at_per_project(
     events_generated_at = nodes_by_name["model.project_b.events"].catalog_generated_at
     assert orders_generated_at is not None and orders_generated_at.year == 2020
     assert events_generated_at is not None and events_generated_at.year == 2021
+
+
+def test_corrupt_manifest_is_a_failure_and_other_projects_still_load(
+    tmp_path: pathlib.Path,
+) -> None:
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+    _write_project(
+        tmp_path, "project_b", [{"name": "events", "database": "db", "schema": "sch_b"}]
+    )
+    broken = tmp_path / "project_c"
+    broken.mkdir()
+    broken_manifest_path = str(broken / "manifest.json")
+    (broken / "manifest.json").write_text("{ this is not valid json")
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes = source.load_nodes()
+
+    assert {node.dbt_name for node in nodes} == {
+        "model.project_a.orders",
+        "model.project_b.events",
+    }
+    assert source.report.manifests_loaded == 2
+    assert source.report.manifests_failed == 1
+    # Must be a failure, not a warning: the stale-entity-removal handler keys on
+    # report.failures to skip soft-deletion. A warning here would soft-delete
+    # every dataset belonging to project_c.
+    assert source.report.failures
+    # An operator with 200 globbed projects needs to know which one broke. The
+    # framework appends the exception detail onto the same context entry, so
+    # check the path is present rather than requiring an exact-match element.
+    assert any(
+        broken_manifest_path in entry for entry in source.report.failures[0].context
+    )
+
+
+def test_non_glob_corrupt_manifest_raises_instead_of_reporting_failure(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Single-project (non-glob) mode must fail loudly, not silently swallow into
+    an empty successful run - the glob-mode tolerance above must not leak into the
+    historical non-glob behaviour."""
+    project_dir = tmp_path / "project_a"
+    project_dir.mkdir()
+    manifest_path = project_dir / "manifest.json"
+    manifest_path.write_text("{ this is not valid json")
+
+    source = _make_source(manifest_path=str(manifest_path))
+
+    with pytest.raises(json.JSONDecodeError):
+        source.load_nodes()
+
+    assert source.report.manifests_failed == 0
+    assert not source.report.failures
