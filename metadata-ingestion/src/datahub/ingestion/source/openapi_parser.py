@@ -13,6 +13,7 @@ from typing import (
     TypeGuard,
     Union,
 )
+from urllib.parse import unquote
 
 import requests
 import yaml
@@ -207,6 +208,20 @@ def get_url_basepath(sw_dict: dict) -> str:
     return ""
 
 
+def _require_object(value: object, label: str, context: str) -> bool:
+    """Log and reject a malformed non-object value; never logs the value
+    itself, since it may be arbitrarily large (e.g. a full response body)."""
+    if isinstance(value, dict):
+        return True
+    logger.warning(
+        "Skipping malformed %s at %s (expected object, got %s)",
+        label,
+        context,
+        type(value).__name__,
+    )
+    return False
+
+
 def check_sw_version(sw_dict: dict) -> None:
     version_str = sw_dict.get("swagger") or sw_dict.get("openapi")
     if not isinstance(version_str, str):
@@ -250,52 +265,25 @@ def get_endpoints(sw_dict: dict) -> dict:
 
     for p_k, p_o in sw_dict["paths"].items():
         # Only set metadata if it doesn't already exist (don't overwrite higher-priority metadata)
-        if not isinstance(p_o, dict):
-            # A malformed path item must not abort every other endpoint's extraction.
-            logger.warning(
-                "Skipping malformed path item %r (expected object, got %s)",
-                p_k,
-                type(p_o).__name__,
-            )
+        # A malformed path item must not abort every other endpoint's extraction.
+        if not _require_object(p_o, "path item", p_k):
             continue
 
         for method in all_methods:
             method_spec = p_o.get(method)
             if not method_spec:
                 continue
-            if not isinstance(method_spec, dict):
-                logger.warning(
-                    "Skipping malformed method spec %r on %r (expected object, got %s)",
-                    method,
-                    p_k,
-                    type(method_spec).__name__,
-                )
+            if not _require_object(method_spec, "method spec", f"{method} {p_k}"):
                 continue
 
             responses = method_spec.get("responses", {})
-            if not isinstance(responses, dict):
-                logger.warning(
-                    "Skipping malformed responses %r on method %r of %r "
-                    "(expected object, got %s)",
-                    responses,
-                    method,
-                    p_k,
-                    type(responses).__name__,
-                )
+            if not _require_object(responses, "responses", f"{method} {p_k}"):
                 continue
             base_res = responses.get("200") or responses.get(200)
             if not base_res:
                 # if there is no 200 response, we skip this method
                 continue
-            if not isinstance(base_res, dict):
-                logger.warning(
-                    "Skipping malformed 200 response %r on method %r of %r "
-                    "(expected object, got %s)",
-                    base_res,
-                    method,
-                    p_k,
-                    type(base_res).__name__,
-                )
+            if not _require_object(base_res, "200 response", f"{method} {p_k}"):
                 continue
 
             # Initialize endpoint details if it doesn't exist
@@ -326,8 +314,8 @@ def get_endpoints(sw_dict: dict) -> dict:
                 url_details[p_k]["data"] = example_data
 
             # checking whether there are defined parameters to execute the call...
-            if "parameters" in p_o[method] and "parameters" not in url_details[p_k]:
-                url_details[p_k]["parameters"] = p_o[method]["parameters"]
+            if "parameters" in method_spec and "parameters" not in url_details[p_k]:
+                url_details[p_k]["parameters"] = method_spec["parameters"]
 
     return dict(sorted(url_details.items()))
 
@@ -1266,6 +1254,14 @@ def _combine_under_allof(
     return {"allOf": members}
 
 
+def _decode_json_pointer_token(token: str) -> str:
+    """Decode a single JSON Pointer reference token per RFC 6901: percent-
+    decode the URI fragment, then unescape '~1' to '/' and '~0' to '~' (in
+    that order, since a literal '~' in the source is escaped as '~0' and
+    must not be re-expanded by the '~1' substitution)."""
+    return unquote(token).replace("~1", "/").replace("~0", "~")
+
+
 def _lookup_local_ref_target(
     ref_path: object,
     sw_dict: Dict,
@@ -1296,7 +1292,7 @@ def _lookup_local_ref_target(
         return None
     if not isinstance(schemas_map, dict):
         return None
-    target = schemas_map.get(ref_path.split("/")[-1])
+    target = schemas_map.get(_decode_json_pointer_token(ref_path.split("/")[-1]))
     return target if isinstance(target, dict) else None
 
 

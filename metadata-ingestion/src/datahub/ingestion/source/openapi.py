@@ -53,7 +53,7 @@ from datahub.metadata.schema_classes import (
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-_RESPONSE_CONTENT_TYPES = ("application/json", "application/xml", "text/json")
+_SCHEMA_CONTENT_TYPES = ("application/json", "application/xml", "text/json")
 
 # openapi_parser's schema-walking functions (get_endpoints, merge_allof_schemas,
 # resolve_schema_references, ...) are free functions with no SourceReport access,
@@ -81,8 +81,19 @@ class _CollectingLogHandler(logging.Handler):
             self.messages.append(record.getMessage())
 
 
+# Guards the openapi_parser logger's level so concurrent APISource runs (see
+# _CollectingLogHandler above) don't stomp on each other's save/restore of a
+# single shared logger: only the first concurrent capture lowers the level,
+# only the last one restores it, and _saved_level always reflects the level
+# from before any concurrent capture was active.
+_level_override_lock = threading.Lock()
+_level_override_refcount = 0
+_saved_level: int = logging.NOTSET
+
+
 @contextmanager
 def _capture_parser_warnings() -> Iterator[List[str]]:
+    global _level_override_refcount, _saved_level
     handler = _CollectingLogHandler()
     parser_logger = logging.getLogger(_PARSER_LOGGER_NAME)
     # logger.warning(...) short-circuits on isEnabledFor(WARNING), resolved
@@ -95,17 +106,21 @@ def _capture_parser_warnings() -> Iterator[List[str]]:
     # never override a MORE permissive level a user explicitly set (e.g. -v/
     # --debug), which would otherwise hide their DEBUG/INFO output for the
     # duration of the capture.
-    previous_level = parser_logger.level
-    lowered_level = parser_logger.getEffectiveLevel() > logging.WARNING
-    if lowered_level:
-        parser_logger.setLevel(logging.WARNING)
+    with _level_override_lock:
+        if _level_override_refcount == 0:
+            _saved_level = parser_logger.level
+        _level_override_refcount += 1
+        if parser_logger.getEffectiveLevel() > logging.WARNING:
+            parser_logger.setLevel(logging.WARNING)
     parser_logger.addHandler(handler)
     try:
         yield handler.messages
     finally:
         parser_logger.removeHandler(handler)
-        if lowered_level:
-            parser_logger.setLevel(previous_level)
+        with _level_override_lock:
+            _level_override_refcount -= 1
+            if _level_override_refcount == 0:
+                parser_logger.setLevel(_saved_level)
 
 
 _BAD_RESPONSE_MESSAGES: Dict[int, Tuple[str, str]] = {
@@ -469,7 +484,7 @@ class APISource(Source, ABC):
                 # OpenAPI v3 format
                 content = success_response["content"]
                 # Try application/json first, then fallback to others
-                for content_type in _RESPONSE_CONTENT_TYPES:
+                for content_type in _SCHEMA_CONTENT_TYPES:
                     if content_type in content:
                         schema = content[content_type].get("schema")
                         if schema:
@@ -508,7 +523,7 @@ class APISource(Source, ABC):
                 request_body = endpoint_spec["requestBody"]
                 if "content" in request_body:
                     content = request_body["content"]
-                    for content_type in _RESPONSE_CONTENT_TYPES:
+                    for content_type in _SCHEMA_CONTENT_TYPES:
                         if content_type in content:
                             schema = content[content_type].get("schema")
                             if schema:
@@ -520,7 +535,13 @@ class APISource(Source, ABC):
 
             # Check for parameters (both v2 and v3)
             parameters = endpoint_spec.get("parameters", [])
-            if parameters:
+            if parameters and not isinstance(parameters, list):
+                logger.warning(
+                    "Skipping malformed 'parameters' %r (expected list, got %s)",
+                    parameters,
+                    type(parameters).__name__,
+                )
+            elif parameters:
                 # Create a schema from parameters
                 param_schema: Dict[str, Any] = {"type": "object", "properties": {}}
                 for param in parameters:
@@ -760,7 +781,6 @@ class APISource(Source, ABC):
                     title="Schema Extracted With No Fields",
                     message="OpenAPI spec schema resolved but produced no extractable fields",
                     context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                    log=False,
                 )
                 return None
             # self.report.info already logs this at INFO level -- a separate

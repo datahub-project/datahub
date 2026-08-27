@@ -1,4 +1,5 @@
 import json
+import logging
 import unittest
 from typing import Any, Dict, Generator, List, cast
 from unittest.mock import MagicMock, patch
@@ -10,9 +11,12 @@ from pydantic import SecretStr, ValidationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
 from datahub.ingestion.source.openapi import (
+    _PARSER_LOGGER_NAME,
     APISource,
     OpenApiConfig,
     OpenApiGetTokenConfig,
+    _capture_parser_warnings,
+    _CollectingLogHandler,
 )
 from datahub.ingestion.source.openapi_parser import (
     _join_url,
@@ -1198,6 +1202,19 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         result = self.source.extract_request_schema_from_endpoint(endpoint_spec, {})
 
         self.assertIsNone(result)
+
+    def test_extract_request_schema_malformed_parameters_warns_and_returns_none(self):
+        # Regression: a malformed non-list "parameters" (e.g. a dict instead
+        # of a list) was silently iterated as its own keys, producing an
+        # empty schema indistinguishable from "no parameters" with no signal
+        # that the spec itself is malformed.
+        endpoint_spec = {"parameters": {"name": "id"}}
+        with self.assertLogs("datahub.ingestion.source.openapi", level="WARNING") as cm:
+            result = self.source.extract_request_schema_from_endpoint(endpoint_spec, {})
+        self.assertIsNone(result)
+        self.assertTrue(
+            any("malformed 'parameters'" in message for message in cm.output)
+        )
 
     def test_extract_schema_method_priority(self):
         """Test that GET is preferred over POST when both have 200 responses."""
@@ -3163,7 +3180,9 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         # Regression: the dict-lookup refactor dropped log=False, so every
         # bad HTTP response was logged twice (once by self.report.warning's
         # default log=True, previously suppressed here deliberately).
-        with self.assertNoLogs("datahub.ingestion.api.source", level="WARNING"):
+        # self.report.warning logs through "datahub.ingestion.api.report",
+        # not the source module's own logger.
+        with self.assertNoLogs("datahub.ingestion.api.report", level="WARNING"):
             self.source.report_bad_responses(401, "GET /secure")
 
     def test_ignore_endpoints_skips_workunits(self):
@@ -3674,6 +3693,76 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         }
         resolved = resolve_schema_references({"$ref": "#/$defs/Pet"}, sw_dict)
         self.assertEqual(resolved, sw_dict["$defs"]["Pet"])
+
+    def test_lookup_local_ref_target_decodes_json_pointer_escapes(self):
+        # Regression: a $defs key containing "/" or "~" is escaped per RFC
+        # 6901 ("~1"/"~0") inside the $ref fragment. Without decoding, the
+        # raw escaped token never matches the real key and the reference
+        # silently fails to resolve.
+        sw_dict: Dict[str, Any] = {
+            "openapi": "3.1.0",
+            "$defs": {
+                "a/b": {"type": "object", "properties": {"name": {"type": "string"}}}
+            },
+        }
+        resolved = resolve_schema_references({"$ref": "#/$defs/a~1b"}, sw_dict)
+        self.assertEqual(resolved, sw_dict["$defs"]["a/b"])
+
+    def test_capture_parser_warnings_ignores_records_from_other_threads(self):
+        # Regression: _CollectingLogHandler is thread-scoped so concurrent
+        # APISource runs sharing the module-level openapi_parser logger don't
+        # attribute each other's parser warnings to the wrong report.
+        handler = _CollectingLogHandler()
+        owning_thread_record = logging.LogRecord(
+            name=_PARSER_LOGGER_NAME,
+            level=logging.WARNING,
+            pathname=__file__,
+            lineno=0,
+            msg="from owning thread",
+            args=None,
+            exc_info=None,
+        )
+        handler.emit(owning_thread_record)
+        self.assertEqual(handler.messages, ["from owning thread"])
+
+        other_thread_record = logging.LogRecord(
+            name=_PARSER_LOGGER_NAME,
+            level=logging.WARNING,
+            pathname=__file__,
+            lineno=0,
+            msg="from other thread",
+            args=None,
+            exc_info=None,
+        )
+        with patch(
+            "datahub.ingestion.source.openapi.threading.get_ident",
+            return_value=handler._owner_thread + 1,
+        ):
+            handler.emit(other_thread_record)
+        self.assertEqual(handler.messages, ["from owning thread"])
+
+    def test_capture_parser_warnings_refcounted_level_restore(self):
+        # Regression: two concurrent _capture_parser_warnings callers sharing
+        # the single module-level parser logger must not let the first one
+        # to exit restore a level while the second is still relying on it
+        # being lowered, nor leave the ambient level permanently overridden.
+        parser_logger = logging.getLogger(_PARSER_LOGGER_NAME)
+        original_level = parser_logger.level
+        parser_logger.setLevel(logging.ERROR)
+        try:
+            with _capture_parser_warnings() as outer_messages:
+                with _capture_parser_warnings() as inner_messages:
+                    self.assertEqual(parser_logger.getEffectiveLevel(), logging.WARNING)
+                    logging.getLogger(_PARSER_LOGGER_NAME).warning("nested warning")
+                # Inner capture exited, but the outer one is still active --
+                # the level must still be lowered, not restored to ERROR.
+                self.assertEqual(parser_logger.getEffectiveLevel(), logging.WARNING)
+            # Both captures exited -- the original ambient level is restored.
+            self.assertEqual(parser_logger.level, logging.ERROR)
+            self.assertIn("nested warning", outer_messages)
+            self.assertIn("nested warning", inner_messages)
+        finally:
+            parser_logger.setLevel(original_level)
 
     def test_extract_schema_from_simple_endpoint_live_api_success(self):
         self.source.config = OpenApiConfig(
