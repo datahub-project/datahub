@@ -1,6 +1,7 @@
 import json
 import pathlib
 from typing import Any, Dict, List, Optional
+from unittest import mock
 
 import pytest
 
@@ -390,3 +391,46 @@ def test_non_glob_corrupt_manifest_raises_instead_of_reporting_failure(
 
     assert source.report.manifests_failed == 0
     assert not source.report.failures
+
+
+def test_ambiguous_sibling_read_failure_does_not_assert_absence(
+    tmp_path: pathlib.Path,
+) -> None:
+    """catalog.json/sources.json reads that fail ambiguously - as object storage
+    does for a missing key, a permission error, or throttling, see
+    read_file_as_bytes - must not be reported with the same "no file found"
+    wording used for a definite local FileNotFoundError, and must surface the
+    underlying error for diagnosis. Mocks read_file_as_bytes directly (same
+    pattern as test_load_file_as_json_handles_utf8_bom in test_dbt_source.py),
+    so no real S3/GCS client is needed."""
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+
+    def fake_read(uri: str, *args: Any, **kwargs: Any) -> bytes:
+        if uri.endswith("manifest.json"):
+            return pathlib.Path(uri).read_bytes()
+        # Mimics read_file_as_bytes wrapping a get_object failure - this could
+        # just as easily be a missing key, throttling, or a network error.
+        raise ValueError(f"Failed to read {uri} from object store: 403 Forbidden")
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    with mock.patch(
+        "datahub.ingestion.source.dbt.dbt_core.read_file_as_bytes",
+        side_effect=fake_read,
+    ):
+        nodes = source.load_nodes()
+
+    assert {node.dbt_name for node in nodes} == {"model.project_a.orders"}
+
+    warnings_by_title = {w.title: w for w in source.report.warnings}
+    assert "Could not read catalog file for project" in warnings_by_title
+    assert "Could not read sources file for project" in warnings_by_title
+    # The definite-absence wording must not fire for an ambiguous read failure.
+    assert "No catalog file found for project" not in warnings_by_title
+    assert "No sources file found for project" not in warnings_by_title
+
+    catalog_warning = warnings_by_title["Could not read catalog file for project"]
+    sources_warning = warnings_by_title["Could not read sources file for project"]
+    assert any("403 Forbidden" in entry for entry in catalog_warning.context)
+    assert any("403 Forbidden" in entry for entry in sources_warning.context)
