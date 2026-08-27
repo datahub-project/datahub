@@ -122,4 +122,13 @@ The same permission gap can hide a workspace entirely: `/workspaces/{id}` answer
 workbooks and datasets inside it are still reachable. With `ingest_shared_entities` enabled those
 entities are ingested anyway, and their Workspace Container is named from the entity path rather
 than from Sigma's workspace metadata (so it carries no owner or timestamps). Affected workspaces are
-listed in the report under `workspaces_without_metadata`.
+listed in the report under `workspaces_without_metadata`. A workspace that failed for some other
+reason — a 5xx, a timeout, a malformed payload — is degraded the same way but is reported separately
+as an `Unable to fetch workspace` warning, since adding the user to the workspace will not fix it.
+
+On some tenants the `path` a file reports does not start at its workspace, so the `parentId` walk
+that derives a workspace id terminates on a folder instead. Sigma resolves such an id to its owning
+workspace, and ingestion adopts the id Sigma answers with so that entities, filtering and the
+per-workspace counts all agree on one workspace. Any ids that had to be remapped this way are listed
+in the report under `workspace_ids_remapped`; a non-empty map is the signal that this tenant is
+affected.
