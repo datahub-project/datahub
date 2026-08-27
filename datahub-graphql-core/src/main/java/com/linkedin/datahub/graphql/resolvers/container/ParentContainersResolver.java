@@ -6,9 +6,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.ParentContainersResult;
+import com.linkedin.datahub.graphql.loaders.ParentContainersBatchLoader;
 import com.linkedin.datahub.graphql.types.container.mappers.ContainerMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -21,14 +23,26 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
+import org.dataloader.DataLoader;
 
 public class ParentContainersResolver
     implements DataFetcher<CompletableFuture<ParentContainersResult>> {
 
   private final EntityClient _entityClient;
 
-  public ParentContainersResolver(final EntityClient entityClient) {
+  // Null when constructed without feature flags (legacy/test path) — treated as "batch disabled".
+  @Nullable private final FeatureFlags _featureFlags;
+
+  /** Test-only: no feature flags means the batch path stays off. */
+  ParentContainersResolver(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public ParentContainersResolver(
+      final EntityClient entityClient, @Nullable final FeatureFlags featureFlags) {
     _entityClient = entityClient;
+    _featureFlags = featureFlags;
   }
 
   @Override
@@ -36,6 +50,14 @@ public class ParentContainersResolver
 
     final QueryContext context = getQueryContext(environment);
     final Urn urn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+
+    if (_featureFlags != null && _featureFlags.isParentContainersBatchLoadEnabled()) {
+      final DataLoader<Urn, ParentContainersResult> loader =
+          environment
+              .getDataLoaderRegistry()
+              .getDataLoader(ParentContainersBatchLoader.LOADER_NAME);
+      return loader.load(urn);
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -59,8 +81,9 @@ public class ParentContainersResolver
                       null);
 
               // batchGetV2 returns an unordered map; re-iterate parentUrns to preserve hierarchy
-              // order. Missing/unauthorized urns resolve to null and are skipped, matching the
-              // previous response != null behavior.
+              // order. Missing entities resolve to null and are skipped. Unauthorized parents are
+              // still returned as field-stripped stubs via ContainerMapper (real URNs from the
+              // hierarchy cache; never rewrite cache entries to restricted entity URNs).
               for (Urn parentUrn : parentUrns) {
                 EntityResponse response = responses.get(parentUrn);
                 if (response != null) {

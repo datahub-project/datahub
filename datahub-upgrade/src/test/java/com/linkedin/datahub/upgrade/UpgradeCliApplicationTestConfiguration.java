@@ -83,7 +83,7 @@ public class UpgradeCliApplicationTestConfiguration {
   @Primary
   @Bean
   public EntityRegistry entityRegistry() {
-    return TestOperationContexts.defaultEntityRegistry();
+    return TestOperationContexts.constructNewEntityRegistry();
   }
 
   @Primary

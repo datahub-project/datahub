@@ -58,7 +58,7 @@ Connect to DataHub Cloud at <tenant>.acryl.io
 ```
 
 </TabItem>
-<TabItem value="oss" label="Self-Hosted">
+<TabItem value="oss" label="DataHub Core">
 
 You'll need your GMS URL (e.g., `http://localhost:8080`) and a personal access token:
 
@@ -155,7 +155,7 @@ Tag all columns containing email addresses with the PII glossary term across our
 
 | Skill       | Command                           | What it does                                                                               |
 | ----------- | --------------------------------- | ------------------------------------------------------------------------------------------ |
-| **Setup**   | `/datahub-skills:datahub-setup`   | Connect to your DataHub instance (Cloud or self-hosted)                                    |
+| **Setup**   | `/datahub-skills:datahub-setup`   | Connect to your DataHub instance (Cloud or Core)                                           |
 | **Search**  | `/datahub-skills:datahub-search`  | Find data assets using descriptions, glossary terms, ownership, usage, and quality signals |
 | **Lineage** | `/datahub-skills:datahub-lineage` | Trace upstream sources, transformations, and downstream consumers                          |
 | **Enrich**  | `/datahub-skills:datahub-enrich`  | Add descriptions, tags, glossary terms, owners, domains, and structured properties         |
@@ -189,4 +189,4 @@ For full installation options and manual setup, see the [datahub-skills reposito
 - Set up the [MCP Server](../../features/feature-guides/mcp.md) if you haven't already — skills need tools to work
 - Explore the [Agent Context Kit](./agent-context.md) for building custom agents with the Python SDK
 - Browse the [datahub-skills repo](https://github.com/datahub-project/datahub-skills) to see skill definitions and contribute new ones
-- Join the [DataHub community](https://datahub.com/slack/) — 14,000+ members building in the open
+- Join the [DataHub community](https://datahub.com/slack/) — 16,000+ members building in the open

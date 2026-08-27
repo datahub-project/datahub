@@ -8,7 +8,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-:::note Self-hosted (OSS) deployments
+:::note DataHub Core deployments
 Search Access Controls with query-time filtering are a **DataHub Cloud** feature. On OSS, set `VIEW_AUTHORIZATION_ENABLED=true` for entity page gating — this does **not** filter search at query time. See [Designing policies for view-based access control](../../authorization/policies.md#designing-policies-for-view-based-access-control) in the Policies Guide.
 :::
 
@@ -47,21 +47,18 @@ in search without a View Entity grant. The lean baseline is declared on entities
 `_ADD` / `_REMOVE`. All other types are restricted by default.
 
 Stock `_ADD` defaults to the previous unrestricted CSV **minus** types already flagged in
-`entity-registry.yml`. `schemaField` remains on stock `_ADD`, but `document` does not: documents are view-restricted
-by default. To stop columns from appearing for users without View Entity grants:
-
-```
-VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE=schemaField
-```
+`entity-registry.yml`. Stock `_ADD` does **not** include `document`, `schemaField`, or `container` — those types are
+view-restricted by default when view authorization is on (`container` is no longer `viewUnrestricted` in the
+registry). Do not re-add them via `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD` unless you intentionally want view bypass.
 
 These are GMS environment variables (see [Environment Variables](../../deploy/environment-vars.md)). The same list
-applies to core view authorization when `VIEW_AUTHORIZATION_ENABLED=true` on self-hosted deployments — that only
+applies to core view authorization when `VIEW_AUTHORIZATION_ENABLED=true` on DataHub Core deployments — that only
 gates entity pages / post-search masking on OSS; **query-time search filtering remains DataHub Cloud–only** (see the
 note at the top of this page). Breaking-change details: [updating DataHub](../../how/updating-datahub.md).
 
 #### Columns (`schemaField`) after you restrict them
 
-Once `schemaField` is removed from the unrestricted list, two different paths apply:
+With `schemaField` view-restricted (the stock default), two different paths apply:
 
 1. **Entity page / schema tab (VBAC)** — Viewing a column inherits **View Entity** from the parent dataset encoded
    in the schemaField URN (`urn:li:schemaField:(<datasetUrn>,<fieldPath>)`), then falls back to a direct grant on
@@ -85,7 +82,7 @@ columns as separate search hits**. To surface columns in search under SAC, use U
 `TYPE = dataset`-only constraint), an explicit `TYPE = schemaField` policy, or keep `schemaField` unrestricted
 (not recommended if columns must not leak in search).
 
-OSS does **not** implement this URN-prefix search pushdown; self-hosted `VIEW_AUTHORIZATION_ENABLED` only gates
+DataHub Core does **not** implement this URN-prefix search pushdown; its `VIEW_AUTHORIZATION_ENABLED` only gates
 entity pages / post-search masking.
 
 ### Policy-Based Filtering
@@ -354,13 +351,12 @@ Yes. The same filtering applies to programmatic access via the GraphQL API. User
 
 **Why do users still see columns (`schemaField`) without View Entity grants?**
 
-`schemaField` is on the stock `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD`. Remove it with
-`VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE=schemaField` (or set a full override with
-`VIEW_UNRESTRICTED_ENTITY_TYPES`). Documents are view-restricted by default; if users can view them without a grant,
-check whether `document` was added through `VIEW_UNRESTRICTED_ENTITY_TYPES` or `_ADD`. See
+Stock unrestricted overlays omit `schemaField` (and `document` / `container`). If users can still open columns
+without a grant, check whether `schemaField` was re-added through `VIEW_UNRESTRICTED_ENTITY_TYPES` or `_ADD`, or
+whether they inherit **View Entity** from the parent dataset encoded in the schemaField URN. See
 [Entity types that bypass view checks](#entity-types-that-bypass-view-checks).
 
-**After restricting `schemaField`, why don’t columns appear in search for users who can see the parent dataset?**
+**Why don’t columns appear in search for users who can see the parent dataset?**
 
 Entity-page access inherits from the parent dataset, but **Cloud search filtering does not**. Domain, container,
 and resource-owner policies match facets on the search document; column docs usually lack those facets.

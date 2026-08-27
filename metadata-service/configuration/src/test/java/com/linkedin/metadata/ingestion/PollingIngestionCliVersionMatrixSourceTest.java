@@ -73,12 +73,15 @@ public class PollingIngestionCliVersionMatrixSourceTest {
     // it)
     // and leave the last-fetched timestamp untouched — in-flight resolutions never see a flap.
     StubReader reader = new StubReader(MATRIX_JSON);
-    reader.failNextWith(new RuntimeException("storage unavailable"));
 
     PollingIngestionCliVersionMatrixSource source = newSource(reader);
     source.shutdown(); // stop the scheduler so its startup tick can't consume a stubbed result
     source.refresh(); // good load
     long stampAfterGoodLoad = source.getLastFetchedAtMillis();
+
+    // Arm the failure only after the good load has landed: if the scheduler's startup tick still
+    // raced ahead of shutdown() above, it can only have consumed a good read, never this one.
+    reader.failNextWith(new RuntimeException("storage unavailable"));
     source.refresh(); // read throws — must retain
 
     assertEquals(

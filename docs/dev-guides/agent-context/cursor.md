@@ -55,7 +55,7 @@ If your MCP config is checked into version control, reference an environment var
 
 :::
 
-## Self-Hosted DataHub
+## DataHub Core
 
 Install [`uv`](https://github.com/astral-sh/uv) (`curl -LsSf https://astral.sh/uv/install.sh | sh`), then add a new MCP server in Cursor settings with:
 

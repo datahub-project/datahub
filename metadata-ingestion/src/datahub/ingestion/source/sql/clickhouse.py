@@ -516,7 +516,7 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 @platform_name("ClickHouse")
 @config_class(ClickHouseConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )

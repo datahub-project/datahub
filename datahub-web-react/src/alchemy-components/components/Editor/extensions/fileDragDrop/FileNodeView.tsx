@@ -17,6 +17,8 @@ import {
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileNode } from '@components/components/FileNode/FileNode';
 
+import { safeUrl } from '@app/shared/urlUtils';
+
 const FileContainer = styled.div<{ $isInline?: boolean }>`
     display: inline-block;
 
@@ -206,7 +208,9 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
                         onMouseLeave={() => setIsResizingPdf(false)}
                     >
                         <PdfViewer
-                            src={url}
+                            // A file node's url is parsed from persisted rich-text without scheme
+                            // validation, so guard the iframe src against javascript:/data: (stored XSS).
+                            src={safeUrl(url)}
                             title={name}
                             onError={() => setPdfError(true)}
                             $isResizing={isResizingPdf}

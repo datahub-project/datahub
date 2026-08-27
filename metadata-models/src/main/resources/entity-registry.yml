@@ -24,6 +24,8 @@ entities:
       - subTypes
       - datasetProfile
       - datasetUsageStatistics
+      - usageFeatures
+      - storageFeatures
       - operation
       - domains
       - applications
@@ -276,7 +278,6 @@ entities:
       - displayProperties
       - assetSettings
   - name: container
-    viewUnrestricted: true
     doc: A container of related data assets.
     category: core
     keyAspect: containerKey
@@ -350,6 +351,7 @@ entities:
       - displayProperties
       - assetSettings
       - domains
+      - applications
       - globalTags
   - name: document
     category: core
@@ -453,6 +455,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - versionProperties
       - subTypes
       - container
@@ -514,6 +517,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - subTypes
       - documentation
   - name: mlFeature
@@ -537,6 +541,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - subTypes
       - documentation
   - name: mlPrimaryKey
@@ -601,6 +606,7 @@ entities:
       - schemaFieldAliases
       - documentation
       - testResults
+      - incidentsSummary
       - deprecation
       - subTypes
       - logicalParent
