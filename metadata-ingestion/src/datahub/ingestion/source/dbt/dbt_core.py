@@ -759,18 +759,23 @@ def _parse_model_run(
 def load_run_results(
     config: DBTCommonConfig,
     test_results_json: Dict[str, Any],
-    all_nodes: List[DBTNode],
-) -> List[DBTNode]:
+    all_nodes_map: Dict[str, DBTNode],
+) -> None:
+    """Attach one run_results file's test results and model performances to their nodes.
+
+    Takes the dbt_name -> node lookup rather than the node list, because the caller
+    loops this over every matched run_results file. Rebuilding the map per file cost
+    O(files x total_nodes) over the whole multi-project node union, and all but the
+    first build was wasted - the nodes are mutated in place.
+    """
     if test_results_json.get("args", {}).get("which") == "generate":
         logger.warning(
             "The run results file is from a `dbt docs generate` command, "
             "instead of a build/run/test command. Skipping this file."
         )
-        return all_nodes
+        return
 
     dbt_metadata = DBTRunMetadata.model_validate(test_results_json.get("metadata", {}))
-
-    all_nodes_map: Dict[str, DBTNode] = {x.dbt_name: x for x in all_nodes}
 
     results = test_results_json.get("results", [])
     for result in results:
@@ -801,8 +806,6 @@ def load_run_results(
                 continue
 
             model_node.model_performances.append(model_performance)
-
-    return all_nodes
 
 
 @platform_name("dbt")
@@ -1379,16 +1382,19 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         expanded_run_results_paths = self._expand_run_results_paths()
         if expanded_run_results_paths:
             self.report.run_results_paths_expanded = expanded_run_results_paths
-        for run_results_path in expanded_run_results_paths:
-            all_nodes = load_run_results(
-                self.config,
-                self.load_file_as_json(
-                    run_results_path,
-                    self.config.aws_connection,
-                    self.config.gcs_connection,
-                ),
-                all_nodes,
-            )
+            # Built once, not per file: load_run_results mutates nodes in place, so a
+            # per-file rebuild over the whole node union was pure waste.
+            nodes_by_name = {node.dbt_name: node for node in all_nodes}
+            for run_results_path in expanded_run_results_paths:
+                load_run_results(
+                    self.config,
+                    self.load_file_as_json(
+                        run_results_path,
+                        self.config.aws_connection,
+                        self.config.gcs_connection,
+                    ),
+                    nodes_by_name,
+                )
 
         return all_nodes
 
