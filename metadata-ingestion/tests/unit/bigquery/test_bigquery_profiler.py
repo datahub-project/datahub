@@ -79,7 +79,7 @@ def test_generate_day_partitioned_partition_profiler_query():
         comment=None,
         is_nullable=False,
     )
-    partition_info = PartitionInfo(type="DAY", field="date", column=column)
+    partition_info = PartitionInfo(type="DAY", fields=("date",), columns=(column,))
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
     test_table = BigqueryTable(
         name="test_table",
@@ -122,7 +122,7 @@ def test_generate_day_partitioned_partition_profiler_query_with_set_partition_ti
         comment=None,
         is_nullable=False,
     )
-    partition_info = PartitionInfo(type="DAY", field="date", column=column)
+    partition_info = PartitionInfo(type="DAY", fields=("date",), columns=(column,))
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
     test_table = BigqueryTable(
         name="test_table",
@@ -164,7 +164,7 @@ def test_generate_hour_partitioned_partition_profiler_query():
         comment=None,
         is_nullable=False,
     )
-    partition_info = PartitionInfo(type="DAY", field="date", column=column)
+    partition_info = PartitionInfo(type="DAY", fields=("date",), columns=(column,))
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
     test_table = BigqueryTable(
         name="test_table",
@@ -198,7 +198,7 @@ WHERE
 
 # Ingestion partitioned tables do not have partition column in the schema as it uses a psudo column _PARTITIONTIME to partition
 def test_generate_ingestion_partitioned_partition_profiler_query():
-    partition_info = PartitionInfo(type="DAY", field="date")
+    partition_info = PartitionInfo(type="DAY", fields=("date",))
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
     test_table = BigqueryTable(
         name="test_table",
