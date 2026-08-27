@@ -130,7 +130,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
 
 
 @platform_name("DataHubDocuments", id="datahub-documents")
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @config_class(DataHubDocumentsSourceConfig)
 class DataHubDocumentsSource(StatefulIngestionSourceBase):
     """

@@ -548,7 +548,7 @@ class TimescaleDBConfig(PostgresConfig):
 
 @platform_name("TimescaleDB", id="timescaledb")
 @config_class(TimescaleDBConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")

@@ -79,7 +79,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("MicroStrategy")
 @config_class(MicroStrategyConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Projects and folders emit as containers")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
