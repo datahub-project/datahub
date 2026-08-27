@@ -4,6 +4,7 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 import Link from "@docusaurus/Link";
 import styles from "./quicklinkcard.module.scss";
 import { Tag } from "antd";
+import { getSupportStatusTooltip } from "../supportStatus";
 
 const FilterCard = ({
   image,
@@ -143,7 +144,10 @@ const FilterCard = ({
         onClick={handleCardClick}
       >
         {supportStatus && (
-          <div className={clsx(styles.supportBadge, getSupportBadgeClass())}>
+          <div
+            className={clsx(styles.supportBadge, getSupportBadgeClass())}
+            title={getSupportStatusTooltip(supportStatus)}
+          >
             {supportStatus.trim() === "Certified" && "✓ "}
             {supportStatus.trim()}
           </div>
@@ -159,6 +163,7 @@ const FilterCard = ({
             {isApiConnector && (
               <Tag
                 color="blue"
+                title="No ready-made connector exists. DataHub can model this platform, but you emit the metadata yourself using the SDK or APIs."
                 style={{
                   marginLeft: "0.5rem",
                   fontSize: "0.7rem",

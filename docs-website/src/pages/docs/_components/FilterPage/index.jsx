@@ -1,19 +1,95 @@
 import React from "react";
 import Head from "@docusaurus/Head";
 import Layout from "@theme/Layout";
+import clsx from "clsx";
 import FilterBar from "../FilterBar";
 import FilterCards from "../FilterCards";
+import styles from "./legend.module.scss";
+import { SUPPORT_STATUS_DESCRIPTIONS } from "../supportStatus";
+
+// Decodes the two independent labels shown on each card. Support status
+// describes how mature an existing connector is; connection type describes how
+// metadata reaches DataHub, and its "API" value means no connector exists at
+// all. Readers have mistaken "API" for a support level, so both axes are
+// spelled out here rather than left to inference.
+function CardLegend() {
+  return (
+    <aside className={styles.legend} aria-label="Card legend">
+      <div className={styles.legendGrid}>
+        <div>
+          <h4>Support status</h4>
+          <ul>
+            <li>
+              <span
+                className={clsx(styles.legendSample, styles.sampleCertified)}
+              >
+                Certified
+              </span>
+              {SUPPORT_STATUS_DESCRIPTIONS.certified}
+            </li>
+            <li>
+              <span
+                className={clsx(styles.legendSample, styles.sampleIncubating)}
+              >
+                Incubating
+              </span>
+              {SUPPORT_STATUS_DESCRIPTIONS.incubating}
+            </li>
+            <li>
+              <span className={clsx(styles.legendSample, styles.sampleTesting)}>
+                Testing
+              </span>
+              {SUPPORT_STATUS_DESCRIPTIONS.testing}
+            </li>
+            <li>
+              <b>No badge</b> - the connector does not declare a support status.
+            </li>
+          </ul>
+          <a href="docs/metadata-ingestion/source_overview#metadata-ingestion-source-status">
+            More on support status
+          </a>
+        </div>
+        <div>
+          <h4>Connection type</h4>
+          <ul>
+            <li>
+              <b>Pull</b> - DataHub connects to the platform and reads metadata
+              on a schedule.
+            </li>
+            <li>
+              <b>Push</b> - the platform sends metadata to DataHub.
+            </li>
+            <li>
+              <span className={clsx(styles.legendSample, styles.sampleApi)}>
+                API
+              </span>
+              <b>No ready-made connector exists.</b> DataHub can model this
+              platform, but you emit the metadata yourself using the DataHub SDK
+              or APIs.
+            </li>
+          </ul>
+          <a href="docs/metadata-ingestion/datahub-skills">
+            Build your own integration
+          </a>
+        </div>
+      </div>
+    </aside>
+  );
+}
 
 export function FilterPage(
   siteConfig,
   metadata,
   title,
   subtitle,
-  allowExclusivity = false,
-  useTags = false,
-  useFilters = false,
-  seoTitle = siteConfig.tagline,
-  seoDescription = "DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems."
+  {
+    allowExclusivity = false,
+    useTags = false,
+    useFilters = false,
+    showLegend = false,
+    seoTitle = siteConfig.tagline,
+    seoDescription = "DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems.",
+  } = {}
 ) {
   const [textState, setTextState] = React.useState("");
   const [filterState, setFilterState] = React.useState([]);
@@ -145,7 +221,7 @@ export function FilterPage(
       </Head>
       <header className={"hero"}>
         <div className="container">
-          <div className="hero__content">
+          <div className={clsx("hero__content", styles.heroContent)}>
             <div>
               <h1 className="hero__title">{title}</h1>
               <p className="hero__subtitle">{subtitle}</p>
@@ -168,6 +244,7 @@ export function FilterPage(
       <FilterCards
         content={filteredIngestionSourceContent}
         filterBar={<FilterBar />}
+        aside={showLegend ? <CardLegend /> : null}
       />
 
       <div
