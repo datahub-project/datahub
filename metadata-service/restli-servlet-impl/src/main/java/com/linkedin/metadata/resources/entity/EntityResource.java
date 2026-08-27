@@ -247,10 +247,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               aspectNames == null
                   ? opContext.getEntityAspectNames(urn)
                   : new HashSet<>(Arrays.asList(aspectNames));
-          final Set<String> projectedAspects = new HashSet<>(requestedAspects);
-          projectedAspects.removeIf(
-              aspectName ->
-                  EntityAuthorizationUtils.isQuerySqlAspectRestricted(opContext, urn, aspectName));
+          final Set<String> projectedAspects =
+              pruneQuerySqlRestrictedAspects(opContext, urn, requestedAspects);
           final Entity entity = entityService.getEntity(opContext, urn, projectedAspects, true);
           if (entity == null) {
             throw RestliUtils.resourceNotFoundException(String.format("Did not find %s", urnStr));
@@ -299,11 +297,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           for (Urn urn : urns) {
             final Set<String> requestedAspects =
                 explicitAspects == null ? opContext.getEntityAspectNames(urn) : explicitAspects;
-            final Set<String> projectedAspects = new HashSet<>(requestedAspects);
-            projectedAspects.removeIf(
-                aspectName ->
-                    EntityAuthorizationUtils.isQuerySqlAspectRestricted(
-                        opContext, urn, aspectName));
+            final Set<String> projectedAspects =
+                pruneQuerySqlRestrictedAspects(opContext, urn, requestedAspects);
             urnsByProjectedAspects
                 .computeIfAbsent(projectedAspects, k -> new HashSet<>())
                 .add(urn);
@@ -318,6 +313,32 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           return result;
         },
         MetricRegistry.name(this.getClass(), "batchGet"));
+  }
+
+  /**
+   * Removes SQL-bearing aspects the actor lacks {@code VIEW_ENTITY_QUERIES} for from {@code
+   * requested}. Never returns an empty set when {@code requested} was non-empty: {@code
+   * EntityServiceImpl#getLatestAspect} treats an empty aspect-name set as "fetch every registered
+   * aspect", so a request for only a restricted aspect would otherwise prune down to empty and
+   * have the lower layer silently widen the fetch back to everything — including the very aspect
+   * just restricted. Falls back to the entity's own key aspect name in that case, which combined
+   * with this class's {@code alwaysIncludeKeyAspect=true} reproduces the existing "always return
+   * the key" contract without leaking anything else.
+   */
+  private static Set<String> pruneQuerySqlRestrictedAspects(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull Set<String> requested) {
+    final Set<String> projected = new HashSet<>(requested);
+    projected.removeIf(
+        aspectName -> EntityAuthorizationUtils.isQuerySqlAspectRestricted(opContext, urn, aspectName));
+    if (projected.isEmpty() && !requested.isEmpty()) {
+      return Collections.singleton(
+          opContext
+              .getEntityRegistry()
+              .getEntitySpec(urn.getEntityType())
+              .getKeyAspectSpec()
+              .getName());
+    }
+    return projected;
   }
 
   @Action(name = ACTION_INGEST)
