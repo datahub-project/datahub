@@ -86,6 +86,12 @@ function sumByType(findings, type) {
     return findings.filter((f) => f.type === type).reduce((n, f) => n + f.count, 0);
 }
 
+// Distinct namespace files with drift. Not findings.length — one file can emit a missing, a stale
+// and a placeholder finding, which would count it three times.
+function filesAffected(findings) {
+    return new Set(findings.map((f) => f.file)).size;
+}
+
 // Newlines in a workflow-command message must be encoded so the whole annotation stays on one line.
 function encodeAnnotation(message) {
     return message.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
@@ -113,7 +119,7 @@ function buildSummaryMarkdown(perLocale, total, { detail = true } = {}) {
     lines.push('| Locale | Missing keys | Stale keys | Placeholder | Files |', '| --- | --- | --- | --- | --- |');
     for (const { lang, findings } of perLocale) {
         lines.push(
-            `| ${lang} | ${sumByType(findings, 'missing')} | ${sumByType(findings, 'stale')} | ${sumByType(findings, 'placeholder')} | ${findings.length} |`,
+            `| ${lang} | ${sumByType(findings, 'missing')} | ${sumByType(findings, 'stale')} | ${sumByType(findings, 'placeholder')} | ${filesAffected(findings)} |`,
         );
     }
     lines.push('');
@@ -177,6 +183,7 @@ for (const lang of languages) {
     for (const f of extraFiles) {
         findings.push({
             type: 'stale',
+            file: f,
             count: Object.keys(loadFlat(path.join(langDir, f))).length,
             message: `${f} — file does not exist in "${BASE_LANG}" (stale, should be deleted)`,
         });
@@ -190,6 +197,7 @@ for (const lang of languages) {
         if (!existsSync(otherPath)) {
             findings.push({
                 type: 'missing',
+                file: nsFile,
                 count: enKeys.length,
                 message: `${nsFile} — file missing entirely (${enKeys.length} untranslated key(s))`,
             });
@@ -208,6 +216,7 @@ for (const lang of languages) {
         if (missingGroups.length > 0) {
             findings.push({
                 type: 'missing',
+                file: nsFile,
                 count: missingGroups.length,
                 message: `${nsFile} — ${missingGroups.length} missing key(s):\n${missingGroups.map((k) => `      - ${k}`).join('\n')}`,
             });
@@ -216,6 +225,7 @@ for (const lang of languages) {
         if (extraGroups.length > 0) {
             findings.push({
                 type: 'stale',
+                file: nsFile,
                 count: extraGroups.length,
                 message: `${nsFile} — ${extraGroups.length} extra/stale key(s):\n${extraGroups.map((k) => `      - ${k}`).join('\n')}`,
             });
@@ -239,6 +249,7 @@ for (const lang of languages) {
         if (mismatches.length > 0) {
             findings.push({
                 type: 'placeholder',
+                file: nsFile,
                 count: mismatches.length,
                 message: `${nsFile} — ${mismatches.length} placeholder mismatch(es):\n${mismatches.join('\n')}`,
             });
