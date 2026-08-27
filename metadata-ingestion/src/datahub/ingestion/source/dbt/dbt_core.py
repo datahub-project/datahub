@@ -800,8 +800,19 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             source_config = DBTCoreConfig.parse_obj_allow_extras(config_dict)
+            # A globbed manifest_path has to be expanded before anything can read
+            # it - the pattern itself is neither a file nor an object key. One
+            # matched manifest is enough: this validates credentials and
+            # reachability, not every project the glob will pick up.
+            manifest_paths = DBTCoreSource._expand_glob_path_with(
+                source_config.manifest_path, source_config, DBTCoreReport()
+            )
+            if not manifest_paths:
+                raise ValueError(
+                    f"manifest_path matched no files: {source_config.manifest_path}"
+                )
             DBTCoreSource.load_file_as_json(
-                source_config.manifest_path,
+                manifest_paths[0],
                 source_config.aws_connection,
                 source_config.gcs_connection,
             )
@@ -830,8 +841,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         # forced decode("utf-8") had regressed on BOM-prefixed manifests.
         return json.loads(raw)
 
+    @staticmethod
     def _expand_cloud_glob(
-        self,
+        report: DBTCoreReport,
         path: str,
         connection: Optional[AwsConnectionConfig],
         scheme: str,
@@ -842,7 +854,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         # store_label is the user-facing storage name ("S3"/"GCS"); connection_field
         # is the recipe key that supplies credentials ("aws_connection"/"gcs_connection").
         if not connection:
-            self.report.failure(
+            report.failure(
                 title="Missing cloud connection for glob expansion",
                 message="Cloud connection is required for glob pattern",
                 context=f"{connection_field}: {path}",
@@ -851,7 +863,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         try:
             matched_paths = expand_object_store_glob(path, connection, scheme)
         except Exception as e:
-            self.report.failure(
+            report.failure(
                 title="Cloud glob expansion failed",
                 message="Failed to expand cloud glob pattern",
                 context=f"{store_label}: {path}",
@@ -859,7 +871,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
             return []
         if not matched_paths:
-            self.report.warning(
+            report.warning(
                 title="Cloud glob pattern matched no objects",
                 message="Glob pattern did not match any objects",
                 context=f"{store_label}: {path}",
@@ -877,20 +889,35 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         Returns [path] unchanged when there are no glob characters, so callers can
         use this unconditionally. Results are sorted by the caller.
         """
+        return self._expand_glob_path_with(path, self.config, self.report)
+
+    @staticmethod
+    def _expand_glob_path_with(
+        path: str, config: DBTCoreConfig, report: DBTCoreReport
+    ) -> List[str]:
+        """Glob expansion with config and report passed in rather than taken off self.
+
+        test_connection is a staticmethod - it has a config but no source instance -
+        and must expand a globbed manifest_path the same way ingestion does, or it
+        reports a failure for a recipe that would ingest fine. Passing a throwaway
+        report keeps every diagnostic here intact for the ingestion path.
+        """
         if not has_glob_characters(path):
             return [path]
 
         if is_s3_uri(path):
-            return self._expand_cloud_glob(
+            return DBTCoreSource._expand_cloud_glob(
+                report,
                 path,
-                self.config.aws_connection,
+                config.aws_connection,
                 "s3",
                 store_label="S3",
                 connection_field="aws_connection",
             )
         elif is_gcs_uri(path):
-            gcs_connection = self.config.gcs_connection
-            return self._expand_cloud_glob(
+            gcs_connection = config.gcs_connection
+            return DBTCoreSource._expand_cloud_glob(
+                report,
                 path,
                 gcs_connection.s3_compatible_connection if gcs_connection else None,
                 "gs",
@@ -898,7 +925,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 connection_field="gcs_connection",
             )
         elif is_http_uri(path):
-            self.report.warning(
+            report.warning(
                 title="Glob patterns not supported for HTTP(S) URIs",
                 message="Glob patterns are not supported for HTTP(S) URIs, please provide explicit file paths",
                 context=path,
@@ -907,7 +934,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         else:
             local_paths = expand_local_glob(path)
             if not local_paths:
-                self.report.warning(
+                report.warning(
                     title="Local glob pattern matched no files",
                     message="Glob pattern did not match any local files",
                     context=path,

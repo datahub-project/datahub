@@ -108,6 +108,74 @@ def test_non_glob_manifest_still_accepts_explicit_catalog_path() -> None:
     assert config.catalog_path == "/tmp/project_a/catalog.json"
 
 
+def test_test_connection_expands_globbed_manifest_path(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Test Connection is an advertised capability, and must not fail a recipe that
+    would ingest fine. Handing the raw glob to load_file_as_json treats the pattern
+    as a literal path or object key, so a working multi-project recipe reported as
+    unreachable."""
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+    _write_project(
+        tmp_path, "project_b", [{"name": "events", "database": "db", "schema": "sch_b"}]
+    )
+
+    report = DBTCoreSource.test_connection(
+        {
+            "manifest_path": f"{tmp_path}/*/manifest.json",
+            "target_platform": "postgres",
+        }
+    )
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable, report.basic_connectivity.failure_reason
+
+
+def test_test_connection_reports_glob_matching_nothing(tmp_path: pathlib.Path) -> None:
+    """A glob that matches nothing is a real misconfiguration and must be reported
+    as one, naming the pattern - not silently pass because no read was attempted."""
+    report = DBTCoreSource.test_connection(
+        {
+            "manifest_path": f"{tmp_path}/*/manifest.json",
+            "target_platform": "postgres",
+        }
+    )
+
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    failure_reason = report.basic_connectivity.failure_reason or ""
+    assert "matched no files" in failure_reason
+    assert f"{tmp_path}/*/manifest.json" in failure_reason
+
+
+def test_test_connection_non_glob_path_unchanged(tmp_path: pathlib.Path) -> None:
+    """The historical single-manifest behaviour must be untouched: a good path is
+    capable, a missing one is not."""
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+
+    ok = DBTCoreSource.test_connection(
+        {
+            "manifest_path": f"{tmp_path}/project_a/manifest.json",
+            "target_platform": "postgres",
+        }
+    )
+    assert ok.basic_connectivity is not None
+    assert ok.basic_connectivity.capable, ok.basic_connectivity.failure_reason
+
+    missing = DBTCoreSource.test_connection(
+        {
+            "manifest_path": f"{tmp_path}/project_a/nope.json",
+            "target_platform": "postgres",
+        }
+    )
+    assert missing.basic_connectivity is not None
+    assert not missing.basic_connectivity.capable
+
+
 def _write_project(
     root: pathlib.Path,
     project: str,
