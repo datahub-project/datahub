@@ -6,7 +6,7 @@
     "ownerCount_one": "{{count}} 所有者",
     "ownerCount_other": "{{count}} 所有者",
     "queryCount_one": "{{count}} 查询",
-    "queryCount_other": "{{count}}查询",
+    "queryCount_other": "{{count}} 查询",
     "rowCount_one": "{{count}} 行",
     "rowCount_other": "{{count}} 行",
     "tagCount_one": "{{count}} 个标签",
