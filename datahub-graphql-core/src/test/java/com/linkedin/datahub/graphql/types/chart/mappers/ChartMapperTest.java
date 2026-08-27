@@ -72,7 +72,8 @@ public class ChartMapperTest {
   private static EntityResponse chartResponseWithQuery(com.linkedin.chart.ChartQuery input) {
     final Map<String, EnvelopedAspect> aspects = new HashMap<>();
     aspects.put(
-        Constants.CHART_QUERY_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(input.data())));
+        Constants.CHART_QUERY_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(input.data())));
     return new EntityResponse()
         .setEntityName(Constants.CHART_ENTITY_NAME)
         .setUrn(TEST_CHART_URN)

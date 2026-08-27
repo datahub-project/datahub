@@ -91,7 +91,8 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
         CHART_INFO_ASPECT_NAME,
         (entity, dataMap) -> this.mapChartInfo(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(
-        CHART_QUERY_ASPECT_NAME, (entity, dataMap) -> this.mapChartQuery(context, entity, dataMap, entityUrn));
+        CHART_QUERY_ASPECT_NAME,
+        (entity, dataMap) -> this.mapChartQuery(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(
         EDITABLE_CHART_PROPERTIES_ASPECT_NAME, this::mapEditableChartProperties);
     mappingHelper.mapToResult(

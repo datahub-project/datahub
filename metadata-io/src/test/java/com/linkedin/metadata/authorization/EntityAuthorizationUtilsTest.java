@@ -669,8 +669,8 @@ public class EntityAuthorizationUtilsTest {
    * TimeseriesController}, v3 {@code EntityController}'s timeseries branch, GraphQL's raw-aspect
    * resolver) returned {@code topSqlQueries} unconditionally, since none of them consulted the
    * escape hatch GraphQL's {@code DatasetUsageStatsResolver} already had. Unlike {@code
-   * viewProperties}/{@code dataTransformLogic}/{@code chartQuery}, only this one field is
-   * withheld — the numeric usage counts alongside it must survive.
+   * viewProperties}/{@code dataTransformLogic}/{@code chartQuery}, only this one field is withheld
+   * — the numeric usage counts alongside it must survive.
    */
   @Test
   public void testStripTopSqlQueriesFromRawAspect_removesFieldOnlyWhenRestricted() {
@@ -731,10 +731,10 @@ public class EntityAuthorizationUtilsTest {
   }
 
   /**
-   * Same coverage as {@link
-   * #testStripTopSqlQueriesFromRawAspect_removesFieldOnlyWhenRestricted}, but for the {@code
-   * GenericAspect}-serialized-bytes shape Rest.li's {@code getTimeseriesAspectValues} and OpenAPI
-   * v2's {@code TimeseriesController} carry timeseries values in, rather than a live DataMap.
+   * Same coverage as {@link #testStripTopSqlQueriesFromRawAspect_removesFieldOnlyWhenRestricted},
+   * but for the {@code GenericAspect}-serialized-bytes shape Rest.li's {@code
+   * getTimeseriesAspectValues} and OpenAPI v2's {@code TimeseriesController} carry timeseries
+   * values in, rather than a live DataMap.
    */
   @Test
   public void testStripTopSqlQueriesFromEnvelopedAspect_stripsFieldWhenRestricted() {
