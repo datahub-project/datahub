@@ -34,7 +34,7 @@
     "entity.containsCount": "包含 {{count}} {{entityName}}",
     "entity.foundInCount": "发现于 {{count}} {{entityName}}",
     "entity.list.loadError": "无法加载结果！发生意外错误。",
-    "entity.paginationRange": "<bold>{{start}} - <bold>{{total}}</bold> 的 {{end}}</bold>",
+"entity.paginationRange": "<bold>{{start}} - {{end}}</bold> 的 <bold>{{total}}</bold>",
     "entity.partOf": "{{entityName}}的一部分",
     "properties.addProperty.title": "添加属性",
     "properties.added.success": "已成功添加结构化属性！",
