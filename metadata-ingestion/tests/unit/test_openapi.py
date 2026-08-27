@@ -21,6 +21,7 @@ from datahub.ingestion.source.openapi_parser import (
     flatten2list,
     get_endpoints,
     get_schema_from_response,
+    get_swag_json,
     get_tok,
     get_url_basepath,
     guessing_url_name,
@@ -77,6 +78,23 @@ class TestGetUrlBasepath:
 
     def test_no_base_path_or_servers(self):
         assert get_url_basepath({"openapi": "3.0.0"}) == ""
+
+    def test_malformed_base_path_falls_through_to_servers(self):
+        # Regression: the "servers" branch got an isinstance guard + warning
+        # fallback for malformed input, but the "basePath" branch two lines
+        # above it had none -- a non-string basePath (e.g. null) used to be
+        # returned as-is, breaking the plain string concatenation callers do
+        # with the result.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "basePath": None,
+            "servers": [{"url": "/api/v3"}],
+        }
+        assert get_url_basepath(sw_dict) == "/api/v3"
+
+    def test_malformed_server_url_returns_empty_string(self):
+        sw_dict = {"openapi": "3.0.0", "servers": [{"url": 123}]}
+        assert get_url_basepath(sw_dict) == ""
 
 
 class TestGetEndpoints(unittest.TestCase):
@@ -835,6 +853,37 @@ paths:
             "datahub.ingestion.source.openapi_parser", level="WARNING"
         ) as cm:
             check_sw_version({"paths": {}})
+        self.assertTrue(
+            any("no swagger or openapi version key" in msg for msg in cm.output)
+        )
+
+    def test_check_sw_version_strips_prerelease_and_build_suffixes(self) -> None:
+        # "3.0.1-rc1" and "3.1.0+SNAPSHOT" must compare on major.minor only,
+        # not raise or misparse because of the suffix.
+        with self.assertNoLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ):
+            check_sw_version({"openapi": "3.0.1-rc1"})
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ) as cm:
+            check_sw_version({"openapi": "3.1.0+SNAPSHOT"})
+        self.assertTrue(any("not been fully tested" in msg for msg in cm.output))
+
+    def test_check_sw_version_malformed_version_logs_warning(self) -> None:
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ) as cm:
+            check_sw_version({"openapi": "abc.def"})
+        self.assertTrue(
+            any("Unable to parse OpenAPI/Swagger version" in msg for msg in cm.output)
+        )
+
+    def test_check_sw_version_non_string_version_logs_warning(self) -> None:
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ) as cm:
+            check_sw_version({"openapi": 3})
         self.assertTrue(
             any("no swagger or openapi version key" in msg for msg in cm.output)
         )
@@ -3090,6 +3139,24 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             )
         )
 
+    def test_report_bad_responses_maps_known_status_codes(self):
+        # A mapped status code must produce its specific title/message, not
+        # the generic fallback -- and must not raise (unlike the previous
+        # behavior of aborting the run on an unmapped code).
+        self.source.report_bad_responses(401, "GET /secure")
+        warning = list(self.source.report.warnings)[-1]
+        self.assertEqual(warning.title, "Unauthorized to Extract Metadata")
+        self.assertIn("Authentication failed", warning.message)
+
+    def test_report_bad_responses_unmapped_status_code_uses_generic_message(self):
+        # Regression: the old code raised Exception(...) for any status code
+        # not in a hardcoded set, aborting the whole run. An unmapped code
+        # (e.g. 418) must now degrade to a generic warning instead.
+        self.source.report_bad_responses(418, "GET /teapot")
+        warning = list(self.source.report.warnings)[-1]
+        self.assertEqual(warning.title, "Failed to Extract Metadata")
+        self.assertIn("Unexpected HTTP status", warning.message)
+
     def test_ignore_endpoints_skips_workunits(self):
         self.config.ignore_endpoints = ["/skip"]
         sw_dict = {
@@ -3366,6 +3433,42 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             mock_get.call_args.kwargs["proxies"], {"https": "https://proxy.example.com"}
         )
 
+    def test_get_swag_json_parses_json_response(self):
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(
+                status_code=200, content=b'{"openapi": "3.0.0"}'
+            )
+            result = get_swag_json("https://api.example.com")
+        self.assertEqual(result, {"openapi": "3.0.0"})
+
+    def test_get_swag_json_falls_back_to_yaml(self):
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(
+                status_code=200, content=b"openapi: 3.0.0\npaths: {}\n"
+            )
+            result = get_swag_json("https://api.example.com")
+        self.assertEqual(result, {"openapi": "3.0.0", "paths": {}})
+
+    def test_get_swag_json_raises_when_neither_json_nor_yaml(self):
+        with patch("requests.get") as mock_get:
+            # A tab character is invalid in both JSON and YAML.
+            mock_get.return_value = MagicMock(status_code=200, content=b"{\t*bad*")
+            with self.assertRaises(ValueError) as ctx:
+                get_swag_json("https://api.example.com")
+        self.assertIn("as JSON or YAML", str(ctx.exception))
+
+    def test_get_swag_json_raises_on_non_dict_document(self):
+        # Regression: a valid JSON/YAML document that isn't an object (e.g. a
+        # bare list) is not a valid OpenAPI/Swagger spec, but used to be
+        # returned as-is despite the declared `-> Dict` contract, letting a
+        # confusing TypeError/KeyError surface later in get_endpoints instead
+        # of a clear error at the point the malformed data was fetched.
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(status_code=200, content=b"[1, 2, 3]")
+            with self.assertRaises(ValueError) as ctx:
+                get_swag_json("https://api.example.com")
+        self.assertIn("did not parse to a JSON/YAML object", str(ctx.exception))
+
     def test_schema_resolution_max_depth_capped(self):
         with self.assertRaises(ValidationError):
             OpenApiConfig(
@@ -3491,6 +3594,71 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             )
         self.assertIsNone(result)
         self.assertEqual(self.source.schema_extraction_stats.from_api_calls, 0)
+
+    def test_extract_schema_from_parameterized_endpoint_guesses_simple_id(self):
+        # The try_guessing branch: no forced_examples for this endpoint, and no
+        # prior samples to guess a real value from, so a purely-"{id}"-shaped
+        # path falls back to "1".
+        self.source.config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            username="u",
+            password="p",
+            enable_api_calls_for_schema_extraction=True,
+        )
+        self.source.url_basepath = ""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b'{"id": 1, "name": "Rex"}'
+        with patch(
+            "datahub.ingestion.source.openapi.request_call",
+            return_value=mock_response,
+        ) as mock_call:
+            result = self.source._extract_schema_from_parameterized_endpoint(
+                "/pets/{id}", "pets_by_id", {}
+            )
+        mock_call.assert_called_once_with(
+            "https://api.example.com/pets/1",
+            username="u",
+            password="p",
+            proxies=self.source.config.proxies,
+            verify_ssl=True,
+        )
+        self.assertIsNotNone(result)
+        assert result is not None
+        field_paths = [f.fieldPath for f in result.fields]
+        self.assertTrue(any("id" in path for path in field_paths))
+
+    def test_extract_schema_from_parameterized_endpoint_uses_forced_examples(self):
+        self.source.config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            username="u",
+            password="p",
+            enable_api_calls_for_schema_extraction=True,
+            forced_examples={"/pets/{id}": ["42"]},
+        )
+        self.source.url_basepath = ""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b'{"id": 42, "name": "Rex"}'
+        with patch(
+            "datahub.ingestion.source.openapi.request_call",
+            return_value=mock_response,
+        ) as mock_call:
+            result = self.source._extract_schema_from_parameterized_endpoint(
+                "/pets/{id}", "pets_by_id", {}
+            )
+        mock_call.assert_called_once_with(
+            "https://api.example.com/pets/42",
+            username="u",
+            password="p",
+            proxies=self.source.config.proxies,
+            verify_ssl=True,
+        )
+        self.assertIsNotNone(result)
 
     def test_extract_fields_object_response(self):
         response = MagicMock()
@@ -3700,6 +3868,21 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertNotIn("allOf", merged)
         self.assertIn("kept", merged["properties"])
         self.assertTrue(any("not a list" in msg for msg in cm.output))
+
+    def test_merge_allof_non_list_required_ignored(self):
+        # Regression: a malformed spec's "required" (e.g. a bare string instead
+        # of a list) used to reach `existing_required + new_required` directly,
+        # raising TypeError and dropping the whole merge -- unlike the sibling
+        # non-list-"allOf" guard, this one had no isinstance check at all.
+        schema = {
+            "allOf": [
+                {"type": "object", "properties": {"a": {"type": "string"}}},
+                {"required": "not-a-list"},
+                {"required": ["b"]},
+            ]
+        }
+        merged = merge_allof_schemas(schema, _EMPTY_OPENAPI_SW, max_depth=10)
+        self.assertEqual(merged["required"], ["b"])
 
     def test_get_schema_from_response_boolean_schema_returns_none(self):
         # Regression: a bare `true`/`false` root schema (valid JSON Schema,

@@ -148,26 +148,52 @@ def get_swag_json(
     if response.status_code != 200:
         raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
     try:
-        return json.loads(response.content)
+        parsed = json.loads(response.content)
     except json.JSONDecodeError:
         try:
-            return yaml.safe_load(response.content)
+            parsed = yaml.safe_load(response.content)
         except yaml.YAMLError as e:
             raise ValueError(
                 f"Unable to parse OpenAPI spec from {tot_url} as JSON or YAML"
             ) from e
+    if not isinstance(parsed, dict):
+        # A valid JSON/YAML document (e.g. a bare list, string, or number) is
+        # not a valid OpenAPI/Swagger spec -- every downstream parsing
+        # function this feeds (get_endpoints, get_url_basepath, ...) assumes
+        # a dict, so fail clearly here instead of a confusing TypeError/
+        # KeyError deep in one of them.
+        raise ValueError(
+            f"OpenAPI spec at {tot_url} did not parse to a JSON/YAML object "
+            f"(got {type(parsed).__name__})"
+        )
+    return parsed
 
 
 def get_url_basepath(sw_dict: dict) -> str:
+    base_path = sw_dict.get("basePath")
+    if isinstance(base_path, str):
+        return base_path
     if "basePath" in sw_dict:
-        return sw_dict["basePath"]
+        logger.warning(
+            "Ignoring malformed basePath %r (expected string, got %s)",
+            base_path,
+            type(base_path).__name__,
+        )
     servers = sw_dict.get("servers")
     if isinstance(servers, list) and servers:
         # When the API path doesn't match the OAS path.
         # Some specs declare "servers": [] or entries without a "url" key.
         first_server = servers[0]
         if isinstance(first_server, dict):
-            return first_server.get("url", "")
+            url = first_server.get("url", "")
+            if isinstance(url, str):
+                return url
+            logger.warning(
+                "Ignoring malformed servers[0].url %r (expected string, got %s)",
+                url,
+                type(url).__name__,
+            )
+            return ""
         logger.warning(
             "Ignoring malformed servers[0] entry %r (expected object, got %s)",
             first_server,
@@ -822,13 +848,16 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
         # Merge properties — same-named fields combine under allOf (like map keywords).
         _merge_allof_properties(merged_schema, resolved_allof, sw_dict, child_depth)
 
-        # Merge required fields (union of all required lists)
-        if "required" in resolved_allof:
-            if "required" not in merged_schema:
-                merged_schema["required"] = []
+        # Merge required fields (union of all required lists). A malformed spec
+        # can put a non-list "required" (e.g. a bare string) on either side;
+        # existing_required + new_required would raise TypeError and drop the
+        # whole merge instead of just ignoring the malformed keyword.
+        new_required = resolved_allof.get("required")
+        if isinstance(new_required, list):
+            existing_required = merged_schema.get("required")
+            if not isinstance(existing_required, list):
+                existing_required = []
             # Combine required lists and remove duplicates while preserving order
-            existing_required = merged_schema.get("required", [])
-            new_required = resolved_allof.get("required", [])
             merged_schema["required"] = list(
                 dict.fromkeys(existing_required + new_required)
             )
@@ -1202,14 +1231,12 @@ def _combine_under_allof(
 def _lookup_local_ref_target(
     ref_path: object,
     sw_dict: Dict,
-    *,
-    missing: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Resolve `#/definitions/X` or `#/components/schemas/X`.
 
     Returns None for unsupported ref formats (external files, other JSON Pointers,
-    or a non-string $ref value -- e.g. an empty "$ref:" line parses as None in YAML).
-    When the name is absent under a known prefix, returns `missing` (default None).
+    a non-string $ref value -- e.g. an empty "$ref:" line parses as None in YAML --
+    or a name absent under a known prefix), distinct from a found empty `{}` target.
     """
     if not isinstance(ref_path, str):
         return None
@@ -1225,9 +1252,9 @@ def _lookup_local_ref_target(
     else:
         return None
     if not isinstance(schemas_map, dict):
-        return missing
+        return None
     target = schemas_map.get(ref_path.split("/")[-1])
-    return target if isinstance(target, dict) else missing
+    return target if isinstance(target, dict) else None
 
 
 def _resolve_pattern_properties(
@@ -1388,8 +1415,6 @@ def _normalize_map_schemas(schema: object) -> object:
     return _promote_pattern_properties_to_additional(working_schema)
 
 
-# Carried through verbatim: literal example/default instance data, never
-# schema-interpreted by _resolve_schema_refs (see its docstring) or by
 def _strip_unresolved_refs(schema: object) -> Tuple[object, bool]:
     """Recursively remove any leftover "$ref" key anywhere in the tree.
 
@@ -1437,7 +1462,7 @@ def _strip_unresolved_refs(schema: object) -> Tuple[object, bool]:
     return schema, False
 
 
-def _resolve_schema_refs(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
+def _resolve_schema_refs(schema: object, sw_dict: Dict, max_depth: int = 10) -> object:
     """Expand $refs / allOf only — no patternProperties→additionalProperties promotion.
 
     Promotion is lossy for mixed properties+patternProperties schemas and must run
@@ -1461,13 +1486,16 @@ def _resolve_schema_refs(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Di
     # keywords alongside $ref — returning the target alone would drop them.
     if "$ref" in resolved_schema:
         ref_path = resolved_schema["$ref"]
-        # missing=None so a found empty {} target is distinct from "not found".
         referenced_schema = _lookup_local_ref_target(ref_path, sw_dict)
 
         if referenced_schema is not None:
             resolved_referenced = _resolve_schema_refs(
                 referenced_schema, sw_dict, max_depth=max_depth - 1
             )
+            # referenced_schema is a dict (guaranteed by _lookup_local_ref_target),
+            # and _resolve_schema_refs only ever returns non-dict for a non-dict
+            # input, so this is always a dict too.
+            assert isinstance(resolved_referenced, dict)
             siblings = {k: v for k, v in resolved_schema.items() if k != "$ref"}
             if not siblings:
                 return resolved_referenced
@@ -1560,22 +1588,24 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
         patternProperties→additionalProperties promotion runs once after full merge.
     """
     resolved_schema = _resolve_schema_refs(schema, sw_dict, max_depth=max_depth)
-    if isinstance(resolved_schema, dict):
-        normalized_schema = _normalize_map_schemas(resolved_schema)
-        assert isinstance(normalized_schema, dict)
-        resolved_schema = normalized_schema
-        # Postcondition: jsonref must never see a leftover $ref after normalize. A
-        # generic sweep (not an assert) so a depth-limited $ref under a keyword
-        # normalize doesn't structurally walk (e.g. "not") degrades gracefully
-        # instead of crashing the endpoint — and isn't compiled out under -O.
-        stripped_schema, stripped = _strip_unresolved_refs(resolved_schema)
-        assert isinstance(stripped_schema, dict)
-        resolved_schema = stripped_schema
-        if stripped:
-            logger.warning(
-                "Unresolved schema $ref(s) remained after normalization; "
-                "removed to avoid jsonref failure"
-            )
+    # schema is a dict (this function's own contract), and _resolve_schema_refs
+    # only ever returns non-dict for a non-dict input, so this is always a dict.
+    assert isinstance(resolved_schema, dict)
+    normalized_schema = _normalize_map_schemas(resolved_schema)
+    assert isinstance(normalized_schema, dict)
+    resolved_schema = normalized_schema
+    # Postcondition: jsonref must never see a leftover $ref after normalize. A
+    # generic sweep (not an assert) so a depth-limited $ref under a keyword
+    # normalize doesn't structurally walk (e.g. "not") degrades gracefully
+    # instead of crashing the endpoint — and isn't compiled out under -O.
+    stripped_schema, stripped = _strip_unresolved_refs(resolved_schema)
+    assert isinstance(stripped_schema, dict)
+    resolved_schema = stripped_schema
+    if stripped:
+        logger.warning(
+            "Unresolved schema $ref(s) remained after normalization; "
+            "removed to avoid jsonref failure"
+        )
     return resolved_schema
 
 
