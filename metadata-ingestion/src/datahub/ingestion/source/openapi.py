@@ -479,6 +479,10 @@ class APISource(Source, ABC):
         Args:
             endpoint_spec: The endpoint specification containing responses
             sw_dict: The complete OpenAPI specification dictionary
+            endpoint_k: The endpoint path, used only to identify this
+                endpoint in a warning if extraction fails
+            method: The HTTP method, used only to identify this endpoint in
+                a warning if extraction fails
 
         Returns:
             Extracted schema dictionary if found, None otherwise
