@@ -16,7 +16,7 @@
     "lastUpdated.lastChangedWithPlatform": "<platform>{{platformName}}</platform>里面这个{{typeName}}最后一次改变的时间",
     "lastUpdated.legendOlder": "更新<bold>一个多月前</bold>",
     "lastUpdated.legendPastMonth": "更新于<bold>上个月</bold>",
-    "lastUpdated.legendPastWeek": "上周更新<bold></bold>",
+    "lastUpdated.legendPastWeek": "<bold>上周</bold>更新",
     "lastUpdated.updatedRelative": "更新了{{relativeTime}}",
     "now": "现在",
     "unknownTimeRange": "时间范围未知",
