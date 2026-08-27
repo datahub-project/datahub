@@ -1334,6 +1334,16 @@ class BigQuerySchemaGenerator:
         )
         return schema_fields
 
+    def _linked_copy_needs_schema(self, dataset_name: BigqueryTableIdentifier) -> bool:
+        # The linked-dataset COPY edge builds identity column lineage from this schema, so
+        # it is needed even with the SQL parser off: the copy is verbatim, not parsed.
+        if self.sharing_handler is None or not self.config.include_table_lineage:
+            return False
+        info = self.sharing_handler.get_info(
+            dataset_name.project_id, dataset_name.dataset
+        )
+        return info is not None and info.is_live_link and info.publisher is not None
+
     def gen_schema_metadata(
         self,
         dataset_urn: str,
@@ -1368,7 +1378,9 @@ class BigQuerySchemaGenerator:
             foreignKeys=foreign_keys if foreign_keys else None,
         )
 
-        if self.config.lineage_use_sql_parser:
+        if self.config.lineage_use_sql_parser or self._linked_copy_needs_schema(
+            dataset_name
+        ):
             self.sql_parser_schema_resolver.add_schema_metadata(
                 dataset_urn, schema_metadata
             )

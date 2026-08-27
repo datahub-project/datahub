@@ -2,7 +2,7 @@ import subprocess
 import sys
 import textwrap
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Set, cast
 from unittest.mock import MagicMock, patch
 
 from google.api_core.exceptions import GoogleAPIError, PermissionDenied
@@ -189,6 +189,23 @@ def _make_aggregator(resolver: SchemaResolver) -> SqlParsingAggregator:
     )
 
 
+def _register_and_flush(
+    handler: BigQuerySharingHandler,
+    schema_by_urn: Dict[str, Dict[str, str]],
+    table_refs: Set[str],
+) -> List[MetadataWorkUnit]:
+    """Register the given linked table_refs as COPY mappings on an aggregator whose
+    resolver holds the given consumer schemas, then flush. An empty schema_by_urn is the
+    lineage_use_sql_parser-off shape, where no identity column lineage can be built.
+    """
+    resolver = SchemaResolver(platform="bigquery", env="PROD")
+    for urn, schema_info in schema_by_urn.items():
+        resolver.add_raw_schema_info(urn, schema_info)
+    aggregator = _make_aggregator(resolver)
+    handler.register_known_lineage(aggregator, set(table_refs))
+    return list(auto_workunit(aggregator.gen_metadata()))
+
+
 def _lineage_workunits(
     handler: BigQuerySharingHandler,
     project_id: str,
@@ -196,13 +213,10 @@ def _lineage_workunits(
     entity_name: str,
     columns: List[BigqueryColumn],
 ) -> List[MetadataWorkUnit]:
-    """Drive the production path: register the linked entity as a known COPY mapping on
-    a real aggregator whose resolver holds the entity's schema, then flush.
-
-    The resolver is seeded the way the schema generator seeds the shared one during
-    ingestion: keyed by the simple (top-level) column name, lowercased when
-    convert_column_urns_to_lowercase is on. The aggregator builds the identity column
-    lineage from that, so this covers both the nested-column collapse and the casing.
+    """Drive the production path for a single linked entity: seed its consumer schema the
+    way the schema generator seeds the shared resolver (simple top-level column name,
+    lowercased when convert_column_urns_to_lowercase is on), then register + flush via
+    _register_and_flush. Covers the nested-column collapse and the casing.
     """
     consumer_urn = handler.identifiers.gen_dataset_urn(
         project_id, dataset_name, entity_name
@@ -212,17 +226,12 @@ def _lineage_workunits(
     for column in columns:
         name = column.name.lower() if lowercase else column.name
         schema_info.setdefault(name, column.data_type or "STRING")
-
-    resolver = SchemaResolver(platform="bigquery", env="PROD")
-    resolver.add_raw_schema_info(consumer_urn, schema_info)
-    aggregator = _make_aggregator(resolver)
     table_ref = str(
         BigQueryTableRef(
             BigqueryTableIdentifier(project_id, dataset_name, entity_name)
         ).get_sanitized_table_ref()
     )
-    handler.register_known_lineage(aggregator, {table_ref})
-    return list(auto_workunit(aggregator.gen_metadata()))
+    return _register_and_flush(handler, {consumer_urn: schema_info}, {table_ref})
 
 
 def _field_path_of(schema_field_urn: str) -> str:
@@ -297,16 +306,12 @@ def test_copy_edge_without_resolver_schema_has_no_cll() -> None:
         CONSUMER_PROJECT, [BigqueryDataset(name=LINKED_DATASET, type="LINKED")]
     )
 
-    # An empty resolver -- the shape when lineage_use_sql_parser is off.
-    resolver = SchemaResolver(platform="bigquery", env="PROD")
-    aggregator = _make_aggregator(resolver)
     table_ref = str(
         BigQueryTableRef(
             BigqueryTableIdentifier(CONSUMER_PROJECT, LINKED_DATASET, "plain_table")
         ).get_sanitized_table_ref()
     )
-    handler.register_known_lineage(aggregator, {table_ref})
-    workunits = list(auto_workunit(aggregator.gen_metadata()))
+    workunits = _register_and_flush(handler, {}, {table_ref})
 
     upstream_lineage = _upstream_lineage(workunits)
     assert upstream_lineage is not None
@@ -332,17 +337,15 @@ def test_snapshot_in_a_linked_dataset_gets_the_copy_edge() -> None:
             ).get_sanitized_table_ref()
         )
 
-    resolver = SchemaResolver(platform="bigquery", env="PROD")
-    for name in ("plain_table", "a_snapshot"):
-        resolver.add_raw_schema_info(
-            handler.identifiers.gen_dataset_urn(CONSUMER_PROJECT, LINKED_DATASET, name),
-            {"id": "INT64"},
-        )
-    aggregator = _make_aggregator(resolver)
-    handler.register_known_lineage(
-        aggregator, {_ref("plain_table"), _ref("a_snapshot")}
+    schema_by_urn = {
+        handler.identifiers.gen_dataset_urn(CONSUMER_PROJECT, LINKED_DATASET, name): {
+            "id": "INT64"
+        }
+        for name in ("plain_table", "a_snapshot")
+    }
+    workunits = _register_and_flush(
+        handler, schema_by_urn, {_ref("plain_table"), _ref("a_snapshot")}
     )
-    workunits = list(auto_workunit(aggregator.gen_metadata()))
 
     entity_urns = {
         wu.metadata.entityUrn  # type: ignore[union-attr]
@@ -850,9 +853,7 @@ def test_publisher_resolution_failure_is_cached_not_retried() -> None:
 
 
 def test_negative_cache_returns_none_when_project_map_never_built() -> None:
-    # Line 399: tier 1 (list_projects) fails so the project-number map is never built,
-    # and tier 2 also fails, so the publisher caches as None. A second dataset from the
-    # same publisher hits the cached-None recheck and returns without retrying a tier.
+    # Both tiers fail, then the cached None stops the second dataset retrying either.
     client = MagicMock()
     client.get_dataset.return_value = _make_get_dataset_response()
     client.list_projects.side_effect = GoogleAPIError("cannot list")
@@ -871,10 +872,56 @@ def test_negative_cache_returns_none_when_project_map_never_built() -> None:
         ],
     )
 
-    # Both tiers run once for the first dataset; the second short-circuits on the cached
-    # None with the map still unbuilt, so neither tier is retried.
     assert client.list_projects.call_count == 1
     assert projects_client.get_project.call_count == 1
+
+
+def test_publisher_recovers_next_project_but_earlier_entry_stays_sealed() -> None:
+    # A transient outage seals project P's dataset unresolved; project Q's build then
+    # succeeds, but P's entry is not backfilled mid-run (it heals next run).
+    client = MagicMock()
+    client.get_dataset.return_value = _make_get_dataset_response()
+    client.list_projects.side_effect = [
+        GoogleAPIError("list outage"),  # project P: tier-1 build fails
+        [  # project Q: build succeeds, now carrying the publisher
+            SimpleNamespace(
+                project_id=PUBLISHER_PROJECT,
+                numeric_id=PUBLISHER_PROJECT_NUMBER,
+                friendly_name="",
+            )
+        ],
+    ]
+    projects_client = MagicMock()
+    projects_client.get_project.side_effect = PermissionDenied("no RM access")
+
+    handler = _make_handler(client=client, projects_client=projects_client)
+    handler.populate_for_project(
+        "consumer-p", [BigqueryDataset(name="ds_p", type="LINKED", location="US")]
+    )
+    handler.populate_for_project(
+        "consumer-q", [BigqueryDataset(name="ds_q", type="LINKED", location="US")]
+    )
+
+    q_info = handler.get_info("consumer-q", "ds_q")
+    p_info = handler.get_info("consumer-p", "ds_p")
+    assert q_info is not None and q_info.publisher is not None  # Q recovered
+    assert (
+        p_info is not None and p_info.publisher is None
+    )  # P still sealed, not backfilled
+    assert handler.report.warnings  # P's failure was surfaced
+
+
+def test_project_number_map_is_built_once_per_run() -> None:
+    client = _resolvable_client()
+    handler = _make_handler(client=client)
+    handler.populate_for_project(
+        "consumer-a", [BigqueryDataset(name="linked_a", type="LINKED", location="US")]
+    )
+    handler.populate_for_project(
+        "consumer-b", [BigqueryDataset(name="linked_b", type="LINKED", location="US")]
+    )
+
+    assert client.list_projects.call_count == 1
 
 
 def test_two_consumers_of_one_publisher_each_carry_their_own_copy_edge() -> None:
@@ -893,10 +940,6 @@ def test_two_consumers_of_one_publisher_each_carry_their_own_copy_edge() -> None
         handler.identifiers.gen_dataset_urn(CONSUMER_PROJECT, dataset, "plain_table")
         for dataset in ("linked_a", "linked_b")
     }
-    resolver = SchemaResolver(platform="bigquery", env="PROD")
-    for urn in consumer_urns:
-        resolver.add_raw_schema_info(urn, {"id": "INT64"})
-    aggregator = _make_aggregator(resolver)
     table_refs = {
         str(
             BigQueryTableRef(
@@ -905,8 +948,9 @@ def test_two_consumers_of_one_publisher_each_carry_their_own_copy_edge() -> None
         )
         for dataset in ("linked_a", "linked_b")
     }
-    handler.register_known_lineage(aggregator, table_refs)
-    workunits = list(auto_workunit(aggregator.gen_metadata()))
+    workunits = _register_and_flush(
+        handler, {urn: {"id": "INT64"} for urn in consumer_urns}, table_refs
+    )
 
     publisher_urn = handler.identifiers.gen_dataset_urn(
         PUBLISHER_PROJECT, SOURCE_DATASET, "plain_table"
@@ -1007,6 +1051,78 @@ def test_sharing_api_error_warns_and_keeps_lineage() -> None:
     assert [w.title for w in handler.report.warnings] == [
         "Could not read BigQuery Sharing subscriptions"
     ]
+
+
+def test_malformed_subscription_does_not_abort_the_project() -> None:
+    # An unknown enum value surfaces as a raw int, so `subscription.state.name` raises
+    # AttributeError; enrichment is optional, so it must absorb that and keep lineage.
+    from google.cloud import bigquery_analyticshub_v1 as ah
+
+    handler = _make_handler(client=_resolvable_client())
+    handler.config.extract_subscriptions_from_analytics_hub = True
+    sharing_client = MagicMock()
+    sharing_client.list_subscriptions.return_value = [
+        SimpleNamespace(
+            listing="projects/p/locations/us/dataExchanges/e/listings/l",
+            state=5,  # unknown enum value comes back as a raw int -> `.name` raises
+            resource_type=ah.SharedResourceType.BIGQUERY_DATASET,
+            destination_dataset=SimpleNamespace(
+                dataset_reference=SimpleNamespace(dataset_id=LINKED_DATASET)
+            ),
+            linked_resources=[],
+        )
+    ]
+    handler._sharing_client = sharing_client
+
+    handler.populate_for_project(
+        CONSUMER_PROJECT,
+        [BigqueryDataset(name=LINKED_DATASET, type="LINKED", location="US")],
+    )
+
+    info = _info(handler)
+    assert info.publisher is not None  # lineage survives; the project was not aborted
+    assert handler.report.warnings  # the failure was surfaced
+
+
+def test_one_location_failing_does_not_drop_the_others() -> None:
+    # list_subscriptions is per-location and can fail with more than GoogleAPIError (a
+    # credential refresh raises RefreshError); one failing must not stop the rest.
+    from google.auth.exceptions import RefreshError
+    from google.cloud import bigquery_analyticshub_v1 as ah
+
+    handler = _make_handler(client=_resolvable_client())
+    handler.config.extract_subscriptions_from_analytics_hub = True
+    sharing_client = MagicMock()
+
+    def _list(parent: str, timeout: float) -> List[Any]:
+        if parent.endswith("/locations/eu"):
+            raise RefreshError("token refresh failed")
+        return [
+            SimpleNamespace(
+                listing="projects/p/locations/us/dataExchanges/e/listings/l",
+                state=SimpleNamespace(name="STATE_ACTIVE"),
+                resource_type=ah.SharedResourceType.BIGQUERY_DATASET,
+                destination_dataset=SimpleNamespace(
+                    dataset_reference=SimpleNamespace(dataset_id="us_linked")
+                ),
+                linked_resources=[],
+            )
+        ]
+
+    sharing_client.list_subscriptions.side_effect = _list
+    handler._sharing_client = sharing_client
+
+    handler.populate_for_project(
+        CONSUMER_PROJECT,
+        [
+            BigqueryDataset(name="eu_linked", type="LINKED", location="EU"),
+            BigqueryDataset(name="us_linked", type="LINKED", location="US"),
+        ],
+    )
+
+    us_info = handler.get_info(CONSUMER_PROJECT, "us_linked")
+    assert us_info is not None and us_info.listing is not None
+    assert handler.report.warnings  # eu's failure was surfaced
 
 
 def test_subscription_for_undetected_dataset_is_counted_not_applied() -> None:
@@ -1201,55 +1317,6 @@ def test_project_list_failure_is_reported_and_not_cached_as_partial() -> None:
     # thing bounding a hung connection. Asserted by presence rather than by value so
     # the bound can be retuned without editing this test.
     assert client.list_projects.call_args.kwargs.get("timeout") is not None
-
-
-def test_two_publisher_negative_cache_recovers() -> None:
-    # A publisher denied only because list_projects was transiently unavailable must
-    # not stay denied for the rest of the run. list_projects returns every project the
-    # account can see, so a later publisher's lookup rebuilds the full map -- including
-    # the number that failed earlier. A cached None is therefore provisional: recheck
-    # the rebuilt map before honouring it. Tier 2 is a per-publisher API call already
-    # spent, so it is not retried on recovery.
-    publisher_a_number, publisher_a_id = "111111111111", "publisher-a"
-    publisher_b_number, publisher_b_id = "222222222222", "publisher-b"
-
-    client = MagicMock()
-    # First enumeration raises (transient); the second, triggered by B's lookup,
-    # succeeds and carries both projects.
-    client.list_projects.side_effect = [
-        GoogleAPIError("projects.list transiently unavailable"),
-        [
-            SimpleNamespace(
-                project_id=publisher_a_id,
-                numeric_id=publisher_a_number,
-                friendly_name="",
-            ),
-            SimpleNamespace(
-                project_id=publisher_b_id,
-                numeric_id=publisher_b_number,
-                friendly_name="",
-            ),
-        ],
-    ]
-    projects_client = MagicMock()
-    # A's tier-2 also fails transiently, so A is cached as None on the first pass.
-    projects_client.get_project.side_effect = GoogleAPIError("resource manager down")
-
-    report = BigQueryV2Report()
-    handler = _make_handler(
-        client=client, projects_client=projects_client, report=report
-    )
-
-    assert handler._resolve_publisher_project_id(publisher_a_number) is None
-    # B resolves via tier 1, rebuilding the project-number map with both A and B.
-    assert handler._resolve_publisher_project_id(publisher_b_number) == publisher_b_id
-    # A, looked up again, recovers from the rebuilt map instead of the stale None.
-    assert handler._resolve_publisher_project_id(publisher_a_number) == publisher_a_id
-
-    # Recovery came from tier 1: Resource Manager was tried once for A, not retried.
-    assert projects_client.get_project.call_count == 1
-    # list_projects: once for the failed enumeration, once for B's successful rebuild.
-    assert client.list_projects.call_count == 2
 
 
 def test_last_segment_handles_absent_and_trailing_slash() -> None:

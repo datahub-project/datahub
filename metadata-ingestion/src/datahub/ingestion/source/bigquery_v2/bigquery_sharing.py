@@ -1,7 +1,7 @@
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
-from google.api_core.exceptions import GoogleAPIError, PermissionDenied
+from google.api_core.exceptions import PermissionDenied
 from google.cloud import bigquery, resourcemanager_v3
 
 if TYPE_CHECKING:
@@ -120,6 +120,7 @@ class BigQuerySharingHandler:
         self._sharing_client: Optional["AnalyticsHubServiceClient"] = None
         # Warn once per run, not once per project, when Dataset.type is wholesale absent.
         self._warned_all_dataset_types_missing: bool = False
+        self._warned_list_projects_failed: bool = False
 
     # ---- population -------------------------------------------------------
 
@@ -154,6 +155,7 @@ class BigQuerySharingHandler:
             return
 
         self.report.num_linked_datasets_detected[project_id] = len(linked)
+        self._ensure_project_number_map()
         for dataset in linked:
             info = self._resolve_from_dataset(project_id, dataset.name)
             # Counted per dataset so resolved + unresolved == detected. Resolution is
@@ -162,6 +164,8 @@ class BigQuerySharingHandler:
                 self.report.num_linked_datasets_unresolved += 1
             if info is None:
                 continue
+            # A dataset sealed unresolved during a transient outage is not backfilled
+            # mid-run (it would desync the resolved/unresolved counters); it heals next run.
             self._lookup[(project_id, dataset.name)] = info
             if info.publisher is not None:
                 self.report.num_linked_datasets_resolved += 1
@@ -171,7 +175,20 @@ class BigQuerySharingHandler:
                 self.report.num_linked_datasets_not_linked += 1
 
         if self.config.extract_subscriptions_from_analytics_hub:
-            self._enrich_from_sharing(project_id, linked)
+            try:
+                self._enrich_from_sharing(project_id, linked)
+            except Exception as e:
+                # Enrichment is optional and must never abort the project; backstops
+                # anything _enrich_from_sharing's handlers miss (e.g. a bad subscription).
+                self.report.warning(
+                    title="BigQuery Sharing enrichment failed",
+                    message=(
+                        "Listing and subscription state are omitted for this project; "
+                        "lineage is unaffected."
+                    ),
+                    context=project_id,
+                    exc=e,
+                )
 
     def _resolve_from_dataset(
         self, project_id: str, dataset_name: str
@@ -290,7 +307,9 @@ class BigQuerySharingHandler:
             except PermissionDenied as e:
                 self._report_sharing_denied(project_id, location, e)
                 continue
-            except GoogleAPIError as e:
+            except Exception as e:
+                # Broader than GoogleAPIError: a credential refresh raises GoogleAuthError.
+                # One location failing must not stop the others or the project.
                 self.report.warning(
                     title="Could not read BigQuery Sharing subscriptions",
                     message=(
@@ -390,17 +409,7 @@ class BigQuerySharingHandler:
         IDs, and a URN built from a number matches nothing.
         """
         if project_number in self._publisher_project_ids:
-            cached = self._publisher_project_ids[project_number]
-            if cached is not None:
-                return cached
-            # A cached None may be stale: a later publisher's lookup can rebuild the
-            # project-number map, so recheck it before honouring the negative result.
-            if self._project_number_map is None:
-                return None
-            resolved = self._from_project_list(project_number)
-            if resolved is not None:
-                self._publisher_project_ids[project_number] = resolved
-            return resolved
+            return self._publisher_project_ids[project_number]
 
         resolved = self._from_project_list(project_number)
         if resolved is None:
@@ -409,23 +418,25 @@ class BigQuerySharingHandler:
         self._publisher_project_ids[project_number] = resolved
         return resolved
 
-    def _from_project_list(self, project_number: str) -> Optional[str]:
-        """Tier 1, needing no additional permission. list_projects() carries both forms for every
-        project the account holds a BigQuery role on."""
-        if self._project_number_map is None:
-            mapping: Dict[str, str] = {}
-            try:
-                # DEFAULT_RETRY already covers projects.list's rate-limit errors at its
-                # 2 req/s quota, so only the timeout is set here.
-                for project in self.client.list_projects(
-                    timeout=_LIST_PROJECTS_TIMEOUT
-                ):
-                    numeric_id = getattr(project, "numeric_id", None)
-                    if numeric_id is not None:
-                        mapping[str(numeric_id)] = project.project_id
-            except Exception as e:
-                # Broad on purpose: tier 1 failing must fall through to Resource Manager,
-                # not end the project, and the client raises more than GoogleAPIError.
+    def _ensure_project_number_map(self) -> None:
+        """Build the number->id map once per run, up front, so no dataset resolves before
+        tier 1 is ready. A failed build leaves the map None (never a partial ``{}``) and
+        retries next project; a successful build drops cached negatives it can now resolve."""
+        if self._project_number_map is not None:
+            return
+        mapping: Dict[str, str] = {}
+        try:
+            # DEFAULT_RETRY already covers projects.list's rate-limit errors at its
+            # 2 req/s quota, so only the timeout is set here.
+            for project in self.client.list_projects(timeout=_LIST_PROJECTS_TIMEOUT):
+                numeric_id = getattr(project, "numeric_id", None)
+                if numeric_id is not None:
+                    mapping[str(numeric_id)] = project.project_id
+        except Exception as e:
+            # Broad on purpose: tier 1 failing must fall through to Resource Manager, not
+            # end the project, and the client raises more than GoogleAPIError.
+            if not self._warned_list_projects_failed:
+                self._warned_list_projects_failed = True
                 self.report.warning(
                     title="Could not list projects to resolve publisher project numbers",
                     message=(
@@ -436,11 +447,19 @@ class BigQuerySharingHandler:
                     ),
                     exc=e,
                 )
-                # Not cached: list_projects() paginates lazily, so a partial map from a
-                # failed pass would deny lineage to every later publisher.
-                return None
-            self._project_number_map = mapping
+            return
+        self._project_number_map = mapping
+        for number in [
+            n
+            for n, pid in self._publisher_project_ids.items()
+            if pid is None and n in mapping
+        ]:
+            del self._publisher_project_ids[number]
 
+    def _from_project_list(self, project_number: str) -> Optional[str]:
+        """Tier 1: read the number->id map built by _ensure_project_number_map."""
+        if self._project_number_map is None:
+            return None
         resolved = self._project_number_map.get(project_number)
         if resolved is not None:
             self.report.num_publisher_lookups_from_project_list += 1
