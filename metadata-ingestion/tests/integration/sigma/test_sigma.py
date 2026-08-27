@@ -1,3 +1,4 @@
+import copy
 import json
 from typing import Any, Dict, List, Optional, cast
 
@@ -17,9 +18,12 @@ def _sigma_report(pipeline: Pipeline) -> SigmaSourceReport:
     return cast(SigmaSourceReport, pipeline.source.get_report())
 
 
-def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
-    if override_data is None:
-        override_data = {}
+def default_mock_api() -> Dict[str, Dict]:
+    """The baseline Sigma API mocks, before any per-test override.
+
+    Exposed so a test that needs to *edit* a default entry (rather than
+    replace it wholesale) can deep-copy it instead of restating it.
+    """
     api_vs_response: Dict[str, Dict] = {
         "https://aws-api.sigmacomputing.com/v2/auth/token": {
             "method": "POST",
@@ -468,7 +472,12 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         },
     }
 
-    api_vs_response.update(override_data)
+    return api_vs_response
+
+
+def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
+    api_vs_response = default_mock_api()
+    api_vs_response.update(override_data or {})
 
     for url in api_vs_response:
         request_mock.register_uri(
@@ -1948,18 +1957,51 @@ def test_sigma_no_workspace_membership_names_all_containers(tmp_path, requests_m
     ``/workspaces/{id}`` is forbidden. Every Workspace Container is then
     referenced without properties and the UI shows a wall of raw URNs where
     the top-level folder names belong.
+
+    Each entity type sits in its *own* inaccessible workspace, so a single
+    entity type cannot carry the assertions for the other two: a workspace
+    holding only shared datasets is exactly as broken as one holding a
+    workbook, and only distinct ids catch a regression at one call site.
     """
-    ws_id = "3ee61405-3be2-4000-ba72-60d36757b95b"
+    ws_by_entity = {
+        "dataset": ("aaaa0000-0000-4000-8000-000000000001", "Finance"),
+        "workbook": ("bbbb0000-0000-4000-8000-000000000002", "Sales"),
+        "data-model": ("cccc0000-0000-4000-8000-000000000003", "Modeling"),
+    }
     override_data = get_mock_data_model_api()
+    baseline = default_mock_api()
+    for file_type, (workspace_id, workspace_name) in ws_by_entity.items():
+        files_url = (
+            f"https://aws-api.sigmacomputing.com/v2/files?typeFilters={file_type}"
+        )
+        files_mock = override_data.get(files_url) or copy.deepcopy(baseline[files_url])
+        for entry in files_mock["json"]["entries"]:
+            entry["parentId"] = workspace_id
+            # Single-segment path keeps the parentId walk at zero hops, so the
+            # id under test is the one the mock names.
+            entry["path"] = workspace_name
+        override_data[files_url] = files_mock
+        override_data[
+            f"https://aws-api.sigmacomputing.com/v2/workspaces/{workspace_id}"
+        ] = {"method": "GET", "status_code": 403, "json": {}}
+
+    # Workbooks and data models carry their own ``path`` on the entity payload
+    # (only datasets take it from ``/files``), and that is what the Container
+    # name is recovered from.
+    for entity_url, workspace_name in (
+        ("https://aws-api.sigmacomputing.com/v2/workbooks", "Sales"),
+        ("https://aws-api.sigmacomputing.com/v2/dataModels", "Modeling"),
+    ):
+        entity_mock = override_data.get(entity_url) or copy.deepcopy(
+            baseline[entity_url]
+        )
+        for entry in entity_mock["json"]["entries"]:
+            entry["path"] = workspace_name
+        override_data[entity_url] = entity_mock
     override_data["https://aws-api.sigmacomputing.com/v2/workspaces?limit=50"] = {
         "method": "GET",
         "status_code": 200,
         "json": {"entries": [], "total": 0, "nextPage": None},
-    }
-    override_data[f"https://aws-api.sigmacomputing.com/v2/workspaces/{ws_id}"] = {
-        "method": "GET",
-        "status_code": 403,
-        "json": {},
     }
     register_mock_api(request_mock=requests_mock, override_data=override_data)
 
@@ -1973,32 +2015,150 @@ def test_sigma_no_workspace_membership_names_all_containers(tmp_path, requests_m
     with open(output_path) as f:
         mces = json.load(f)
 
+    named = {
+        mce["entityUrn"]: mce["aspect"]["json"]["name"]
+        for mce in mces
+        if mce["aspectName"] == "containerProperties"
+    }
+    for file_type, (workspace_id, workspace_name) in ws_by_entity.items():
+        workspace_urn = make_container_urn(
+            WorkspaceKey(workspaceId=workspace_id, platform="sigma")
+        )
+        assert named.get(workspace_urn) == workspace_name, (
+            f"the {file_type} workspace has no containerProperties -- its "
+            f"entities hang off an unnamed container: {workspace_urn}"
+        )
+        assert any(
+            mce["aspectName"] == "container"
+            and mce["aspect"]["json"]["container"] == workspace_urn
+            for mce in mces
+        ), f"nothing is parented under the {file_type} workspace"
+
+    report = _sigma_report(pipeline)
+    assert sorted(report.workspaces_without_metadata) == sorted(
+        f"{name} ({workspace_id})" for workspace_id, name in ws_by_entity.values()
+    )
+    # One lookup per workspace, not one per entity.
+    assert report.non_accessible_workspaces_count == len(ws_by_entity)
+
+
+@pytest.mark.integration
+def test_sigma_payload_only_data_model_counts_against_its_real_workspace(
+    tmp_path, requests_mock
+):
+    """A data model whose only workspace id comes from ``/dataModels``.
+
+    Datasets and workbooks always take their workspace from the ``/files``
+    walk, which normalises the id. A DM with no ``/files`` row does not, so it
+    is the one entity that can still be counted against a folder-inode id --
+    leaving its real workspace reported under ``empty_workspaces`` while the DM
+    sits in it. The workspace here holds *only* the DM, so nothing else can
+    mask the miscount.
+    """
+    files_id = "3ee61405-3be2-4000-ba72-60d36757b95b"
+    real_ws_id = "aaaa1111-2222-3333-4444-555566667777"
+    empty = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": [], "total": 0, "nextPage": None},
+    }
+    override_data = get_mock_data_model_api()
+    for url in (
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset",
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook",
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model",
+        "https://aws-api.sigmacomputing.com/v2/datasets",
+        "https://aws-api.sigmacomputing.com/v2/workbooks",
+        "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50",
+    ):
+        override_data[url] = copy.deepcopy(empty)
+    override_data[f"https://aws-api.sigmacomputing.com/v2/workspaces/{files_id}"] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "workspaceId": real_ws_id,
+            "name": "Acryl Data",
+            "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "createdAt": "2024-03-12T08:31:04.826Z",
+            "updatedAt": "2024-03-12T08:31:04.826Z",
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path: str = f"{tmp_path}/sigma_payload_only_dm_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    authoritative_urn = make_container_urn(
+        WorkspaceKey(workspaceId=real_ws_id, platform="sigma")
+    )
+    assert any(
+        mce["aspectName"] == "container"
+        and mce["aspect"]["json"]["container"] == authoritative_urn
+        for mce in mces
+    ), "the data model is not parented under the real workspace"
+
+    report = _sigma_report(pipeline)
+    assert report.empty_workspaces == [], (
+        "the workspace holds the data model, so counting the DM against the "
+        "folder-inode id misreports it as empty"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_inaccessible_workspace_container_ignores_workspace_pattern(
+    tmp_path, requests_mock
+):
+    """``workspace_pattern`` cannot gate a workspace whose name is unknown.
+
+    The pattern is applied against ``Workspace.name`` from
+    ``/workspaces/{id}``. When that call is forbidden there is no name to match
+    on, so ``ingest_shared_entities`` admits the entities regardless -- and the
+    Container they land in must be named, or the raw-URN bug returns. Pinning
+    this because a path-derived name makes it *look* like the pattern could now
+    be applied; doing so would orphan the entities rather than drop them.
+    """
+    ws_id = "4pe61405-3be2-4000-ba72-60d36757b95b"
+    override_data = _shared_entities_override_data()
+    override_data[f"https://aws-api.sigmacomputing.com/v2/workspaces/{ws_id}"] = {
+        "method": "GET",
+        "status_code": 403,
+        "json": {},
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path: str = f"{tmp_path}/sigma_pattern_denied_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            output_path,
+            ingest_shared_entities=True,
+            # Denies the path-derived name "New Acryl Data".
+            workspace_pattern={"allow": ["^Acryl Data$"]},
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
     workspace_urn = make_container_urn(
         WorkspaceKey(workspaceId=ws_id, platform="sigma")
     )
-    props = [
-        mce["aspect"]["json"]
+    named = {
+        mce["entityUrn"]: mce["aspect"]["json"]["name"]
         for mce in mces
-        if mce["entityUrn"] == workspace_urn
-        and mce["aspectName"] == "containerProperties"
-    ]
-    assert props, (
-        "no containerProperties for the inaccessible workspace -- datasets, "
-        "workbooks and data models all hang off an unnamed container"
-    )
-    assert props[0]["name"] == "Acryl Data"
-
-    # Datasets, workbooks and data models must all reach the named container.
-    parents = {
-        mce["entityType"]
-        for mce in mces
-        if mce["aspectName"] == "container"
-        and mce["aspect"]["json"]["container"] == workspace_urn
+        if mce["aspectName"] == "containerProperties"
     }
-    assert parents == {"dataset", "dashboard", "container"}, parents
-
-    report = _sigma_report(pipeline)
-    assert report.workspaces_without_metadata == [f"Acryl Data ({ws_id})"]
+    assert named.get(workspace_urn) == "New Acryl Data", (
+        "the shared entity is still ingested, so its Container must still be "
+        "named -- suppressing it here would reintroduce the raw-URN label"
+    )
 
 
 @pytest.mark.integration
@@ -2019,27 +2179,43 @@ def test_sigma_workspace_id_remapped_to_authoritative_id(tmp_path, requests_mock
     """
     files_id = "3ee61405-3be2-4000-ba72-60d36757b95b"
     real_ws_id = "aaaa1111-2222-3333-4444-555566667777"
-    override_data = {
-        # The account is a member of no workspace, so the listing is empty and
-        # every workspace is discovered through the per-entity lookup.
-        "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {"entries": [], "total": 0, "nextPage": None},
-        },
-        f"https://aws-api.sigmacomputing.com/v2/workspaces/{files_id}": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "workspaceId": real_ws_id,
-                "name": "Acryl Data",
-                "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
-                "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
-                "createdAt": "2024-03-12T08:31:04.826Z",
-                "updatedAt": "2024-03-12T08:31:04.826Z",
-            },
-        },
+    # Data models are mocked in too: they resolve their workspace through a
+    # different branch than datasets and workbooks, so without them the DM
+    # re-key is unexercised and a regression there ships silently. The DM is
+    # given no ``/files`` row, which is what forces it down the payload branch
+    # -- the only one where the id has not already been normalised by the
+    # ``parentId`` walk.
+    override_data = get_mock_data_model_api()
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": [], "total": 0, "nextPage": None},
     }
+    override_data.update(
+        {
+            # The account is a member of no workspace, so the listing is empty and
+            # every workspace is discovered through the per-entity lookup.
+            "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {"entries": [], "total": 0, "nextPage": None},
+            },
+            f"https://aws-api.sigmacomputing.com/v2/workspaces/{files_id}": {
+                "method": "GET",
+                "status_code": 200,
+                "json": {
+                    "workspaceId": real_ws_id,
+                    "name": "Acryl Data",
+                    "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                    "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                    "createdAt": "2024-03-12T08:31:04.826Z",
+                    "updatedAt": "2024-03-12T08:31:04.826Z",
+                },
+            },
+        }
+    )
     register_mock_api(request_mock=requests_mock, override_data=override_data)
 
     output_path: str = f"{tmp_path}/sigma_workspace_id_remapped_mces.json"
@@ -2081,17 +2257,35 @@ def test_sigma_workspace_id_remapped_to_authoritative_id(tmp_path, requests_mock
     )
     assert authoritative_urn in referenced
 
+    workspace_containers = {
+        mce["entityUrn"]
+        for mce in mces
+        if mce["aspectName"] == "subTypes"
+        and mce["aspect"]["json"]["typeNames"] == ["Sigma Workspace"]
+    }
     named = {
         mce["entityUrn"] for mce in mces if mce["aspectName"] == "containerProperties"
     }
-    assert named == {authoritative_urn}, (
-        "expected exactly one Workspace Container, correctly named"
+    assert workspace_containers == {authoritative_urn}, (
+        "expected exactly one Workspace Container"
     )
+    assert authoritative_urn in named
+
+    # Datasets, workbooks and data models each resolve their workspace through
+    # a different branch; every one of them must land on the same container.
+    parented = {
+        mce["entityType"]
+        for mce in mces
+        if mce["aspectName"] == "container"
+        and mce["aspect"]["json"]["container"] == authoritative_urn
+    }
+    assert {"dataset", "dashboard"} <= parented, parented
 
     report = _sigma_report(pipeline)
     assert report.workspace_ids_remapped == {files_id: real_ws_id}
     # The workspace is no longer reported empty now that its entities land on it.
     assert report.empty_workspaces == []
+    assert list(report.workspaces_without_metadata) == []
 
 
 def _minimal_sigma_pipeline_config(output_path: str, **extra: Any) -> Dict[str, Any]:

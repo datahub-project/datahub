@@ -2928,7 +2928,7 @@ class TestWorkspaceIdRemapping:
         assert workspace is not None
         assert workspace.workspaceId == self.ANSWERED
         assert self.ANSWERED in api.workspaces
-        assert api.workspace_id_aliases == {self.REQUESTED: self.ANSWERED}
+        assert api.resolve_workspace_id(self.REQUESTED) == self.ANSWERED
         assert api.report.workspace_ids_remapped == {self.REQUESTED: self.ANSWERED}
 
     def test_alias_is_reused_without_a_second_call(self) -> None:
@@ -2947,8 +2947,98 @@ class TestWorkspaceIdRemapping:
 
         api.get_workspace(self.REQUESTED)
 
-        assert api.workspace_id_aliases == {}
+        assert api.resolve_workspace_id(self.REQUESTED) == self.REQUESTED
         assert api.report.workspace_ids_remapped == {}
+
+    def test_the_walk_result_is_normalised_onto_the_answered_id(self) -> None:
+        """The producer, not each consumer, is what pins the id.
+
+        ``File.workspaceId`` feeds every entity's Container key, so resolving
+        here is what stops a new call site reintroducing the split tree.
+        """
+        api = self._api_returning(_workspace_payload(self.ANSWERED))
+
+        assert (
+            api.get_workspace_id_from_file_path(self.REQUESTED, "Analytics")
+            == self.ANSWERED
+        )
+
+    def test_an_unresolvable_id_is_left_alone(self) -> None:
+        api = _create_sigma_api()
+        api._get_api_call = MagicMock(  # type: ignore[method-assign]
+            return_value=MagicMock(status_code=403)
+        )
+
+        assert (
+            api.get_workspace_id_from_file_path(self.REQUESTED, "Analytics")
+            == self.REQUESTED
+        )
+
+
+class TestWorkspaceLookupFailureCaching:
+    """A workspace that cannot be resolved is referenced by every entity in it.
+
+    Without caching the outcome, one forbidden workspace costs one API call per
+    entity and inflates ``non_accessible_workspaces_count`` to a per-call
+    number that contradicts the per-workspace list beside it in the report.
+    """
+
+    WORKSPACE = "forbidden-workspace-id"
+
+    def test_a_403_is_requested_once_and_counted_once(self) -> None:
+        api = _create_sigma_api()
+        api._get_api_call = MagicMock(  # type: ignore[method-assign]
+            return_value=MagicMock(status_code=403)
+        )
+
+        for _ in range(5):
+            assert api.get_workspace(self.WORKSPACE) is None
+
+        assert api._get_api_call.call_count == 1  # type: ignore[attr-defined]
+        assert api.report.non_accessible_workspaces_count == 1
+
+    def test_a_non_403_failure_is_surfaced_in_the_report(self) -> None:
+        """``_log_http_error`` is debug-level for the line naming the workspace.
+
+        A 5xx degrades the workspace exactly like a 403 but is not a
+        permission problem, so it must not be silently folded into the
+        "add the user to the workspace" remediation.
+        """
+        api = _create_sigma_api()
+        api._get_api_call = MagicMock(  # type: ignore[method-assign]
+            side_effect=Exception("boom")
+        )
+
+        for _ in range(3):
+            assert api.get_workspace(self.WORKSPACE) is None
+
+        assert api._get_api_call.call_count == 1  # type: ignore[attr-defined]
+        assert api.report.non_accessible_workspaces_count == 0
+        assert any(self.WORKSPACE in str(warning) for warning in api.report.warnings), (
+            api.report.warnings
+        )
+
+
+class TestWorkspaceKeyResolution:
+    """The Container key is where an unresolved id would do its damage.
+
+    Ids reaching ``_gen_workspace_key`` from an entity payload rather than the
+    ``/files`` walk have not been normalised by
+    ``get_workspace_id_from_file_path``, so resolving in the key builder is
+    what stops a future call site splitting the tree again.
+    """
+
+    def test_an_aliased_id_keys_onto_the_authoritative_workspace(self) -> None:
+        source = SigmaSource.__new__(SigmaSource)
+        source.config = SigmaSourceConfig(client_id="x", client_secret="y")
+        source.platform = "sigma"
+        source.sigma_api = MagicMock()
+        source.sigma_api.resolve_workspace_id = lambda workspace_id: (  # type: ignore[method-assign]
+            "real-ws" if workspace_id == "inode" else workspace_id
+        )
+
+        assert source._gen_workspace_key("inode").workspaceId == "real-ws"
+        assert source._gen_workspace_key("real-ws").workspaceId == "real-ws"
 
 
 class TestInaccessibleWorkspaceContainers:
@@ -2964,9 +3054,11 @@ class TestInaccessibleWorkspaceContainers:
         source.config = SigmaSourceConfig(client_id="x", client_secret="y")
         source.reporter = SigmaSourceReport()
         source.platform = "sigma"
+        source._inaccessible_workspace_ids = set()
         source._inaccessible_workspace_names = {}
         source.sigma_api = MagicMock()
         source.sigma_api.workspaces = {}
+        source.sigma_api.resolve_workspace_id = lambda workspace_id: workspace_id  # type: ignore[method-assign]
         return source
 
     def test_name_comes_from_the_first_path_segment(self) -> None:
@@ -2984,15 +3076,45 @@ class TestInaccessibleWorkspaceContainers:
 
         source._note_inaccessible_workspace("ws-1", "Analytics")
 
-        assert source._inaccessible_workspace_names == {}
+        assert source._inaccessible_workspace_ids == set()
+
+    def test_an_aliased_id_is_not_mistaken_for_an_inaccessible_one(self) -> None:
+        """A remapped id resolves to a workspace that was fetched successfully.
+
+        Treating it as inaccessible would emit a second, path-named Container
+        for a workspace that already has a properly named one -- the same split
+        tree, one layer down.
+        """
+        source = self._make_source()
+        source.sigma_api.workspaces = {
+            "real-ws": Workspace.model_validate(_workspace_payload("real-ws"))
+        }
+        source.sigma_api.resolve_workspace_id = lambda workspace_id: (  # type: ignore[method-assign]
+            "real-ws" if workspace_id == "inode" else workspace_id
+        )
+
+        source._note_inaccessible_workspace("inode", "Analytics")
+
+        assert source._inaccessible_workspace_ids == set()
 
     def test_a_real_name_replaces_a_pathless_placeholder(self) -> None:
         source = self._make_source()
 
         source._note_inaccessible_workspace("ws-1", None)
-        assert source._inaccessible_workspace_names == {"ws-1": None}
+        assert source._inaccessible_workspace_ids == {"ws-1"}
+        assert source._inaccessible_workspace_names == {}
 
         source._note_inaccessible_workspace("ws-1", "Analytics")
+        assert source._inaccessible_workspace_names == {"ws-1": "Analytics"}
+
+    def test_a_recovered_name_is_not_clobbered_by_a_pathless_entity(self) -> None:
+        """``data_model.path`` is optional while ``workbook.path`` is not, so
+        both orders occur when one workspace holds mixed entity types."""
+        source = self._make_source()
+
+        source._note_inaccessible_workspace("ws-1", "Analytics")
+        source._note_inaccessible_workspace("ws-1", None)
+
         assert source._inaccessible_workspace_names == {"ws-1": "Analytics"}
 
     def test_container_is_emitted_with_the_recovered_name(self) -> None:
@@ -3002,7 +3124,7 @@ class TestInaccessibleWorkspaceContainers:
         names = _emitted_container_names(source._gen_inaccessible_workspace_workunits())
 
         assert names == ["Analytics"]
-        assert source.reporter.workspaces_without_metadata == ["Analytics (ws-1)"]
+        assert list(source.reporter.workspaces_without_metadata) == ["Analytics (ws-1)"]
         assert source.reporter.warnings
 
     def test_pathless_workspace_falls_back_to_its_id(self) -> None:
@@ -3013,6 +3135,7 @@ class TestInaccessibleWorkspaceContainers:
 
         # Still preferable to the UI rendering an opaque container guid.
         assert names == ["ws-1"]
+        assert list(source.reporter.workspaces_without_metadata) == ["unknown (ws-1)"]
 
     def test_nothing_emitted_when_every_workspace_resolved(self) -> None:
         source = self._make_source()
