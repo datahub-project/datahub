@@ -40,6 +40,7 @@ def _populate_profile_cache(source: MySQLSource, schema: str, rows: list) -> Non
         source.profile_metadata_info.dataset_name_to_storage_bytes[key] = data_length  # type: ignore[assignment]
         source._table_rows_cache[key] = table_rows
     source._profile_sweep_ran = True
+    source._table_rows_available = True
 
 
 @pytest.mark.parametrize(
@@ -84,14 +85,15 @@ def test_add_profile_metadata_reads_storage_bytes_positionally(
         "my_db.v_orders": None,
     }
     assert source._profile_sweep_ran is True
+    assert source._table_rows_available is True
 
 
-def test_add_profile_metadata_raising_sweep_leaves_flag_false() -> None:
+def test_add_profile_metadata_raising_sweep_leaves_flags_false() -> None:
     # A sweep that raises (a rewriting proxy, a dropped connection) must leave
-    # _profile_sweep_ran False so generate_profile_candidates fails open to no
-    # guardrail. get_profiling_internal wraps add_profile_metadata in try/except
-    # that only warns. The mock raises on every execute, so primary and
-    # three-column fallback both fail and the error propagates.
+    # both flags False so generate_profile_candidates fails open to no guardrail.
+    # get_profiling_internal wraps add_profile_metadata in try/except that only
+    # warns. The mock raises on every execute, so primary and three-column
+    # fallback both fail and the error propagates.
     config = MySQLConfig(
         host_port="localhost:3306",
         profiling={"enabled": True, "profile_table_row_limit": 1_000_000},
@@ -106,6 +108,7 @@ def test_add_profile_metadata_raising_sweep_leaves_flag_false() -> None:
         source.add_profile_metadata(inspector)
 
     assert source._profile_sweep_ran is False
+    assert source._table_rows_available is False
 
     # generate_profile_candidates must fail open (return None) since the sweep never ran.
     # profile_table_row_limit is set so this reaches the _profile_sweep_ran check
@@ -136,9 +139,12 @@ def _inspector_with_failing_primary_sweep() -> MagicMock:
 
 def test_add_profile_metadata_fallback_populates_storage_bytes_only() -> None:
     # Primary four-column SELECT fails (e.g. missing table_rows); three-column
-    # fallback succeeds. sizeInBytes cache is filled; guardrail stays off.
-    # No limit is configured here, so the degradation is reported at info: the
-    # guardrail was inert anyway, and a warning would fail --strict-warnings runs.
+    # fallback succeeds. sizeInBytes cache is filled; the row cache is not. The
+    # fallback sets _profile_sweep_ran (storage bytes populated, so the size
+    # limit can run) but leaves _table_rows_available False (row limit
+    # unenforceable). No limit is configured here, so the degradation is
+    # reported at info: the guardrail was inert anyway, and a warning would
+    # fail --strict-warnings runs.
     source = _source()
     inspector = _inspector_with_failing_primary_sweep()
 
@@ -149,7 +155,8 @@ def test_add_profile_metadata_fallback_populates_storage_bytes_only() -> None:
         "my_db.customers": 8192,
     }
     assert source._table_rows_cache == {}
-    assert source._profile_sweep_ran is False
+    assert source._profile_sweep_ran is True
+    assert source._table_rows_available is False
     assert len(list(source.report.warnings)) == 0
     infos = [
         e
@@ -161,8 +168,10 @@ def test_add_profile_metadata_fallback_populates_storage_bytes_only() -> None:
 
 
 def test_add_profile_metadata_fallback_warns_when_a_limit_is_set() -> None:
-    # With a limit configured the fallback loses filtering the user asked for, so
-    # it is a warning rather than an info.
+    # With profile_table_row_limit configured the fallback loses filtering the
+    # user asked for (the row limit is unenforceable without table_rows), so it
+    # is a warning rather than an info. The size limit is unaffected, but the
+    # row limit being the unenforceable one is what makes this a warning.
     config = MySQLConfig(
         host_port="localhost:3306",
         profiling={"enabled": True, "profile_table_row_limit": 1_000_000},
@@ -172,11 +181,105 @@ def test_add_profile_metadata_fallback_warns_when_a_limit_is_set() -> None:
 
     source.add_profile_metadata(inspector)
 
-    assert source._profile_sweep_ran is False
+    assert source._profile_sweep_ran is True
+    assert source._table_rows_available is False
     warnings = list(source.report.warnings)
     assert len(warnings) == 1
     assert warnings[0].title == "Profiling row/size guardrail disabled"
     assert any("mysql" in ctx for ctx in warnings[0].context)
+
+
+def test_add_profile_metadata_fallback_info_when_only_size_limit_set() -> None:
+    # Mirror of the warning test: with only profile_table_size_limit set, the
+    # fallback loses nothing the user asked for (data_length was fetched, so
+    # the size limit still enforces). The degradation is info, not warning —
+    # otherwise --strict-warnings fails over a degradation that did not happen.
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={"enabled": True, "profile_table_size_limit": 1},
+    )
+    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
+    inspector = _inspector_with_failing_primary_sweep()
+
+    source.add_profile_metadata(inspector)
+
+    assert source._profile_sweep_ran is True
+    assert source._table_rows_available is False
+    assert len(list(source.report.warnings)) == 0
+    infos = [
+        e
+        for e in source.report.infos
+        if e.title == "Profiling row/size guardrail disabled"
+    ]
+    assert len(infos) == 1
+    assert "sizeInBytes is unaffected" in infos[0].message
+
+
+def _populate_fallback_cache(source: MySQLSource, schema: str, rows: list) -> None:
+    # rows: (table_name, data_length). Simulates the three-column fallback path:
+    # storage bytes populated, row cache empty, _table_rows_available False.
+    for table_name, data_length in rows:
+        key = f"{schema}.{table_name}"
+        source.profile_metadata_info.dataset_name_to_storage_bytes[key] = data_length  # type: ignore[assignment]
+    source._profile_sweep_ran = True
+    source._table_rows_available = False
+
+
+def test_size_limit_enforces_on_fallback_path() -> None:
+    # The behaviour the split buys: on the fallback path the size limit still
+    # filters. With profile_table_size_limit set, one table over and one under
+    # the limit, only the under-limit table is a candidate and the over-limit
+    # one is attributed to _guardrail_skip[...] == "size".
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={"enabled": True, "profile_table_size_limit": 1},
+    )
+    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
+    _populate_fallback_cache(
+        source,
+        "my_db",
+        [
+            ("small", 512 * 1024**2),
+            ("big", 2 * 1024**3),
+        ],
+    )
+    inspector = MagicMock()
+    inspector.get_table_names.return_value = ["small", "big"]
+
+    candidates = source.generate_profile_candidates(
+        inspector, threshold_time=None, schema="my_db"
+    )
+
+    assert candidates == ["my_db.small"]
+    assert source._guardrail_skip == {"my_db.big": "size"}
+
+
+def test_row_limit_only_returns_none_on_fallback_path() -> None:
+    # Only profile_table_row_limit set, and the fallback path left
+    # _table_rows_available False. The row limit is the unenforceable one and
+    # nothing else is configured, so generate_profile_candidates short-circuits
+    # to None rather than building a full candidate list that retains every
+    # table and then no-oping the row check per table.
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={"enabled": True, "profile_table_row_limit": 1_000_000},
+    )
+    source = MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
+    _populate_fallback_cache(
+        source,
+        "my_db",
+        [("orders", 1024), ("customers", 2048)],
+    )
+    inspector = MagicMock()
+    inspector.get_table_names.return_value = ["orders", "customers"]
+
+    result = source.generate_profile_candidates(
+        inspector, threshold_time=None, schema="my_db"
+    )
+
+    assert result is None
+    inspector.get_table_names.assert_not_called()
+    assert source._guardrail_skip == {}
 
 
 def test_generate_profile_candidates_returns_get_identifier_strings() -> None:

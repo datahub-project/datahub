@@ -358,13 +358,17 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # data_length lives on profile_metadata_info.dataset_name_to_storage_bytes
         # (base-owned, also feeds sizeInBytes); only table_rows is MySQL-local here.
         self._table_rows_cache: Dict[str, Optional[int]] = {}
-        # Set True only after the four-column sweep completes. Load-bearing:
+        # True once a sweep populated dataset_name_to_storage_bytes, so the guardrail
+        # can run at all. Set on both the primary and the fallback path. Load-bearing:
         # add_profile_metadata is wrapped in try/except in get_profiling_internal that
         # only warns, so a sweep that raises leaves this False — generate_profile_candidates
-        # then fails open (None candidates). Distinguishes "sweep failed" / fallback-only
-        # (None) from "instance has no tables" (empty candidate list). The three-column
-        # fallback must leave this False: it fills storage bytes but not the row cache.
+        # then fails open (None candidates). Distinguishes "sweep failed" (None) from
+        # "instance has no tables" (empty candidate list).
         self._profile_sweep_ran: bool = False
+        # True only after the four-column sweep completes (table_rows cached). The
+        # three-column fallback fills storage bytes but not the row cache, so this
+        # stays False there and profile_table_row_limit is unenforceable for the run.
+        self._table_rows_available: bool = False
         # dataset_name -> "row" | "size": set while filtering, consumed to attribute skips.
         self._guardrail_skip: Dict[str, str] = {}
         if config.auth_mode == MySQLAuthMode.AWS_IAM:
@@ -518,10 +522,11 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # Primary: four columns including table_rows for the guardrail. A platform
         # whose information_schema omits table_rows, a proxy that rewrites or rejects
         # the query, or a dropped connection makes it raise; fall back to master's
-        # three-column form for sizeInBytes only, and leave _profile_sweep_ran False
-        # so the guardrail fails open (None candidates) rather than running against an
-        # empty row cache. (Insufficient privileges do not land here — MySQL filters
-        # information_schema rows by grant instead of erroring.)
+        # three-column form for sizeInBytes only. The fallback still sets
+        # _profile_sweep_ran (storage bytes are populated, so the size limit can
+        # run) but leaves _table_rows_available False, so profile_table_row_limit
+        # is unenforceable for the run. (Insufficient privileges do not land here —
+        # MySQL filters information_schema rows by grant instead of erroring.)
         try:
             with inspector.engine.connect() as conn:
                 for (
@@ -541,6 +546,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
                     )
                     self._table_rows_cache[key] = table_rows
             self._profile_sweep_ran = True
+            self._table_rows_available = True
         except SQLAlchemyError as e:
             with inspector.engine.connect() as conn:
                 for table_schema, table_name, data_length in conn.execute(
@@ -553,26 +559,26 @@ class MySQLSource(TwoTierSQLAlchemySource):
                     self.profile_metadata_info.dataset_name_to_storage_bytes[key] = (
                         data_length
                     )
+            self._profile_sweep_ran = True
             # Reported only once the fallback has succeeded, so the "sizeInBytes is
             # unaffected" claim is true when it is made; if the fallback raises too,
             # the exception propagates to get_profiling_internal, which warns for it.
-            # Warn only when a limit is set — that is when something was actually
-            # lost. Without one the guardrail is inert, and a warning would fail
-            # --strict-warnings runs over a degradation the user never asked for.
+            # Warn only when the row limit is set — that is the only limit lost on
+            # the fallback path. A user who set only the size limit loses nothing
+            # (data_length was fetched), and a warning would fail --strict-warnings
+            # runs over a degradation that did not happen.
             log = (
                 self.report.warning
-                if (
-                    self.config.profiling.profile_table_row_limit is not None
-                    or self.config.profiling.profile_table_size_limit is not None
-                )
+                if self.config.profiling.profile_table_row_limit is not None
                 else self.report.info
             )
             log(
                 title="Profiling row/size guardrail disabled",
                 message=(
-                    "Could not read table_rows from information_schema.tables, so the "
-                    "row/size guardrail is disabled for this run. sizeInBytes is "
-                    "unaffected — it fell back to the data_length-only query."
+                    "Could not read table_rows from information_schema.tables, so "
+                    "the row limit is disabled for this run. The size limit still "
+                    "applies, and sizeInBytes is unaffected — it fell back to the "
+                    "data_length-only query."
                 ),
                 context=self.platform,
                 exc=e,
@@ -614,6 +620,15 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # additive and would exclude all tables).
         if not self._profile_sweep_ran:
             return None
+        # Fallback path: storage bytes are populated (size limit enforceable) but
+        # table_rows are not (row limit unenforceable). If only the row limit is
+        # configured there is nothing to enforce — return None rather than build a
+        # full candidate list that retains every table and then pays an O(n) membership
+        # test per table in is_dataset_eligible_for_profiling for a filter that excludes
+        # nothing. With the size limit set, fall through and let the loop filter on
+        # data_length (table_rows is None for every table, so the row check no-ops).
+        if not self._table_rows_available and size_limit_gb is None:
+            return None
 
         # Apply row/size limits in Python. A table whose table_rows or data_length is NULL
         # is retained — NULL stats must not silently drop a table from profiling. The size
@@ -630,11 +645,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
             if (
                 row_limit is not None
                 and table_rows is not None
-                and table_rows >= row_limit
+                and table_rows > row_limit
             ):
-                # >= matches the field description ("less than this"); sql_generic_profiler
-                # uses >, so a table exactly at the limit is skipped here and profiled on
-                # Snowflake.
                 self._guardrail_skip[dataset_name] = "row"
                 continue
             data_length = self.profile_metadata_info.dataset_name_to_storage_bytes.get(
@@ -643,7 +655,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
             if (
                 size_limit_bytes is not None
                 and data_length is not None
-                and data_length >= size_limit_bytes
+                and data_length > size_limit_bytes
             ):
                 self._guardrail_skip[dataset_name] = "size"
                 continue
