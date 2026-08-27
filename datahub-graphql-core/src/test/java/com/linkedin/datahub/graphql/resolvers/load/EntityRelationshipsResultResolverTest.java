@@ -683,52 +683,16 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   @Test
-  public void testContainerChildRelationshipsExcludeSoftDeleted()
+  public void testContainerIsPartOfIncomingUsesGraphClientIncludingAssets()
       throws ExecutionException, InterruptedException, URISyntaxException {
     Urn parentContainer = Urn.createFromString("urn:li:container:parent");
-    Urn activeChild = Urn.createFromString("urn:li:container:activeChild");
-    Urn softDeletedChild = Urn.createFromString("urn:li:container:softDeletedChild");
+    Urn childContainer = Urn.createFromString("urn:li:container:child");
+    Urn childDataset =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
 
     Container containerSource = new Container();
     containerSource.setUrn(parentContainer.toString());
     when(mockEnv.getSource()).thenReturn(containerSource);
-
-    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
-    EntityGraphBinding binding =
-        EntityGraphBinding.builder().graphId("container").source(GraphSnapshotSource.GRAPH).build();
-    when(entityGraphCache.bindingForPolicyField("CONTAINER")).thenReturn(Optional.of(binding));
-    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.CONTAINER))
-        .thenReturn(Optional.of(binding));
-    when(entityGraphCache.expand(
-            eq("container"),
-            eq(GraphSnapshotSource.GRAPH),
-            eq(TraversalDirection.REVERSE),
-            eq(Set.of(parentContainer.toString())),
-            anyInt(),
-            eq(1),
-            eq(ReadMode.CACHED)))
-        .thenReturn(
-            GraphReadResult.fromVertices(
-                Set.of(
-                    parentContainer.toString(),
-                    activeChild.toString(),
-                    softDeletedChild.toString())));
-
-    QueryContext queryContext = getMockAllowContext();
-    OperationContext baseContext = queryContext.getOperationContext();
-    OperationContext opContext =
-        baseContext.toBuilder()
-            .retrieverContext(
-                RetrieverContext.builder()
-                    .entityGraphCache(entityGraphCache)
-                    .graphRetriever(GraphRetriever.EMPTY)
-                    .searchRetriever(SearchRetriever.EMPTY)
-                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
-                    .aspectRetriever(mock(AspectRetriever.class))
-                    .build())
-            .build(baseContext.getSessionAuthentication(), false);
-    when(queryContext.getOperationContext()).thenReturn(opContext);
-    when(mockEnv.getContext()).thenReturn(queryContext);
 
     RelationshipsInput containerInput = new RelationshipsInput();
     containerInput.setTypes(List.of("IsPartOf"));
@@ -738,48 +702,43 @@ public class EntityRelationshipsResultResolverTest {
     containerInput.setCount(10);
     when(mockEnv.getArgument(eq("input"))).thenReturn(containerInput);
 
-    when(_entityService.exists(any(), eq(Set.of(activeChild, softDeletedChild)), eq(false)))
-        .thenReturn(Set.of(activeChild));
-
-    EntityRelationshipsResult result = resolver.get(mockEnv).get();
-
-    assertEquals(result.getCount(), 1);
-    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), activeChild.toString());
-    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
-  }
-
-  @Test
-  public void testContainerChildRelationshipsFallsBackToGraphClientWhenNotDirectChildrenQuery()
-      throws ExecutionException, InterruptedException {
-    Container containerSource = new Container();
-    containerSource.setUrn("urn:li:container:parent");
-    when(mockEnv.getSource()).thenReturn(containerSource);
-
-    RelationshipsInput nonContainerChildrenInput = new RelationshipsInput();
-    nonContainerChildrenInput.setTypes(List.of("SomeType"));
-    nonContainerChildrenInput.setDirection(RelationshipDirection.INCOMING);
-    nonContainerChildrenInput.setStart(0);
-    nonContainerChildrenInput.setCount(10);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(nonContainerChildrenInput);
-
     when(_graphClient.getRelatedEntities(
-            eq("urn:li:container:parent"),
-            eq(new HashSet<>(nonContainerChildrenInput.getTypes())),
+            eq(parentContainer.toString()),
+            eq(new HashSet<>(containerInput.getTypes())),
             same(com.linkedin.metadata.query.filter.RelationshipDirection.INCOMING),
-            eq(nonContainerChildrenInput.getStart()),
-            eq(nonContainerChildrenInput.getCount()),
+            eq(containerInput.getStart()),
+            eq(containerInput.getCount()),
             any()))
         .thenReturn(
             new EntityRelationships()
                 .setStart(0)
-                .setCount(0)
-                .setTotal(0)
-                .setRelationships(new EntityRelationshipArray()));
+                .setCount(2)
+                .setTotal(2)
+                .setRelationships(
+                    new EntityRelationshipArray(
+                        List.of(
+                            new EntityRelationship().setEntity(childContainer).setType("IsPartOf"),
+                            new EntityRelationship()
+                                .setEntity(childDataset)
+                                .setType("IsPartOf")))));
+
+    // Soft-deleted dataset is present in the graph response but filtered via exists().
+    when(_entityService.exists(any(), eq(Set.of(childContainer, childDataset)), eq(false)))
+        .thenReturn(Set.of(childContainer));
 
     EntityRelationshipsResult result = resolver.get(mockEnv).get();
 
-    assertNotNull(result);
-    verify(_graphClient).getRelatedEntities(any(), any(), any(), any(), any(), any());
+    assertEquals(result.getCount(), 1);
+    assertEquals(result.getTotal(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), childContainer.toString());
+    verify(_graphClient)
+        .getRelatedEntities(
+            eq(parentContainer.toString()),
+            eq(new HashSet<>(containerInput.getTypes())),
+            same(com.linkedin.metadata.query.filter.RelationshipDirection.INCOMING),
+            eq(containerInput.getStart()),
+            eq(containerInput.getCount()),
+            any());
   }
 
   @Test
