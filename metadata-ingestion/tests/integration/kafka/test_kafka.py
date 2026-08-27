@@ -1,12 +1,14 @@
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
 from typing import Callable, Dict
 
 import pytest
+import requests_mock
 import time_machine
 import yaml
 from confluent_kafka import Consumer
@@ -26,6 +28,68 @@ from tests.test_helpers.docker_helpers import wait_for_port
 pytestmark = pytest.mark.integration_batch_4
 
 FROZEN_TIME = "2020-04-14 07:00:00"
+
+CATALOG_STUB_URL = "https://psrc-stub.us-east-1.aws.confluent.cloud"
+
+CATALOG_TOPICS = [
+    {
+        "name": "key_value_topic",
+        "qualifiedName": "lkc-stub:key_value_topic",
+        "logical_cluster_id": "lkc-stub",
+        "tags": ["PII", "Tier1"],
+        "business_metadata": [
+            {"name": "owning_team", "value": "payments"},
+            {"name": "retention_days", "value": 30},
+        ],
+    },
+    {
+        "name": "value_topic",
+        "qualifiedName": "lkc-stub:value_topic",
+        "logical_cluster_id": "lkc-stub",
+        "tags": None,
+        "business_metadata": [{"name": "owning_team", "value": "analytics"}],
+    },
+    {
+        "name": "topic_not_on_this_broker",
+        "qualifiedName": "lkc-stub:topic_not_on_this_broker",
+        "logical_cluster_id": "lkc-stub",
+        "tags": ["Deprecated"],
+        "business_metadata": None,
+    },
+]
+
+
+INLINED_PAGINATION_RE = re.compile(r"kafka_topic\(limit: \d+, offset: \d+\)")
+IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+# The live catalog rejects the whole query on a single unknown field, so the stub
+# must too: `logical_cluster_id` is the real name and `clusterId` 400s in production.
+TOPIC_QUERY_KNOWN_FIELDS = frozenset(
+    {
+        "kafka_topic",
+        "limit",
+        "offset",
+        "name",
+        "qualifiedName",
+        "logical_cluster_id",
+        "tags",
+        "business_metadata",
+        "value",
+    }
+)
+
+
+def _pagination_is_inlined(request: requests_mock.request._RequestObjectProxy) -> bool:
+    body = request.json()
+    query = body.get("query", "")
+    unknown = sorted(set(IDENTIFIER_RE.findall(query)) - TOPIC_QUERY_KNOWN_FIELDS)
+    assert not unknown, f"unknown field(s) in TOPIC_CATALOG_QUERY: {unknown}"
+    return "variables" not in body and bool(INLINED_PAGINATION_RE.search(query))
+
+
+def _is_non_inlined_pagination(
+    request: requests_mock.request._RequestObjectProxy,
+) -> bool:
+    return not _pagination_is_inlined(request)
 
 
 @pytest.fixture(scope="module")
@@ -99,6 +163,35 @@ def test_kafka_ingest(
         pytestconfig,
         output_path=tmp_path / f"{approach}_mces.json",
         golden_path=test_resources_dir / f"{approach}_mces_golden.json",
+        ignore_paths=[],
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_kafka_confluent_catalog_ingest(
+    mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time
+):
+    config_file = (test_resources_dir / "kafka_catalog_to_file.yml").resolve()
+
+    with requests_mock.Mocker(real_http=True) as catalog_api:
+        catalog_api.post(
+            f"{CATALOG_STUB_URL}/catalog/graphql",
+            additional_matcher=_pagination_is_inlined,
+            json={"data": {"kafka_topic": CATALOG_TOPICS}},
+        )
+        catalog_api.post(
+            f"{CATALOG_STUB_URL}/catalog/graphql",
+            additional_matcher=_is_non_inlined_pagination,
+            exc=AssertionError(
+                "Catalog GraphQL must inline limit/offset; variables maps are rejected"
+            ),
+        )
+        run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_catalog_mces.json",
+        golden_path=test_resources_dir / "kafka_catalog_mces_golden.json",
         ignore_paths=[],
     )
 

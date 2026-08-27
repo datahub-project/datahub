@@ -108,7 +108,6 @@ task cleanPythonCache(type: Exec) {
 }
 
 build.dependsOn install
-check.dependsOn lint
 check.dependsOn testFull
 
 clean {

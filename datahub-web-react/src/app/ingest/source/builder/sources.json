@@ -183,6 +183,14 @@
         "recipe": "source: \n    type: hive\n    config:\n        # Coordinates\n        host_port: # Your Hive host and port, e.g. hive:10000\n        database: # Your Hive database name, e.g. SampleDatabase (Optional, if not specified, ingests from all databases)\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Hive username, e.g. admin\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:informix",
+        "name": "informix",
+        "displayName": "Informix",
+        "description": "Import Databases, Schemas, Tables, Views, foreign keys, and view lineage from IBM/HCL Informix.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/informix/",
+        "recipe": "source:\n    type: informix\n    config:\n        # Coordinates\n        host_port: # Your Informix host and port, e.g. localhost:9088\n        server: # INFORMIXSERVER name, e.g. informix\n        database: # Your Informix database name, e.g. mydb\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Informix username, e.g. informix\n        password: \"${INFORMIX_PASSWORD}\"\n\n        # Required to auto-download the proprietary IBM JDBC driver from Maven Central\n        accept_ibm_jdbc_license: true\n\n        # Options\n        include_tables: true\n        include_views: true\n        include_view_lineage: true\n        include_foreign_keys: true\n        include_row_counts: true\n        include_ownership: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:presto",
         "name": "presto",
         "displayName": "Presto",

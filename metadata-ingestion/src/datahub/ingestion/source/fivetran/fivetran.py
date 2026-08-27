@@ -199,6 +199,9 @@ class FivetranSource(StatefulIngestionSourceBase):
         # exactly one warning per destination per ingest, and the
         # individual edges are still skipped silently after the first.
         self._destinations_with_urn_warning: set[str] = set()
+        # Once-per-ingest dedup for blank-column CLL skip warnings. The counter
+        # still tracks every skipped edge; only the first emits a warning.
+        self._blank_column_lineage_warning_emitted: bool = False
         # Per-pair DataJob URNs are derived from table names, so a dropped or
         # renamed pair leaves an orphan DataJob carrying stale lineage. Stale
         # removal soft-deletes primary-source entities missing from this run.
@@ -350,20 +353,45 @@ class FivetranSource(StatefulIngestionSourceBase):
             return []
         fine_grained_lineage: List[FineGrainedLineage] = []
         for column_lineage in lineage.column_lineage:
+            # Blank names → invalid schemaField URNs → GMS 422 kills the batch.
+            # Keep raw values for URNs; strip only for the emptiness check.
+            # `or ""`: DB-log reader can pass SQL NULL through as None.
+            source_col = column_lineage.source_column or ""
+            dest_col = column_lineage.destination_column or ""
+            if not source_col.strip() or not dest_col.strip():
+                self.report.num_column_lineage_edges_skipped_blank_name += 1
+                if not self._blank_column_lineage_warning_emitted:
+                    self._blank_column_lineage_warning_emitted = True
+                    self.report.warning(
+                        title="Column lineage skipped due to blank column name",
+                        message=(
+                            "Skipping column lineage edges with blank source or "
+                            "destination column names. Subsequent occurrences will "
+                            "be skipped silently (see "
+                            "num_column_lineage_edges_skipped_blank_name for the total)."
+                        ),
+                        context=(
+                            f"source_table={lineage.source_table}, "
+                            f"destination_table={lineage.destination_table}, "
+                            f"source_column={source_col!r}, "
+                            f"destination_column={dest_col!r}"
+                        ),
+                    )
+                continue
             fine_grained_lineage.append(
                 FineGrainedLineage(
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                     upstreams=[
                         builder.make_schema_field_urn(
                             str(input_dataset_urn),
-                            column_lineage.source_column,
+                            source_col,
                         )
                     ],
                     downstreamType=FineGrainedLineageDownstreamType.FIELD,
                     downstreams=[
                         builder.make_schema_field_urn(
                             str(output_dataset_urn),
-                            column_lineage.destination_column,
+                            dest_col,
                         )
                     ],
                 )
