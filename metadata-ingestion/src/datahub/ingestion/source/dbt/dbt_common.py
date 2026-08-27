@@ -2224,8 +2224,39 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         return nodes
 
+    @staticmethod
+    def _drop_same_project_semantic_aliases(
+        contenders: List[DBTNode],
+    ) -> List[DBTNode]:
+        """Drop semantic models that merely alias a node from their own project.
+
+        A dbt semantic model's node_relation is the relation of the model it wraps,
+        and dbt's own convention names the semantic model after that model - so
+        semantic_model.<pkg>.orders and model.<pkg>.orders legitimately resolve to
+        one database.schema.name, and therefore one URN, inside a single project.
+        That is expected aliasing rather than the cross-project clobber this check
+        exists to catch, and treating it as a collision would hard-fail a correct
+        single-project configuration.
+
+        A semantic model whose URN is claimed by a node from a *different* manifest
+        is a real collision and stays in the group, so two projects whose semantic
+        models resolve to the same relation are still detected.
+        """
+        return [
+            node
+            for node in contenders
+            if node.node_type != "semantic_model"
+            or not any(
+                other is not node and other.manifest_path == node.manifest_path
+                for other in contenders
+            )
+        ]
+
     def _check_duplicate_models(self, nodes: List[DBTNode]) -> List[DBTNode]:
-        """Detect models, seeds, or snapshots from different dbt projects that resolve to the same dataset URN.
+        """Detect nodes from different dbt projects that resolve to the same dataset URN.
+
+        Covers models, seeds, snapshots, and semantic models - every node type that
+        exists_in_target_platform routes to a get_db_fqn()-derived dataset URN.
 
         The URN is derived from get_db_fqn() -> database.schema.name, and dbt's
         unique_id (which carries the project name) is not part of it. dbt guarantees
@@ -2256,7 +2287,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         by_urn: Dict[str, List[DBTNode]] = defaultdict(list)
         for node in nodes:
             if (
-                node.node_type in {"model", "seed", "snapshot"}
+                node.node_type in {"model", "seed", "snapshot", "semantic_model"}
                 and node.exists_in_target_platform
                 # Restricted to entities that can actually be emitted, so a collision
                 # between two nodes the user has excluded never fails the run.
@@ -2272,6 +2303,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         drop: Set[str] = set()
         rewire: Dict[str, str] = {}  # loser dbt_name -> winner dbt_name
         for urn, contenders in sorted(by_urn.items()):
+            contenders = self._drop_same_project_semantic_aliases(contenders)
             if len(contenders) < 2:
                 continue
 
@@ -2285,8 +2317,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if self.config.fail_on_duplicate_models:
                 self.report.failure(
                     title="Duplicate model names across dbt projects",
-                    message="Multiple dbt models, seeds, or snapshots materialize to "
-                    "the same table in the target platform, so they would share one "
+                    message="Multiple dbt nodes materialize to the same table in "
+                    "the target platform, so they would share one "
                     "URN and overwrite each other. None of them were emitted. Fix the "
                     "dbt projects so that each materializes to a distinct relation.",
                     context=context,
@@ -2296,8 +2328,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 winner, *losers = contenders
                 self.report.warning(
                     title="Duplicate model names across dbt projects",
-                    message="Multiple dbt models, seeds, or snapshots materialize to "
-                    "the same table. Keeping one of them and dropping the rest; their "
+                    message="Multiple dbt nodes materialize to the same table. "
+                    "Keeping one of them and dropping the rest; their "
                     "metadata will be lost.",
                     context=f"{context}; keeping {winner.dbt_name}",
                 )

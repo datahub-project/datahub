@@ -116,6 +116,8 @@ def _write_project(
     catalog_generated_at: Optional[str] = None,
     package_name: Optional[str] = None,
     depends_on: Optional[Dict[str, List[str]]] = None,
+    semantic_models: Optional[Dict[str, Dict[str, Any]]] = None,
+    generated_at: str = "2026-01-01T00:00:00.000000Z",
 ) -> None:
     """Write a minimal dbt target/ directory for one project.
 
@@ -124,7 +126,9 @@ def _write_project(
     unique_id (defaults to `project`), so a test can put two distinct project
     directories on a dbt package name that collides across them. Each entry in
     `models` may set "resource_type" (defaults to "model") to write a seed or
-    snapshot node instead.
+    snapshot node instead. semantic_models is written verbatim into the manifest's
+    semantic_models section, and generated_at overrides the manifest's own
+    generated_at (which drives Query entity timestamps).
     """
     project_dir = root / project
     project_dir.mkdir(parents=True, exist_ok=True)
@@ -160,7 +164,7 @@ def _write_project(
             "dbt_version": "1.8.0",
             "adapter_type": "postgres",
             "project_name": project,
-            "generated_at": "2026-01-01T00:00:00.000000Z",
+            "generated_at": generated_at,
             "invocation_id": f"invocation-{project}",
         },
         "nodes": nodes,
@@ -171,7 +175,7 @@ def _write_project(
         "child_map": {},
         "parent_map": {},
         "disabled": {},
-        "semantic_models": {},
+        "semantic_models": semantic_models or {},
     }
     (project_dir / "manifest.json").write_text(json.dumps(manifest))
 
@@ -573,6 +577,100 @@ def test_cross_project_seed_collision_fails(tmp_path: pathlib.Path) -> None:
     assert source.report.duplicate_models_detected == 2
     failures_by_title = {f.title: f for f in source.report.failures}
     assert "Duplicate model names across dbt projects" in failures_by_title
+
+
+def _semantic_model(
+    unique_id: str, name: str, database: str, schema: str, wraps: Optional[str] = None
+) -> Dict[str, Any]:
+    """One manifest semantic_models entry.
+
+    A dbt semantic model's node_relation is the relation of the model it wraps, so
+    database/schema come from that model - which is why a semantic model shares a
+    get_db_fqn() with its own project's model when dbt's naming convention gives
+    them the same name.
+    """
+    return {
+        "name": name,
+        "description": "",
+        "node_relation": {"database": database, "schema": schema, "alias": name},
+        "depends_on": {"nodes": [wraps] if wraps else []},
+        "entities": [],
+        "dimensions": [],
+        "measures": [{"name": "count", "agg": "count", "description": ""}],
+        "tags": [],
+        "meta": {},
+    }
+
+
+def test_cross_project_semantic_model_collision_fails(tmp_path: pathlib.Path) -> None:
+    """Two projects' semantic models resolving to one relation is a real collision.
+
+    exists_in_target_platform is true for semantic models, so they receive the same
+    get_db_fqn()-derived dataset URN as a model - two projects claiming it would
+    silently overwrite each other's aspects exactly as two models would.
+    """
+    for project in ["project_a", "project_b"]:
+        _write_project(
+            tmp_path,
+            project,
+            [{"name": f"orders_{project}", "database": "db", "schema": f"sch_{project}"}],
+            semantic_models={
+                f"semantic_model.{project}.order_metrics": _semantic_model(
+                    f"semantic_model.{project}.order_metrics",
+                    "order_metrics",
+                    "db",
+                    "shared",
+                )
+            },
+        )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes = source._check_duplicate_models(source.load_nodes())
+
+    assert [node.dbt_name for node in nodes] == [
+        "model.project_a.orders_project_a",
+        "model.project_b.orders_project_b",
+    ]
+    assert source.report.duplicate_models_detected == 2
+    failures_by_title = {f.title: f for f in source.report.failures}
+    assert "Duplicate model names across dbt projects" in failures_by_title
+
+
+def test_semantic_model_aliasing_its_own_project_model_is_not_a_collision(
+    tmp_path: pathlib.Path,
+) -> None:
+    """dbt's own naming convention must not be reported as a cross-project collision.
+
+    dbt names a semantic model after the model it wraps (`- name: orders` on
+    `model: ref('orders')`), and its node_relation is that model's relation - so the
+    two share one database.schema.name inside a single project by design. Reporting
+    that would hard-fail correct single-project recipes and, because report.failure
+    trips the stale-entity-removal guard, suppress soft-deletion estate-wide.
+    """
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "sch"}],
+        semantic_models={
+            "semantic_model.project_a.orders": _semantic_model(
+                "semantic_model.project_a.orders",
+                "orders",
+                "db",
+                "sch",
+                wraps="model.project_a.orders",
+            )
+        },
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/project_a/manifest.json")
+    all_nodes = source.load_nodes()
+    # Precondition: the two really do share a URN, so this fixture exercises the
+    # exemption rather than passing because the collision never arose.
+    assert len({node.get_db_fqn() for node in all_nodes}) == 1
+
+    assert source._check_duplicate_models(all_nodes) == all_nodes
+    assert source.report.duplicate_models_detected == 0
+    assert not source.report.failures
 
 
 def test_cross_project_collision_drop_mode_keeps_lowest_dbt_name(
