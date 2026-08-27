@@ -1,5 +1,20 @@
+import pytest
+
 from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.emitter.token_provider import StaticTokenProvider, TokenProviderAuth
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_credentials(monkeypatch):
+    # The emitter resolves these from the environment, so a developer machine
+    # with any of them exported would otherwise change what these tests assert.
+    for var in (
+        "DATAHUB_AUTH_TYPE",
+        "DATAHUB_GMS_TOKEN",
+        "DATAHUB_SYSTEM_CLIENT_ID",
+        "DATAHUB_SYSTEM_CLIENT_SECRET",
+    ):
+        monkeypatch.delenv(var, raising=False)
 
 
 def test_emitter_installs_session_auth_and_skips_static_header():
@@ -14,3 +29,72 @@ def test_emitter_static_token_still_works():
     emitter = DataHubRestEmitter(gms_server="http://gms", token="tok")
     assert emitter._session.headers.get("Authorization") == "Bearer tok"
     assert emitter._session.auth is None
+
+
+@pytest.mark.parametrize("token", [None, ""])
+def test_emitter_explicit_host_uses_env_oauth(monkeypatch, token):
+    # No real token/auth passed + DATAHUB_AUTH_TYPE set -> the emitter resolves
+    # env OAuth even for an explicit host (not just the __from_env__ sentinel).
+    # An empty-string token counts as "no token": that is how a blank password
+    # arrives from a URI/env-defined Airflow connection, and it bakes no
+    # Authorization header, so suppressing env OAuth for it would leave the
+    # client silently unauthenticated.
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "http://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "csecret")
+    emitter = DataHubRestEmitter(gms_server="http://gms", token=token)
+    assert isinstance(emitter._session.auth, TokenProviderAuth)
+    assert "Authorization" not in emitter._session.headers
+
+
+def test_emitter_explicit_token_beats_env_oauth(monkeypatch):
+    # Caller-supplied token wins: env OAuth must not override explicit creds.
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "http://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "csecret")
+    emitter = DataHubRestEmitter(gms_server="http://gms", token="tok")
+    assert emitter._session.auth is None
+    assert emitter._session.headers.get("Authorization") == "Bearer tok"
+
+
+def test_emitter_no_env_auth_is_unchanged(monkeypatch):
+    # No DATAHUB_AUTH_TYPE -> no auth resolved, existing behavior preserved.
+    emitter = DataHubRestEmitter(gms_server="http://gms")
+    assert emitter._session.auth is None
+
+
+def test_emitter_resolve_env_auth_false_suppresses_env_oauth(monkeypatch):
+    # A caller that does its own env-auth resolution (e.g. the datahub-rest sink,
+    # with its origin guard) passes resolve_env_auth=False; the emitter must NOT
+    # re-resolve env OAuth, even with DATAHUB_AUTH_TYPE set.
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "http://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "csecret")
+    emitter = DataHubRestEmitter(gms_server="http://gms", resolve_env_auth=False)
+    assert emitter._session.auth is None
+
+
+def test_emitter_explicit_host_ignores_static_gms_token(monkeypatch):
+    # Invariant: an explicit-host tokenless emitter must NOT read the static
+    # DATAHUB_GMS_TOKEN from env (that env token is only for the __from_env__
+    # sentinel). With no DATAHUB_AUTH_TYPE it falls through to system auth and
+    # must never bake `Bearer <DATAHUB_GMS_TOKEN>`.
+    monkeypatch.setenv("DATAHUB_GMS_TOKEN", "static-env-token")
+    emitter = DataHubRestEmitter(gms_server="http://gms")
+    assert emitter._session.auth is None
+    assert emitter._session.headers.get("Authorization") != "Bearer static-env-token"
+
+
+def test_to_graph_does_not_re_resolve_env_auth(monkeypatch):
+    # Regression: an emitter built with auth= has _token None, so the config
+    # from_emitter rebuilds looks credential-free. If the graph constructor
+    # re-resolved DATAHUB_AUTH_TYPE there, a malformed value in the ambient
+    # environment would raise before the verbatim auth copy could run, breaking
+    # a to_graph() that has nothing to do with env auth.
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "azure_entra")  # required vars absent
+    auth = TokenProviderAuth(StaticTokenProvider("recipe-tok"), retry_on_401=False)
+    graph = DataHubRestEmitter("http://gms", auth=auth).to_graph()
+    assert graph._session.auth is auth
