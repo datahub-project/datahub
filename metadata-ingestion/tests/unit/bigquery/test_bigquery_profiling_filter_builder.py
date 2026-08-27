@@ -307,6 +307,15 @@ class TestFilterBuilderRangeLowerBound:
         with pytest.raises(ValueError, match="Invalid column name"):
             FilterBuilder.create_lower_bound_filter("bucket; DROP", "100", "INT64")
 
+    def test_range_id_that_looks_like_a_date_is_not_date_normalized(self):
+        # A digit RANGE bucket id with no column type must be scanned as an integer
+        # floor, not rewritten to YYYY-MM-DD — the date rewrite would then fail int()
+        # parsing in create_lower_bound_filter and drop the partition entirely.
+        filters = FilterBuilder.convert_partition_id_to_filters(
+            "20250115", ["bucket"], is_range_partition=True
+        )
+        assert filters == ["`bucket` >= 20250115"]
+
 
 class TestFilterBuilderPartitionDatetime:
     def test_day_granularity_builds_half_open_range(self):
@@ -379,6 +388,19 @@ class TestFilterBuilderPartitionDatetime:
             "AND `ts` < TIMESTAMP('2025-01-15 06:00:00+00:00')"
         )
 
+    def test_low_year_is_zero_padded_to_four_digits(self):
+        # Years < 1000 must render as four digits; C strftime("%Y") is not guaranteed to
+        # zero-pad them, and BigQuery rejects a non-four-digit year literal.
+        result = FilterBuilder.create_partition_datetime_filter(
+            "d", datetime(5, 3, 7), "DATE", "DAY"
+        )
+        assert result == "`d` >= '0005-03-07' AND `d` < '0005-03-08'"
+
+    def test_full_year_range_low_year_end_is_padded(self):
+        # The exclusive end (year+1) must also be four digits: 0999 -> "1000-01-01".
+        result = FilterBuilder.create_safe_filter("d", "0999", "DATE")
+        assert result == "`d` >= '0999-01-01' AND `d` < '1000-01-01'"
+
     def test_datetime_column_stays_timezone_free(self):
         # DATETIME has no timezone in BigQuery; an offset on the input must not leak in.
         moment = datetime(2025, 1, 15, 10, 30, tzinfo=timezone(timedelta(hours=-8)))
@@ -415,6 +437,13 @@ class TestFilterBuilderCompactPartitionIdRanges:
     def test_day_id_on_date_column_stays_equality(self):
         # A DATE day-partition equals exactly that date; no range needed.
         result = FilterBuilder.create_safe_filter("d", "20250115", "DATE")
+        assert result == "`d` = '2025-01-15'"
+
+    def test_hour_id_on_date_column_falls_back_to_day_equality(self):
+        # A 10-digit YYYYMMDDHH id on a DATE column must not build an hourly range: DATE
+        # formatting drops the hour, so both bounds render to the same YYYY-MM-DD and
+        # the predicate matches zero rows. It must fall back to a day equality instead.
+        result = FilterBuilder.create_safe_filter("d", "2025011510", "DATE")
         assert result == "`d` = '2025-01-15'"
 
 
