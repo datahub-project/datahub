@@ -86,7 +86,7 @@
     "menuItem.showVersions": "显示版本",
     "menuItem.unlinkVersion": "取消与先前版本的链接",
     "move.error": "移动失败：\n {{errorMessage}}",
-    "move.success": "感动{{entityName}}！",
+"move.success": "移动了{{entityName}}！",
     "move.toLabel": "移至<optional>（可选）</optional>",
     "moveDataProduct.title": "移动数据产品",
     "moveDomain.title": "移动数据域",
