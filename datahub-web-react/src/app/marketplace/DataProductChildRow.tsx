@@ -6,7 +6,7 @@ import { MarketplaceTreeItem } from '@app/marketplace/MarketplaceTreeItem';
 import { useMarketplaceEntityContext } from '@app/marketplace/context/MarketplaceEntityContext';
 import { DataProductEntity } from '@app/marketplace/marketplaceTypes';
 import useDataProductChildren from '@app/marketplace/useDataProductChildren';
-import { mergeDataProductEntities } from '@app/marketplace/utils/marketplaceDataProductEntity';
+import { countPendingOptimistic, mergeDataProductEntities } from '@app/marketplace/utils/marketplaceDataProductEntity';
 import { PageRoutes } from '@conf/Global';
 
 export type DataProductChildRowProps = {
@@ -34,7 +34,6 @@ export function DataProductChildRow({
     const { entityData, getOptimisticChildren, refetchKey } = useMarketplaceEntityContext();
     const optimisticChildren = getOptimisticChildren(dataProduct.urn);
     const hasChildren = (dataProduct.childDataProducts?.total ?? 0) > 0 || optimisticChildren.length > 0;
-    const childCount = Math.max(dataProduct.childDataProducts?.total ?? 0, optimisticChildren.length);
 
     useEffect(() => {
         if (!entityData?.parentDataProducts) return;
@@ -60,6 +59,7 @@ export function DataProductChildRow({
         () => mergeDataProductEntities(data as DataProductEntity[], optimisticChildren),
         [data, optimisticChildren],
     );
+    const childCount = (dataProduct.childDataProducts?.total ?? 0) + countPendingOptimistic(data, optimisticChildren);
     const title = dataProduct.properties?.name ?? dataProduct.urn;
 
     return (

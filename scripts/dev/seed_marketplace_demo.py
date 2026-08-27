@@ -17,7 +17,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "smoke-test"))
 
-from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
@@ -175,8 +175,8 @@ def seed() -> None:
     me = graph.execute_graphql("query { me { corpUser { urn } } }", {})
     owner_urn = me["me"]["corpUser"]["urn"]
 
-    tag_production = make_tag_urn(f"{DEMO_PREFIX}_production")
-    tag_analytics = make_tag_urn(f"{DEMO_PREFIX}_analytics")
+    tag_production = graph.create_tag(f"{DEMO_PREFIX}_production")
+    tag_analytics = graph.create_tag(f"{DEMO_PREFIX}_analytics")
 
     datasets = {
         "customers": emit_dataset(

@@ -268,12 +268,17 @@ export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onE
         return mergeMarketplaceVisibleRootProducts(mergedRootProducts, fallbackProducts);
     }, [mergedRootProducts, fallbackData, fallbackRootUrn]);
 
+    // Only pass fetched/indexed URNs — visibleProducts includes optimistic rows and would prune them early.
     useEffect(() => {
+        const fallbackIndexedUrns = (fallbackData?.scrollAcrossEntities?.searchResults ?? [])
+            .map((r) => r.entity?.urn)
+            .filter((urn): urn is string => !!urn);
         syncOptimisticWithIndexed([
             ...searchResults.map((product) => product.urn),
-            ...visibleProducts.map((product) => product.urn),
+            ...rootProducts.map((product) => product.urn),
+            ...fallbackIndexedUrns,
         ]);
-    }, [searchResults, visibleProducts, syncOptimisticWithIndexed]);
+    }, [searchResults, rootProducts, fallbackData, syncOptimisticWithIndexed]);
 
     useEffect(() => {
         if (refetchKey > 0 && !isSearchActive) {

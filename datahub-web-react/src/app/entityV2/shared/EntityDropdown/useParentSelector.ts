@@ -74,12 +74,12 @@ export default function useParentSelector({ entityType, entityData, selectedPare
         [entityType, getAutoCompleteResults, searchAcrossEntities, usesSearchAcross],
     );
 
+    // DataProduct search is debounced via effect; Domain/other types fetch directly in handleSearch.
     useEffect(() => {
-        if (usesSearchAcross) {
-            fetchResults(debouncedSearchQuery);
+        if (!usesSearchAcross) {
             return;
         }
-        fetchResults('*');
+        fetchResults(debouncedSearchQuery);
     }, [debouncedSearchQuery, fetchResults, usesSearchAcross]);
 
     useEffect(() => {
@@ -91,6 +91,10 @@ export default function useParentSelector({ entityType, entityData, selectedPare
 
     const searchResults = useMemo((): Entity[] => {
         if (usesSearchAcross) {
+            // Hide previous matches while the typed query is still debouncing.
+            if (normalizeParentSearchQuery(searchQuery) !== debouncedSearchQuery) {
+                return [];
+            }
             return (
                 searchAcrossResultsValue?.searchAcrossEntities?.searchResults
                     ?.map((result) => result.entity)
@@ -99,7 +103,7 @@ export default function useParentSelector({ entityType, entityData, selectedPare
         }
 
         return autoCompleteResultsValue?.autoComplete?.entities ?? [];
-    }, [autoCompleteResultsValue, searchAcrossResultsValue, usesSearchAcross]);
+    }, [autoCompleteResultsValue, debouncedSearchQuery, searchAcrossResultsValue, searchQuery, usesSearchAcross]);
 
     function handleSearch(text: string) {
         setSearchQuery(text);

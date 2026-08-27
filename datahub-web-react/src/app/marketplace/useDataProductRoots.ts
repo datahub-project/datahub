@@ -46,8 +46,8 @@ export default function useDataProductRoots(skip = false) {
 
     useEffect(() => {
         if (skip) {
+            // Keep prior browse results so leaving search does not flash an empty tree.
             setScrollId(null);
-            setData([]);
         }
     }, [skip]);
 

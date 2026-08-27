@@ -32,7 +32,7 @@ export default function CreateMarketplaceDataProductModal({ open, onClose, onCre
     const [selectedDomainUrns, setSelectedDomainUrns] = useState<string[]>([]);
     const [builderState, updateBuilderState] = useState<DataProductBuilderState>(DEFAULT_STATE);
     const [domainSelectorKey, setDomainSelectorKey] = useState(0);
-    const [createDataProductMutation] = useCreateDataProductMutation();
+    const [createDataProductMutation, { loading: isCreating }] = useCreateDataProductMutation();
 
     const domainUrn = selectedDomainUrns[0];
 
@@ -47,7 +47,7 @@ export default function CreateMarketplaceDataProductModal({ open, onClose, onCre
     }, [open]);
 
     function createDataProduct() {
-        if (!domainUrn) return;
+        if (!domainUrn || isCreating) return;
 
         createDataProductMutation({
             variables: {
@@ -85,13 +85,15 @@ export default function CreateMarketplaceDataProductModal({ open, onClose, onCre
                     text: tc('cancel'),
                     variant: 'text',
                     onClick: onClose,
+                    disabled: isCreating,
                     buttonDataTestId: 'cancel-button',
                 },
                 {
                     text: tc('create'),
                     onClick: createDataProduct,
                     variant: 'filled',
-                    disabled: !builderState.name || !domainUrn,
+                    disabled: !builderState.name || !domainUrn || isCreating,
+                    isLoading: isCreating,
                     buttonDataTestId: 'submit-button',
                 },
             ]}

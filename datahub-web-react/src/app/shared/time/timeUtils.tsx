@@ -227,8 +227,9 @@ export const toCompactRelativeTimeString = (timeMs: number | undefined | null): 
         return i18next.t('shared.time:compactWeeksAgo', { count: weeks });
     }
 
-    const months = Math.floor(days / 30);
-    if (months < 12) {
+    // Compare against 365 days (not months < 12) — days 360–364 yield months === 12 and years === 0.
+    if (days < 365) {
+        const months = Math.max(1, Math.floor(days / 30));
         return i18next.t('shared.time:compactMonthsAgo', { count: months });
     }
 

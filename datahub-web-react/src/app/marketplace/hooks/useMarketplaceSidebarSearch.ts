@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 import { DataProductEntity } from '@app/marketplace/marketplaceTypes';
@@ -70,10 +70,14 @@ export default function useMarketplaceSidebarSearch({
         [query, domainUrns, tagUrns, termUrns, ownerUrns, applicationUrns, viewUrn],
     );
 
-    useEffect(() => {
+    // Reset scroll cursor synchronously when criteria change so the next query never
+    // pairs a new search with the previous search's scrollId.
+    const [prevCriteriaKey, setPrevCriteriaKey] = useState(criteriaKey);
+    if (criteriaKey !== prevCriteriaKey) {
+        setPrevCriteriaKey(criteriaKey);
         setScrollId(null);
         setDataProducts([]);
-    }, [criteriaKey]);
+    }
 
     const {
         data: scrollData,
@@ -100,14 +104,10 @@ export default function useMarketplaceSidebarSearch({
         fetchPolicy: 'network-only',
     });
 
-    const activeCriteriaKeyRef = useRef(criteriaKey);
-    activeCriteriaKeyRef.current = criteriaKey;
-
     useEffect(() => {
         if (skip || error) return;
         if (loading && scrollId === null) return;
         if (!scrollData?.scrollAcrossEntities?.searchResults) return;
-        if (activeCriteriaKeyRef.current !== criteriaKey) return;
 
         const fresh = scrollData.scrollAcrossEntities.searchResults
             .map((r) => r.entity)
@@ -120,7 +120,7 @@ export default function useMarketplaceSidebarSearch({
                 scrollId,
             }),
         );
-    }, [scrollData, skip, error, loading, scrollId, criteriaKey]);
+    }, [scrollData, skip, error, loading, scrollId]);
 
     const nextScrollId = scrollData?.scrollAcrossEntities?.nextScrollId;
     const total =
