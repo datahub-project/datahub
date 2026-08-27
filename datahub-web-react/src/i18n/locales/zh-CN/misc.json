@@ -80,7 +80,7 @@
     "context.import.importingTitle": "导入文档...",
     "context.import.notionAlt": "概念",
     "context.import.notionDescription": "从 Notion 工作区导入上下文文档",
-    "context.import.notionTitle": "概念",
+"context.import.notionTitle": "Notion",
     "context.import.scheduledSource.confluence": "配置计划的 Confluence 数据采集源。在下一个屏幕上选择站点凭据和空间。",
     "context.import.scheduledSource.github": "配置计划的 GitHub 文档数据采集源。在下一个屏幕上选择存储库、分支和凭据。",
     "context.import.scheduledSource.notion": "配置调度的Notion 数据采集源。在下一个屏幕上选择工作区凭据和页面。",
