@@ -850,6 +850,32 @@ def test_lazy_project_lineage_resolves_once_and_caches_failures() -> None:
     assert fake_client.model_table_calls == 1
 
 
+def test_fetch_project_model_tables_requests_logical_table_information() -> None:
+    # Regression: the semantic-model mapper reads each table's top-level
+    # "information" block for the logical table id/name (needed to resolve
+    # attribute-hierarchy relationships and to keep role-played tables
+    # distinct), but MicroStrategy's `fields` parameter is a root-level
+    # whitelist -- omitting "information" there means the API never returns
+    # it at all, regardless of what the mapper does with the response.
+    source = _source({"extract_model_lineage": True})
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.fields_requested: List[str] = []
+
+        def list_model_tables(self, *args: Any, **kwargs: Any) -> ModelTablesResponse:
+            self.fields_requested.append(kwargs.get("fields", ""))
+            return ModelTablesResponse(tables=[], total=0)
+
+    fake_client = FakeClient()
+    source.client = fake_client  # type: ignore[assignment]
+
+    source._fetch_project_model_tables("project-1")
+
+    assert fake_client.fields_requested
+    assert all("information" in fields for fields in fake_client.fields_requested)
+
+
 def test_project_lineage_apis_skipped_when_all_dashboards_filtered() -> None:
     source = _source(
         {

@@ -827,7 +827,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     project_id,
                     limit=self.config.page_size,
                     offset=offset,
-                    fields="physicalTable,attributes,facts",
+                    fields="information,physicalTable,attributes,facts",
                 )
             except MicroStrategyAPIError as error:
                 self.report.report_model_lineage_api_failure()
