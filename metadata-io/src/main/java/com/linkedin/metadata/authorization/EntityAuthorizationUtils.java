@@ -353,8 +353,8 @@ public final class EntityAuthorizationUtils {
    * entity-read surfaces serialize aspect content generically — there is no per-field mapper the
    * way GraphQL has — so every one of them must consult this for these aspect names specifically
    * before including them in a response, withholding the whole aspect (coarser than GraphQL's
-   * field-level redaction, which keeps non-SQL fields like {@code materialized}/{@code language}
-   * or {@code type} visible) rather than not at all.
+   * field-level redaction, which keeps non-SQL fields like {@code materialized}/{@code language} or
+   * {@code type} visible) rather than not at all.
    */
   public static boolean isQuerySqlAspectRestricted(
       @Nonnull OperationContext opContext, @Nonnull Urn entityUrn, @Nonnull String aspectName) {
@@ -386,7 +386,8 @@ public final class EntityAuthorizationUtils {
       }
       for (String aspectName :
           List.of(
-              VIEW_PROPERTIES_ASPECT_NAME, DATA_TRANSFORM_LOGIC_ASPECT_NAME,
+              VIEW_PROPERTIES_ASPECT_NAME,
+              DATA_TRANSFORM_LOGIC_ASPECT_NAME,
               CHART_QUERY_ASPECT_NAME)) {
         if (aspects.containsKey(aspectName)
             && isQuerySqlAspectRestricted(opContext, urn, aspectName)) {
@@ -397,11 +398,11 @@ public final class EntityAuthorizationUtils {
   }
 
   /**
-   * Whether {@code topSqlQueries} within a raw {@code datasetUsageStatistics} timeseries aspect
-   * for {@code entityUrn} must be withheld from the actor. Unlike {@link
-   * #isQuerySqlAspectRestricted}, this only ever restricts one field within the aspect — the
-   * numeric usage counts alongside it are never privilege-gated — so callers strip just that
-   * field (via {@link #stripTopSqlQueriesFromRawAspect}) rather than dropping the whole aspect.
+   * Whether {@code topSqlQueries} within a raw {@code datasetUsageStatistics} timeseries aspect for
+   * {@code entityUrn} must be withheld from the actor. Unlike {@link #isQuerySqlAspectRestricted},
+   * this only ever restricts one field within the aspect — the numeric usage counts alongside it
+   * are never privilege-gated — so callers strip just that field (via {@link
+   * #stripTopSqlQueriesFromRawAspect}) rather than dropping the whole aspect.
    */
   public static boolean isTopSqlQueriesFieldRestricted(
       @Nonnull OperationContext opContext, @Nonnull Urn entityUrn, @Nonnull String aspectName) {
@@ -414,10 +415,10 @@ public final class EntityAuthorizationUtils {
    * Removes {@code topSqlQueries} in place from a raw {@code datasetUsageStatistics} aspect map
    * when {@link #isTopSqlQueriesFieldRestricted} — the generic-read counterpart to {@code
    * UsageStats#stripTopSqlQueriesIfRestricted}, for surfaces (v3 {@code EntityController}'s
-   * timeseries branch, GraphQL's raw-aspect resolver, OpenAPI v2 {@code TimeseriesController})
-   * that already hold the aspect as a live map — a Pegasus {@link DataMap} (itself a {@code
-   * Map<String, Object>}) or, for the Elasticsearch-backed OpenAPI v2 path, the plain {@code
-   * Map<String, Object>} parsed straight from the search hit's source — rather than {@link
+   * timeseries branch, GraphQL's raw-aspect resolver, OpenAPI v2 {@code TimeseriesController}) that
+   * already hold the aspect as a live map — a Pegasus {@link DataMap} (itself a {@code Map<String,
+   * Object>}) or, for the Elasticsearch-backed OpenAPI v2 path, the plain {@code Map<String,
+   * Object>} parsed straight from the search hit's source — rather than {@link
    * com.linkedin.mxe.GenericAspect}-serialized bytes.
    */
   public static void stripTopSqlQueriesFromRawAspect(
@@ -433,8 +434,8 @@ public final class EntityAuthorizationUtils {
   /**
    * {@link #stripTopSqlQueriesFromRawAspect}'s counterpart for surfaces (Rest.li {@code
    * AspectResource#getTimeseriesAspectValues}, OpenAPI v2 {@code TimeseriesController}) that carry
-   * timeseries aspect values as {@link com.linkedin.mxe.GenericAspect}-serialized bytes rather
-   * than a live DataMap: deserializes, strips the field if restricted, and re-serializes back onto
+   * timeseries aspect values as {@link com.linkedin.mxe.GenericAspect}-serialized bytes rather than
+   * a live DataMap: deserializes, strips the field if restricted, and re-serializes back onto
    * {@code envelopedAspect} in place. A no-op re-serialization when nothing was stripped is
    * accepted for simplicity, since this only ever runs for {@code datasetUsageStatistics} values.
    */
@@ -453,7 +454,8 @@ public final class EntityAuthorizationUtils {
             generic.getContentType(),
             com.linkedin.dataset.DatasetUsageStatistics.class);
     stats.data().remove("topSqlQueries");
-    envelopedAspect.setAspect(com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect(stats));
+    envelopedAspect.setAspect(
+        com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect(stats));
   }
 
   /**
