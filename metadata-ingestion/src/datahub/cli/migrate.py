@@ -42,7 +42,11 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
 )
 from datahub.migration import engine
-from datahub.migration.fetch import fetch_instance_urns, fetch_platform_urns
+from datahub.migration.fetch import (
+    _matches_pipeline_name,
+    fetch_instance_urns,
+    fetch_platform_urns,
+)
 from datahub.migration.models import (
     ConflictStrategy,
     MigrationOptions,
@@ -107,6 +111,28 @@ def _warn_dataflow_datajob_coupling(
 
 
 # --- Core migration logic ---
+
+
+def _filter_by_pipeline_name(
+    graph: DataHubGraph,
+    urns: List[str],
+    pipeline_name: str,
+) -> List[str]:
+    """Filter URNs to only those produced by *pipeline_name*.
+
+    Each URN requires an API call to check systemMetadata, so a progress bar
+    is shown for user feedback.
+    """
+    matched: List[str] = []
+    click.echo(f"Filtering {len(urns)} entities by pipeline '{pipeline_name}'...")
+    with click.progressbar(urns, label="Checking pipeline ownership") as bar:
+        for urn in bar:
+            if _matches_pipeline_name(graph, urn, pipeline_name):
+                matched.append(urn)
+    click.echo(
+        f"  {len(matched)}/{len(urns)} entities match pipeline '{pipeline_name}'."
+    )
+    return matched
 
 
 def _run_migration(
@@ -182,6 +208,7 @@ def _migrate_containers(
     keep: bool,
     rest_emitter: DataHubGraph,
     report_file: Optional[str] = None,
+    pipeline_name: Optional[str] = None,
 ) -> None:
     """Migrate containers matching a filter to a new platform instance."""
     run_id: str = f"container-migrate-{uuid.uuid4()}"
@@ -207,6 +234,14 @@ def _migrate_containers(
                 log.debug(
                     f"{container['urn']} does not match filter criteria, skipping.. "
                     f"{customProperties}"
+                )
+                skipped_count += 1
+                continue
+            if pipeline_name and not _matches_pipeline_name(
+                rest_emitter, container["urn"], pipeline_name
+            ):
+                log.debug(
+                    f"{container['urn']} not produced by pipeline {pipeline_name}, skipping"
                 )
                 skipped_count += 1
                 continue
@@ -446,6 +481,18 @@ def _process_container_relationships(
         "For 'affected' lines: action, referrer_urn, target_urn, aspect."
     ),
 )
+@click.option(
+    "--pipeline-name",
+    type=str,
+    default=None,
+    callback=lambda _ctx, _param, v: (v.strip() or None) if v else None,
+    help=(
+        "Only migrate entities whose systemMetadata.pipelineName matches "
+        "this value. Use this to scope migration to entities produced by a "
+        "specific ingestion pipeline (e.g. when multiple pipelines write to "
+        "the same platform without a platform instance)."
+    ),
+)
 @telemetry.with_telemetry()
 @upgrade.check_upgrade
 def dataplatform2instance(
@@ -461,6 +508,7 @@ def dataplatform2instance(
     entity_types: Optional[str],
     checkpoint_file: Optional[str],
     migration_report: Optional[str],
+    pipeline_name: Optional[str],
 ) -> None:
     """Migrate entities from one dataplatform to a dataplatform instance.
 
@@ -479,6 +527,7 @@ def dataplatform2instance(
     click.echo(
         f"Starting migration: platform:{platform}, instance={instance}, "
         f"force={force}, dry-run={dry_run}"
+        + (f", pipeline-name={pipeline_name}" if pipeline_name else "")
     )
     run_id = f"migrate-{uuid.uuid4()}"
     graph = get_default_graph(ClientMode.CLI)
@@ -495,11 +544,25 @@ def dataplatform2instance(
     for entity_type in entity_types_to_migrate:
         urns_to_migrate = list(
             fetch_platform_urns(
-                graph, platform=platform, env=env, entity_type=entity_type
+                graph,
+                platform=platform,
+                env=env,
+                entity_type=entity_type,
             )
         )
+        if pipeline_name:
+            urns_to_migrate = _filter_by_pipeline_name(
+                graph, urns_to_migrate, pipeline_name
+            )
         if not urns_to_migrate:
-            click.echo(f"No {entity_type} entities found without instance, skipping.")
+            if pipeline_name:
+                click.echo(
+                    f"No {entity_type} entities matched pipeline '{pipeline_name}', skipping."
+                )
+            else:
+                click.echo(
+                    f"No {entity_type} entities found without instance, skipping."
+                )
             continue
 
         click.echo(f"Found {len(urns_to_migrate)} {entity_type} entities to migrate.")
@@ -537,6 +600,7 @@ def dataplatform2instance(
         keep=keep,
         rest_emitter=graph,
         report_file=migration_report,
+        pipeline_name=pipeline_name,
     )
 
 
@@ -609,6 +673,18 @@ def dataplatform2instance(
         "For 'affected' lines: action, referrer_urn, target_urn, aspect."
     ),
 )
+@click.option(
+    "--pipeline-name",
+    type=str,
+    default=None,
+    callback=lambda _ctx, _param, v: (v.strip() or None) if v else None,
+    help=(
+        "Only migrate entities whose systemMetadata.pipelineName matches "
+        "this value. Use this to scope migration to entities produced by a "
+        "specific ingestion pipeline (e.g. when multiple pipelines write to "
+        "the same platform instance)."
+    ),
+)
 @telemetry.with_telemetry()
 @upgrade.check_upgrade
 def instance2instance(
@@ -625,6 +701,7 @@ def instance2instance(
     entity_types: Optional[str],
     checkpoint_file: Optional[str],
     migration_report: Optional[str],
+    pipeline_name: Optional[str],
 ) -> None:
     """Migrate entities from one platform instance to another.
 
@@ -648,6 +725,7 @@ def instance2instance(
         f"Starting migration: platform:{platform}, "
         f"old-instance={old_instance}, new-instance={new_instance}, "
         f"force={force}, dry-run={dry_run}, on-conflict={conflict.value}"
+        + (f", pipeline-name={pipeline_name}" if pipeline_name else "")
     )
     click.echo(
         f"This command will migrate {', '.join(t.upper() for t in entity_types_to_migrate)} "
@@ -666,8 +744,15 @@ def instance2instance(
                 entity_type=entity_type,
             )
         )
+        if pipeline_name:
+            urns = _filter_by_pipeline_name(graph, urns, pipeline_name)
         if not urns:
-            click.echo(f"No {entity_type} entities found, skipping.")
+            if pipeline_name:
+                click.echo(
+                    f"No {entity_type} entities matched pipeline '{pipeline_name}', skipping."
+                )
+            else:
+                click.echo(f"No {entity_type} entities found, skipping.")
             continue
 
         click.echo(f"Found {len(urns)} {entity_type} entities to migrate.")
@@ -708,6 +793,7 @@ def instance2instance(
         keep=keep,
         rest_emitter=graph,
         report_file=migration_report,
+        pipeline_name=pipeline_name,
     )
 
 
