@@ -52,7 +52,7 @@
     "pageSubTitle": "查看您的 DataHub 用户和组，并执行管理操作。",
     "pageTitle": "管理用户和组",
     "resetToken.generateError": "无法创建新链接来重置凭据：\n{{error}}",
-    "resetToken.generateLink.description": "生成新的重置链接！请注意，任何旧链接都将不再有效。<bold>。</bold>",
+"resetToken.generateLink.description": "生成新的重置链接！请注意，任何旧链接都将<bold>不再有效</bold>。",
     "resetToken.generateLink.header": "生成新链接",
     "resetToken.generateSuccess": "生成了用于重置凭据的新链接",
     "resetToken.modalTitle": "重置用户密码",
