@@ -74,3 +74,14 @@ def test_partition_filter_validation_rejects_injection():
         assert expr not in result
     for expr in safe:
         assert expr in result
+
+
+def test_partition_discovery_strategic_dates():
+    discovery = PartitionDiscovery(make_config())
+    dates = discovery._get_strategic_candidate_dates()
+
+    assert len(dates) == 2
+    assert dates[0][0] >= dates[1][0]
+    descriptions = [d for _, d in dates]
+    assert any("today" in d.lower() for d in descriptions)
+    assert any("yesterday" in d.lower() for d in descriptions)
