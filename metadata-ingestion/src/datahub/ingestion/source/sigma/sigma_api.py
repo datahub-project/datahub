@@ -63,11 +63,16 @@ class SigmaAPI:
         # and Sigma resolves such an id to its owning workspace. Caching the
         # alias keeps the per-entity lookup a single API call.
         self._workspace_id_aliases: Dict[str, str] = {}
-        # Ids ``/workspaces/{id}`` refused to resolve, and why ("forbidden"
-        # for 403, "unavailable" for anything else). An inaccessible workspace
-        # is referenced by every entity it holds, so without this the same
-        # failing call is reissued once per entity.
-        self._workspace_lookup_failures: Dict[str, str] = {}
+        # Ids ``/workspaces/{id}`` answered 403 for. A forbidden workspace is
+        # referenced by every entity it holds, so without this the same call is
+        # reissued once per entity. Only 403 is cached: it is a stable answer,
+        # whereas a 5xx or a timeout may succeed on the next entity, and
+        # latching one would drop every entity in the workspace for the rest of
+        # the run (``ingest_shared_entities`` defaults to False).
+        self._forbidden_workspace_ids: Set[str] = set()
+        # Ids a non-403 fetch failure has already been reported for. Bounds the
+        # report without suppressing the retry.
+        self._workspace_fetch_warned: Set[str] = set()
         self.users: Dict[str, str] = {}
         # Track source_type values we've already warned about to keep the
         # report summary readable on large tenants with repeated unknown
@@ -75,13 +80,13 @@ class SigmaAPI:
         self._unknown_lineage_node_types_warned: Set[str] = set()
         self.session = requests.Session()
 
-        # Configure retry strategy for 429/503 with exponential backoff.
-        # raise_on_status=False must stay False: get_data_model_by_url_id
+        # Configure retry strategy for transient statuses with exponential
+        # backoff. raise_on_status=False must stay False: get_data_model_by_url_id
         # inspects response.status_code to surface 429 explicitly; if True,
         # exhausted retries raise MaxRetryError and bypass that branch.
         retry_strategy = Retry(
             total=3,
-            status_forcelist=[429, 503],
+            status_forcelist=[429, 500, 502, 503, 504],
             backoff_factor=2,
             raise_on_status=False,
         )
@@ -179,15 +184,15 @@ class SigmaAPI:
         that nothing ever names.
 
         Returns ``None`` when Sigma withholds the workspace (403) or the call
-        fails. Both outcomes are cached: an inaccessible workspace is
-        referenced by every entity it holds, so retrying would cost one API
-        call per entity.
+        fails. Only the 403 is cached; a failed call is retried for the next
+        entity, because latching a transient error would drop every entity in
+        the workspace for the rest of the run.
         """
         if workspace_id in self.workspaces:
             return self.workspaces[workspace_id]
         if workspace_id in self._workspace_id_aliases:
             return self.workspaces.get(self._workspace_id_aliases[workspace_id])
-        if workspace_id in self._workspace_lookup_failures:
+        if workspace_id in self._forbidden_workspace_ids:
             return None
 
         logger.debug(f"Fetching workspace metadata with id '{workspace_id}'")
@@ -197,7 +202,7 @@ class SigmaAPI:
             )
             if response.status_code == 403:
                 logger.debug(f"Workspace {workspace_id} not accessible.")
-                self._workspace_lookup_failures[workspace_id] = "forbidden"
+                self._forbidden_workspace_ids.add(workspace_id)
                 self.report.non_accessible_workspaces_count += 1
                 return None
             response.raise_for_status()
@@ -208,22 +213,22 @@ class SigmaAPI:
                 self.report.workspace_ids_remapped[workspace_id] = workspace.workspaceId
             return workspace
         except Exception as e:
-            # Distinct from the 403 above: a 5xx, a timeout or a malformed
-            # payload degrades the workspace the same way but is not a
-            # permission problem, and ``_log_http_error`` alone is debug-level
-            # for the line naming the workspace.
-            self._workspace_lookup_failures[workspace_id] = "unavailable"
-            self.report.warning(
-                title="Unable to fetch workspace",
-                message="Workspace metadata could not be retrieved. Entities "
-                "under it are parented under a Container named from the "
-                "entity path instead.",
-                context=f"workspace_id={workspace_id}",
-                exc=e,
-            )
-            self._log_http_error(
-                message=f"Unable to fetch workspace '{workspace_id}'. Exception: {e}"
-            )
+            # Not a permission problem, unlike the 403 above, so it gets its
+            # own warning rather than the "add the user to the workspace"
+            # remediation. Reported once per id -- the call itself stays
+            # retryable, so without this gate the report would carry one entry
+            # per entity in the workspace.
+            if workspace_id not in self._workspace_fetch_warned:
+                self._workspace_fetch_warned.add(workspace_id)
+                self.report.warning(
+                    title="Unable to fetch workspace",
+                    message="Workspace metadata could not be retrieved. "
+                    "Entities in this workspace are dropped, or -- with "
+                    "ingest_shared_entities enabled -- parented under a "
+                    "Container named from the entity path.",
+                    context=f"workspace_id={workspace_id}",
+                    exc=e,
+                )
         return None
 
     def fill_workspaces(self) -> None:
@@ -1548,6 +1553,15 @@ class SigmaAPI:
                 ) or data_model.workspaceId
                 if candidate_workspace_id:
                     workspace = self.get_workspace(candidate_workspace_id)
+                    if workspace:
+                        # Unlike datasets and workbooks, this id can come from
+                        # the ``/dataModels`` payload rather than the ``/files``
+                        # walk, so it has not been through the normalisation in
+                        # ``get_workspace_id_from_file_path``. Normalise here so
+                        # every consumer of ``SigmaDataModel.workspaceId`` --
+                        # including the per-workspace counters, which read it in
+                        # a different method -- sees the authoritative id.
+                        candidate_workspace_id = workspace.workspaceId
 
                 if workspace:
                     if self.config.workspace_pattern.allowed(workspace.name):

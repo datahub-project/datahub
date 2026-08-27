@@ -160,14 +160,19 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     workspaces: SigmaWorkspaceEntityFilterReport = field(
         default_factory=SigmaWorkspaceEntityFilterReport
     )
+    # Distinct workspaces that answered 403 only. Other fetch failures are
+    # reported as "Unable to fetch workspace" warnings, and the full set of
+    # workspaces left without metadata is ``workspaces_without_metadata``.
     non_accessible_workspaces_count: int = 0
-    # Workspaces whose Container had to be named from the entity path because
-    # ``/workspaces/{id}`` withheld their metadata. ``LossyList`` stores
-    # ``(index, item)`` pairs internally, so comparing one against a plain list
-    # is always False even when the contents match -- assert on
-    # ``list(...)`` instead. The same applies if ``empty_workspaces`` below is
-    # ever converted.
+    # One entry per workspace whose Container had to be named from the entity
+    # path because ``/workspaces/{id}`` withheld its metadata; unbounded on
+    # large tenants.
     workspaces_without_metadata: LossyList[str] = field(default_factory=LossyList)
+    # Workspaces ``workspace_pattern`` denies that still had to be named,
+    # because entities admitted before the workspace resolved are parented
+    # under them. Without this the Container appears in the UI while the
+    # report lists the workspace only as dropped.
+    workspaces_named_despite_pattern: LossyList[str] = field(default_factory=LossyList)
     # Requested workspace id -> the id Sigma answered with, when the two
     # differ. A non-empty map means the /files path walk is landing on folder
     # inodes rather than workspaces on this tenant.

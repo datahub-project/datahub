@@ -2997,12 +2997,14 @@ class TestWorkspaceLookupFailureCaching:
         assert api._get_api_call.call_count == 1  # type: ignore[attr-defined]
         assert api.report.non_accessible_workspaces_count == 1
 
-    def test_a_non_403_failure_is_surfaced_in_the_report(self) -> None:
-        """``_log_http_error`` is debug-level for the line naming the workspace.
+    def test_a_non_403_failure_is_retried_but_reported_once(self) -> None:
+        """A transient failure must not be latched for the whole run.
 
-        A 5xx degrades the workspace exactly like a 403 but is not a
-        permission problem, so it must not be silently folded into the
-        "add the user to the workspace" remediation.
+        ``ingest_shared_entities`` defaults to False, so a ``None`` here drops
+        the entity. Caching that outcome would turn one 5xx into every entity
+        in the workspace being dropped for the rest of the run, while the
+        call might well have succeeded on the next entity. The report is still
+        deduped, so a persistently failing workspace cannot flood it.
         """
         api = _create_sigma_api()
         api._get_api_call = MagicMock(  # type: ignore[method-assign]
@@ -3012,11 +3014,25 @@ class TestWorkspaceLookupFailureCaching:
         for _ in range(3):
             assert api.get_workspace(self.WORKSPACE) is None
 
-        assert api._get_api_call.call_count == 1  # type: ignore[attr-defined]
+        assert api._get_api_call.call_count == 3  # type: ignore[attr-defined]
         assert api.report.non_accessible_workspaces_count == 0
-        assert any(self.WORKSPACE in str(warning) for warning in api.report.warnings), (
-            api.report.warnings
+        matching = [w for w in api.report.warnings if self.WORKSPACE in str(w)]
+        assert len(matching) == 1, api.report.warnings
+
+    def test_a_transient_failure_can_still_resolve_on_a_later_entity(self) -> None:
+        """The point of not caching: the second attempt is allowed to win."""
+        api = _create_sigma_api()
+        ok = MagicMock(status_code=200)
+        ok.json.return_value = _workspace_payload(self.WORKSPACE)
+        api._get_api_call = MagicMock(  # type: ignore[method-assign]
+            side_effect=[Exception("boom"), ok]
         )
+
+        assert api.get_workspace(self.WORKSPACE) is None
+        workspace = api.get_workspace(self.WORKSPACE)
+
+        assert workspace is not None
+        assert workspace.workspaceId == self.WORKSPACE
 
 
 class TestWorkspaceKeyResolution:

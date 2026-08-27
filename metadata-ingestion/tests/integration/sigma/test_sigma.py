@@ -2057,6 +2057,57 @@ def test_sigma_no_workspace_membership_names_all_containers(tmp_path, requests_m
 
 
 @pytest.mark.integration
+def test_sigma_transient_workspace_failure_does_not_cost_the_workspace(
+    tmp_path, requests_mock
+):
+    """One 5xx must not drop everything in the workspace for the whole run.
+
+    ``ingest_shared_entities`` defaults to False, so an unresolved workspace
+    means its entities are dropped, not degraded. Caching a transient failure
+    would therefore turn a single blip into total data loss for that
+    workspace -- strictly worse than the redundant calls the cache avoids.
+    Here ``/workspaces/{id}`` fails once and then succeeds.
+    """
+    ws_id = "3ee61405-3be2-4000-ba72-60d36757b95b"
+    override_data = {
+        f"https://aws-api.sigmacomputing.com/v2/workspaces/{ws_id}": [
+            {"status_code": 500, "json": {}},
+            {
+                "status_code": 200,
+                "json": {
+                    "workspaceId": ws_id,
+                    "name": "Acryl Data",
+                    "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                    "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                    "createdAt": "2024-03-12T08:31:04.826Z",
+                    "updatedAt": "2024-03-12T08:31:04.826Z",
+                },
+            },
+        ],
+    }
+    register_mock_api(request_mock=requests_mock, override_data={})
+    # requests_mock honours a response list as successive replies.
+    requests_mock.get(
+        f"https://aws-api.sigmacomputing.com/v2/workspaces/{ws_id}",
+        override_data[f"https://aws-api.sigmacomputing.com/v2/workspaces/{ws_id}"],
+    )
+
+    output_path: str = f"{tmp_path}/sigma_transient_failure_mces.json"
+    pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    assert _named_container_urns(mces), (
+        "the workspace never resolved, so a transient failure was latched for "
+        "the whole run and its entities were dropped"
+    )
+    _assert_every_referenced_container_is_named(mces)
+
+
+@pytest.mark.integration
 def test_sigma_late_resolved_workspace_keeps_its_real_name(tmp_path, requests_mock):
     """A workspace can resolve *after* the reference to it was recorded.
 

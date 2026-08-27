@@ -110,7 +110,6 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
-from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -609,54 +608,46 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         all entity work units, so that decision is made with the finished
         picture rather than a partial one.
         """
-        recorded: List[str] = []
-        self.reporter.workspaces_without_metadata = LossyList[str]()
-        emitted: Set[str] = set()
+        # A late-learned alias can collapse two noted ids onto one workspace,
+        # so map first and emit once per resolved id.
+        by_resolved_id: Dict[str, str] = {}
         for noted_id in sorted(self._referenced_workspace_ids):
-            # Re-check rather than trust what was noted: an id recorded while
-            # emitting datasets can still resolve later, when workbooks or data
-            # models run their own lookups. Sigma can answer for a folder id
-            # while refusing the workspace id it belongs to, which puts the
-            # workspace in the cache after the fact.
-            #
-            # Skip only what someone else actually names. Being in the cache is
-            # not enough -- ``_gen_workspace_workunit`` runs off
-            # ``_get_allowed_workspaces``, so a cached workspace the pattern
-            # denies is never named by anyone.
-            workspace_id = self.sigma_api.resolve_workspace_id(noted_id)
-            if workspace_id in emitted:
-                continue
+            by_resolved_id.setdefault(
+                self.sigma_api.resolve_workspace_id(noted_id), noted_id
+            )
+
+        for workspace_id, noted_id in by_resolved_id.items():
             known = self.sigma_api.workspaces.get(workspace_id)
+            # Being in the cache is not enough to skip: _gen_workspace_workunit
+            # runs off _get_allowed_workspaces, so a cached workspace the
+            # pattern denies is named by nobody.
             if known is not None and self.config.workspace_pattern.allowed(known.name):
                 continue
-            emitted.add(workspace_id)
             if known is not None:
-                # Resolved late but denied by ``workspace_pattern``, so
-                # ``_gen_workspace_workunit`` never ran for it. Its entities
-                # were admitted by ``ingest_shared_entities`` while the
-                # workspace was still forbidden and still point at this URN,
-                # so the Container has to exist -- and the real name is
-                # available, which beats the one recovered from the path.
-                yield from gen_containers(
-                    container_key=self._gen_workspace_key(workspace_id),
-                    name=known.name,
-                    sub_types=[BIContainerSubTypes.SIGMA_WORKSPACE],
+                # Denied by the pattern, but its entities were admitted before
+                # the workspace resolved and still point here. The real name
+                # beats the one recovered from the path.
+                name = known.name
+                self.reporter.workspaces_named_despite_pattern.append(
+                    f"{known.name} ({workspace_id})"
                 )
-                continue
-            name = self._workspace_names_from_path.get(
-                noted_id
-            ) or self._workspace_names_from_path.get(workspace_id)
-            entry = f"{name or 'unknown'} ({workspace_id})"
-            recorded.append(entry)
-            self.reporter.workspaces_without_metadata.append(entry)
-            yield from gen_containers(
-                container_key=self._gen_workspace_key(workspace_id),
+            else:
+                path_name = self._workspace_names_from_path.get(
+                    noted_id
+                ) or self._workspace_names_from_path.get(workspace_id)
+                self.reporter.workspaces_without_metadata.append(
+                    f"{path_name or 'unknown'} ({workspace_id})"
+                )
                 # Falling back to the id keeps the Container identifiable when
                 # Sigma returned no path either.
-                name=name or workspace_id,
+                name = path_name or workspace_id
+            yield from gen_containers(
+                container_key=self._gen_workspace_key(workspace_id),
+                name=name,
                 sub_types=[BIContainerSubTypes.SIGMA_WORKSPACE],
             )
-        if not recorded:
+
+        if not self.reporter.workspaces_without_metadata:
             return
         self.reporter.warning(
             title="Workspace metadata not accessible",
@@ -667,7 +658,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             "them to pick up the real workspace name, owner and timestamps. "
             "Other failures are reported separately under 'Unable to fetch "
             "workspace'.",
-            context=f"count={len(recorded)}, workspaces={recorded[:10]}",
+            context=f"count={len(self.reporter.workspaces_without_metadata)}, "
+            f"workspaces={list(self.reporter.workspaces_without_metadata)}",
         )
 
     def _gen_sigma_dataset_urn(self, dataset_identifier: str) -> str:
@@ -2912,14 +2904,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         parent_container_key: Optional[WorkspaceKey] = None
         if data_model.workspaceId:
-            # A DM's workspace id can come from the ``/dataModels`` payload
-            # rather than the ``/files`` walk, so unlike datasets and workbooks
-            # it has not been through the normalisation in
-            # ``get_workspace_id_from_file_path``. Resolve before the counter
-            # below, or the workspace is reported empty while its DM sits in it.
-            data_model.workspaceId = self.sigma_api.resolve_workspace_id(
-                data_model.workspaceId
-            )
             parent_container_key = self._gen_workspace_key(data_model.workspaceId)
             self._note_referenced_workspace(data_model.workspaceId, data_model.path)
         extra_properties: Dict[str, str] = {
@@ -4418,6 +4402,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         workspace = self.sigma_api.get_workspace(
                             discovered_dm.workspaceId
                         )
+                        if workspace:
+                            # Discovered DMs skip ``get_data_models``, so this
+                            # is where their payload-sourced id gets the same
+                            # normalisation the listed path applies.
+                            discovered_dm.workspaceId = workspace.workspaceId
                         if workspace and not self.config.workspace_pattern.allowed(
                             workspace.name
                         ):
