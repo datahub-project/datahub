@@ -734,19 +734,15 @@ public class EntityRelationshipsResultResolverTest {
                                 .setEntity(childDataset)
                                 .setType("IsPartOf")))));
 
+    // Soft-deleted dataset is present in the graph response but filtered via exists().
     when(_entityService.exists(any(), eq(Set.of(childContainer, childDataset)), eq(false)))
-        .thenReturn(Set.of(childContainer, childDataset));
+        .thenReturn(Set.of(childContainer));
 
     EntityRelationshipsResult result = resolver.get(mockEnv).get();
 
-    assertEquals(result.getCount(), 2);
-    assertEquals(result.getTotal(), 2);
-    Set<String> returnedUrns =
-        result.getRelationships().stream()
-            .map(rel -> rel.getEntity().getUrn())
-            .collect(java.util.stream.Collectors.toSet());
-    assertTrue(returnedUrns.contains(childContainer.toString()));
-    assertTrue(returnedUrns.contains(childDataset.toString()));
+    assertEquals(result.getCount(), 1);
+    assertEquals(result.getTotal(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), childContainer.toString());
     verify(_graphClient)
         .getRelatedEntities(
             eq(parentContainer.toString()),
