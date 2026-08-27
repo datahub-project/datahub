@@ -3310,6 +3310,36 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             )
         )
 
+    def test_process_endpoint_preserves_dataset_workunits_when_schema_extraction_raises(
+        self,
+    ):
+        # Regression: the caller materializes _process_endpoint's whole
+        # generator with list() before yielding anything, so an unhandled
+        # exception from schema extraction used to discard the dataset init
+        # workunits already produced earlier in the same generator, not just
+        # the schema. Schema extraction must degrade in place instead.
+        endpoint_dets: Dict[str, Any] = {
+            "method": "get",
+            "description": "",
+            "tags": [],
+            "responses": {"200": {"description": "ok"}},
+        }
+        with patch.object(
+            self.source,
+            "_extract_schema_from_openapi_spec",
+            side_effect=RuntimeError("boom"),
+        ):
+            workunits = list(
+                self.source._process_endpoint("/pets", endpoint_dets, {}, {})
+            )
+        self.assertTrue(len(workunits) > 0)
+        self.assertTrue(
+            any(
+                getattr(w, "title", None) == "Schema Extraction Failed"
+                for w in self.source.report.warnings
+            )
+        )
+
     def test_get_swagger_get_token_substitutes_credentials(self):
         config = OpenApiConfig(
             name="test_api",
@@ -3846,6 +3876,20 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                 get_token={"request_type": "post", "url_complement": "/auth"},
             )
 
+    def test_ensure_only_one_token_allows_empty_token_with_get_token(self):
+        # Regression: an empty SecretStr("") (e.g. an unresolved env var
+        # substituted into `token`) is falsy and get_swagger() treats it as
+        # unconfigured, so the validator must use the same truthiness check
+        # instead of rejecting this as "token and get_token together".
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            token=SecretStr(""),
+            get_token={"request_type": "post", "url_complement": "/auth"},
+        )
+        self.assertIsNotNone(config.get_token)
+
     def test_get_workunits_reports_swagger_fetch_failure(self):
         # The real exception must reach the report (not a generic placeholder):
         # operators need to see the actual cause (401, parse error, TLS failure).
@@ -4202,6 +4246,22 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         # gracefully like every other unparseable shape in this function.
         response = MagicMock()
         response.content = b"[1, 2, 3]"
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ):
+            fields, sample = extract_fields(response, "pets")
+        self.assertEqual(fields, [])
+        self.assertEqual(sample, {})
+
+    def test_extract_fields_non_utf8_response_degrades_gracefully(self):
+        # Regression: json.loads decodes bytes itself (detect_encoding +
+        # .decode(...)) and raises UnicodeDecodeError -- not a JSONDecodeError
+        # subclass -- for a body that isn't valid text in its detected
+        # encoding. Without its own except clause this escalated a binary/
+        # mis-encoded body into an unhandled exception instead of degrading
+        # like every other unparseable response shape.
+        response = MagicMock()
+        response.content = b'{"a": "\xff\xfe invalid utf8 \x80"}'
         with self.assertLogs(
             "datahub.ingestion.source.openapi_parser", level="WARNING"
         ):

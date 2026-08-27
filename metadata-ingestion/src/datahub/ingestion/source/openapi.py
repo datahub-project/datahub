@@ -310,6 +310,12 @@ class OpenApiConfig(ConfigModel):
 
     @model_validator(mode="after")
     def ensure_only_one_token(self) -> "OpenApiConfig":
+        # Truthiness, not `is not None`: an empty SecretStr("") (e.g. an unset
+        # env var substituted into `token`/`bearer_token`) is falsy and
+        # get_swagger() below treats it as unconfigured, so it must not count
+        # as "configured" here either -- otherwise a recipe pairing an
+        # accidentally-empty token with `get_token` would fail validation for
+        # a combination that would have worked fine at runtime.
         configured = [
             name
             for name, value in (
@@ -317,7 +323,7 @@ class OpenApiConfig(ConfigModel):
                 ("bearer_token", self.bearer_token),
                 ("get_token", self.get_token),
             )
-            if value is not None
+            if value
         ]
         if len(configured) > 1:
             raise ValueError(
@@ -1103,31 +1109,46 @@ class APISource(Source, ABC):
         for wu in workunits:
             yield wu
 
-        # Always try OpenAPI spec extraction first
-        schema_metadata = self._extract_schema_from_openapi_spec(
-            endpoint_k, dataset_name, sw_dict
-        )
-
-        # If not found, always try endpoint data from spec
-        if not schema_metadata:
-            schema_metadata = self._extract_schema_from_endpoint_data(
-                endpoint_dets, dataset_name
+        # Schema extraction is wrapped so a failure here can't take the
+        # dataset init workunits already yielded above down with it: the
+        # caller materializes this whole generator with list() before
+        # yielding anything, so an exception propagating past this point
+        # would discard dataset metadata that had already succeeded, not
+        # just the schema.
+        try:
+            # Always try OpenAPI spec extraction first
+            schema_metadata = self._extract_schema_from_openapi_spec(
+                endpoint_k, dataset_name, sw_dict
             )
 
-        # Only make API calls as a last resort and only if explicitly enabled.
-        # _should_make_api_call already requires method == "get", so no separate
-        # non-GET guard is needed here.
-        if not schema_metadata and self._should_make_api_call(
-            endpoint_k, endpoint_dets
-        ):
-            if "{" not in endpoint_k:
-                schema_metadata = self._extract_schema_from_simple_endpoint(
-                    endpoint_k, dataset_name, root_dataset_samples
+            # If not found, always try endpoint data from spec
+            if not schema_metadata:
+                schema_metadata = self._extract_schema_from_endpoint_data(
+                    endpoint_dets, dataset_name
                 )
-            else:
-                schema_metadata = self._extract_schema_from_parameterized_endpoint(
-                    endpoint_k, dataset_name, root_dataset_samples
-                )
+
+            # Only make API calls as a last resort and only if explicitly enabled.
+            # _should_make_api_call already requires method == "get", so no separate
+            # non-GET guard is needed here.
+            if not schema_metadata and self._should_make_api_call(
+                endpoint_k, endpoint_dets
+            ):
+                if "{" not in endpoint_k:
+                    schema_metadata = self._extract_schema_from_simple_endpoint(
+                        endpoint_k, dataset_name, root_dataset_samples
+                    )
+                else:
+                    schema_metadata = self._extract_schema_from_parameterized_endpoint(
+                        endpoint_k, dataset_name, root_dataset_samples
+                    )
+        except Exception as e:
+            schema_metadata = None
+            self.report.warning(
+                title="Schema Extraction Failed",
+                message="Unexpected error while extracting schema for endpoint; dataset metadata was still emitted",
+                context=endpoint_k,
+                exc=e,
+            )
 
         # Yield the schema metadata work unit
         if schema_metadata:

@@ -286,12 +286,21 @@ class JsonSchemaTranslator:
                 # we have an array of types
                 # if only one type, short-circuit
                 if len(schema["type"]) == 1:
-                    return schema["type"][0]
+                    resolved_type = schema["type"][0]
                 # if this is a union with null, short-circuit
                 elif len(schema["type"]) == 2 and "null" in schema["type"]:
-                    return [t for t in schema["type"] if t != "null"][0]
+                    resolved_type = [t for t in schema["type"] if t != "null"][0]
                 else:
                     return "union"
+                # A list-form type (e.g. OpenAPI 3.1's `type: [object, null]`)
+                # resolving to "object" still needs the same map check as the
+                # plain-string-type branch below, or a nullable map's fields
+                # are silently dropped.
+                if resolved_type == "object" and isinstance(
+                    schema.get("additionalProperties"), dict
+                ):
+                    return "map"
+                return resolved_type
             elif schema["type"] != "object":
                 return schema["type"]
             elif "additionalProperties" in schema and isinstance(

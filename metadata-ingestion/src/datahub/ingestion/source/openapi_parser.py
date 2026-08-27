@@ -526,7 +526,11 @@ def extract_fields(
     """
     try:
         dict_data = json.loads(response.content)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        # json.loads decodes bytes itself (detect_encoding + .decode(...)); a
+        # body that isn't valid text in its detected encoding raises
+        # UnicodeDecodeError directly, not JSONDecodeError, so it needs its
+        # own clause to degrade the same way other unparseable bodies do.
         logger.warning(f"Non-JSON response --- {dataset_name}")
         return [], {}
     if isinstance(dict_data, str):

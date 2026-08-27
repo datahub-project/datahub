@@ -108,6 +108,33 @@ def test_json_schema_to_mce_fields_sample_events_with_different_field_types():
     assert_fields_are_valid(fields)
 
 
+def test_json_schema_nullable_map_field_still_resolves_as_map():
+    # Regression: a list-form nullable type (e.g. OpenAPI 3.1's
+    # `type: [object, null]`) used to short-circuit straight to "object"
+    # without ever checking additionalProperties, so a nullable map's
+    # fields were silently dropped instead of producing a MapTypeClass.
+    schema = {
+        "type": "object",
+        "title": "R",
+        "namespace": "some.namespace",
+        "properties": {
+            "a_nullable_map_of_longs_field": {
+                "type": ["object", "null"],
+                "additionalProperties": {"type": "integer"},
+            }
+        },
+    }
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths = [
+        {
+            "path": "[version=2.0].[type=R].[type=map].[type=integer].a_nullable_map_of_longs_field",
+            "type": MapTypeClass,
+        }
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+
+
 def test_json_schema_to_record_with_two_fields():
     schema = {
         "type": "object",
