@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
 import sqlglot
@@ -26,6 +26,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DEFAULT_PARTITION_STATS_LIMIT,
     MAX_PARTITION_VALUES,
     PARTITIONING_COLUMN_FLAG,
+    PSEUDO_PARTITION_COLUMN_TYPES,
     TEMPORAL_PARTITION_TYPES,
     VALID_COLUMN_NAME_PATTERN,
 )
@@ -562,7 +563,9 @@ class PartitionDiscovery:
 
                 result_values[col_name] = chosen_result.val
                 latest_date_filters.append(
-                    self._create_safe_filter(col_name, chosen_result.val, col_data_type)
+                    self._value_filter(
+                        table, col_name, chosen_result.val, col_data_type
+                    )
                 )
 
             except Exception as e:
@@ -572,6 +575,33 @@ class PartitionDiscovery:
                 continue
 
         return latest_date_filters
+
+    def _value_filter(
+        self,
+        table: BigqueryTable,
+        col_name: str,
+        val: PartitionValue,
+        col_type: str,
+    ) -> str:
+        # A DATE/DATETIME/TIMESTAMP partition covers a whole time unit, but the value
+        # discovered by MAX(col) is a single instant inside it, so an equality would
+        # match only that instant. Build a granularity-aware half-open range around the
+        # value's partition for temporal columns; other columns keep the equality.
+        if col_type.upper() in TEMPORAL_PARTITION_TYPES:
+            granularity = getattr(table.partition_info, "type", None)
+            if isinstance(val, datetime):
+                moment = val
+            elif isinstance(val, date):
+                moment = datetime(val.year, val.month, val.day)
+            else:
+                moment = None
+            if moment is not None:
+                return FilterBuilder.create_partition_datetime_filter(
+                    col_name, moment, col_type, granularity
+                )
+        # A string value still carries compact-partition-id range handling inside
+        # create_safe_filter, so defer to it.
+        return self._create_safe_filter(col_name, val, col_type)
 
     def _process_date_components_hierarchically(
         self,
@@ -586,7 +616,11 @@ class PartitionDiscovery:
         # max year+month, which avoids selecting e.g. month=12 from a previous year when
         # the current year only has months 1-3.
         if "year" not in active:
-            return DateHierarchyResult(filters=[])
+            # A month/day component without a year cannot be pinned to a single partition
+            # (max month alone could span years). If any component is present the key is
+            # composite, so mark it incomplete so the caller aborts direct discovery
+            # rather than profiling a partial (broader-than-single-partition) key.
+            return DateHierarchyResult(filters=[], incomplete=bool(active))
 
         logger.info(
             f"Found date components: {list(active.keys())} - using hierarchical approach"
@@ -645,9 +679,11 @@ class PartitionDiscovery:
         scope_label: str,
     ) -> List[str]:
         try:
-            col_type = (
-                column_types.get(component_col, "INT64") if column_types else "INT64"
-            )
+            # Don't assume INT64 for an unknown component type: Hive-style date
+            # components are strings and an INT64 predicate would build an invalid
+            # `col = 'value'`. Resolve the known type first, otherwise infer numeric vs
+            # string from the discovered value below.
+            col_type = column_types.get(component_col) if column_types else None
             constrained_query = self._build_partition_stats_cte(
                 safe_table_ref,
                 component_col,
@@ -663,8 +699,13 @@ class PartitionDiscovery:
             if partition_values_results and partition_values_results[0].val is not None:
                 max_value = partition_values_results[0].val
                 result_values[component_col] = max_value
+                resolved_type = col_type
+                if not resolved_type:
+                    resolved_type = (
+                        "INT64" if str(max_value).strip().lstrip("-").isdigit() else ""
+                    )
                 filter_expr = self._create_safe_filter(
-                    component_col, max_value, col_type
+                    component_col, max_value, resolved_type
                 )
                 logger.info(
                     f"Found latest {component_col} within {scope_label}: {max_value}"
@@ -1019,10 +1060,25 @@ class PartitionDiscovery:
                 if self._is_date_like_column(col) or self._is_date_type_column(
                     col_data_type
                 ):
-                    date_str = test_date.strftime("%Y-%m-%d")
-                    filters.append(
-                        self._create_safe_filter(col, date_str, col_data_type)
-                    )
+                    if col_data_type.upper() in TEMPORAL_PARTITION_TYPES:
+                        # A DATE/DATETIME/TIMESTAMP partition covers a whole time unit;
+                        # an equality to a single day/instant would drop the rest of the
+                        # partition, so build a granularity-aware half-open range.
+                        filters.append(
+                            FilterBuilder.create_partition_datetime_filter(
+                                col,
+                                test_date,
+                                col_data_type,
+                                getattr(table.partition_info, "type", None),
+                            )
+                        )
+                    else:
+                        # Date-like by name only (e.g. a STRING column): keep the
+                        # equality on the ISO date string.
+                        date_str = test_date.strftime("%Y-%m-%d")
+                        filters.append(
+                            self._create_safe_filter(col, date_str, col_data_type)
+                        )
                     continue
 
                 component_value = self._date_component_value(col, test_date)
@@ -1226,6 +1282,13 @@ class PartitionDiscovery:
 
         col_name = columns[0]
         col_type = (column_types.get(col_name) or "").upper()
+        if not col_type:
+            # Ingestion-time partitioned tables are partitioned on the _PARTITIONTIME
+            # (TIMESTAMP) / _PARTITIONDATE (DATE) pseudo-column, which is absent from
+            # INFORMATION_SCHEMA.COLUMNS so column_types can't supply a type. Infer it by
+            # name so a configured partition_datetime still applies instead of being
+            # dropped in favor of latest-partition discovery.
+            col_type = PSEUDO_PARTITION_COLUMN_TYPES.get(col_name.upper(), "")
         if col_type not in TEMPORAL_PARTITION_TYPES:
             warn(
                 self.report,
@@ -1364,6 +1427,11 @@ class PartitionDiscovery:
                             col_name, actual_value, col_data_type
                         )
                         enhanced_filters.append(enhanced_filter)
+                        # Constrain the next column's query with this pick so the
+                        # composite key represents values that actually co-occur; picking
+                        # each column's global mode independently can name a
+                        # (col_a, col_b) combination that never appears together.
+                        where_clause = f"{where_clause} AND {enhanced_filter}"
                         logger.debug(
                             f"Found actual value for {col_name}: {actual_value} ({results[0].row_count} rows)"
                         )

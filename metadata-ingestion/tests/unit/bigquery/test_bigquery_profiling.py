@@ -121,6 +121,65 @@ def test_authoritative_empty_columns_skips_probe():
     assert filters == []
 
 
+def test_date_components_without_year_marked_incomplete():
+    """A month/day component without a year can't pin a single partition, so the
+    hierarchy must be flagged incomplete (not silently dropped as a complete empty set).
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        raise AssertionError("no query should run when year is absent")
+
+    result = discovery._process_date_components_hierarchically(
+        {"year": None, "month": "month", "day": None},
+        "`p`.`d`.`t`",
+        execute,
+        {},
+        {},
+    )
+
+    assert result.filters == []
+    assert result.incomplete is True
+
+
+def test_value_filter_ranges_for_temporal_columns():
+    """A discovered MAX value on a DATETIME/TIMESTAMP column must produce a half-open
+    range covering its partition, not an equality to a single instant.
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(partition_info=PartitionInfo(fields=("ts",), type="DAY"))
+
+    ts_filter = discovery._value_filter(
+        table, "ts", datetime(2025, 1, 15, 23, 59, 58), "TIMESTAMP"
+    )
+    assert ">=" in ts_filter and "<" in ts_filter
+
+    # A non-temporal column keeps a plain equality.
+    region_filter = discovery._value_filter(table, "region", "emea", "STRING")
+    assert region_filter == "`region` = 'emea'"
+
+
+def test_ingestion_time_partition_datetime_override_applies():
+    """_PARTITIONTIME is absent from INFORMATION_SCHEMA.COLUMNS, so column_types is empty;
+    the configured partition_datetime must still apply by inferring the pseudo-column type.
+    """
+    discovery = PartitionDiscovery(
+        make_config(partition_datetime=datetime(2025, 1, 15))
+    )
+    table = make_table(
+        partition_info=PartitionInfo(fields=("_PARTITIONTIME",), type="DAY")
+    )
+
+    filters = discovery._get_partition_datetime_override_filters(
+        table, {"_PARTITIONTIME"}, {}
+    )
+
+    assert filters is not None
+    assert len(filters) == 1
+    assert "_PARTITIONTIME" in filters[0]
+    assert ">=" in filters[0]
+
+
 def test_partition_filter_validation_rejects_injection():
     """Partition filters that contain SQL injection patterns must be rejected by
     validate_and_filter_expressions before they reach the custom_sql.

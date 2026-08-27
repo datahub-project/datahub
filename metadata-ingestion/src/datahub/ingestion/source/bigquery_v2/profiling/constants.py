@@ -1,5 +1,5 @@
 import re
-from typing import Set, Tuple
+from typing import Dict, Set, Tuple
 
 # BigQuery partition ID lengths for date/time formats: YYYYMMDD and YYYYMMDDHH.
 PARTITION_ID_YYYYMMDD_LENGTH = 8
@@ -100,6 +100,14 @@ TEMPORAL_PARTITION_TYPES: Set[str] = {
     "DATE",
     "DATETIME",
     "TIMESTAMP",
+}
+
+# Ingestion-time partitioned tables are partitioned on a pseudo-column that is absent
+# from INFORMATION_SCHEMA.COLUMNS, so its type must be inferred by name.
+# _PARTITIONTIME is a TIMESTAMP and _PARTITIONDATE is a DATE.
+PSEUDO_PARTITION_COLUMN_TYPES: Dict[str, str] = {
+    "_PARTITIONTIME": "TIMESTAMP",
+    "_PARTITIONDATE": "DATE",
 }
 
 # Time-unit partition granularities (BigQuery TimePartitioningType values).
