@@ -605,12 +605,27 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         Must run after all entity work units so the set is fully populated.
         """
-        if not self._inaccessible_workspace_ids:
-            return
         recorded: List[str] = []
         self.reporter.workspaces_without_metadata = LossyList[str]()
-        for workspace_id in sorted(self._inaccessible_workspace_ids):
-            name = self._inaccessible_workspace_names.get(workspace_id)
+        emitted: Set[str] = set()
+        for noted_id in sorted(self._inaccessible_workspace_ids):
+            # Re-check rather than trust what was noted: an id recorded while
+            # emitting datasets can still resolve later, when workbooks or data
+            # models run their own lookups. Sigma can answer for a folder id
+            # while refusing the workspace id it belongs to, which puts the
+            # workspace in the cache after the fact. ``_gen_workspace_workunit``
+            # has then already named it properly, and emitting here would
+            # overwrite that with the path-derived name, dropping the real
+            # owner and timestamps.
+            workspace_id = self.sigma_api.resolve_workspace_id(noted_id)
+            if workspace_id in self.sigma_api.workspaces:
+                continue
+            if workspace_id in emitted:
+                continue
+            emitted.add(workspace_id)
+            name = self._inaccessible_workspace_names.get(
+                noted_id
+            ) or self._inaccessible_workspace_names.get(workspace_id)
             entry = f"{name or 'unknown'} ({workspace_id})"
             recorded.append(entry)
             self.reporter.workspaces_without_metadata.append(entry)
@@ -621,6 +636,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 name=name or workspace_id,
                 sub_types=[BIContainerSubTypes.SIGMA_WORKSPACE],
             )
+        if not recorded:
+            return
         self.reporter.warning(
             title="Workspace metadata not accessible",
             message="Sigma did not return metadata for one or more workspaces "

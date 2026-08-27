@@ -2043,6 +2043,99 @@ def test_sigma_no_workspace_membership_names_all_containers(tmp_path, requests_m
 
 
 @pytest.mark.integration
+def test_sigma_late_resolved_workspace_keeps_its_real_name(tmp_path, requests_mock):
+    """A workspace can resolve *after* it was recorded as inaccessible.
+
+    Sigma can refuse ``/workspaces/{id}`` outright while happily answering for
+    a folder inside that workspace, and the folder response carries the
+    workspace record. Datasets are emitted before workbooks run their lookups,
+    so a workspace noted while emitting datasets can be in the cache by the
+    time workbooks are done -- properly named by ``_gen_workspace_workunit``.
+    The backstop runs last, so re-emitting it there would replace the real
+    name, owner and timestamps with a path-derived name.
+    """
+    ws_id = "3ee61405-3be2-4000-ba72-60d36757b95b"
+    folder_id = "dddd0000-0000-4000-8000-00000000000b"
+    override_data: Dict[str, Any] = {}
+    # Datasets walk straight to the workspace id, which is forbidden.
+    datasets_files = copy.deepcopy(
+        default_mock_api()[
+            "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset"
+        ]
+    )
+    for entry in datasets_files["json"]["entries"]:
+        entry["parentId"] = ws_id
+        entry["path"] = "Acryl Data"
+    override_data["https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset"] = (
+        datasets_files
+    )
+    # Workbooks walk to a folder, which Sigma resolves to the same workspace.
+    workbook_files = copy.deepcopy(
+        default_mock_api()[
+            "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook"
+        ]
+    )
+    for entry in workbook_files["json"]["entries"]:
+        entry["parentId"] = folder_id
+        entry["path"] = "Acryl Data"
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook"
+    ] = workbook_files
+    override_data["https://aws-api.sigmacomputing.com/v2/workspaces?limit=50"] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": [], "total": 0, "nextPage": None},
+    }
+    override_data[f"https://aws-api.sigmacomputing.com/v2/workspaces/{ws_id}"] = {
+        "method": "GET",
+        "status_code": 403,
+        "json": {},
+    }
+    override_data[f"https://aws-api.sigmacomputing.com/v2/workspaces/{folder_id}"] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "workspaceId": ws_id,
+            "name": "Real Workspace Name",
+            "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "createdAt": "2024-03-12T08:31:04.826Z",
+            "updatedAt": "2024-03-12T08:31:04.826Z",
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path: str = f"{tmp_path}/sigma_late_resolved_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    workspace_urn = make_container_urn(
+        WorkspaceKey(workspaceId=ws_id, platform="sigma")
+    )
+    names = [
+        mce["aspect"]["json"]["name"]
+        for mce in mces
+        if mce["entityUrn"] == workspace_urn
+        and mce["aspectName"] == "containerProperties"
+    ]
+    # The last write is what survives in DataHub.
+    assert names == ["Real Workspace Name"], (
+        f"the backstop overwrote the real workspace metadata: {names}"
+    )
+
+    report = _sigma_report(pipeline)
+    assert list(report.workspaces_without_metadata) == [], (
+        "a workspace that did resolve must not be reported as missing metadata"
+    )
+
+
+@pytest.mark.integration
 def test_sigma_payload_only_data_model_counts_against_its_real_workspace(
     tmp_path, requests_mock
 ):
