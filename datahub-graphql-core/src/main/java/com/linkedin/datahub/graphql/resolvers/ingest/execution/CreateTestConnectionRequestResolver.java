@@ -80,6 +80,7 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+          // Client-supplied recipe with no source URN — Manage Ingestion required (not EXECUTE).
           if (!IngestionAuthUtils.canManageIngestion(context)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");

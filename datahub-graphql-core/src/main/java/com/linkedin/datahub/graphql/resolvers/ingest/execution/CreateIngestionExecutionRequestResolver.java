@@ -72,110 +72,111 @@ public class CreateIngestionExecutionRequestResolver
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (IngestionAuthUtils.canManageIngestion(context)) {
+          final CreateIngestionExecutionRequestInput input =
+              bindArgument(
+                  environment.getArgument("input"), CreateIngestionExecutionRequestInput.class);
 
-            final CreateIngestionExecutionRequestInput input =
-                bindArgument(
-                    environment.getArgument("input"), CreateIngestionExecutionRequestInput.class);
-
-            try {
-              final ExecutionRequestKey key = new ExecutionRequestKey();
-              final UUID uuid = UUID.randomUUID();
-              final String uuidStr = uuid.toString();
-              key.setId(uuidStr);
-              final Urn executionRequestUrn =
-                  EntityKeyUtils.convertEntityKeyToUrn(key, EXECUTION_REQUEST_ENTITY_NAME);
-
-              // Fetch the original ingestion source
-              final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
-              final Map<Urn, EntityResponse> response =
-                  _entityClient.batchGetV2(
-                      context.getOperationContext(),
-                      INGESTION_SOURCE_ENTITY_NAME,
-                      ImmutableSet.of(ingestionSourceUrn),
-                      ImmutableSet.of(INGESTION_INFO_ASPECT_NAME));
-
-              if (!response.containsKey(ingestionSourceUrn)) {
-                throw new DataHubGraphQLException(
-                    String.format(
-                        "Failed to find ingestion source with urn %s",
-                        ingestionSourceUrn.toString()),
-                    DataHubGraphQLErrorCode.BAD_REQUEST);
-              }
-
-              final EnvelopedAspect envelopedInfo =
-                  response.get(ingestionSourceUrn).getAspects().get(INGESTION_INFO_ASPECT_NAME);
-              final DataHubIngestionSourceInfo ingestionSourceInfo =
-                  new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
-
-              if (!ingestionSourceInfo.getConfig().hasRecipe()) {
-                throw new DataHubGraphQLException(
-                    String.format(
-                        "Failed to find valid ingestion source with urn %s. Missing recipe",
-                        ingestionSourceUrn.toString()),
-                    DataHubGraphQLErrorCode.BAD_REQUEST);
-              }
-
-              // Build the arguments map.
-              final ExecutionRequestInput execInput = new ExecutionRequestInput();
-              execInput.setTask(RUN_INGEST_TASK_NAME); // Set the RUN_INGEST task
-              execInput.setSource(
-                  new ExecutionRequestSource()
-                      .setType(MANUAL_EXECUTION_SOURCE_NAME)
-                      .setIngestionSource(ingestionSourceUrn));
-              execInput.setExecutorId(
-                  ingestionSourceInfo.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
-              execInput.setRequestedAt(System.currentTimeMillis());
-              execInput.setActorUrn(UrnUtils.getUrn(context.getActorUrn()));
-
-              Map<String, String> arguments = new HashMap<>();
-              String recipe = ingestionSourceInfo.getConfig().getRecipe();
-              recipe = injectRunId(recipe, executionRequestUrn.toString());
-              recipe = IngestionUtils.injectPipelineName(recipe, ingestionSourceUrn.toString());
-              arguments.put(RECIPE_ARG_NAME, recipe);
-              // getVersion() returns null for an unset optional field, so no hasVersion() guard is
-              // needed. The helper normalizes null / empty / whitespace-only versions (bootstrap
-              // YAML can render `version: "{{ config.version }}"` as 3 spaces) to "unset", falling
-              // through to the matrix / application default instead of pinning the bundled CLI.
-              final IngestionCliVersionResolutionHelper.Result resolution =
-                  IngestionCliVersionResolutionHelper.resolve(
-                      ingestionSourceInfo.getConfig().getVersion(),
-                      ingestionSourceInfo.getType(),
-                      _versionMatrixService,
-                      _ingestionConfiguration.getDefaultCliVersion());
-              arguments.put(VERSION_ARG_NAME, resolution.getVersion());
-              execInput.setCliVersionAudit(resolution.getStamp());
-              IngestionCliVersionResolutionLogger.log(
-                  log,
-                  IngestionCliVersionResolutionLogger.TRIGGER_MANUAL,
-                  resolution,
-                  ingestionSourceInfo.getType(),
-                  IngestionCliVersionResolutionLogger.IDENTIFIER_INGESTION_SOURCE,
-                  ingestionSourceUrn.toString());
-              String debugMode = "false";
-              if (ingestionSourceInfo.getConfig().hasDebugMode()) {
-                debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";
-              }
-              if (ingestionSourceInfo.getConfig().hasExtraArgs()) {
-                arguments.putAll(ingestionSourceInfo.getConfig().getExtraArgs());
-              }
-              arguments.put(DEBUG_MODE_ARG_NAME, debugMode);
-              execInput.setArgs(new StringMap(arguments));
-
-              final MetadataChangeProposal proposal =
-                  buildMetadataChangeProposalWithKey(
-                      key,
-                      EXECUTION_REQUEST_ENTITY_NAME,
-                      EXECUTION_REQUEST_INPUT_ASPECT_NAME,
-                      execInput);
-              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
-            } catch (Exception e) {
-              throw new RuntimeException(
-                  String.format("Failed to create new ingestion execution request %s", input), e);
+          try {
+            final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
+            if (!IngestionAuthUtils.canExecuteIngestion(context, ingestionSourceUrn)) {
+              throw new AuthorizationException(
+                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
             }
+
+            final ExecutionRequestKey key = new ExecutionRequestKey();
+            final UUID uuid = UUID.randomUUID();
+            final String uuidStr = uuid.toString();
+            key.setId(uuidStr);
+            final Urn executionRequestUrn =
+                EntityKeyUtils.convertEntityKeyToUrn(key, EXECUTION_REQUEST_ENTITY_NAME);
+
+            // Fetch the original ingestion source
+            final Map<Urn, EntityResponse> response =
+                _entityClient.batchGetV2(
+                    context.getOperationContext(),
+                    INGESTION_SOURCE_ENTITY_NAME,
+                    ImmutableSet.of(ingestionSourceUrn),
+                    ImmutableSet.of(INGESTION_INFO_ASPECT_NAME));
+
+            if (!response.containsKey(ingestionSourceUrn)) {
+              throw new DataHubGraphQLException(
+                  String.format(
+                      "Failed to find ingestion source with urn %s", ingestionSourceUrn.toString()),
+                  DataHubGraphQLErrorCode.BAD_REQUEST);
+            }
+
+            final EnvelopedAspect envelopedInfo =
+                response.get(ingestionSourceUrn).getAspects().get(INGESTION_INFO_ASPECT_NAME);
+            final DataHubIngestionSourceInfo ingestionSourceInfo =
+                new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
+
+            if (!ingestionSourceInfo.getConfig().hasRecipe()) {
+              throw new DataHubGraphQLException(
+                  String.format(
+                      "Failed to find valid ingestion source with urn %s. Missing recipe",
+                      ingestionSourceUrn.toString()),
+                  DataHubGraphQLErrorCode.BAD_REQUEST);
+            }
+
+            // Build the arguments map.
+            final ExecutionRequestInput execInput = new ExecutionRequestInput();
+            execInput.setTask(RUN_INGEST_TASK_NAME); // Set the RUN_INGEST task
+            execInput.setSource(
+                new ExecutionRequestSource()
+                    .setType(MANUAL_EXECUTION_SOURCE_NAME)
+                    .setIngestionSource(ingestionSourceUrn));
+            execInput.setExecutorId(
+                ingestionSourceInfo.getConfig().getExecutorId(), SetMode.IGNORE_NULL);
+            execInput.setRequestedAt(System.currentTimeMillis());
+            execInput.setActorUrn(UrnUtils.getUrn(context.getActorUrn()));
+
+            Map<String, String> arguments = new HashMap<>();
+            String recipe = ingestionSourceInfo.getConfig().getRecipe();
+            recipe = injectRunId(recipe, executionRequestUrn.toString());
+            recipe = IngestionUtils.injectPipelineName(recipe, ingestionSourceUrn.toString());
+            arguments.put(RECIPE_ARG_NAME, recipe);
+            // getVersion() returns null for an unset optional field, so no hasVersion() guard is
+            // needed. The helper normalizes null / empty / whitespace-only versions (bootstrap
+            // YAML can render `version: "{{ config.version }}"` as 3 spaces) to "unset", falling
+            // through to the matrix / application default instead of pinning the bundled CLI.
+            final IngestionCliVersionResolutionHelper.Result resolution =
+                IngestionCliVersionResolutionHelper.resolve(
+                    ingestionSourceInfo.getConfig().getVersion(),
+                    ingestionSourceInfo.getType(),
+                    _versionMatrixService,
+                    _ingestionConfiguration.getDefaultCliVersion());
+            arguments.put(VERSION_ARG_NAME, resolution.getVersion());
+            execInput.setCliVersionAudit(resolution.getStamp());
+            IngestionCliVersionResolutionLogger.log(
+                log,
+                IngestionCliVersionResolutionLogger.TRIGGER_MANUAL,
+                resolution,
+                ingestionSourceInfo.getType(),
+                IngestionCliVersionResolutionLogger.IDENTIFIER_INGESTION_SOURCE,
+                ingestionSourceUrn.toString());
+            String debugMode = "false";
+            if (ingestionSourceInfo.getConfig().hasDebugMode()) {
+              debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";
+            }
+            if (ingestionSourceInfo.getConfig().hasExtraArgs()) {
+              arguments.putAll(ingestionSourceInfo.getConfig().getExtraArgs());
+            }
+            arguments.put(DEBUG_MODE_ARG_NAME, debugMode);
+            execInput.setArgs(new StringMap(arguments));
+
+            final MetadataChangeProposal proposal =
+                buildMetadataChangeProposalWithKey(
+                    key,
+                    EXECUTION_REQUEST_ENTITY_NAME,
+                    EXECUTION_REQUEST_INPUT_ASPECT_NAME,
+                    execInput);
+            return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+          } catch (AuthorizationException e) {
+            throw e;
+          } catch (Exception e) {
+            throw new RuntimeException(
+                String.format("Failed to create new ingestion execution request %s", input), e);
           }
-          throw new AuthorizationException(
-              "Unauthorized to perform this action. Please contact your DataHub administrator.");
         },
         this.getClass().getSimpleName(),
         "get");

@@ -62,7 +62,9 @@ public class PoliciesConfigDefaultPoliciesTest {
    */
   private static boolean satisfies(Set<String> granted, ApiOperation operation) {
     final Disjunctive<Conjunctive<PoliciesConfig.Privilege>> required =
-        PoliciesConfig.API_PRIVILEGE_MAP.get(ENTITY).get(operation);
+        PoliciesConfig.API_PRIVILEGE_MAP
+            .get(ENTITY)
+            .getOrDefault(operation, Disjunctive.DENY_ACCESS);
     return required.stream()
         .anyMatch(
             conjunctive ->

@@ -41,11 +41,11 @@ public class PoliciesConfig {
           "Manage Policies",
           "Create and remove access control policies. Be careful - Actors with this privilege are effectively super users.");
 
-  static final Privilege MANAGE_INGESTION_PRIVILEGE =
+  public static final Privilege MANAGE_INGESTION_PRIVILEGE =
       Privilege.of(
           "MANAGE_INGESTION",
           "Manage Metadata Ingestion",
-          "Create, remove, and update Metadata Ingestion sources.");
+          "Create, read, update, delete, and execute Metadata Ingestion sources.");
 
   static final Privilege MANAGE_SECRETS_PRIVILEGE =
       Privilege.of(
@@ -307,8 +307,11 @@ public class PoliciesConfig {
   static final Privilege EXISTS_ENTITY_PRIVILEGE =
       Privilege.of(
           "EXISTS_ENTITY", "Entity Exists", "The ability to determine whether the entity exists.");
-  static final Privilege EXECUTE_ENTITY_PRIVILEGE =
-      Privilege.of("EXECUTE_ENTITY", "Execute Entity", "The ability to execute an Entity.");
+  public static final Privilege EXECUTE_ENTITY_PRIVILEGE =
+      Privilege.of(
+          "EXECUTE_ENTITY",
+          "Execute Entity",
+          "The ability to execute an ingestion source (and check that it exists). Does not grant recipe read access.");
 
   static final Privilege CREATE_ENTITY_PRIVILEGE =
       Privilege.of(
@@ -1082,7 +1085,7 @@ public class PoliciesConfig {
                               DELETE_ENTITY_PRIVILEGE))
                       .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
                       .put(ApiOperation.DELETE, Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE))
-                      .put(ApiOperation.EXECUTE, Disjunctive.disjoint(EXECUTE_ENTITY_PRIVILEGE))
+                      // EXECUTE is ingestion-source-only; see API_ENTITY_PRIVILEGE_MAP.
                       .put(
                           ApiOperation.EXISTS,
                           Disjunctive.disjoint(
@@ -1278,9 +1281,17 @@ public class PoliciesConfig {
                   Constants.INGESTION_SOURCE_ENTITY_NAME,
                   ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
                       .put(ApiOperation.CREATE, Disjunctive.disjoint(MANAGE_INGESTION_PRIVILEGE))
+                      // Recipe READ: Manage Ingestion, Edit, or standard entity read privileges.
                       .put(
                           ApiOperation.READ,
-                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
+                          new Disjunctive<>(
+                              Stream.concat(
+                                      Stream.of(Conjunctive.of(MANAGE_INGESTION_PRIVILEGE)),
+                                      API_PRIVILEGE_MAP
+                                          .get(ApiGroup.ENTITY)
+                                          .get(ApiOperation.READ)
+                                          .stream())
+                                  .collect(Collectors.toList())))
                       .put(
                           ApiOperation.UPDATE,
                           Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
@@ -1293,7 +1304,16 @@ public class PoliciesConfig {
                               EXECUTE_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
                       .put(
                           ApiOperation.EXISTS,
-                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                          new Disjunctive<>(
+                              Stream.concat(
+                                      Stream.of(
+                                          Conjunctive.of(EXECUTE_ENTITY_PRIVILEGE),
+                                          Conjunctive.of(MANAGE_INGESTION_PRIVILEGE)),
+                                      API_PRIVILEGE_MAP
+                                          .get(ApiGroup.ENTITY)
+                                          .get(ApiOperation.EXISTS)
+                                          .stream())
+                                  .collect(Collectors.toList())))
                       .build())
               .put(
                   Constants.DOCUMENT_ENTITY_NAME,
@@ -1417,10 +1437,7 @@ public class PoliciesConfig {
                           ApiOperation.DELETE,
                           Disjunctive.disjoint(
                               DELETE_ENTITY_PRIVILEGE, MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
-                      .put(
-                          ApiOperation.EXECUTE,
-                          Disjunctive.disjoint(
-                              EXECUTE_ENTITY_PRIVILEGE, MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
+                      // No EXECUTE — only dataHubIngestionSource supports ApiOperation.EXECUTE.
                       .put(
                           ApiOperation.EXISTS,
                           Disjunctive.disjoint(

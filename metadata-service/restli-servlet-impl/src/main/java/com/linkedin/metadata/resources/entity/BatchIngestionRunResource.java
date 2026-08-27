@@ -2,7 +2,7 @@ package com.linkedin.metadata.resources.entity;
 
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
-import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
+import static com.linkedin.metadata.authorization.ApiOperation.EXECUTE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static com.linkedin.metadata.service.RollbackService.ROLLBACK_FAILED_STATUS;
@@ -94,9 +94,11 @@ public class BatchIngestionRunResource
               systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "rollback", List.of()).withUsageOperation(UsageOperation.OTHER_OPERATIONS), authorizer, auth, true);
 
 
+      // Align with GraphQL rollbackIngestion: EXECUTE on ingestion sources
+      // (EXECUTE_ENTITY or MANAGE_INGESTION).
       if (!AuthUtil.isAPIAuthorizedEntityType(
                 opContext,
-                MANAGE,
+                EXECUTE,
                 INGESTION_SOURCE_ENTITY_NAME)) {
             throw new RestLiServiceException(
                     HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entity");

@@ -26,7 +26,7 @@ public class RollbackIngestionResolver implements DataFetcher<CompletableFuture<
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!IngestionAuthUtils.canManageIngestion(context)) {
+          if (!IngestionAuthUtils.canExecuteIngestion(context)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
