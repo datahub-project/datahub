@@ -14,7 +14,16 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
     PartitionInfo,
 )
-from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.security import (
+    build_safe_table_reference,
+    validate_and_filter_expressions,
+    validate_bigquery_identifier,
+    validate_column_name,
+    validate_column_names,
+    validate_filter_expression,
+    validate_sql_structure,
+)
 
 
 def test_not_generate_partition_profiler_query_if_not_partitioned_sharded_table():
@@ -244,7 +253,7 @@ def test_generate_sharded_table_profiler_query():
 @patch(
     "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
 )
-@patch("datahub.ingestion.source.bigquery_v2.profiler.create_engine")
+@patch("datahub.ingestion.source.bigquery_v2.profiling.profiler.create_engine")
 def test_profiler_engine_uses_user_supplied_client_when_credential_set(
     mock_create_engine, mock_from_sa_info
 ):
@@ -291,7 +300,7 @@ def test_profiler_engine_uses_user_supplied_client_when_credential_set(
 @patch(
     "datahub.ingestion.source.bigquery_v2.bigquery_connection.build_credentials_from_wif_dict"
 )
-@patch("datahub.ingestion.source.bigquery_v2.profiler.create_engine")
+@patch("datahub.ingestion.source.bigquery_v2.profiling.profiler.create_engine")
 def test_profiler_engine_uses_user_supplied_client_for_wif(
     mock_create_engine, mock_build_wif
 ):
@@ -333,7 +342,7 @@ def test_profiler_engine_uses_user_supplied_client_for_wif(
     assert kwargs["connect_args"]["client"] is fake_client
 
 
-@patch("datahub.ingestion.source.bigquery_v2.profiler.create_engine")
+@patch("datahub.ingestion.source.bigquery_v2.profiling.profiler.create_engine")
 def test_profiler_engine_falls_back_to_adc_when_no_credential(mock_create_engine):
     """When NO credential block is provided, the user opted into Application
     Default Credentials (Workload Identity, gcloud, GOOGLE_APPLICATION_CREDENTIALS).
@@ -352,3 +361,82 @@ def test_profiler_engine_falls_back_to_adc_when_no_credential(mock_create_engine
     url = args[0]
     assert "user_supplied_client" not in url
     assert kwargs["connect_args"] == {}
+
+
+@pytest.mark.parametrize(
+    "input_id, expected",
+    [
+        ("my_table", "`my_table`"),
+        ("dataset_123", "`dataset_123`"),
+        ("_PARTITIONTIME", "`_PARTITIONTIME`"),
+    ],
+)
+def test_validate_bigquery_identifier_valid(input_id: str, expected: str) -> None:
+    assert validate_bigquery_identifier(input_id) == expected
+
+
+@pytest.mark.parametrize(
+    "invalid_id",
+    ["col;drop", "col'injection", "col--comment", "col/*x*/", "bad col"],
+)
+def test_validate_bigquery_identifier_invalid(invalid_id: str) -> None:
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier(invalid_id)
+
+
+def test_build_safe_table_reference():
+    assert (
+        build_safe_table_reference("my-project", "my_dataset", "my_table")
+        == "`my-project`.`my_dataset`.`my_table`"
+    )
+
+
+@pytest.mark.parametrize(
+    "dangerous_sql",
+    [
+        "DROP TABLE foo",
+        "SELECT * FROM t; DELETE FROM t",
+        "INSERT INTO t VALUES (1)",
+    ],
+)
+def test_validate_sql_structure_dangerous(dangerous_sql: str) -> None:
+    with pytest.raises(ValueError):
+        validate_sql_structure(dangerous_sql)
+
+
+def test_validate_sql_structure_valid():
+    for query in [
+        "SELECT * FROM `project.dataset.table`",
+        "WITH cte AS (SELECT 1) SELECT * FROM cte",
+        "SELECT COUNT(*) FROM `table` LIMIT 1000",
+    ]:
+        assert validate_sql_structure(query) is True
+
+
+def test_validate_column_name():
+    assert validate_column_name("valid_col") is True
+    assert validate_column_name("_PARTITIONTIME") is True
+    assert validate_column_name("invalid col") is False
+    assert validate_column_name("col;drop") is False
+
+
+def test_validate_column_names_filters_invalid():
+    result = validate_column_names(["valid_col", "invalid col", "another_valid"])
+    assert result == ["valid_col", "another_valid"]
+
+
+def test_validate_filter_expression_valid():
+    assert validate_filter_expression("`event_date` = '2023-12-25'") is True
+
+
+def test_validate_and_filter_expressions():
+    result = validate_and_filter_expressions(
+        [
+            "`valid_col` = '2023-12-25'",
+            "invalid;expression",
+            "`another_valid` = 123",
+            "DROP TABLE malicious",
+        ]
+    )
+    assert len(result) == 2
+    assert "`valid_col` = '2023-12-25'" in result
