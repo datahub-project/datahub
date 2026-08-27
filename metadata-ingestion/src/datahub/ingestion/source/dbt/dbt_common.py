@@ -1161,6 +1161,13 @@ class DBTNode:
     # run has one catalog.json (and one generated_at) per project.
     catalog_generated_at: Optional[datetime] = None
 
+    # Raw generated_at string from this node's own project's manifest.json, used for
+    # Query entity timestamps. Per-node for the same reason as catalog_generated_at:
+    # report.manifest_info has one slot and is deliberately left unset in glob mode,
+    # since no single project may represent the whole run. Kept as the raw string so
+    # the single-project path parses byte-identically to before.
+    manifest_generated_at: Optional[str] = None
+
     convert_urns_to_lowercase: bool = False
 
     # Provenance of the dbt artifacts this node was read from, merged into the
@@ -1541,8 +1548,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.compiled_owner_extraction_pattern = re.compile(
                 self.config.owner_extraction_pattern
             )
-        # Cached timestamp for Query entities (ensures reproducible output)
-        self._query_timestamp_cache: Optional[int] = None
+        # Query entity timestamps, cached per manifest generated_at string (ensures
+        # reproducible output). The None key holds the shared now() fallback.
+        self._query_timestamp_cache: Dict[Optional[str], int] = {}
         # Exposures loaded by subclass (manifest or dbt Cloud API)
         self._exposures: List[DBTExposure] = []
         # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
@@ -1574,29 +1582,44 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # AutoIncrementalLineageProcessor on top of that causes double-processing.
         return [AutoIncrementalLineageProcessor]
 
-    def _get_query_timestamp(self) -> int:
-        """Get timestamp for Query entities, cached for reproducibility."""
-        if self._query_timestamp_cache is not None:
-            return self._query_timestamp_cache
+    def _get_query_timestamp(self, node: DBTNode) -> int:
+        """Timestamp for Query entities, taken from this node's own manifest.
 
-        manifest_info = getattr(self.report, "manifest_info", None)
-        if isinstance(manifest_info, dict):
-            generated_at = manifest_info.get("generated_at")
-            if generated_at and generated_at != "unknown":
+        Per-node rather than per-run: under a globbed manifest_path each project has
+        its own manifest.json with its own generated_at, and report.manifest_info is
+        deliberately unset there. Reading only that report field made every glob run
+        fall back to now(), churning each query's created/lastModified on every
+        ingest - the same aspect churn that moved manifest_path off customProperties.
+
+        The report field remains the fallback for sources that set it but not the
+        per-node value (dbt Cloud), so the single-project path is unchanged.
+        """
+        generated_at = node.manifest_generated_at
+        if generated_at is None:
+            manifest_info = getattr(self.report, "manifest_info", None)
+            if isinstance(manifest_info, dict):
+                generated_at = manifest_info.get("generated_at")
+        key = generated_at if generated_at and generated_at != "unknown" else None
+
+        if key not in self._query_timestamp_cache:
+            timestamp: Optional[int] = None
+            if key is not None:
                 try:
-                    self._query_timestamp_cache = datetime_to_ts_millis(
-                        dateutil.parser.parse(generated_at)
-                    )
-                    return self._query_timestamp_cache
+                    timestamp = datetime_to_ts_millis(dateutil.parser.parse(key))
                 except (ValueError, TypeError) as e:
-                    logger.warning(
-                        f"Failed to parse manifest timestamp '{generated_at}': {e}"
+                    logger.warning(f"Failed to parse manifest timestamp '{key}': {e}")
+            if timestamp is None:
+                # One fallback for the whole run, shared by every node that needs
+                # it, so queries stay mutually consistent within a run.
+                if None not in self._query_timestamp_cache:
+                    self._query_timestamp_cache[None] = datetime_to_ts_millis(
+                        datetime.now()
                     )
+                    self.report.query_timestamps_fallback_used = True
+                timestamp = self._query_timestamp_cache[None]
+            self._query_timestamp_cache[key] = timestamp
 
-        # Fallback to current time (manifest timestamp unavailable or unparseable)
-        self._query_timestamp_cache = datetime_to_ts_millis(datetime.now())
-        self.report.query_timestamps_fallback_used = True
-        return self._query_timestamp_cache
+        return self._query_timestamp_cache[key]
 
     def _upstream_exists_in_datahub(self, urn: str) -> bool:
         """Check whether an upstream URN exists in DataHub, with per-run caching.
@@ -3146,8 +3169,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             queries = queries[:max_queries]
 
-        # Get timestamp (computed once from manifest, cached for reproducibility)
-        query_timestamp = self._get_query_timestamp()
+        # Timestamp from this node's own manifest, cached for reproducibility
+        query_timestamp = self._get_query_timestamp(node)
 
         seen_urns: Dict[str, str] = {}
 

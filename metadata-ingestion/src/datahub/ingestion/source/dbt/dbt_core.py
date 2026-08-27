@@ -1179,10 +1179,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         # project's artifact provenance, manifest path, and catalog timestamp in one
         # place. This is the single authoritative site, so a future extractor can't
         # silently ship provenance-less nodes the way extract_semantic_models once did.
+        manifest_generated_at = dbt_manifest_metadata.get("generated_at")
         for node in nodes:
             node.artifact_props = artifact_props
             node.manifest_path = manifest_path
             node.catalog_generated_at = catalog_generated_at
+            node.manifest_generated_at = manifest_generated_at
 
         return nodes, catalog_version
 

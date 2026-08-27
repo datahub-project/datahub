@@ -3,6 +3,7 @@ import pathlib
 from typing import Any, Dict, List, Optional
 from unittest import mock
 
+import dateutil.parser
 import pytest
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
@@ -13,6 +14,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     UpstreamLineageClass,
 )
+from datahub.utilities.time import datetime_to_ts_millis
 
 
 def _make_source(**config_overrides: Any) -> DBTCoreSource:
@@ -448,6 +450,89 @@ def test_glob_attributes_catalog_generated_at_per_project(
     events_generated_at = nodes_by_name["model.project_b.events"].catalog_generated_at
     assert orders_generated_at is not None and orders_generated_at.year == 2020
     assert events_generated_at is not None and events_generated_at.year == 2021
+
+
+def test_glob_query_timestamps_come_from_each_projects_own_manifest(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Query created/lastModified must come from the node's own manifest.
+
+    report.manifest_info is deliberately left unset in glob mode (no single project
+    may represent the whole run), so a query-timestamp path reading only that field
+    fell back to now() on every glob run - churning every query aspect on every
+    ingest, the same problem that moved manifest_path off customProperties.
+    """
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "sch_a"}],
+        generated_at="2020-01-01T00:00:00.000000Z",
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "events", "database": "db", "schema": "sch_b"}],
+        generated_at="2021-06-01T00:00:00.000000Z",
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes_by_name = {node.dbt_name: node for node in source.load_nodes()}
+
+    ts_a = source._get_query_timestamp(nodes_by_name["model.project_a.orders"])
+    ts_b = source._get_query_timestamp(nodes_by_name["model.project_b.events"])
+
+    assert ts_a == datetime_to_ts_millis(
+        dateutil.parser.parse("2020-01-01T00:00:00.000000Z")
+    )
+    assert ts_b == datetime_to_ts_millis(
+        dateutil.parser.parse("2021-06-01T00:00:00.000000Z")
+    )
+    assert ts_a != ts_b
+    # The whole point: no now() fallback, so the values are stable across runs.
+    assert source.report.query_timestamps_fallback_used is False
+
+
+def test_non_glob_query_timestamp_still_uses_the_single_manifest(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Backward compatibility: single-project runs resolve the same timestamp they
+    always did, and still never hit the now() fallback."""
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "sch_a"}],
+        generated_at="2019-03-04T05:06:07.000000Z",
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/project_a/manifest.json")
+    nodes = source.load_nodes()
+
+    assert source._get_query_timestamp(nodes[0]) == datetime_to_ts_millis(
+        dateutil.parser.parse("2019-03-04T05:06:07.000000Z")
+    )
+    assert source.report.query_timestamps_fallback_used is False
+
+
+def test_query_timestamp_falls_back_to_report_manifest_info(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A node with no per-node manifest timestamp (dbt Cloud builds nodes that way)
+    must still resolve from the report-level manifest_info rather than now()."""
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "sch_a"}],
+        generated_at="2018-07-08T09:10:11.000000Z",
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/project_a/manifest.json")
+    node = source.load_nodes()[0]
+    node.manifest_generated_at = None
+
+    assert source._get_query_timestamp(node) == datetime_to_ts_millis(
+        dateutil.parser.parse("2018-07-08T09:10:11.000000Z")
+    )
+    assert source.report.query_timestamps_fallback_used is False
 
 
 def test_corrupt_manifest_is_a_failure_and_other_projects_still_load(
