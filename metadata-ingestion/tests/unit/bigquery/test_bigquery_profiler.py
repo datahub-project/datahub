@@ -724,7 +724,10 @@ def test_profiler_get_batch_kwargs_with_sampling(mock_get_filters):
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
 
-    mock_get_filters.return_value = ["`date_col` = '2023-12-25'"]
+    # Unpartitioned: sampling only applies on the non-partition path. With a partition
+    # filter the SQL never emits TABLESAMPLE (BigQuery would sample whole-table blocks
+    # before the WHERE); that is covered by test_batch_kwargs_sampling_with_partition_filter.
+    mock_get_filters.return_value = []
 
     table = create_test_table(rows_count=100000)
 
@@ -1317,6 +1320,37 @@ def test_deferred_external_discovery_success_builds_custom_sql():
     retained = captured["requests"][0]
     assert retained.batch_kwargs.get("custom_sql")
     assert "event_date" in retained.batch_kwargs["custom_sql"]
+
+
+def test_deferred_external_single_partition_label_and_cache():
+    # The deferred external path must mirror the inline path: label the profile with the
+    # real partition ID when the predicate scanned exactly one partition, and consult the
+    # dataset partition-metadata cache instead of re-probing every external table.
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    deferred = _build_deferred_external_request(profiler)
+    deferred.bq_table.max_partition_id = "20230101"
+
+    with (
+        patch.object(
+            PartitionDiscovery,
+            "get_required_partition_filters",
+            return_value=["`date_partition` = '2023-01-01'"],
+        ) as mock_filters,
+        patch.object(
+            profiler,
+            "_get_cached_partition_metadata",
+            return_value=None,
+        ) as mock_cache,
+    ):
+        result = profiler._discover_external_partition_filter(deferred)
+
+    assert result is not None
+    assert result.batch_kwargs.get("partition") == "20230101"
+    mock_cache.assert_called_once_with("test-project", "test_dataset", "ext_events")
+    assert "cached_partition_metadata" in mock_filters.call_args.kwargs
 
 
 def test_deferred_external_no_partition_filter_still_limits_scan():

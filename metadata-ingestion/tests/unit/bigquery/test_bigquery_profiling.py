@@ -547,20 +547,23 @@ def test_profiler_staleness_check():
 
 
 def test_batch_kwargs_sampling_threshold():
-    """Below sample_size → no TABLESAMPLE; above sample_size → TABLESAMPLE added."""
+    """Unpartitioned sampling threshold: at/below sample_size the table is profiled in
+    full (no custom_sql), above sample_size TABLESAMPLE is applied. Sampling only ever
+    happens on this unpartitioned path — the partition path never samples (see
+    test_batch_kwargs_sampling_with_partition_filter).
+    """
     config = make_config(use_sampling=True, sample_size=1000, profiling_row_limit=10000)
     profiler = BigqueryProfiler(config, BigQueryV2Report())
 
     with patch.object(
         profiler.partition_discovery,
         "get_required_partition_filters",
-        return_value=["`date` = '2023-12-25'"],
+        return_value=[],
     ):
         small = profiler.get_batch_kwargs(
             make_table(rows_count=500), "test_dataset", "test-project-123456"
         )
-        assert "TABLESAMPLE" not in small["custom_sql"]
-        assert "LIMIT" in small["custom_sql"]
+        assert "custom_sql" not in small
 
         large = profiler.get_batch_kwargs(
             make_table(rows_count=50_000), "test_dataset", "test-project-123456"
@@ -699,8 +702,11 @@ def test_batch_kwargs_safety_limit_for_large_unsampled_table():
 
 
 def test_batch_kwargs_sampling_with_partition_filter():
-    """When both sampling and a partition filter are active the custom_sql should contain
-    both TABLESAMPLE and WHERE.
+    """With a partition filter the custom_sql must apply the WHERE but must NOT emit
+    TABLESAMPLE, even when sampling is enabled. BigQuery samples whole-table blocks before
+    the WHERE and sizes the percentage from the whole-table row count, so a small target
+    partition of a large table could come back empty; the downstream profiler samples the
+    materialized partition instead.
     """
     config = make_config(use_sampling=True, sample_size=5000)
     profiler = BigqueryProfiler(config, BigQueryV2Report())
@@ -714,7 +720,7 @@ def test_batch_kwargs_sampling_with_partition_filter():
             make_table(name="events", rows_count=500_000), "ds", "test-project-123456"
         )
 
-    assert "TABLESAMPLE SYSTEM" in kwargs["custom_sql"]
+    assert "TABLESAMPLE" not in kwargs["custom_sql"]
     assert "WHERE" in kwargs["custom_sql"]
     assert "event_date" in kwargs["custom_sql"]
 
