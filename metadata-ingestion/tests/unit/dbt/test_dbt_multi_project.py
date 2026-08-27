@@ -1103,6 +1103,78 @@ def test_duplicate_unique_id_drop_mode_keeps_first_loaded(
     assert any(f"keeping {manifest_a}" in entry for entry in warning.context)
 
 
+def test_duplicate_unique_id_drop_mode_keeps_the_survivors_run_results(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The retained contender must keep the run results attributed to the collision.
+
+    load_run_results runs inside load_nodes, before this pass, and resolves results
+    through its own local node map - which collapses colliding unique_ids last-wins.
+    So results land on whichever contender loaded last, and keep-first mode retains
+    the one that loaded first: without merging, the survivor silently loses its test
+    results and model performance metadata.
+    """
+    # project_a sorts first by path, so it is the "first loaded" survivor, while
+    # load_run_results' own last-wins map attaches the result to project_z's node.
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "sch_z"}],
+        package_name="shared_pkg",
+    )
+    _write_project(
+        tmp_path,
+        "project_z",
+        [{"name": "orders", "database": "db", "schema": "sch_a"}],
+        package_name="shared_pkg",
+    )
+    run_results_path = tmp_path / "run_results.json"
+    run_results_path.write_text(
+        json.dumps(
+            {
+                "metadata": {
+                    "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
+                    "dbt_version": "1.8.0",
+                    "generated_at": "2026-01-02T00:00:00.000000Z",
+                    "invocation_id": "invocation-run",
+                },
+                "results": [
+                    {
+                        "status": "success",
+                        "unique_id": "model.shared_pkg.orders",
+                        "timing": [
+                            {
+                                "name": "execute",
+                                "started_at": "2026-01-02T00:00:00.000000Z",
+                                "completed_at": "2026-01-02T00:00:05.000000Z",
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+    )
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        run_results_paths=[str(run_results_path)],
+        fail_on_duplicate_models=False,
+    )
+    all_nodes = source.load_nodes()
+
+    # Precondition: the result really did land on the contender about to be dropped.
+    by_schema = {node.schema: node for node in all_nodes}
+    assert len(by_schema["sch_a"].model_performances) == 1
+    assert by_schema["sch_z"].model_performances == []
+
+    nodes, _ = source._check_duplicate_unique_ids(all_nodes, source.load_exposures())
+
+    assert len(nodes) == 1
+    assert nodes[0].schema == "sch_z"  # project_a survives (first loaded)
+    assert len(nodes[0].model_performances) == 1
+    assert nodes[0].model_performances[0].run_id == "invocation-run"
+
+
 def test_duplicate_exposure_unique_id_across_projects_fails(
     tmp_path: pathlib.Path,
 ) -> None:

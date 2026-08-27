@@ -2426,6 +2426,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.report.duplicate_node_unique_ids_detected,
         ) = self._find_unique_id_collisions(by_node_id, "node")
 
+        if drop_nodes and not self.config.fail_on_duplicate_models:
+            # load_run_results runs inside load_nodes, before this pass, and attaches
+            # test results and model performances through its own local node map -
+            # which collapses colliding unique_ids last-wins, so results can land on
+            # a contender that is dropped here. When unique_ids collide the results
+            # cannot be attributed to a specific project, so they are merged onto the
+            # survivor rather than silently discarded with the dropped contenders.
+            for contenders in by_node_id.values():
+                if len(contenders) < 2:
+                    continue
+                winner, *losers = contenders
+                for loser in losers:
+                    winner.test_results.extend(loser.test_results)
+                    winner.model_performances.extend(loser.model_performances)
+
         drop_exposures: Set[int] = set()
         if self.config.entities_enabled.can_emit_exposures:
             by_exposure_id: Dict[str, List[DBTExposure]] = defaultdict(list)
