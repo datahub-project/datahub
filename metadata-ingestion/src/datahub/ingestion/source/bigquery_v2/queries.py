@@ -121,8 +121,8 @@ FROM
   left join (
     select
         table_name,
-        sum(case when partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__') then 1 else 0 END) as num_partitions,
-        max(case when partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__') then partition_id else NULL END) as max_partition_id,
+        sum(case when partition_id not in ('{BQ_NULL_PARTITION_ID}', '{BQ_UNPARTITIONED_PARTITION_ID}', '{BQ_STREAMING_UNPARTITIONED_PARTITION_ID}') then 1 else 0 END) as num_partitions,
+        max(case when partition_id not in ('{BQ_NULL_PARTITION_ID}', '{BQ_UNPARTITIONED_PARTITION_ID}', '{BQ_STREAMING_UNPARTITIONED_PARTITION_ID}') then partition_id else NULL END) as max_partition_id,
         sum(total_rows) as total_rows,
         sum(total_logical_bytes) as total_logical_bytes,
         UNIX_MILLIS(max(last_modified_time)) as last_modified_time,

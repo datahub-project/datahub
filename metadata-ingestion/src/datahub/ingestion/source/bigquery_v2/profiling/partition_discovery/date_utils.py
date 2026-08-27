@@ -38,5 +38,9 @@ class DateUtils:
     def get_strategic_candidate_dates() -> List[Tuple[datetime, str]]:
         now = datetime.now(timezone.utc)
         today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        yesterday = now - timedelta(days=1)
+        # Derive yesterday from midnight-normalized today (not from `now`) so both
+        # candidates are the same calendar-day pair; using `now - 1d` would keep the
+        # current wall-clock time and land on the wrong hour/day for consumers that
+        # floor these instants.
+        yesterday = today - timedelta(days=1)
         return [(today, "today"), (yesterday, "yesterday")]

@@ -3,7 +3,10 @@ from types import SimpleNamespace
 from typing import Any, Optional
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigqueryTable,
+    PartitionInfo,
+)
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
 )
@@ -54,6 +57,67 @@ def test_unpartitioned_table_returns_empty_list():
     filters = discovery.get_required_partition_filters(
         make_table(name="unpartitioned"), "proj", "ds", execute
     )
+    assert filters == []
+
+
+def test_partition_columns_from_table_info_preserves_order_and_dedups():
+    """Composite partition columns are positional, so declared order must be preserved
+    (not sorted) and duplicates collapsed.
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(
+        partition_info=PartitionInfo(fields=("region", "event_date", "region"))
+    )
+
+    columns = discovery._get_partition_columns_from_table_info(table)
+
+    assert columns == ["region", "event_date"]
+
+
+def test_inconclusive_detection_skips_partitioned_table():
+    """When the COLUMNS lookup fails and the probe errors, the partition state is unknown.
+    The table must be skipped (None), not treated as unpartitioned ([]).
+    """
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        raise RuntimeError("INFORMATION_SCHEMA unavailable")
+
+    class ProbeErrorDiscovery(PartitionDiscovery):
+        def _probe_required_partition_columns(self, *args: Any, **kwargs: Any):
+            return set(), "query timed out"
+
+    discovery = ProbeErrorDiscovery(make_config())
+
+    filters = discovery.get_required_partition_filters(
+        make_table(name="unknown_state"), "proj", "ds", execute
+    )
+
+    assert filters is None
+
+
+def test_authoritative_empty_columns_skips_probe():
+    """A successful, empty COLUMNS result is definitive (unpartitioned), so the probe
+    fallback must not run and the table is profiled unfiltered ([]).
+    """
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return []
+
+    class ProbeGuardDiscovery(PartitionDiscovery):
+        def _probe_required_partition_columns(self, *args: Any, **kwargs: Any):
+            raise AssertionError(
+                "probe must not run after an authoritative COLUMNS result"
+            )
+
+    discovery = ProbeGuardDiscovery(make_config())
+
+    filters = discovery.get_required_partition_filters(
+        make_table(name="authoritative_unpartitioned"),
+        "test-project-123456",
+        "ds",
+        execute,
+    )
+
     assert filters == []
 
 

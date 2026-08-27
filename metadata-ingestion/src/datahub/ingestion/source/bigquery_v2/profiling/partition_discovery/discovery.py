@@ -209,23 +209,32 @@ class PartitionDiscovery:
         required_partition_columns = self._get_partition_columns_from_table_info(table)
 
         if not required_partition_columns and cached_partition_metadata:
-            required_partition_columns = set(
-                cached_partition_metadata.get("partition_columns", [])
+            required_partition_columns = list(
+                dict.fromkeys(cached_partition_metadata.get("partition_columns", []))
             )
 
+        # Track whether the INFORMATION_SCHEMA.COLUMNS lookup was authoritative: an empty
+        # result from a *successful* query means the table is genuinely unpartitioned,
+        # whereas an empty result from a *failed* query means the state is unknown.
+        schema_authoritative = True
         if not required_partition_columns:
-            required_partition_columns = self._get_partition_columns_from_schema(
-                table, project, schema, execute_query_func
-            )
-
-        probe_error: Optional[str] = None
-        if not required_partition_columns:
-            # Last resort: probe with a cheap query and parse the partition-filter error.
-            required_partition_columns, probe_error = (
-                self._probe_required_partition_columns(
-                    table, project, schema, execute_query_func, "partition detection"
+            schema_columns, schema_authoritative = (
+                self._get_partition_columns_from_schema(
+                    table, project, schema, execute_query_func
                 )
             )
+            # The COLUMNS query has no inherent ordering, so sort for a deterministic
+            # (and stable across runs) positional mapping when no declared order exists.
+            required_partition_columns = sorted(schema_columns)
+
+        probe_error: Optional[str] = None
+        if not required_partition_columns and not schema_authoritative:
+            # Only probe when the authoritative COLUMNS lookup failed. A successful,
+            # empty COLUMNS result is definitive, so re-probing would be wasted work.
+            probed_columns, probe_error = self._probe_required_partition_columns(
+                table, project, schema, execute_query_func, "partition detection"
+            )
+            required_partition_columns = sorted(probed_columns)
 
         if not required_partition_columns:
             if table.external:
@@ -235,17 +244,22 @@ class PartitionDiscovery:
                     table, project, schema, execute_query_func
                 )
             if probe_error is not None:
-                # A probe timeout / IAM / quota error must not be silently reclassified
-                # as "unpartitioned"; mirror _get_partition_columns_from_schema.
+                # COLUMNS lookup failed AND the probe errored: the partition state is
+                # unknown, not confirmed-unpartitioned. Returning [] would trigger an
+                # unfiltered/full scan that likely fails the same way, so preserve the
+                # unknown state and skip the table instead.
                 warn(
                     self.report,
                     logger,
                     title="Partition column detection failed",
-                    message="Could not determine partition columns from the fallback "
-                    "probe query; the table will be treated as unpartitioned and may be "
-                    "full-scanned or skipped",
+                    message="Could not determine partition columns from "
+                    "INFORMATION_SCHEMA or the fallback probe query; skipping the table "
+                    "rather than risk an unfiltered scan",
                     context=f"{table.name}: probe error={probe_error}",
                 )
+                return None
+            # Either the COLUMNS query authoritatively returned no partition columns, or
+            # the probe ran cleanly without a partition-filter error: unpartitioned.
             logger.debug(f"No partition columns found for table {table.name}")
             return []
 
@@ -864,17 +878,24 @@ class PartitionDiscovery:
 
         return column_names
 
-    def _get_partition_columns_from_table_info(self, table: BigqueryTable) -> Set[str]:
-        required_partition_columns: Set[str] = set()
+    def _get_partition_columns_from_table_info(self, table: BigqueryTable) -> List[str]:
+        # PartitionInfo.fields is ordered and its position is significant for composite
+        # partitions, so preserve declared order while deduplicating rather than
+        # collapsing to an unordered set (which could map a positional component to the
+        # wrong value downstream).
+        ordered: List[str] = []
+        seen: Set[str] = set()
 
         if table.partition_info:
-            required_partition_columns.update(table.partition_info.fields)
+            names = list(table.partition_info.fields)
             if table.partition_info.columns is not None:
-                required_partition_columns.update(
-                    col.name for col in table.partition_info.columns
-                )
+                names.extend(col.name for col in table.partition_info.columns)
+            for name in names:
+                if name not in seen:
+                    seen.add(name)
+                    ordered.append(name)
 
-        return required_partition_columns
+        return ordered
 
     def _probe_required_partition_columns(
         self,
@@ -901,7 +922,14 @@ class PartitionDiscovery:
         project: str,
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-    ) -> Set[str]:
+    ) -> Tuple[Set[str], bool]:
+        """Return (partition columns, authoritative).
+
+        ``authoritative`` is True only when the INFORMATION_SCHEMA.COLUMNS query executed
+        successfully; an empty set with authoritative=True means the table is genuinely
+        unpartitioned, whereas authoritative=False means the lookup failed and the state
+        is unknown (the caller should fall back to a probe).
+        """
         required_partition_columns: Set[str] = set()
 
         try:
@@ -927,31 +955,14 @@ class PartitionDiscovery:
                 f"Found partition columns from schema: {required_partition_columns}"
             )
         except Exception as e:
+            # Don't probe here: the coordinator runs the probe fallback exactly once when
+            # this returns empty, so probing internally would double-probe on a COLUMNS
+            # failure. Signal non-authoritative so the coordinator's single probe surfaces
+            # the error state instead of treating the table as unpartitioned.
             logger.debug(f"Error querying partition columns from schema: {e}")
-            required_partition_columns, probe_error = (
-                self._probe_required_partition_columns(
-                    table,
-                    project,
-                    schema,
-                    execute_query_func,
-                    "partition error detection",
-                )
-            )
-            # If the probe also errored without yielding the expected "requires partition
-            # filter" columns, we learned nothing and the table will be treated as
-            # unpartitioned. Surface that so operators can see the real cause.
-            if probe_error is not None and not required_partition_columns:
-                warn(
-                    self.report,
-                    logger,
-                    title="Partition column detection failed",
-                    message="Could not determine partition columns from "
-                    "INFORMATION_SCHEMA or the fallback probe query; the table will "
-                    "be treated as unpartitioned and may be full-scanned or skipped",
-                    context=f"{table.name}: schema error={e}; probe error={probe_error}",
-                )
+            return required_partition_columns, False
 
-        return required_partition_columns
+        return required_partition_columns, True
 
     def _get_partitions_with_sampling(
         self,
