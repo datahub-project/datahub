@@ -14,8 +14,10 @@ from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.testing import mce_helpers
+from datahub.testing.compare_metadata_json import assert_metadata_files_equal
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from tests.test_helpers import test_connection_helpers
+from tests.test_helpers.state_helpers import run_and_get_pipeline
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 GMS_PORT = 8080
@@ -122,8 +124,8 @@ class DbtTestConfig:
         )
 
 
-def run_and_verify(config: DbtTestConfig, tmp_path: PathLike) -> None:
-    pipeline = Pipeline.create(
+def run_and_verify(config: DbtTestConfig) -> None:
+    run_and_get_pipeline(
         {
             "run_id": config.run_id,
             "source": {"type": "dbt", "config": config.source_config},
@@ -133,12 +135,7 @@ def run_and_verify(config: DbtTestConfig, tmp_path: PathLike) -> None:
             },
         }
     )
-    pipeline.run()
-    pipeline.raise_from_status()
-    # pytestconfig is unused inside check_golden_file (see its own TODO); update-golden
-    # is actually read from a separate settings singleton, not this argument.
-    mce_helpers.check_golden_file(
-        pytestconfig=None,  # type: ignore[arg-type]
+    assert_metadata_files_equal(
         output_path=config.output_path,
         golden_path=config.golden_path,
     )
@@ -385,7 +382,7 @@ def test_dbt_ingest(
         tmp_path=tmp_path,
     )
 
-    run_and_verify(config, tmp_path)
+    run_and_verify(config)
 
 
 @pytest.mark.integration
@@ -423,7 +420,7 @@ def test_dbt_multi_project_glob(pytestconfig, tmp_path):
         test_resources_dir=test_resources_dir,
         tmp_path=tmp_path,
     )
-    run_and_verify(config, tmp_path)
+    run_and_verify(config)
 
 
 @pytest.mark.parametrize(
