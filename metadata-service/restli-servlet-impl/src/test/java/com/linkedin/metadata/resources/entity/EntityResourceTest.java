@@ -262,6 +262,44 @@ public class EntityResourceTest {
   }
 
   /**
+   * Regression for a residual disclosure a follow-up audit caught in the fix above: when the
+   * caller requests ONLY a restricted aspect, pruning it leaves an EMPTY set. {@code
+   * EntityServiceImpl#getLatestAspect} treats an empty aspect-name set as "fetch every registered
+   * aspect" — so passing that empty set through would silently widen the fetch back to
+   * everything, restoring the very aspect just restricted (and leaking every other aspect too).
+   * The fix must fall back to a non-empty, harmless set (the entity's own key aspect) instead of
+   * ever letting the projected set go empty when something was actually requested.
+   */
+  @Test
+  public void testGetFallsBackToKeyAspectWhenAllRequestedAspectsAreRestricted() throws Exception {
+    Urn urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+    Entity entity = new Entity(new DataMap());
+    when(entityService.getEntity(any(OperationContext.class), eq(urn), any(), eq(true)))
+        .thenReturn(entity);
+
+    try (MockedStatic<EntityAuthorizationUtils> mockedUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      mockedUtils
+          .when(
+              () ->
+                  EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+                      any(OperationContext.class), eq(urn), eq("viewProperties")))
+          .thenReturn(true);
+
+      awaitTask(entityResource.get(urn.toString(), new String[] {"viewProperties"}));
+
+      ArgumentCaptor<Set<String>> projectedAspectsCaptor = ArgumentCaptor.forClass(Set.class);
+      verify(entityService)
+          .getEntity(
+              any(OperationContext.class), eq(urn), projectedAspectsCaptor.capture(), eq(true));
+      assertFalse(
+          projectedAspectsCaptor.getValue().isEmpty(),
+          "an empty set here would be misread by the entity service as \"fetch everything\"");
+      assertFalse(projectedAspectsCaptor.getValue().contains("viewProperties"));
+    }
+  }
+
+  /**
    * Same fix, batch path: urns landing on different projected-aspect sets (here, only one of the
    * two has {@code viewProperties} restricted) must not share a single {@code getEntities} call
    * with the unpruned set, which would either over-withhold for the unrestricted urn or leak for
