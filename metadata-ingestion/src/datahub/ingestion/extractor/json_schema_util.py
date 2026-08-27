@@ -301,7 +301,6 @@ class JsonSchemaTranslator:
                     and isinstance(schema.get("additionalProperties"), dict)
                     and not schema.get("properties")
                 ):
-                ):
                     return "map"
                 return resolved_type
             elif schema["type"] != "object":

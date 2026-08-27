@@ -135,6 +135,41 @@ def test_json_schema_nullable_map_field_still_resolves_as_map():
     assert_fields_are_valid(fields)
 
 
+def test_json_schema_nullable_object_with_named_properties_keeps_object_type():
+    # Regression: a nullable object (list-form type) that declares BOTH named
+    # `properties` and a catchall `additionalProperties` must stay an object
+    # so its named fields are still walked -- the map branch only emits a
+    # single value-type field for additionalProperties and never walks
+    # `properties`, so treating this shape as a map would silently drop
+    # `known_field`.
+    schema = {
+        "type": "object",
+        "title": "R",
+        "namespace": "some.namespace",
+        "properties": {
+            "a_nullable_object_with_named_and_catchall_fields": {
+                "type": ["object", "null"],
+                "properties": {"known_field": {"type": "string"}},
+                "additionalProperties": {"type": "integer"},
+            }
+        },
+    }
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths = [
+        {
+            "path": "[version=2.0].[type=R].[type=object].a_nullable_object_with_named_and_catchall_fields",
+            "type": RecordTypeClass,
+        },
+        {
+            "path": "[version=2.0].[type=R].[type=object].a_nullable_object_with_named_and_catchall_fields.[type=string].known_field",
+            "type": StringTypeClass,
+        },
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+    assert fields[0].nullable
+
+
 def test_json_schema_to_record_with_two_fields():
     schema = {
         "type": "object",
