@@ -1,3 +1,6 @@
+import json
+from datetime import datetime, timezone
+
 from pydantic import BaseModel
 
 from datahub.api.entities.common.serialized_value import SerializedResourceValue
@@ -53,6 +56,18 @@ def test_dictwrapper():
     assert read_typed_resource_value.description == "test_description"
     assert read_typed_resource_value.customProperties == {"test_key": "test_value"}
     assert read_typed_resource_value.tags == []
+
+
+def test_base_model_with_datetime_field():
+    class ModelWithDatetime(BaseModel):
+        ts: datetime
+
+    m = ModelWithDatetime(ts=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    srv = SerializedResourceValue.create(m)
+    parsed = json.loads(srv.blob)
+    assert isinstance(parsed["ts"], str)
+    # Python 3.10 fromisoformat doesn't accept 'Z'; replace before parsing.
+    datetime.fromisoformat(parsed["ts"].replace("Z", "+00:00"))
 
 
 def test_raw_dictionary():

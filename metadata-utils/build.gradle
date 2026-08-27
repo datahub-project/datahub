@@ -32,10 +32,12 @@ dependencies {
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   runtimeOnly externalDependency.javaxMail
+  runtimeOnly externalDependency.javaxMailCompat
 
   implementation platform(externalDependency.awsSdk2Bom)
   implementation 'software.amazon.awssdk:s3'
   implementation 'software.amazon.awssdk:sts'
+  implementation 'com.google.cloud:google-cloud-storage:2.46.0'
 
   annotationProcessor externalDependency.lombok
 
@@ -45,6 +47,7 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation project(':metadata-operation-context')
   testImplementation project(':entity-registry')
+  testImplementation externalDependency.archunit
 
   constraints {
       implementation(externalDependency.log4jCore) {
@@ -55,6 +58,9 @@ dependencies {
     }
     implementation(externalDependency.javaxMail) {
       because("previous versions are vulnerable")
+    }
+    implementation(externalDependency.javaxMailCompat) {
+      because("compatibility for libraries that still reference javax.mail.* classes")
     }
     implementation(externalDependency.zookeeper) {
       because("CVE-2023-44981")

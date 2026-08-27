@@ -1,3 +1,7 @@
+---
+description: "Reference for DataHub Entity Change Events emitted whenever metadata aspects on entities are added, modified, or removed."
+---
+
 # Entity Change Event V1
 
 ## Event Type

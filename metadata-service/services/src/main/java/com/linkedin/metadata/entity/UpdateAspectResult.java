@@ -5,8 +5,11 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -30,6 +33,13 @@ public class UpdateAspectResult {
   MetadataAuditOperation operation;
   AuditStamp auditStamp;
   long maxVersion;
+
+  /**
+   * Primary-storage row version ({@code metadata_aspect.version}) for the aspect value in this
+   * result; when set, {@link #toMCL()} stamps {@link Constants#MCL_HEADER_DATABASE_ASPECT_VERSION}.
+   */
+  @Nullable Long databaseAspectRowVersion;
+
   @Nullable MetadataChangeProposal mcp;
   /*
    Whether the MCL was written to Elasticsearch prior to emitting the MCL
@@ -42,16 +52,28 @@ public class UpdateAspectResult {
   }
 
   public MetadataChangeLog toMCL() {
-    return constructMCL(
-        request.getMetadataChangeProposal(),
-        urnToEntityName(urn),
-        urn,
-        isNoOp() ? ChangeType.RESTATE : ChangeType.UPSERT,
-        request.getAspectName(),
-        auditStamp,
-        newValue,
-        newSystemMetadata,
-        oldValue,
-        oldSystemMetadata);
+    MetadataChangeLog mcl =
+        constructMCL(
+            request.getMetadataChangeProposal(),
+            urnToEntityName(urn),
+            urn,
+            isNoOp() ? ChangeType.RESTATE : ChangeType.UPSERT,
+            request.getAspectName(),
+            auditStamp,
+            newValue,
+            newSystemMetadata,
+            oldValue,
+            oldSystemMetadata);
+    if (databaseAspectRowVersion != null) {
+      DataMap headerData = new DataMap();
+      if (mcl.hasHeaders() && mcl.getHeaders() != null) {
+        headerData.putAll(mcl.getHeaders().data());
+      }
+      StringMap headers = new StringMap(headerData);
+      headers.put(
+          Constants.MCL_HEADER_DATABASE_ASPECT_VERSION, Long.toString(databaseAspectRowVersion));
+      mcl.setHeaders(headers);
+    }
+    return mcl;
   }
 }

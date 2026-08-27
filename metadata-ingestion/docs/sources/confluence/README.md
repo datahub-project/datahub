@@ -2,7 +2,7 @@
 
 Confluence is a documentation or collaboration platform. Learn more in the [official Confluence documentation](https://www.atlassian.com/software/confluence).
 
-The DataHub integration for Confluence covers document/workspace entities and hierarchy context for knowledge assets. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Confluence covers document/workspace entities and hierarchy context for knowledge assets. It also captures stateful deletion detection.
 
 :::warning Not Supported with Remote Executor
 This source is not supported with the Remote Executor in DataHub Cloud. It must be run using a self-hosted ingestion setup.

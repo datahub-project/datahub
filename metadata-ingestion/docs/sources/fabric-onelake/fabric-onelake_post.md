@@ -97,10 +97,17 @@ source:
         - ".*_temp"
         - ".*_backup"
 
+    view_pattern:
+      allow:
+        - ".*"
+      deny:
+        - ".*_internal"
+
     # Feature flags
     extract_lakehouses: true
     extract_warehouses: true
     extract_schemas: true # Set to false to skip schema containers
+    extract_views: true # Requires sql_endpoint.enabled
 
     # API timeout (seconds)
     api_timeout: 30
@@ -159,98 +166,7 @@ sink:
 
 Schema extraction (column metadata) is supported via the SQL Analytics Endpoint. This feature extracts column names, data types, nullability, and ordinal positions from tables in both Lakehouses and Warehouses.
 
-#### Prerequisites for Schema Extraction
-
-Schema extraction via SQL Analytics Endpoint requires ODBC drivers to be installed on the system.
-
-##### 1. ODBC Driver Manager
-
-First, install the ODBC driver manager (UnixODBC) on your system:
-
-**Ubuntu/Debian:**
-
-```bash
-sudo apt-get update
-sudo apt-get install -y unixodbc unixodbc-dev
-```
-
-**RHEL/CentOS/Fedora:**
-
-```bash
-# RHEL/CentOS 7/8
-sudo yum install -y unixODBC unixODBC-devel
-
-# Fedora / RHEL 9+
-sudo dnf install -y unixODBC unixODBC-devel
-```
-
-**macOS:**
-
-```bash
-brew install unixodbc
-```
-
-##### 2. Microsoft ODBC Driver for SQL Server
-
-Install the Microsoft ODBC Driver 18 for SQL Server (required for connecting to Fabric SQL Analytics Endpoint):
-
-**Ubuntu 20.04/22.04:**
-
-```bash
-curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
-sudo apt-get update
-sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18
-```
-
-**RHEL/CentOS 7/8:**
-
-```bash
-sudo curl -o /etc/yum.repos.d/mssql-release.repo https://packages.microsoft.com/config/rhel/$(rpm -E %{rhel})/mssql-release.repo
-sudo ACCEPT_EULA=Y yum install -y msodbcsql18
-```
-
-**RHEL 9 / Fedora:**
-
-```bash
-sudo curl -o /etc/yum.repos.d/mssql-release.repo https://packages.microsoft.com/config/rhel/9/mssql-release.repo
-sudo ACCEPT_EULA=Y dnf install -y msodbcsql18
-```
-
-**macOS:**
-
-```bash
-brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
-brew update
-HOMEBREW_ACCEPT_EULA=Y brew install msodbcsql18 mssql-tools18
-```
-
-**Windows:**
-Download and install from [Microsoft ODBC Driver for SQL Server](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server).
-
-##### 3. Verify Installation
-
-After installation, verify that the ODBC driver is available:
-
-```bash
-odbcinst -q -d
-```
-
-You should see `ODBC Driver 18 for SQL Server` in the list.
-
-##### 4. Permissions
-
-Your Azure identity must have access to query the SQL Analytics Endpoint (same permissions as accessing the endpoint via SQL tools).
-
-##### 5. Python Dependencies
-
-The `fabric-onelake` extra includes `sqlalchemy` and `pyodbc` dependencies. Install them with:
-
-```bash
-pip install 'acryl-datahub[fabric-onelake]'
-```
-
-**Note:** If you encounter `libodbc.so.2: cannot open shared object file` errors, ensure the ODBC driver manager is installed (step 1 above).
+See [SQL Analytics Endpoint Setup](#sql-analytics-endpoint-setup) under Prerequisites for ODBC driver installation.
 
 #### Schema Extraction Configuration
 
@@ -312,6 +228,93 @@ source:
       enabled: false
 ```
 
+#### View Extraction
+
+Views in Lakehouses and Warehouses are ingested as DataHub `Dataset` entities with the `View` subtype. Each view dataset includes:
+
+- Column-level schema metadata (sourced from `INFORMATION_SCHEMA.COLUMNS` alongside table columns).
+- The original view definition (`CREATE VIEW` SQL), captured from `INFORMATION_SCHEMA.VIEWS`.
+- Upstream table lineage parsed from the view definition via the SQL parsing aggregator.
+
+See [View Extraction](#view-extraction) under Prerequisites for required ODBC setup and the `VIEW DEFINITION` permission needed to read view definitions.
+
+##### Configuration
+
+```yaml
+source:
+  type: fabric-onelake
+  config:
+    # View extraction is enabled by default. Set to false to skip views.
+    extract_views: true
+
+    # Filter views by name pattern. Format: 'schema.view' or just 'view' for default schema.
+    view_pattern:
+      allow:
+        - ".*"
+      deny:
+        - ".*_internal"
+
+    # View extraction requires the SQL Analytics Endpoint (enabled by default).
+    sql_endpoint:
+      enabled: true
+```
+
+##### How It Works
+
+1. **Discovery**: The connector queries `INFORMATION_SCHEMA.VIEWS` on the SQL Analytics Endpoint to list views and capture their definitions.
+2. **Filtering**: Each view is matched against `view_pattern` using the `schema.view_name` form.
+3. **Schema**: Column metadata is reused from the same `INFORMATION_SCHEMA.COLUMNS` query that powers table schema extraction — no extra queries per view.
+4. **Lineage**: View definitions are passed to the SQL parsing aggregator to derive view → upstream table lineage. View URNs and upstream table URNs are resolved within the same workspace and item.
+
+#### Usage Statistics
+
+The connector extracts query usage statistics from each Lakehouse and Warehouse by reading the [`queryinsights.exec_requests_history`](https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights) view on the SQL Analytics Endpoint. Each captured query is parsed by the SQL parsing aggregator and emitted as:
+
+- `datasetUsageStatistics` aspects — query counts, distinct user counts, top users, top fields, and (when enabled) top SQL queries, bucketed by the configured window.
+- `operation` aspects — per-query operation events (insert, update, delete, etc.) when `usage.include_operational_stats` is enabled.
+
+See [Query Usage Statistics](#query-usage-statistics) under Prerequisites for the required workspace role (Contributor or higher) and ODBC setup.
+
+##### Configuration
+
+```yaml
+source:
+  type: fabric-onelake
+  config:
+    # Usage extraction is enabled by default. Set to false to skip query usage.
+    usage:
+      include_usage_statistics: true
+
+      # When true, the SQL filter excludes rows where status != 'Succeeded'
+      # (canceled / failed queries are skipped at the source).
+      skip_failed_queries: true
+
+      # Optional: emit per-query operation aspects in addition to aggregated
+      # datasetUsageStatistics. Defaults to true (inherited from BaseUsageConfig).
+      include_operational_stats: true
+
+      # Optional: include top SQL queries in the usage payload.
+      include_top_n_queries: true
+      top_n_queries: 10
+
+      # Optional: window the connector queries from queryinsights. Defaults to
+      # the standard BaseUsageConfig "last bucket" window. Fabric retains
+      # queryinsights for 30 days.
+      bucket_duration: DAY
+      # start_time: "2026-04-01T00:00:00Z"
+      # end_time:   "2026-05-01T00:00:00Z"
+
+    # Usage extraction depends on the SQL Analytics Endpoint.
+    extract_schema:
+      enabled: true
+    sql_endpoint:
+      enabled: true
+```
+
+All standard `BaseUsageConfig` fields (`bucket_duration`, `start_time`, `end_time`, `top_n_queries`, `format_sql_queries`, `include_top_n_queries`, `include_operational_stats`, `user_email_pattern`, etc.) are supported under the `usage` block.
+
+When stateful ingestion is enabled, the usage time window is checkpointed only after a successful run, so a partial or failed run won't silently skip the next window.
+
 #### Schemas-Enabled vs Schemas-Disabled Lakehouses
 
 The connector automatically handles both schemas-enabled and schemas-disabled lakehouses:
@@ -349,6 +352,9 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
   - Permission issues
   - Table count limits in very large databases
 - **Graceful Degradation**: If schema extraction fails for a table, the table will still be ingested without column metadata (no ingestion failure)
+- **View Extraction Requires SQL Endpoint**: Views are only discovered through the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, or if the endpoint is unreachable for a given Lakehouse/Warehouse, views in that item will not be ingested.
+- **Usage Statistics Retention**: Fabric `queryinsights` retains query history for only **30 days**. Older usage cannot be backfilled, regardless of the configured `usage.start_time`.
+- **Usage Statistics Requires SQL Endpoint**: Usage extraction reads `queryinsights.exec_requests_history` over the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `usage.include_usage_statistics=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, usage for that item is skipped without failing the run.
 
 ### Troubleshooting
 

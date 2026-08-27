@@ -174,7 +174,7 @@ sink:
    ├─ Chunk elements → semantic chunks
    │   ├─ by_title: Preserves document structure
    │   └─ basic: Fixed-size chunks with overlap
-   ├─ Generate embeddings via LiteLLM
+   ├─ Generate embeddings
    │   └─ Batches of 25 (configurable)
    └─ Emit SemanticContent aspect → DataHub
 
@@ -373,6 +373,72 @@ stateful_ingestion:
   # Don't commit new state (dry run)
   ignore_new_state: false
 ```
+
+#### Run Locking (Preventing Overlapping Runs)
+
+This source is often scheduled on a short interval (e.g. every 15 minutes), but a full
+scroll + embedding pass can take longer than the interval. Without coordination, a new run
+could start while the previous one is still working, causing both to re-embed the same
+documents and race on the `SemanticContent` aspect. To prevent this, the source acquires a
+**distributed lock** before processing.
+
+##### How It Works
+
+- The lock is a lightweight lease backed by an internal `dataHubStepState` entity, which
+  DataHub uses as a general-purpose key/value store. The lease payload (status, run id,
+  expiry) lives in that entity's properties map.
+- Lease writes are committed **synchronously to the primary store (MySQL)**, so concurrent
+  runs observe each other immediately (no reliance on eventually-consistent search).
+- When a run starts and the lock is already held by another active run, the new run **exits
+  cleanly without processing** (this is reported as a warning, not a failure).
+- While a run holds the lock, it periodically renews (heartbeats) the lease so long jobs
+  keep their lock for the full duration of the run.
+
+##### TTL and Lock Timeout
+
+Each lease carries a **time-to-live (TTL)**. Because the lock holder renews the lease while
+it runs, the TTL only needs to exceed the renewal interval — **not** the total run duration.
+If a run crashes and stops renewing, its lease simply expires after the TTL and the next run
+takes over automatically. After a crash, future runs are blocked for **at most** one TTL.
+
+```yaml
+source:
+  type: datahub-documents
+  config:
+    locking:
+      enabled: true # default
+      # Optional explicit lock id; defaults to
+      # "document-indexing-lock-<ingestion-source-id>"
+      lock_id: null
+      # Lease duration. A crashed run blocks the next run for at most this long.
+      lock_ttl_seconds: 1800 # default: 30 minutes
+      # How often the holder renews its lease while running.
+      # Must be comfortably smaller than lock_ttl_seconds.
+      lock_renewal_interval_seconds: 300 # default: 5 minutes
+```
+
+##### Manually Clearing a Lock
+
+You normally never need to do this — a healthy run releases its lock on completion, and a
+crashed run's lease expires after `lock_ttl_seconds`. If you want to clear a lock
+**immediately** (e.g. you know a run died and don't want to wait out the TTL), delete the
+backing `dataHubStepState` entity.
+
+The lock URN is `urn:li:dataHubStepState:<lock_id>`, where `<lock_id>` is your configured
+`locking.lock_id` or the auto-derived default `document-indexing-lock-<ingestion-source-id>`.
+The exact URN is logged at startup and on every acquire/release:
+
+```text
+Document indexing lock enabled: urn=urn:li:dataHubStepState:document-indexing-lock-datahub-documents, ttl=1800s, ...
+```
+
+Delete it with the CLI:
+
+```bash
+datahub delete --urn "urn:li:dataHubStepState:<lock_id>" --hard -f
+```
+
+Deleting the entity is safe: the next run simply cold-starts a fresh lease.
 
 #### Performance Tuning
 

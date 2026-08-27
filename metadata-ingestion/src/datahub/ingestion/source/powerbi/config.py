@@ -39,16 +39,15 @@ class Constant:
     keys used in powerbi plugin
     """
 
-    PBIAccessToken = "PBIAccessToken"
     DASHBOARD_LIST = "DASHBOARD_LIST"
     TILE_LIST = "TILE_LIST"
     REPORT_LIST = "REPORT_LIST"
     PAGE_BY_REPORT = "PAGE_BY_REPORT"
-    DATASET_GET = "DATASET_GET"
+    REPORT_DATASOURCES = "REPORT_DATASOURCES"
+    DATASET_PARAMS_GET = "DATASET_PARAMS_GET"
     DATASET_LIST = "DATASET_LIST"
     WORKSPACE_MODIFIED_LIST = "WORKSPACE_MODIFIED_LIST"
     REPORT_GET = "REPORT_GET"
-    DATASOURCE_GET = "DATASOURCE_GET"
     TILE_GET = "TILE_GET"
     ENTITY_USER_LIST = "ENTITY_USER_LIST"
     SCAN_CREATE = "SCAN_CREATE"
@@ -142,6 +141,8 @@ class Constant:
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
     M_QUERY_NULL = '"null"'
     REPORT_WEB_URL = "reportWebUrl"
+    USERS = "users"
+    TILES = "tiles"
 
     # DirectLake / Fabric artifact constants
     RELATIONS = "relations"
@@ -216,6 +217,11 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="mysql",
     )
 
+    HIVE = DataPlatformPair(
+        powerbi_data_platform_name="Hive",
+        datahub_data_platform_name="hive",
+    )
+
     ODBC = DataPlatformPair(
         powerbi_data_platform_name="Odbc",
         datahub_data_platform_name="odbc",
@@ -273,14 +279,17 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
         self.filtered_charts.append(view)
 
 
-def default_for_dataset_type_mapping() -> Dict[str, str]:
-    dict_: dict = {}
-    for item in SupportedDataPlatform:
-        dict_[item.value.powerbi_data_platform_name] = (
-            item.value.datahub_data_platform_name
-        )
+# Lookup of PowerBI datasourceType -> DataPlatformPair; safe to share globally.
+POWERBI_TYPE_TO_DATA_PLATFORM_PAIR: Dict[str, DataPlatformPair] = {
+    item.value.powerbi_data_platform_name: item.value for item in SupportedDataPlatform
+}
 
-    return dict_
+
+def default_for_dataset_type_mapping() -> Dict[str, str]:
+    return {
+        powerbi_name: pair.datahub_data_platform_name
+        for powerbi_name, pair in POWERBI_TYPE_TO_DATA_PLATFORM_PAIR.items()
+    }
 
 
 class DataBricksPlatformDetail(PlatformDetail):
@@ -291,6 +300,54 @@ class DataBricksPlatformDetail(PlatformDetail):
     metastore: str = pydantic.Field(
         description="Databricks Unity Catalog metastore name.",
     )
+
+
+class OraclePlatformDetail(PlatformDetail):
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Owner/schema applied to unqualified table references inside "
+            '``Oracle.Database(…, Query="…")`` inline native SQL, so they resolve '
+            "to your ingested Oracle datasets. Not used by hierarchical navigation."
+        ),
+    )
+    default_database: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Database segment prepended to the table name when the "
+            "``Oracle.Database`` connection is a bare TNS alias or descriptor "
+            "(which carries no database). Set this to match the database segment "
+            "your Oracle ingestion uses, only when that ingestion emits 3-part "
+            "``database.schema.table`` URNs (``add_database_name_to_urn: true``); "
+            "leave unset for the default 2-part URNs and for EZ-Connect "
+            "``host:port/service`` connections."
+        ),
+    )
+
+    @field_validator("default_schema", "default_database")
+    @classmethod
+    def _strip_and_reject_blank(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("must not be empty or whitespace")
+        return stripped
+
+    # Requires at least one knob. This is also relied on to disambiguate
+    # OraclePlatformDetail from a plain PlatformDetail in the
+    # server_to_platform_instance Union: a plain {platform_instance} entry fails
+    # this check, so it is never a valid OraclePlatformDetail candidate —
+    # independent of pydantic's union-resolution order.
+    @model_validator(mode="after")
+    def _require_at_least_one_default(self) -> "OraclePlatformDetail":
+        if self.default_schema is None and self.default_database is None:
+            raise ValueError(
+                "OraclePlatformDetail requires 'default_schema' and/or "
+                "'default_database'; use a plain platform-instance mapping if "
+                "you need neither."
+            )
+        return self
 
 
 class OwnershipMapping(ConfigModel):
@@ -359,6 +416,17 @@ class AthenaPlatformOverride(ConfigModel):
     )
 
 
+# Workspace ``type`` values returned by the PowerBI admin API for personal
+# workspaces. These are not addressable by id in the PowerBI UI - they are
+# reachable only via the ``/groups/me`` alias and only by their owner, so
+# ``/groups/{guid}`` for these types resolves to ``GroupNotAccessible``.
+PERSONAL_WORKSPACE_TYPE = "PersonalGroup"
+LEGACY_PERSONAL_WORKSPACE_TYPE = "Personal"
+NON_ADDRESSABLE_WORKSPACE_TYPES = frozenset(
+    {PERSONAL_WORKSPACE_TYPE, LEGACY_PERSONAL_WORKSPACE_TYPE}
+)
+
+
 class PowerBiEnvironment(ConfigEnum):
     COMMERCIAL = "COMMERCIAL"
     GOVERNMENT = "GOVERNMENT"
@@ -368,6 +436,17 @@ class PowerBiEnvironment(ConfigEnum):
         if self == PowerBiEnvironment.GOVERNMENT:
             return "https://app.powerbigov.us"
         return "https://app.powerbi.com"
+
+    def workspace_url(self, workspace_id: str, workspace_type: str) -> Optional[str]:
+        """Build a clickable PowerBI UI URL for a workspace.
+
+        Returns ``None`` for personal workspace types (see
+        ``NON_ADDRESSABLE_WORKSPACE_TYPES``); surfacing ``/groups/{guid}``
+        for those would produce a dead ``GroupNotAccessible`` link.
+        """
+        if workspace_type in NON_ADDRESSABLE_WORKSPACE_TYPES:
+            return None
+        return f"{self.web_app_base_url}/groups/{workspace_id}"
 
 
 class PowerBiAppUrlPattern(ConfigEnum):
@@ -425,13 +504,16 @@ class PowerBiDashboardSourceConfig(
     )
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[
-        str, Union[PlatformDetail, DataBricksPlatformDetail]
+        str, Union[OraclePlatformDetail, DataBricksPlatformDetail, PlatformDetail]
     ] = pydantic.Field(
         default={},
-        description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
-        " :port is optional and only needed if your datasource server is running on non-standard port. "
-        "For Google BigQuery the datasource's server is google bigquery project name. "
-        "For Databricks Unity Catalog the datasource's server is workspace FQDN.",
+        description="Mapping from a PowerBI datasource server to the DataHub platform instance "
+        "(and env) of its upstream tables, so lineage URNs match your other DataHub sources. "
+        "The key is the server as it appears in the M-query, i.e. `host[:port]` (`:port` only for "
+        "non-standard ports); for Google BigQuery it is the project name, for Databricks Unity "
+        "Catalog the workspace FQDN, and for Oracle the EZ-Connect host, bare TNS alias, or "
+        "descriptor SERVICE_NAME (case-insensitive). The value is a platform-detail object; Oracle "
+        "servers may add `default_schema`/`default_database` and Databricks servers `metastore`.",
     )
     # ODBC DSN to platform mapping
     dsn_to_platform_name: Dict[str, str] = pydantic.Field(
@@ -677,6 +759,27 @@ class PowerBiDashboardSourceConfig(
             raise ValueError(f"Enable all these flags in recipe: {flags} ")
 
         return self
+
+    @field_validator("server_to_platform_instance", mode="after")
+    @classmethod
+    def _reject_case_insensitive_duplicate_server_keys(cls, value: Dict) -> Dict:
+        # Oracle TNS lookup is case-insensitive in the source system, and the
+        # resolver falls back to a case-insensitive key match. If a recipe
+        # contained both ``EDWPSFN`` and ``edwpsfn``, that fallback would pick
+        # one silently by dict insertion order — a wrong-platform-instance
+        # outcome. Reject the ambiguity at config-load time.
+        seen: Dict[str, str] = {}
+        for key in value:
+            lower = key.lower()
+            if lower in seen:
+                raise ValueError(
+                    "server_to_platform_instance has case-insensitive duplicate keys: "
+                    f"{seen[lower]!r} and {key!r}. Recipe keys must differ in more "
+                    "than just case (the resolver falls back to a case-insensitive "
+                    "match for Oracle TNS aliases)."
+                )
+            seen[lower] = key
+        return value
 
     @field_validator("dataset_type_mapping", mode="after")
     @classmethod

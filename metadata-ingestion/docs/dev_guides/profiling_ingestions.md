@@ -1,3 +1,7 @@
+---
+description: "Profile DataHub ingestion runs to identify performance bottlenecks and tune connector throughput in production deployments."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';

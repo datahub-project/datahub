@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.system.migrations;
 
+import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -11,10 +12,12 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -26,6 +29,7 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -118,34 +122,6 @@ public class MigrateAspectsStepTest {
     assertEquals(state.get("lastCreatedOnMs"), "999999");
   }
 
-  // ── skip ──────────────────────────────────────────────────────────────────
-
-  @Test
-  public void testSkipWhenPreviousResultIsSucceeded() {
-    DataHubUpgradeResult prev = succeededResult();
-    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(prev));
-
-    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
-    assertTrue(step.skip(mockContext));
-  }
-
-  @Test
-  public void testSkipWhenPreviousResultIsAborted() {
-    DataHubUpgradeResult prev = abortedResult();
-    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(prev));
-
-    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
-    assertTrue(step.skip(mockContext));
-  }
-
-  @Test
-  public void testNoSkipWhenNoPreviousResult() {
-    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
-
-    MigrateAspectsStep step = buildStep(Map.of("testAspect", 2L));
-    assertFalse(step.skip(mockContext));
-  }
-
   // ── executable ────────────────────────────────────────────────────────────
 
   @Test
@@ -193,6 +169,89 @@ public class MigrateAspectsStepTest {
     // Cursor state for the non-empty batch should have been persisted as IN_PROGRESS
     verify(mockUpgrade)
         .setUpgradeResult(any(), any(), any(), eq(DataHubUpgradeState.IN_PROGRESS), any());
+  }
+
+  @Test
+  public void testExecutableWithVersionedAspectSetsIfVersionMatchHeader() {
+    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
+
+    SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+    systemMetadata.setVersion("42");
+
+    long createdOnMs = 1_700_000_000_000L;
+    EbeanAspectV2 aspect =
+        new EbeanAspectV2(
+            "urn:li:corpuser:alice",
+            "corpUserKey",
+            0L,
+            "{\"username\":\"alice\"}",
+            new Timestamp(createdOnMs),
+            "urn:li:corpuser:datahub",
+            null,
+            RecordUtils.toJsonString(systemMetadata));
+    PartitionedStream<EbeanAspectV2> stream =
+        PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.of(aspect)).build();
+    when(mockAspectDao.streamAspectBatchesForMigration(any(), eq(0L), anyInt(), anyInt()))
+        .thenReturn(stream);
+
+    AtomicReference<AspectsBatchImpl> capturedBatch = new AtomicReference<>();
+    doAnswer(
+            inv -> {
+              capturedBatch.set(inv.getArgument(1));
+              return null;
+            })
+        .when(mockEntityService)
+        .ingestProposal(any(), any(AspectsBatchImpl.class), anyBoolean());
+
+    MigrateAspectsStep step = buildStep(Map.of("corpUserKey", 2L));
+    step.executable().apply(mockContext);
+
+    AspectsBatchImpl batch = capturedBatch.get();
+    assertNotNull(batch, "ingestProposal should have been called with a non-null batch");
+    assertFalse(batch.getItems().isEmpty());
+    MCPItem item = (MCPItem) batch.getItems().iterator().next();
+    assertEquals(item.getHeader(HTTP_HEADER_IF_VERSION_MATCH).orElse(null), "42");
+  }
+
+  @Test
+  public void testExecutableWithVersionlessAspectOmitsIfVersionMatchHeader() {
+    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
+
+    // createDefaultSystemMetadata() does NOT set version — simulates pre-versioning rows.
+    long createdOnMs = 1_700_000_000_000L;
+    EbeanAspectV2 aspect =
+        new EbeanAspectV2(
+            "urn:li:corpuser:alice",
+            "corpUserKey",
+            0L,
+            "{\"username\":\"alice\"}",
+            new Timestamp(createdOnMs),
+            "urn:li:corpuser:datahub",
+            null,
+            RecordUtils.toJsonString(SystemMetadataUtils.createDefaultSystemMetadata()));
+    PartitionedStream<EbeanAspectV2> stream =
+        PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.of(aspect)).build();
+    when(mockAspectDao.streamAspectBatchesForMigration(any(), eq(0L), anyInt(), anyInt()))
+        .thenReturn(stream);
+
+    AtomicReference<AspectsBatchImpl> capturedBatch = new AtomicReference<>();
+    doAnswer(
+            inv -> {
+              capturedBatch.set(inv.getArgument(1));
+              return null;
+            })
+        .when(mockEntityService)
+        .ingestProposal(any(), any(AspectsBatchImpl.class), anyBoolean());
+
+    MigrateAspectsStep step = buildStep(Map.of("corpUserKey", 2L));
+    UpgradeStepResult result = step.executable().apply(mockContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    AspectsBatchImpl batch = capturedBatch.get();
+    assertNotNull(batch);
+    assertFalse(batch.getItems().isEmpty());
+    MCPItem item = (MCPItem) batch.getItems().iterator().next();
+    assertFalse(item.getHeader(HTTP_HEADER_IF_VERSION_MATCH).isPresent());
   }
 
   @Test

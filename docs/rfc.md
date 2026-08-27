@@ -1,3 +1,7 @@
+---
+description: "The DataHub RFC process for proposing significant features, modifications, and architectural changes through community review."
+---
+
 # DataHub RFC Process
 
 ## What is an RFC?

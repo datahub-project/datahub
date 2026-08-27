@@ -19,6 +19,7 @@ from datahub.configuration.source_common import (
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
 from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
 )
@@ -68,6 +69,12 @@ class TagOption(StrEnum):
     skip = "skip"
 
 
+class MarketplaceMode(StrEnum):
+    consumer = "consumer"
+    provider = "provider"
+    both = "both"
+
+
 @dataclass(frozen=True)
 class DatabaseId:
     # Database created from share in consumer account
@@ -95,7 +102,26 @@ class SnowflakeShareConfig(ConfigModel):
 class SemanticViewsConfig(ConfigModel):
     enabled: bool = Field(
         default=False,
-        description="If enabled, semantic views will be ingested as datasets. Note: Semantic views require Snowflake Enterprise Edition or above, as they are part of the Cortex Analyst feature set. Set this to True only if you have Enterprise Edition or above.",
+        description="If enabled, semantic views will be ingested. By default they are ingested as datasets with subtype `Semantic View` (see emit_semantic_model_entities to change this). Note: Semantic views require Snowflake Enterprise Edition or above, as they are part of the Cortex Analyst feature set. Set this to True only if you have Enterprise Edition or above.",
+    )
+
+    emit_semantic_model_entities: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Tri-state control for emitting semantic views as semanticModel entities "
+            "(with their metrics as metric entities) instead of legacy datasets "
+            'subtyped "Semantic View". '
+            "`None` (default): follow the server - on DataHub Cloud >= 2.1.0 it is "
+            "enabled unless the Metrics feature is explicitly disabled; OSS/self-hosted, "
+            "older Cloud, and connectionless runs (e.g. file sink) stay off. It also "
+            "falls back to legacy datasets if the server version cannot be parsed or the "
+            "Metrics probe cannot be read (operational error). "
+            "`true`: request emission - on Cloud it is honored unless the server is "
+            "below 2.1.0 or Metrics is disabled (else warns and falls back to legacy "
+            "datasets); on OSS it enables emission (the operator must run a server that "
+            "registers these entities). "
+            "`false`: force legacy dataset behavior."
+        ),
     )
 
     column_lineage: bool = Field(
@@ -106,7 +132,9 @@ class SemanticViewsConfig(ConfigModel):
     include_usage: bool = Field(
         default=False,
         description="If enabled, usage statistics will be extracted for semantic views. "
-        "This scans QUERY_HISTORY which can be slow on accounts with high query volume.",
+        "This scans QUERY_HISTORY which can be slow on accounts with high query volume. "
+        "Ignored when emit_semantic_model_entities is enabled, since semanticModel "
+        "entities carry no usage statistics.",
     )
 
     include_queries: bool = Field(
@@ -142,6 +170,17 @@ class SemanticViewsConfig(ConfigModel):
             logger.warning(
                 "semantic_views.include_queries is set to True but semantic_views.enabled is False. "
                 "Query entities will not be generated. Set semantic_views.enabled to True to enable query tracking."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_usage_ignored_in_semantic_model_mode(self) -> "SemanticViewsConfig":
+        if self.include_usage and self.emit_semantic_model_entities:
+            logger.warning(
+                "semantic_views.include_usage is ignored because "
+                "semantic_views.emit_semantic_model_entities is enabled: "
+                "semanticModel entities carry no usage statistics. Query entities "
+                "are unaffected (see semantic_views.include_queries)."
             )
         return self
 
@@ -189,6 +228,24 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         " use the regex 'Analytics.public.sales.*'",
     )
 
+    stage_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for stages to filter in ingestion. "
+        "Specify regex to match the entire stage name in database.schema.stage format.",
+    )
+
+    task_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for tasks to filter in ingestion. "
+        "Specify regex to match the entire task name in database.schema.task format.",
+    )
+
+    pipe_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for pipes to filter in ingestion. "
+        "Specify regex to match the entire pipe name in database.schema.pipe format.",
+    )
+
     match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
@@ -204,6 +261,7 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         "With the default SHOW VIEWS, view_pattern filtering falls back to Python re.match(). "
         "IMPORTANT: Snowflake RLIKE requires FULL STRING match, unlike Python re.match() which matches prefixes. "
         "For prefix matching use 'PATTERN.*', for suffix use '.*PATTERN$', for contains use '.*PATTERN.*'. "
+        "If the composed filter would exceed Snowflake's per-query size limit, that filter is automatically skipped and applied client-side instead (slower). "
         "See the [Metadata Pattern Pushdown](#metadata-pattern-pushdown) section for detailed usage and examples, "
         "and the [Snowflake RLIKE documentation](https://docs.snowflake.com/en/sql-reference/functions/rlike) for regex syntax details.",
     )
@@ -243,6 +301,23 @@ class SnowflakeIdentifierConfig(
         description="Whether to convert dataset urns to lowercase.",
     )
 
+    preserve_column_case: bool = Field(
+        default=False,
+        description="Preserve Snowflake's column casing in field paths and column-level "
+        "lineage instead of lowercasing them. Useful whenever a table has quoted "
+        "identifiers, because a quoted mixed-case column can only be queried by its "
+        'stored spelling — `SELECT "MixedCol"` works where `SELECT "mixedcol"` is an '
+        "invalid identifier — so the lowercased field path does not name anything you "
+        "can query. It is required when two quoted identifiers differ only by case "
+        '(e.g. `"col"` and `"COL"`), which would otherwise collapse into a single '
+        "field and lose one of them entirely. This value is part of each column's "
+        "schemaField URN identity, so changing it after data has been ingested re-keys "
+        "every column, orphaning column-level tags, glossary terms and documentation. "
+        "Pick one value before the first run and leave it unchanged. It must also match "
+        "across `snowflake` and `snowflake-queries` recipes pointed at the same account, "
+        "otherwise their field paths will not line up.",
+    )
+
     email_domain: Optional[str] = pydantic.Field(
         default=None,
         description="Email domain of your organization so users can be displayed on UI appropriately. This is used only if we cannot infer email ID.",
@@ -259,6 +334,114 @@ class SnowflakeUsageConfig(BaseUsageConfig):
     apply_view_usage_to_tables: bool = pydantic.Field(
         default=False,
         description="Whether to apply view's usage to its base tables. If set to True, usage is applied to base tables only.",
+    )
+
+
+class SnowflakeMarketplaceConfig(ConfigModel):
+    """
+    Configuration for Snowflake Internal Marketplace (Private Data Sharing).
+
+    IMPORTANT: This is for the INTERNAL Snowflake Marketplace where organizations privately share
+    data within their account using Data Exchange. This is NOT for the public Snowflake Marketplace
+    (Snowflake Data Marketplace) where external providers publicly list datasets.
+
+    Use this when you want to track:
+    - Internal marketplace listings (from SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE)
+    - Databases purchased/imported from internal listings (IMPORTED DATABASE type - consumer mode)
+    - Databases you're sharing via OUTBOUND shares (provider mode)
+    - Usage of internal marketplace data products
+
+    The usage time window and bucket duration come from the parent connector's
+    ``start_time`` / ``end_time`` / ``bucket_duration`` (and from the same
+    ``RedundantUsageRunSkipHandler`` as the main usage extractor when stateful
+    usage ingestion is enabled), so marketplace usage follows the connector's
+    overall schedule.
+    """
+
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Whether to ingest Snowflake INTERNAL marketplace (private data exchange) listings as Data Products. "
+            "When enabled, also ingests databases and usage statistics based on the marketplace_mode setting. "
+            "NOTE: This is for INTERNAL marketplace only (IS_ORGANIZATION = TRUE), not the public Snowflake Data Marketplace."
+        ),
+    )
+
+    marketplace_mode: MarketplaceMode = Field(
+        default=MarketplaceMode.consumer,
+        description=(
+            "Mode for marketplace ingestion: "
+            "'consumer' (default) - Track purchased/imported databases (IMPORTED DATABASE type), "
+            "'provider' - Track databases you're sharing via OUTBOUND shares and marketplace listings, "
+            "'both' - Track both consumer and provider perspectives. "
+            "Consumer mode requires shares config to link imported databases to listings. "
+            "Provider mode works with OUTBOUND shares without requiring imported databases. "
+            "IMPORTANT: For 'provider' or 'both' modes, you MUST grant 'imported privileges on database snowflake' "
+            "to the USER (not just the role), as share access is granted at the user level in Snowflake."
+        ),
+    )
+
+    listing_to_share_overrides: Dict[str, str] = Field(
+        default={},
+        description=(
+            "Map of `listing_global_name` -> share name (top-level key in `shares`) "
+            "to explicitly link a marketplace listing to a share. Useful when "
+            "`SHOW SHARES` doesn't return `listing_global_name` or when "
+            "automatic name-based matching fails."
+        ),
+    )
+
+    listing_to_schemas_overrides: Dict[str, List[str]] = Field(
+        default={},
+        description=(
+            "Map of `listing_global_name` -> list of schema names to enumerate "
+            "when falling back to database-level asset discovery. Used in provider "
+            "mode when `DESC SHARE` is not permitted (Snowflake requires share "
+            "ownership for that command). Without this override the fallback enumerates "
+            "all schemas in the source database, which may include schemas not exposed "
+            "by the share. Example: `{GZSTZGQTPEW: [TPCH]}`."
+        ),
+    )
+
+    internal_marketplace_listing_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for INTERNAL marketplace listings to include in ingestion",
+    )
+
+    internal_marketplace_owner_patterns: Dict[str, List[str]] = Field(
+        default={},
+        description=(
+            "Map regex patterns (matched against INTERNAL listing title or provider) to owner identifiers. "
+            "Owners can be usernames, group names, or full URNs. "
+            "Example: {'^Finance.*': ['finance-team'], '^.*Analytics.*': ['analytics-lead', 'urn:li:corpGroup:data']}"
+        ),
+    )
+
+    fetch_internal_marketplace_listing_details: bool = Field(
+        default=False,
+        description=(
+            "If enabled, fetches additional details for each INTERNAL marketplace listing via DESCRIBE AVAILABLE LISTING. "
+            "WARNING: This executes one additional query per listing and may impact performance for many listings."
+        ),
+    )
+
+    marketplace_properties_as_structured_properties: bool = Field(
+        default=False,
+        description=(
+            "If enabled, ingests INTERNAL marketplace custom properties (provider, category, listing_created_on, etc.) "
+            "as DataHub structured properties instead of simple custom properties. This makes marketplace metadata "
+            "searchable and filterable in the DataHub UI."
+        ),
+    )
+
+    organization_to_domain: Dict[str, str] = Field(
+        default={},
+        description=(
+            "Map of Snowflake ``ORGANIZATION_PROFILE_NAME`` to an existing DataHub "
+            "domain (URN, GUID, or name resolvable via ``DomainRegistry``). "
+            "Unmapped organizations get no domain; marketplace never auto-creates "
+            "domain entities."
+        ),
     )
 
 
@@ -309,12 +492,15 @@ class SnowflakeV2Config(
 
     fetch_views_from_information_schema: bool = Field(
         default=False,
-        description="If enabled, uses information_schema.views to fetch view definitions instead of SHOW VIEWS command. "
-        "This alternative method can be more reliable for databases with large numbers of views (> 10K views), as the "
-        "SHOW VIEWS approach has proven unreliable and can lead to missing views in such scenarios. However, this method "
-        "requires OWNERSHIP privileges on views to retrieve their definitions. For views without ownership permissions "
-        "(where VIEW_DEFINITION is null/empty), the system will automatically fall back to using batched SHOW VIEWS queries "
-        "to populate the missing definitions.",
+        description="If enabled, uses information_schema.views to fetch views instead of the SHOW VIEWS command. "
+        "Enable this if you need `view_pattern` pushdown (see `push_down_metadata_patterns`, which cannot push a "
+        "pattern list into SHOW VIEWS) or an accurate `last_altered`, which SHOW VIEWS does not report. "
+        "Trade-offs: information_schema.views only exposes VIEW_DEFINITION to a view's owner, so definitions for "
+        "views you don't own are backfilled with batched SHOW VIEWS queries; it needs a running warehouse, whereas "
+        "SHOW VIEWS does not; and it does not report materialized views, which are absent from "
+        "information_schema.views and not covered by the default `table_types`. "
+        "This option is no longer needed for databases with more than 10K views - the SHOW VIEWS path now "
+        "paginates per schema and is exact at any scale.",
     )
 
     include_technical_schema: bool = Field(
@@ -377,6 +563,17 @@ class SnowflakeV2Config(
         description="If enabled along with `extract_tags`, extracts snowflake's key-value tags as DataHub structured properties instead of DataHub tags.",
     )
 
+    structured_properties_write_mode: StructuredPropertyWriteMode = Field(
+        default=StructuredPropertyWriteMode.UPSERT,
+        description=(
+            "How to write structured properties extracted from Snowflake tags. "
+            "`upsert` (default) replaces the aspect each run — recipe is source of truth. "
+            "`patch` adds each property individually so user/UI edits survive, "
+            "but properties removed from the recipe no longer propagate to DataHub "
+            "(clean those up via the UI or API)."
+        ),
+    )
+
     structured_properties_template_cache_invalidation_interval: HiddenFromDocs[int] = (
         Field(
             default=60,
@@ -387,6 +584,20 @@ class SnowflakeV2Config(
     include_external_url: bool = Field(
         default=True,
         description="Whether to populate Snowsight url for Snowflake Objects",
+    )
+
+    snowsight_base_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Override for the Snowsight base URL used when generating external URLs "
+            "for Snowflake assets. Set this when Snowsight is only reachable via "
+            "private link (for example "
+            "`https://app.<region>.privatelink.snowflakecomputing.com/` or "
+            "`https://app-<org>-<account>.privatelink.snowflakecomputing.com/`). "
+            "If unset, defaults to the public `app.snowflake.com` URL. The value "
+            "can be obtained by running "
+            "`SELECT SYSTEM$GET_PRIVATELINK_CONFIG()` in Snowflake as ACCOUNTADMIN."
+        ),
     )
 
     _use_legacy_lineage_method_removed = pydantic_removed_field(
@@ -436,6 +647,26 @@ class SnowflakeV2Config(
     semantic_views: SemanticViewsConfig = Field(
         default_factory=SemanticViewsConfig,
         description="Configuration for semantic views ingestion.",
+    )
+
+    include_stages: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Stages will be ingested as containers with associated metadata.",
+    )
+
+    include_tasks: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Tasks will be ingested as DataJobs with DAG dependencies and SQL lineage.",
+    )
+
+    include_pipes: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Snowpipe objects will be ingested as DataJobs with COPY INTO lineage.",
+    )
+
+    marketplace: SnowflakeMarketplaceConfig = Field(
+        default_factory=SnowflakeMarketplaceConfig,
+        description="Configuration for Snowflake Internal Marketplace (private data exchange) ingestion.",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(
@@ -559,6 +790,15 @@ class SnowflakeV2Config(
             )
         return v
 
+    @field_validator("snowsight_base_url", mode="after")
+    @classmethod
+    def validate_snowsight_base_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("snowsight_base_url must start with http:// or https://")
+        return v
+
     @model_validator(mode="after")
     def validate_unsupported_configs(self) -> "SnowflakeV2Config":
         if (
@@ -673,6 +913,24 @@ class SnowflakeV2Config(
                 )
                 self.semantic_views.enabled = False
                 self.semantic_views.column_lineage = False
+        return self
+
+    @model_validator(mode="after")
+    def validate_semantic_model_entities_requires_technical_schema(
+        self,
+    ) -> "SnowflakeV2Config":
+        # Validated here (not on SemanticViewsConfig) because semantic view
+        # processing is gated on the top-level include_technical_schema, which is
+        # not visible from the nested config.
+        if (
+            self.semantic_views.emit_semantic_model_entities
+            and not self.include_technical_schema
+        ):
+            logger.warning(
+                "semantic_views.emit_semantic_model_entities is set but "
+                "include_technical_schema is False; no semanticModel/metric entities "
+                "will be emitted. Set include_technical_schema to True."
+            )
         return self
 
     def outbounds(self) -> Dict[str, Set[DatabaseId]]:

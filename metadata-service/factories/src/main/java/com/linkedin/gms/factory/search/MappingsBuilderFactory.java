@@ -7,10 +7,13 @@ import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SearchEngineStructuredPropertyMappingLookup;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2SemanticSearchMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
+import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,13 +29,25 @@ import org.springframework.context.annotation.Configuration;
 @Slf4j
 public class MappingsBuilderFactory {
 
+  @Bean
+  @Nonnull
+  protected StructuredPropertyMappingLookup structuredPropertyMappingLookup(
+      @Qualifier("searchClientShim") SearchClientShim<?> searchClient,
+      @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention) {
+    return new SearchEngineStructuredPropertyMappingLookup(searchClient, indexConvention);
+  }
+
   @Bean("legacyMappingsBuilder")
   @ConditionalOnProperty(name = "elasticsearch.entityIndex.v2.enabled", havingValue = "true")
   @Nonnull
-  protected MappingsBuilder createLegacyMappingsBuilder(ConfigurationProvider configProvider) {
+  protected MappingsBuilder createLegacyMappingsBuilder(
+      ConfigurationProvider configProvider,
+      @Qualifier("searchClientShim") SearchClientShim<?> searchClient) {
     EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
-    log.info("Creating LegacyMappingsBuilder bean");
-    return new V2MappingsBuilder(entityIndexConfig);
+    int keywordMaxLength = resolveKeywordMaxLength(configProvider);
+    log.info("Creating LegacyMappingsBuilder bean (engineType={})", searchClient.getEngineType());
+    return new V2MappingsBuilder(
+        entityIndexConfig, searchClient.partialNgramConfig(), keywordMaxLength);
   }
 
   @Bean("multiEntityMappingsBuilder")
@@ -40,9 +55,10 @@ public class MappingsBuilderFactory {
   @Nonnull
   protected MappingsBuilder createMultiEntityMappingsBuilder(ConfigurationProvider configProvider) {
     EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
+    int keywordMaxLength = resolveKeywordMaxLength(configProvider);
     log.info("Creating MultiEntityMappingsBuilder bean");
     try {
-      return new MultiEntityMappingsBuilder(entityIndexConfig);
+      return new MultiEntityMappingsBuilder(entityIndexConfig, keywordMaxLength);
     } catch (IOException e) {
       log.error("Failed to initialize MultiEntityMappingsBuilder", e);
       throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
@@ -57,7 +73,8 @@ public class MappingsBuilderFactory {
   protected MappingsBuilder createSemanticSearchMappingsBuilder(
       ConfigurationProvider configProvider,
       @Qualifier("legacyMappingsBuilder") @Nullable MappingsBuilder v2MappingsBuilder,
-      @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention) {
+      @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
+      SearchClientShim<?> searchClientShim) {
     SemanticSearchConfiguration semanticConfig =
         configProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
 
@@ -68,9 +85,11 @@ public class MappingsBuilderFactory {
     }
 
     log.info(
-        "Creating SemanticSearchMappingsBuilder bean for entities: {}",
-        semanticConfig.getEnabledEntities());
-    return new V2SemanticSearchMappingsBuilder(v2MappingsBuilder, semanticConfig, indexConvention);
+        "Creating SemanticSearchMappingsBuilder bean for entities: {} engine: {}",
+        semanticConfig.getEnabledEntities(),
+        searchClientShim.getEngineType());
+    return new V2SemanticSearchMappingsBuilder(
+        v2MappingsBuilder, semanticConfig, indexConvention, searchClientShim);
   }
 
   @Bean("mappingsBuilder")
@@ -99,5 +118,9 @@ public class MappingsBuilderFactory {
     }
 
     return new DelegatingMappingsBuilder(builders);
+  }
+
+  private static int resolveKeywordMaxLength(@Nonnull ConfigurationProvider configProvider) {
+    return configProvider.getStructuredProperties().getKeywordMaxLength();
   }
 }

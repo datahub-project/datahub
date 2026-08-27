@@ -1,6 +1,7 @@
 import { Tooltip } from '@components';
 import { Image, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { LinkWrapper } from '@app/shared/LinkWrapper';
@@ -19,9 +20,14 @@ type Props = {
 };
 
 export const AssertionPlatformAvatar = ({ platform, externalUrl, noRightMargin }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const entityRegistry = useEntityRegistry();
     return (
-        <Tooltip title={`Run by ${entityRegistry.getDisplayName(EntityType.DataPlatform, platform)}`}>
+        <Tooltip
+            title={t('profile.runByPlatform', {
+                platformName: entityRegistry.getDisplayName(EntityType.DataPlatform, platform),
+            })}
+        >
             <PlatformContainer noRightMargin={noRightMargin}>
                 <LinkWrapper to={externalUrl} target="_blank" onClick={(e) => e.stopPropagation()}>
                     {(platform.properties?.logoUrl && (

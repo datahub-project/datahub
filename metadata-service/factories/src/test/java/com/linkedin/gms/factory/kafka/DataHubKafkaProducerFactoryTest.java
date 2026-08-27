@@ -9,7 +9,8 @@ import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
-import com.linkedin.metadata.event.GenericProducer;
+import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolverFactory;
+import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.lang.reflect.Field;
 import java.util.Collections;
@@ -19,14 +20,15 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
 @SpringBootTest(
     properties = {
+      "datahub.messaging.transport=kafka",
       "kafka.schemaRegistry.type=KAFKA",
       "spring.kafka.properties.security.protocol=SSL"
     },
@@ -35,7 +37,12 @@ import org.testng.annotations.Test;
       KafkaSchemaRegistryFactory.class,
       ConfigurationProvider.class,
       TopicConventionFactory.class,
-      DataHubKafkaEventProducerFactory.class
+      DataHubKafkaEventProducerFactory.class,
+      // Provides the OutboundContextResolver bean that DataHubKafkaEventProducerFactory now
+      // depends on. OSS registers no enrichers, so the resolver composes an empty chain and is
+      // effectively a no-op — but Spring still needs the bean to satisfy the @Autowired field.
+      OutboundContextResolverFactory.class,
+      UsageEventPublisherFactory.class
     })
 public class DataHubKafkaProducerFactoryTest extends AbstractTestNGSpringContextTests {
   @Autowired
@@ -44,11 +51,11 @@ public class DataHubKafkaProducerFactoryTest extends AbstractTestNGSpringContext
 
   @Autowired
   @Qualifier("dataHubUsageEventProducer")
-  GenericProducer<String> dataHubUsageEventProducer;
+  UsageEventPublisher dataHubUsageEventProducer;
 
-  @MockBean KafkaHealthChecker kafkaHealthChecker;
+  @MockitoBean KafkaHealthChecker kafkaHealthChecker;
 
-  @MockBean MetricUtils metricUtils;
+  @MockitoBean MetricUtils metricUtils;
 
   @Test
   void testInitialization() throws NoSuchFieldException, IllegalAccessException {

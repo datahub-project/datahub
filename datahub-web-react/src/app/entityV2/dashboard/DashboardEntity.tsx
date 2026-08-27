@@ -4,12 +4,14 @@ import {
     FileOutlined,
     PartitionOutlined,
     TableOutlined,
+    UnlockOutlined,
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
 import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -36,6 +38,7 @@ import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
+import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
 import { DashboardChartsTab } from '@app/entityV2/shared/tabs/Entity/DashboardChartsTab';
@@ -43,16 +46,21 @@ import { DashboardDatasetsTab } from '@app/entityV2/shared/tabs/Entity/Dashboard
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
 import {
     SidebarTitleActionType,
     getDashboardLastUpdatedMs,
     getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { LOOKER_URN, MODE_URN } from '@app/ingest/source/builder/constants';
 import { matchedInputFieldRenderer } from '@app/search/matches/matchedInputFieldRenderer';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
+import { MatchContext } from '@app/searchV2/matches/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { GetDashboardQuery, useGetDashboardQuery, useUpdateDashboardMutation } from '@graphql/dashboard.generated';
 import { Dashboard, EntityType, LineageDirection, SearchResult } from '@types';
@@ -93,11 +101,13 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getPathName = () => 'dashboard';
 
-    getEntityName = () => 'Dashboard';
+    getEntityName = () => i18next.t('entity.types:dashboard.name');
 
-    getCollectionName = () => 'Dashboards';
+    getCollectionName = () => i18next.t('entity.types:dashboard.namePlural');
 
     useEntityQuery = useGetDashboardQuery;
+
+    appconfig = useAppConfig;
 
     renderProfile = (urn: string) => (
         <EntityProfile
@@ -110,77 +120,96 @@ export class DashboardEntity implements Entity<Dashboard> {
             subHeader={{
                 component: DashboardStatsSummarySubHeader,
             }}
-            tabs={[
-                {
-                    name: 'Summary',
-                    component: DashboardSummaryTab,
-                    icon: SUMMARY_TAB_ICON,
-                },
-                {
-                    name: 'Contents',
-                    component: DashboardChartsTab,
-                    icon: AppstoreOutlined,
-                    display: {
-                        visible: (_, dashboard: GetDashboardQuery) =>
-                            (dashboard?.dashboard?.charts?.total || 0) > 0 ||
-                            (dashboard?.dashboard?.datasets?.total || 0) === 0,
-                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.charts?.total || 0) > 0,
-                    },
-                },
-                {
-                    name: 'Datasets',
-                    component: DashboardDatasetsTab,
-                    icon: TableOutlined,
-                    display: {
-                        visible: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
-                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
-                    },
-                },
-                {
-                    name: 'Documentation',
-                    component: DocumentationTab,
-                    icon: FileOutlined,
-                },
-                {
-                    name: 'Preview',
-                    component: EmbedTab,
-                    icon: EyeOutlined,
-                    display: {
-                        visible: (_, dashboard: GetDashboardQuery) =>
-                            !!dashboard?.dashboard?.embed?.renderUrl &&
-                            PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
-                        enabled: (_, dashboard: GetDashboardQuery) =>
-                            !!dashboard?.dashboard?.embed?.renderUrl &&
-                            PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
-                    },
-                },
-                {
-                    name: 'Lineage',
-                    component: LineageTab,
-                    icon: PartitionOutlined,
-                    properties: {
-                        defaultDirection: LineageDirection.Upstream,
-                    },
-                    supportsFullsize: true,
-                },
-                {
-                    name: 'Properties',
-                    component: PropertiesTab,
-                    icon: UnorderedListOutlined,
-                },
-                {
-                    name: 'Incidents',
-                    icon: WarningOutlined,
-                    component: IncidentTab,
-                    getCount: (_, dashboard) => {
-                        return dashboard?.dashboard?.activeIncidents?.total;
-                    },
-                },
-            ]}
+            tabs={this.getProfileTabs()}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
     );
+
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+
+        return [
+            {
+                name: i18next.t('entity.types:tab.summary'),
+                component: showSummaryTab ? SummaryTab : DashboardSummaryTab,
+                icon: SUMMARY_TAB_ICON,
+            },
+            {
+                name: i18next.t('entity.types:tab.contents'),
+                component: DashboardChartsTab,
+                icon: AppstoreOutlined,
+                display: {
+                    visible: (_, dashboard: GetDashboardQuery) =>
+                        (dashboard?.dashboard?.charts?.total || 0) > 0 ||
+                        (dashboard?.dashboard?.datasets?.total || 0) === 0,
+                    enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.charts?.total || 0) > 0,
+                },
+            },
+            {
+                name: i18next.t('entity.types:dataset.namePlural'),
+                component: DashboardDatasetsTab,
+                icon: TableOutlined,
+                display: {
+                    visible: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
+                    enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
+                },
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: i18next.t('entity.types:tab.documentation'),
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
+                : []),
+            {
+                name: i18next.t('entity.types:shared.accessTab'),
+                component: AccessManagement,
+                icon: UnlockOutlined,
+                display: {
+                    visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
+                    enabled: (_, _2) => true,
+                },
+            },
+            {
+                name: i18next.t('common.actions:preview'),
+                component: EmbedTab,
+                icon: EyeOutlined,
+                display: {
+                    visible: (_, dashboard: GetDashboardQuery) =>
+                        !!dashboard?.dashboard?.embed?.renderUrl &&
+                        PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
+                    enabled: (_, dashboard: GetDashboardQuery) =>
+                        !!dashboard?.dashboard?.embed?.renderUrl &&
+                        PREVIEW_SUPPORTED_PLATFORMS.includes(dashboard?.dashboard?.platform.urn),
+                },
+            },
+            {
+                name: i18next.t('entity.types:tab.lineage'),
+                component: LineageTab,
+                icon: PartitionOutlined,
+                properties: {
+                    defaultDirection: LineageDirection.Upstream,
+                },
+                supportsFullsize: true,
+            },
+            {
+                name: i18next.t('entity.types:tab.properties'),
+                component: PropertiesTab,
+                icon: UnorderedListOutlined,
+            },
+            {
+                name: i18next.t('entity.types:tab.incidents'),
+                icon: WarningOutlined,
+                component: IncidentTab,
+                getCount: (_, dashboard) => {
+                    return dashboard?.dashboard?.activeIncidents?.total;
+                },
+            },
+        ];
+    };
 
     getSidebarSections = () => [
         {
@@ -226,9 +255,9 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 defaultDirection: LineageDirection.Upstream,
@@ -236,9 +265,9 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
         },
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -312,7 +341,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 snippet={
                     <MatchedFieldList
                         customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
-                        matchSuffix="on a contained chart"
+                        matchContext={MatchContext.ContainedChart}
                     />
                 }
                 subtype={getFirstSubType(data)}
@@ -331,7 +360,7 @@ export class DashboardEntity implements Entity<Dashboard> {
         return (
             <MatchedFieldList
                 customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
-                matchSuffix="on a contained chart"
+                matchContext={MatchContext.ContainedChart}
             />
         );
     };

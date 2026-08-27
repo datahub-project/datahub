@@ -2,7 +2,7 @@
 
 Metabase is a business intelligence and analytics platform. Learn more in the [official Metabase documentation](https://www.metabase.com/).
 
-The DataHub integration for Metabase covers BI entities such as dashboards, charts, datasets, and related ownership context. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Metabase covers BI entities such as dashboards, charts, datasets, and related ownership context. It also captures table-level lineage and stateful deletion detection.
 
 ## Concept Mapping
 

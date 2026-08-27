@@ -2,7 +2,7 @@
 
 Business Glossary is a DataHub utility or metadata-focused integration. Learn more in the [official Business Glossary documentation](https://datahub.com/docs/).
 
-The DataHub integration for Business Glossary covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Business Glossary covers metadata entities and operational objects relevant to this connector. It loads business glossary terms, definitions, and hierarchy into DataHub from a YAML file.
 
 ## Concept Mapping
 

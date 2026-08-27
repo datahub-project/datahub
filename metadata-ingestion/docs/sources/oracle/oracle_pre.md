@@ -50,9 +50,34 @@ The following table contains a brief description of what each data dictionary vi
 
 #### Required Permissions
 
-The following permissions are required based on features used:
+The following permissions are required based on features used.
 
-**Basic Metadata (Tables & Views)**
+**Object Access**
+
+The ingestion user must have SELECT privileges on the tables and views in each schema you want to catalog. Without these grants, `ALL_*` views will not return metadata for those objects.
+
+```sql
+-- Option 1: Grant access to all tables (simplest)
+GRANT SELECT ANY TABLE TO datahub_user;
+
+-- Option 2: Grant access per schema
+BEGIN
+  FOR t IN (SELECT table_name FROM dba_tables WHERE owner = '<SCHEMA_NAME>') LOOP
+    EXECUTE IMMEDIATE 'GRANT SELECT ON <SCHEMA_NAME>.' || t.table_name || ' TO datahub_user';
+  END LOOP;
+END;
+/
+```
+
+If using `data_dictionary_mode: DBA`, object-level grants are not required. Instead, grant one of the following:
+
+```sql
+GRANT SELECT_CATALOG_ROLE TO datahub_user;
+-- OR
+GRANT SELECT ANY DICTIONARY TO datahub_user;
+```
+
+**Data Dictionary Views (Tables & Views)**
 
 ```sql
 -- Using data_dictionary_mode: ALL (default)
@@ -115,3 +140,27 @@ GRANT SELECT_CATALOG_ROLE TO datahub_user;
 ```sql
 GRANT SELECT ON V_$DATABASE TO datahub_user;
 ```
+
+#### Multitenant (CDB/PDB) Environments
+
+In Oracle multitenant architectures (including Exadata), user data lives inside Pluggable Databases (PDBs). The Container Database root (CDB$ROOT) only contains system schemas (SYS, SYSTEM, XDB).
+
+To ingest from a PDB, use `service_name` in your recipe config to connect directly to the PDB rather than the CDB:
+
+```yaml
+source:
+  type: oracle
+  config:
+    host_port: "oracle-host:1521"
+    service_name: "<PDB_SERVICE_NAME>"
+```
+
+Grants must be applied inside each PDB, not at the CDB level:
+
+```sql
+ALTER SESSION SET CONTAINER = <PDB_NAME>;
+GRANT SELECT ANY TABLE TO datahub_user;
+-- (plus dictionary view grants listed above)
+```
+
+If you need to ingest from multiple PDBs, create a separate ingestion source for each PDB service name.

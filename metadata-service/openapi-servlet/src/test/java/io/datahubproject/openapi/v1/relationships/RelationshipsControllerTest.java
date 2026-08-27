@@ -111,13 +111,19 @@ public class RelationshipsControllerTest {
     RelatedEntitiesResult expectedResult = new RelatedEntitiesResult(0, 10, 0, new ArrayList<>());
 
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedUrns(any(OperationContext.class), any(), any(), any()))
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    any(OperationContext.class),
+                    any(),
+                    any(com.linkedin.metadata.authorization.ApiOperation.class),
+                    anyCollection()))
         .thenReturn(true);
 
     when(graphService.findRelatedEntities(
             any(OperationContext.class),
             isNull(),
-            argThat(filter -> filter.getCriteria().get(0).getValue().toString().equals(decodedUrn)),
+            argThat(filter -> filter.getCriteria().get(0).getValues().get(0).equals(decodedUrn)),
             isNull(),
             any(Filter.class),
             any(Set.class),
@@ -144,7 +150,13 @@ public class RelationshipsControllerTest {
         RelationshipsController.RelationshipDirection.OUTGOING;
 
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedUrns(any(OperationContext.class), any(), any(), any()))
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    any(OperationContext.class),
+                    any(),
+                    any(com.linkedin.metadata.authorization.ApiOperation.class),
+                    anyCollection()))
         .thenReturn(false);
 
     // Act
@@ -163,7 +175,13 @@ public class RelationshipsControllerTest {
     RelatedEntitiesResult expectedResult = new RelatedEntitiesResult(0, 10, 0, new ArrayList<>());
 
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedUrns(any(OperationContext.class), any(), any(), any()))
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    any(OperationContext.class),
+                    any(),
+                    any(com.linkedin.metadata.authorization.ApiOperation.class),
+                    anyCollection()))
         .thenReturn(true);
 
     when(graphService.findRelatedEntities(
@@ -199,7 +217,13 @@ public class RelationshipsControllerTest {
     RelatedEntitiesResult expectedResult = new RelatedEntitiesResult(0, 10, 1, new ArrayList<>());
 
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedUrns(any(OperationContext.class), any(), any(), any()))
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    any(OperationContext.class),
+                    any(),
+                    any(com.linkedin.metadata.authorization.ApiOperation.class),
+                    anyCollection()))
         .thenReturn(true);
 
     when(graphService.findRelatedEntities(

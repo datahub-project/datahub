@@ -1,11 +1,26 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
+import com.datahub.context.OperationFingerprint;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.OpenSearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2KnnQueryBuilder;
+import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexMapper;
+import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -36,6 +51,7 @@ import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
 import org.apache.http.nio.reactor.IOReactorException;
 import org.apache.http.nio.reactor.IOReactorExceptionHandler;
 import org.apache.http.ssl.SSLContexts;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -98,6 +114,7 @@ import org.opensearch.client.indices.ResizeResponse;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.ReindexRequest;
@@ -118,14 +135,39 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
 
   @Getter private final ShimConfiguration shimConfiguration;
   private final RestHighLevelClient client;
+  private final ObjectMapper objectMapper;
   protected SearchEngineType engineType;
 
   public OpenSearch2SearchClientShim(@Nonnull ShimConfiguration config) throws IOException {
     this.shimConfiguration = config;
     this.engineType = SearchEngineType.OPENSEARCH_2;
     this.client = createClient();
+    this.objectMapper = new ObjectMapper();
 
     log.info("Created OpenSearch 2.x shim for engine type: {}", engineType);
+  }
+
+  /** Package-private factory for tests; avoids spinning up a real OS connection. */
+  static OpenSearch2SearchClientShim forTest(RestHighLevelClient client) {
+    return new OpenSearch2SearchClientShim(client, new ObjectMapper(), null);
+  }
+
+  /** Package-private factory for tests that need a specific configuration. */
+  static OpenSearch2SearchClientShim forTest(RestHighLevelClient client, ShimConfiguration config) {
+    return new OpenSearch2SearchClientShim(client, new ObjectMapper(), config);
+  }
+
+  /** The version probe is only benign when the engine type did not have to be auto-detected. */
+  private boolean isEngineTypeAutoDetected() {
+    return shimConfiguration != null && shimConfiguration.isEngineTypeAutoDetected();
+  }
+
+  private OpenSearch2SearchClientShim(
+      RestHighLevelClient client, ObjectMapper objectMapper, ShimConfiguration config) {
+    this.shimConfiguration = config;
+    this.engineType = SearchEngineType.OPENSEARCH_2;
+    this.client = client;
+    this.objectMapper = objectMapper;
   }
 
   public RestHighLevelClient createClient() {
@@ -270,17 +312,25 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   }
 
   // Core search operations
+  //
+  // Raw impls ignore opContext — they are pure pass-throughs over the native OS2 client.
+  // Per-event decoration (tenant routing, query filtering, etc.) belongs at the wrapper layer.
   @Nonnull
   @Override
   public SearchResponse search(
-      @Nonnull SearchRequest searchRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull SearchRequest searchRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     return client.search(searchRequest, options);
   }
 
   @Nonnull
   @Override
   public SearchResponse scroll(
-      @Nonnull SearchScrollRequest searchScrollRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull SearchScrollRequest searchScrollRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.scroll(searchScrollRequest, options);
   }
@@ -288,14 +338,19 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public ClearScrollResponse clearScroll(
-      @Nonnull ClearScrollRequest clearScrollRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ClearScrollRequest clearScrollRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.clearScroll(clearScrollRequest, options);
   }
 
   @Nonnull
   @Override
-  public CountResponse count(@Nonnull CountRequest countRequest, @Nonnull RequestOptions options)
+  public CountResponse count(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CountRequest countRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.count(countRequest, options);
   }
@@ -303,14 +358,20 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public ExplainResponse explain(
-      @Nonnull ExplainRequest explainRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ExplainRequest explainRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     return client.explain(explainRequest, options);
   }
 
   // Document operations
   @Nonnull
   @Override
-  public GetResponse getDocument(@Nonnull GetRequest getRequest, @Nonnull RequestOptions options)
+  public GetResponse getDocument(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetRequest getRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.get(getRequest, options);
   }
@@ -318,21 +379,29 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public IndexResponse indexDocument(
-      @Nonnull IndexRequest indexRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull IndexRequest indexRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     return client.index(indexRequest, options);
   }
 
   @Nonnull
   @Override
   public DeleteResponse deleteDocument(
-      @Nonnull DeleteRequest deleteRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteRequest deleteRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     return client.delete(deleteRequest, options);
   }
 
   @Nonnull
   @Override
   public BulkByScrollResponse deleteByQuery(
-      @Nonnull DeleteByQueryRequest deleteByQueryRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteByQueryRequest deleteByQueryRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.deleteByQuery(deleteByQueryRequest, options);
   }
@@ -340,7 +409,9 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public CreatePitResponse createPit(
-      @Nonnull CreatePitRequest createPitRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CreatePitRequest createPitRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.createPit(createPitRequest, options);
   }
@@ -348,7 +419,9 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public DeletePitResponse deletePit(
-      @Nonnull DeletePitRequest deletePitRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeletePitRequest deletePitRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.deletePit(deletePitRequest, options);
   }
@@ -357,7 +430,9 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public CreateIndexResponse createIndex(
-      @Nonnull CreateIndexRequest createIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull CreateIndexRequest createIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.indices().create(createIndexRequest, options);
   }
@@ -365,7 +440,10 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse getIndex(
-      GetIndexRequest getIndexRequest, RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      GetIndexRequest getIndexRequest,
+      RequestOptions options)
+      throws IOException {
     GetIndexResponse indexResponse = client.indices().get(getIndexRequest, options);
     return new com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse(
         indexResponse.getIndices(),
@@ -378,7 +456,8 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
 
   @Nonnull
   @Override
-  public ResizeResponse cloneIndex(ResizeRequest resizeRequest, RequestOptions options)
+  public ResizeResponse cloneIndex(
+      @Nonnull OperationFingerprint opContext, ResizeRequest resizeRequest, RequestOptions options)
       throws IOException {
     return client.indices().clone(resizeRequest, options);
   }
@@ -386,14 +465,18 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public AcknowledgedResponse deleteIndex(
-      @Nonnull DeleteIndexRequest deleteIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteIndexRequest deleteIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.indices().delete(deleteIndexRequest, options);
   }
 
   @Override
   public boolean indexExists(
-      @Nonnull GetIndexRequest getIndexRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetIndexRequest getIndexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.indices().exists(getIndexRequest, options);
   }
@@ -401,7 +484,9 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public AcknowledgedResponse putIndexMapping(
-      @Nonnull PutMappingRequest putMappingRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull PutMappingRequest putMappingRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.indices().putMapping(putMappingRequest, options);
   }
@@ -409,7 +494,9 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public GetMappingsResponse getIndexMapping(
-      @Nonnull GetMappingsRequest getMappingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetMappingsRequest getMappingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.indices().getMapping(getMappingsRequest, options);
   }
@@ -417,7 +504,9 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public GetSettingsResponse getIndexSettings(
-      @Nonnull GetSettingsRequest getSettingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetSettingsRequest getSettingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.indices().getSettings(getSettingsRequest, options);
   }
@@ -425,7 +514,9 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public AcknowledgedResponse updateIndexSettings(
-      @Nonnull UpdateSettingsRequest updateSettingsRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull UpdateSettingsRequest updateSettingsRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.indices().putSettings(updateSettingsRequest, options);
   }
@@ -433,14 +524,19 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public RefreshResponse refreshIndex(
-      @Nonnull RefreshRequest refreshRequest, @Nonnull RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull RefreshRequest refreshRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     return client.indices().refresh(refreshRequest, options);
   }
 
   @Nonnull
   @Override
   public GetAliasesResponse getIndexAliases(
-      @Nonnull GetAliasesRequest getAliasesRequest, @Nonnull RequestOptions options)
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull GetAliasesRequest getAliasesRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.indices().getAlias(getAliasesRequest, options);
   }
@@ -448,13 +544,17 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public AcknowledgedResponse updateIndexAliases(
-      IndicesAliasesRequest indicesAliasesRequest, RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      IndicesAliasesRequest indicesAliasesRequest,
+      RequestOptions options)
+      throws IOException {
     return client.indices().updateAliases(indicesAliasesRequest, options);
   }
 
   @Nonnull
   @Override
-  public AnalyzeResponse analyzeIndex(AnalyzeRequest request, RequestOptions options)
+  public AnalyzeResponse analyzeIndex(
+      @Nonnull OperationFingerprint opContext, AnalyzeRequest request, RequestOptions options)
       throws IOException {
     return client.indices().analyze(request, options);
   }
@@ -503,6 +603,23 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
     return engineType;
   }
 
+  /**
+   * OpenSearch 2.x and Elasticsearch 7.17 (via {@link Es7CompatibilitySearchClientShim}, which
+   * extends this class) persist {@code doc_values: false} on {@code search_as_you_type} fields, so
+   * the authored mapping must include it to round-trip cleanly against {@code GetMapping}.
+   */
+  public static final Map<String, String> PARTIAL_NGRAM_CONFIG =
+      ImmutableMap.of(
+          "type", "search_as_you_type",
+          "max_shingle_size", "4",
+          "doc_values", "false");
+
+  @Nonnull
+  @Override
+  public Map<String, String> partialNgramConfig() {
+    return PARTIAL_NGRAM_CONFIG;
+  }
+
   @Nonnull
   @Override
   public String getEngineVersion() throws IOException {
@@ -534,6 +651,20 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
       clusterInfo.put("engine_type", "opensearch");
 
       return clusterInfo;
+    } catch (OpenSearchStatusException e) {
+      if (e.status() == RestStatus.FORBIDDEN && !isEngineTypeAutoDetected()) {
+        // Restricted roles (e.g. AWS OpenSearch fine-grained access control without
+        // cluster:monitor/main) cannot call GET /. With an explicitly configured engine type,
+        // callers treat an unreadable version as indeterminate and proceed, so this is an
+        // expected condition in locked-down clusters, not an error. Under auto-detection the
+        // version is required to pick the engine type, so that case stays at ERROR.
+        log.warn(
+            "Cluster info API is restricted for this user (missing cluster:monitor/main?): {}",
+            e.getMessage());
+      } else {
+        log.error("Failed to get cluster info", e);
+      }
+      throw new IOException("Failed to retrieve cluster information", e);
     } catch (Exception e) {
       log.error("Failed to get cluster info", e);
       throw new IOException("Failed to retrieve cluster information", e);
@@ -562,7 +693,8 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
 
   @Nonnull
   @Override
-  public RawResponse performLowLevelRequest(Request request) throws IOException {
+  public RawResponse performLowLevelRequest(
+      @Nonnull OperationFingerprint opContext, Request request) throws IOException {
     Response response = client.getLowLevelClient().performRequest(request);
     return new RawResponse(
         response.getRequestLine(),
@@ -574,14 +706,20 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public BulkByScrollResponse updateByQuery(
-      UpdateByQueryRequest updateByQueryRequest, RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull UpdateByQueryRequest updateByQueryRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     return client.updateByQuery(updateByQueryRequest, options);
   }
 
   @Nonnull
   @Override
   public String submitDeleteByQueryTask(
-      DeleteByQueryRequest deleteByQueryRequest, RequestOptions options) throws IOException {
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull DeleteByQueryRequest deleteByQueryRequest,
+      @Nonnull RequestOptions options)
+      throws IOException {
     return client.submitDeleteByQueryTask(deleteByQueryRequest, options).getTask();
   }
 
@@ -592,7 +730,10 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
    */
   @Nonnull
   @Override
-  public String submitReindexTask(ReindexRequest reindexRequest, RequestOptions options)
+  public String submitReindexTask(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull ReindexRequest reindexRequest,
+      @Nonnull RequestOptions options)
       throws IOException {
     return client.submitReindexTask(reindexRequest, options).getTask();
   }
@@ -606,13 +747,14 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
       long retryInterval,
       int numRetries,
       int threadCount) {
+    final BulkListener[] listenerHolder = new BulkListener[1];
     Supplier<BulkProcessor> processorSupplier =
         () ->
             BulkProcessor.builder(
                     (request, bulkListener) -> {
                       client.bulkAsync(request, RequestOptions.DEFAULT, bulkListener);
                     },
-                    BulkListener.getInstance(0, writeRequestRefreshPolicy, metricUtils))
+                    listenerHolder[0])
                 .setBulkActions(bulkRequestsLimit)
                 .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
                 .setBackoffPolicy(
@@ -620,7 +762,16 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
                         TimeValue.timeValueSeconds(retryInterval), numRetries))
                 .build();
 
-    initBulkProcessors(threadCount, processorSupplier);
+    initBulkProcessors(
+        threadCount,
+        processorSupplier,
+        () ->
+            listenerHolder[0] =
+                BulkListener.create(
+                    writeRequestRefreshPolicy,
+                    metricUtils,
+                    bulkWriteResultTracker,
+                    bulkItemRequeueSupport));
 
     log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }
@@ -634,6 +785,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
       long retryInterval,
       int numRetries,
       int threadCount) {
+    final BulkListener[] listenerHolder = new BulkListener[1];
     Supplier<BulkProcessor> processorSupplier =
         () ->
             BulkProcessor.builder(
@@ -646,7 +798,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
                         throw new RuntimeException(e);
                       }
                     },
-                    BulkListener.getInstance(0, writeRequestRefreshPolicy, metricUtils))
+                    listenerHolder[0])
                 .setBulkActions(bulkRequestsLimit)
                 .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
                 .setBackoffPolicy(
@@ -654,7 +806,16 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
                         TimeValue.timeValueSeconds(retryInterval), numRetries))
                 .build();
 
-    initBulkProcessors(threadCount, processorSupplier);
+    initBulkProcessors(
+        threadCount,
+        processorSupplier,
+        () ->
+            listenerHolder[0] =
+                BulkListener.create(
+                    writeRequestRefreshPolicy,
+                    metricUtils,
+                    bulkWriteResultTracker,
+                    bulkItemRequeueSupport));
 
     log.info("Initialized {} bulk processors for parallel execution", threadCount);
   }
@@ -672,6 +833,122 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Override
   protected void closeProcessor(BulkProcessor processor) {
     processor.close();
+  }
+
+  @Nonnull
+  @Override
+  public KnnSearchResponse searchKnn(
+      @Nonnull OperationFingerprint opContext, @Nonnull KnnSearchRequest request)
+      throws IOException {
+    Map<String, Object> body = OpenSearch2KnnQueryBuilder.build(request);
+    String requestBody = objectMapper.writeValueAsString(body);
+
+    String endpoint = "/" + request.indexName() + "/_search";
+    org.opensearch.client.Request lowLevelReq = new org.opensearch.client.Request("POST", endpoint);
+    lowLevelReq.setJsonEntity(requestBody);
+    String ignoreUnavailableStr = String.valueOf(request.ignoreUnavailable());
+    lowLevelReq.addParameter("ignore_unavailable", ignoreUnavailableStr);
+    lowLevelReq.addParameter("allow_no_indices", ignoreUnavailableStr);
+
+    org.opensearch.client.Response response =
+        client.getLowLevelClient().performRequest(lowLevelReq);
+    String responseBody = org.apache.http.util.EntityUtils.toString(response.getEntity(), "UTF-8");
+    JsonNode responseJson = objectMapper.readTree(responseBody);
+
+    return parseSearchKnnResponse(responseJson, objectMapper);
+  }
+
+  /**
+   * Parses a kNN search response JSON node into a {@link KnnSearchResponse}.
+   *
+   * <p>Package-private for unit testing without a live cluster. The {@code mapper} is supplied by
+   * the caller so production code reuses the shim's configured {@link ObjectMapper} and tests can
+   * pass their own.
+   */
+  static KnnSearchResponse parseSearchKnnResponse(JsonNode responseJson, ObjectMapper mapper) {
+    List<KnnSearchResponse.Hit> hits = new ArrayList<>();
+    for (JsonNode hit : responseJson.path("hits").path("hits")) {
+      String id = hit.path("_id").asText("");
+      if (id.isEmpty()) {
+        log.warn("OpenSearch kNN hit missing _id; skipping");
+        continue;
+      }
+      double score;
+      if (hit.path("_score").isNull() || hit.path("_score").isMissingNode()) {
+        log.warn("OpenSearch kNN hit {} missing _score; defaulting to 0.0", id);
+        score = 0.0;
+      } else {
+        score = hit.path("_score").asDouble(0.0);
+      }
+      Map<String, Object> source =
+          hit.has("_source")
+              ? mapper.convertValue(
+                  hit.path("_source"), new TypeReference<Map<String, Object>>() {})
+              : Map.of();
+      hits.add(new KnnSearchResponse.Hit(id, score, source));
+    }
+    return new KnnSearchResponse(hits);
+  }
+
+  @Override
+  public void createSemanticIndex(@Nonnull SemanticIndexSpec spec) throws IOException {
+    Map<String, Object> mapping = OpenSearch2SemanticIndexMapper.build(spec);
+    Map<String, Object> settings = OpenSearch2SemanticIndexSettingsBuilder.build(spec);
+
+    org.opensearch.client.indices.CreateIndexRequest req =
+        new org.opensearch.client.indices.CreateIndexRequest(spec.indexName());
+    req.mapping(mapping);
+    req.settings(settings);
+
+    org.opensearch.client.indices.CreateIndexResponse resp =
+        client.indices().create(req, RequestOptions.DEFAULT);
+    if (!resp.isAcknowledged()) {
+      throw new IOException("Index create not acknowledged: " + spec.indexName());
+    }
+    log.info("Created OpenSearch semantic index {}", spec.indexName());
+  }
+
+  @Override
+  public void indexEmbeddings(
+      @Nonnull OperationFingerprint opContext, @Nonnull EmbeddingBatch batch) throws IOException {
+    Map<String, Object> document = buildEmbeddingsDocument(batch);
+
+    org.opensearch.action.index.IndexRequest req =
+        new org.opensearch.action.index.IndexRequest(batch.indexName());
+    req.id(batch.documentId());
+    req.source(document);
+
+    org.opensearch.action.index.IndexResponse resp = client.index(req, RequestOptions.DEFAULT);
+    if (resp.getResult() != org.opensearch.action.DocWriteResponse.Result.CREATED
+        && resp.getResult() != org.opensearch.action.DocWriteResponse.Result.UPDATED) {
+      throw new IOException(
+          "Embedding index for " + batch.documentId() + " returned " + resp.getResult());
+    }
+    log.debug(
+        "Indexed {} chunks for {} in {}",
+        batch.chunks().size(),
+        batch.documentId(),
+        batch.indexName());
+  }
+
+  private static Map<String, Object> buildEmbeddingsDocument(EmbeddingBatch batch) {
+    List<Map<String, Object>> chunks = new ArrayList<>(batch.chunks().size());
+    for (EmbeddingBatch.Chunk c : batch.chunks()) {
+      Map<String, Object> chunk = new LinkedHashMap<>();
+      chunk.put("vector", c.vector());
+      chunk.put("text", c.text());
+      chunk.put("position", c.position());
+      chunk.put("characterOffset", c.characterOffset());
+      chunk.put("characterLength", c.characterLength());
+      chunk.put("tokenCount", c.tokenCount());
+      chunks.add(chunk);
+    }
+    Map<String, Object> modelEntry = Map.of("chunks", chunks);
+    Map<String, Object> embeddings = Map.of(batch.modelKey(), modelEntry);
+    Map<String, Object> document = new LinkedHashMap<>();
+    document.put("urn", batch.documentId());
+    document.put("embeddings", embeddings);
+    return document;
   }
 
   @Nonnull

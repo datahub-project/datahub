@@ -3,9 +3,18 @@
 import logging
 import re
 import struct
-from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Tuple
+from datetime import datetime, timezone
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Protocol,
+    Tuple,
+)
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import bindparam, create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from typing_extensions import Literal, assert_never
@@ -18,7 +27,11 @@ from datahub.ingestion.source.fabric.common.auth import (
     FabricAuthHelper,
 )
 from datahub.ingestion.source.fabric.onelake.config import SqlEndpointConfig
-from datahub.ingestion.source.fabric.onelake.models import FabricColumn
+from datahub.ingestion.source.fabric.onelake.models import (
+    FabricColumn,
+    FabricQueryInsightsRow,
+    FabricView,
+)
 from datahub.ingestion.source.fabric.onelake.schema_report import (
     SqlAnalyticsEndpointReport,
 )
@@ -35,6 +48,17 @@ SQL_COPT_SS_ACCESS_TOKEN = 1256
 # Pattern to match Fabric SQL Analytics Endpoint hostname in connection strings
 _FABRIC_ENDPOINT_HOST_PATTERN = re.compile(
     r"[a-zA-Z0-9_-]+\.datawarehouse\.fabric\.microsoft\.com"
+)
+
+# Schemas excluded from table and view discovery:
+# - INFORMATION_SCHEMA, sys: standard SQL Server system schemas.
+# - queryinsights: Fabric Warehouse's Microsoft-managed Query Insights views
+#   (exec_requests_history, long_running_queries, etc.) — not user metadata.
+#   See https://learn.microsoft.com/fabric/data-warehouse/query-insights
+_FABRIC_SYSTEM_SCHEMAS: Tuple[str, ...] = (
+    "INFORMATION_SCHEMA",
+    "sys",
+    "queryinsights",
 )
 
 
@@ -73,6 +97,47 @@ class SchemaExtractionClient(Protocol):
 
         Returns:
             Dictionary mapping (schema_name, table_name) to list of FabricColumn objects
+        """
+        ...
+
+    def get_all_views(
+        self,
+        workspace_id: str,
+        item_id: str,
+    ) -> List[FabricView]:
+        """Discover all views via INFORMATION_SCHEMA.VIEWS.
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Lakehouse or Warehouse GUID
+
+        Returns:
+            List of FabricView objects with name, schema, and optional definition
+        """
+        ...
+
+    def stream_usage_history(
+        self,
+        workspace_id: str,
+        item_id: str,
+        start_time: datetime,
+        end_time: datetime,
+        skip_failed_queries: bool,
+        fetch_chunk_size: int = 1000,
+    ) -> Iterator[FabricQueryInsightsRow]:
+        """Stream rows from queryinsights.exec_requests_history within a time window.
+
+        Args:
+            workspace_id: Workspace GUID (used for engine cache key)
+            item_id: Lakehouse / Warehouse GUID (used for engine cache key)
+            start_time: Inclusive lower bound on `start_time` column
+            end_time: Exclusive upper bound on `start_time` column
+            skip_failed_queries: When True, filter `status = 'Succeeded'` at the source
+            fetch_chunk_size: Python-side `cursor.fetchmany()` chunk size — tunes. Narrow the time
+                window if a single run's result set is too large to process.
+
+        Yields:
+            One `FabricQueryInsightsRow` per matching row, ordered by `start_time`.
         """
         ...
 
@@ -121,7 +186,7 @@ def create_schema_extraction_client(
                 raise ValueError(
                     f"SQL Analytics Endpoint URL is required for {item_type} {item_id}. "
                     "The endpoint URL must be obtained from the Fabric API and cannot be constructed. "
-                    "See: https://learn.microsoft.com/en-us/fabric/data-warehouse/what-is-the-sql-analytics-endpoint-for-a-lakehouse"
+                    "See: https://learn.microsoft.com/fabric/data-engineering/lakehouse-sql-analytics-endpoint"
                 )
 
             logger.info(
@@ -197,8 +262,7 @@ class SqlAnalyticsEndpointClient:
         predicted from workspace_id alone. The endpoint must be obtained from the API.
 
         References:
-        - https://learn.microsoft.com/en-us/fabric/data-warehouse/what-is-the-sql-analytics-endpoint-for-a-lakehouse
-        - https://learn.microsoft.com/en-us/fabric/data-warehouse/warehouse-connectivity
+        - https://learn.microsoft.com/fabric/data-engineering/lakehouse-sql-analytics-endpoint
         - https://learn.microsoft.com/en-us/rest/api/fabric/lakehouse/items/get-lakehouse
         - https://learn.microsoft.com/en-us/rest/api/fabric/warehouse/items/get-warehouse
 
@@ -224,11 +288,16 @@ class SqlAnalyticsEndpointClient:
             sql_endpoint_props = properties.get("sqlEndpointProperties")
 
             if isinstance(sql_endpoint_props, dict):
-                # Lakehouse: connectionString is often just the hostname
+                provisioning_status = sql_endpoint_props.get("provisioningStatus")
                 conn_str = sql_endpoint_props.get("connectionString")
-                if conn_str and isinstance(conn_str, str):
-                    if ".datawarehouse.fabric.microsoft.com" in conn_str:
-                        return conn_str.strip()
+                if provisioning_status == "Success" and conn_str:
+                    return conn_str.strip()
+                else:
+                    logger.warning(
+                        f"SQL Analytics Endpoint for {item_type} {item_id} has "
+                        f"provisioningStatus='{provisioning_status}' (expected 'Success'). "
+                        f"Skipping schema extraction for this item."
+                    )
 
             # Warehouse API may expose connectionString at properties level
             # (e.g. staging warehouses: properties=['connectionInfo', 'connectionString', ...])
@@ -278,7 +347,7 @@ class SqlAnalyticsEndpointClient:
             raise ValueError(
                 f"SQL Analytics Endpoint URL is required for item {item_id}. "
                 "The endpoint URL must be obtained from the Fabric API and cannot be constructed. "
-                "See: https://learn.microsoft.com/en-us/fabric/data-warehouse/what-is-the-sql-analytics-endpoint-for-a-lakehouse"
+                "See: https://learn.microsoft.com/fabric/data-engineering/lakehouse-sql-analytics-endpoint"
             )
 
         try:
@@ -346,7 +415,7 @@ class SqlAnalyticsEndpointClient:
         Uses the endpoint_url configured during client initialization.
 
         References:
-        - https://learn.microsoft.com/en-us/fabric/data-warehouse/warehouse-connectivity
+        - https://learn.microsoft.com/fabric/data-engineering/lakehouse-sql-analytics-endpoint
         - https://learn.microsoft.com/en-us/fabric/data-warehouse/connect-to-fabric-data-warehouse
 
         Args:
@@ -363,7 +432,7 @@ class SqlAnalyticsEndpointClient:
             # Query all columns for all tables in the database
             query = text(
                 """
-                SELECT 
+                SELECT
                     TABLE_SCHEMA,
                     TABLE_NAME,
                     COLUMN_NAME,
@@ -375,13 +444,15 @@ class SqlAnalyticsEndpointClient:
                     NUMERIC_PRECISION,
                     NUMERIC_SCALE
                 FROM INFORMATION_SCHEMA.COLUMNS
-                WHERE TABLE_SCHEMA NOT IN ('INFORMATION_SCHEMA', 'sys')
+                WHERE TABLE_SCHEMA NOT IN :system_schemas
                 ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION
                 """
-            )
+            ).bindparams(bindparam("system_schemas", expanding=True))
 
             with engine.connect() as connection:
-                result = connection.execute(query)
+                result = connection.execute(
+                    query, {"system_schemas": list(_FABRIC_SYSTEM_SCHEMAS)}
+                )
                 columns_by_table: Dict[Tuple[str, str], List[FabricColumn]] = {}
                 for row in result:
                     # INFORMATION_SCHEMA returns uppercase, but we'll lowercase for consistency
@@ -402,23 +473,151 @@ class SqlAnalyticsEndpointClient:
                     )
                 return columns_by_table
         except SQLAlchemyError as e:
-            error_msg = str(e)
             logger.warning(
                 f"Failed to extract schema for all tables "
-                f"in workspace {workspace_id}, item {item_id}: {error_msg}"
+                f"in workspace {workspace_id}, item {item_id}: {e}",
+                exc_info=True,
             )
-            if self.report:
-                self.report.failures += 1
-            # Re-raise the exception
             raise
         except Exception as e:
             logger.error(
                 f"Unexpected error extracting schema for all tables: {e}",
                 exc_info=True,
             )
-            if self.report:
-                self.report.failures += 1
-            # Re-raise the exception
+            raise
+
+    def get_all_views(
+        self,
+        workspace_id: str,
+        item_id: str,
+    ) -> List[FabricView]:
+        """Discover all views via INFORMATION_SCHEMA.VIEWS.
+
+        VIEW_DEFINITION may be NULL if the caller lacks VIEW DEFINITION permission.
+
+        References:
+        - https://learn.microsoft.com/en-us/sql/relational-databases/system-information-schema-views/views-transact-sql
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Lakehouse or Warehouse GUID
+
+        Returns:
+            List of FabricView objects
+        """
+        try:
+            engine = self._get_engine(workspace_id, item_id, self.endpoint_url)
+
+            query = text(
+                """
+                SELECT
+                    TABLE_SCHEMA,
+                    TABLE_NAME,
+                    VIEW_DEFINITION
+                FROM INFORMATION_SCHEMA.VIEWS
+                WHERE TABLE_SCHEMA NOT IN :system_schemas
+                ORDER BY TABLE_SCHEMA, TABLE_NAME
+                """
+            ).bindparams(bindparam("system_schemas", expanding=True))
+
+            with engine.connect() as connection:
+                result = connection.execute(
+                    query, {"system_schemas": list(_FABRIC_SYSTEM_SCHEMAS)}
+                )
+                views: List[FabricView] = []
+                for row in result:
+                    views.append(
+                        FabricView(
+                            name=row.TABLE_NAME,
+                            schema_name=row.TABLE_SCHEMA,
+                            item_id=item_id,
+                            workspace_id=workspace_id,
+                            view_definition=row.VIEW_DEFINITION,
+                        )
+                    )
+                return views
+        except SQLAlchemyError as e:
+            logger.warning(
+                f"Failed to discover views "
+                f"in workspace {workspace_id}, item {item_id}: {e}",
+                exc_info=True,
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error discovering views: {e}",
+                exc_info=True,
+            )
+            raise
+
+    def stream_usage_history(
+        self,
+        workspace_id: str,
+        item_id: str,
+        start_time: datetime,
+        end_time: datetime,
+        skip_failed_queries: bool,
+        fetch_chunk_size: int = 1000,
+    ) -> Iterator[FabricQueryInsightsRow]:
+        """Stream queryinsights.exec_requests_history rows for a single item.
+
+        Reference: https://learn.microsoft.com/en-us/sql/relational-databases/system-views/queryinsights-exec-requests-history-transact-sql?view=fabric
+        """
+        sql = """
+            SELECT
+                start_time,
+                statement_type,
+                login_name,
+                row_count,
+                status,
+                command
+            FROM queryinsights.exec_requests_history
+            WHERE start_time >= :start_time AND start_time < :end_time
+        """
+        if skip_failed_queries:
+            sql += " AND status = 'Succeeded'"
+        sql += " ORDER BY start_time"
+        query = text(sql)
+
+        # Bind as naive UTC so pyodbc → ODBC 18 emits a datetime2 parameter
+        # directly, matching the column type. Passing tz-aware datetimes works
+        # but relies on the driver's implicit datetimeoffset → datetime2
+        # coercion, which has varied across driver versions.
+        sql_start = start_time.astimezone(timezone.utc).replace(tzinfo=None)
+        sql_end = end_time.astimezone(timezone.utc).replace(tzinfo=None)
+
+        try:
+            engine = self._get_engine(workspace_id, item_id, self.endpoint_url)
+            with engine.connect() as connection:
+                cursor = connection.execute(
+                    query, {"start_time": sql_start, "end_time": sql_end}
+                )
+                while True:
+                    batch = cursor.fetchmany(fetch_chunk_size)
+                    if not batch:
+                        break
+                    for row in batch:
+                        row_mapping = row._mapping
+                        yield FabricQueryInsightsRow(
+                            start_time=row_mapping["start_time"],
+                            statement_type=row_mapping["statement_type"],
+                            login_name=row_mapping["login_name"],
+                            row_count=row_mapping["row_count"],
+                            status=row_mapping["status"],
+                            command=row_mapping["command"],
+                        )
+        except SQLAlchemyError as e:
+            logger.warning(
+                f"Failed to stream queryinsights.exec_requests_history "
+                f"in workspace {workspace_id}, item {item_id}: {e}",
+                exc_info=True,
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error streaming usage history: {e}",
+                exc_info=True,
+            )
             raise
 
     def _get_engine(self, workspace_id: str, item_id: str, endpoint_url: str) -> Engine:

@@ -1,5 +1,6 @@
 import { useApolloClient } from '@apollo/client';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
@@ -26,6 +27,7 @@ type Props = {
  * This component handles creating and editing DataHub Views.
  */
 export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation('entity.views');
     const searchVersion = useSearchVersion();
     const userContext = useUserContext();
 
@@ -110,8 +112,8 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
             })
             .catch((_) => {
                 notification.error({
-                    message: 'Failed to save View',
-                    description: 'An unexpected error occurred.',
+                    message: t('builder.saveError'),
+                    description: t('errorDescription'),
                     duration: 3,
                 });
             });

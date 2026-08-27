@@ -36,7 +36,7 @@ export function RotatingTriangle({
             size="small"
             type="ghost"
             deg={isOpen ? 90 : 0}
-            icon={<ChevronRightIcon style={{ color: theme.colors.text }} />}
+            icon={<ChevronRightIcon style={{ color: theme.colors.icon }} />}
             onClick={onClick}
             data-testid={dataTestId}
         />

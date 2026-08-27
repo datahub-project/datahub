@@ -1,6 +1,7 @@
 import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ExpandedActorGroup } from '@app/entityV2/shared/components/styled/ExpandedActorGroup';
@@ -42,9 +43,11 @@ export default function TableStats({
     lastReportedTime,
     partitionSpec,
 }: Props) {
+    const { t } = useTranslation('entity.profile.stats');
+    const { t: tl } = useTranslation('common.labels');
     // If there are less than 4 items, simply stack the stat views.
     const justifyContent = !queryCount && !users ? 'default' : 'space-between';
-    const lastReportedTimeString = lastReportedTime || 'unknown';
+    const lastReportedTimeString = lastReportedTime || t('tableStats.unknown');
     if (
         !rowCount &&
         !columnCount &&
@@ -63,11 +66,13 @@ export default function TableStats({
     return (
         <StatSection>
             <Typography.Title level={5}>
-                {isPartitioned ? `Partition Stats for Partition ${partitionSpec.partition}` : 'Table Stats'}
+                {t(isPartitioned ? 'tableStats.partitionStatsForPartition' : 'tableStats.tableStatsTitle', {
+                    partition: partitionSpec?.partition,
+                })}
             </Typography.Title>
             <StatContainer justifyContent={justifyContent}>
                 {rowCount && (
-                    <InfoItem title="Rows">
+                    <InfoItem title={tl('rows')}>
                         <Tooltip title={formatNumberWithoutAbbreviation(rowCount)} placement="right">
                             <Typography.Text strong style={{ fontSize: 24 }} data-testid="table-stats-rowcount">
                                 {countFormatter(rowCount)}
@@ -76,21 +81,21 @@ export default function TableStats({
                     </InfoItem>
                 )}
                 {columnCount && (
-                    <InfoItem title="Columns">
+                    <InfoItem title={tl('columns')}>
                         <Typography.Text strong style={{ fontSize: 24 }}>
                             {columnCount}
                         </Typography.Text>
                     </InfoItem>
                 )}
                 {queryCount && (
-                    <InfoItem title="Monthly Queries">
+                    <InfoItem title={t('tableStats.monthlyQueriesLabel')}>
                         <Typography.Text strong style={{ fontSize: 24 }}>
                             {queryCount}
                         </Typography.Text>
                     </InfoItem>
                 )}
                 {sortedUsers && sortedUsers.length > 0 && (
-                    <InfoItem title="Top Users" width="inherit">
+                    <InfoItem title={t('tableStats.topUsersLabel')} width="inherit">
                         <div style={{ paddingTop: 8 }}>
                             <ExpandedActorGroup
                                 containerStyle={{
@@ -107,8 +112,8 @@ export default function TableStats({
                     </InfoItem>
                 )}
                 {lastUpdatedTime && (
-                    <InfoItem title="Last Updated" width="220px">
-                        <Tooltip title={`Last reported at ${lastReportedTimeString}`}>
+                    <InfoItem title={t('tableStats.lastUpdatedLabel')} width="220px">
+                        <Tooltip title={t('tableStats.lastReportedAt', { time: lastReportedTimeString })}>
                             <Typography.Text strong style={{ fontSize: 16 }}>
                                 {lastUpdatedTime}
                             </Typography.Text>

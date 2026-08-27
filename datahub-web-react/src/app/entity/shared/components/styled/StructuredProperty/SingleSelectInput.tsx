@@ -1,9 +1,9 @@
 import { Radio, Select } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import DropdownLabel from '@app/entity/shared/components/styled/StructuredProperty/DropdownLabel';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import ValueDescription from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 
@@ -12,11 +12,13 @@ import { AllowedValue } from '@types';
 const StyledRadio = styled(Radio)`
     display: block;
     .ant-radio-inner {
-        border-color: ${ANTD_GRAY_V2[8]};
+        border-color: ${(props) => props.theme.colors.border};
     }
 `;
 
 const DROPDOWN_STYLE = { minWidth: 320, maxWidth: 320, textAlign: 'left', fontSize: '14px' };
+// antd Select API value (which option prop to render as the label); not user-visible text.
+const OPTION_LABEL_PROP_VALUE = 'value';
 
 interface Props {
     selectedValues: any[];
@@ -25,13 +27,14 @@ interface Props {
 }
 
 export default function SingleSelectInput({ selectSingleValue, allowedValues, selectedValues }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
     return allowedValues.length > 5 ? (
         <Select
             style={DROPDOWN_STYLE as any}
-            placeholder="Select"
+            placeholder={t('structuredProperty.selectPlaceholder')}
             value={selectedValues}
             onSelect={(value) => selectSingleValue(value)}
-            optionLabelProp="value"
+            optionLabelProp={OPTION_LABEL_PROP_VALUE}
         >
             {allowedValues.map((allowedValue) => (
                 <Select.Option value={getStructuredPropertyValue(allowedValue.value)}>

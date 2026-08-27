@@ -551,8 +551,8 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
         ]
         mock_client.get_pipelines.return_value = pipelines
 
-        # Mock get_enrichments
-        enrichments = [Enrichment.model_validate(e) for e in mock_enrichments_response]
+        # Mock get_enrichments (pipelines/v1 EnrichmentResource payload)
+        enrichments = [Enrichment.from_resource(e) for e in mock_enrichments_response]
         mock_client.get_enrichments.return_value = enrichments
 
         # Mock get_event_specifications (needed for event-specific enrichments)
@@ -808,7 +808,7 @@ def test_snowplow_enrichments_without_event_spec_processor(
             for p in mock_pipelines_response["pipelines"]
         ]
         mock_client.get_enrichments.return_value = [
-            Enrichment.model_validate(e) for e in mock_enrichments_response
+            Enrichment.from_resource(e) for e in mock_enrichments_response
         ]
         mock_client.get_event_specifications.return_value = [
             EventSpecification.model_validate(es)

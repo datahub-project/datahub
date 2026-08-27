@@ -8,11 +8,11 @@ import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -40,20 +40,61 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   protected final UpdateIndicesService updateIndicesService;
   private final boolean isEnabled;
   private final boolean reprocessUIEvents;
-  private OperationContext systemOperationContext;
   @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public UpdateIndicesHook(
       UpdateIndicesService updateIndicesService,
       @Nonnull @Value("${updateIndices.enabled:true}") Boolean isEnabled,
+      @Nonnull @Value("${featureFlags.preProcessHooks.uiEnabled:true}") Boolean uiPreprocessEnabled,
       @Nonnull @Value("${featureFlags.preProcessHooks.reprocessEnabled:false}")
           Boolean reprocessUIEvents,
-      @Nonnull @Value("${updateIndices.consumerGroupSuffix}") String consumerGroupSuffix) {
+      @Nonnull @Value("${updateIndices.consumerGroupSuffix}") String consumerGroupSuffix,
+      @Value("${MAE_CONSUMER_ENABLED:false}") String maeConsumerEnabled,
+      @Value("${MCL_CONSUMER_ENABLED:false}") String mclConsumerEnabled) {
     this.updateIndicesService = updateIndicesService;
     this.isEnabled = isEnabled;
     this.reprocessUIEvents = reprocessUIEvents;
     this.consumerGroupSuffix = consumerGroupSuffix;
+    // GMS always constructs this bean (embedded MAE lives on the GMS classpath). Gate on MCL
+    // consumption so kubernetesScaleDown can set PRE_PROCESS_HOOKS_UI_ENABLED=false while
+    // MAE_CONSUMER_ENABLED=false. Standalone MAE sets MAE_CONSUMER_ENABLED=true. Helm sets the
+    // same PRE_PROCESS_HOOKS_* pair on GMS and MAE; default MAE is uiEnabled=true (skip UI
+    // events because GMS already indexed them), not the old both-false template.
+    if (Boolean.TRUE.equals(isEnabled)) {
+      PreProcessHooks hooks = new PreProcessHooks();
+      hooks.setUiEnabled(Boolean.TRUE.equals(uiPreprocessEnabled));
+      hooks.setReprocessEnabled(Boolean.TRUE.equals(reprocessUIEvents));
+      PreProcessHooks.validateWhenConsumingMcl(
+          hooks, PreProcessHooks.isMclConsumerEnabled(maeConsumerEnabled, mclConsumerEnabled));
+    }
+  }
+
+  @VisibleForTesting
+  public UpdateIndicesHook(
+      UpdateIndicesService updateIndicesService,
+      @Nonnull Boolean isEnabled,
+      @Nonnull Boolean uiPreprocessEnabled,
+      @Nonnull Boolean reprocessUIEvents,
+      @Nonnull String consumerGroupSuffix,
+      boolean mclConsumerEnabled) {
+    this(
+        updateIndicesService,
+        isEnabled,
+        uiPreprocessEnabled,
+        reprocessUIEvents,
+        consumerGroupSuffix,
+        mclConsumerEnabled ? "true" : "false",
+        "false");
+  }
+
+  @VisibleForTesting
+  public UpdateIndicesHook(
+      UpdateIndicesService updateIndicesService,
+      @Nonnull Boolean isEnabled,
+      @Nonnull Boolean reprocessUIEvents,
+      @Nonnull String consumerGroupSuffix) {
+    this(updateIndicesService, isEnabled, true, reprocessUIEvents, consumerGroupSuffix, true);
   }
 
   @VisibleForTesting
@@ -70,19 +111,19 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public UpdateIndicesHook init(@javax.annotation.Nonnull OperationContext systemOperationContext) {
-    this.systemOperationContext = systemOperationContext;
-    return this;
+  public void invoke(
+      @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog event) {
+    if (shouldProcessEvent(event)) {
+      updateIndicesService.handleChangeEvent(operationContext, event);
+      updateIndicesService.flushAndWaitIfConfigured();
+    }
   }
 
   @Override
-  public void invoke(@Nonnull final MetadataChangeLog event) {
-    invokeBatch(Collections.singletonList(event));
-  }
-
-  @Override
-  public void invokeBatch(@Nonnull final Collection<MetadataChangeLog> events) {
-    // Filter events that should be processed
+  public void invokeBatch(
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull final Collection<MetadataChangeLog> events) {
+    // Filter events to only process those that should be processed
     List<MetadataChangeLog> eventsToProcess =
         events.stream().filter(this::shouldProcessEvent).collect(Collectors.toList());
 
@@ -96,6 +137,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
             "Processing batch of {} MCL events with UpdateIndicesService", eventsToProcess.size());
       }
       updateIndicesService.handleChangeEvents(systemOperationContext, eventsToProcess);
+      updateIndicesService.flushAndWaitIfConfigured();
     } else {
       log.debug("No MCL events to process in batch of {} events", events.size());
     }

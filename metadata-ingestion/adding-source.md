@@ -1,3 +1,7 @@
+---
+description: "Add a new metadata ingestion source to DataHub by extending the Python ingestion framework with a custom connector."
+---
+
 # Adding a Metadata Ingestion Source
 
 :::tip Build Connectors Faster with DataHub Skills

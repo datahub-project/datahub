@@ -5,6 +5,7 @@ import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
 import io.ebean.datasource.DataSourcePoolListener;
 import java.sql.Connection;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,6 +45,9 @@ public class LocalEbeanConfigFactory {
 
   @Value("${ebean.waitTimeoutMillis:1000}")
   private Integer ebeanWaitTimeoutMillis;
+
+  @Value("${ebean.autoCommit:true}")
+  private Boolean ebeanAutoCommit;
 
   @Value("${ebean.autoCreateDdl:false}")
   private Boolean ebeanAutoCreate;
@@ -130,7 +134,9 @@ public class LocalEbeanConfigFactory {
     dataSourceConfig.setMaxAgeMinutes(ebeanMaxAgeMinutes);
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
+    dataSourceConfig.setAutoCommit(ebeanAutoCommit);
     dataSourceConfig.setListener(getListenerToTrackCounts(metricUtils, "main"));
+    EbeanPoolDefaults.applyDefaultTransactionIsolation(dataSourceConfig);
 
     // Set custom properties for IAM authentication
     if (crossCloudConfig.customProperties != null) {
@@ -142,12 +148,14 @@ public class LocalEbeanConfigFactory {
 
   @Bean(name = "gmsEbeanDatabaseConfig")
   protected DatabaseConfig createInstance(
-      @Qualifier("ebeanDataSourceConfig") DataSourceConfig config) {
+      @Qualifier("ebeanDataSourceConfig") DataSourceConfig config,
+      List<EbeanConfigCustomizer> customizers) {
     DatabaseConfig serverConfig = new DatabaseConfig();
     serverConfig.setName("gmsEbeanDatabaseConfig");
     serverConfig.setDataSourceConfig(config);
     serverConfig.setDdlGenerate(ebeanAutoCreate);
     serverConfig.setDdlRun(ebeanAutoCreate);
+    customizers.forEach(customizer -> customizer.customize(serverConfig));
     return serverConfig;
   }
 }

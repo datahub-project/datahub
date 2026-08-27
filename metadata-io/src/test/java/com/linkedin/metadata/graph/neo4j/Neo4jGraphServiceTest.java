@@ -93,7 +93,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
             _driver,
             SessionConfig.defaultConfig(),
             TEST_GRAPH_SERVICE_CONFIG.toBuilder().type("neo4j").build());
-    _client.clear();
+    _client.clear(operationContext);
   }
 
   @BeforeMethod
@@ -222,7 +222,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
         new DatasetUrn(new DataPlatformUrn("snowflake"), "test", FabricType.TEST);
     TagUrn tagUrn = new TagUrn("newTag");
     Edge edge = new Edge(datasetUrn, tagUrn, TAG_RELATIONSHIP, null, null, null, null, null);
-    getGraphService().addEdge(edge);
+    getGraphService().addEdge(operationContext, edge);
 
     RelatedEntitiesResult result =
         getGraphService()
@@ -237,7 +237,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
                 0,
                 100);
     assertEquals(result.getTotal(), 1);
-    getGraphService().removeEdge(edge);
+    getGraphService().removeEdge(operationContext, edge);
 
     result =
         getGraphService()
@@ -276,7 +276,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
             // d1 <-DownstreamOf- d4 <-DownstreamOf- d5
             new Edge(dataset4Urn, dataset1Urn, downstreamOf, 13L, null, 13L, null, null),
             new Edge(dataset5Urn, dataset4Urn, downstreamOf, 13L, null, 13L, null, null));
-    edges.forEach(service::addEdge);
+    edges.forEach(edge -> service.addEdge(operationContext, edge));
 
     // simple path finding
     final var upstreamLineageDataset3Hop3 =
@@ -339,7 +339,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
             new Edge(dataJobOneUrn, dataset2Urn, produces, 5L, null, 7L, null, null),
             new Edge(dataset3Urn, dataset2Urn, downstreamOf, 9L, null, null, null, null),
             new Edge(dataset4Urn, dataset3Urn, downstreamOf, 11L, null, null, null, null));
-    edges.forEach(service::addEdge);
+    edges.forEach(edge -> service.addEdge(operationContext, edge));
 
     // no time filtering
     EntityLineageResult upstreamLineageTwoHops =
@@ -416,7 +416,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
 
             // d1 <-DownstreamOf- d3 (shorter path from d3 to d1, but with very old time)
             new Edge(dataset3Urn, dataset1Urn, downstreamOf, 1L, null, 2L, null, null));
-    edges.forEach(service::addEdge);
+    edges.forEach(edge -> service.addEdge(operationContext, edge));
 
     // no time filtering, shorter path from d3 to d1 is returned
     EntityLineageResult upstreamLineageNoTimeFiltering =
@@ -463,7 +463,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
             new Edge(dataset3Urn, dataset2Urn, downstreamOf, 9L, null, null, null, null));
 
     // Add all edges to the graph
-    edges.forEach(service::addEdge);
+    edges.forEach(edge -> service.addEdge(operationContext, edge));
 
     // Create LineageGraphFilters for upstream lineage
     Set<String> allowedTypes = new HashSet<>(Arrays.asList("dataset", "dataJob"));
@@ -669,7 +669,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
         new DatasetUrn(new DataPlatformUrn("snowflake"), "test", FabricType.TEST);
     TagUrn tagUrn = new TagUrn("newTag");
     Edge edge = new Edge(datasetUrn, tagUrn, TAG_RELATIONSHIP, null, null, null, null, null);
-    getGraphService().addEdge(edge);
+    getGraphService().addEdge(operationContext, edge);
 
     // Create GraphFilters
     Set<String> sourceTypes = Set.of(datasetType);
@@ -705,7 +705,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
         new DatasetUrn(new DataPlatformUrn("snowflake"), "test", FabricType.TEST);
     TagUrn tagUrn = new TagUrn("newTag");
     Edge edge = new Edge(datasetUrn, tagUrn, TAG_RELATIONSHIP, null, null, null, null, null);
-    getGraphService().addEdge(edge);
+    getGraphService().addEdge(operationContext, edge);
 
     // Verify edge exists
     GraphFilters graphFilters =
@@ -880,7 +880,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
             new Edge(dataset5Urn, dataset4Urn, downstreamOf, null, null, null, null, null));
 
     // Add all edges to the graph
-    edges.forEach(edge -> getGraphService().addEdge(edge));
+    edges.forEach(edge -> getGraphService().addEdge(operationContext, edge));
   }
 
   // Helper method to create mock GraphFilters

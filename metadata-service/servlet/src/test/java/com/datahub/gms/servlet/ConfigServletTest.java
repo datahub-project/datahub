@@ -18,6 +18,8 @@ import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.micrometer.core.instrument.Clock;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -49,6 +51,9 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
   private OperationContext operationContext;
 
   @Autowired private WebApplicationContext webApplicationContext;
+
+  @MockitoBean public Clock clock;
+  @MockitoBean public SystemTelemetryContext systemTelemetryContext;
 
   @MockitoBean(name = "searchClientShim", answers = Answers.RETURNS_MOCKS)
   SearchClientShim<?> searchClientShim;
@@ -356,5 +361,22 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
 
     // Dataset URN name casing
     assertTrue(config.has("datasetUrnNameCasing"));
+  }
+
+  // =================================
+  // pgQueue Config Exposure Tests
+  // =================================
+
+  @Test
+  public void testDoGet_PgQueueDisabled_NoPgQueueSection() throws Exception {
+    configServlet.doGet(request, response);
+
+    String responseContent = responseWriter.toString();
+    JsonNode config = operationContext.getObjectMapper().readValue(responseContent, JsonNode.class);
+
+    assertNotNull(config);
+    assertTrue(
+        !config.has("pgQueue") || config.path("pgQueue").isMissingNode(),
+        "pgQueue section should not be present when pgQueue is disabled");
   }
 }

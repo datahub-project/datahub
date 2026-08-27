@@ -1,7 +1,9 @@
 #import "./incident.graphql"
 #import "./fragments.graphql"
 
-fragment autoCompleteFields on Entity {
+# Lean fields for compact home-widget cards. Omits ownership, tags, lineage, health,
+# structured properties, and Dataset stats/access (those stay on autoCompleteFields).
+fragment searchResultCardFields on Entity {
     urn
     type
     ... on Dataset {
@@ -54,7 +56,8 @@ fragment autoCompleteFields on Entity {
                 }
             }
         }
-        siblingsSearch(input: { query: "*", count: 1 }) @skip(if: $skipSiblingsSearch) {
+        siblingsSearch(input: { query: "*", count: 1, searchFlags: { skipHighlighting: true, skipAggregates: true } })
+            @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -84,9 +87,8 @@ fragment autoCompleteFields on Entity {
                 }
             }
         }
-        ...datasetStatsFields
-        access {
-            ...getAccess
+        deprecation {
+            deprecated
         }
         browsePathV2 {
             ...browsePathV2Fields
@@ -135,6 +137,9 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        deprecation {
+            deprecated
+        }
         browsePathV2 {
             ...browsePathV2Fields
         }
@@ -156,6 +161,9 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        deprecation {
+            deprecated
+        }
         browsePathV2 {
             ...browsePathV2Fields
         }
@@ -176,6 +184,9 @@ fragment autoCompleteFields on Entity {
         }
         subTypes {
             typeNames
+        }
+        deprecation {
+            deprecated
         }
     }
     ... on DataJob {
@@ -201,6 +212,9 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        deprecation {
+            deprecated
+        }
     }
     ... on GlossaryTerm {
         name
@@ -211,10 +225,19 @@ fragment autoCompleteFields on Entity {
         parentNodes {
             ...parentNodesFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
+        deprecation {
+            deprecated
+        }
     }
     ... on GlossaryNode {
         properties {
             name
+        }
+        displayProperties {
+            ...displayPropertiesFields
         }
     }
     ... on Domain {
@@ -226,6 +249,12 @@ fragment autoCompleteFields on Entity {
         }
         displayProperties {
             ...displayPropertiesFields
+        }
+        entities(input: { start: 0, count: 0 }) {
+            total
+        }
+        deprecation {
+            deprecated
         }
     }
     ... on DataProduct {
@@ -266,6 +295,9 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        deprecation {
+            deprecated
+        }
         browsePathV2 {
             ...browsePathV2Fields
         }
@@ -276,6 +308,9 @@ fragment autoCompleteFields on Entity {
             name
             colorHex
         }
+        deprecation {
+            deprecated
+        }
     }
     ... on MLFeatureTable {
         name
@@ -284,6 +319,9 @@ fragment autoCompleteFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        deprecation {
+            deprecated
         }
     }
     ... on MLFeature {
@@ -301,6 +339,9 @@ fragment autoCompleteFields on Entity {
                     }
                 }
             }
+        }
+        deprecation {
+            deprecated
         }
     }
     ... on MLPrimaryKey {
@@ -328,6 +369,9 @@ fragment autoCompleteFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        deprecation {
+            deprecated
+        }
     }
     ... on MLModelGroup {
         name
@@ -336,6 +380,9 @@ fragment autoCompleteFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        deprecation {
+            deprecated
         }
     }
     ... on DataPlatform {
@@ -389,6 +436,28 @@ fragment autoCompleteFields on Entity {
                     title
                 }
             }
+        }
+    }
+    ... on Metric {
+        id
+        info {
+            name
+        }
+    }
+    ... on SemanticModel {
+        id
+        info {
+            name
+        }
+    }
+}
+
+fragment autoCompleteFields on Entity {
+    ...searchResultCardFields
+    ... on Dataset {
+        ...datasetStatsFields
+        access {
+            ...getAccess
         }
     }
 }
@@ -518,6 +587,9 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     deprecation {
         ...deprecationFields
     }
+    privileges {
+        ...entityPrivileges
+    }
     health {
         ...entityHealth
     }
@@ -525,6 +597,87 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
         ...institutionalMemoryFields
     }
     ...datasetStatsFields
+}
+
+fragment siblingSearchDatasetFields on Dataset {
+    exists
+    name
+    origin
+    platform {
+        ...platformFields
+    }
+    editableProperties {
+        name
+        description
+    }
+    platformNativeType
+    properties {
+        name
+        description
+        qualifiedName
+        customProperties {
+            key
+            value
+        }
+        externalUrl
+        lastModified {
+            time
+            actor
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    subTypes {
+        typeNames
+    }
+    parentContainers {
+        ...parentContainersFields
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    health {
+        ...entityHealth
+    }
+    lastProfile: datasetProfiles(limit: 1) {
+        rowCount
+        columnCount
+        sizeInBytes
+        timestampMillis
+    }
+    lastOperation: operations(limit: 1) {
+        lastUpdatedTimestamp
+        timestampMillis
+    }
+    statsSummary {
+        queryCountLast30Days
+        uniqueUserCountLast30Days
+        topUsersLast30Days {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+    }
+    siblings {
+        isPrimary
+    }
 }
 
 fragment searchResultsWithoutSchemaField on Entity {
@@ -538,7 +691,7 @@ fragment searchResultsWithoutSchemaField on Entity {
                 urn
                 type
                 ... on Dataset {
-                    ...nonSiblingsDatasetSearchFields
+                    ...siblingSearchDatasetFields
                     structuredProperties {
                         properties {
                             ...structuredPropertiesFields
@@ -555,10 +708,7 @@ fragment searchResultsWithoutSchemaField on Entity {
                     urn
                     type
                     ... on Dataset {
-                        ...nonSiblingsDatasetSearchFields
-                        siblings {
-                            isPrimary
-                        }
+                        ...siblingSearchDatasetFields
                         structuredProperties {
                             properties {
                                 ...structuredPropertiesFields
@@ -665,6 +815,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         parentContainers {
             ...parentContainersFields
         }
@@ -741,6 +894,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         parentContainers {
             ...parentContainersFields
         }
@@ -815,6 +971,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
             total
         }
@@ -857,6 +1016,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
@@ -913,11 +1075,17 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         parentNodes {
             ...parentNodesFields
         }
         domain {
             ...entityDomain
+        }
+        tags {
+            ...globalTagsFields
         }
         structuredProperties {
             properties {
@@ -926,6 +1094,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         institutionalMemory {
             ...institutionalMemoryFields
+        }
+        displayProperties {
+            ...displayPropertiesFields
         }
     }
     ... on GlossaryNode {
@@ -940,6 +1111,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         institutionalMemory {
             ...institutionalMemoryFields
+        }
+        tags {
+            ...globalTagsFields
         }
     }
     ... on Domain {
@@ -964,6 +1138,12 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         institutionalMemory {
             ...institutionalMemoryFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
     }
     ... on Container {
@@ -999,6 +1179,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         parentContainers {
             ...parentContainersFields
         }
@@ -1032,6 +1215,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
@@ -1054,6 +1240,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
+        privileges {
+            ...entityPrivileges
+        }
         structuredProperties {
             properties {
                 ...structuredPropertiesFields
@@ -1072,6 +1261,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
@@ -1100,6 +1292,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
@@ -1270,6 +1465,22 @@ fragment facetFields on FacetMetadata {
                 valueType {
                     urn
                 }
+                allowedValues {
+                    value {
+                        ... on StringValue {
+                            stringValue
+                        }
+                        ... on NumberValue {
+                            numberValue
+                        }
+                    }
+                }
+                typeQualifier {
+                    allowedTypes {
+                        urn
+                        type
+                    }
+                }
             }
         }
     }
@@ -1294,6 +1505,9 @@ fragment facetFields on FacetMetadata {
                 }
                 parentNodes {
                     ...parentNodesFields
+                }
+                displayProperties {
+                    ...displayPropertiesFields
                 }
             }
             ... on DataPlatform {
@@ -1351,6 +1565,20 @@ fragment facetFields on FacetMetadata {
             ... on Application {
                 properties {
                     name
+                }
+            }
+            ... on Document {
+                info {
+                    title
+                }
+                parentDocuments {
+                    documents {
+                        urn
+                        type
+                        info {
+                            title
+                        }
+                    }
                 }
             }
         }
@@ -1538,6 +1766,19 @@ query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!, $sk
         }
         facets {
             ...facetFields
+        }
+    }
+}
+
+query getSearchResultsForMultipleCards($input: SearchAcrossEntitiesInput!, $skipSiblingsSearch: Boolean = false) {
+    searchAcrossEntities(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                ...searchResultCardFields
+            }
         }
     }
 }

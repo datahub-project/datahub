@@ -38,7 +38,7 @@ test.describe('Business Attributes', () => {
   });
 
   test.describe('Business Attribute CRUD Operations', () => {
-    test('should create, view, and delete a business attribute', async ({ page }) => {
+    test('should create, view, and delete a business attribute', async () => {
       test.setTimeout(180000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
@@ -86,7 +86,7 @@ test.describe('Business Attributes', () => {
 
   test.describe('Business Attribute Related Entities', () => {
     test('should view related entities for a business attribute', async () => {
-      test.setTimeout(60000);
+      test.setTimeout(120000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
 
@@ -94,7 +94,9 @@ test.describe('Business Attributes', () => {
       await businessAttributePage.selectAttribute(TEST_ATTRIBUTE_2);
       await businessAttributePage.clickRelatedEntitiesTab();
 
-      await businessAttributePage.expectNoRelatedEntities();
+      // Use the ES-aware retry helper: Elasticsearch may lag behind the mutation from
+      // the Inheritance test. Reload until the index catches up and shows non-zero results.
+      await businessAttributePage.expectRelatedEntitiesExist();
       await businessAttributePage.expectRelatedEntitiesCount(/of [0-9]+/);
     });
 

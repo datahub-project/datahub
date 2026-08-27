@@ -65,4 +65,22 @@ public class UpdateIndicesUtil {
   public static boolean isDeletingKey(Pair<EntitySpec, AspectSpec> specPair) {
     return specPair.getSecond().getName().equals(specPair.getFirst().getKeyAspectName());
   }
+
+  /**
+   * Groups update events by aspect name while preserving first-seen ordering within each group.
+   * Within a group, the last element is the surviving event for last-write-wins coalescing.
+   *
+   * @param updateEvents events for a single URN that have already been filtered to update change
+   *     types
+   * @return aspect-name → ordered list of events (first-seen order preserved across keys)
+   */
+  @Nonnull
+  public static LinkedHashMap<String, List<MCLItem>> groupUpdatesByAspect(
+      @Nonnull List<MCLItem> updateEvents) {
+    LinkedHashMap<String, List<MCLItem>> byAspect = new LinkedHashMap<>();
+    for (MCLItem event : updateEvents) {
+      byAspect.computeIfAbsent(event.getAspectName(), k -> new ArrayList<>()).add(event);
+    }
+    return byAspect;
+  }
 }

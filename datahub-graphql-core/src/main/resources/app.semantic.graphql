@@ -46,6 +46,11 @@ type EmbeddingConfig {
   AWS Bedrock-specific configuration (only populated when provider is "aws-bedrock")
   """
   awsProviderConfig: AwsProviderConfig
+
+  """
+  Google Vertex AI-specific configuration (only populated when provider is "vertex_ai")
+  """
+  vertexProviderConfig: VertexProviderConfig
 }
 
 """
@@ -56,6 +61,21 @@ type AwsProviderConfig {
   AWS region where Bedrock is accessed (e.g., "us-west-2")
   """
   region: String!
+}
+
+"""
+Google Vertex AI provider-specific configuration
+"""
+type VertexProviderConfig {
+  """
+  GCP project ID where Vertex AI is enabled
+  """
+  projectId: String!
+
+  """
+  GCP region for the Vertex AI endpoint (e.g., "us-east1", "us-central1")
+  """
+  location: String!
 }
 
 # Extend AppConfig with semantic search configuration

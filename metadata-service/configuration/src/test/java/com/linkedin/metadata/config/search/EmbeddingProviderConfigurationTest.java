@@ -56,4 +56,65 @@ public class EmbeddingProviderConfigurationTest {
 
     Assert.assertNull(config.getModelId());
   }
+
+  @Test
+  public void testGetModelId_VertexAiReturnsVertexAiModel() {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("vertex_ai");
+    config.getVertexai().setModel("text-embedding-005");
+
+    Assert.assertEquals(config.getModelId(), "text-embedding-005");
+  }
+
+  @Test
+  public void testGetModelId_VertexAiWithNullVertexConfigReturnsNull() {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("vertex_ai");
+    config.setVertexai(null);
+
+    Assert.assertNull(config.getModelId());
+  }
+
+  /**
+   * Covers the second branch of the vertex_ai ternary: when {@code vertexai != null} but {@code
+   * vertexai.getModel() == null}, {@code getModelId()} returns null.
+   */
+  @Test
+  public void testGetModelId_VertexAiWithNullModelInVertexConfigReturnsNull() {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("vertex_ai");
+    EmbeddingProviderConfiguration.VertexAiConfig v =
+        new EmbeddingProviderConfiguration.VertexAiConfig();
+    v.setModel(null);
+    config.setVertexai(v);
+
+    Assert.assertNull(config.getModelId());
+  }
+
+  @Test
+  public void testGetModelId_BedrockWithNullBedrockConfigReturnsNull() {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("aws-bedrock");
+    config.setBedrock(null);
+
+    Assert.assertNull(config.getModelId());
+  }
+
+  @Test
+  public void testGetModelId_OpenAiWithNullOpenAiConfigReturnsNull() {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("openai");
+    config.setOpenai(null);
+
+    Assert.assertNull(config.getModelId());
+  }
+
+  @Test
+  public void testGetModelId_CohereWithNullCohereConfigReturnsNull() {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("cohere");
+    config.setCohere(null);
+
+    Assert.assertNull(config.getModelId());
+  }
 }

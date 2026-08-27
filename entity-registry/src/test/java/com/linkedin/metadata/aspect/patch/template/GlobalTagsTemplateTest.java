@@ -170,6 +170,37 @@ public class GlobalTagsTemplateTest {
   }
 
   @Test
+  public void testAddWithTrailingEmptyPathTokenSucceedsOnFreshAspect() throws Exception {
+    // Regression: GlobalTagsPatchBuilder.addTag(urn) emits /tags/<urn>/ paired with APK
+    // [tag, attribution_source]; previously threw on an empty aspect.
+    GlobalTags initial = new GlobalTags();
+    initial.setTags(new TagAssociationArray());
+
+    GenericJsonPatch.PatchOp addOp = new GenericJsonPatch.PatchOp();
+    addOp.setOp("add");
+    addOp.setPath("/tags/urn:li:tag:tagA/");
+    addOp.setValue(Json.createObjectBuilder().add("tag", "urn:li:tag:tagA").build());
+
+    GenericJsonPatch patch =
+        GenericJsonPatch.builder()
+            .patch(List.of(addOp))
+            .arrayPrimaryKeys(Map.of("tags", Arrays.asList("tag", "attribution␟source")))
+            .build();
+
+    GlobalTags result =
+        GenericPatchTemplate.<GlobalTags>builder()
+            .genericJsonPatch(patch)
+            .templateType(GlobalTags.class)
+            .templateDefault(new GlobalTagsTemplate().getDefault())
+            .build()
+            .applyPatch(initial);
+
+    Assert.assertNotNull(result.getTags());
+    Assert.assertEquals(result.getTags().size(), 1);
+    Assert.assertEquals(result.getTags().get(0).getTag().toString(), "urn:li:tag:tagA");
+  }
+
+  @Test
   public void testUnattributedAddToDuplicateDoesNotUpsert() throws Exception {
     // (srcA, tagX), (srcB, tagX) — plain add for tagX replaces the whole list at that key.
     GlobalTags initial = new GlobalTags();

@@ -19,7 +19,10 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URI;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -27,6 +30,10 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class LinkUtils {
+  // Only permit navigation schemes. Dangerous pseudo-schemes (javascript:, data:, vbscript:, etc.)
+  // are excluded to prevent stored-XSS when URLs are rendered as <a href> attributes.
+  private static final Set<String> ALLOWED_URL_SCHEMES = Set.of("http", "https", "ftp", "mailto");
+
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP =
       new ConjunctivePrivilegeGroup(
           ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
@@ -316,7 +323,27 @@ public class LinkUtils {
     } catch (Exception e) {
       throw new IllegalArgumentException(
           String.format(
-              "Failed to change institutional memory for resource %s. Expected an url.",
+              "Failed to change institutional memory for resource %s. Expected a url.",
+              resourceUrn));
+    }
+
+    // The Url constructor is a thin string wrapper with no scheme enforcement. Reject dangerous
+    // pseudo-schemes (javascript:, data:, vbscript:, etc.) that can execute code when a browser
+    // navigates to the stored URL.
+    try {
+      final String scheme = URI.create(url).getScheme();
+      if (scheme == null || !ALLOWED_URL_SCHEMES.contains(scheme.toLowerCase(Locale.ROOT))) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Failed to change institutional memory for resource %s. URL scheme '%s' is not allowed.",
+                resourceUrn, scheme));
+      }
+    } catch (IllegalArgumentException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Failed to change institutional memory for resource %s. Expected a valid URL.",
               resourceUrn));
     }
   }

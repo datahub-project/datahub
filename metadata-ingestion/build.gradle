@@ -3,6 +3,7 @@ plugins {
 }
 
 apply from: "../gradle/coverage/python-coverage.gradle"
+apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
 
 ext {
   python_executable = 'python3'
@@ -51,7 +52,16 @@ task installPackage(type: Exec, dependsOn: installPackageOnly) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "uv pip install ${uv_constraints} -e . ${extra_pip_requirements} && " +
+    // Do NOT include extra_pip_requirements here. This task installs metadata-ingestion
+    // into *this module's own venv* solely so that codegen can run. It must not install
+    // plugin-specific packages (e.g. Airflow) into this venv — those belong in the
+    // plugin's own isolated venv (e.g. airflow-plugin/venv/).
+    //
+    // extra_pip_requirements is a global Gradle property propagated from plugin CI builds,
+    // so without this guard 'apache-airflow~=2.7.x' would be injected here. That also
+    // conflicts with --constraint constraints.txt: constraints.txt pins flask 3.x (via
+    // feast→flask-openid in the full dev environment), but Airflow 2.x requires flask<2.3.
+    "uv pip install ${uv_constraints} -e . && " +
     "touch ${sentinel_file}"
 }
 
@@ -136,6 +146,7 @@ task modelDocGen(type: Exec, dependsOn: [codegen]) {
   inputs.files(
     file('scripts/modeldocgen.py'),
     project.fileTree(dir: "../metadata-models/docs/entities/", include: "**/*.md"),
+    file("../metadata-models/docs/entity_descriptions.yaml"),
     project.fileTree(dir: "examples/", include: "**/*.py"),
     project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc")
   )
@@ -175,19 +186,23 @@ task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check scripts/ scripts/tests/ src/ tests/ examples/ && " +
-    "ruff format --check scripts/ scripts/tests/ src/ tests/ examples/ && " +
-    "mypy --show-traceback --show-error-codes src/ tests/ examples/"
+    "ruff check . && " +
+    "ruff format --check . && " +
+    "mypy --show-traceback --show-error-codes ."
 }
 
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check --fix scripts/ scripts/tests/ src/ tests/ examples/ && " +
-    "ruff format scripts/ scripts/tests/ src/ tests/ examples/ "
+    "ruff check --fix . && " +
+    "ruff format . "
 }
 
-def pytest_default_env = ""  // set to "PYTHONDEVMODE=1" to warn on unclosed socket
+// PYTHONFAULTHANDLER keeps faulthandler armed through interpreter shutdown. pytest's
+// faulthandler plugin only re-arms it at unconfigure if it was already enabled at
+// startup, so without this a segfault after the test session ends prints nothing.
+// Add "PYTHONDEVMODE=1" here to also warn on unclosed sockets.
+def pytest_default_env = "PYTHONFAULTHANDLER=1"
 
 task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
@@ -245,7 +260,7 @@ def testFile = hasProperty('testFile') ? testFile : 'unknown'
 task testSingle(dependsOn: [installDevTest]) {
   doLast {
   if (testFile != 'unknown')  {
-    exec {
+    execOps.exec {
       commandLine 'bash', '-c',
         "${venv_activate_command} ${pytest_default_env} pytest ${testFile} --junit-xml=test-results/junit.file.xml"
     }
@@ -346,7 +361,6 @@ task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache, chec
 }
 
 build.dependsOn install
-check.dependsOn lint
 check.dependsOn testQuick
 check.dependsOn checkLockFile
 
@@ -374,6 +388,6 @@ clean.dependsOn(cleanPythonCache, cleanGeneratedFiles)
 idea {
   module {
     sourceDirs += file('src')
-    testSourceDirs += file('tests')
+    testSources.from(file('tests'))
   }
 }

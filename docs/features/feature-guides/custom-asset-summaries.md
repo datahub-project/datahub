@@ -1,5 +1,6 @@
 ---
 title: Asset Summaries
+description: "Customize the Summary tab for Domains, Data Products, and Glossary Terms in DataHub to create curated discovery experiences."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -22,7 +23,8 @@ Asset Summaries are currently supported for:
 
 - **Logical Assets**: Domains, Data Products, Glossary Terms, and Glossary Term Groups - these help organize and group your physical data assets within DataHub
 - **Physical Assets**: Datasets - providing a comprehensive view of your actual data tables and collections
-  :::
+
+:::
 
 ## Why Use Asset Summaries?
 

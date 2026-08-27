@@ -35,6 +35,7 @@ SAFE_PREFIXES = [
     "metadata-ingestion/tests/unit/",
     "metadata-ingestion/tests/performance/",
     "metadata-ingestion/tests/conftest",
+    "metadata-ingestion/tests/integration/bigquery_wif/",
     "metadata-ingestion/scripts/",
     "metadata-ingestion/docs/",
 ]
@@ -572,6 +573,8 @@ def classify(changed_files: list[str], repo_root: Path) -> CIDecisions:
     # Integration test / golden file changes → add that test dir directly
     for f in changed_files:
         if f.startswith(INTEGRATION_TEST_PREFIX):
+            if any(f.startswith(p) for p in SAFE_PREFIXES):
+                continue
             # Extract: metadata-ingestion/tests/integration/{connector_name}/...
             rest = f[len(INTEGRATION_TEST_PREFIX) :]
             if "/" in rest:

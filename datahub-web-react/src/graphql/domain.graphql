@@ -9,6 +9,9 @@ query getDomain($urn: String!) {
             createdOn {
                 time
             }
+            customProperties {
+                ...customPropertiesFields
+            }
         }
         parentDomains {
             ...parentDomainsFields
@@ -33,6 +36,9 @@ query getDomain($urn: String!) {
         displayProperties {
             ...displayPropertiesFields
         }
+        deprecation {
+            ...deprecationFields
+        }
         ...domainEntitiesFields
         ...notes
         settings {
@@ -48,6 +54,9 @@ fragment ListDomain on Domain {
     properties {
         name
         description
+        customProperties {
+            ...customPropertiesFields
+        }
     }
     parentDomains {
         ...parentDomainsFields
@@ -55,8 +64,14 @@ fragment ListDomain on Domain {
     ownership {
         ...ownershipFields
     }
+    privileges {
+        ...entityPrivileges
+    }
     displayProperties {
         ...displayPropertiesFields
+    }
+    deprecation {
+        ...deprecationFields
     }
     ...domainEntitiesFields
     institutionalMemory {
@@ -122,8 +137,8 @@ query getDomainEntitySummary($urn: String!) {
             orFilters: [
                 {
                     and: [
-                        { field: "_entityType", values: ["DATA_PRODUCT"], value: "DATA_PRODUCT", negated: true }
-                        { field: "domains", values: [$urn], value: $urn }
+                        { field: "_entityType", values: ["DATA_PRODUCT"], negated: true }
+                        { field: "domains", values: [$urn] }
                     ]
                 }
             ]

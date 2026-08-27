@@ -33,6 +33,8 @@ import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerat
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.StructuredPropertyChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.VersionPropertiesChangeEventGenerator;
+import io.datahubproject.metadata.context.OperationContext;
 import jakarta.json.Json;
 import jakarta.json.JsonPatch;
 import jakarta.json.JsonValue;
@@ -216,6 +218,16 @@ public class TimelineServiceImpl implements TimelineService {
                 new ApplicationsChangeEventGenerator());
           }
           break;
+        case VERSIONING:
+          {
+            aspects.add(VERSION_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityType,
+                elementName,
+                VERSION_PROPERTIES_ASPECT_NAME,
+                new VersionPropertiesChangeEventGenerator());
+          }
+          break;
         default:
           break;
       }
@@ -286,6 +298,16 @@ public class TimelineServiceImpl implements TimelineService {
                 elementName,
                 APPLICATION_MEMBERSHIP_ASPECT_NAME,
                 new ApplicationsChangeEventGenerator());
+          }
+          break;
+        case VERSIONING:
+          {
+            aspects.add(VERSION_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeGlossaryTerm,
+                elementName,
+                VERSION_PROPERTIES_ASPECT_NAME,
+                new VersionPropertiesChangeEventGenerator());
           }
           break;
         default:
@@ -466,6 +488,55 @@ public class TimelineServiceImpl implements TimelineService {
     entityTypeElementAspectRegistry.put(DOMAIN_ENTITY_NAME, domainElementAspectRegistry);
     entityTypeElementAspectRegistry.put(DATA_PRODUCT_ENTITY_NAME, dataProductElementAspectRegistry);
     entityTypeElementAspectRegistry.put(DOCUMENT_ENTITY_NAME, documentElementAspectRegistry);
+
+    entityTypeElementAspectRegistry.put(
+        AI_AGENT_ENTITY_NAME, buildAgentFamilyTimelineRegistry(AI_AGENT_ENTITY_NAME));
+    entityTypeElementAspectRegistry.put(
+        API_ENTITY_NAME, buildAgentFamilyTimelineRegistry(API_ENTITY_NAME));
+    entityTypeElementAspectRegistry.put(
+        AGENT_SKILL_ENTITY_NAME, buildAgentFamilyTimelineRegistry(AGENT_SKILL_ENTITY_NAME));
+  }
+
+  private HashMap<ChangeCategory, Set<String>> buildAgentFamilyTimelineRegistry(
+      final String entityType) {
+    final HashMap<ChangeCategory, Set<String>> registry = new HashMap<>();
+    for (ChangeCategory category : ChangeCategory.values()) {
+      final Set<String> aspects = new HashSet<>();
+      switch (category) {
+        case OWNERSHIP:
+          aspects.add(OWNERSHIP_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(
+              entityType, category, OWNERSHIP_ASPECT_NAME, new OwnershipChangeEventGenerator());
+          break;
+        case DOCUMENTATION:
+          aspects.add(INSTITUTIONAL_MEMORY_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(
+              entityType,
+              category,
+              INSTITUTIONAL_MEMORY_ASPECT_NAME,
+              new InstitutionalMemoryChangeEventGenerator());
+          break;
+        case TAG:
+          aspects.add(GLOBAL_TAGS_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(
+              entityType, category, GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsChangeEventGenerator());
+          break;
+        case GLOSSARY_TERM:
+          aspects.add(GLOSSARY_TERMS_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(
+              entityType,
+              category,
+              GLOSSARY_TERMS_ASPECT_NAME,
+              new GlossaryTermsChangeEventGenerator());
+          break;
+        default:
+          break;
+      }
+      if (!aspects.isEmpty()) {
+        registry.put(category, aspects);
+      }
+    }
+    return registry;
   }
 
   Set<String> getAspectsFromElements(String entityType, Set<ChangeCategory> elementNames) {
@@ -482,6 +553,7 @@ public class TimelineServiceImpl implements TimelineService {
   @Nonnull
   @Override
   public List<ChangeTransaction> getTimeline(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final Set<ChangeCategory> elementNames,
       long startTimeMillis,
@@ -515,10 +587,17 @@ public class TimelineServiceImpl implements TimelineService {
             .map(AspectSpec::getName)
             .collect(Collectors.toSet());
     List<EntityAspect> aspectsInRange =
-        this._aspectDao.getAspectsInRange(urn, fullAspectNames, startTimeMillis, endTimeMillis);
+        this._aspectDao.getAspectsInRange(
+            opContext, urn, fullAspectNames, startTimeMillis, endTimeMillis);
 
     return processAspectTimeline(
-        urn, elementNames, aspectNames, fullAspectNames, aspectsInRange, rawDiffRequested);
+        opContext,
+        urn,
+        elementNames,
+        aspectNames,
+        fullAspectNames,
+        aspectsInRange,
+        rawDiffRequested);
   }
 
   /**
@@ -531,13 +610,14 @@ public class TimelineServiceImpl implements TimelineService {
   @Nonnull
   @Override
   public List<ChangeTransaction> getTimeline(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final Set<ChangeCategory> elementNames,
       int maxChangeTransactions,
       boolean rawDiffRequested) {
 
     List<ChangeTransaction> allTransactions =
-        getTimeline(urn, elementNames, 0, 0, null, null, rawDiffRequested);
+        getTimeline(opContext, urn, elementNames, 0, 0, null, null, rawDiffRequested);
 
     if (maxChangeTransactions > 0 && allTransactions.size() > maxChangeTransactions) {
       return allTransactions.subList(
@@ -546,7 +626,47 @@ public class TimelineServiceImpl implements TimelineService {
     return allTransactions;
   }
 
+  /**
+   * Fetches and merges timelines for multiple URNs into one unified, oldest-first stream.
+   *
+   * <p>The caller (typically {@code GetTimelineResolver}) is responsible for discovering the
+   * sibling version URNs via the EntityClient / versionsSearch, then passes the full list here.
+   * This method is purely a merge layer — each URN is queried independently. Per-URN failures are
+   * counted and reported on the result so the caller can surface a "view may be partial" warning;
+   * they do not abort the merge.
+   *
+   * <p>Transactions are sorted by {@code timestampMillis} with the actor as a stable secondary key
+   * ({@link ChangeTransaction} does not carry the originating entity URN). This keeps ordering
+   * deterministic when sibling versions are edited close together; transactions with the same
+   * timestamp and actor retain their relative fetch order via the stable sort.
+   */
+  @Nonnull
+  @Override
+  public TimelineFetchResult getTimelineForUrns(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<Urn> urns,
+      @Nonnull final Set<ChangeCategory> elements,
+      boolean rawDiffRequested) {
+
+    List<ChangeTransaction> merged = new ArrayList<>();
+    int skipped = 0;
+    for (Urn u : urns) {
+      try {
+        merged.addAll(
+            getTimeline(opContext, u, elements, DEFAULT_MAX_CHANGE_TRANSACTIONS, rawDiffRequested));
+      } catch (Exception e) {
+        log.warn("Failed to fetch timeline for {}, skipping: {}", u, e.getMessage());
+        skipped++;
+      }
+    }
+    merged.sort(
+        Comparator.comparingLong(ChangeTransaction::getTimestamp)
+            .thenComparing(ChangeTransaction::getActor, Comparator.nullsLast(String::compareTo)));
+    return TimelineFetchResult.builder().transactions(merged).skippedUrnCount(skipped).build();
+  }
+
   private List<ChangeTransaction> processAspectTimeline(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final Set<ChangeCategory> elementNames,
       @Nonnull final Set<String> aspectNames,
@@ -555,7 +675,7 @@ public class TimelineServiceImpl implements TimelineService {
       boolean rawDiffRequested) {
 
     Map<String, TreeSet<EntityAspect>> aspectRowSetMap =
-        constructAspectRowSetMap(urn, fullAspectNames, fetchedAspects);
+        constructAspectRowSetMap(opContext, urn, fullAspectNames, fetchedAspects);
 
     Map<Long, SortedMap<String, Long>> timestampVersionCache =
         constructTimestampVersionCache(aspectRowSetMap);
@@ -587,13 +707,17 @@ public class TimelineServiceImpl implements TimelineService {
    * sentinel values for when the oldest aspect possible has been retrieved or no value exists in
    * the DB for an aspect
    *
+   * @param opContext operation context for database operations
    * @param urn urn of the entity
    * @param fullAspectNames full list of aspects relevant to the entity
    * @param aspectsInRange aspects returned by the range query by timestampm
    * @return map constructed as described
    */
   private Map<String, TreeSet<EntityAspect>> constructAspectRowSetMap(
-      Urn urn, Set<String> fullAspectNames, List<EntityAspect> aspectsInRange) {
+      @Nonnull OperationContext opContext,
+      Urn urn,
+      Set<String> fullAspectNames,
+      List<EntityAspect> aspectsInRange) {
     Map<String, TreeSet<EntityAspect>> aspectRowSetMap = new HashMap<>();
     fullAspectNames.forEach(
         aspectName ->
@@ -606,7 +730,10 @@ public class TimelineServiceImpl implements TimelineService {
         });
 
     // we need to pull previous versions of these aspects that are currently at a 0
-    Map<String, Long> nextVersions = _aspectDao.getNextVersions(urn.toString(), fullAspectNames);
+    Map<String, Long> nextVersions =
+        _aspectDao
+            .getNextVersions(opContext, Map.of(urn.toString(), fullAspectNames), false)
+            .get(urn.toString());
 
     for (Map.Entry<String, TreeSet<EntityAspect>> aspectMinVersion : aspectRowSetMap.entrySet()) {
       TreeSet<EntityAspect> aspectSet = aspectMinVersion.getValue();
@@ -628,7 +755,8 @@ public class TimelineServiceImpl implements TimelineService {
               (oldestAspect.getVersion() == 0L) ? nextVersion - 1 : oldestAspect.getVersion() - 1;
         }
         EntityAspect row =
-            _aspectDao.getAspect(urn.toString(), aspectMinVersion.getKey(), versionToGet);
+            _aspectDao.getAspect(
+                opContext, urn.toString(), aspectMinVersion.getKey(), versionToGet);
         if (row != null) {
           aspectRowSetMap.get(row.getAspect()).add(row);
         } else {

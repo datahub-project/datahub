@@ -140,7 +140,7 @@ public class ListExecutionRequestsResolverTest {
     EntityClient mockClient =
         getTestEntityClient(
             new FacetFilterInput(
-                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL));
+                "sourceType", ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL));
 
     ListExecutionRequestsInput inputWithSystemSourcesOnly =
         new ListExecutionRequestsInput(0, 20, "*", List.of(), null, true);
@@ -161,7 +161,7 @@ public class ListExecutionRequestsResolverTest {
     EntityClient mockClient =
         getTestEntityClient(
             new FacetFilterInput(
-                "sourceType", null, ImmutableList.of("SYSTEM"), true, FilterOperator.EQUAL));
+                "sourceType", ImmutableList.of("SYSTEM"), true, FilterOperator.EQUAL));
 
     ListExecutionRequestsInput inputWithSystemSourcesOnly =
         new ListExecutionRequestsInput(0, 20, "*", List.of(), null, false);
@@ -201,7 +201,7 @@ public class ListExecutionRequestsResolverTest {
     EntityClient mockClient =
         getTestEntityClient(
             new FacetFilterInput(
-                "sourceType", null, ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL));
+                "sourceType", ImmutableList.of("SYSTEM"), false, FilterOperator.EQUAL));
 
     ListExecutionRequestsInput inputWithSystemSourcesOnly =
         new ListExecutionRequestsInput(0, 20, "*", List.of(), null, true);
@@ -256,7 +256,6 @@ public class ListExecutionRequestsResolverTest {
                         Stream.of(
                                 new FacetFilterInput(
                                     "ingestionSource",
-                                    null,
                                     ImmutableList.of("urn:li:dataHubIngestionSource:id-1"),
                                     false,
                                     FilterOperator.EQUAL))

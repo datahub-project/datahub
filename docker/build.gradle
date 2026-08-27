@@ -10,7 +10,7 @@ apply from: "../gradle/versioning/versioning.gradle"
 
 ext {
     compose_base = "profiles/docker-compose.yml"
-    project_name = "datahub"
+    project_name = System.getenv("COMPOSE_PROJECT_NAME") ?: "datahub"
 
     backend_profile_modules = [
             ':datahub-upgrade',
@@ -43,6 +43,21 @@ ext {
             if (key.startsWith("DATAHUB_")) {
                 envVars[key] = value
             }
+        }
+
+        // Play 3 (datahub-frontend): play.http.secret.key must meet HS256 entropy; legacy short
+        // values (e.g. "YouKnowNothing") break startup. Compose ${DATAHUB_SECRET:-...} uses this map
+        // for interpolation, so a short host/env-file secret would override the YAML default.
+        def playSecretMinLength = 32
+        def devPlaySecret =
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        def secret = envVars["DATAHUB_SECRET"]
+        if (secret != null && secret.length() < playSecretMinLength) {
+            logger.lifecycle(
+                "DATAHUB_SECRET is too short for Play 3 (length ${secret.length()} < ${playSecretMinLength}); " +
+                "using a development default for Docker Compose. Unset DATAHUB_SECRET or use e.g. openssl rand -base64 32."
+            )
+            envVars["DATAHUB_SECRET"] = devPlaySecret
         }
 
         return envVars
@@ -126,24 +141,29 @@ ext {
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
-            'quickstartDebugAws': [
-                    profile: 'debug-aws',
+            'quickstartDebugElasticsearch': [
+                    profile: 'debug-elasticsearch',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
                     isDebug: true,
                     additionalEnv: [
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
-            'quickstartCypress': [
-                    profile: 'debug',
+            'quickstartDebugAi': [
+                    // Activate both 'debug' (core services) and 'debug-ai' (Ollama) profiles.
+                    profiles: ['debug', 'debug-ai'],
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
                     isDebug: true,
                     additionalEnv: [
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
-                    ],
-                    // Override project name for cypress dev environment
-                    additionalConfig: [
-                            projectName: 'dh-cypress'
+                    ]
+            ],
+            'quickstartDebugAws': [
+                    profile: 'debug-aws',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
             'quickstartDebugMin': [
@@ -188,6 +208,15 @@ ext {
                             ':datahub-actions',
                     ]
             ],
+            'quickstartPgConsumers': [
+                    profile: 'quickstart-postgres-consumers',
+                    modules: backend_profile_modules + [
+                            ':datahub-frontend',
+                            ':metadata-jobs:mce-consumer-job',
+                            ':metadata-jobs:mae-consumer-job',
+                            ':datahub-actions',
+                    ]
+            ],
             'quickstartPgCdc': [
                 profile: 'quickstart-postgres-cdc',
                 modules: backend_profile_modules + [
@@ -198,14 +227,16 @@ ext {
             'quickstartPgDebug': [
                     profile: 'debug-postgres',
                     modules: python_services_modules + backend_profile_modules + [
-                            ':datahub-frontend'
+                            ':datahub-frontend',
+                            ':datahub-actions',
                     ],
                     isDebug: true
             ],
             'quickstartPgCdcDebug': [
                 profile: 'debug-postgres-cdc',
                 modules: python_services_modules + backend_profile_modules + [
-                    ':datahub-frontend'
+                    ':datahub-frontend',
+                    ':datahub-actions',
                 ],
                 isDebug: true
             ],
@@ -222,7 +253,7 @@ ext {
                             ':datahub-actions',
                     ],
                     additionalEnv: [
-                            'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env",
+                            'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:acryl-spark-lineage').projectDir}/spark-smoke-test/smoke-gms.env",
                             'METADATA_SERVICE_AUTH_ENABLED': 'false'
                     ]
             ],
@@ -284,7 +315,7 @@ ext {
     // Returns a map with 'taskName' and 'config' keys
     findTaskNameByProfile = { profile ->
         def matchingTask = quickstart_configs.find { taskName, config ->
-            config.isDebug && config.profile == profile
+            config.isDebug && (config.profile == profile || (config.profiles && config.profiles.contains(profile)))
         }
 
         if (matchingTask) {
@@ -340,6 +371,20 @@ ext {
     }
 }
 
+apply from: 'postgres/quickstart-publish.gradle'
+
+// Resolve the compose profile(s) for a given quickstart_configs key (used by docker-unified CI when a PR has a smoke:<key> label).
+// Usage: ./gradlew :docker:resolveQuickstartProfile -PconfigKey=<key> -q  (e.g. quickstartDebug, quickstartPg, quickstartPgConsumers, quickstartPgDebug, …)
+tasks.register("resolveQuickstartProfile") {
+    doLast {
+        def configKey = project.findProperty('configKey')
+        if (!configKey) throw new GradleException("Missing -PconfigKey. Valid keys: ${quickstart_configs.keySet()}")
+        def config = quickstart_configs[configKey]
+        if (!config) throw new GradleException("Unknown quickstart config key: ${configKey}. Valid keys: ${quickstart_configs.keySet()}")
+        println(config.profile ?: config.profiles?.join(','))
+    }
+}
+
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
     tasks.register(taskName) {
@@ -362,7 +407,9 @@ dockerCompose {
     quickstart_configs.each { taskName, config ->
         "${taskName}" {
             isRequiredBy(tasks.named(taskName))
-            if (config.profile) {
+            if (config.profiles) {
+                composeAdditionalArgs = config.profiles.collectMany { ['--profile', it] }
+            } else if (config.profile) {
                 composeAdditionalArgs = ['--profile', config.profile]
             }
 
@@ -381,6 +428,7 @@ dockerCompose {
                 environment.put "DEV_TOOLING_ENABLED", "true"
             }
             environment.put "DATAHUB_REPO", "${docker_registry}"
+            environment.put "DATAHUB_SYSTEM_CLIENT_SECRET", System.getenv("DATAHUB_SYSTEM_CLIENT_SECRET") ?: "JohnSnowKnowsNothing"
             resolveTokenServiceSecrets.call().each { key, value -> environment.put key, value }
 
 
@@ -431,7 +479,7 @@ task generateQuickstartComposeConfig {
         composeExecutor.parameters.environment.put("METADATA_SERVICE_AUTH_ENABLED", 'false')
         composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SIGNING_KEY", '__SIGNING_KEY__')
         composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SALT", '__SALT__')
-
+        composeExecutor.parameters.environment.put("DATAHUB_SYSTEM_CLIENT_SECRET", '__SYSTEM_CLIENT_SECRET__')
         // Set placeholder port values that should remain configurable at runtime
         // Use unique high port numbers as placeholders that will be replaced later
         composeExecutor.parameters.environment.put("DATAHUB_MAPPED_GMS_PORT", '58080')
@@ -446,6 +494,7 @@ task generateQuickstartComposeConfig {
         configOutput = configOutput.replace('__VERSION__', '${DATAHUB_APP_VERSION}')
         configOutput = configOutput.replace('__SIGNING_KEY__', '${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}')
         configOutput = configOutput.replace('__SALT__', '${DATAHUB_TOKEN_SERVICE_SALT}')
+        configOutput = configOutput.replace('__SYSTEM_CLIENT_SECRET__', '${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}')
         configOutput = configOutput.replace(System.getenv('HOME'), '${HOME}')
 
         // Parse configOutput as yaml and add UI_INGESTION_DEFAULT_CLI_VERSION as an env var under datahub-gms-quickstart.environment key
@@ -480,6 +529,18 @@ task generateQuickstartComposeConfig {
     }
 }
 
+// -PbuildModules=<comma separated module paths> narrows a build to a subset of
+// an image set's modules. CI uses it to bake only the images a pull request can
+// affect and reuse the rest from the last set that passed smoke tests on master
+// (see .github/scripts/resolve_image_builds.sh). Unset means build everything.
+ext.requestedBuildModules = project.hasProperty('buildModules')
+        ? (project.property('buildModules').split(',').collect { it.trim() }.findAll { it } ?: null)
+        : null
+
+ext.selectBuildModules = { modules ->
+    requestedBuildModules == null ? modules : modules.findAll { requestedBuildModules.contains(it) }
+}
+
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
     tasks.register("prepareAll${taskName}"){
@@ -490,7 +551,7 @@ quickstart_configs.each { taskName, config ->
 quickstart_configs.each { taskName, config ->
     if (config.modules) {
         tasks.getByName("prepareAll${taskName}").dependsOn(
-            config.modules.collect { it + ':dockerPrepare' }
+            selectBuildModules(config.modules).collect { it + ':dockerPrepare' }
         )
     }
 }
@@ -503,7 +564,8 @@ quickstart_configs.each { taskName, config ->
         }
         group = 'quickstart-ci'
         def taskSuffix = config.isDebug? 'debug' : ''
-        dependsOn(config.modules.collect { it + ":generateBakeSnippet${taskSuffix}" })
+        def buildModules = selectBuildModules(config.modules)
+        dependsOn(buildModules.collect { it + ":generateBakeSnippet${taskSuffix}" })
         dependsOn(tasks.getByName("prepareAll${taskName}"))
 
         def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
@@ -520,15 +582,34 @@ quickstart_configs.each { taskName, config ->
         } else {
             buildCmd += ["docker",  "buildx" ]
             buildCmd +=bakeCmdArgs
+            // buildx >= 0.17 refuses to read files referenced by the bake definition that
+            // live outside the working directory (e.g. a netrc secret at $HOME/.netrc)
+            // unless the fs entitlement is granted; non-interactive runs fail outright
+            // instead of prompting. The env var is used instead of --allow=fs.read=<path>
+            // because buildx < 0.17 rejects the unknown flag but ignores the env var.
+            // The bake spec is generated by this build from repo-controlled inputs, so
+            // disabling the check gives up no real protection.
+            environment "BUILDX_BAKE_ENTITLEMENTS_FS", "0"
         }
         commandLine buildCmd
         workingDir rootProject.projectDir
 
         doFirst {
+            // Validated here rather than at configuration time: the property is
+            // global, so a name that is legitimately absent from some other
+            // image set must not break unrelated Gradle invocations.
+            if (requestedBuildModules != null) {
+                def unknown = requestedBuildModules - config.modules
+                if (unknown) {
+                    throw new GradleException("-PbuildModules requests ${unknown}, which buildImages${taskName} does not build. Known modules: ${config.modules}")
+                }
+                logger.lifecycle("Building a subset of ${taskName} images: ${buildModules}")
+            }
+
             def bakeSnippets = [:]
             def targets = []
 
-            config.modules.each { module ->
+            buildModules.each { module ->
                 def moduleProject = project.project(module)
                 def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet${taskSuffix}")
                 bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
@@ -656,7 +737,8 @@ tasks.withType(ComposeUp).configureEach {
         def taskBaseName = name.replaceAll('ComposeUp$', '')
         def config = quickstart_configs[taskBaseName]
 
-        if (config?.profile) {
+        def primaryProfile = config?.profiles ? config.profiles[0] : config?.profile
+        if (primaryProfile) {
             // Get the compose file name and derive the profile tracking filename
             def composeFileName = new File(compose_base).getName()
             def profileStatusFileName = composeFileName.replace('.yml', '-profile.txt')
@@ -666,9 +748,9 @@ tasks.withType(ComposeUp).configureEach {
             profileFile.getParentFile().mkdirs()
 
             // Write the profile name
-            profileFile.text = config.profile
+            profileFile.text = primaryProfile
 
-            logger.lifecycle("Captured profile '${config.profile}' to ${profileFile.absolutePath}")
+            logger.lifecycle("Captured profile '${primaryProfile}' to ${profileFile.absolutePath}")
         }
     }
 }
@@ -781,6 +863,7 @@ tasks.register("reloadEnv", Exec) {
             environment.put "DEV_TOOLING_ENABLED", "true"
         }
         environment.put "DATAHUB_REPO", "${docker_registry}"
+        environment.put "DATAHUB_SYSTEM_CLIENT_SECRET", System.getenv("DATAHUB_SYSTEM_CLIENT_SECRET") ?: "JohnSnowKnowsNothing"
         resolveTokenServiceSecrets.call().each { key, value -> environment.put key, value }
 
         // Additional environment variables if specified

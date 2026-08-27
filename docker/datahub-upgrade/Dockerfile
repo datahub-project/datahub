@@ -1,56 +1,28 @@
 # Defining environment
 ARG APP_ENV=prod
 
-# Defining custom repo urls for use in enterprise environments. Re-used between stages below.
-ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
+ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
+FROM ${BASE_IMAGE} AS base
+
+ARG APK_REPOSITORY_URL=https://apk.cgr.dev/chainguard
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
-# CVE-2023-45853: pin zlib to 1.3.x from edge/main for MiniZip integer/heap buffer overflow fix
-ARG ZLIB_VERSION=1.3
-
-FROM alpine:3.23 AS base
-
-# Re-declaring args from above to make them available in this stage (will inherit default values)
-ARG ALPINE_REPO_URL
-ARG GITHUB_REPO_URL
-ARG MAVEN_CENTRAL_REPO_URL
-ARG ZLIB_VERSION
-
-# Optionally set corporate mirror for apk
-RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
 
 ENV JMX_VERSION=1.0.1
 
-# Upgrade Alpine and base packages
-# PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
-RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add 'c-ares>1.34.5'  --repository=${ALPINE_REPO_URL}/edge/main \
-    && apk --no-cache add 'curl>8.17.0' --repository=${ALPINE_REPO_URL}/edge/main \
-    && apk --no-cache add bash coreutils gcompat sqlite libc6-compat \
-    && apk --no-cache add "zlib=~${ZLIB_VERSION}" --repository=${ALPINE_REPO_URL}/edge/main \
-    && apk --no-cache add openjdk21-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
-    && apk --no-cache add snappy=~1.2 --repository=${ALPINE_REPO_URL}/edge/main \
+RUN printf '%s\n' "${APK_REPOSITORY_URL}" > /etc/apk/repositories \
+    && apk update --no-cache \
+    && apk upgrade --no-cache
+
+COPY docker/snippets/setup_java_runtime.sh /tmp/setup_java_runtime.sh
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    chmod +x /tmp/setup_java_runtime.sh \
     && mkdir -p /datahub/datahub-upgrade/lib \
-    && wget --no-verbose -P /datahub/datahub-upgrade/lib ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.27.0/opentelemetry-javaagent.jar \
-    && wget --no-verbose -P /datahub/datahub-upgrade/lib ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
-    && chmod -R a+r /datahub/datahub-upgrade/lib \
-    && cp /usr/lib/jvm/java-21-openjdk/lib/security/cacerts /tmp/kafka.client.truststore.jks
-COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
+    && INSTALL_JATTACH=0 OTEL_JMX_DIR=/datahub/datahub-upgrade/lib /tmp/setup_java_runtime.sh \
+    && rm -f /tmp/setup_java_runtime.sh \
+    && chmod -R a+r /datahub/datahub-upgrade/lib
 
-ENV KUBECTL_VERSION=v1.35.4
-RUN set -x \
-  && APK_ARCH="$(cat /etc/apk/arch)" \
-  && case "$APK_ARCH" in \
-     x86_64) \
-       KUBECTL_ARCH=amd64 \
-       ;; \
-     aarch64) \
-       KUBECTL_ARCH=arm64 \
-       ;; \
-     esac \
-    && curl -L "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${KUBECTL_ARCH}/kubectl" | install -o root -g root -m 0755 /dev/stdin /usr/local/bin/kubectl
-
-ENV LD_LIBRARY_PATH="/lib:/lib64"
+COPY docker/snippets/wait_for_deps.sh /usr/local/lib/datahub/wait_for_deps.sh
 
 FROM base AS prod-install
 COPY datahub-upgrade/build/libs/datahub-upgrade.jar /datahub/datahub-upgrade/bin/

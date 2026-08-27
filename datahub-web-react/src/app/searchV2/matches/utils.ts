@@ -185,3 +185,14 @@ export const getColumnsTabUrlPath = (entityType: EntityType) => {
     }
     return 'Columns';
 };
+
+// Each context maps to its own complete, independently-translatable tooltip sentence — add a new
+// enum value + a new entry in MATCH_CONTEXT_TOOLTIP_KEYS (+ a new i18next key) to support another
+// caller, rather than splicing a raw English fragment into a shared template.
+export enum MatchContext {
+    ContainedChart = 'ContainedChart',
+}
+
+export const MATCH_CONTEXT_TOOLTIP_KEYS: Record<MatchContext, string> = {
+    [MatchContext.ContainedChart]: 'matches.matchedField.tooltipCountOnContainedChart',
+};

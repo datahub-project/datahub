@@ -1,5 +1,7 @@
 import { Modal, Typography } from 'antd';
+import i18next from 'i18next';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ViewBuilderForm } from '@app/entity/view/builder/ViewBuilderForm';
@@ -39,12 +41,16 @@ type Props = {
 
 const getTitleText = (mode, urn) => {
     if (mode === ViewBuilderMode.PREVIEW) {
-        return 'Preview View';
+        return i18next.t('entity.views:builder.titlePreview');
     }
-    return urn !== undefined ? 'Edit View' : 'Create new View';
+    return urn !== undefined
+        ? i18next.t('entity.views:builder.titleEdit')
+        : i18next.t('entity.views:builder.titleCreateLegacy');
 };
 
 export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation('entity.views');
+    const { t: tc } = useTranslation('common.actions');
     const [viewBuilderState, setViewBuilderState] = useState<ViewBuilderState>(initialState || DEFAULT_BUILDER_STATE);
 
     useEffect(() => {
@@ -53,13 +59,13 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
 
     const confirmClose = () => {
         Modal.confirm({
-            title: 'Exit View Editor',
-            content: `Are you sure you want to exit View editor? All changes will be lost`,
+            title: t('builder.exitTitle'),
+            content: t('builder.exitTextLegacy'),
             onOk() {
                 onCancel?.();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: tc('yes'),
             maskClosable: true,
             closable: true,
         });
@@ -89,7 +95,7 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
                 <ViewBuilderForm urn={urn} mode={mode} state={viewBuilderState} updateState={setViewBuilderState} />
                 <SaveButtonContainer>
                     <CancelButton variant="text" color="gray" data-testid="view-builder-cancel" onClick={onCancel}>
-                        Cancel
+                        {tc('cancel')}
                     </CancelButton>
                     {mode === ViewBuilderMode.EDITOR && (
                         <Button
@@ -97,7 +103,7 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
                             disabled={!canSave}
                             onClick={() => onSubmit(viewBuilderState)}
                         >
-                            Save
+                            {tc('save')}
                         </Button>
                     )}
                 </SaveButtonContainer>

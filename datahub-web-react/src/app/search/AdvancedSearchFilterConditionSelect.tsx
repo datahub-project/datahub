@@ -1,8 +1,9 @@
 import { Select } from 'antd';
+import { TFunction } from 'i18next';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import {
     DESCRIPTION_FILTER_NAME,
     DOMAINS_FILTER_NAME,
@@ -35,39 +36,40 @@ const filtersOnNonCollectionFields = [
     ORIGIN_FILTER_NAME,
 ];
 
-function getLabelsForField(field: string) {
+function getLabelsForField(field: string, t: TFunction<'search'>) {
     if (FIELDS_THAT_USE_CONTAINS_OPERATOR.includes(field)) {
         return {
-            default: 'contains',
-            negated: 'does not contain',
+            default: t('condition.contains'),
+            negated: t('condition.doesNotContain'),
         };
     }
     if (filtersOnNonCollectionFields.includes(field)) {
         return {
-            default: 'equals',
-            negated: 'not equal',
+            default: t('condition.equals'),
+            negated: t('condition.notEqual'),
         };
     }
 
     // collection field
     return {
-        default: 'is any of',
-        negated: 'is not',
+        default: t('condition.isAnyOf'),
+        negated: t('condition.isNot'),
     };
 }
 
 const StyledSelect = styled(Select)`
     border-radius: 5px;
-    color: ${ANTD_GRAY[9]};
-    background: ${ANTD_GRAY[3]};
+    color: ${(props) => props.theme.colors.text};
+    background: ${(props) => props.theme.colors.bgSurface};
     :hover {
-        background: ${ANTD_GRAY[4.5]};
+        background: ${(props) => props.theme.colors.border};
     }
     width: auto;
 `;
 
 export const AdvancedSearchFilterConditionSelect = ({ filter, onUpdate }: Props) => {
-    const labelsForField = getLabelsForField(filter.field);
+    const { t } = useTranslation('search');
+    const labelsForField = getLabelsForField(filter.field, t);
 
     const selectedValue = filter.negated ? 'negated' : 'default';
 

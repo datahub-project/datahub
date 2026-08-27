@@ -1,3 +1,7 @@
+---
+description: "Ask DataHub is a conversational AI assistant that answers questions about your data using your metadata graph and organizational context."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Ask DataHub

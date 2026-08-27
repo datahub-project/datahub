@@ -2,7 +2,7 @@
 
 DataHub GC is a DataHub utility or metadata-focused integration. Learn more in the [official DataHub GC documentation](https://datahub.com/docs/).
 
-The DataHub integration for DataHub GC covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for DataHub GC covers metadata entities and operational objects relevant to this connector. It performs soft-deletion of stale entities using configurable retention policies.
 
 ## Concept Mapping
 

@@ -69,11 +69,14 @@ function SelectField({ field, removeMargin }: CommonFieldProps) {
             tooltip={field.tooltip}
             $removeMargin={!!removeMargin}
             rules={field.rules || undefined}
+            data-testid={`field-${field.name}`}
         >
             {field.options && (
                 <Select placeholder={field.placeholder} allowClear={!field.required}>
                     {field.options.map((option) => (
-                        <Select.Option value={option.value}>{option.label}</Select.Option>
+                        <Select.Option key={option.value} value={option.value} data-testid={`option-${option.value}`}>
+                            {option.label}
+                        </Select.Option>
                     ))}
                 </Select>
             )}

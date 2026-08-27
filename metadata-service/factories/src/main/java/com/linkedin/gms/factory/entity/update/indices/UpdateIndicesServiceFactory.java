@@ -5,6 +5,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
@@ -84,6 +85,7 @@ public class UpdateIndicesServiceFactory {
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       SearchDocumentTransformer searchDocumentTransformer,
+      TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
       @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
           final List<String> fineGrainedLineageNotAllowedForPlatforms,
@@ -103,6 +105,7 @@ public class UpdateIndicesServiceFactory {
         entitySearchService,
         systemMetadataService,
         strategies,
+        timeseriesWriteThrottleCache,
         searchDiffMode,
         structuredPropertiesHookEnabled,
         structuredPropertiesWriteEnabled);
@@ -117,6 +120,7 @@ public class UpdateIndicesServiceFactory {
       final SystemMetadataService systemMetadataService,
       final SearchDocumentTransformer searchDocumentTransformer,
       final EntityService<?> entityService,
+      final TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
       @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
           final List<String> fineGrainedLineageNotAllowedForPlatforms,
@@ -137,6 +141,7 @@ public class UpdateIndicesServiceFactory {
             entitySearchService,
             systemMetadataService,
             strategies,
+            timeseriesWriteThrottleCache,
             searchDiffMode,
             structuredPropertiesHookEnabled,
             structuredPropertiesWriteEnabled);

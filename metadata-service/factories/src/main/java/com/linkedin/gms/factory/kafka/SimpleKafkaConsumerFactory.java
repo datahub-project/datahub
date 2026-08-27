@@ -11,7 +11,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
@@ -55,7 +55,7 @@ public class SimpleKafkaConsumerFactory {
       consumerProps.getSecurity().setProtocol(securityProtocol);
     }
 
-    Map<String, Object> customizedProperties = properties.buildConsumerProperties(null);
+    Map<String, Object> customizedProperties = properties.buildConsumerProperties();
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
         kafkaConfiguration.getConsumer().getMaxPartitionFetchBytes());

@@ -1,3 +1,8 @@
+---
+title: Domains API Tutorial
+description: "Step-by-step tutorial for creating Domains and assigning data assets to them in DataHub via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

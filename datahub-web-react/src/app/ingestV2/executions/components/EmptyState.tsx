@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { EmptyContainer } from '@app/govern/structuredProperties/styledComponents';
@@ -22,16 +23,17 @@ interface Props {
 }
 
 export default function EmptyState({ reason }: Props) {
+    const { t } = useTranslation('ingestion');
     const renderContent = () => {
         switch (reason) {
             case EmptyReasons.FILTERS_APPLIED:
                 return (
                     <TextContainer>
                         <Text size="lg" color="gray" weight="bold">
-                            No results!
+                            {t('executions.emptyFilteredTitle')}
                         </Text>
                         <Text size="sm" color="gray" weight="normal">
-                            Try clearing filters...
+                            {t('executions.emptyFilteredSubtitle')}
                         </Text>
                     </TextContainer>
                 );
@@ -40,7 +42,7 @@ export default function EmptyState({ reason }: Props) {
                     <>
                         <EmptyFormsImage />
                         <Text size="md" color="gray" weight="bold">
-                            No executions yet!
+                            {t('executions.emptyTitle')}
                         </Text>
                     </>
                 );

@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for adding, updating, and removing descriptions on DataHub Datasets and columns via the API."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

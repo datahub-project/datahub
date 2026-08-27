@@ -1,5 +1,6 @@
 import { Modal, message } from 'antd';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { useHandleDeleteDomain } from '@app/entity/shared/EntityDropdown/useHandleDeleteDomain';
@@ -26,6 +27,8 @@ function useDeleteEntity(
     skipWait?: boolean,
 ) {
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);
+    const { t } = useTranslation('entity.shared.entityDropdown');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToDeletedUrn } = useGlossaryEntityData();
     const { handleDeleteDomain } = useHandleDeleteDomain({ entityData, urn });
@@ -42,7 +45,7 @@ function useDeleteEntity(
                 });
                 if (!hideMessage && !skipWait) {
                     message.loading({
-                        content: 'Deleting...',
+                        content: t('delete.loading'),
                         duration: 2,
                     });
                 }
@@ -65,7 +68,9 @@ function useDeleteEntity(
                         }
                         if (!hideMessage) {
                             message.success({
-                                content: `Deleted ${entityRegistry.getEntityName(type)}!`,
+                                content: t('delete.success', {
+                                    entityName: entityRegistry.getEntityName(type),
+                                }),
                                 duration: 2,
                             });
                         }
@@ -75,21 +80,23 @@ function useDeleteEntity(
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to delete: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('delete.error', { errorMessage: e.message || '' }), duration: 3 });
             });
     }
 
     function onDeleteEntity() {
         Modal.confirm({
-            title: `Delete ${
-                (entityData && entityRegistry.getDisplayName(type, entityData)) || entityRegistry.getEntityName(type)
-            }`,
-            content: `Are you sure you want to remove this ${entityRegistry.getEntityName(type)}?`,
+            title: t('delete.confirmTitle', {
+                entityName:
+                    (entityData && entityRegistry.getDisplayName(type, entityData)) ||
+                    entityRegistry.getEntityName(type),
+            }),
+            content: t('delete.confirmContent', { entityName: entityRegistry.getEntityName(type) }),
             onOk() {
                 handleDeleteEntity();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: tc('yes'),
             maskClosable: true,
             closable: true,
         });

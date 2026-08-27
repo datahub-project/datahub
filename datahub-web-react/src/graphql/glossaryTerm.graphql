@@ -66,6 +66,9 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         applications {
             ...entityApplication
         }
+        tags {
+            ...globalTagsFields
+        }
         institutionalMemory {
             ...institutionalMemoryFields
         }
@@ -103,6 +106,9 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         ...notes
         settings {
             ...AssetSettingsFields
+        }
+        displayProperties {
+            ...displayPropertiesFields
         }
     }
 }

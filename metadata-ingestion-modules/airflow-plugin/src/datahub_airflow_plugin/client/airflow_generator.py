@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, tzinfo
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
 from airflow.configuration import conf
 
@@ -21,6 +21,7 @@ from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
 if TYPE_CHECKING:
     from airflow import DAG
     from airflow.models import DagRun, TaskInstance
+    from airflow.sdk import DAG as SdkDAG
 
     from datahub_airflow_plugin._airflow_shims import Operator
 
@@ -30,58 +31,44 @@ if TYPE_CHECKING:
             SerializedDAG,
         )
 
-        DagType = Union[DAG, SerializedDAG]
+        # Accept both the core `airflow.models` DAG and the Task SDK `airflow.sdk`
+        # DAG. The listener's task hooks pass SDK DAGs (`task.dag`) while the
+        # DAG-run hooks pass core DAGs. On Airflow 3.0 these are distinct classes
+        # (they converge in 3.1+), so the union keeps both callers typed without
+        # per-call-site `# type: ignore[arg-type]`s.
+        DagType = Union[DAG, SdkDAG, SerializedDAG]
         OperatorType = Union[Operator, SerializedBaseOperator]
     except ImportError:
-        DagType = DAG  # type: ignore[misc]
+        DagType = Union[DAG, SdkDAG]  # type: ignore[misc]
         OperatorType = Operator  # type: ignore[misc]
 
-    # Add type ignore for ti.task which can be MappedOperator from different modules
-    # airflow.models.mappedoperator.MappedOperator (2.x) vs airflow.sdk.definitions.mappedoperator.MappedOperator (3.x)
+    # `ti.task` may be a MappedOperator whose module path differs across Airflow 3
+    # minor versions (see _shims.py); use `Any` to keep callsites tidy.
     TaskType = Union[OperatorType, Any]  # type: ignore[misc]
 
 
 def _get_base_url() -> str:
+    """Return the base URL for Airflow web UI links.
+
+    Prefers the Airflow 3 `[api] base_url`; falls back to `[webserver] base_url`
+    for users who haven't migrated their `airflow.cfg`, then to localhost.
     """
-    Get the Airflow base URL for constructing web UI links.
-
-    Tries multiple configuration sources for backward compatibility:
-    1. webserver.base_url (Airflow 2.x and 3.x with computed default)
-    2. api.base_url (Airflow 3.x alternative configuration)
-    3. Fallback to http://localhost:8080 (safe default)
-
-    Returns:
-        str: The base URL for the Airflow web UI
-    """
-    # Try webserver.base_url first (works in both Airflow 2.x and 3.x)
-    # In Airflow 3.x, this is computed from web_server_host + web_server_port
-    base_url = conf.get("webserver", "base_url", fallback=None)
-    if base_url:
-        return base_url
-
-    # Fallback to api.base_url for environments that use it
-    # Some Airflow 3.x deployments may set this explicitly
     api_base_url = conf.get("api", "base_url", fallback=None)
     if api_base_url:
         return api_base_url
 
-    # Final fallback to localhost (safe default for development/testing)
+    base_url = conf.get("webserver", "base_url", fallback=None)
+    if base_url:
+        return base_url
+
     return "http://localhost:8080"
-
-
-def _task_downstream_task_ids(operator: "Operator") -> Set[str]:
-    if hasattr(operator, "downstream_task_ids"):
-        return operator.downstream_task_ids
-    return operator._downstream_task_id  # type: ignore[attr-defined,union-attr]
 
 
 def _serialize_iolets_for_properties(iolets: List[Any]) -> List[str]:
     """Serialize inlets/outlets to a list of URIs for stable custom properties.
 
     This function extracts the URI from various inlet/outlet object types:
-    - Airflow 2.4+ Dataset objects (have .uri attribute)
-    - Airflow 3.x Asset objects (have .uri attribute)
-    - Airflow 3.x AssetDefinition objects from @asset decorator (have .uri attribute)
+    - Airflow Asset / AssetDefinition / deprecated-Dataset objects (have `.uri`)
     - DataHub Dataset entities (have __repr__ that returns URN)
     - Strings (used as-is)
 
@@ -114,71 +101,9 @@ class AirflowGenerator:
     ) -> List[DataJobUrn]:
         from datahub_airflow_plugin._airflow_shims import ExternalTaskSensor
 
-        # resolve URNs for upstream nodes in subdags upstream of the current task.
-        upstream_subdag_task_urns: List[DataJobUrn] = []
-
-        for upstream_task_id in task.upstream_task_ids:
-            upstream_task = dag.task_dict[upstream_task_id]
-
-            # if upstream task is not a subdag, then skip it
-            upstream_subdag = getattr(upstream_task, "subdag", None)
-            if upstream_subdag is None:
-                continue
-
-            # else, link the leaf tasks of the upstream subdag as upstream tasks
-            for upstream_subdag_task_id in upstream_subdag.task_dict:
-                upstream_subdag_task = upstream_subdag.task_dict[
-                    upstream_subdag_task_id
-                ]
-
-                upstream_subdag_task_urn = DataJobUrn.create_from_ids(
-                    job_id=upstream_subdag_task_id, data_flow_urn=str(flow_urn)
-                )
-
-                # if subdag task is a leaf task, then link it as an upstream task
-                if len(_task_downstream_task_ids(upstream_subdag_task)) == 0:
-                    upstream_subdag_task_urns.append(upstream_subdag_task_urn)
-
-        # resolve URNs for upstream nodes that trigger the subdag containing the current task.
-        # (if it is in a subdag at all)
-        upstream_subdag_triggers: List[DataJobUrn] = []
-
-        # subdags are always named with 'parent.child' style or Airflow won't run them
-        # add connection from subdag trigger(s) if subdag task has no upstreams
-        # Note: is_subdag was removed in Airflow 3.x (subdags deprecated in Airflow 2.0)
-        parent_dag = getattr(dag, "parent_dag", None)
-        if (
-            getattr(dag, "is_subdag", False)
-            and parent_dag is not None
-            and len(task.upstream_task_ids) == 0
-        ):
-            # filter through the parent dag's tasks and find the subdag trigger(s)
-            subdags = [
-                x
-                for x in parent_dag.task_dict.values()
-                if x.subdag is not None  # type: ignore[union-attr]
-            ]
-            matched_subdags = [
-                x for x in subdags if x.subdag and x.subdag.dag_id == dag.dag_id
-            ]
-
-            # id of the task containing the subdag
-            subdag_task_id = matched_subdags[0].task_id
-
-            # iterate through the parent dag's tasks and find the ones that trigger the subdag
-            for upstream_task_id in parent_dag.task_dict:  # type: ignore[union-attr]
-                upstream_task = parent_dag.task_dict[upstream_task_id]  # type: ignore[union-attr]
-                upstream_task_urn = DataJobUrn.create_from_ids(
-                    data_flow_urn=str(flow_urn), job_id=upstream_task_id
-                )
-
-                # if the task triggers the subdag, link it to this node in the subdag
-                if subdag_task_id in sorted(_task_downstream_task_ids(upstream_task)):  # type: ignore[arg-type]
-                    upstream_subdag_triggers.append(upstream_task_urn)
-
         # If the operator is an ExternalTaskSensor then we set the remote task as upstream.
         # It is possible to tie an external sensor to DAG if external_task_id is omitted but currently we can't tie
-        # jobflow to anothet jobflow.
+        # jobflow to another jobflow.
         external_task_upstreams = []
         if isinstance(task, ExternalTaskSensor):
             task = cast(ExternalTaskSensor, task)
@@ -200,18 +125,10 @@ class AirflowGenerator:
                         ),
                     )
                 ]
-        # exclude subdag operator tasks since these are not emitted, resulting in empty metadata
-        upstream_tasks = (
-            [
-                DataJobUrn.create_from_ids(job_id=task_id, data_flow_urn=str(flow_urn))
-                for task_id in task.upstream_task_ids
-                if getattr(dag.task_dict[task_id], "subdag", None) is None
-            ]
-            + upstream_subdag_task_urns
-            + upstream_subdag_triggers
-            + external_task_upstreams
-        )
-        return upstream_tasks
+        return [
+            DataJobUrn.create_from_ids(job_id=task_id, data_flow_urn=str(flow_urn))
+            for task_id in task.upstream_task_ids
+        ] + external_task_upstreams
 
     @staticmethod
     def _extract_owners(dag: "DagType") -> List[str]:
@@ -358,7 +275,7 @@ class AirflowGenerator:
 
         job_property_bag: Dict[str, str] = {}
 
-        allowed_task_keys: List[Union[str, Tuple[str, ...]]] = [
+        allowed_task_keys: List[str] = [
             "_task_type",
             "_task_module",
             "depends_on_past",
@@ -370,45 +287,30 @@ class AirflowGenerator:
             "task_id",
             "trigger_rule",
             "wait_for_downstream",
-            # In Airflow 2.3, _downstream_task_ids was renamed to downstream_task_ids
-            ("downstream_task_ids", "_downstream_task_ids"),
-            # In Airflow 2.4, _inlets and _outlets were removed in favor of non-private versions.
-            ("inlets", "_inlets"),
-            ("outlets", "_outlets"),
+            "downstream_task_ids",
+            "inlets",
+            "outlets",
         ]
 
         for key in allowed_task_keys:
-            if isinstance(key, tuple):
-                out_key: str = key[0]
-                try_keys = key
-            else:
-                out_key = key
-                try_keys = (key,)
-
-            for k in try_keys:
-                if hasattr(task, k):
-                    v = getattr(task, k)
-                    if out_key == "downstream_task_ids":
-                        # Generate these in a consistent order.
-                        v = list(sorted(v))
-                    if out_key in ("inlets", "outlets"):
-                        # Serialize inlets/outlets as list of URIs for stable representation.
-                        # This avoids including memory addresses from repr() of complex objects.
-                        v = _serialize_iolets_for_properties(v)
-                    job_property_bag[out_key] = repr(v)
-                    break
+            if hasattr(task, key):
+                v = getattr(task, key)
+                if key == "downstream_task_ids":
+                    # Generate these in a consistent order.
+                    v = list(sorted(v))
+                if key in ("inlets", "outlets"):
+                    # Serialize inlets/outlets as list of URIs for stable representation.
+                    # This avoids including memory addresses from repr() of complex objects.
+                    v = _serialize_iolets_for_properties(v)
+                job_property_bag[key] = repr(v)
 
         datajob.properties = job_property_bag
         base_url = _get_base_url()
 
         if config and config.datajob_url_link == DatajobUrl.GRID:
             datajob.url = f"{base_url}/dags/{dag.dag_id}/grid?task_id={task.task_id}"
-        elif config and config.datajob_url_link == DatajobUrl.TASKS:
-            # Airflow 3.x task URL format
-            datajob.url = f"{base_url}/dags/{dag.dag_id}/tasks/{task.task_id}"
         else:
-            # Airflow 2.x taskinstance list URL format
-            datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={dag.dag_id}&_flt_3_task_id={task.task_id}"
+            datajob.url = f"{base_url}/dags/{dag.dag_id}/tasks/{task.task_id}"
 
         if capture_owner and dag.owner:
             if config and config.capture_ownership_info:
@@ -434,7 +336,7 @@ class AirflowGenerator:
     def create_datajob_instance(
         cluster: str,
         task: "Operator",
-        dag: "DAG",
+        dag: "DagType",
         data_job: Optional[DataJob] = None,
         config: Optional[DatahubLineageConfig] = None,
     ) -> DataProcessInstance:
@@ -460,38 +362,29 @@ class AirflowGenerator:
             dataflow = AirflowGenerator.generate_dataflow(config, dag_run.dag)
 
         if start_timestamp_millis is None:
-            assert dag_run.execution_date
-            start_timestamp_millis = int(dag_run.execution_date.timestamp() * 1000)
+            # logical_date is nullable in Airflow 3 (manual / asset-triggered runs),
+            # so fall back to the run's start_date, then now(), instead of asserting.
+            started_at = dag_run.logical_date or dag_run.start_date or datetime.now()
+            start_timestamp_millis = int(started_at.timestamp() * 1000)
 
         assert dag_run.run_id
         dpi = DataProcessInstance.from_dataflow(dataflow=dataflow, id=dag_run.run_id)
 
-        # This property only exists in Airflow2
-        if hasattr(dag_run, "run_type"):
-            from airflow.utils.types import DagRunType
+        from airflow.utils.types import DagRunType
 
-            if dag_run.run_type == DagRunType.SCHEDULED:
-                dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
-            elif dag_run.run_type == DagRunType.MANUAL:
-                dpi.type = DataProcessTypeClass.BATCH_AD_HOC
-        else:
-            if dag_run.run_id.startswith("scheduled__"):
-                dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
-            else:
-                dpi.type = DataProcessTypeClass.BATCH_AD_HOC
+        if dag_run.run_type == DagRunType.SCHEDULED:
+            dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
+        elif dag_run.run_type == DagRunType.MANUAL:
+            dpi.type = DataProcessTypeClass.BATCH_AD_HOC
 
         property_bag: Dict[str, str] = {}
         property_bag["run_id"] = str(dag_run.run_id)
-        property_bag["execution_date"] = str(dag_run.execution_date)
+        property_bag["logical_date"] = str(dag_run.logical_date)
         property_bag["end_date"] = str(dag_run.end_date)
         property_bag["start_date"] = str(dag_run.start_date)
         property_bag["creating_job_id"] = str(dag_run.creating_job_id)
-        # These properties only exists in Airflow>=2.2.0
-        if hasattr(dag_run, "data_interval_start") and hasattr(
-            dag_run, "data_interval_end"
-        ):
-            property_bag["data_interval_start"] = str(dag_run.data_interval_start)
-            property_bag["data_interval_end"] = str(dag_run.data_interval_end)
+        property_bag["data_interval_start"] = str(dag_run.data_interval_start)
+        property_bag["data_interval_end"] = str(dag_run.data_interval_end)
         property_bag["external_trigger"] = str(dag_run.external_trigger)
         dpi.properties.update(property_bag)
 
@@ -551,7 +444,7 @@ class AirflowGenerator:
     def run_datajob(
         emitter: Emitter,
         ti: "TaskInstance",
-        dag: "DAG",
+        dag: "DagType",
         dag_run: "DagRun",
         config: DatahubLineageConfig,
         start_timestamp_millis: Optional[int] = None,
@@ -561,7 +454,7 @@ class AirflowGenerator:
     ) -> DataProcessInstance:
         if datajob is None:
             assert ti.task is not None
-            # ti.task can be MappedOperator from different modules (airflow.models vs airflow.sdk.definitions)
+            # ti.task may be a MappedOperator whose module differs across Airflow 3 minors.
             datajob = AirflowGenerator.generate_datajob(
                 config.cluster,
                 ti.task,  # type: ignore[arg-type]
@@ -594,19 +487,12 @@ class AirflowGenerator:
         if "log_url" in job_property_bag:
             dpi.url = job_property_bag["log_url"]
 
-        # This property only exists in Airflow2
-        if hasattr(ti, "dag_run") and hasattr(ti.dag_run, "run_type"):
-            from airflow.utils.types import DagRunType
+        from airflow.utils.types import DagRunType
 
-            if ti.dag_run.run_type == DagRunType.SCHEDULED:
-                dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
-            elif ti.dag_run.run_type == DagRunType.MANUAL:
-                dpi.type = DataProcessTypeClass.BATCH_AD_HOC
-        else:
-            if dag_run.run_id.startswith("scheduled__"):
-                dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
-            else:
-                dpi.type = DataProcessTypeClass.BATCH_AD_HOC
+        if dag_run.run_type == DagRunType.SCHEDULED:
+            dpi.type = DataProcessTypeClass.BATCH_SCHEDULED
+        elif dag_run.run_type == DagRunType.MANUAL:
+            dpi.type = DataProcessTypeClass.BATCH_AD_HOC
 
         if start_timestamp_millis is None:
             if ti.start_date:
@@ -631,7 +517,7 @@ class AirflowGenerator:
         emitter: Emitter,
         cluster: str,
         ti: "TaskInstance",
-        dag: "DAG",
+        dag: "DagType",
         dag_run: "DagRun",
         end_timestamp_millis: Optional[int] = None,
         result: Optional[InstanceRunResult] = None,
@@ -653,7 +539,7 @@ class AirflowGenerator:
         """
         if datajob is None:
             assert ti.task is not None
-            # ti.task can be MappedOperator from different modules (airflow.models vs airflow.sdk.definitions)
+            # ti.task may be a MappedOperator whose module differs across Airflow 3 minors.
             datajob = AirflowGenerator.generate_datajob(
                 cluster,
                 ti.task,  # type: ignore[arg-type]

@@ -35,7 +35,7 @@ public abstract class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
         ingestedAspects.keySet().stream().map(Urn::toString).collect(Collectors.toList());
     List<String> seenUrns = new ArrayList<>();
 
-    Iterable<String> page1 = _migrationsDao.listAllUrns(0, pageSize);
+    Iterable<String> page1 = _migrationsDao.listAllUrns(null, 0, pageSize);
     List<String> page1Urns = ImmutableList.copyOf(page1);
 
     // validate first page
@@ -45,7 +45,7 @@ public abstract class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
       seenUrns.add(urn);
     }
 
-    Iterable<String> page2 = _migrationsDao.listAllUrns(pageSize, pageSize);
+    Iterable<String> page2 = _migrationsDao.listAllUrns(null, pageSize, pageSize);
     List<String> page2Urns = ImmutableList.copyOf(page2);
 
     // validate last page
@@ -67,19 +67,19 @@ public abstract class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
     AspectIngestionUtils.ingestChartInfoAspects(_entityServiceImpl, 22);
     final int expected = 33;
 
-    long actual = _migrationsDao.countEntities();
+    long actual = _migrationsDao.countEntities(null);
 
     assertEquals(actual, expected);
   }
 
   @Test
   public void testCheckIfAspectExists() throws AssertionError {
-    boolean actual = _migrationsDao.checkIfAspectExists(CORP_USER_INFO_ASPECT_NAME);
+    boolean actual = _migrationsDao.checkIfAspectExists(null, CORP_USER_INFO_ASPECT_NAME);
     assertFalse(actual);
 
     AspectIngestionUtils.ingestCorpUserInfoAspects(_entityServiceImpl, 1);
 
-    actual = _migrationsDao.checkIfAspectExists(CORP_USER_INFO_ASPECT_NAME);
+    actual = _migrationsDao.checkIfAspectExists(null, CORP_USER_INFO_ASPECT_NAME);
     assertTrue(actual);
   }
 }

@@ -215,3 +215,71 @@ class TestRunAssertionsForAsset:
             param_dict = {p["key"]: p["value"] for p in variables["parameters"]}
             assert param_dict["threshold"] == "50"
             assert param_dict["window"] == "24h"
+
+
+class TestAssertionResultFragmentIncludesSeverity:
+    """The shared assertionResult fragment must expose severity to read callers."""
+
+    def test_run_assertion_query_includes_severity(self, mock_graph):
+        with patch.object(mock_graph, "execute_graphql") as mock_execute:
+            mock_execute.return_value = {"runAssertion": {"type": "SUCCESS"}}
+            mock_graph.run_assertion(urn="urn:li:assertion:test123")
+
+            query = mock_execute.call_args.kwargs["query"]
+            assert "fragment assertionResult on AssertionResult" in query
+            assert "severity" in query
+
+    def test_run_assertions_query_includes_severity(self, mock_graph):
+        with patch.object(mock_graph, "execute_graphql") as mock_execute:
+            mock_execute.return_value = {"runAssertions": {"passingCount": 0}}
+            mock_graph.run_assertions(urns=["urn:li:assertion:test1"])
+
+            query = mock_execute.call_args.kwargs["query"]
+            assert "fragment assertionResult on AssertionResult" in query
+            assert "severity" in query
+
+    def test_run_assertions_for_asset_query_includes_severity(self, mock_graph):
+        with patch.object(mock_graph, "execute_graphql") as mock_execute:
+            mock_execute.return_value = {"runAssertionsForAsset": {"passingCount": 0}}
+            mock_graph.run_assertions_for_asset(
+                urn="urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)"
+            )
+
+            query = mock_execute.call_args.kwargs["query"]
+            assert "fragment assertionResult on AssertionResult" in query
+            assert "severity" in query
+
+
+class TestReportAssertionResult:
+    """Tests for the report_assertion_result method."""
+
+    def test_report_assertion_result_without_severity(self, mock_graph):
+        with patch.object(mock_graph, "execute_graphql") as mock_execute:
+            mock_execute.return_value = {"reportAssertionResult": True}
+
+            mock_graph.report_assertion_result(
+                urn="urn:li:assertion:test123",
+                timestamp_millis=1700000000000,
+                type="SUCCESS",
+            )
+
+            query = mock_execute.call_args.kwargs["query"]
+            variables = mock_execute.call_args.kwargs["variables"]
+            assert "$severity: AssertionResultSeverity" in query
+            assert "severity: $severity" in query
+            assert variables["severity"] is None
+
+    def test_report_assertion_result_with_severity(self, mock_graph):
+        with patch.object(mock_graph, "execute_graphql") as mock_execute:
+            mock_execute.return_value = {"reportAssertionResult": True}
+
+            mock_graph.report_assertion_result(
+                urn="urn:li:assertion:test123",
+                timestamp_millis=1700000000000,
+                type="FAILURE",
+                severity="HIGH",
+            )
+
+            variables = mock_execute.call_args.kwargs["variables"]
+            assert variables["severity"] == "HIGH"
+            assert variables["type"] == "FAILURE"

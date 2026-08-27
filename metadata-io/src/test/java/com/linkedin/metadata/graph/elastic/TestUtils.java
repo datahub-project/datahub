@@ -12,6 +12,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -161,10 +162,13 @@ public class TestUtils {
     final long finalTotalHits = totalHits;
 
     try {
-      when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+      when(mockClient.search(
+              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
           .thenAnswer(
               invocation -> {
-                SearchRequest request = invocation.getArgument(0);
+                // PR6: arg 0 is now OperationContext/OperationFingerprint, SearchRequest moved to
+                // position 1 when the shim was widened.
+                SearchRequest request = invocation.getArgument(1);
 
                 // Check if this is a slice-based search
                 if (request.source() != null && request.source().slice() != null) {

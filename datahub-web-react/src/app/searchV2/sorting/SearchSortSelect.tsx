@@ -2,6 +2,7 @@ import { CaretDownFilled } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Select } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { DEFAULT_SORT_OPTION } from '@app/searchV2/context/constants';
@@ -33,14 +34,15 @@ type Props = {
 };
 
 export default function SearchSortSelect({ selectedSortOption, setSelectedSortOption }: Props) {
+    const { t } = useTranslation('search');
     const sortOptions = useGetSortOptions();
     const options = Object.entries(sortOptions).map(([value, option]) => ({ value, label: option.label }));
 
     return (
-        <Tooltip title="Sort search results" showArrow={false} placement="left">
+        <Tooltip title={t('sort.tooltipTitle')} showArrow={false} placement="left">
             <SelectWrapper>
                 <Select
-                    placeholder="Sort by"
+                    placeholder={t('sort.placeholder')}
                     value={selectedSortOption === DEFAULT_SORT_OPTION ? null : selectedSortOption}
                     options={options}
                     bordered={false}

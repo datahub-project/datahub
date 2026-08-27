@@ -16,6 +16,7 @@ import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -23,7 +24,6 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -42,6 +42,7 @@ public class UpdateIndicesService implements SearchIndicesService {
   @VisibleForTesting @Getter private final UpdateGraphIndicesService updateGraphIndicesService;
   private final ElasticSearchService elasticSearchService;
   private final SystemMetadataService systemMetadataService;
+  @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
 
   @Getter private final boolean searchDiffMode;
 
@@ -68,6 +69,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       ElasticSearchService elasticSearchService,
       SystemMetadataService systemMetadataService,
       @Nonnull Collection<UpdateIndicesStrategy> updateStrategies,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
       boolean searchDiffMode,
       boolean structuredPropertiesHookEnabled,
       boolean structuredPropertiesWriteEnabled) {
@@ -75,6 +77,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     this.elasticSearchService = elasticSearchService;
     this.systemMetadataService = systemMetadataService;
     this.updateStrategies = updateStrategies;
+    this.timeseriesThrottleCache = timeseriesThrottleCache;
     this.searchDiffMode = searchDiffMode;
     this.structuredPropertiesHookEnabled = structuredPropertiesHookEnabled;
     this.structuredPropertiesWriteEnabled = structuredPropertiesWriteEnabled;
@@ -89,69 +92,67 @@ public class UpdateIndicesService implements SearchIndicesService {
   @Override
   public void handleChangeEvents(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
-    // Convert MetadataChangeLog events to MCLItem events
-    List<MCLItem> mclItems = new ArrayList<>();
-    for (MetadataChangeLog event : events) {
-      MCLItemImpl batch = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
-      mclItems.add(batch);
-    }
+    // Convert MetadataChangeLog events to MCLItems for batch processing
+    List<MCLItem> mclItems =
+        events.stream()
+            .map(event -> MCLItemImpl.builder().build(event, opContext.getAspectRetriever()))
+            .collect(Collectors.toList());
 
-    // Apply side effects to all events at once
-    Stream<MCLItem> sideEffects =
-        AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext());
+    // Apply side effects to generate additional MCLItems
+    List<MCLItem> sideEffects =
+        AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext())
+            .collect(Collectors.toList());
 
-    // Build combined collection of all events (original + side effects)
-    List<MCLItem> allEvents =
-        Stream.concat(mclItems.stream(), sideEffects).collect(Collectors.toList());
-
-    // Group all events by URN while preserving order
+    // Group events by URN for batch processing while preserving order. Cross-routing-key mixing
+    // is segregated upstream in the Kafka batch listener (see MCLBatchKafkaListener.consumeBatch),
+    // so every call to this method already arrives under a single routing identity — grouping by
+    // URN alone is sufficient here.
     LinkedHashMap<Urn, List<MCLItem>> groupedEvents =
-        UpdateIndicesUtil.groupEventsByUrn(allEvents.stream());
+        UpdateIndicesUtil.groupEventsByUrn(Stream.concat(mclItems.stream(), sideEffects.stream()));
 
-    // For optimized batch processing we simply process them here
-    // and rely on the handleSystemMetadataUpdateChangeEvents method below
-    // to process system metadata updates index
     for (UpdateIndicesStrategy strategy : updateStrategies) {
       if (strategy.isEnabled()) {
         strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
       }
     }
 
-    // Process each group of events for the same URN
+    // Record throttle writes after all strategies have processed, so no strategy's
+    // recordWrite can race with another strategy's shouldThrottle on the same event.
+    recordThrottleWrites(groupedEvents);
+
+    // Process each group of events for the same URN together
     for (List<MCLItem> urnEvents : groupedEvents.values()) {
       // Process update events
       List<MCLItem> updateEvents =
           urnEvents.stream()
-              .filter(
-                  event ->
-                      UPDATE_CHANGE_TYPES.contains(event.getMetadataChangeLog().getChangeType()))
+              .filter(e -> UPDATE_CHANGE_TYPES.contains(e.getMetadataChangeLog().getChangeType()))
               .collect(Collectors.toList());
 
       if (!updateEvents.isEmpty()) {
-        // Update graph indices for update events
+        // Update graph indices for each event individually for now
         for (MCLItem event : updateEvents) {
           updateGraphIndicesService.handleChangeEvent(opContext, event.getMetadataChangeLog());
         }
 
-        // Process system metadata updates
         handleSystemMetadataUpdateChangeEvents(opContext, updateEvents);
       }
 
       // Process delete events
       List<MCLItem> deleteEvents =
           urnEvents.stream()
-              .filter(event -> event.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
+              .filter(e -> e.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
               .collect(Collectors.toList());
 
       for (MCLItem deleteEvent : deleteEvents) {
         Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
         boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
 
-        // graph update
+        // graph update first
         updateGraphIndicesService.handleChangeEvent(opContext, deleteEvent.getMetadataChangeLog());
 
         // system metadata is last for tracing
-        handleSystemMetadataDeleteChangeEvent(deleteEvent.getUrn(), specPair, isDeletingKey);
+        handleSystemMetadataDeleteChangeEvent(
+            opContext, deleteEvent.getUrn(), specPair, isDeletingKey);
       }
     }
   }
@@ -160,12 +161,10 @@ public class UpdateIndicesService implements SearchIndicesService {
    * Handles system metadata updates for a collection of update change events. This method processes
    * system metadata separately for tracing purposes.
    *
-   * @param opContext the operation context
    * @param events the collection of update events
    */
   private void handleSystemMetadataUpdateChangeEvents(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MCLItem> events) {
-
     if (events.isEmpty()) {
       return;
     }
@@ -176,14 +175,17 @@ public class UpdateIndicesService implements SearchIndicesService {
         SystemMetadata systemMetadata = event.getSystemMetadata();
         if (systemMetadata != null) {
           systemMetadataService.insert(
-              systemMetadata, event.getUrn().toString(), event.getAspectSpec().getName());
+              opContext,
+              systemMetadata,
+              event.getUrn().toString(),
+              event.getAspectSpec().getName());
 
           // If processing status aspect update all aspects for this urn to removed
           if (event.getAspectSpec().getName().equals(Constants.STATUS_ASPECT_NAME)) {
             RecordTemplate aspect = event.getRecordTemplate();
             if (aspect instanceof Status) {
               systemMetadataService.setDocStatus(
-                  event.getUrn().toString(), ((Status) aspect).isRemoved());
+                  opContext, event.getUrn().toString(), ((Status) aspect).isRemoved());
             }
           }
         }
@@ -199,19 +201,23 @@ public class UpdateIndicesService implements SearchIndicesService {
    * @param isDeletingKey whether the key aspect is being deleted
    */
   private void handleSystemMetadataDeleteChangeEvent(
-      @Nonnull Urn urn, Pair<EntitySpec, AspectSpec> specPair, boolean isDeletingKey) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      Pair<EntitySpec, AspectSpec> specPair,
+      boolean isDeletingKey) {
     if (!specPair.getSecond().isTimeseries()) {
       if (isDeletingKey) {
         // Delete all aspects
         log.debug(String.format("Deleting all system metadata for urn: %s", urn));
-        systemMetadataService.deleteUrn(urn.toString());
+        systemMetadataService.deleteUrn(opContext, urn.toString());
       } else {
         // Delete all aspects from system metadata service
         log.debug(
             String.format(
                 "Deleting system metadata for urn: %s, aspect: %s",
                 urn, specPair.getSecond().getName()));
-        systemMetadataService.deleteAspect(urn.toString(), specPair.getSecond().getName());
+        systemMetadataService.deleteAspect(
+            opContext, urn.toString(), specPair.getSecond().getName());
       }
     }
   }
@@ -242,6 +248,40 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   /**
+   * After all strategies have processed, record throttle writes for timeseries events that were not
+   * throttled. This ensures no strategy's recordWrite races with another strategy's shouldThrottle
+   * on the same event within a batch.
+   */
+  private void recordThrottleWrites(LinkedHashMap<Urn, List<MCLItem>> groupedEvents) {
+    if (timeseriesThrottleCache == null || !timeseriesThrottleCache.isEnabled()) {
+      return;
+    }
+
+    for (List<MCLItem> urnEvents : groupedEvents.values()) {
+      for (MCLItem event : urnEvents) {
+        if (!UPDATE_CHANGE_TYPES.contains(event.getMetadataChangeLog().getChangeType())) {
+          continue;
+        }
+        if (!event.getAspectSpec().isTimeseries()) {
+          continue;
+        }
+
+        String entityName = event.getEntitySpec().getName();
+        String urnStr = event.getUrn().toString();
+        String aspectName = event.getAspectName();
+        long eventTimeMs =
+            event.getAuditStamp() != null
+                ? event.getAuditStamp().getTime()
+                : System.currentTimeMillis();
+
+        if (!timeseriesThrottleCache.shouldThrottle(entityName, urnStr, aspectName, eventTimeMs)) {
+          timeseriesThrottleCache.recordWrite(urnStr, aspectName, eventTimeMs);
+        }
+      }
+    }
+  }
+
+  /**
    * Flushes any pending operations in the bulk processor to ensure all data is written to
    * Elasticsearch. This is particularly important for loadIndices operations where we want to
    * ensure all data is persisted.
@@ -257,6 +297,35 @@ public class UpdateIndicesService implements SearchIndicesService {
     } catch (Exception e) {
       log.error("Failed to flush bulk processor", e);
       throw new RuntimeException("Failed to flush bulk processor", e);
+    }
+  }
+
+  /**
+   * When {@code ES_BULK_ACK_AFTER_TRANSFER} is enabled, flush and wait for bulk transfer before the
+   * caller (MAE) acknowledges Kafka/pgQueue offsets. No-op when the flag is false or when the write
+   * path is unavailable (e.g. unit tests with a mocked search service).
+   */
+  public void flushAndWaitIfConfigured() {
+    ESWriteDAO writeDAO = elasticSearchService.getEsWriteDAO();
+    if (writeDAO == null) {
+      return;
+    }
+    ESBulkProcessor bulkProcessor = writeDAO.getBulkProcessor();
+    if (bulkProcessor == null || !bulkProcessor.isAckAfterTransfer()) {
+      return;
+    }
+    try {
+      java.time.Duration timeout =
+          java.time.Duration.ofSeconds(bulkProcessor.getAckAfterTransferTimeoutSeconds());
+      bulkProcessor.flushAndWait(timeout);
+      log.debug("Bulk transfer acknowledged after flush-and-wait");
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("Interrupted while waiting for bulk transfer", e);
+    } catch (java.util.concurrent.TimeoutException e) {
+      throw new RuntimeException("Timed out waiting for bulk transfer", e);
+    } catch (BulkTransferException e) {
+      throw new RuntimeException("Bulk transfer failed before offset ack", e);
     }
   }
 }

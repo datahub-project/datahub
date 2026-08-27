@@ -1,11 +1,11 @@
 ---
 title: "SCIM Integration: MS Entra and DataHub"
-hide_title: true
+description: "Configure SCIM-based identity provisioning between Microsoft Entra ID and DataHub Cloud to automate user and group lifecycle."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-## SCIM Integration: MS Entra and DataHub
+# SCIM Integration: MS Entra and DataHub
 
 <FeatureAvailability saasOnly />
 

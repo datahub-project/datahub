@@ -43,7 +43,7 @@ public class TracingInterceptor implements AsyncHandlerInterceptor {
               .spanBuilder(spanName)
               .setAttribute("http.method", request.getMethod())
               .setAttribute("http.url", request.getRequestURI())
-              .setParent(Context.root())
+              .setParent(Context.current())
               .startSpan();
 
       request.setAttribute("span", span);

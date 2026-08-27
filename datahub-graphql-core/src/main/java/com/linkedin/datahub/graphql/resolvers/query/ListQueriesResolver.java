@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -27,6 +28,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -93,15 +95,35 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
                     start,
                     count);
 
+            final List<Urn> queryUrns =
+                gmsResult.getEntities().stream()
+                    .map(SearchEntity::getEntity)
+                    .collect(Collectors.toList());
+
+            List<Urn> authorizedQueryUrns = queryUrns;
+            if (context
+                    .getOperationContext()
+                    .getOperationContextConfig()
+                    .getViewAuthorizationConfiguration()
+                    .isEnabled()
+                && !context.getOperationContext().isSystemAuth()) {
+              final Set<Urn> viewableQueryUrns =
+                  EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+                      context.getOperationContext(),
+                      context.getOperationContext(),
+                      context.getOperationContext().getAspectRetriever(),
+                      queryUrns);
+              authorizedQueryUrns =
+                  queryUrns.stream()
+                      .filter(viewableQueryUrns::contains)
+                      .collect(Collectors.toList());
+            }
+
             final ListQueriesResult result = new ListQueriesResult();
             result.setStart(gmsResult.getFrom());
-            result.setCount(gmsResult.getPageSize());
+            result.setCount(authorizedQueryUrns.size());
             result.setTotal(gmsResult.getNumEntities());
-            result.setQueries(
-                mapUnresolvedQueries(
-                    gmsResult.getEntities().stream()
-                        .map(SearchEntity::getEntity)
-                        .collect(Collectors.toList())));
+            result.setQueries(mapUnresolvedQueries(authorizedQueryUrns));
             return result;
           } catch (Exception e) {
             throw new RuntimeException("Failed to list Queries", e);
@@ -134,7 +156,6 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
       andConditions.add(
           new FacetFilterInput(
               QUERY_SOURCE_FIELD,
-              null,
               ImmutableList.of(input.getSource().toString()),
               false,
               FilterOperator.EQUAL));
@@ -145,7 +166,6 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
       andConditions.add(
           new FacetFilterInput(
               QUERY_ENTITIES_FIELD,
-              null,
               ImmutableList.of(input.getDatasetUrn()),
               false,
               FilterOperator.EQUAL));

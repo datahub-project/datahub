@@ -8,7 +8,9 @@
 
 /** Generate a random alphanumeric string of the given length. */
 export function generateRandomString(length: number = 8): string {
-  return Math.random().toString(36).substring(2, length + 2);
+  return Math.random()
+    .toString(36)
+    .substring(2, length + 2);
 }
 
 /**

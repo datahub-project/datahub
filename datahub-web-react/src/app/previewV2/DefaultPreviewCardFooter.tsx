@@ -61,7 +61,7 @@ const EntityLink = styled.div`
         height: 100%;
 
         :hover {
-            color: ${(props) => props.theme.colors.buttonFillBrand};
+            color: ${(props) => props.theme.colors.textHover};
         }
 
         > span:first-child {

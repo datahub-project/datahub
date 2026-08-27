@@ -1,9 +1,9 @@
 import { Button, Checkbox, Modal, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SearchSelectActions } from '@app/entity/shared/components/styled/search/SearchSelectActions';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityAndType } from '@app/entity/shared/types';
 
 const CheckboxContainer = styled.div`
@@ -21,7 +21,7 @@ const CancelButton = styled(Button)`
     && {
         margin-left: 8px;
         padding: 0px;
-        color: ${ANTD_GRAY[7]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
@@ -54,17 +54,19 @@ export const SearchSelectBar = ({
     onCancel,
     refetch,
 }: Props) => {
+    const { t } = useTranslation('entityV1.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const selectedEntityCount = selectedEntities.length;
     const onClickCancel = () => {
         if (selectedEntityCount > 0) {
             Modal.confirm({
-                title: `Exit Selection`,
-                content: `Are you sure you want to exit? ${selectedEntityCount} selection(s) will be cleared.`,
+                title: t('searchSelect.exitTitle'),
+                content: t('searchSelect.exitContent', { count: selectedEntityCount }),
                 onOk() {
                     onCancel?.();
                 },
                 onCancel() {},
-                okText: 'Yes',
+                okText: tc('yes'),
                 maskClosable: true,
                 closable: true,
             });
@@ -81,14 +83,14 @@ export const SearchSelectBar = ({
                     onChange={(e) => onChangeSelectAll(e.target.checked as boolean)}
                 />
                 <Typography.Text strong type="secondary">
-                    {selectedEntityCount} selected
+                    {t('searchSelect.selectedCount', { count: selectedEntityCount })}
                 </Typography.Text>
             </CheckboxContainer>
             <ActionsContainer>
                 {showActions && <SearchSelectActions selectedEntities={selectedEntities} refetch={refetch} />}
                 {showCancel && (
                     <CancelButton onClick={onClickCancel} type="link">
-                        Done
+                        {tc('done')}
                     </CancelButton>
                 )}
             </ActionsContainer>

@@ -86,7 +86,7 @@
             ]
         },
         {
-            "join_type": "JOIN",
+            "join_type": "CROSS JOIN",
             "left_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)"
             ],

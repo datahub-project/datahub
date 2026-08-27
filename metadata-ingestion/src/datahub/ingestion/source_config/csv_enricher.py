@@ -1,3 +1,5 @@
+from typing import Dict, Optional
+
 import pydantic
 from pydantic import field_validator
 
@@ -19,6 +21,13 @@ class CSVEnricherConfig(ConfigModel):
         default="|",
         description="Delimiter to use when parsing array fields (tags, terms and owners)",
     )
+    structured_properties: Optional[Dict[str, str]] = pydantic.Field(
+        default=None,
+        description=(
+            "Explicit mapping from CSV column names to structured property ids or URNs. "
+            "Example: {'classification': 'urn:li:structuredProperty:io.acryl.privacy.classification'}"
+        ),
+    )
 
     @field_validator("write_semantics", mode="after")
     @classmethod
@@ -39,3 +48,23 @@ class CSVEnricherConfig(ConfigModel):
                 "array_delimiter and delimiter are the same. Please choose different delimiters."
             )
         return array_delimiter
+
+    @field_validator("structured_properties", mode="after")
+    @classmethod
+    def validate_structured_properties(
+        cls, structured_properties: Optional[Dict[str, str]]
+    ) -> Optional[Dict[str, str]]:
+        if not structured_properties:
+            return structured_properties
+
+        for column_name, property_name_or_urn in structured_properties.items():
+            if not column_name or not column_name.strip():
+                raise ValueError(
+                    "structured_properties mapping contains an empty CSV column name."
+                )
+            if not property_name_or_urn or not property_name_or_urn.strip():
+                raise ValueError(
+                    f"structured_properties mapping for column '{column_name}' has an empty property name/URN."
+                )
+
+        return structured_properties

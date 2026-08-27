@@ -1,3 +1,7 @@
+---
+description: "The DataHub project roadmap, with a pointer to the live feature request and prioritization site for upcoming work."
+---
+
 # DataHub Roadmap
 
 ## [The DataHub Roadmap has a new home!](https://feature-requests.datahubproject.io/roadmap)

@@ -281,21 +281,17 @@ Key GraphQL types:
 
 ### Integration with dbt
 
-DataHub's dbt integration automatically converts dbt tests into assertions:
+DataHub's dbt integration emits dbt tests and freshness checks as **`AssertionType.CUSTOM`** assertions with structured `CustomAssertionInfo` (scope, operator, aggregation, parameters, fields, nativeType).
 
-- **Schema Tests**: Mapped to field assertions (not_null, unique, accepted_values, relationships)
-- **Data Tests**: Mapped to SQL assertions
-- **Test Metadata**: Test severity, tags, and descriptions are preserved
+- Schema / data tests → `customAssertion.type = "dbt"`
+- Freshness checks → `customAssertion.type = "dbt Freshness"`
+- Test severity, tags, and descriptions are preserved on the assertion
 
 ### Integration with Great Expectations
 
-The Great Expectations integration maps expectations to assertion types:
+The Great Expectations action emits each expectation as an **`AssertionType.CUSTOM`** assertion with `customAssertion.type = "greatExpectations"` and structured display fields derived from the expectation type and kwargs.
 
-- Column expectations → Field assertions
-- Table expectations → Volume or schema assertions
-- Custom expectations → Custom assertions
-
-Each expectation suite becomes a collection of assertions in DataHub.
+Each expectation suite becomes a collection of CUSTOM assertions in DataHub.
 
 ### Integration with Snowflake Data Quality
 
@@ -304,13 +300,17 @@ Snowflake DMF (Data Metric Functions) rules are ingested as assertions:
 - Row count rules → Volume assertions
 - Uniqueness rules → Field metric assertions
 - Freshness rules → Freshness assertions
-- Custom metric rules → SQL assertions
+- Custom metric rules → SQL / CUSTOM assertions (see the Snowflake connector docs)
 
 ## Notable Exceptions
 
 ### Legacy Dataset Assertion Type
 
-The `DATASET` assertion type is a legacy format that predates the more specific field, volume, freshness, and schema assertion types. It uses `DatasetAssertionInfo` with a generic structure. New integrations should use the more specific assertion types (FIELD, VOLUME, FRESHNESS, DATA_SCHEMA, SQL) as they provide better type safety and UI rendering.
+The `DATASET` assertion type is a **deprecated** legacy format for externally managed checks (historically used by dbt tests and Great Expectations). It uses `DatasetAssertionInfo` with a generic structure.
+
+**New external integrations must use `AssertionType.CUSTOM` with `CustomAssertionInfo`**, which now supports the same structured display fields (scope, aggregation, operator, parameters, fields, nativeType). Prefer the GraphQL `upsertCustomAssertion` / `reportAssertionResult` APIs, or the Python helpers documented in [Custom Assertions](/docs/api/tutorials/custom-assertions.md).
+
+Native typed models (`FIELD`, `VOLUME`, `FRESHNESS`, `DATA_SCHEMA`, `SQL`) are intended for assertions DataHub evaluates or schedules natively and must not be used for external self-reporting.
 
 ### Assertion Results vs. Assertion Metrics
 

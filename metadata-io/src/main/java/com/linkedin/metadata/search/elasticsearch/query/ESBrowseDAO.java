@@ -141,7 +141,7 @@ public class ESBrowseDAO {
           opContext
               .getSearchContext()
               .getIndexConvention()
-              .getIndexName(opContext.getEntityRegistry().getEntitySpec(entityName));
+              .getIndexName(opContext, opContext.getEntityRegistry().getEntitySpec(entityName));
 
       final SearchResponse groupsResponse =
           opContext.withSpan(
@@ -149,6 +149,7 @@ public class ESBrowseDAO {
               () -> {
                 try {
                   return client.search(
+                      finalOpContext,
                       constructGroupsSearchRequest(
                           finalOpContext, entityName, indexName, path, requestMap),
                       RequestOptions.DEFAULT);
@@ -175,6 +176,7 @@ public class ESBrowseDAO {
               () -> {
                 try {
                   return client.search(
+                      finalOpContext,
                       constructEntitiesSearchRequest(
                           finalOpContext,
                           entityName,
@@ -442,13 +444,14 @@ public class ESBrowseDAO {
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getIndexName(opContext.getEntityRegistry().getEntitySpec(entityName));
+            .getIndexName(opContext, opContext.getEntityRegistry().getEntitySpec(entityName));
     final SearchRequest searchRequest = new SearchRequest(indexName);
     searchRequest.source(
         new SearchSourceBuilder().query(QueryBuilders.termQuery(URN, urn.toString())));
     final SearchHit[] searchHits;
     try {
-      searchHits = client.search(searchRequest, RequestOptions.DEFAULT).getHits().getHits();
+      searchHits =
+          client.search(opContext, searchRequest, RequestOptions.DEFAULT).getHits().getHits();
     } catch (Exception e) {
       log.error("Get paths from urn query failed: " + e.getMessage());
       throw new ESQueryException("Get paths from urn query failed: ", e);
@@ -487,6 +490,7 @@ public class ESBrowseDAO {
               () -> {
                 try {
                   return client.search(
+                      finalOpContext,
                       constructGroupsSearchRequestV2(
                           finalOpContext, entityName, path, filter, input.isEmpty() ? "*" : input),
                       RequestOptions.DEFAULT);
@@ -536,6 +540,7 @@ public class ESBrowseDAO {
               () -> {
                 try {
                   return client.search(
+                      finalOpContext,
                       constructGroupsSearchRequestBrowseAcrossEntities(
                           finalOpContext, entities, path, filter, input.isEmpty() ? "*" : input),
                       RequestOptions.DEFAULT);
@@ -576,7 +581,7 @@ public class ESBrowseDAO {
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getIndexName(opContext.getEntityRegistry().getEntitySpec(entityName));
+            .getIndexName(opContext, opContext.getEntityRegistry().getEntitySpec(entityName));
     final SearchRequest searchRequest = new SearchRequest(indexName);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(0);
@@ -586,7 +591,7 @@ public class ESBrowseDAO {
             entityName,
             path,
             SearchUtil.transformFilterForEntities(
-                filter, opContext.getSearchContext().getIndexConvention()),
+                opContext, filter, opContext.getSearchContext().getIndexConvention()),
             input));
     searchSourceBuilder.aggregation(buildAggregationsV2(path));
     searchRequest.source(searchSourceBuilder);
@@ -608,7 +613,12 @@ public class ESBrowseDAO {
 
     String[] indexArray =
         entities.stream()
-            .map(e -> opContext.getSearchContext().getIndexConvention().getEntityIndexName(e))
+            .map(
+                e ->
+                    opContext
+                        .getSearchContext()
+                        .getIndexConvention()
+                        .getEntityIndexName(opContext, e))
             .toArray(String[]::new);
 
     final SearchRequest searchRequest = new SearchRequest(indexArray);
@@ -620,7 +630,7 @@ public class ESBrowseDAO {
             entitySpecs,
             path,
             SearchUtil.transformFilterForEntities(
-                filter, opContext.getSearchContext().getIndexConvention()),
+                opContext, filter, opContext.getSearchContext().getIndexConvention()),
             input));
     searchSourceBuilder.aggregation(buildAggregationsV2(path));
     searchRequest.source(searchSourceBuilder);

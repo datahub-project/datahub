@@ -1,5 +1,6 @@
 import { Form } from 'antd';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import BaseModuleModal from '@app/homeV3/moduleModals/common/BaseModuleModal';
@@ -12,6 +13,7 @@ import { filterAssetUrnsByAssetType, getAssetTypeFromAssetUrns } from '@app/home
 import { DataHubPageModuleType } from '@types';
 
 export default function HierarchyViewModal() {
+    const { t } = useTranslation('modules');
     const {
         upsertModule,
         moduleModalState: { position, close, isEditing, initialState },
@@ -89,8 +91,8 @@ export default function HierarchyViewModal() {
 
     return (
         <BaseModuleModal
-            title={`${isEditing ? 'Edit' : 'Add'} Hierarchy View`}
-            subtitle="Create a module by selecting assets and information that will be shown to your users"
+            title={isEditing ? t('hierarchy.editTitle') : t('hierarchy.addTitle')}
+            subtitle={t('hierarchy.subtitle')}
             onUpsert={handleUpsertAssetCollectionModule}
             maxWidth="900px"
             submitButtonProps={{ disabled: isSubmitButtonDisabled }}

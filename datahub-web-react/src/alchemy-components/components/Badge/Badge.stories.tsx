@@ -86,6 +86,7 @@ export const sizes = () => (
 export const colors = () => (
     <GridList>
         <Badge count={100} />
+        {/* eslint-disable-next-line rulesdir/no-hardcoded-colors -- Storybook showcase of the violet color variant */}
         <Badge count={100} color="violet" />
         <Badge count={100} color="green" />
         <Badge count={100} color="red" />

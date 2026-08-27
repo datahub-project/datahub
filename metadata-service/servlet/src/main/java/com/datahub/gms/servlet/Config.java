@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
@@ -101,6 +102,19 @@ public class Config extends HttpServlet {
       datahubConfig.put("serverType", configProvider.getDatahub().serverType);
       datahubConfig.put("serverEnv", configProvider.getDatahub().serverEnv);
       newConfig.put("datahub", datahubConfig);
+
+      // pgQueue Configuration (exposed for Python CLI/executor)
+      try {
+        PostgresSqlSetupProperties pgProps = ctx.getBean(PostgresSqlSetupProperties.class);
+        if (pgProps.getPgQueue() != null && pgProps.getPgQueue().isEnabled()) {
+          Map<String, Object> pgQueueConfig = new HashMap<>();
+          pgQueueConfig.put(
+              "priorityBands", pgProps.getPgQueue().getTopicDefaults().getPriorityBands());
+          newConfig.put("pgQueue", pgQueueConfig);
+        }
+      } catch (Exception e) {
+        log.debug("pgQueue properties not available, skipping pgQueue config section");
+      }
 
       // Dataset URN Name Casing
       Boolean datasetUrnNameCasing = getDatasetUrnNameCasing(ctx);

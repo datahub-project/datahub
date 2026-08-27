@@ -35,6 +35,13 @@ logging.basicConfig(format=BASE_LOGGING_FORMAT)
 MAX_CONTENT_WIDTH = 120
 
 
+class _BelowErrorFilter(logging.Filter):
+    """Restrict a handler to DEBUG / INFO / WARNING so ERROR+ use a separate stream."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno < logging.ERROR
+
+
 @click.group(
     context_settings=dict(
         # Avoid truncation of help text.
@@ -87,11 +94,17 @@ def datahub_actions(
 
     # 1. Create 'datahub' parent logger.
     datahub_logger = logging.getLogger("datahub_actions")
-    # 2. Setup the stream handler with formatter.
-    stream_handler = logging.StreamHandler()
+    # 2. Console: stdout for < ERROR, stderr for ERROR+ (single default StreamHandler would send all levels to stderr).
     formatter = logging.Formatter(BASE_LOGGING_FORMAT)
-    stream_handler.setFormatter(formatter)
-    datahub_logger.addHandler(stream_handler)
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(logging.DEBUG)
+    stdout_handler.addFilter(_BelowErrorFilter())
+    stdout_handler.setFormatter(formatter)
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.ERROR)
+    stderr_handler.setFormatter(formatter)
+    datahub_logger.addHandler(stdout_handler)
+    datahub_logger.addHandler(stderr_handler)
     # 3. Turn off propagation to the root handler.
     datahub_logger.propagate = False
     # 4. Adjust log-levels.

@@ -1,3 +1,7 @@
+---
+description: "Create and manage MLModelGroup entities in DataHub using the Java SDK V2 to organize related ML models and version histories."
+---
+
 # MLModelGroup Entity
 
 ## Overview

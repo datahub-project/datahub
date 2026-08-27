@@ -31,7 +31,7 @@ function createFullServiceAccount(newServiceAccount: CreatedServiceAccountData) 
         createdBy: newServiceAccount.createdBy || null,
         createdAt: newServiceAccount.createdAt || null,
         updatedAt: null,
-        // Match the structure of the roles field from the GraphQL query
+        defaultView: null,
         roles: {
             __typename: 'EntityRelationshipsResult',
             start: 0,

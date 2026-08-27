@@ -1,0 +1,19 @@
+{
+  "results": [
+    {
+      "id": "prod-env-1",
+      "name": "production"
+    },
+    {
+      "id": "dev-env-1",
+      "name": "development"
+    },
+    {
+      "id": "test-env-1",
+      "name": "testing"
+    }
+  ],
+  "total": 3,
+  "page": 0,
+  "size": 100
+}

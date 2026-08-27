@@ -137,6 +137,7 @@ public class EventSchemaConstantsTest {
     assertEquals(SchemaIdOrdinal.METADATA_CHANGE_EVENT.getSchemaId(), 20);
     assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT.getSchemaId(), 21);
     assertEquals(SchemaIdOrdinal.METADATA_AUDIT_EVENT.getSchemaId(), 22);
+    assertEquals(SchemaIdOrdinal.RESERVED_23.getSchemaId(), 23);
   }
 
   @Test
