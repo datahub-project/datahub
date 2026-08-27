@@ -1474,7 +1474,7 @@ def _normalize_map_schemas(schema: object) -> object:
     return _promote_pattern_properties_to_additional(working_schema)
 
 
-def _strip_unresolved_refs(schema: object) -> Tuple[object, bool]:
+def _strip_unresolved_refs(schema: object) -> Tuple[object, List[object]]:
     """Recursively remove any leftover "$ref" key anywhere in the tree.
 
     This walk is intentionally generic (every dict value and list item, not just the
@@ -1490,7 +1490,10 @@ def _strip_unresolved_refs(schema: object) -> Tuple[object, bool]:
     the whole schema's fields, not just this one), which is far worse than
     losing this one key's data.
 
-    Returns (possibly-rebuilt schema, True if any $ref was found and removed).
+    Returns (possibly-rebuilt schema, the $ref values found and removed) --
+    the caller uses the removed values (rather than a plain count/bool) to
+    tell a genuinely broken local ref from an expected, unsupported external
+    one, so it can log accordingly instead of treating both identically.
     Does NOT mutate the input in place: a node under one of the unvisited
     keywords above may still be the exact same dict object as a shared
     sw_dict component (neither _resolve_schema_refs nor _normalize_map_schemas
@@ -1501,24 +1504,24 @@ def _strip_unresolved_refs(schema: object) -> Tuple[object, bool]:
     so this only allocates along paths that actually contained a $ref.
     """
     if isinstance(schema, dict):
-        found = "$ref" in schema
+        stripped_refs: List[object] = [schema["$ref"]] if "$ref" in schema else []
         new_dict = {}
         for key, value in schema.items():
             if key == "$ref":
                 continue
-            new_value, child_found = _strip_unresolved_refs(value)
-            found = found or child_found
+            new_value, child_refs = _strip_unresolved_refs(value)
+            stripped_refs.extend(child_refs)
             new_dict[key] = new_value
-        return (new_dict if found else schema), found
+        return (new_dict if stripped_refs else schema), stripped_refs
     elif isinstance(schema, list):
-        found = False
+        stripped_refs = []
         new_list = []
         for item in schema:
-            new_item, child_found = _strip_unresolved_refs(item)
-            found = found or child_found
+            new_item, child_refs = _strip_unresolved_refs(item)
+            stripped_refs.extend(child_refs)
             new_list.append(new_item)
-        return (new_list if found else schema), found
-    return schema, False
+        return (new_list if stripped_refs else schema), stripped_refs
+    return schema, []
 
 
 def _resolve_schema_refs(schema: object, sw_dict: Dict, max_depth: int = 10) -> object:
@@ -1667,14 +1670,29 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
     # generic sweep (not an assert) so a depth-limited $ref under a keyword
     # normalize doesn't structurally walk (e.g. "not") degrades gracefully
     # instead of crashing the endpoint — and isn't compiled out under -O.
-    stripped_schema, stripped = _strip_unresolved_refs(resolved_schema)
+    stripped_schema, stripped_refs = _strip_unresolved_refs(resolved_schema)
     assert isinstance(stripped_schema, dict)
     resolved_schema = stripped_schema
-    if stripped:
-        logger.warning(
-            "Unresolved schema $ref(s) remained after normalization; "
-            "removed to avoid jsonref failure"
-        )
+    if stripped_refs:
+        # Only external/unsupported refs (a normal, spec-legal pattern this
+        # connector doesn't resolve) were removed -- not evidence the spec
+        # itself is broken, so this must not surface as a report warning
+        # (matching the INFO-level notice already logged when they were
+        # first left unresolved above).
+        if all(
+            isinstance(ref, str) and not ref.startswith(_LOCAL_REF_PREFIXES)
+            for ref in stripped_refs
+        ):
+            logger.info(
+                "Removed %d external/unsupported schema $ref(s) after "
+                "normalization (not evidence of a malformed spec)",
+                len(stripped_refs),
+            )
+        else:
+            logger.warning(
+                "Unresolved schema $ref(s) remained after normalization; "
+                "removed to avoid jsonref failure"
+            )
     return resolved_schema
 
 

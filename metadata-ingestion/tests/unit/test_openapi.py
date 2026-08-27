@@ -2213,11 +2213,33 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         ) as cm:
             resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
         self.assertNotIn("$ref", resolved)
-        self.assertFalse(
-            any("Unable to resolve schema $ref" in msg for msg in cm.output)
-        )
+        # Regression: downgrading the initial "unresolved" notice to INFO
+        # wasn't enough -- the later _strip_unresolved_refs postcondition
+        # sweep logged its own generic WARNING for any leftover $ref,
+        # external or not, so a healthy split-file spec still ended up
+        # reported as an "OpenAPI Parsing Warning".
+        self.assertFalse(any(record.levelname == "WARNING" for record in cm.records))
         self.assertTrue(
             any("external/unsupported schema $ref" in msg for msg in cm.output)
+        )
+
+    def test_resolve_schema_references_mixed_refs_still_warns_on_broken_one(self):
+        # A genuinely broken local ref alongside an external one must still
+        # surface a WARNING -- downgrading external refs must not mask a
+        # real problem elsewhere in the same schema.
+        schema = {
+            "properties": {
+                "a": {"$ref": "external.yaml#/Pet"},
+                "b": {"$ref": "#/components/schemas/Missing"},
+            }
+        }
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ) as cm:
+            resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
+        self.assertNotIn("$ref", json.dumps(resolved))
+        self.assertTrue(
+            any("removed to avoid jsonref failure" in msg for msg in cm.output)
         )
 
     def test_resolve_schema_references_null_components_does_not_crash(self):
