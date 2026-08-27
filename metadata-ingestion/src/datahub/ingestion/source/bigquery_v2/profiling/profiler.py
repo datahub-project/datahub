@@ -291,19 +291,18 @@ class BigqueryProfiler(GenericProfiler):
     ) -> str:
         """Build the profiling SELECT for a table that has a partition filter.
 
-        Applies TABLESAMPLE when sampling is enabled and the table is large enough,
-        otherwise the configured row limit. Shared by the inline (internal table) and
-        deferred (external table) code paths so their SQL cannot drift.
+        Applies the partition WHERE and the configured row limit but deliberately does
+        NOT emit TABLESAMPLE. BigQuery applies TABLESAMPLE to whole-table storage blocks
+        *before* the WHERE, and sizes the sampled percentage from the whole-table row
+        count, so a small target partition of a very large table can come back empty or
+        badly undersized. When use_sampling is on, the shared SQLAlchemy profiler samples
+        the materialized partition result instead, which is both correct and avoids
+        double-sampling. Shared by the inline (internal table) and deferred (external
+        table) code paths so their SQL cannot drift. `bq_table` is retained for a stable
+        shared signature and possible future per-table shaping.
         """
         select_all = queries.SELECT_ALL.format(table_ref=safe_table_ref)
         where_clause = queries.WHERE_CLAUSE.format(where=partition_where)
-
-        rows_count = getattr(bq_table, "rows_count", None)
-        if self._should_sample(rows_count):
-            tablesample = queries.TABLESAMPLE_SYSTEM.format(
-                sample_percent=self._sample_percent(rows_count)
-            )
-            return f"{select_all}\n{tablesample}\n{where_clause}"
 
         if self.config.profiling.profiling_row_limit > 0:
             row_limit = max(1, int(self.config.profiling.profiling_row_limit))
@@ -568,8 +567,9 @@ class BigqueryProfiler(GenericProfiler):
         # discovery (issuing BigQuery queries). last_altered is already available, so
         # there's no need to discover partitions for a table we're about to skip.
         if self._should_skip_profiling_due_to_staleness(bq_table):
-            # Surface in the report, not just the log: skip_stale_tables defaults to True,
-            # so without this operators silently lose profiling on long-idle tables.
+            # Surface in the report, not just the log: skip_stale_tables is opt-in, so
+            # once an operator enables it they need visibility into which long-idle
+            # tables were dropped rather than silently losing their profiles.
             self.report.warning(
                 title="Profiling skipped for stale table",
                 message="Table was not modified within profiling.staleness_threshold_days; "
@@ -727,11 +727,16 @@ class BigqueryProfiler(GenericProfiler):
                 f"Starting parallel partition discovery for external table: {table_ref}"
             )
 
+            cached_metadata = self._get_cached_partition_metadata(
+                deferred.db_name, deferred.schema_name, bq_table.name
+            )
+
             partition_filters = self.partition_discovery.get_required_partition_filters(
                 bq_table,
                 deferred.db_name,
                 deferred.schema_name,
                 self.query_executor.execute_query_safely,
+                cached_partition_metadata=cached_metadata,
             )
 
             if partition_filters is None:
@@ -797,6 +802,14 @@ class BigqueryProfiler(GenericProfiler):
                         PARTITION_HANDLING_KWARG: PARTITION_HANDLING_ENABLED,
                     }
                 )
+
+            # Mirror the inline path (get_batch_kwargs): when the predicate scanned
+            # exactly one partition, label the profile with the real partition ID
+            # (type=PARTITION rather than type=QUERY). Without this the external profile
+            # is always emitted as an unlabeled QUERY scan.
+            partition_label = self._single_partition_label(partition_where, bq_table)
+            if partition_label is not None:
+                request.batch_kwargs["partition"] = partition_label
 
             return request
 
