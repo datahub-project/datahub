@@ -186,6 +186,30 @@ public class BackfillViewAllQueriesPrivilegeStepTest {
             anyBoolean());
   }
 
+  @Test
+  public void testExecutableLeavesMarkerUnwrittenAndFailsWhenAChunkFetchFails() throws Exception {
+    mockScrollWithSinglePolicy();
+    when(mockEntityService.getEntitiesV2(
+            any(OperationContext.class), eq(POLICY_URN.getEntityType()), any(), any()))
+        .thenThrow(new RuntimeException("simulated fetch failure"));
+
+    BackfillViewAllQueriesPrivilegeStep step =
+        new BackfillViewAllQueriesPrivilegeStep(
+            opContext, mockEntityService, mockSearchService, false, 100);
+    UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
+
+    assertEquals(
+        result.result(),
+        DataHubUpgradeState.FAILED,
+        "a failed policy fetch must fail the step, not silently succeed");
+    verify(mockEntityService, never())
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(p -> DATA_HUB_UPGRADE_RESULT_ASPECT_NAME.equals(p.getAspectName())),
+            any(),
+            anyBoolean());
+  }
+
   /** Captures all ingested proposals and returns only the dataHubPolicyInfo ones. */
   private List<MetadataChangeProposal> capturePolicyInfoProposals() {
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
