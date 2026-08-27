@@ -1396,11 +1396,12 @@ def _normalize_map_schemas_mapping(
             new_mapping[key] = {}
             changed = True
             continue
-        if value is False:
-            # A member schema that can never match can't be represented as a
-            # field/pattern schema -- drop it rather than let get_schema_metadata
-            # crash on a bare bool (TypeError: argument of type 'bool' is not
-            # iterable).
+        if not isinstance(value, dict):
+            # Anything else non-dict (false, None -- e.g. a hand-written
+            # "foo:" with no value parses to None, a scalar) can't be
+            # represented as a field/pattern schema -- drop it rather than
+            # let get_schema_metadata crash (it only accepts object/boolean
+            # JSON Schema values).
             changed = True
             continue
         normalized = _normalize_map_schemas(value)
@@ -1411,9 +1412,23 @@ def _normalize_map_schemas_mapping(
 
 
 def _normalize_map_schemas_list(members: List[Any]) -> Tuple[List[Any], bool]:
-    new_members = []
+    new_members: List[Any] = []
     changed = False
     for member in members:
+        # Same reasoning as _normalize_map_schemas_mapping: a non-dict
+        # member of oneOf/anyOf/allOf (bare bool, None, scalar) reaches
+        # get_schema_metadata's _get_type_from_schema, which does
+        # `if Ellipsis in schema` and crashes -- destroying this endpoint's
+        # entire spec-derived schema for a legal JSON Schema construct.
+        if member is True:
+            new_members.append({})
+            changed = True
+            continue
+        if not isinstance(member, dict):
+            # false, None, or a scalar can't be represented as a
+            # union-branch schema -- drop it rather than crash.
+            changed = True
+            continue
         normalized = _normalize_map_schemas(member)
         if normalized is not member:
             changed = True
@@ -1451,11 +1466,12 @@ def _normalize_map_schemas(schema: object) -> object:
         if items_value is True:
             new_schema["items"] = {}
             changed = True
-        elif items_value is False:
-            # An array that can never contain a matching item can't be
-            # represented as an "items" schema -- drop it rather than let a
-            # bare bool reach get_schema_metadata (see _normalize_map_schemas_
-            # mapping for the same handling on properties/patternProperties).
+        elif not isinstance(items_value, dict):
+            # false, None (e.g. a hand-written "items:" with no value), or a
+            # scalar can't be represented as an "items" schema -- drop it
+            # rather than let it reach get_schema_metadata (see
+            # _normalize_map_schemas_mapping for the same handling on
+            # properties/patternProperties).
             del new_schema["items"]
             changed = True
         else:
@@ -1492,7 +1508,12 @@ def _normalize_map_schemas(schema: object) -> object:
         if isinstance(members, list):
             new_members, members_changed = _normalize_map_schemas_list(members)
             if members_changed:
-                new_schema[union_key] = new_members
+                if new_members:
+                    new_schema[union_key] = new_members
+                else:
+                    # Every member was a "false" (unrepresentable) bool --
+                    # nothing left to constrain against.
+                    del new_schema[union_key]
                 changed = True
 
     working_schema = new_schema if changed else schema

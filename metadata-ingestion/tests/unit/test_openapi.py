@@ -4862,6 +4862,64 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         )
         self.assertNotIn("items", resolved)
 
+    def test_normalize_bare_boolean_oneof_member_survives_schema_metadata(self):
+        # Regression: a bare boolean member of oneOf/anyOf/allOf is the same
+        # crash class as properties/items -- get_schema_metadata raises
+        # TypeError on a non-dict schema value, destroying the endpoint's
+        # entire spec-derived schema for a legal JSON Schema construct.
+        resolved = resolve_schema_references(
+            {
+                "oneOf": [
+                    True,
+                    {"type": "object", "properties": {"a": {"type": "string"}}},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+        )
+        self.assertEqual(resolved["oneOf"][0], {})
+        get_schema_metadata(
+            platform="openapi",
+            name="bool-oneof",
+            json_schema=resolved,
+            swallow_exceptions=False,
+        )
+
+    def test_normalize_bare_boolean_oneof_all_false_drops_keyword(self):
+        # Every member being unrepresentable ("false") leaves nothing to
+        # constrain against -- drop the keyword entirely rather than leave
+        # a dangling empty list.
+        resolved = resolve_schema_references(
+            {"type": "object", "oneOf": [False]}, _EMPTY_OPENAPI_SW
+        )
+        self.assertNotIn("oneOf", resolved)
+
+    def test_normalize_none_property_value_is_dropped_not_just_bare_bool(self):
+        # Regression: the original fix keyed on `is True`/`is False`
+        # identity, but ANY non-dict subschema (not just a bare bool)
+        # crashes get_schema_metadata identically -- e.g. a hand-written
+        # "foo:" with no value parses to None in YAML/JSON.
+        resolved = resolve_schema_references(
+            {
+                "type": "object",
+                "properties": {"a": None, "b": {"type": "string"}},
+            },
+            _EMPTY_OPENAPI_SW,
+        )
+        self.assertNotIn("a", resolved["properties"])
+        self.assertIn("b", resolved["properties"])
+        get_schema_metadata(
+            platform="openapi",
+            name="none-property",
+            json_schema=resolved,
+            swallow_exceptions=False,
+        )
+
+    def test_normalize_none_items_value_is_dropped(self):
+        resolved = resolve_schema_references(
+            {"type": "array", "items": None}, _EMPTY_OPENAPI_SW
+        )
+        self.assertNotIn("items", resolved)
+
     def test_merge_allof_root_required_cleaned_even_with_boolean_member(self):
         # Regression: the required-sanitization ran only inside the dict-only
         # branch, so a boolean allOf member (a valid draft-6+ member that
