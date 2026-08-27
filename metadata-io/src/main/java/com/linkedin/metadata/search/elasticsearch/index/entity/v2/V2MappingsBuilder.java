@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.entityTypeMatches;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getEntityTypeId;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
@@ -120,26 +121,52 @@ public class V2MappingsBuilder implements MappingsBuilder {
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull StructuredPropertyDefinition property) {
-    List<IndexMapping> result = new ArrayList<>(1);
+    List<IndexMapping> result = new ArrayList<>();
 
-    if (entityIndexConfiguration.getV2().isEnabled()) {
-      EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
-      if (entitySpec != null) {
-        Map<String, Object> mappings =
-            getIndexMappings(
-                opContext.getEntityRegistry(), entitySpec, List.of(Pair.of(urn, property)));
-        result.add(
-            IndexMapping.builder()
-                .indexName(
-                    opContext
-                        .getSearchContext()
-                        .getIndexConvention()
-                        .getIndexName(opContext, entitySpec))
-                .mappings(mappings)
-                .build());
-      } else {
-        log.warn("Missing entitySpec for {}", urn.getEntityType());
+    if (!entityIndexConfiguration.getV2().isEnabled()) {
+      return result;
+    }
+
+    // The mapping update must target the indexes of the entity types the property applies to
+    // (e.g. dataset), not the structuredProperty entity's own index that `urn` resolves to.
+    if (property.getEntityTypes() == null || property.getEntityTypes().isEmpty()) {
+      log.warn("Property {} has no entity types defined", urn);
+      return result;
+    }
+
+    for (Urn entityTypeUrn : property.getEntityTypes()) {
+      String entityTypeName = getEntityTypeId(entityTypeUrn);
+      if (entityTypeName == null) {
+        log.warn("Could not extract entity type from URN: {}", entityTypeUrn);
+        continue;
       }
+
+      EntitySpec entitySpec;
+      try {
+        entitySpec = opContext.getEntityRegistry().getEntitySpec(entityTypeName);
+      } catch (IllegalArgumentException e) {
+        log.warn("Unknown entity type: {}", entityTypeName);
+        continue;
+      }
+      // EntityRegistry#getEntitySpec is @Nullable; some implementations return null instead of
+      // throwing. Skip so one unknown type doesn't abort the remaining declared entity types.
+      if (entitySpec == null) {
+        log.warn("Unknown entity type: {}", entityTypeName);
+        continue;
+      }
+
+      Map<String, Object> mappings =
+          getIndexMappings(
+              opContext.getEntityRegistry(), entitySpec, List.of(Pair.of(urn, property)));
+      result.add(
+          IndexMapping.builder()
+              .indexName(
+                  opContext
+                      .getSearchContext()
+                      .getIndexConvention()
+                      .getIndexName(opContext, entitySpec))
+              .mappings(mappings)
+              .build());
     }
 
     return result;
