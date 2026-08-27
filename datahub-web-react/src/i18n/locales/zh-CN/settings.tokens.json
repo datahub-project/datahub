@@ -7,7 +7,7 @@
     "columnOwner": "所有者",
     "copiedToClipboard": "{{label}} 复制到剪贴板",
     "copyFailed": "复制 {{label}} 失败",
-    "copyWarning": "请确保立即复制您的访问令牌。你将无法再看到它。",
+    "copyWarning": "请确保立即复制您的访问令牌。您将无法再看到它。",
     "createError": "创建令牌失败：{{message}}",
     "createForActorTitle": "为 {{name}} 创建访问令牌",
     "createForRemoteExecutorTitle": "为远程执行器创建令牌",
@@ -50,7 +50,7 @@
     "pageTitle": "管理访问令牌",
     "personalToken": "个人令牌",
     "remoteExecutor": "远程执行器",
-    "revokeConfirmText": "使用此令牌的任何人将无法再访问 DataHub API。您无法撤消此操作。",
+    "revokeConfirmText": "使用此令牌的任何人将无法再访问 DataHub API。您无法撤销此操作。",
     "revokeConfirmTitle": "您确定要撤销此令牌吗？",
     "revokeError": "撤销令牌失败！\n {{message}}",
     "revokeTokenAriaLabel": "撤销令牌",
@@ -64,7 +64,7 @@
     "tokenNeverExpires": "该令牌永远不会过期。",
     "tokenSectionTitle": "令牌",
     "tokenUsageDescription": "要使用该令牌，请在发出 API 请求时，将其作为 <keyboard>Authorization</keyboard> 标头中的 <keyboard>Bearer</keyboard> 令牌提供：",
-    "tokenWillExpireOn": "令牌将于 {{date}} 的 {{time}} 到期。",
+    "tokenWillExpireOn": "令牌将于 {{date}} {{time}} 到期。",
     "updateError": "更新令牌失败。",
     "usageSectionTitle": "使用情况"
 }

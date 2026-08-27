@@ -10,7 +10,7 @@
     "form.description": "描述",
     "form.descriptionPlaceholder": "提供描述",
     "form.name": "名称",
-"form.namePlaceholder": "提供名称",
+    "form.namePlaceholder": "提供名称",
     "loadError": "无法加载负责人类型！发生意外错误。",
     "loading": "正在加载负责人类型...",
     "menu.copyUrn": "复制 URN",

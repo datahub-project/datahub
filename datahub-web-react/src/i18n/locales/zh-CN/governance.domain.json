@@ -27,7 +27,7 @@
     "list.loadError": "加载数据域失败！发生意外错误。",
     "list.loading": "正在加载数据域...",
     "list.newDomain": "新建数据域",
-    "list.paginationRange": "<bold>{{startIndex}} - <bold>{{totalDomains}}</bold> 的 {{lastResultIndex}}</bold>",
+    "list.paginationRange": "第 <bold>{{startIndex}} - {{lastResultIndex}}</bold> 条，共 <bold>{{totalDomains}}</bold> 个",
     "list.searchPlaceholder": "搜索数据域...",
     "navigator.empty": "未找到数据域",
     "navigator.emptyFiltered": "没有符合此筛选条件的数据域",

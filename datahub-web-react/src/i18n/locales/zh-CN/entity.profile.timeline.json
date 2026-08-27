@@ -1,5 +1,5 @@
 {
     "schemaTimeline.changeAdded": "添加了 {{fieldPath}}。",
-    "schemaTimeline.changeModified": "修改了{{fieldPath}}。",
+    "schemaTimeline.changeModified": "修改了 {{fieldPath}}。",
     "schemaTimeline.changeRemoved": "{{fieldPath}} 已被删除。"
 }

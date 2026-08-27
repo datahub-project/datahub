@@ -1,6 +1,6 @@
 {
     "externalUrl.sourceFallback": "来源",
-    "externalUrl.viewIn": "在{{displayName}}中查看",
+    "externalUrl.viewIn": "在 {{displayName}} 中查看",
     "noteModal.contentLabel": "内容",
     "noteModal.contentPlaceholder": "写个便条。标记@user 或引用@数据资产让您的笔记变得生动起来！",
     "noteModal.createdSuccess": "创建注释！",
@@ -9,8 +9,8 @@
     "noteModal.createUnauthorized": "未经授权创建注释。请联系您的 DataHub 管理员。",
     "noteModal.editTitle": "编辑备注",
     "noteModal.titlePlaceholder": "您的标题",
-"noteModal.updatedSuccess": "注释已更新！",
-    "noteModal.updateError": "更新失败注意！发生未知错误。",
+    "noteModal.updatedSuccess": "注释已更新！",
+    "noteModal.updateError": "更新注释失败！发生未知错误。",
     "notes.dateAtTime": "{{date}} 在 {{time}}",
     "notes.deleteConfirmation": "您确定要删除此注释吗？",
     "notes.deleteTitle": "删除注释",
