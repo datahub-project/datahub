@@ -172,7 +172,9 @@ def test_date_components_without_year_marked_incomplete():
 
 def test_value_filter_ranges_for_temporal_columns():
     """A discovered MAX value on a DATETIME/TIMESTAMP column must produce a half-open
-    range covering its partition, not an equality to a single instant.
+    range covering its whole partition unit, not an equality to a single instant. This
+    is the shared range logic that _test_date_candidate's strategic path also delegates
+    to, so the exact-bounds assertions here guard both discovery paths.
     """
     discovery = PartitionDiscovery(make_config())
     table = make_table(partition_info=PartitionInfo(fields=("ts",), type="DAY"))
@@ -180,7 +182,16 @@ def test_value_filter_ranges_for_temporal_columns():
     ts_filter = discovery._value_filter(
         table, "ts", datetime(2025, 1, 15, 23, 59, 58), "TIMESTAMP"
     )
-    assert ">=" in ts_filter and "<" in ts_filter
+    assert ts_filter == (
+        "`ts` >= TIMESTAMP('2025-01-15 00:00:00') "
+        "AND `ts` < TIMESTAMP('2025-01-16 00:00:00')"
+    )
+
+    # A DATE column floors to the day and bounds the next day exclusively.
+    date_filter = discovery._value_filter(
+        table, "d", datetime(2025, 1, 15, 12, 0, 0), "DATE"
+    )
+    assert date_filter == "`d` >= '2025-01-15' AND `d` < '2025-01-16'"
 
     # A non-temporal column keeps a plain equality.
     region_filter = discovery._value_filter(table, "region", "emea", "STRING")

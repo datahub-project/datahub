@@ -1073,14 +1073,10 @@ class PartitionDiscovery:
                     if col_data_type.upper() in TEMPORAL_PARTITION_TYPES:
                         # A DATE/DATETIME/TIMESTAMP partition covers a whole time unit;
                         # an equality to a single day/instant would drop the rest of the
-                        # partition, so build a granularity-aware half-open range.
+                        # partition. Reuse _value_filter so the half-open range logic
+                        # stays in one place and cannot diverge from direct discovery.
                         filters.append(
-                            FilterBuilder.create_partition_datetime_filter(
-                                col,
-                                test_date,
-                                col_data_type,
-                                getattr(table.partition_info, "type", None),
-                            )
+                            self._value_filter(table, col, test_date, col_data_type)
                         )
                     else:
                         # Date-like by name only (e.g. a STRING column): keep the
