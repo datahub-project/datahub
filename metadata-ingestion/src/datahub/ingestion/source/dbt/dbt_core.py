@@ -1150,16 +1150,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             sources_invocation_id=sources_invocation_id,
         )
 
-        # Extract exposures from manifest. Accumulate rather than overwrite: this
-        # method is called once per project under fan-out, and self._exposures is
-        # read exactly once at emit time (load_exposures), so overwriting here would
-        # silently drop every project's exposures but the last.
-        self._exposures.extend(
-            extract_dbt_exposures(
-                manifest_exposures=manifest_exposures,
-                tag_prefix=self.config.tag_prefix,
-                manifest_path=manifest_path,
-            )
+        # Held locally until this project's extraction has fully succeeded - see the
+        # extend below.
+        project_exposures = extract_dbt_exposures(
+            manifest_exposures=manifest_exposures,
+            tag_prefix=self.config.tag_prefix,
+            manifest_path=manifest_path,
         )
 
         # Extract semantic models from manifest (dbt 1.6+)
@@ -1190,6 +1186,15 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             node.manifest_path = manifest_path
             node.catalog_generated_at = catalog_generated_at
             node.manifest_generated_at = manifest_generated_at
+
+        # Only now, once every extractor for this project has succeeded. Accumulate
+        # rather than overwrite: this method runs once per project under fan-out and
+        # self._exposures is read once at emit time (load_exposures), so overwriting
+        # would drop every project's exposures but the last. Extending earlier would
+        # break the other half of the guarantee - a project skipped by the
+        # per-project failure handler would still have its exposures emitted, since
+        # they were already on self.
+        self._exposures.extend(project_exposures)
 
         return nodes, catalog_version
 

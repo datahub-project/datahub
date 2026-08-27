@@ -6,6 +6,7 @@ from unittest import mock
 import dateutil.parser
 import pytest
 
+import datahub.ingestion.source.dbt.dbt_core as dbt_core_module
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -424,6 +425,55 @@ def test_glob_accumulates_exposures_across_projects(tmp_path: pathlib.Path) -> N
     }
 
 
+def test_failed_project_contributes_no_exposures(tmp_path: pathlib.Path) -> None:
+    """A project skipped by the per-project failure handler must contribute nothing.
+
+    Exposures were appended to self._exposures partway through
+    loadManifestAndCatalog, before semantic-model extraction ran. A project that
+    failed after that point was skipped for its nodes but its exposures were
+    already on self and still emitted, breaking the isolation guarantee.
+    """
+    for project in ["project_a", "project_b", "project_c"]:
+        _write_project(
+            tmp_path,
+            project,
+            [{"name": f"orders_{project}", "database": "db", "schema": project}],
+            exposures={
+                f"exposure.{project}.dashboard": {"name": f"dashboard_{project}"}
+            },
+            semantic_models={
+                f"semantic_model.{project}.metrics": _semantic_model(
+                    f"semantic_model.{project}.metrics", "metrics", "db", project
+                )
+            },
+        )
+
+    real_extract = dbt_core_module.extract_semantic_models
+
+    def fail_for_project_b(
+        *, manifest_semantic_models: Dict[str, Any], **kwargs: Any
+    ) -> List[Any]:
+        # Fails strictly after this project's exposures have been parsed, which is
+        # the window the bug lived in.
+        if "semantic_model.project_b.metrics" in manifest_semantic_models:
+            raise RuntimeError("semantic model extraction blew up")
+        return real_extract(manifest_semantic_models=manifest_semantic_models, **kwargs)
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    with mock.patch.object(
+        dbt_core_module, "extract_semantic_models", side_effect=fail_for_project_b
+    ):
+        nodes = source.load_nodes()
+
+    assert source.report.manifests_loaded == 2
+    assert source.report.manifests_failed == 1
+    assert not any(node.dbt_name.endswith("orders_project_b") for node in nodes)
+    assert {e.name for e in source.load_exposures()} == {
+        "dashboard_project_a",
+        "dashboard_project_c",
+    }
+
+
 def test_glob_attributes_catalog_generated_at_per_project(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -816,7 +866,13 @@ def test_cross_project_semantic_model_collision_fails(tmp_path: pathlib.Path) ->
         _write_project(
             tmp_path,
             project,
-            [{"name": f"orders_{project}", "database": "db", "schema": f"sch_{project}"}],
+            [
+                {
+                    "name": f"orders_{project}",
+                    "database": "db",
+                    "schema": f"sch_{project}",
+                }
+            ],
             semantic_models={
                 f"semantic_model.{project}.order_metrics": _semantic_model(
                     f"semantic_model.{project}.order_metrics",
