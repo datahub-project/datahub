@@ -984,6 +984,57 @@ def test_external_discovery_hive_ddl_without_columns_returns_none():
     assert filters is None
 
 
+def test_external_discovery_hive_mode_option_without_columns_returns_none():
+    # Reconstructed INFORMATION_SCHEMA.TABLES.ddl lists the hive keys as ordinary columns
+    # and declares partitioning only via the `hive_partitioning_mode` OPTIONS entry (no
+    # `WITH PARTITION COLUMNS`). It must still be recognised as hive-partitioned and skipped.
+    report = BigQueryV2Report()
+    discovery = PartitionDiscovery(create_test_config(), report)
+    table = create_test_table(external=True)
+    table.ddl = (
+        "CREATE EXTERNAL TABLE `p.d.t` (dt STRING) "
+        "OPTIONS (uris=['gs://bucket/*'], hive_partitioning_mode = 'AUTO')"
+    )
+
+    with (
+        patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
+        patch.object(
+            discovery, "get_partition_columns_from_info_schema", return_value={}
+        ),
+        patch.object(discovery, "get_partition_columns_from_ddl", return_value={}),
+    ):
+        filters = discovery._get_external_table_partition_filters(
+            table, "test-project", "dataset", lambda q, jc, ctx: []
+        )
+
+    assert filters is None
+
+
+def test_external_discovery_hive_marker_in_uri_is_not_hive():
+    # The hive marker appears only inside a quoted GCS URI, not as an OPTIONS assignment.
+    # It must NOT be misread as hive partitioning: this is a genuinely unpartitioned
+    # external table, so [] (profile the whole table) is correct.
+    discovery = PartitionDiscovery(create_test_config(), BigQueryV2Report())
+    table = create_test_table(external=True)
+    table.ddl = (
+        "CREATE EXTERNAL TABLE `p.d.t` (id INT64) "
+        "OPTIONS (uris=['gs://bucket/hive_partitioning_options/data/*'], format='PARQUET')"
+    )
+
+    with (
+        patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
+        patch.object(
+            discovery, "get_partition_columns_from_info_schema", return_value={}
+        ),
+        patch.object(discovery, "get_partition_columns_from_ddl", return_value={}),
+    ):
+        filters = discovery._get_external_table_partition_filters(
+            table, "test-project", "dataset", lambda q, jc, ctx: []
+        )
+
+    assert filters == []
+
+
 def test_external_discovery_plain_ddl_no_partition_returns_empty():
     # DDL present, no hive options, no PARTITION BY columns: a genuinely unpartitioned
     # external table, so [] (profile the whole table) is correct.

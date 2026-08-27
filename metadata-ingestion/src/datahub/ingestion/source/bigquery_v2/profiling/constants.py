@@ -209,12 +209,18 @@ PARTITION_FILTER_PATTERN = re.compile(
 )
 
 # Hive-partitioned external tables declare their keys in the DDL OPTIONS via
-# `hive_partitioning_options` (or the legacy `WITH PARTITION COLUMNS` form) rather than
-# a `PARTITION BY` clause, so the sqlglot PARTITION BY parse never sees them. When this
-# matches but no partition columns were extracted, the table IS partitioned but we can't
-# build a filter, so it must be treated as unknown (skip) rather than unpartitioned.
+# `hive_partitioning_mode = ...` / `hive_partitioning_options = ...` (or the legacy
+# `WITH PARTITION COLUMNS` clause) rather than a `PARTITION BY` clause, so the sqlglot
+# PARTITION BY parse never sees them. When this matches but no partition columns were
+# extracted, the table IS partitioned but we can't build a filter, so it must be treated
+# as unknown (skip) rather than unpartitioned.
+#
+# The option keys are anchored on the `= ` assignment so the marker is only detected as an
+# actual OPTIONS entry, not when the same text appears inside a quoted value such as a GCS
+# URI (`gs://bucket/hive_partitioning_mode=.../`). A SQL comment that assigns the option is
+# a residual false positive, but it errs toward skipping (never toward a full scan).
 HIVE_PARTITIONING_DDL_RE = re.compile(
-    r"hive_partitioning_options|WITH\s+PARTITION\s+COLUMNS",
+    r"hive_partitioning_(?:mode|options)\s*=|WITH\s+PARTITION\s+COLUMNS\b",
     re.IGNORECASE,
 )
 
