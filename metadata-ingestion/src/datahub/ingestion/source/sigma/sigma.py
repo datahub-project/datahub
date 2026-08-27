@@ -613,16 +613,32 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # emitting datasets can still resolve later, when workbooks or data
             # models run their own lookups. Sigma can answer for a folder id
             # while refusing the workspace id it belongs to, which puts the
-            # workspace in the cache after the fact. ``_gen_workspace_workunit``
-            # has then already named it properly, and emitting here would
-            # overwrite that with the path-derived name, dropping the real
-            # owner and timestamps.
+            # workspace in the cache after the fact.
+            #
+            # Skip only what someone else actually names. Being in the cache is
+            # not enough -- ``_gen_workspace_workunit`` runs off
+            # ``_get_allowed_workspaces``, so a cached workspace the pattern
+            # denies is never named by anyone.
             workspace_id = self.sigma_api.resolve_workspace_id(noted_id)
-            if workspace_id in self.sigma_api.workspaces:
-                continue
             if workspace_id in emitted:
                 continue
+            known = self.sigma_api.workspaces.get(workspace_id)
+            if known is not None and self.config.workspace_pattern.allowed(known.name):
+                continue
             emitted.add(workspace_id)
+            if known is not None:
+                # Resolved late but denied by ``workspace_pattern``, so
+                # ``_gen_workspace_workunit`` never ran for it. Its entities
+                # were admitted by ``ingest_shared_entities`` while the
+                # workspace was still forbidden and still point at this URN,
+                # so the Container has to exist -- and the real name is
+                # available, which beats the one recovered from the path.
+                yield from gen_containers(
+                    container_key=self._gen_workspace_key(workspace_id),
+                    name=known.name,
+                    sub_types=[BIContainerSubTypes.SIGMA_WORKSPACE],
+                )
+                continue
             name = self._inaccessible_workspace_names.get(
                 noted_id
             ) or self._inaccessible_workspace_names.get(workspace_id)

@@ -2136,6 +2136,101 @@ def test_sigma_late_resolved_workspace_keeps_its_real_name(tmp_path, requests_mo
 
 
 @pytest.mark.integration
+def test_sigma_late_resolved_but_pattern_denied_workspace_is_still_named(
+    tmp_path, requests_mock
+):
+    """Being in the workspace cache is not proof the Container gets named.
+
+    ``_gen_workspace_workunit`` only runs for workspaces that survive
+    ``workspace_pattern``. A workspace can be 403 when its datasets are
+    admitted by ``ingest_shared_entities``, resolve later through a folder
+    lookup, and then be dropped by the pattern -- so nothing names it. The
+    entities are already emitted underneath it either way, so skipping the
+    backstop on cache membership alone puts the raw URN back in the UI.
+    """
+    ws_id = "3ee61405-3be2-4000-ba72-60d36757b95b"
+    folder_id = "dddd0000-0000-4000-8000-00000000000c"
+    override_data: Dict[str, Any] = {}
+    datasets_files = copy.deepcopy(
+        default_mock_api()[
+            "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset"
+        ]
+    )
+    for entry in datasets_files["json"]["entries"]:
+        entry["parentId"] = ws_id
+        entry["path"] = "Acryl Data"
+    override_data["https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset"] = (
+        datasets_files
+    )
+    workbook_files = copy.deepcopy(
+        default_mock_api()[
+            "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook"
+        ]
+    )
+    for entry in workbook_files["json"]["entries"]:
+        entry["parentId"] = folder_id
+        entry["path"] = "Acryl Data"
+    override_data[
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook"
+    ] = workbook_files
+    override_data["https://aws-api.sigmacomputing.com/v2/workspaces?limit=50"] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": [], "total": 0, "nextPage": None},
+    }
+    override_data[f"https://aws-api.sigmacomputing.com/v2/workspaces/{ws_id}"] = {
+        "method": "GET",
+        "status_code": 403,
+        "json": {},
+    }
+    override_data[f"https://aws-api.sigmacomputing.com/v2/workspaces/{folder_id}"] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "workspaceId": ws_id,
+            "name": "Denied Workspace",
+            "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "createdAt": "2024-03-12T08:31:04.826Z",
+            "updatedAt": "2024-03-12T08:31:04.826Z",
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path: str = f"{tmp_path}/sigma_late_resolved_denied_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            output_path,
+            ingest_shared_entities=True,
+            workspace_pattern={"allow": ["^Nothing Matches This$"]},
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    referenced = set()
+    for mce in mces:
+        if mce["aspectName"] == "container":
+            referenced.add(mce["aspect"]["json"]["container"])
+        elif mce["aspectName"] == "browsePathsV2":
+            referenced.update(
+                entry["urn"]
+                for entry in mce["aspect"]["json"]["path"]
+                if entry.get("urn", "").startswith("urn:li:container:")
+            )
+    named = {
+        mce["entityUrn"] for mce in mces if mce["aspectName"] == "containerProperties"
+    }
+    assert not referenced - named, (
+        "container URNs referenced with no containerProperties -- the UI "
+        f"renders these as raw URNs: {sorted(referenced - named)}"
+    )
+
+
+@pytest.mark.integration
 def test_sigma_payload_only_data_model_counts_against_its_real_workspace(
     tmp_path, requests_mock
 ):
