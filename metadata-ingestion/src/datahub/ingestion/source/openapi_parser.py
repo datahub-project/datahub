@@ -149,10 +149,14 @@ def get_swag_json(
         raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
     try:
         parsed = json.loads(response.content)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        # UnicodeDecodeError alongside JSONDecodeError: json.loads on non-UTF-8
+        # bytes raises the former, which isn't a JSONDecodeError subclass, and
+        # would otherwise skip the YAML fallback and this function's own
+        # clear error message in favor of a raw decode error propagating up.
         try:
             parsed = yaml.safe_load(response.content)
-        except yaml.YAMLError as e:
+        except (yaml.YAMLError, UnicodeDecodeError) as e:
             raise ValueError(
                 f"Unable to parse OpenAPI spec from {tot_url} as JSON or YAML"
             ) from e
@@ -851,12 +855,17 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
         # Merge required fields (union of all required lists). A malformed spec
         # can put a non-list "required" (e.g. a bare string) on either side;
         # existing_required + new_required would raise TypeError and drop the
-        # whole merge instead of just ignoring the malformed keyword.
+        # whole merge instead of just ignoring the malformed keyword. A
+        # malformed value already on merged_schema (e.g. from the root schema
+        # itself) must be dropped even when this member contributes nothing
+        # valid to replace it with -- otherwise it survives untouched and
+        # schema extraction still raises downstream.
         new_required = resolved_allof.get("required")
+        existing_required = merged_schema.get("required")
+        if not isinstance(existing_required, list):
+            merged_schema.pop("required", None)
+            existing_required = []
         if isinstance(new_required, list):
-            existing_required = merged_schema.get("required")
-            if not isinstance(existing_required, list):
-                existing_required = []
             # Combine required lists and remove duplicates while preserving order
             merged_schema["required"] = list(
                 dict.fromkeys(existing_required + new_required)
@@ -1019,16 +1028,26 @@ def _merge_allof_map_keywords(
         )
         for pattern, prop_schema in pattern_props.items():
             existing = merged_schema["patternProperties"].get(pattern)
-            if existing is not None:
+            # isinstance-guard both sides before _combine_under_allof, which
+            # declares Dict[str, Any] for both arguments: a boolean
+            # patternProperties member (valid draft-6+ JSON Schema) or other
+            # malformed value must not reach it.
+            if isinstance(existing, dict) and isinstance(prop_schema, dict):
                 # Resolve the combined fragment the same way additionalProperties/
                 # properties do, so a colliding pattern's merged shape does not
                 # depend on how deeply this schema happens to be nested.
-                prop_schema = merge_allof_schemas(
+                merged_schema["patternProperties"][pattern] = merge_allof_schemas(
                     _combine_under_allof(existing, prop_schema),
                     sw_dict,
                     max_depth=max_depth,
                 )
-            merged_schema["patternProperties"][pattern] = prop_schema
+            elif not isinstance(existing, dict):
+                # Nothing valid to merge with yet; take whatever this member
+                # contributes (even if also malformed -- that's caught when
+                # this pattern's own schema is next resolved/validated).
+                merged_schema["patternProperties"][pattern] = prop_schema
+            # else: existing is a real schema and prop_schema is malformed --
+            # keep existing rather than clobbering a good schema with junk.
 
     # Keep propertyNames so unresolved $ref there cannot break later jsonref loads.
     # json_schema_util does not emit fields from propertyNames; we only preserve/resolve.

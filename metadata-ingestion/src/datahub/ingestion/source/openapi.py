@@ -1,8 +1,9 @@
 import json
 import logging
 from abc import ABC
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
+from typing import Any, Dict, Iterable, Iterator, List, Literal, Optional, Tuple
 
 import requests
 from pydantic import SecretStr, field_validator, model_validator
@@ -52,6 +53,36 @@ from datahub.metadata.schema_classes import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 _RESPONSE_CONTENT_TYPES = ("application/json", "application/xml", "text/json")
+
+# openapi_parser's schema-walking functions (get_endpoints, merge_allof_schemas,
+# resolve_schema_references, ...) are free functions with no SourceReport access,
+# so malformed/unusual-input degradation there (a skipped path item, an unresolved
+# $ref, a lossy patternProperties collapse) only ever reaches the Python logger --
+# never the ingestion report an operator actually looks at. Bridging its logger
+# output into the report (below) surfaces that without threading a report/callback
+# parameter through every one of those functions.
+_PARSER_LOGGER_NAME = "datahub.ingestion.source.openapi_parser"
+
+
+class _CollectingLogHandler(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__(level=logging.WARNING)
+        self.messages: List[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.messages.append(record.getMessage())
+
+
+@contextmanager
+def _capture_parser_warnings() -> Iterator[List[str]]:
+    handler = _CollectingLogHandler()
+    parser_logger = logging.getLogger(_PARSER_LOGGER_NAME)
+    parser_logger.addHandler(handler)
+    try:
+        yield handler.messages
+    finally:
+        parser_logger.removeHandler(handler)
+
 
 _BAD_RESPONSE_MESSAGES: Dict[int, Tuple[str, str]] = {
     400: (
@@ -887,57 +918,77 @@ class APISource(Source, ABC):
             Tracks statistics for final reporting
         """
         config = self.config
-        try:
-            sw_dict = self.config.get_swagger()
-            self.url_basepath = get_url_basepath(sw_dict)
-            url_endpoints = get_endpoints(sw_dict)
-        except Exception as e:
-            # get_url_basepath/get_endpoints are included here (not just get_swagger)
-            # because a spec that fetches/parses fine but is missing an expected key
-            # (e.g. "paths") would otherwise raise an unhandled KeyError and crash
-            # the whole run instead of surfacing a report failure.
-            #
-            # Attaching the real exception is safe: get_tok (the only place a
-            # get_token password is ever substituted into a URL) already sanitizes
-            # every exception it raises down to response.status_code / exception
-            # type, with no url4req/password in the message -- see
-            # test_get_tok_error_does_not_leak_credentials_in_message and
-            # test_get_tok_connection_error_does_not_leak_credentials_in_message.
-            # Hiding it behind a generic RuntimeError would just deprive operators
-            # of the real cause (401, parse error, missing "paths", TLS failure).
-            self.report.failure(
-                title="Failed to Fetch OpenAPI Spec",
-                message="Unable to retrieve, parse, or interpret the OpenAPI specification",
-                context=f"{config.url} / {config.swagger_file}",
-                exc=e,
-            )
-            return
-
-        # Sample from "listing endpoint" for guessing composed endpoints
-        root_dataset_samples: Dict[str, Any] = {}
-
-        # Process all endpoints. Materialize each endpoint's workunits inside the
-        # try so consumer-side failures at yield are not mis-attributed here.
-        for endpoint_k, endpoint_dets in url_endpoints.items():
-            if endpoint_k in config.ignore_endpoints:
-                continue
-
+        with _capture_parser_warnings() as parser_warnings:
             try:
-                workunits = list(
-                    self._process_endpoint(
-                        endpoint_k, endpoint_dets, sw_dict, root_dataset_samples
-                    )
-                )
+                sw_dict = self.config.get_swagger()
+                self.url_basepath = get_url_basepath(sw_dict)
+                url_endpoints = get_endpoints(sw_dict)
             except Exception as e:
+                # get_url_basepath/get_endpoints are included here (not just
+                # get_swagger) because a spec that fetches/parses fine but is
+                # missing an expected key (e.g. "paths") would otherwise raise
+                # an unhandled KeyError and crash the whole run instead of
+                # surfacing a report failure.
+                #
+                # Attaching the real exception is safe: get_tok (the only place
+                # a get_token password is ever substituted into a URL) already
+                # sanitizes every exception it raises down to
+                # response.status_code / exception type, with no url4req/
+                # password in the message -- see
+                # test_get_tok_error_does_not_leak_credentials_in_message and
+                # test_get_tok_connection_error_does_not_leak_credentials_in_message.
+                # Hiding it behind a generic RuntimeError would just deprive
+                # operators of the real cause (401, parse error, missing
+                # "paths", TLS failure).
                 self.report.failure(
-                    title="Failed to Process Endpoint",
-                    message="Unexpected error while processing OpenAPI endpoint",
-                    context=endpoint_k,
+                    title="Failed to Fetch OpenAPI Spec",
+                    message="Unable to retrieve, parse, or interpret the OpenAPI specification",
+                    context=f"{config.url} / {config.swagger_file}",
                     exc=e,
                 )
-                continue
+                self._report_parser_warnings(parser_warnings)
+                return
 
-            yield from workunits
+            # Sample from "listing endpoint" for guessing composed endpoints
+            root_dataset_samples: Dict[str, Any] = {}
+
+            # Process all endpoints. Materialize each endpoint's workunits inside
+            # the try so consumer-side failures at yield are not mis-attributed here.
+            for endpoint_k, endpoint_dets in url_endpoints.items():
+                if endpoint_k in config.ignore_endpoints:
+                    continue
+
+                try:
+                    workunits = list(
+                        self._process_endpoint(
+                            endpoint_k, endpoint_dets, sw_dict, root_dataset_samples
+                        )
+                    )
+                except Exception as e:
+                    self.report.failure(
+                        title="Failed to Process Endpoint",
+                        message="Unexpected error while processing OpenAPI endpoint",
+                        context=endpoint_k,
+                        exc=e,
+                    )
+                    continue
+
+                yield from workunits
+
+            self._report_parser_warnings(parser_warnings)
+
+    def _report_parser_warnings(self, parser_warnings: List[str]) -> None:
+        # Each message is already logged once by the parser's own logger.warning
+        # call (log=False here avoids duplicating that), and is typically
+        # per-entity-specific (includes the malformed value/endpoint), so dedup
+        # only collapses genuinely repeated messages.
+        for message in dict.fromkeys(parser_warnings):
+            self.report.warning(
+                title="Malformed OpenAPI Spec Entry",
+                message=message,
+                context=f"{self.config.url} / {self.config.swagger_file}",
+                log=False,
+            )
 
     def _process_endpoint(
         self,

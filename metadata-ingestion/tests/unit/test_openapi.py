@@ -3457,6 +3457,17 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                 get_swag_json("https://api.example.com")
         self.assertIn("as JSON or YAML", str(ctx.exception))
 
+    def test_get_swag_json_raises_clear_error_on_non_utf8_content(self):
+        # Regression: json.loads on non-UTF-8 bytes raises UnicodeDecodeError,
+        # not json.JSONDecodeError -- that used to skip both the YAML fallback
+        # and this function's own clear error message, letting a raw decode
+        # error propagate instead.
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(status_code=200, content=b"\xff\xfe\x00")
+            with self.assertRaises(ValueError) as ctx:
+                get_swag_json("https://api.example.com")
+        self.assertIn("as JSON or YAML", str(ctx.exception))
+
     def test_get_swag_json_raises_on_non_dict_document(self):
         # Regression: a valid JSON/YAML document that isn't an object (e.g. a
         # bare list) is not a valid OpenAPI/Swagger spec, but used to be
@@ -3539,6 +3550,39 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                 for f in self.source.report.failures
             )
         )
+
+    def test_get_workunits_forwards_parser_warnings_to_report(self):
+        # Regression: openapi_parser's schema-walking functions have no
+        # SourceReport access, so malformed-input degradation there (e.g. a
+        # non-object path item, skipped by get_endpoints with only a bare
+        # logger.warning) never reached the ingestion report an operator
+        # actually looks at.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/pets": "not-a-path-item",
+                "/ok": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "content": {
+                                    "application/json": {"schema": {"type": "object"}}
+                                }
+                            }
+                        }
+                    }
+                },
+            },
+        }
+        with patch.object(OpenApiConfig, "get_swagger", return_value=sw_dict):
+            list(self.source.get_workunits_internal())
+        malformed_warnings = [
+            w
+            for w in self.source.report.warnings
+            if getattr(w, "title", None) == "Malformed OpenAPI Spec Entry"
+        ]
+        self.assertEqual(len(malformed_warnings), 1)
+        self.assertIn("/pets", malformed_warnings[0].message)
 
     def test_extract_schema_from_simple_endpoint_live_api_success(self):
         self.source.config = OpenApiConfig(
@@ -3884,6 +3928,21 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         merged = merge_allof_schemas(schema, _EMPTY_OPENAPI_SW, max_depth=10)
         self.assertEqual(merged["required"], ["b"])
 
+    def test_merge_allof_root_malformed_required_dropped_even_without_valid_member(
+        self,
+    ):
+        # Regression: the previous fix only skipped a malformed *member*
+        # "required" -- it never cleaned up a malformed "required" already on
+        # the root schema itself when no allOf member ever contributes a
+        # valid list to replace it with, so the invalid value survived
+        # untouched and schema extraction still raised downstream.
+        schema = {
+            "required": "not-a-list",
+            "allOf": [{"type": "object", "properties": {"a": {"type": "string"}}}],
+        }
+        merged = merge_allof_schemas(schema, _EMPTY_OPENAPI_SW, max_depth=10)
+        self.assertNotIn("required", merged)
+
     def test_get_schema_from_response_boolean_schema_returns_none(self):
         # Regression: a bare `true`/`false` root schema (valid JSON Schema,
         # matching merge_allof_schemas' own explicit boolean-member handling)
@@ -4105,6 +4164,22 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
                 "allOf": [
                     {"patternProperties": {"^x": {"type": "string"}}},
                     {"patternProperties": {"^x": True}},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertEqual(merged["patternProperties"]["^x"], {"type": "string"})
+
+    def test_merge_allof_pattern_properties_recovers_when_first_member_malformed(self):
+        # The reverse ordering of the above: a malformed value arrives first
+        # and a real schema arrives second -- the real schema must still be
+        # used rather than being discarded because the first slot was junk.
+        merged = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"patternProperties": {"^x": True}},
+                    {"patternProperties": {"^x": {"type": "string"}}},
                 ]
             },
             _EMPTY_OPENAPI_SW,
