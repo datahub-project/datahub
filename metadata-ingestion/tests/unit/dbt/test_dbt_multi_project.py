@@ -910,3 +910,69 @@ def test_collision_emits_nothing_for_colliding_urn_end_to_end(
     assert not any("db.shared.orders" in urn for urn in described_urns)
     assert not any("db.shared.orders" in urn for urn in referenced_urns)
     assert source.report.failures
+
+
+def test_collision_between_excluded_nodes_does_not_fail_the_run(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A collision must never fail a run over entities that would not be emitted.
+
+    Both passes are restricted to _is_allowed_node, the same predicate _filter_nodes
+    uses, so a node the operator has already excluded cannot trip a failure that
+    also suppresses stale-entity soft-deletion for every other project.
+    """
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "shared"}],
+        package_name="excluded_pkg",
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "orders", "database": "db", "schema": "shared"}],
+        package_name="excluded_pkg",
+    )
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        node_name_pattern={"deny": ["model.excluded_pkg..*"]},
+    )
+    all_nodes = source.load_nodes()
+    nodes, _ = source._check_duplicate_unique_ids(all_nodes, source.load_exposures())
+
+    assert source._check_duplicate_models(nodes) == nodes
+    assert not source.report.failures
+    assert source.report.duplicate_models_detected == 0
+    assert source.report.duplicate_node_unique_ids_detected == 0
+
+
+def test_exposure_collision_ignored_when_exposures_are_disabled(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Same guarantee for exposures, which are gated by their own config switch."""
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders_a", "database": "db", "schema": "sch_a"}],
+        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_a"}},
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "orders_b", "database": "db", "schema": "sch_b"}],
+        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_b"}},
+    )
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        entities_enabled={"exposures": "NO"},
+    )
+    all_nodes = source.load_nodes()
+    _, exposures = source._check_duplicate_unique_ids(
+        all_nodes, source.load_exposures()
+    )
+
+    assert len(exposures) == 2
+    assert not source.report.failures
+    assert source.report.duplicate_exposure_unique_ids_detected is None
