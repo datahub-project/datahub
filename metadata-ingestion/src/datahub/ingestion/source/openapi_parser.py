@@ -230,9 +230,9 @@ def check_sw_version(sw_dict: dict) -> None:
         return
 
     if major == 3 and minor > 0:
-        logger.warning(
-            "This plugin has not been fully tested with Swagger version >3.0"
-        )
+        # Informational only -- every valid 3.1+ spec hits this, so WARNING
+        # would mislabel a perfectly healthy spec as needing attention.
+        logger.info("This plugin has not been fully tested with Swagger version >3.0")
 
 
 def get_endpoints(sw_dict: dict) -> dict:

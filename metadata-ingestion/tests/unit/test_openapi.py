@@ -864,8 +864,10 @@ paths:
             "datahub.ingestion.source.openapi_parser", level="WARNING"
         ):
             check_sw_version({"openapi": "3.0.1-rc1"})
+        # INFO, not WARNING: every valid 3.1+ spec hits this, so it's purely
+        # informational, not something an operator needs to act on.
         with self.assertLogs(
-            "datahub.ingestion.source.openapi_parser", level="WARNING"
+            "datahub.ingestion.source.openapi_parser", level="INFO"
         ) as cm:
             check_sw_version({"openapi": "3.1.0+SNAPSHOT"})
         self.assertTrue(any("not been fully tested" in msg for msg in cm.output))
@@ -3576,13 +3578,46 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         }
         with patch.object(OpenApiConfig, "get_swagger", return_value=sw_dict):
             list(self.source.get_workunits_internal())
-        malformed_warnings = [
+        parser_warnings = [
             w
             for w in self.source.report.warnings
-            if getattr(w, "title", None) == "Malformed OpenAPI Spec Entry"
+            if getattr(w, "title", None) == "OpenAPI Parsing Warning"
         ]
-        self.assertEqual(len(malformed_warnings), 1)
-        self.assertIn("/pets", malformed_warnings[0].message)
+        self.assertEqual(len(parser_warnings), 1)
+        self.assertIn("/pets", parser_warnings[0].message)
+
+    def test_get_workunits_does_not_flag_healthy_openapi_31_spec_as_warning(self):
+        # Regression: check_sw_version's "not fully tested with Swagger
+        # version >3.0" notice is purely informational (every valid 3.1+ spec
+        # hits it) but was logged at WARNING, so the new parser-warning bridge
+        # forwarded it into the report as if the spec were malformed/needed
+        # attention, on every single healthy OpenAPI 3.1 ingestion.
+        sw_dict = {
+            "openapi": "3.1.0",
+            "paths": {
+                "/ok": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "content": {
+                                    "application/json": {"schema": {"type": "object"}}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        }
+        with patch.object(OpenApiConfig, "get_swagger", return_value=sw_dict):
+            list(self.source.get_workunits_internal())
+        self.assertEqual(
+            [
+                w
+                for w in self.source.report.warnings
+                if getattr(w, "title", None) == "OpenAPI Parsing Warning"
+            ],
+            [],
+        )
 
     def test_extract_schema_from_simple_endpoint_live_api_success(self):
         self.source.config = OpenApiConfig(

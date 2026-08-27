@@ -982,9 +982,17 @@ class APISource(Source, ABC):
         # call (log=False here avoids duplicating that), and is typically
         # per-entity-specific (includes the malformed value/endpoint), so dedup
         # only collapses genuinely repeated messages.
+        #
+        # Title is deliberately neutral ("Warning", not "Malformed"): these
+        # come from a mix of spec-structural issues (a skipped path item, an
+        # unresolved $ref) and live-API response issues (a non-JSON response
+        # during the API-call fallback) -- calling every one of them a
+        # malformed *spec* entry would misdescribe the latter, and purely
+        # informational parser messages are logged at INFO so they never
+        # reach this WARNING-level capture in the first place.
         for message in dict.fromkeys(parser_warnings):
             self.report.warning(
-                title="Malformed OpenAPI Spec Entry",
+                title="OpenAPI Parsing Warning",
                 message=message,
                 context=f"{self.config.url} / {self.config.swagger_file}",
                 log=False,
