@@ -61,7 +61,7 @@ describe('ViewDefinitionTab (v2)', () => {
         expect(screen.queryByText(/don't have permission/)).not.toBeInTheDocument();
     });
 
-    it('should render SQL logic when privileges is undefined (backward compatibility)', () => {
+    it('should render permission denied message when privileges is undefined (fails closed)', () => {
         (useBaseEntity as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
             dataset: {
                 viewProperties: {
@@ -74,8 +74,8 @@ describe('ViewDefinitionTab (v2)', () => {
 
         renderViewDefinitionTab();
 
-        expect(screen.getByText('SELECT id FROM orders')).toBeInTheDocument();
-        expect(screen.queryByText(/don't have permission/)).not.toBeInTheDocument();
+        expect(screen.getByText(/don't have permission to view the SQL logic/)).toBeInTheDocument();
+        expect(screen.queryByText('SELECT id FROM orders')).not.toBeInTheDocument();
     });
 
     it('should render permission denied message when canViewQueries is false', () => {

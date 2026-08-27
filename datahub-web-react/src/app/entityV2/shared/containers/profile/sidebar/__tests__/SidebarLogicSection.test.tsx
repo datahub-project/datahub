@@ -25,6 +25,13 @@ const datasetWithViewProperties = {
     },
 };
 
+const datasetWithViewPermission = {
+    ...datasetWithViewProperties,
+    privileges: {
+        canViewQueries: true,
+    },
+};
+
 const queryWithProperties = {
     type: EntityType.Query,
     urn: 'urn:li:query:1',
@@ -100,13 +107,6 @@ describe('Sidebar Logic Components', () => {
         });
 
         it('renders view definition section when canViewQueries is true', () => {
-            const datasetWithViewPermission = {
-                ...datasetWithViewProperties,
-                privileges: {
-                    canViewQueries: true,
-                },
-            };
-
             const { getByText } = render(
                 <MockedProvider mocks={mocks} addTypename={false}>
                     <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
@@ -146,11 +146,11 @@ describe('Sidebar Logic Components', () => {
                                 urn: 'urn:li:dataset:3',
                                 entityType: EntityType.Dataset,
                                 entityData: getDataForEntityType({
-                                    data: datasetWithViewProperties,
+                                    data: datasetWithViewPermission,
                                     entityType: EntityType.Dataset,
                                     getOverrideProperties: () => ({}),
                                 }),
-                                baseEntity: { dataset: datasetWithViewProperties },
+                                baseEntity: { dataset: datasetWithViewPermission },
                                 updateEntity: vi.fn(),
                                 routeToTab: vi.fn(),
                                 refetch: vi.fn(),
@@ -177,11 +177,11 @@ describe('Sidebar Logic Components', () => {
                                 urn: 'urn:li:dataset:3',
                                 entityType: EntityType.Dataset,
                                 entityData: getDataForEntityType({
-                                    data: datasetWithViewProperties,
+                                    data: datasetWithViewPermission,
                                     entityType: EntityType.Dataset,
                                     getOverrideProperties: () => ({}),
                                 }),
-                                baseEntity: { dataset: datasetWithViewProperties },
+                                baseEntity: { dataset: datasetWithViewPermission },
                                 updateEntity: vi.fn(),
                                 routeToTab: vi.fn(),
                                 refetch: vi.fn(),
@@ -403,8 +403,8 @@ describe('Sidebar Logic Components', () => {
             expect(getByText('Logic')).toBeInTheDocument();
         });
 
-        it('renders logic section when privileges is undefined (backward compatibility)', () => {
-            const { getByText } = render(
+        it('does not render logic section when privileges is undefined (fails closed)', () => {
+            const { container } = render(
                 <MockedProvider mocks={mocks} addTypename={false}>
                     <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:test']}>
                         <EntityContext.Provider
@@ -431,7 +431,7 @@ describe('Sidebar Logic Components', () => {
                 </MockedProvider>,
             );
 
-            expect(getByText('Logic')).toBeInTheDocument();
+            expect(container.firstChild).toBeNull();
         });
     });
 });
