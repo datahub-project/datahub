@@ -1,0 +1,13 @@
+{
+    "graph.empty": "目前没有收集此数据资产的统计数据。",
+    "graph.rowCount_one": "{{formattedCount}} 排",
+    "graph.rowCount_other": "{{formattedCount}} 行",
+    "graph.statName": "行数",
+    "graph.title": "行数",
+    "percentile.high": "高",
+    "percentile.low": "低",
+    "percentile.med": "医学",
+    "upstream.directUpstreams": "直接上游",
+    "upstream.indirectUpstreams": "间接上游",
+    "upstream.unhealthy": "一些上游不健康"
+}

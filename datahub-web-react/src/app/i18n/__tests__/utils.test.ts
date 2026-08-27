@@ -58,7 +58,7 @@ describe('detectBrowserLanguage', () => {
     });
 
     it('returns undefined when no preferred language is supported', () => {
-        stubLanguages(['ko-KR', 'zh-CN']);
+        stubLanguages(['ko-KR']);
         expect(detectBrowserLanguage()).toBeUndefined();
     });
 

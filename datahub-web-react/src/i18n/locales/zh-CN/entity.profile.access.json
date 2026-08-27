@@ -1,0 +1,11 @@
+{
+    "accessManagement.accessAlreadyGranted": "已授予访问权限",
+    "accessManagement.accessGrantedTooltip": "您已经有权访问此角色",
+    "accessManagement.columnAccess": "访问",
+    "accessManagement.columnAccessType": "访问类型",
+    "accessManagement.columnRoleName": "角色名称",
+    "accessManagement.granted": "已授予",
+    "accessManagement.request": "请求",
+    "accessManagement.requestAccess": "请求访问权限",
+    "accessManagement.tableAriaLabel": "访问管理角色表"
+}
