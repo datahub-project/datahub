@@ -932,6 +932,80 @@ def test_semantic_model_aliasing_its_own_project_model_is_not_a_collision(
     assert not source.report.failures
 
 
+def _write_colliding_projects_with_aliases(tmp_path: pathlib.Path) -> None:
+    """Two projects materializing db.shared.orders, each with its own semantic alias.
+
+    Package names are chosen so the tie-break winner (lowest-sorting dbt_name) is
+    project_b's node, i.e. NOT the first manifest loaded.
+    """
+    for project, package in [("project_a", "zzz_pkg"), ("project_b", "aaa_pkg")]:
+        _write_project(
+            tmp_path,
+            project,
+            [{"name": "orders", "database": "db", "schema": "shared"}],
+            package_name=package,
+            semantic_models={
+                f"semantic_model.{package}.orders": _semantic_model(
+                    f"semantic_model.{package}.orders",
+                    "orders",
+                    "db",
+                    "shared",
+                    wraps=f"model.{package}.orders",
+                )
+            },
+        )
+
+
+def test_contested_urn_also_drops_exempted_semantic_aliases(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A same-project alias is exempt from *deciding* a collision, not from its outcome.
+
+    Both projects' aliases resolve to the contested URN too, so leaving them in
+    place would emit to the very URN the models were dropped over - performing the
+    overwrite this check exists to prevent, while the report claimed nothing was
+    emitted."""
+    _write_colliding_projects_with_aliases(tmp_path)
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    all_nodes = source.load_nodes()
+    # Precondition: all four nodes really do share one URN.
+    assert len({node.get_db_fqn() for node in all_nodes}) == 1
+    assert len(all_nodes) == 4
+
+    assert source._check_duplicate_models(all_nodes) == []
+    assert source.report.duplicate_models_detected == 4
+    failures_by_title = {f.title: f for f in source.report.failures}
+    assert "Duplicate model names across dbt projects" in failures_by_title
+
+
+def test_contested_urn_drop_mode_keeps_only_the_winning_manifest(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Keep-first keeps one project, not one node.
+
+    The winner's own alias is legitimate aliasing of the node that won the URN, so
+    it stays; the losing project's model and alias both go, since either would
+    overwrite the survivor on the shared URN."""
+    _write_colliding_projects_with_aliases(tmp_path)
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        fail_on_duplicate_models=False,
+    )
+    kept = source._check_duplicate_models(source.load_nodes())
+
+    assert sorted(node.dbt_name for node in kept) == [
+        "model.aaa_pkg.orders",
+        "semantic_model.aaa_pkg.orders",
+    ]
+    # Every survivor comes from the winner's manifest.
+    assert {node.manifest_path for node in kept} == {
+        f"{tmp_path}/project_b/manifest.json"
+    }
+    assert source.report.duplicate_models_detected == 4
+
+
 def _write_two_semantic_models(
     tmp_path: pathlib.Path, models: List[Dict[str, str]]
 ) -> None:

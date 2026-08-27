@@ -2248,10 +2248,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return nodes
 
     @staticmethod
-    def _drop_same_project_semantic_aliases(
-        contenders: List[DBTNode],
-    ) -> List[DBTNode]:
-        """Drop semantic models that merely alias a node from their own project.
+    def _is_same_project_semantic_alias(
+        node: DBTNode, contenders: List[DBTNode]
+    ) -> bool:
+        """Whether `node` is a semantic model that merely aliases a node of its own project.
 
         A dbt semantic model's node_relation is the relation of the model it wraps,
         and dbt's own convention names the semantic model after that model - so
@@ -2266,21 +2266,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         alias no one; letting them exempt each other would hide a collision in
         which they overwrite each other's aspects.
 
-        A semantic model whose URN is claimed by a node from a *different* manifest
-        is a real collision and stays in the group, so two projects whose semantic
-        models resolve to the same relation are still detected.
+        This exempts an alias from deciding *whether* a URN is contested, not from
+        the consequences once it is - see _check_duplicate_models.
         """
-        return [
-            node
-            for node in contenders
-            if node.node_type != "semantic_model"
-            or not any(
-                other is not node
-                and other.manifest_path == node.manifest_path
-                and other.node_type != "semantic_model"
-                for other in contenders
-            )
-        ]
+        return node.node_type == "semantic_model" and any(
+            other is not node
+            and other.manifest_path == node.manifest_path
+            and other.node_type != "semantic_model"
+            for other in contenders
+        )
 
     def _check_duplicate_models(self, nodes: List[DBTNode]) -> List[DBTNode]:
         """Detect nodes from different dbt projects that resolve to the same dataset URN.
@@ -2311,8 +2305,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         lineage.
 
         Tie-break when fail_on_duplicate_models is disabled: the contender with the
-        lowest-sorting dbt_name wins. That is independent of manifest load order, so
-        the surviving entity is stable across runs.
+        lowest-sorting dbt_name wins, and only nodes from that winner's manifest are
+        kept. That is independent of manifest load order, so the surviving entities
+        are stable across runs.
         """
         by_urn: Dict[str, List[DBTNode]] = defaultdict(list)
         for node in nodes:
@@ -2332,16 +2327,26 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self.report.duplicate_models_detected = 0
         drop: Set[str] = set()
         rewire: Dict[str, str] = {}  # loser dbt_name -> winner dbt_name
-        for urn, contenders in sorted(by_urn.items()):
-            contenders = self._drop_same_project_semantic_aliases(contenders)
-            if len(contenders) < 2:
+        for urn, group in sorted(by_urn.items()):
+            # Sorted so neither the winner nor the reported order depends on
+            # manifest load order.
+            group.sort(key=lambda node: node.dbt_name)
+            # Same-project semantic aliases decide nothing about whether the URN is
+            # contested - only genuinely competing nodes do.
+            real_contenders = [
+                node
+                for node in group
+                if not self._is_same_project_semantic_alias(node, group)
+            ]
+            if len(real_contenders) < 2:
                 continue
 
-            # Sorted so the winner does not depend on manifest load order.
-            contenders.sort(key=lambda node: node.dbt_name)
-            self.report.duplicate_models_detected += len(contenders)
+            # The URN is contested, so every node grouped on it is in scope: an
+            # alias emits to this same URN, so exempting it from the outcome would
+            # perform the very overwrite this check exists to prevent.
+            self.report.duplicate_models_detected += len(group)
             context = f"{urn} is claimed by " + ", ".join(
-                node.dbt_name for node in contenders
+                node.dbt_name for node in group
             )
 
             if self.config.fail_on_duplicate_models:
@@ -2353,21 +2358,35 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     "dbt projects so that each materializes to a distinct relation.",
                     context=context,
                 )
-                drop.update(node.dbt_name for node in contenders)
+                drop.update(node.dbt_name for node in group)
             else:
-                winner, *losers = contenders
+                winner = real_contenders[0]
+                # The winner's own same-project aliases are legitimate aliasing of
+                # the node that won the URN, so they stay with it. Everything from a
+                # losing manifest goes, aliases included.
+                kept = [winner] + [
+                    node
+                    for node in group
+                    if node is not winner
+                    and node.manifest_path == winner.manifest_path
+                    and self._is_same_project_semantic_alias(node, group)
+                ]
+                kept_names = {node.dbt_name for node in kept}
                 self.report.warning(
                     title="Duplicate model names across dbt projects",
                     message="Multiple dbt nodes materialize to the same table. "
-                    "Keeping one of them and dropping the rest; their "
-                    "metadata will be lost.",
-                    context=f"{context}; keeping {winner.dbt_name}",
+                    "Keeping the ones from a single project and dropping the rest; "
+                    "their metadata will be lost.",
+                    context=f"{context}; keeping "
+                    + ", ".join(node.dbt_name for node in kept),
                 )
-                for loser in losers:
-                    drop.add(loser.dbt_name)
+                for node in group:
+                    if node.dbt_name in kept_names:
+                        continue
+                    drop.add(node.dbt_name)
                     # The URNs are identical, so pointing at the winner preserves
                     # the lineage edge exactly.
-                    rewire[loser.dbt_name] = winner.dbt_name
+                    rewire[node.dbt_name] = winner.dbt_name
 
         if not drop:
             return nodes
