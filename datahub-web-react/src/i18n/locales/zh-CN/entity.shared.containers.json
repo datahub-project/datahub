@@ -104,7 +104,7 @@
     "sidebar.datasetHeader.queriesCount_one": "{{formattedCount}} 查询",
     "sidebar.datasetHeader.queriesCount_other": "{{formattedCount}} 次查询",
     "sidebar.datasetHeader.queriesOverPast30DaysTooltip_one": "过去 30 天内 {{formattedCount}} 次查询",
-    "sidebar.datasetHeader.queriesOverPast30DaysTooltip_other": "{{formattedCount}} 过去 30 天内的查询",
+"sidebar.datasetHeader.queriesOverPast30DaysTooltip_other": "过去 30 天内 {{formattedCount}} 次查询",
     "sidebar.datasetHeader.rowsColumn": "行",
     "sidebar.datasetHeader.rowsCount_one": "{{formattedCount}} 行",
     "sidebar.datasetHeader.rowsCount_other": "{{formattedCount}} 行",
