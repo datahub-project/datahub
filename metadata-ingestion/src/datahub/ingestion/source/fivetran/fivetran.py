@@ -81,7 +81,7 @@ CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
 
 @platform_name("Fivetran")
 @config_class(FivetranSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_FINE,

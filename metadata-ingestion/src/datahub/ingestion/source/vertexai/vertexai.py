@@ -101,7 +101,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("Vertex AI", id=PLATFORM)
 @config_class(VertexAIConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(
     SourceCapability.DESCRIPTIONS,
     "Extract descriptions for Vertex AI Registered Models and Model Versions",

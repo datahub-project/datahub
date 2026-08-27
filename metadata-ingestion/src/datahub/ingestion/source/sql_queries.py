@@ -163,7 +163,7 @@ class SqlQueriesSourceReport(SourceReport):
 
 @platform_name("SQL Queries", id="sql-queries")
 @config_class(SqlQueriesSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.LINEAGE_COARSE, "Parsed from SQL queries")
 @capability(SourceCapability.LINEAGE_FINE, "Parsed from SQL queries")
 @capability(SourceCapability.OPERATION_CAPTURE, "Parsed from non-SELECT SQL queries")
