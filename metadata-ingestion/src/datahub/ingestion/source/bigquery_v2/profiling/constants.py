@@ -208,6 +208,16 @@ PARTITION_FILTER_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Hive-partitioned external tables declare their keys in the DDL OPTIONS via
+# `hive_partitioning_options` (or the legacy `WITH PARTITION COLUMNS` form) rather than
+# a `PARTITION BY` clause, so the sqlglot PARTITION BY parse never sees them. When this
+# matches but no partition columns were extracted, the table IS partitioned but we can't
+# build a filter, so it must be treated as unknown (skip) rather than unpartitioned.
+HIVE_PARTITIONING_DDL_RE = re.compile(
+    r"hive_partitioning_options|WITH\s+PARTITION\s+COLUMNS",
+    re.IGNORECASE,
+)
+
 DATE_FORMAT_YYYYMMDD = "YYYYMMDD"
 DATE_FORMAT_YYYY_MM_DD = "YYYY-MM-DD"
 DATE_FORMAT_YYYYMMDDHH = "YYYYMMDDHH"
