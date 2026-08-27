@@ -111,8 +111,14 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
                     urn,
                     projectedAspects,
                     alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
-            EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(
-                opContext, Map.of(urn, response));
+            // getEntityV2 returns null for some empty-projection requests (e.g. an explicit
+            // aspects=List()) rather than treating empty as "fetch everything" the way the legacy
+            // getEntity does. Map.of rejects null values, so this must be skipped for a null
+            // response instead of unconditionally redacting.
+            if (response != null) {
+              EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(
+                  opContext, Map.of(urn, response));
+            }
             return SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, response);
           } catch (Exception e) {
             throw new RuntimeException(
