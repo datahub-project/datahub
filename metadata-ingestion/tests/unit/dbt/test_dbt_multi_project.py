@@ -476,6 +476,42 @@ def test_ambiguous_sibling_read_failure_does_not_assert_absence(
     assert any("403 Forbidden" in entry for entry in sources_warning.context)
 
 
+def test_object_store_not_found_code_reported_as_definite_absence(
+    tmp_path: pathlib.Path,
+) -> None:
+    """An object-store read that reports a missing key is definite absence.
+
+    read_file_as_bytes wraps every get_object failure in one generic ValueError,
+    but preserves the underlying ClientError as __cause__, so the error code still
+    distinguishes a missing key from a genuinely ambiguous failure. Without that
+    split, an estate where half the projects never run `dbt docs generate` emits a
+    warning per project that reads like an infrastructure fault.
+    """
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+
+    def fake_read(uri: str, *args: Any, **kwargs: Any) -> bytes:
+        if uri.endswith("manifest.json"):
+            return pathlib.Path(uri).read_bytes()
+        cause = Exception("NoSuchKey")
+        cause.response = {"Error": {"Code": "NoSuchKey"}}  # type: ignore[attr-defined]
+        raise ValueError(f"Failed to read {uri} from object store") from cause
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    with mock.patch(
+        "datahub.ingestion.source.dbt.dbt_core.read_file_as_bytes",
+        side_effect=fake_read,
+    ):
+        source.load_nodes()
+
+    titles = {w.title for w in source.report.warnings}
+    assert "No catalog file found for project" in titles
+    assert "No sources file found for project" in titles
+    assert "Could not read catalog file for project" not in titles
+    assert "Could not read sources file for project" not in titles
+
+
 def test_cross_project_collision_fails_and_drops_all_contenders(
     tmp_path: pathlib.Path,
 ) -> None:
