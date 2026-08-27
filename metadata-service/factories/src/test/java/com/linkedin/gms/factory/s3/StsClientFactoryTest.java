@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.s3;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -47,7 +48,7 @@ final class SetAwsEndpointForStsInitializer
 }
 
 /** Tests StsClient creation when region and endpoint are set (deterministic in CI). */
-@SpringBootTest(classes = {StsClientFactory.class})
+@SpringBootTest(classes = {AwsClientFactory.class, StsClientFactory.class})
 @ContextConfiguration(initializers = SetAwsRegionAndEndpointForStsInitializer.class)
 class StsClientFactoryWithRegionTest extends AbstractTestNGSpringContextTests {
 
@@ -62,7 +63,7 @@ class StsClientFactoryWithRegionTest extends AbstractTestNGSpringContextTests {
 }
 
 /** Tests StsClient creation with custom endpoint (LocalStack/custom endpoint path). */
-@SpringBootTest(classes = {StsClientFactory.class})
+@SpringBootTest(classes = {AwsClientFactory.class, StsClientFactory.class})
 @ContextConfiguration(initializers = SetAwsEndpointForStsInitializer.class)
 class StsClientFactoryWithEndpointTest extends AbstractTestNGSpringContextTests {
 
@@ -87,7 +88,7 @@ final class InvalidEndpointForStsInitializer
 }
 
 /** Tests StsClient is null when factory throws (covers catch block / exception path). */
-@SpringBootTest(classes = {StsClientFactory.class})
+@SpringBootTest(classes = {AwsClientFactory.class, StsClientFactory.class})
 @ContextConfiguration(initializers = InvalidEndpointForStsInitializer.class)
 class StsClientFactoryExceptionTest extends AbstractTestNGSpringContextTests {
 
@@ -103,7 +104,7 @@ class StsClientFactoryExceptionTest extends AbstractTestNGSpringContextTests {
 }
 
 /** Tests StsClient is null when no AWS config is present. */
-@SpringBootTest(classes = {StsClientFactory.class})
+@SpringBootTest(classes = {AwsClientFactory.class, StsClientFactory.class})
 @ContextConfiguration(initializers = ClearAwsPropertiesForStsInitializer.class)
 class StsClientFactoryNoAwsConfigTest extends AbstractTestNGSpringContextTests {
 
