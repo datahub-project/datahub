@@ -1,7 +1,19 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    TypeGuard,
+    Union,
+)
+from urllib.parse import unquote
 
 import requests
 import yaml
@@ -27,6 +39,9 @@ SCHEMA_EXTRACTABLE_METHODS = ["get", "post", "put", "patch"]
 # HTTP methods that typically don't provide useful schemas
 OTHER_HTTP_METHODS = ["delete", "options", "head"]
 
+# Default timeout for outbound HTTP calls (seconds).
+_REQUEST_TIMEOUT_SECONDS = 30
+
 
 def flatten(d: dict, prefix: str = "") -> Generator:
     for k, v in d.items():
@@ -46,7 +61,7 @@ def flatten(d: dict, prefix: str = "") -> Generator:
             yield f"{prefix}.{k}".strip(".")  # Use dot instead of hyphen
 
 
-def flatten2list(d: dict) -> list:
+def flatten2list(d: dict) -> List[str]:
     """
     This function explodes dictionary keys such as:
         d = {"first":
@@ -63,8 +78,19 @@ def flatten2list(d: dict) -> list:
          "anotherone.third_a.last"
          ]
     """
-    fl_l = list(flatten(d))
-    return fl_l
+    return list(flatten(d))
+
+
+def _join_url(base: str, path: str) -> str:
+    # Docs/recipes often omit a trailing slash on url and a leading slash on
+    # swagger_file; naive concatenation would produce a broken host+path join.
+    if not path:
+        return base
+    if base.endswith("/") and path.startswith("/"):
+        return f"{base}{path[1:]}"
+    if not base.endswith("/") and not path.startswith("/"):
+        return f"{base}/{path}"
+    return f"{base}{path}"
 
 
 def request_call(
@@ -76,18 +102,29 @@ def request_call(
     verify_ssl: bool = True,
 ) -> requests.Response:
     headers = {"accept": "application/json"}
+    timeout = _REQUEST_TIMEOUT_SECONDS
     if username is not None and password is not None:
         return requests.get(
             url,
             headers=headers,
             auth=HTTPBasicAuth(username, password),
+            proxies=proxies,
             verify=verify_ssl,
+            timeout=timeout,
         )
     elif token is not None:
         headers["Authorization"] = f"{token}"
-        return requests.get(url, proxies=proxies, headers=headers, verify=verify_ssl)
+        return requests.get(
+            url,
+            proxies=proxies,
+            headers=headers,
+            verify=verify_ssl,
+            timeout=timeout,
+        )
     else:
-        return requests.get(url, headers=headers, verify=verify_ssl)
+        return requests.get(
+            url, headers=headers, proxies=proxies, verify=verify_ssl, timeout=timeout
+        )
 
 
 def get_swag_json(
@@ -99,7 +136,7 @@ def get_swag_json(
     proxies: Optional[dict] = None,
     verify_ssl: bool = True,
 ) -> Dict:
-    tot_url = url + swagger_file
+    tot_url = _join_url(url, swagger_file)
     response = request_call(
         url=tot_url,
         token=token,
@@ -112,35 +149,105 @@ def get_swag_json(
     if response.status_code != 200:
         raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
     try:
-        dict_data = json.loads(response.content)
-    except json.JSONDecodeError:  # it's not a JSON!
-        dict_data = yaml.safe_load(response.content)
-    return dict_data
+        parsed = json.loads(response.content)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        # UnicodeDecodeError alongside JSONDecodeError: json.loads on non-UTF-8
+        # bytes raises the former, which isn't a JSONDecodeError subclass, and
+        # would otherwise skip the YAML fallback and this function's own
+        # clear error message in favor of a raw decode error propagating up.
+        try:
+            parsed = yaml.safe_load(response.content)
+        except (yaml.YAMLError, UnicodeDecodeError) as e:
+            raise ValueError(
+                f"Unable to parse OpenAPI spec from {tot_url} as JSON or YAML"
+            ) from e
+    if not isinstance(parsed, dict):
+        # A valid JSON/YAML document (e.g. a bare list, string, or number) is
+        # not a valid OpenAPI/Swagger spec -- every downstream parsing
+        # function this feeds (get_endpoints, get_url_basepath, ...) assumes
+        # a dict, so fail clearly here instead of a confusing TypeError/
+        # KeyError deep in one of them.
+        raise ValueError(
+            f"OpenAPI spec at {tot_url} did not parse to a JSON/YAML object "
+            f"(got {type(parsed).__name__})"
+        )
+    return parsed
 
 
 def get_url_basepath(sw_dict: dict) -> str:
+    base_path = sw_dict.get("basePath")
+    if isinstance(base_path, str):
+        return base_path
     if "basePath" in sw_dict:
-        return sw_dict["basePath"]
-    if sw_dict.get("servers"):
+        logger.warning(
+            "Ignoring malformed basePath %r (expected string, got %s)",
+            base_path,
+            type(base_path).__name__,
+        )
+    servers = sw_dict.get("servers")
+    if isinstance(servers, list) and servers:
         # When the API path doesn't match the OAS path.
         # Some specs declare "servers": [] or entries without a "url" key.
-        return sw_dict["servers"][0].get("url", "")
+        first_server = servers[0]
+        if isinstance(first_server, dict):
+            url = first_server.get("url", "")
+            if isinstance(url, str):
+                return url
+            logger.warning(
+                "Ignoring malformed servers[0].url %r (expected string, got %s)",
+                url,
+                type(url).__name__,
+            )
+            return ""
+        logger.warning(
+            "Ignoring malformed servers[0] entry %r (expected object, got %s)",
+            first_server,
+            type(first_server).__name__,
+        )
 
     return ""
 
 
+def _is_object(value: object, label: str, context: str) -> TypeGuard[Dict[Any, Any]]:
+    """Log and reject a malformed non-object value; never logs the value
+    itself, since it may be arbitrarily large (e.g. a full response body)."""
+    if isinstance(value, dict):
+        return True
+    logger.warning(
+        "Skipping malformed %s at %s (expected object, got %s)",
+        label,
+        context,
+        type(value).__name__,
+    )
+    return False
+
+
 def check_sw_version(sw_dict: dict) -> None:
-    if "swagger" in sw_dict:
-        v_split = sw_dict["swagger"].split(".")
-    else:
-        v_split = sw_dict["openapi"].split(".")
-
-    version = [int(v) for v in v_split]
-
-    if version[0] == 3 and version[1] > 0:
+    version_str = sw_dict.get("swagger") or sw_dict.get("openapi")
+    if not isinstance(version_str, str):
         logger.warning(
-            "This plugin has not been fully tested with Swagger version >3.0"
+            "OpenAPI/Swagger spec has no swagger or openapi version key; "
+            "skipping version check"
         )
+        return
+    # Strip prerelease / build suffixes (e.g. 3.0.1-rc1, 3.1.0+SNAPSHOT) before
+    # comparing major.minor — this is only an informational "not fully tested" notice.
+    core = re.split(r"[-+]", version_str, maxsplit=1)[0]
+    parts = core.split(".")
+    try:
+        major = int(parts[0])
+        minor = int(parts[1]) if len(parts) > 1 else 0
+    except (ValueError, IndexError):
+        logger.warning(
+            "Unable to parse OpenAPI/Swagger version %r; skipping version check",
+            version_str,
+        )
+        return
+
+    if major == 3 and minor > 0:
+        # Informational only -- every valid 3.1+ spec hits this, so WARNING
+        # would mislabel a perfectly healthy spec as needing attention.
+        logger.info("This plugin has not been fully tested with Swagger version >3.0")
 
 
 def get_endpoints(sw_dict: dict) -> dict:
@@ -158,48 +265,74 @@ def get_endpoints(sw_dict: dict) -> dict:
 
     for p_k, p_o in sw_dict["paths"].items():
         # Only set metadata if it doesn't already exist (don't overwrite higher-priority metadata)
+        # A malformed path item must not abort every other endpoint's extraction.
+        if not _is_object(p_o, "path item", p_k):
+            continue
 
         for method in all_methods:
             method_spec = p_o.get(method)
             if not method_spec:
                 continue
+            context = f"{method} {p_k}"
+            if not _is_object(method_spec, "method spec", context):
+                continue
 
             responses = method_spec.get("responses", {})
+            if not _is_object(responses, "responses", context):
+                continue
             base_res = responses.get("200") or responses.get(200)
             if not base_res:
                 # if there is no 200 response, we skip this method
                 continue
+            if not _is_object(base_res, "200 response", context):
+                continue
 
             # Initialize endpoint details if it doesn't exist
-            if p_k not in url_details:
-                url_details[p_k] = {}
+            details = url_details.setdefault(p_k, {})
 
             # Only set metadata if it doesn't already exist (preserve higher-priority metadata)
-            if "method" not in url_details[p_k]:
-                url_details[p_k]["method"] = method.lower()
+            if "method" not in details:
+                details["method"] = method.lower()
 
-            if (
-                "description" not in url_details[p_k]
-                or not url_details[p_k]["description"]
-            ):
+            if "description" not in details or not details["description"]:
                 # if the description is not present, we will use the summary
                 # if both are not present, we will use an empty string
                 desc = method_spec.get("description") or method_spec.get("summary", "")
-                url_details[p_k]["description"] = desc
+                if not isinstance(desc, str):
+                    logger.warning(
+                        "Skipping malformed 'description'/'summary' %r on %r "
+                        "(expected string, got %s)",
+                        desc,
+                        context,
+                        type(desc).__name__,
+                    )
+                    desc = ""
+                details["description"] = desc
 
-            if "tags" not in url_details[p_k] or not url_details[p_k]["tags"]:
+            if "tags" not in details or not details["tags"]:
                 # if the tags are not present, we will use an empty list
                 tags = method_spec.get("tags", [])
-                url_details[p_k]["tags"] = tags
+                if not isinstance(tags, list) or not all(
+                    isinstance(tag, str) for tag in tags
+                ):
+                    logger.warning(
+                        "Skipping malformed 'tags' %r on %r (expected list of "
+                        "strings, got %s)",
+                        tags,
+                        context,
+                        type(tags).__name__,
+                    )
+                    tags = []
+                details["tags"] = tags
 
             # Example data can be added from any method (accumulate if needed)
             example_data = check_for_api_example_data(base_res, p_k)
-            if example_data and "data" not in url_details[p_k]:
-                url_details[p_k]["data"] = example_data
+            if example_data and "data" not in details:
+                details["data"] = example_data
 
             # checking whether there are defined parameters to execute the call...
-            if "parameters" in p_o[method] and "parameters" not in url_details[p_k]:
-                url_details[p_k]["parameters"] = p_o[method]["parameters"]
+            if "parameters" in method_spec and "parameters" not in details:
+                details["parameters"] = method_spec["parameters"]
 
     return dict(sorted(url_details.items()))
 
@@ -208,11 +341,20 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
     """
     Try to determine if example data is defined for the endpoint, and return it
     """
-    data = {}
+    data: Dict[str, Any] = {}
     if "content" in base_res:
         res_cont = base_res["content"]
+        # get_endpoints calls this once per spec, outside the per-endpoint try/except
+        # in APISource.get_workunits_internal -- an unguarded crash here would abort
+        # extraction for every endpoint, not just the one with the malformed example.
+        if not _is_object(res_cont, "'content'", f"endpoint {key!r}"):
+            return data
         if "application/json" in res_cont:
             json_content = res_cont["application/json"]
+            if not _is_object(
+                json_content, "'application/json' content", f"endpoint {key!r}"
+            ):
+                return data
 
             # Check for single example (OpenAPI v3)
             if "example" in json_content:
@@ -223,7 +365,14 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
                 # Take the first example if it's a dict of examples
                 if isinstance(examples, dict) and examples:
                     first_example_name = next(iter(examples))
-                    example_value = examples[first_example_name].get("value", {})
+                    first_example = examples[first_example_name]
+                    # A well-formed Example Object wraps the value under "value";
+                    # tolerate a malformed spec placing the raw value directly.
+                    example_value = (
+                        first_example.get("value", {})
+                        if isinstance(first_example, dict)
+                        else first_example
+                    )
                     # Preserve the example name as a wrapper to maintain structure
                     data = {first_example_name: example_value}
                 # Handle list format (OpenAPI v2 style)
@@ -236,10 +385,25 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
                     f"No example data found for endpoint --- {key} (this is normal for OpenAPI v3)"
                 )
         elif "text/csv" in res_cont:
-            data = res_cont["text/csv"]["schema"]
+            csv_content = res_cont["text/csv"]
+            if isinstance(csv_content, dict) and isinstance(
+                csv_content.get("schema"), dict
+            ):
+                data = csv_content["schema"]
+            else:
+                logger.warning(
+                    "Skipping malformed 'text/csv' content %r for endpoint %r",
+                    csv_content,
+                    key,
+                )
     # Handle OpenAPI v2 format
     elif "examples" in base_res:
-        data = base_res["examples"]["application/json"]
+        v2_examples = base_res["examples"]
+        # The value itself may legitimately be a raw string (literal example text)
+        # rather than a parsed object -- only the container needs to be a dict.
+        if not _is_object(v2_examples, "v2 'examples'", f"endpoint {key!r}"):
+            return data
+        data = v2_examples.get("application/json", {})
 
     return data
 
@@ -352,7 +516,7 @@ def clean_url(url: str) -> str:
 
 def extract_fields(
     response: requests.Response, dataset_name: str
-) -> Tuple[List[Any], Dict[Any, Any]]:
+) -> Tuple[List[str], Dict[str, Any]]:
     """
     Given a URL, this function will extract the fields contained in the
     response of the call to that URL, supposing that the response is a JSON.
@@ -360,10 +524,19 @@ def extract_fields(
     The list in the output tuple will contain the fields name.
     The dict in the output tuple will contain a sample of data.
     """
-    dict_data = json.loads(response.content)
+    try:
+        dict_data = json.loads(response.content)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        # json.loads decodes bytes itself (detect_encoding + .decode(...)); a
+        # body that isn't valid text in its detected encoding raises
+        # UnicodeDecodeError directly, not JSONDecodeError, so it needs its
+        # own clause to degrade the same way other unparseable bodies do.
+        logger.warning(f"Non-JSON response --- {dataset_name}")
+        return [], {}
     if isinstance(dict_data, str):
-        # no sense
-        logger.warning(f"Empty data --- {dataset_name}")
+        logger.warning(
+            f"Scalar string response, no fields to extract --- {dataset_name}"
+        )
         return [], {}
     elif isinstance(dict_data, list):
         # it's maybe just a list
@@ -378,27 +551,41 @@ def extract_fields(
             # this is actually data
             return ["contains_a_string"], {"contains_a_string": dict_data[0]}
         else:
-            raise ValueError("unknown format")
+            # An unrecognized element shape (e.g. a number, null, or nested
+            # list) is a valid-but-unhelpful response, not a processing
+            # error -- degrade gracefully like every other unparseable shape
+            # in this function instead of aborting the whole endpoint.
+            logger.warning(
+                f"Unrecognized list element type {type(dict_data[0]).__name__} "
+                f"--- {dataset_name}"
+            )
+            return [], {}
     elif not dict_data:  # Handle empty dict case
         return [], {}
     if len(dict_data) > 1:
         # the elements are directly inside the dict
         return flatten2list(dict_data), dict_data
     dst_key = list(dict_data)[0]  # the first and unique key is the dataset's name
-
-    try:
-        return flatten2list(dict_data[dst_key]), dict_data[dst_key]
-    except AttributeError:
+    nested = dict_data[dst_key]
+    if isinstance(nested, dict):
+        return flatten2list(nested), nested
+    if isinstance(nested, list):
         # if the content is a list, we should treat each element as a dataset.
         # ..but will take the keys of the first element (to be improved)
-        if isinstance(dict_data[dst_key], list):
-            if len(dict_data[dst_key]) > 0:
-                return flatten2list(dict_data[dst_key][0]), dict_data[dst_key][0]
-            else:
-                return [], {}  # it's empty!
-        else:
-            logger.warning(f"Unable to get the attributes --- {dataset_name}")
-            return [], {}
+        if len(nested) == 0:
+            return [], {}  # it's empty!
+        if isinstance(nested[0], dict):
+            return flatten2list(nested[0]), nested[0]
+        # An unrecognized element shape (e.g. a number, null, or nested list)
+        # is a valid-but-unhelpful response, not a processing error -- degrade
+        # gracefully instead of letting flatten2list raise AttributeError.
+        logger.warning(
+            f"Unrecognized list element type {type(nested[0]).__name__} "
+            f"--- {dataset_name}"
+        )
+        return [], {}
+    logger.warning(f"Unable to get the attributes --- {dataset_name}")
+    return [], {}
 
 
 def get_tok(
@@ -406,7 +593,7 @@ def get_tok(
     username: str = "",
     password: str = "",
     tok_url: str = "",
-    method: str = "post",
+    method: Literal["get", "post"] = "post",
     proxies: Optional[dict] = None,
     verify_ssl: bool = True,
 ) -> str:
@@ -414,35 +601,79 @@ def get_tok(
     Trying to post username/password to get auth.
     """
     token = ""
-    url4req = url + tok_url
+    url4req = _join_url(url, tok_url)
+    timeout = _REQUEST_TIMEOUT_SECONDS
+    # NOTE: for method="get" the caller substitutes the raw username/password into
+    # url4req before calling get_tok. Any exception raised below must not embed
+    # url4req/response body (e.g. via a raw `requests` exception), since report.failure
+    # renders exception messages verbatim in the ingestion report UI.
     if method == "post":
         # this will make a POST call with username and password
         data = {"username": username, "password": password, "maxDuration": True}
-        # url2post = url + "api/authenticate/"
-        response = requests.post(url4req, proxies=proxies, json=data, verify=verify_ssl)
+        try:
+            response = requests.post(
+                url4req,
+                proxies=proxies,
+                json=data,
+                verify=verify_ssl,
+                timeout=timeout,
+            )
+        except requests.exceptions.RequestException as e:
+            # from None (not from e): the requests exception message often
+            # embeds the request URL, which for method="get" carries the
+            # substituted password; chaining it as __cause__ would still leak
+            # through exc_info-based DEBUG logging even though report.failure
+            # only renders str(exc) for the top-level exception.
+            raise ValueError(
+                f"Failed to request token from OpenAPI endpoint ({type(e).__name__})"
+            ) from None
         if response.status_code == 200:
-            cont = json.loads(response.content)
-            if "token" in cont:  # other authentication scheme
-                token = cont["token"]
-            else:  # works only for bearer authentication scheme
-                token = f"Bearer {cont['tokens']['access']}"
+            try:
+                cont = json.loads(response.content)
+                if "token" in cont:  # other authentication scheme
+                    token = cont["token"]
+                else:  # works only for bearer authentication scheme
+                    token = f"Bearer {cont['tokens']['access']}"
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                raise ValueError(
+                    f"Unexpected token response shape (status {response.status_code})"
+                ) from e
     elif method == "get":
         # this will make a GET call with username and password
-        response = requests.get(url4req, verify=verify_ssl)
+        try:
+            response = requests.get(
+                url4req, proxies=proxies, verify=verify_ssl, timeout=timeout
+            )
+        except requests.exceptions.RequestException as e:
+            # from None (not from e): the requests exception message often
+            # embeds the request URL, which for method="get" carries the
+            # substituted password; chaining it as __cause__ would still leak
+            # through exc_info-based DEBUG logging even though report.failure
+            # only renders str(exc) for the top-level exception.
+            raise ValueError(
+                f"Failed to request token from OpenAPI endpoint ({type(e).__name__})"
+            ) from None
         if response.status_code == 200:
-            cont = json.loads(response.content)
-            token = cont["token"]
+            try:
+                cont = json.loads(response.content)
+                token = cont["token"]
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                raise ValueError(
+                    f"Unexpected token response shape (status {response.status_code})"
+                ) from e
     else:
         raise ValueError(f"Method unrecognised: {method}")
     if token != "":
         return token
     else:
-        raise Exception(f"Unable to get a valid token: {response.text}")
+        raise Exception(
+            f"Unable to get a valid token: received status {response.status_code}"
+        )
 
 
 def set_metadata(
     dataset_name: str,
-    fields: List,
+    fields: List[str],
     platform: str = "api",
     original_data: Optional[Dict] = None,
 ) -> SchemaMetadata:
@@ -549,19 +780,21 @@ def set_metadata(
     return schema_metadata
 
 
-def merge_allof_schemas(
-    schema: Dict, sw_dict: Dict, resolving_refs: bool = False, max_depth: int = 10
-) -> Dict:
+def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
     """
     Merge allOf schemas into a single schema object.
 
     According to JSON Schema, allOf means all schemas must be valid, which means
     we should merge their properties, required fields, and other attributes.
 
+    Each allOf member is fully resolved via _resolve_schema_refs before merge
+    so nested $refs (including those inside composed targets) cannot survive.
+    Map promotion (_promote_pattern_properties_to_additional) is deferred to the
+    public resolve_schema_references entry point so it runs once on the merged tree.
+
     Args:
         schema: Schema dictionary that may contain allOf
         sw_dict: Complete OpenAPI specification for resolving references
-        resolving_refs: Flag to prevent infinite recursion when called from resolve_schema_references
         max_depth: Maximum recursion depth for resolving schema references (default: 10)
 
     Returns:
@@ -574,55 +807,94 @@ def merge_allof_schemas(
     if "allOf" not in schema:
         return schema
 
+    if max_depth <= 0:
+        logger.warning(
+            "Maximum recursion depth exceeded while merging allOf schemas. "
+            "Leaving members unmerged."
+        )
+        # Return unchanged rather than stripping "allOf": callers must still see the
+        # member schemas (e.g. a pure-allOf wrapper) instead of losing them outright.
+        return schema
+
     allof_schemas = schema.get("allOf", [])
+    if allof_schemas and not isinstance(allof_schemas, list):
+        # A non-list, truthy "allOf" (e.g. a dict from a generator bug) would
+        # otherwise iterate as if each of its keys were a member schema -- every
+        # one fails the isinstance(resolved_allof, dict) guard below and is
+        # skipped, silently discarding everything the malformed allOf contained.
+        logger.warning(
+            "Schema 'allOf' is not a list (got %s); ignoring",
+            type(allof_schemas).__name__,
+        )
+        return {k: v for k, v in schema.items() if k != "allOf"}
     if not allof_schemas:
         return schema
 
     # Start with a base schema (copy everything except allOf)
     merged_schema = {k: v for k, v in schema.items() if k != "allOf"}
+    child_depth = max_depth - 1
+
+    # oneOf/anyOf are independent constraints, not a single value to pick one winner
+    # from: every allOf member's oneOf/anyOf must be satisfied simultaneously. We
+    # accumulate all members' contributions here and resolve them once after the
+    # loop below (see _finalize_oneof_anyof_contributions) — resolving them
+    # per-member inline, by deferring a collision into merged_schema["allOf"] and
+    # relying on this same function to reprocess it, previously caused the identical
+    # collision to be re-detected on every recursive re-entry: a pure fixpoint that
+    # only stopped when max_depth was exhausted, silently discarding all other
+    # merged fields.
+    oneof_anyof_contributions = _seed_oneof_anyof_contributions(merged_schema)
 
     # Merge each schema in allOf
     for allof_schema in allof_schemas:
-        # Resolve any references in the allOf entry first
-        # Use resolving_refs flag to prevent infinite recursion
-        if resolving_refs:
-            # If we're already resolving refs, just resolve $ref directly
-            resolved_allof = _resolve_ref_directly(allof_schema, sw_dict)
-        else:
-            resolved_allof = resolve_schema_references(
-                allof_schema, sw_dict, max_depth=max_depth
-            )
+        resolved_allof = _resolve_schema_refs(
+            allof_schema, sw_dict, max_depth=child_depth
+        )
 
-        # Merge properties
-        if "properties" in resolved_allof:
-            if "properties" not in merged_schema:
-                merged_schema["properties"] = {}
-            merged_schema["properties"].update(resolved_allof["properties"])
+        # A malformed "required" already on merged_schema (e.g. from the root
+        # schema itself) must be dropped regardless of what this member is --
+        # even a boolean member below, which contributes nothing to replace it
+        # with -- otherwise it survives untouched and schema extraction still
+        # raises downstream. Runs before the dict-only guard below, since that
+        # guard `continue`s past this member without ever reaching it.
+        existing_required = merged_schema.get("required")
+        if not isinstance(existing_required, list):
+            merged_schema.pop("required", None)
+            existing_required = []
 
-        # Merge required fields (union of all required lists)
-        if "required" in resolved_allof:
-            if "required" not in merged_schema:
-                merged_schema["required"] = []
+        if not isinstance(resolved_allof, dict):
+            # Boolean schemas (true/false) are valid allOf members from JSON Schema
+            # draft-6+; "true" is a no-op, and treating "false" as a no-op too is a
+            # deliberate simplification rather than making the whole schema
+            # unsatisfiable. Either way, nothing below this point is dict-shaped.
+            continue
+
+        # Merge properties — same-named fields combine under allOf (like map keywords).
+        _merge_allof_properties(merged_schema, resolved_allof, sw_dict, child_depth)
+
+        # Merge required fields (union of all required lists). A malformed spec
+        # can put a non-list "required" (e.g. a bare string) on either side;
+        # existing_required + new_required would raise TypeError and drop the
+        # whole merge instead of just ignoring the malformed keyword.
+        new_required = resolved_allof.get("required")
+        if isinstance(new_required, list):
             # Combine required lists and remove duplicates while preserving order
-            existing_required = merged_schema.get("required", [])
-            new_required = resolved_allof.get("required", [])
             merged_schema["required"] = list(
                 dict.fromkeys(existing_required + new_required)
             )
 
-        # Merge other schema attributes (type, format, description, etc.)
-        # Only merge if not already present in merged_schema
-        for key in [
-            "type",
-            "format",
-            "description",
-            "title",
-            "enum",
-            "default",
-            "example",
-        ]:
+        # First-wins for keywords that cannot be meaningfully intersected under allOf.
+        for key in _ALLOF_FIRST_WINS_KEYWORDS:
             if key in resolved_allof and key not in merged_schema:
                 merged_schema[key] = resolved_allof[key]
+
+        for key in ("oneOf", "anyOf"):
+            if resolved_allof.get(key):
+                oneof_anyof_contributions[key].append(resolved_allof[key])
+
+        # Merge JSON-Schema validation keywords with allOf semantics (most
+        # restrictive wins) so repeated contributors don't drop constraints.
+        _merge_allof_validation_keywords(merged_schema, resolved_allof)
 
         # Merge items (for arrays)
         if "items" in resolved_allof:
@@ -633,129 +905,790 @@ def merge_allof_schemas(
                 merged_schema["items"] = merge_allof_schemas(
                     {"allOf": [merged_schema["items"], resolved_allof["items"]]},
                     sw_dict,
-                    resolving_refs=True,
-                    max_depth=max_depth,
+                    max_depth=child_depth,
                 )
 
-        # Merge additionalProperties
-        if "additionalProperties" in resolved_allof:
-            if "additionalProperties" not in merged_schema:
-                merged_schema["additionalProperties"] = resolved_allof[
-                    "additionalProperties"
-                ]
-            elif isinstance(merged_schema["additionalProperties"], dict) and isinstance(
-                resolved_allof["additionalProperties"], dict
-            ):
-                # Recursively merge nested additionalProperties
-                merged_schema["additionalProperties"] = merge_allof_schemas(
-                    {
-                        "allOf": [
-                            merged_schema["additionalProperties"],
-                            resolved_allof["additionalProperties"],
-                        ]
-                    },
-                    sw_dict,
-                    resolving_refs=True,
-                    max_depth=max_depth,
-                )
+        _merge_allof_map_keywords(merged_schema, resolved_allof, sw_dict, child_depth)
 
-    # Recursively handle any nested allOf in the merged result
-    # But don't call resolve_schema_references again to avoid recursion
-    if "allOf" in merged_schema:
-        merged_schema = merge_allof_schemas(
-            merged_schema, sw_dict, resolving_refs=True, max_depth=max_depth
-        )
+    _finalize_oneof_anyof_contributions(merged_schema, oneof_anyof_contributions)
 
     return merged_schema
 
 
-def _resolve_ref_directly(schema: Dict, sw_dict: Dict) -> Dict:
+def _seed_oneof_anyof_contributions(
+    merged_schema: Dict[str, Any],
+) -> Dict[str, List[Any]]:
+    """Pop merged_schema's own oneOf/anyOf (if any) into the contributions the allOf
+    member loop will add to, so a colliding member doesn't silently overwrite it.
+
+    An empty oneOf/anyOf ([]) is not a real constraint (get_schema_metadata rejects
+    it outright), so it is dropped here rather than collected.
     """
-    Resolve a direct $ref reference without full schema resolution.
-    Used internally to avoid infinite recursion.
+    contributions: Dict[str, List[Any]] = {"oneOf": [], "anyOf": []}
+    for key in ("oneOf", "anyOf"):
+        if key in merged_schema:
+            sibling_value = merged_schema.pop(key)
+            if sibling_value:
+                contributions[key].append(sibling_value)
+    return contributions
+
+
+def _finalize_oneof_anyof_contributions(
+    merged_schema: Dict[str, Any], contributions: Dict[str, List[Any]]
+) -> None:
+    """A single contributor becomes the top-level keyword (no allOf needed); 2+
+    distinct contributors become sibling allOf members instead of one being picked
+    as a "winner" — this is a terminal representation and is deliberately NOT
+    re-merged, since re-running allOf-collision handling on it would just reproduce
+    the identical collision.
     """
-    if not isinstance(schema, dict):
-        return schema
-
-    if "$ref" in schema:
-        ref_path = schema["$ref"]
-
-        # Handle v2 references (e.g., "#/definitions/Pet")
-        if ref_path.startswith("#/definitions/"):
-            schema_name = ref_path.split("/")[-1]
-            referenced_schema = sw_dict.get("definitions", {}).get(schema_name, {})
-            if referenced_schema:
-                return referenced_schema.copy()
-
-        # Handle v3 references (e.g., "#/components/schemas/Pet")
-        elif ref_path.startswith("#/components/schemas/"):
-            schema_name = ref_path.split("/")[-1]
-            referenced_schema = (
-                sw_dict.get("components", {}).get("schemas", {}).get(schema_name, {})
-            )
-            if referenced_schema:
-                return referenced_schema.copy()
-
-    return schema
-
-
-def enhance_schema_with_titles(
-    schema: Dict, sw_dict: Dict, schema_name: str = "", is_top_level: bool = True
-) -> Dict:
-    """
-    Enhance schemas with title fields so that json_schema_util.py uses schema names instead of 'object'.
-    This is done without modifying json_schema_util.py itself.
-
-    Args:
-        schema: Schema dictionary to enhance
-        sw_dict: Complete OpenAPI specification
-        schema_name: Name to use as title (only for top-level schemas)
-        is_top_level: Whether this is a top-level schema (not a nested property)
-    """
-    if not isinstance(schema, dict):
-        return schema
-
-    enhanced_schema = schema.copy()
-
-    # Only add title to top-level schemas to avoid definition names in field paths
-    # Only add if schema doesn't already have a title and we have a schema name
-    if is_top_level and "title" not in enhanced_schema and schema_name:
-        enhanced_schema["title"] = schema_name
-
-    # Recursively enhance nested schemas, but don't add titles to nested properties
-    # This prevents definition names from appearing in field paths
-    if "properties" in enhanced_schema:
-        for prop_name, prop_schema in enhanced_schema["properties"].items():
-            # Don't add titles to nested properties - just resolve references
-            enhanced_schema["properties"][prop_name] = enhance_schema_with_titles(
-                prop_schema, sw_dict, "", is_top_level=False
+    for key, values in contributions.items():
+        if not values:
+            continue
+        unique_values: List[Any] = []
+        for value in values:
+            if value not in unique_values:
+                unique_values.append(value)
+        if len(unique_values) == 1:
+            merged_schema[key] = unique_values[0]
+        else:
+            merged_schema.setdefault("allOf", []).extend(
+                {key: value} for value in unique_values
             )
 
-    # Enhance array items without adding titles
-    if "items" in enhanced_schema:
-        enhanced_schema["items"] = enhance_schema_with_titles(
-            enhanced_schema["items"], sw_dict, "", is_top_level=False
+
+# Scalar keywords that cannot collapse under allOf — keep the first. oneOf/anyOf are
+# handled separately (see oneof_anyof_contributions above) since, unlike these,
+# every member's contribution must be preserved rather than the first one winning.
+_ALLOF_FIRST_WINS_KEYWORDS = (
+    "type",
+    "format",
+    "description",
+    "title",
+    "enum",
+    "default",
+    "example",
+    "discriminator",
+    "nullable",
+    "deprecated",
+    "readOnly",
+    "writeOnly",
+)
+
+
+def _merge_allof_properties(
+    merged_schema: Dict[str, Any],
+    resolved_allof: Dict[str, Any],
+    sw_dict: Dict[str, Any],
+    max_depth: int,
+) -> None:
+    incoming_props = resolved_allof.get("properties")
+    if not isinstance(incoming_props, dict):
+        return
+    existing_props = merged_schema.get("properties")
+    # Copy before mutate — merged_schema may still alias a member's properties dict.
+    props: Dict[str, Any] = (
+        dict(existing_props) if isinstance(existing_props, dict) else {}
+    )
+    merged_schema["properties"] = props
+    for prop_name, prop_schema in incoming_props.items():
+        if prop_name not in props:
+            # First contributor for this property -- nothing to intersect
+            # with yet, take it as-is (including a bare bool).
+            props[prop_name] = prop_schema
+            continue
+        # A bare JSON-Schema boolean subschema (true/false) must not clobber
+        # a real schema already contributed by another allOf member -- same
+        # intersection semantics as the map keywords below.
+        props[prop_name] = _intersect_subschemas(
+            props[prop_name], prop_schema, sw_dict, max_depth
         )
 
-    # Enhance additionalProperties without adding titles
-    if "additionalProperties" in enhanced_schema and isinstance(
-        enhanced_schema["additionalProperties"], dict
+
+def _intersect_subschemas(
+    existing: Any, incoming: Any, sw_dict: Dict[str, Any], max_depth: int
+) -> Any:
+    """Merge two allOf members' contributions to the same map-typed keyword
+    slot (additionalProperties / a patternProperties pattern / propertyNames),
+    honoring JSON-Schema boolean subschema intersection semantics: "false"
+    matches nothing, so it wins any collision outright (order-independent);
+    "true" matches anything, so colliding with it is a no-op that must not
+    clobber a real schema on the other side. When neither side is a bare
+    bool, both must be dicts before reaching merge_allof_schemas (which
+    declares Dict[str, Any] for its argument) -- a malformed non-dict,
+    non-bool value on one side is discarded in favor of whichever side is
+    a real schema, so a collision with junk never clobbers a good schema.
+    """
+    if existing is False or incoming is False:
+        return False
+    if existing is True:
+        return incoming
+    if incoming is True:
+        return existing
+    if isinstance(existing, dict) and isinstance(incoming, dict):
+        return merge_allof_schemas(
+            _combine_under_allof(existing, incoming), sw_dict, max_depth=max_depth
+        )
+    return existing if isinstance(existing, dict) else incoming
+
+
+def _merge_allof_map_keywords(
+    merged_schema: Dict[str, Any],
+    resolved_allof: Dict[str, Any],
+    sw_dict: Dict[str, Any],
+    max_depth: int,
+) -> None:
+    if "additionalProperties" in resolved_allof:
+        incoming_additional = resolved_allof["additionalProperties"]
+        if "additionalProperties" not in merged_schema:
+            merged_schema["additionalProperties"] = incoming_additional
+        else:
+            merged_schema["additionalProperties"] = _intersect_subschemas(
+                merged_schema["additionalProperties"],
+                incoming_additional,
+                sw_dict,
+                max_depth,
+            )
+
+    pattern_props = resolved_allof.get("patternProperties")
+    if isinstance(pattern_props, dict):
+        # Copy before mutate — merged_schema may still alias the caller's nested dict.
+        existing_pp = merged_schema.get("patternProperties")
+        pp: Dict[str, Any] = dict(existing_pp) if isinstance(existing_pp, dict) else {}
+        merged_schema["patternProperties"] = pp
+        for pattern, prop_schema in pattern_props.items():
+            if pattern not in pp:
+                # First contributor for this pattern -- nothing to intersect
+                # with yet, take it as-is (including a bare bool).
+                pp[pattern] = prop_schema
+                continue
+            pp[pattern] = _intersect_subschemas(
+                pp[pattern], prop_schema, sw_dict, max_depth
+            )
+
+    # Keep propertyNames so unresolved $ref there cannot break later jsonref loads.
+    # json_schema_util does not emit fields from propertyNames; we only preserve/resolve.
+    if "propertyNames" in resolved_allof:
+        incoming_names = resolved_allof["propertyNames"]
+        if "propertyNames" not in merged_schema:
+            merged_schema["propertyNames"] = incoming_names
+        else:
+            merged_schema["propertyNames"] = _intersect_subschemas(
+                merged_schema["propertyNames"], incoming_names, sw_dict, max_depth
+            )
+
+
+# Numeric allOf bounds without exclusive* modifiers. minimum/maximum are merged
+# jointly with exclusiveMinimum/Maximum so OpenAPI 3.0 boolean exclusivity stays
+# tied to the winning bound (independent OR of exclusivity over-restricts).
+_Number = Union[int, float]
+_ALLOF_NUMERIC_BOUNDS: Dict[str, Callable[[_Number, _Number], _Number]] = {
+    "minLength": max,
+    "minItems": max,
+    "minProperties": max,
+    "maxLength": min,
+    "maxItems": min,
+    "maxProperties": min,
+}
+
+
+def _is_number(value: object) -> TypeGuard[_Number]:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _merge_numeric_keyword(
+    merged_schema: Dict[str, Any],
+    key: str,
+    incoming: object,
+    more_restrictive: Callable[[_Number, _Number], _Number],
+) -> None:
+    if not _is_number(incoming):
+        return
+    current = merged_schema.get(key)
+    merged_schema[key] = (
+        more_restrictive(current, incoming) if _is_number(current) else incoming
+    )
+
+
+def _merge_allof_validation_keywords(
+    merged_schema: Dict[str, Any], resolved_allof: Dict[str, Any]
+) -> None:
+    for key, more_restrictive in _ALLOF_NUMERIC_BOUNDS.items():
+        if key in resolved_allof:
+            _merge_numeric_keyword(
+                merged_schema, key, resolved_allof[key], more_restrictive
+            )
+    # minimum/maximum + exclusive* (OpenAPI 3.0 bool modifiers / draft-6 numerics).
+    _merge_bound_with_exclusivity(
+        merged_schema, resolved_allof, "minimum", "exclusiveMinimum", prefer_higher=True
+    )
+    _merge_bound_with_exclusivity(
+        merged_schema,
+        resolved_allof,
+        "maximum",
+        "exclusiveMaximum",
+        prefer_higher=False,
+    )
+    if "uniqueItems" in resolved_allof:
+        merged_schema["uniqueItems"] = (
+            merged_schema.get("uniqueItems", False) or resolved_allof["uniqueItems"]
+        )
+    # pattern and multipleOf can't collapse to a single value under allOf (a name must
+    # match every pattern / be a multiple of every value); keep the first as best-effort.
+    for key in ("pattern", "multipleOf"):
+        if key in resolved_allof and key not in merged_schema:
+            merged_schema[key] = resolved_allof[key]
+
+
+def _apply_bool_exclusivity(
+    merged_schema: Dict[str, Any], exclusive_key: str, incoming_excl: object
+) -> None:
+    """Attach exclusivity from the member that owns the winning bound.
+
+    Absent exclusivity clears a stale OpenAPI 3.0 boolean so a stricter inclusive
+    bound is not left exclusive from a weaker member.
+    """
+    if isinstance(incoming_excl, bool):
+        merged_schema[exclusive_key] = incoming_excl
+    elif exclusive_key in merged_schema and isinstance(
+        merged_schema.get(exclusive_key), bool
     ):
-        enhanced_schema["additionalProperties"] = enhance_schema_with_titles(
-            enhanced_schema["additionalProperties"], sw_dict, "", is_top_level=False
+        del merged_schema[exclusive_key]
+
+
+def _merge_bound_with_exclusivity(
+    merged_schema: Dict[str, Any],
+    resolved_allof: Dict[str, Any],
+    bound_key: str,
+    exclusive_key: str,
+    prefer_higher: bool,
+) -> None:
+    """Merge a numeric bound with its exclusive* keyword as one constraint.
+
+    OpenAPI 3.0 exclusiveMinimum/Maximum are boolean modifiers of minimum/maximum.
+    Taking max(minimum) then OR(exclusiveMinimum) rejects valid boundary values when
+    the exclusivity belonged to a weaker bound. Draft-6+ numeric exclusive* values
+    remain independent bounds and use the numeric merge path.
+    """
+    incoming_bound = resolved_allof.get(bound_key)
+    incoming_excl = resolved_allof.get(exclusive_key)
+    has_bound = _is_number(incoming_bound)
+    has_excl = exclusive_key in resolved_allof
+    reducer: Callable[[_Number, _Number], _Number] = max if prefer_higher else min
+
+    if not has_bound and not has_excl:
+        return
+
+    # Draft-6+ numeric exclusive bound: merge independently of minimum/maximum.
+    if has_excl and _is_number(incoming_excl):
+        if has_bound:
+            _merge_numeric_keyword(merged_schema, bound_key, incoming_bound, reducer)
+        _merge_exclusive_bound(merged_schema, resolved_allof, exclusive_key, reducer)
+        return
+
+    if has_bound:
+        assert _is_number(incoming_bound)
+        current_bound = merged_schema.get(bound_key)
+        current_excl = merged_schema.get(exclusive_key)
+        # Mixed draft: keep an already-merged numeric exclusive* untouched.
+        if _is_number(current_excl):
+            _merge_numeric_keyword(merged_schema, bound_key, incoming_bound, reducer)
+            return
+
+        if not _is_number(current_bound):
+            merged_schema[bound_key] = incoming_bound
+            _apply_bool_exclusivity(merged_schema, exclusive_key, incoming_excl)
+            return
+
+        incoming_wins = (
+            incoming_bound > current_bound
+            if prefer_higher
+            else incoming_bound < current_bound
+        )
+        if incoming_wins:
+            merged_schema[bound_key] = incoming_bound
+            _apply_bool_exclusivity(merged_schema, exclusive_key, incoming_excl)
+        elif incoming_bound == current_bound:
+            current_strict = isinstance(current_excl, bool) and current_excl
+            incoming_strict = isinstance(incoming_excl, bool) and incoming_excl
+            if current_strict or incoming_strict:
+                merged_schema[exclusive_key] = True
+        return
+
+    # Boolean exclusivity with no bound on this member is ignored. Attaching it to
+    # another member's bound is order-dependent (OpenAPI 3.0 exclusive* modifies
+    # that member's minimum/maximum, not a later sibling's).
+    return
+
+
+def _merge_exclusive_bound(
+    merged_schema: Dict[str, Any],
+    resolved_allof: Dict[str, Any],
+    key: str,
+    numeric_more_restrictive: Callable[[_Number, _Number], _Number],
+) -> None:
+    if key not in resolved_allof:
+        return
+    incoming = resolved_allof[key]
+    if _is_number(incoming):
+        _merge_numeric_keyword(merged_schema, key, incoming, numeric_more_restrictive)
+        return
+    if isinstance(incoming, bool):
+        # A boolean flag must not clobber an already-merged numeric bound, so a
+        # mixed-version spec stays order-independent.
+        current = merged_schema.get(key)
+        merged_schema[key] = (
+            current if _is_number(current) else bool(current) or incoming
         )
 
-    # Handle union types - don't add titles to union members
-    for union_key in ["oneOf", "anyOf", "allOf"]:
-        if union_key in enhanced_schema:
-            enhanced_schema[union_key] = [
-                enhance_schema_with_titles(
-                    union_schema, sw_dict, "", is_top_level=False
-                )
-                for union_schema in enhanced_schema[union_key]
+
+def _combine_under_allof(
+    existing: Dict[str, Any], addition: Dict[str, Any]
+) -> Dict[str, Any]:
+    # Flatten a pure allOf wrapper from an earlier merge before appending, so a 3rd+
+    # contributor is a sibling not a nested member — merge_allof_schemas does not
+    # expand nested member allOf and would drop the earlier schemas.
+    members: List[Dict] = []
+    for part in (existing, addition):
+        if (
+            isinstance(part, dict)
+            and set(part.keys()) == {"allOf"}
+            and isinstance(part["allOf"], list)
+        ):
+            members.extend(part["allOf"])
+        else:
+            members.append(part)
+    return {"allOf": members}
+
+
+_LOCAL_REF_PREFIXES = ("#/definitions/", "#/components/schemas/", "#/$defs/")
+
+
+def _decode_json_pointer_token(token: str) -> str:
+    """Decode a single JSON Pointer reference token per RFC 6901: percent-
+    decode the URI fragment, then unescape '~1' to '/' and '~0' to '~' (in
+    that order, since a literal '~' in the source is escaped as '~0' and
+    must not be re-expanded by the '~1' substitution)."""
+    return unquote(token).replace("~1", "/").replace("~0", "~")
+
+
+def _lookup_local_ref_target(
+    ref_path: object,
+    sw_dict: Dict,
+) -> Optional[Dict[str, Any]]:
+    """Resolve `#/definitions/X`, `#/components/schemas/X`, or `#/$defs/X`.
+
+    Returns None for unsupported ref formats (external files, other JSON Pointers,
+    a non-string $ref value -- e.g. an empty "$ref:" line parses as None in YAML --
+    or a name absent under a known prefix), distinct from a found empty `{}` target.
+    """
+    if not isinstance(ref_path, str):
+        return None
+    if ref_path.startswith("#/definitions/"):
+        schemas_map = sw_dict.get("definitions", {})
+    elif ref_path.startswith("#/components/schemas/"):
+        # Two-step lookup: guard "components" being present-but-non-dict (e.g.
+        # explicit "components: null") before chaining another .get onto it.
+        components = sw_dict.get("components")
+        schemas_map = (
+            components.get("schemas", {}) if isinstance(components, dict) else {}
+        )
+    elif ref_path.startswith("#/$defs/"):
+        # OpenAPI 3.1 adopts JSON Schema 2020-12, where "$defs" is the
+        # idiomatic top-level local-definitions container alongside (or
+        # instead of) "components/schemas".
+        schemas_map = sw_dict.get("$defs", {})
+    else:
+        return None
+    if not isinstance(schemas_map, dict):
+        return None
+    target = schemas_map.get(_decode_json_pointer_token(ref_path.split("/")[-1]))
+    return target if isinstance(target, dict) else None
+
+
+def _resolve_pattern_properties(
+    resolved_schema: Dict[str, Any], sw_dict: Dict[str, Any], max_depth: int
+) -> None:
+    pattern_properties = resolved_schema.get("patternProperties")
+    if pattern_properties is None:
+        return
+    if not isinstance(pattern_properties, dict):
+        # Every downstream consumer (promotion, normalization, allOf merge)
+        # silently no-ops on a non-dict patternProperties -- warn once, here,
+        # at the earliest point it's seen, rather than at every one of those
+        # sites for the same root cause.
+        logger.warning(
+            "Ignoring malformed 'patternProperties' (expected object, got %s)",
+            type(pattern_properties).__name__,
+        )
+        return
+    # resolved_schema may still alias sw_dict's nested map — copy before rewrite.
+    pattern_properties = dict(pattern_properties)
+    resolved_schema["patternProperties"] = pattern_properties
+    for pattern, prop_schema in list(pattern_properties.items()):
+        pattern_properties[pattern] = _resolve_schema_refs(
+            prop_schema, sw_dict, max_depth=max_depth - 1
+        )
+
+
+def _shallow_schema_copy(schema: object) -> object:
+    return dict(schema) if isinstance(schema, dict) else schema
+
+
+def _promote_pattern_properties_to_additional(
+    resolved_schema: Dict[str, Any],
+) -> Dict[str, Any]:
+    # json_schema_util treats dict additionalProperties as a map and skips
+    # named properties — only promote on map-only schemas, after allOf merge.
+    # Non-mutating (returns the same object when nothing is promoted, else a
+    # copy): resolved_schema may still be the exact same dict object as a
+    # shared sw_dict component (e.g. a depth-capped _resolve_schema_refs
+    # return), and mutating it in place would corrupt that component for
+    # every other endpoint resolved later in the same run.
+    pattern_properties = resolved_schema.get("patternProperties")
+    if not isinstance(pattern_properties, dict):
+        return resolved_schema
+    # An existing dict value schema already lets json_schema_util extract the map.
+    # Absent, false, and true (JSON Schema default ≡ absent) all still need promotion
+    # so closed / unrestricted maps yield extractable columns.
+    existing_additional = resolved_schema.get("additionalProperties")
+    if isinstance(existing_additional, dict):
+        return resolved_schema
+    # Empty properties: {} has no named fields to protect.
+    if resolved_schema.get("properties"):
+        return resolved_schema
+    pattern_schemas = list(pattern_properties.values())
+    if not pattern_schemas:
+        return resolved_schema
+    promoted_schema = dict(resolved_schema)
+    if len(pattern_schemas) == 1:
+        promoted_schema["additionalProperties"] = _shallow_schema_copy(
+            pattern_schemas[0]
+        )
+    else:
+        # Disjoint pattern namespaces (e.g. ^str_ → string, ^num_ → int) collapse to
+        # one map value type — a lossy approximation of the original patterns.
+        logger.warning(
+            "Collapsing %s patternProperties entries into additionalProperties "
+            "anyOf; disjoint pattern namespaces are approximated as a single map "
+            "value type.",
+            len(pattern_schemas),
+        )
+        promoted_schema["additionalProperties"] = {
+            "anyOf": [_shallow_schema_copy(s) for s in pattern_schemas]
+        }
+    # JsonSchemaTranslator only reaches its "map" branch when type == "object"
+    # (see _get_type_from_schema); a typeless patternProperties map -- valid
+    # and common in JSON Schema -- would otherwise still resolve to zero
+    # fields despite the additionalProperties promotion above. Only fill in
+    # a missing type; an explicit conflicting type is left alone as already
+    # malformed input.
+    if "type" not in promoted_schema:
+        promoted_schema["type"] = "object"
+    return promoted_schema
+
+
+def _normalize_map_schemas_mapping(
+    mapping: Dict[str, Any],
+) -> Tuple[Dict[str, Any], bool]:
+    new_mapping: Dict[str, Any] = {}
+    changed = False
+    for key, value in mapping.items():
+        if value is True:
+            # get_schema_metadata only understands dict schema values; a bare
+            # "true" (matches anything) is equivalent to an empty schema.
+            new_mapping[key] = {}
+            changed = True
+            continue
+        if not isinstance(value, dict):
+            # Anything else non-dict (false, None -- e.g. a hand-written
+            # "foo:" with no value parses to None, a scalar) can't be
+            # represented as a field/pattern schema -- drop it rather than
+            # let get_schema_metadata crash (it only accepts object/boolean
+            # JSON Schema values).
+            changed = True
+            continue
+        normalized = _normalize_map_schemas(value)
+        if normalized is not value:
+            changed = True
+        new_mapping[key] = normalized
+    return new_mapping, changed
+
+
+def _normalize_map_schemas_list(members: List[Any]) -> Tuple[List[Any], bool]:
+    new_members: List[Any] = []
+    changed = False
+    for member in members:
+        # Same reasoning as _normalize_map_schemas_mapping: a non-dict
+        # member of oneOf/anyOf/allOf (bare bool, None, scalar) reaches
+        # get_schema_metadata's _get_type_from_schema, which does
+        # `if Ellipsis in schema` and crashes -- destroying this endpoint's
+        # entire spec-derived schema for a legal JSON Schema construct.
+        if member is True:
+            new_members.append({})
+            changed = True
+            continue
+        if not isinstance(member, dict):
+            # false, None, or a scalar can't be represented as a
+            # union-branch schema -- drop it rather than crash.
+            changed = True
+            continue
+        normalized = _normalize_map_schemas(member)
+        if normalized is not member:
+            changed = True
+        new_members.append(normalized)
+    return new_members, changed
+
+
+def _normalize_map_schemas(schema: object) -> object:
+    """Post-order: strip leftover $refs, then promote patternProperties.
+
+    Non-mutating, matching _strip_unresolved_refs: a node reached only via a
+    depth-capped _resolve_schema_refs return may still be the exact same dict
+    object as a shared sw_dict component, so rewriting it in place would
+    corrupt that component for every other endpoint resolved later in the
+    same run. A branch with nothing to normalize returns the ORIGINAL object
+    (same identity), so a caller can cheaply tell "changed" from "untouched"
+    with `is` -- though every dict node still gets a shallow copy allocated
+    up front here regardless, to have a safe base to write into if a nested
+    field does change.
+    """
+    if not isinstance(schema, dict):
+        return schema
+    new_schema = dict(schema)
+    changed = False
+
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        new_properties, props_changed = _normalize_map_schemas_mapping(properties)
+        if props_changed:
+            new_schema["properties"] = new_properties
+            changed = True
+
+    if "items" in schema:
+        items_value = schema["items"]
+        if items_value is True:
+            new_schema["items"] = {}
+            changed = True
+        elif not isinstance(items_value, dict):
+            # false, None (e.g. a hand-written "items:" with no value), or a
+            # scalar can't be represented as an "items" schema -- drop it
+            # rather than let it reach get_schema_metadata (see
+            # _normalize_map_schemas_mapping for the same handling on
+            # properties/patternProperties).
+            del new_schema["items"]
+            changed = True
+        else:
+            normalized_items = _normalize_map_schemas(items_value)
+            if normalized_items is not items_value:
+                new_schema["items"] = normalized_items
+                changed = True
+
+    additional = schema.get("additionalProperties")
+    if isinstance(additional, dict):
+        normalized_additional = _normalize_map_schemas(additional)
+        if normalized_additional is not additional:
+            new_schema["additionalProperties"] = normalized_additional
+            changed = True
+
+    pattern_properties = schema.get("patternProperties")
+    if isinstance(pattern_properties, dict):
+        new_pattern_properties, pattern_changed = _normalize_map_schemas_mapping(
+            pattern_properties
+        )
+        if pattern_changed:
+            new_schema["patternProperties"] = new_pattern_properties
+            changed = True
+
+    property_names = schema.get("propertyNames")
+    if isinstance(property_names, dict):
+        normalized_names = _normalize_map_schemas(property_names)
+        if normalized_names is not property_names:
+            new_schema["propertyNames"] = normalized_names
+            changed = True
+
+    for union_key in ("oneOf", "anyOf", "allOf"):
+        members = schema.get(union_key)
+        if isinstance(members, list):
+            new_members, members_changed = _normalize_map_schemas_list(members)
+            if members_changed:
+                if new_members:
+                    new_schema[union_key] = new_members
+                else:
+                    # Every member was a "false" (unrepresentable) bool --
+                    # nothing left to constrain against.
+                    del new_schema[union_key]
+                changed = True
+
+    working_schema = new_schema if changed else schema
+    return _promote_pattern_properties_to_additional(working_schema)
+
+
+def _strip_unresolved_refs(schema: object) -> Tuple[object, List[object]]:
+    """Recursively remove any leftover "$ref" key anywhere in the tree.
+
+    This walk is intentionally generic (every dict value and list item, not just the
+    JSON-Schema keywords _normalize_map_schemas understands) so it also covers keys
+    normalization doesn't visit (e.g. "not", "if"/"then"/"else", "contains") — a
+    depth-limited resolution can leave a raw $ref under any of those, and an
+    unresolved $ref reaching jsonref crashes the whole endpoint.
+
+    Unconditional, even for a property literally named "$ref" or a "$ref" key
+    inside "example"/"default" data: jsonref treats *every* dict with a "$ref"
+    key as a JSON Reference to resolve, with no way to tell it "this one is
+    just data" -- leaving such a key in place makes jsonref raise (dropping
+    the whole schema's fields, not just this one), which is far worse than
+    losing this one key's data.
+
+    Returns (possibly-rebuilt schema, the $ref values found and removed) --
+    the caller uses the removed values (rather than a plain count/bool) to
+    tell a genuinely broken local ref from an expected, unsupported external
+    one, so it can log accordingly instead of treating both identically.
+    Does NOT mutate the input in place: a node under one of the unvisited
+    keywords above may still be the exact same dict object as a shared
+    sw_dict component (neither _resolve_schema_refs nor _normalize_map_schemas
+    walks into "not"/"if"/"then"/"else"/"contains", so they never copy it
+    either), and deleting a key from it in place would permanently corrupt
+    that shared component for every other endpoint resolved later in the same
+    run. A branch with nothing to strip is returned unchanged (same object),
+    so this only allocates along paths that actually contained a $ref.
+    """
+    if isinstance(schema, dict):
+        stripped_refs: List[object] = [schema["$ref"]] if "$ref" in schema else []
+        new_dict = {}
+        for key, value in schema.items():
+            if key == "$ref":
+                continue
+            new_value, child_refs = _strip_unresolved_refs(value)
+            stripped_refs.extend(child_refs)
+            new_dict[key] = new_value
+        return (new_dict if stripped_refs else schema), stripped_refs
+    elif isinstance(schema, list):
+        stripped_refs = []
+        new_list = []
+        for item in schema:
+            new_item, child_refs = _strip_unresolved_refs(item)
+            stripped_refs.extend(child_refs)
+            new_list.append(new_item)
+        return (new_list if stripped_refs else schema), stripped_refs
+    return schema, []
+
+
+def _resolve_schema_refs(schema: object, sw_dict: Dict, max_depth: int = 10) -> object:
+    """Expand $refs / allOf only — no patternProperties→additionalProperties promotion.
+
+    Promotion is lossy for mixed properties+patternProperties schemas and must run
+    once on the fully merged tree via resolve_schema_references / _normalize_map_schemas.
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    # Check recursion depth
+    if max_depth <= 0:
+        logger.warning(
+            "Maximum recursion depth exceeded while resolving schema references. "
+            "Schema may be deeply nested or contain circular references. "
+            "Returning partially resolved schema."
+        )
+        return schema
+
+    resolved_schema = schema.copy()
+
+    # Handle direct references. OAS 3.1 / JSON Schema draft-2019-09 allow sibling
+    # keywords alongside $ref — returning the target alone would drop them.
+    if "$ref" in resolved_schema:
+        ref_path = resolved_schema["$ref"]
+        referenced_schema = _lookup_local_ref_target(ref_path, sw_dict)
+
+        if referenced_schema is not None:
+            resolved_referenced = _resolve_schema_refs(
+                referenced_schema, sw_dict, max_depth=max_depth - 1
+            )
+            # referenced_schema is a dict (guaranteed by _lookup_local_ref_target),
+            # and _resolve_schema_refs only ever returns non-dict for a non-dict
+            # input, so this is always a dict too.
+            assert isinstance(resolved_referenced, dict)
+            siblings = {k: v for k, v in resolved_schema.items() if k != "$ref"}
+            if not siblings:
+                return resolved_referenced
+            # Sibling keywords (incl. nested $refs / allOf) are resolved when
+            # merge_allof_schemas fully expands each allOf member.
+            return _resolve_schema_refs(
+                _combine_under_allof(resolved_referenced, siblings),
+                sw_dict,
+                max_depth=max_depth - 1,
+            )
+        if isinstance(ref_path, str) and not ref_path.startswith(_LOCAL_REF_PREFIXES):
+            # An external-file reference or an unsupported local JSON Pointer
+            # shape -- a normal, spec-legal pattern this connector doesn't
+            # resolve, not evidence the spec itself is broken.
+            logger.info(
+                "Leaving external/unsupported schema $ref %r unresolved "
+                "(only local definitions/components/$defs refs are supported)",
+                ref_path,
+            )
+        else:
+            logger.warning(
+                "Unable to resolve schema $ref %r; leaving reference unresolved",
+                ref_path,
+            )
+
+    # Recursively resolve references in properties. Shallow schema.copy() still
+    # aliases the nested properties map from sw_dict — copy before rewrite so
+    # shared components are not permanently mutated across endpoints.
+    properties = resolved_schema.get("properties")
+    if isinstance(properties, dict):
+        properties = dict(properties)
+        resolved_schema["properties"] = properties
+        for prop_name, prop_schema in properties.items():
+            properties[prop_name] = _resolve_schema_refs(
+                prop_schema, sw_dict, max_depth=max_depth - 1
+            )
+
+    # Recursively resolve references in array items
+    if "items" in resolved_schema:
+        resolved_schema["items"] = _resolve_schema_refs(
+            resolved_schema["items"], sw_dict, max_depth=max_depth - 1
+        )
+
+    # Recursively resolve references in additionalProperties
+    if "additionalProperties" in resolved_schema and isinstance(
+        resolved_schema["additionalProperties"], dict
+    ):
+        resolved_schema["additionalProperties"] = _resolve_schema_refs(
+            resolved_schema["additionalProperties"], sw_dict, max_depth=max_depth - 1
+        )
+
+    # Handle union types (oneOf, anyOf) before allOf: merge_allof_schemas may
+    # relocate this schema's own oneOf/anyOf into a terminal allOf wrapper (when an
+    # allOf member also contributes one) that nothing downstream walks back into —
+    # so any $ref inside it must already be resolved before that happens, or those
+    # fields are lost when _strip_unresolved_refs later strips the leftover $ref.
+    for union_key in ["oneOf", "anyOf"]:
+        members = resolved_schema.get(union_key)
+        if isinstance(members, list):
+            resolved_schema[union_key] = [
+                _resolve_schema_refs(union_schema, sw_dict, max_depth=max_depth - 1)
+                for union_schema in members
             ]
 
-    return enhanced_schema
+    # Handle allOf by merging schemas (after oneOf/anyOf are resolved above)
+    if "allOf" in resolved_schema:
+        resolved_schema = merge_allof_schemas(
+            resolved_schema, sw_dict, max_depth=max_depth
+        )
+
+    # After allOf so keywords contributed by members are resolved too.
+    _resolve_pattern_properties(resolved_schema, sw_dict, max_depth)
+
+    # Resolve propertyNames so leftover $refs cannot break jsonref in json_schema_util.
+    property_names = resolved_schema.get("propertyNames")
+    if isinstance(property_names, dict):
+        resolved_schema["propertyNames"] = _resolve_schema_refs(
+            property_names, sw_dict, max_depth=max_depth - 1
+        )
+
+    return resolved_schema
 
 
 def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dict:
@@ -774,147 +1707,116 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
     Note:
         If max_depth is exceeded, returns partially resolved schema and logs a warning.
         This prevents infinite recursion from deeply nested or circular references.
+        patternProperties→additionalProperties promotion runs once after full merge.
     """
-    if not isinstance(schema, dict):
-        return schema
-
-    # Check recursion depth
-    if max_depth <= 0:
-        logger.warning(
-            "Maximum recursion depth exceeded while resolving schema references. "
-            "Schema may be deeply nested or contain circular references. "
-            "Returning partially resolved schema."
-        )
-        return schema
-
-    resolved_schema = schema.copy()
-
-    # Handle direct references
-    if "$ref" in resolved_schema:
-        ref_path = resolved_schema["$ref"]
-
-        # Handle v2 references (e.g., "#/definitions/Pet")
-        if ref_path.startswith("#/definitions/"):
-            schema_name = ref_path.split("/")[-1]
-            referenced_schema = sw_dict.get("definitions", {}).get(schema_name, {})
-            if referenced_schema:
-                # Recursively resolve references in the referenced schema
-                resolved_referenced = resolve_schema_references(
-                    referenced_schema, sw_dict, max_depth=max_depth - 1
-                )
-                # Don't add title - let json_schema_util use the schema structure directly
-                # Titles cause definition names to appear in field paths
-                return resolved_referenced
-
-        # Handle v3 references (e.g., "#/components/schemas/Pet")
-        elif ref_path.startswith("#/components/schemas/"):
-            schema_name = ref_path.split("/")[-1]
-            referenced_schema = (
-                sw_dict.get("components", {}).get("schemas", {}).get(schema_name, {})
+    resolved_schema = _resolve_schema_refs(schema, sw_dict, max_depth=max_depth)
+    # schema is a dict (this function's own contract), and _resolve_schema_refs
+    # only ever returns non-dict for a non-dict input, so this is always a dict.
+    assert isinstance(resolved_schema, dict)
+    normalized_schema = _normalize_map_schemas(resolved_schema)
+    assert isinstance(normalized_schema, dict)
+    resolved_schema = normalized_schema
+    # Postcondition: jsonref must never see a leftover $ref after normalize. A
+    # generic sweep (not an assert) so a depth-limited $ref under a keyword
+    # normalize doesn't structurally walk (e.g. "not") degrades gracefully
+    # instead of crashing the endpoint — and isn't compiled out under -O.
+    stripped_schema, stripped_refs = _strip_unresolved_refs(resolved_schema)
+    assert isinstance(stripped_schema, dict)
+    resolved_schema = stripped_schema
+    if stripped_refs:
+        # Only external/unsupported refs (a normal, spec-legal pattern this
+        # connector doesn't resolve) were removed -- not evidence the spec
+        # itself is broken, so this must not surface as a report warning
+        # (matching the INFO-level notice already logged when they were
+        # first left unresolved above).
+        if all(
+            isinstance(ref, str) and not ref.startswith(_LOCAL_REF_PREFIXES)
+            for ref in stripped_refs
+        ):
+            logger.info(
+                "Removed %d external/unsupported schema $ref(s) after "
+                "normalization (not evidence of a malformed spec)",
+                len(stripped_refs),
             )
-            if referenced_schema:
-                # Recursively resolve references in the referenced schema
-                resolved_referenced = resolve_schema_references(
-                    referenced_schema, sw_dict, max_depth=max_depth - 1
-                )
-                # Don't add title - let json_schema_util use the schema structure directly
-                # Titles cause definition names to appear in field paths
-                return resolved_referenced
-
-    # Recursively resolve references in properties
-    if "properties" in resolved_schema:
-        for prop_name, prop_schema in resolved_schema["properties"].items():
-            resolved_schema["properties"][prop_name] = resolve_schema_references(
-                prop_schema, sw_dict, max_depth=max_depth - 1
+        else:
+            logger.warning(
+                "Unresolved schema $ref(s) remained after normalization; "
+                "removed to avoid jsonref failure"
             )
-
-    # Recursively resolve references in array items
-    if "items" in resolved_schema:
-        resolved_schema["items"] = resolve_schema_references(
-            resolved_schema["items"], sw_dict, max_depth=max_depth - 1
-        )
-
-    # Recursively resolve references in additionalProperties
-    if "additionalProperties" in resolved_schema and isinstance(
-        resolved_schema["additionalProperties"], dict
-    ):
-        resolved_schema["additionalProperties"] = resolve_schema_references(
-            resolved_schema["additionalProperties"], sw_dict, max_depth=max_depth - 1
-        )
-
-    # Handle allOf by merging schemas (before treating as union)
-    if "allOf" in resolved_schema:
-        resolved_schema = merge_allof_schemas(
-            resolved_schema, sw_dict, resolving_refs=True, max_depth=max_depth
-        )
-
-    # Handle union types (oneOf, anyOf) - allOf is already handled above
-    for union_key in ["oneOf", "anyOf"]:
-        if union_key in resolved_schema:
-            resolved_schema[union_key] = [
-                resolve_schema_references(
-                    union_schema, sw_dict, max_depth=max_depth - 1
-                )
-                for union_schema in resolved_schema[union_key]
-            ]
-
     return resolved_schema
 
 
-def extract_schema_from_response_schema(
-    response_schema: Dict, sw_dict: Dict, schema_name: str = ""
-) -> Dict:
-    """
-    Extract schema definition from response schema, handling both v2 and v3 references.
-    """
-    if "$ref" in response_schema:
-        ref_path = response_schema["$ref"]
+# Keywords that imply an object (or composition) schema even without type: object.
+_OBJECT_SHAPE_KEYS = (
+    "properties",
+    "patternProperties",
+    "additionalProperties",
+    "allOf",
+    "oneOf",
+    "anyOf",
+)
 
-        # Handle v2 references (e.g., "#/definitions/Pet")
-        if ref_path.startswith("#/definitions/"):
-            schema_name = ref_path.split("/")[-1]
-            return sw_dict.get("definitions", {}).get(schema_name, {})
 
-        # Handle v3 references (e.g., "#/components/schemas/Pet")
-        elif ref_path.startswith("#/components/schemas/"):
-            schema_name = ref_path.split("/")[-1]
-            return sw_dict.get("components", {}).get("schemas", {}).get(schema_name, {})
-
-    return response_schema
+def _looks_like_object_or_composition_schema(schema: Dict) -> bool:
+    if schema.get("type") == "object":
+        return True
+    for key in _OBJECT_SHAPE_KEYS:
+        if key not in schema:
+            continue
+        value = schema[key]
+        # An empty/no-op contribution (e.g. "properties": {}, "oneOf": [],
+        # "additionalProperties": false) carries no field information — accepting
+        # it here would suppress the example-data/live-API fallbacks in
+        # get_workunits_internal for a schema that yields zero extractable fields.
+        if key == "additionalProperties":
+            if value is not False:
+                return True
+        elif value:
+            return True
+    return False
 
 
 def get_schema_from_response(
-    response_schema: Dict, sw_dict: Dict, max_depth: int = 10
+    response_schema: object, sw_dict: Dict, max_depth: int = 10
 ) -> Optional[Dict]:
     """
     Extract the actual schema definition from a response schema.
     Handles both direct schemas and references.
 
     Args:
-        response_schema: Schema dictionary from response
+        response_schema: Schema dictionary from response (typed as `object`, not
+            `Dict`, since a bare `true`/`false` is a valid top-level JSON Schema)
         sw_dict: Complete OpenAPI specification for resolving references
         max_depth: Maximum recursion depth for resolving schema references (default: 10)
     """
     if not response_schema:
         return None
+    if not isinstance(response_schema, dict):
+        # A bare `true`/`false` is a valid top-level JSON Schema (matches
+        # anything / nothing), consistent with how merge_allof_schemas treats a
+        # boolean allOf member -- but it carries no extractable fields here.
+        return None
 
-    # Handle array responses
+    # Handle array responses. resolve_schema_references (not a bare $ref lookup) so a
+    # $ref with sibling keywords under "items" is not silently dropped.
     if response_schema.get("type") == "array":
         items_schema = response_schema.get("items", {})
-        resolved_items_schema = extract_schema_from_response_schema(
-            items_schema, sw_dict
-        )
-        # Resolve all references in the schema
-        return resolve_schema_references(resolved_items_schema, sw_dict, max_depth)
+        if not isinstance(items_schema, dict):
+            # A bare `true`/`false` "items" schema carries no extractable fields
+            # here, same as a bare boolean top-level schema above -- and
+            # resolve_schema_references would otherwise return it unchanged
+            # (e.g. `True`), which is truthy and gets mistaken for a resolved
+            # schema by callers that check for one.
+            return None
+        return resolve_schema_references(items_schema, sw_dict, max_depth)
 
-    # Handle direct object schemas
-    elif response_schema.get("type") == "object":
+    # Handle references (before object-shape fallthrough — $ref may carry siblings,
+    # which resolve_schema_references (not a bare $ref lookup) preserves).
+    if "$ref" in response_schema:
         return resolve_schema_references(response_schema, sw_dict, max_depth)
 
-    # Handle references
-    elif "$ref" in response_schema:
-        resolved_schema = extract_schema_from_response_schema(response_schema, sw_dict)
-        # Resolve all references in the schema
-        return resolve_schema_references(resolved_schema, sw_dict, max_depth)
+    # type is optional in JSON Schema — bare properties / allOf / oneOf are valid objects.
+    if _looks_like_object_or_composition_schema(response_schema):
+        return resolve_schema_references(response_schema, sw_dict, max_depth)
 
     return None
