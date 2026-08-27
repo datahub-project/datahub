@@ -33,7 +33,7 @@
     "embeddedSearch.loadError": "由于意外错误，无法加载结果。请稍后重试。",
     "embeddedSearch.matchingViews": "在<strong>{{viewName}}</strong>视图中仅显示实体。",
     "embeddedSearch.noValuesSelected": "未选择值",
-    "embeddedSearch.paginationRange": "<bold>{{rangeStart}} - <bold>{{total}}</bold> 的 {{rangeEnd}}</bold>",
+"embeddedSearch.paginationRange": "<bold>{{rangeStart}} - {{rangeEnd}}</bold> 的 <bold>{{total}}</bold>",
     "embeddedSearch.searchEntitiesPlaceholder": "搜索实体...",
     "embeddedSearch.searchError": "未能完成搜索：{{message}}",
     "embeddedSearch.searchValues": "搜索值",
