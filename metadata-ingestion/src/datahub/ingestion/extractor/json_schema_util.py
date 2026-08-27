@@ -296,8 +296,11 @@ class JsonSchemaTranslator:
                 # resolving to "object" still needs the same map check as the
                 # plain-string-type branch below, or a nullable map's fields
                 # are silently dropped.
-                if resolved_type == "object" and isinstance(
-                    schema.get("additionalProperties"), dict
+                if (
+                    resolved_type == "object"
+                    and isinstance(schema.get("additionalProperties"), dict)
+                    and not schema.get("properties")
+                ):
                 ):
                     return "map"
                 return resolved_type
