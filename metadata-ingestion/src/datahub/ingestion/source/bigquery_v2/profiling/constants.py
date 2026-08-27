@@ -113,8 +113,10 @@ VALID_COLUMN_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 # BigQuery project ID: lowercase letters, numbers, hyphens; 6-30 chars.
 PROJECT_ID_RE = re.compile(r"^[a-z][a-z0-9-]*[a-z0-9]$")
 
-# Table name: hyphens allowed (unlike column/dataset identifiers).
-TABLE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_-]*$")
+# Table name: hyphens allowed (unlike column/dataset identifiers), and a leading
+# digit is permitted because BigQuery date-sharded tables (e.g. `20200101`) are
+# backtick-quoted digit-leading names.
+TABLE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z0-9_][a-zA-Z0-9_-]*$")
 
 
 # Collapses runs of whitespace when normalising a query before injection checks.
@@ -136,7 +138,10 @@ SQL_DANGEROUS_PATTERNS = [
         r"\bREVOKE\s+",
         r"\bEXEC(?:UTE)?\s+",
         r"\bCALL\s+",
-        r";\s*(?:CREATE|DROP|ALTER|INSERT|UPDATE|DELETE|GRANT|REVOKE)",
+        # EXPORT DATA / LOAD DATA can move or mutate data from an otherwise read-only query.
+        r"\bEXPORT\s+DATA\b",
+        r"\bLOAD\s+DATA\b",
+        r";\s*(?:CREATE|DROP|ALTER|INSERT|UPDATE|DELETE|GRANT|REVOKE|TRUNCATE|MERGE|EXEC(?:UTE)?|CALL|EXPORT|LOAD)",
         r"<script[^>]*>",
         r"javascript:",
         r"vbscript:",
@@ -160,9 +165,12 @@ SQL_ALLOWED_START_PATTERNS = [
 FILTER_DANGEROUS_PATTERNS = [
     re.compile(p, re.IGNORECASE)
     for p in [
-        r";\s*(?:DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|TRUNCATE)\s+",
-        r"UNION\s+(?:ALL\s+)?SELECT",
+        r";\s*(?:DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|TRUNCATE|MERGE|GRANT|REVOKE|EXEC(?:UTE)?|CALL|EXPORT|LOAD)\s+",
+        r"UNION\s+(?:(?:ALL|DISTINCT)\s+)?SELECT",
         r"--",
+        # BigQuery '#' line comment: like '--', a value that closes the literal and
+        # appends '# ...' could comment out the rest of the interpolated predicate.
+        r"#",
         r"/\*",
         # xp_cmdshell / sp_executesql intentionally omitted: they are SQL Server
         # builtins with no meaning in BigQuery and are valid STRING/Hive partition
@@ -181,7 +189,7 @@ BACKTICK_COLUMN_NAME_RE = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*)`")
 
 # Recognised SQL comparison / membership operators in filter expressions.
 FILTER_OPERATOR_RE = re.compile(
-    r"(?:=|!=|<>|<|>|<=|>=|IS\s+(?:NOT\s+)?NULL|LIKE|NOT\s+LIKE|IN\s*\()",
+    r"(?:=|!=|<>|<|>|<=|>=|BETWEEN\s+|IS\s+(?:NOT\s+)?NULL|LIKE|NOT\s+LIKE|IN\s*\()",
     re.IGNORECASE,
 )
 
