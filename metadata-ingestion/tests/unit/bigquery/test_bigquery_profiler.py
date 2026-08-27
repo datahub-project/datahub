@@ -876,6 +876,32 @@ def test_fallback_partition_values_override_used():
     assert result == "`region` = 'us-east-1'"
 
 
+def test_external_table_discovery_fallback_warns():
+    """When external discovery falls back to an unpruned IS NOT NULL filter, the
+    report gets a warning so operators can spot full-scan profiling."""
+    report = BigQueryV2Report()
+    discovery = PartitionDiscovery(create_test_config(), report)
+    table = create_test_table(external=True)
+
+    with (
+        patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
+        patch.object(
+            discovery,
+            "get_partition_columns_from_info_schema",
+            return_value={"region": "STRING"},
+        ),
+    ):
+        filters = discovery._get_external_table_partition_filters(
+            table,
+            "test-project",
+            "dataset",
+            lambda query, job_config, context: [],
+        )
+
+    assert filters == ["`region` IS NOT NULL"]
+    assert len(report.warnings) >= 1
+
+
 def test_internal_fallback_is_not_null_warns():
     report = BigQueryV2Report()
     discovery = PartitionDiscovery(create_test_config(), report)

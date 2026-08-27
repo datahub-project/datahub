@@ -1145,7 +1145,59 @@ class PartitionDiscovery:
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Optional[List[str]]:
-        return None
+        try:
+            sample_filters = self._get_partitions_with_sampling(
+                table, project, schema, execute_query_func
+            )
+            if sample_filters:
+                return sample_filters
+
+            partition_cols_with_types = self.get_partition_columns_from_info_schema(
+                table, project, schema, execute_query_func
+            )
+
+            if not partition_cols_with_types:
+                partition_cols_with_types = self.get_partition_columns_from_ddl(
+                    table, project, schema, execute_query_func
+                )
+
+            if not partition_cols_with_types:
+                if not table.ddl:
+                    # With no DDL and nothing from INFORMATION_SCHEMA we can't tell if an
+                    # external table is partitioned, so surface it instead of assuming not.
+                    warn(
+                        self.report,
+                        logger,
+                        title="External table partition status undetermined",
+                        message="No DDL was available and INFORMATION_SCHEMA returned no "
+                        "partition columns for this external table; it will be treated "
+                        "as unpartitioned and may be full-scanned.",
+                        context=f"{project}.{schema}.{table.name}",
+                    )
+                else:
+                    logger.debug(
+                        f"No partition columns found for external table {table.name}"
+                    )
+                return []
+
+            return self._get_fallback_partition_filters(
+                table,
+                project,
+                schema,
+                list(partition_cols_with_types.keys()),
+                partition_cols_with_types,
+            )
+
+        except Exception as e:
+            warn(
+                self.report,
+                logger,
+                title="External table partition discovery failed",
+                message="Could not determine partition filters for this external table; "
+                "profiling may fall back to a full scan or skip the table.",
+                context=f"{table.name}: {e}",
+            )
+            return None
 
     def _test_date_candidate(
         self,
