@@ -1461,11 +1461,13 @@ def test_node_pass_detects_collision_even_when_one_contender_is_excluded(
         manifest_path=f"{tmp_path}/*/manifest.json",
         materialized_node_pattern={"database_pattern": {"deny": ["db_a"]}},
     )
+    # Loaded once: load_nodes re-reads every manifest, extends self._exposures, and
+    # increments report.manifests_loaded, so a second call would double all three.
+    all_nodes = source.load_nodes()
     assert not source._is_allowed_node(
-        next(n for n in source.load_nodes() if n.database == "db_a")
+        next(node for node in all_nodes if node.database == "db_a")
     )
 
-    all_nodes = source.load_nodes()
     nodes, _ = source._check_duplicate_unique_ids(all_nodes, source.load_exposures())
 
     assert nodes == []
