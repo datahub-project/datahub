@@ -138,10 +138,12 @@ class FilterBuilder:
         # A RANGE partition ID is the max bucket's inclusive integer lower bound, not an
         # exact value: a row belongs to the bucket when col is in [start, start+interval).
         # Equality (`col = start`) would only match rows exactly on the floor and miss the
-        # rest of the bucket, so the bucket is scanned with `col >= start`. BigQuery RANGE
-        # partitioning is integer-only, so build the typed numeric predicate directly and
-        # reject anything that isn't a valid integer bound rather than emitting an
-        # unenforceable filter.
+        # rest of the bucket, so the bucket is scanned with `col >= start`. No exclusive
+        # upper bound is needed even though the bucket width is unknown here: this is the
+        # *max* populated bucket, so nothing exists above `start` and `col >= start`
+        # cannot over-select. BigQuery RANGE partitioning is integer-only, so build the
+        # typed numeric predicate directly and reject anything that isn't a valid integer
+        # bound rather than emitting an unenforceable filter.
         if not VALID_COLUMN_NAME_PATTERN.match(col_name):
             raise ValueError(f"Invalid column name for filter: {col_name}")
         try:
