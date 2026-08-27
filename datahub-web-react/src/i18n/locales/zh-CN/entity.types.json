@@ -222,7 +222,7 @@
     "group.tab.members": "成员",
     "group.updateNameError": "更新名称失败：\n {{error}}",
     "group.viewAllMembers": "查看所有成员",
-    "mlFeature.name": "功能",
+"mlFeature.name": "特征",
     "mlFeature.namePlural": "功能",
     "mlFeatureTable.name": "特征表",
     "mlFeatureTable.namePlural": "特征表",
