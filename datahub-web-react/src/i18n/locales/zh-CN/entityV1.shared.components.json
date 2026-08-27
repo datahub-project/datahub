@@ -54,7 +54,7 @@
     "markdownViewer.showLess": "显示较少",
     "matchingViews.clear": "清除视图",
     "matchingViews.label": "在<strong>{{viewName}}</strong>视图中仅显示实体。",
-    "pagination.range": "<bold>{{start}} - <bold>{{total}}</bold> 的 {{end}}</bold>",
+    "pagination.range": "<bold>{{start}} - {{end}}</bold> 的 <bold>{{total}}</bold>",
     "searchExtendedMenu.edit": "编辑...",
     "searchSelect.exitContent_one": "您确定要退出吗？ {{count}} 选择将被清除。",
     "searchSelect.exitContent_other": "您确定要退出吗？ {{count}} 选择将被清除。",
