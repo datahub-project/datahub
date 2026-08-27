@@ -1257,11 +1257,13 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         # empty schema indistinguishable from "no parameters" with no signal
         # that the spec itself is malformed.
         endpoint_spec = {"parameters": {"name": "id"}}
-        with self.assertLogs("datahub.ingestion.source.openapi", level="WARNING") as cm:
-            result = self.source.extract_request_schema_from_endpoint(endpoint_spec, {})
+        result = self.source.extract_request_schema_from_endpoint(endpoint_spec, {})
         self.assertIsNone(result)
         self.assertTrue(
-            any("malformed 'parameters'" in message for message in cm.output)
+            any(
+                getattr(w, "title", None) == "Malformed Request Parameters"
+                for w in self.source.report.warnings
+            )
         )
 
     def test_extract_request_schema_null_parameters_still_warns(self):
@@ -1269,11 +1271,29 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         # truthiness-first check (`if parameters and not isinstance(...)`)
         # skipped the malformed-input warning entirely for this case.
         endpoint_spec = {"parameters": None}
-        with self.assertLogs("datahub.ingestion.source.openapi", level="WARNING") as cm:
-            result = self.source.extract_request_schema_from_endpoint(endpoint_spec, {})
+        result = self.source.extract_request_schema_from_endpoint(endpoint_spec, {})
         self.assertIsNone(result)
         self.assertTrue(
-            any("malformed 'parameters'" in message for message in cm.output)
+            any(
+                getattr(w, "title", None) == "Malformed Request Parameters"
+                for w in self.source.report.warnings
+            )
+        )
+
+    def test_extract_request_schema_malformed_parameters_reaches_report_not_just_log(
+        self,
+    ):
+        # Regression: this warning used to go only through this module's own
+        # logger, which _capture_parser_warnings does not wrap (it only
+        # bridges openapi_parser's logger) -- so it never reached
+        # self.report.warnings, unlike every sibling malformed-input warning.
+        endpoint_spec = {"parameters": "not-a-list"}
+        self.source.extract_request_schema_from_endpoint(endpoint_spec, {})
+        self.assertTrue(
+            any(
+                getattr(w, "title", None) == "Malformed Request Parameters"
+                for w in self.source.report.warnings
+            )
         )
 
     def test_extract_schema_method_priority(self):
@@ -2294,6 +2314,81 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         resolved = resolve_schema_references(schema, sw_dict)
 
         self.assertEqual(resolved["additionalProperties"], {"type": "integer"})
+
+    def test_pattern_properties_not_promoted_when_named_properties_present(self):
+        # Regression coverage: a hybrid schema with both a real named field
+        # and a catch-all patternProperties must NOT be promoted to a map --
+        # json_schema_util treats dict additionalProperties as a map and
+        # skips named properties, so promoting here would silently drop "id".
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "type": "object",
+            "properties": {"id": {"type": "string"}},
+            "patternProperties": {"^x_": {"type": "string"}},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertIn("id", resolved["properties"])
+        self.assertNotIn("additionalProperties", resolved)
+
+    def test_merge_allof_pattern_properties_malformed_incoming_keeps_existing(self):
+        # A malformed (non-bool, non-dict) incoming value must not clobber a
+        # real schema already present for the same pattern.
+        merged = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"patternProperties": {"^x": {"type": "string"}}},
+                    {"patternProperties": {"^x": "not-a-schema"}},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertEqual(merged["patternProperties"]["^x"], {"type": "string"})
+
+    def test_merge_allof_pattern_properties_malformed_existing_takes_incoming(self):
+        # A malformed existing value has nothing valid to merge with --
+        # whatever the next member contributes (even if also malformed) wins.
+        merged = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"patternProperties": {"^x": "not-a-schema"}},
+                    {"patternProperties": {"^x": {"type": "string"}}},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertEqual(merged["patternProperties"]["^x"], {"type": "string"})
+
+    def test_merge_allof_identical_oneof_collapses_to_plain_keyword(self):
+        # Two allOf members contributing the IDENTICAL oneOf list must
+        # collapse to a plain top-level "oneOf", not be needlessly wrapped
+        # in a redundant nested allOf.
+        one_of = [{"type": "string"}, {"type": "integer"}]
+        merged = merge_allof_schemas(
+            {"allOf": [{"oneOf": one_of}, {"oneOf": list(one_of)}]},
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertEqual(merged.get("oneOf"), one_of)
+        self.assertNotIn("allOf", merged)
+
+    def test_resolve_pattern_properties_malformed_value_warns(self):
+        # Regression: every downstream consumer (promotion, normalization,
+        # allOf merge) silently no-ops on a non-dict patternProperties with
+        # zero signal to the operator that the spec itself is malformed.
+        schema = {"type": "object", "patternProperties": ["not-a-dict"]}
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ) as cm:
+            resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
+        # Left untouched (not crashed, not silently dropped) -- just unresolved.
+        self.assertEqual(resolved["patternProperties"], ["not-a-dict"])
+        self.assertTrue(
+            any("malformed 'patternProperties'" in msg for msg in cm.output)
+        )
 
     def test_merge_allof_mixed_exclusive_bounds_no_error(self):
         # A numeric (draft-6+) exclusive bound in one member and a boolean (draft-4)

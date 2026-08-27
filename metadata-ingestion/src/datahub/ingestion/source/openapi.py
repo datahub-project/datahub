@@ -549,10 +549,14 @@ class APISource(Source, ABC):
             # Check for parameters (both v2 and v3)
             parameters = endpoint_spec.get("parameters", [])
             if not isinstance(parameters, list):
-                logger.warning(
-                    "Skipping malformed 'parameters' %r (expected list, got %s)",
-                    parameters,
-                    type(parameters).__name__,
+                # This method's own logger ("datahub.ingestion.source.openapi")
+                # isn't wrapped by _capture_parser_warnings (which only bridges
+                # openapi_parser's logger into the report), so a bare
+                # logger.warning here would never reach the ingestion report.
+                self.report.warning(
+                    title="Malformed Request Parameters",
+                    message="Skipping malformed 'parameters' value (expected list)",
+                    context=f"Got {type(parameters).__name__}",
                 )
             elif parameters:
                 # Create a schema from parameters

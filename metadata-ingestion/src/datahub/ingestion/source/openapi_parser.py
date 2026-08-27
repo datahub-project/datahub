@@ -993,6 +993,33 @@ def _merge_allof_properties(
             props[prop_name] = prop_schema
 
 
+def _intersect_subschemas(
+    existing: Any, incoming: Any, sw_dict: Dict[str, Any], max_depth: int
+) -> Any:
+    """Merge two allOf members' contributions to the same map-typed keyword
+    slot (additionalProperties / a patternProperties pattern / propertyNames),
+    honoring JSON-Schema boolean subschema intersection semantics: "false"
+    matches nothing, so it wins any collision outright (order-independent);
+    "true" matches anything, so colliding with it is a no-op that must not
+    clobber a real schema on the other side. When neither side is a bare
+    bool, both must be dicts before reaching merge_allof_schemas (which
+    declares Dict[str, Any] for its argument) -- a malformed non-dict,
+    non-bool value on one side is discarded in favor of whichever side is
+    a real schema, so a collision with junk never clobbers a good schema.
+    """
+    if existing is False or incoming is False:
+        return False
+    if existing is True:
+        return incoming
+    if incoming is True:
+        return existing
+    if isinstance(existing, dict) and isinstance(incoming, dict):
+        return merge_allof_schemas(
+            _combine_under_allof(existing, incoming), sw_dict, max_depth=max_depth
+        )
+    return existing if isinstance(existing, dict) else incoming
+
+
 def _merge_allof_map_keywords(
     merged_schema: Dict[str, Any],
     resolved_allof: Dict[str, Any],
@@ -1004,87 +1031,38 @@ def _merge_allof_map_keywords(
         if "additionalProperties" not in merged_schema:
             merged_schema["additionalProperties"] = incoming_additional
         else:
-            existing_additional = merged_schema["additionalProperties"]
-            # Same JSON-Schema boolean intersection semantics as
-            # patternProperties above: false wins any collision outright,
-            # true colliding with anything is a no-op that must not clobber
-            # a real schema on the other side.
-            if existing_additional is False or incoming_additional is False:
-                merged_schema["additionalProperties"] = False
-            elif existing_additional is True:
-                merged_schema["additionalProperties"] = incoming_additional
-            elif incoming_additional is True:
-                pass
-            elif isinstance(existing_additional, dict) and isinstance(
-                incoming_additional, dict
-            ):
-                merged_schema["additionalProperties"] = merge_allof_schemas(
-                    _combine_under_allof(existing_additional, incoming_additional),
-                    sw_dict,
-                    max_depth=max_depth,
-                )
-            elif not isinstance(existing_additional, dict):
-                merged_schema["additionalProperties"] = incoming_additional
-            # else: existing is a real schema and incoming is malformed --
-            # keep existing rather than clobbering a good schema with junk.
+            merged_schema["additionalProperties"] = _intersect_subschemas(
+                merged_schema["additionalProperties"],
+                incoming_additional,
+                sw_dict,
+                max_depth,
+            )
 
     pattern_props = resolved_allof.get("patternProperties")
     if isinstance(pattern_props, dict):
         # Copy before mutate — merged_schema may still alias the caller's nested dict.
         existing_pp = merged_schema.get("patternProperties")
-        merged_schema["patternProperties"] = (
-            dict(existing_pp) if isinstance(existing_pp, dict) else {}
-        )
+        pp: Dict[str, Any] = dict(existing_pp) if isinstance(existing_pp, dict) else {}
+        merged_schema["patternProperties"] = pp
         for pattern, prop_schema in pattern_props.items():
-            if pattern not in merged_schema["patternProperties"]:
+            if pattern not in pp:
                 # First contributor for this pattern -- nothing to intersect
                 # with yet, take it as-is (including a bare bool).
-                merged_schema["patternProperties"][pattern] = prop_schema
+                pp[pattern] = prop_schema
                 continue
-            existing = merged_schema["patternProperties"][pattern]
-            # JSON-Schema boolean subschemas have fixed intersection semantics
-            # under allOf, independent of the isinstance-guarding below: false
-            # matches nothing, so it wins any collision outright (order-
-            # independent); true matches anything, so colliding with it is a
-            # no-op that must not clobber a real schema on the other side.
-            if existing is False or prop_schema is False:
-                merged_schema["patternProperties"][pattern] = False
-            elif existing is True:
-                merged_schema["patternProperties"][pattern] = prop_schema
-            elif prop_schema is True:
-                pass
-            # isinstance-guard both sides before _combine_under_allof, which
-            # declares Dict[str, Any] for both arguments: any other
-            # malformed (non-bool, non-dict) value must not reach it.
-            elif isinstance(existing, dict) and isinstance(prop_schema, dict):
-                # Resolve the combined fragment the same way additionalProperties/
-                # properties do, so a colliding pattern's merged shape does not
-                # depend on how deeply this schema happens to be nested.
-                merged_schema["patternProperties"][pattern] = merge_allof_schemas(
-                    _combine_under_allof(existing, prop_schema),
-                    sw_dict,
-                    max_depth=max_depth,
-                )
-            elif not isinstance(existing, dict):
-                # Nothing valid to merge with yet; take whatever this member
-                # contributes (even if also malformed -- that's caught when
-                # this pattern's own schema is next resolved/validated).
-                merged_schema["patternProperties"][pattern] = prop_schema
-            # else: existing is a real schema and prop_schema is malformed --
-            # keep existing rather than clobbering a good schema with junk.
+            pp[pattern] = _intersect_subschemas(
+                pp[pattern], prop_schema, sw_dict, max_depth
+            )
 
     # Keep propertyNames so unresolved $ref there cannot break later jsonref loads.
     # json_schema_util does not emit fields from propertyNames; we only preserve/resolve.
     if "propertyNames" in resolved_allof:
         incoming_names = resolved_allof["propertyNames"]
-        existing_names = merged_schema.get("propertyNames")
-        if existing_names is None:
+        if "propertyNames" not in merged_schema:
             merged_schema["propertyNames"] = incoming_names
-        elif isinstance(existing_names, dict) and isinstance(incoming_names, dict):
-            merged_schema["propertyNames"] = merge_allof_schemas(
-                _combine_under_allof(existing_names, incoming_names),
-                sw_dict,
-                max_depth=max_depth,
+        else:
+            merged_schema["propertyNames"] = _intersect_subschemas(
+                merged_schema["propertyNames"], incoming_names, sw_dict, max_depth
             )
 
 
@@ -1320,14 +1298,25 @@ def _resolve_pattern_properties(
     resolved_schema: Dict[str, Any], sw_dict: Dict[str, Any], max_depth: int
 ) -> None:
     pattern_properties = resolved_schema.get("patternProperties")
-    if isinstance(pattern_properties, dict):
-        # resolved_schema may still alias sw_dict's nested map — copy before rewrite.
-        pattern_properties = dict(pattern_properties)
-        resolved_schema["patternProperties"] = pattern_properties
-        for pattern, prop_schema in list(pattern_properties.items()):
-            pattern_properties[pattern] = _resolve_schema_refs(
-                prop_schema, sw_dict, max_depth=max_depth - 1
-            )
+    if pattern_properties is None:
+        return
+    if not isinstance(pattern_properties, dict):
+        # Every downstream consumer (promotion, normalization, allOf merge)
+        # silently no-ops on a non-dict patternProperties -- warn once, here,
+        # at the earliest point it's seen, rather than at every one of those
+        # sites for the same root cause.
+        logger.warning(
+            "Ignoring malformed 'patternProperties' (expected object, got %s)",
+            type(pattern_properties).__name__,
+        )
+        return
+    # resolved_schema may still alias sw_dict's nested map — copy before rewrite.
+    pattern_properties = dict(pattern_properties)
+    resolved_schema["patternProperties"] = pattern_properties
+    for pattern, prop_schema in list(pattern_properties.items()):
+        pattern_properties[pattern] = _resolve_schema_refs(
+            prop_schema, sw_dict, max_depth=max_depth - 1
+        )
 
 
 def _shallow_schema_copy(schema: object) -> object:
