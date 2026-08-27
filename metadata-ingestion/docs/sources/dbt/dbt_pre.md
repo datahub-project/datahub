@@ -300,6 +300,12 @@ dbt guarantees identities are unique within a single project, but that guarantee
 
 Both are reported as a failure, and none of the colliding models or exposures are emitted, controlled by `fail_on_duplicate_models` (default `true`). Set it to `false` to instead keep one of them deterministically and emit a warning.
 
+:::note Known limitation: column lineage can still be contaminated
+
+Same-target-table collision detection runs after schema inference and column-level lineage are computed for every node. This means that even in the default fail mode, columns and lineage inferred for the colliding relation may reflect whichever project was processed last, rather than being blocked outright. If you hit this, the fix is the same either way: rename one of the colliding dbt models, seeds, or snapshots so they no longer materialize to the same table.
+
+:::
+
 :::note Failures suppress stale-entity removal for the whole run
 
 A reported failure — from either collision above, or from any other project failing to load — disables stale-entity soft-deletion for the **entire run**, across every project, not just the one that failed. This is deliberately the safe direction: a run with a reported problem should not delete metadata. If a persistent naming collision between two projects is blocking stale-entity cleanup for every other project, either fix the colliding dbt project(s), or set `fail_on_duplicate_models: false` as an explicit escape hatch.

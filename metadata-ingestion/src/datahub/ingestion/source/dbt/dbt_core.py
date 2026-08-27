@@ -477,6 +477,7 @@ def extract_dbt_entities(
 def extract_dbt_exposures(
     manifest_exposures: Dict[str, Dict[str, Any]],
     tag_prefix: str,
+    manifest_path: Optional[str] = None,
 ) -> List[DBTExposure]:
     """Extract dbt exposures from the manifest.json exposures section."""
     exposures = []
@@ -516,6 +517,7 @@ def extract_dbt_exposures(
                 meta=exposure_node.get("meta", {}),
                 dbt_package_name=exposure_node.get("package_name"),
                 dbt_file_path=exposure_node.get("original_file_path"),
+                manifest_path=manifest_path,
             )
         )
     return exposures
@@ -1073,6 +1075,11 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         artifact_props: Dict[str, str] = {
             key: value
             for key, value in {
+                # Only stamped under multi-project fan-out (optional_artifacts=True):
+                # this is what collision reporting names to point at a project, and
+                # it must not perturb customProperties for the historical single-
+                # project golden output.
+                "manifest_path": manifest_path if optional_artifacts else None,
                 "manifest_schema": manifest_schema,
                 "manifest_version": manifest_version,
                 "manifest_adapter": manifest_adapter,
@@ -1108,6 +1115,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             extract_dbt_exposures(
                 manifest_exposures=manifest_exposures,
                 tag_prefix=self.config.tag_prefix,
+                manifest_path=manifest_path,
             )
         )
 

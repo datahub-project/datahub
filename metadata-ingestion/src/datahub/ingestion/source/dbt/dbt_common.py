@@ -1301,6 +1301,13 @@ class DBTExposure:
     dbt_package_name: Optional[str] = None
     dbt_file_path: Optional[str] = None
 
+    # Path to the manifest.json this exposure was loaded from. Per-exposure
+    # rather than per-source for the same reason as DBTNode.artifact_props: a
+    # multi-project run has many manifests, and this is what lets a
+    # cross-project unique_id collision report name the colliding projects
+    # instead of just a count.
+    manifest_path: Optional[str] = None
+
     def get_urn(
         self,
         platform_instance: Optional[str],
@@ -2196,17 +2203,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return nodes
 
     def _check_duplicate_models(self, nodes: List[DBTNode]) -> List[DBTNode]:
-        """Detect models from different dbt projects that resolve to the same target-platform table.
+        """Detect models, seeds, or snapshots from different dbt projects that resolve to the same target-platform table.
 
         get_db_fqn() -> database.schema.name becomes the dataset URN, and dbt's
         unique_id (which carries the project name) is not part of it. dbt guarantees
         uniqueness within a single project, so this can only arise under multi-project
         fan-out, where two projects that materialize the same relation would otherwise
-        silently overwrite each other's aspects.
+        silently overwrite each other's aspects. Sources are excluded: two projects
+        legitimately declaring the same upstream raw table is normal and must not
+        fail a correct configuration.
         """
         by_fqn: Dict[str, List[DBTNode]] = defaultdict(list)
         for node in nodes:
-            if node.node_type == "model" and node.exists_in_target_platform:
+            if (
+                node.node_type in {"model", "seed", "snapshot"}
+                and node.exists_in_target_platform
+            ):
                 by_fqn[node.get_db_fqn()].append(node)
 
         drop: Set[str] = set()
@@ -2225,10 +2237,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if self.config.fail_on_duplicate_models:
                 self.report.failure(
                     title="Duplicate model names across dbt projects",
-                    message="Multiple dbt models materialize to the same table in the "
-                    "target platform, so they would share one URN and overwrite each "
-                    "other. None of them were emitted. Fix the dbt projects so that "
-                    "each model materializes to a distinct relation.",
+                    message="Multiple dbt models, seeds, or snapshots materialize to "
+                    "the same table in the target platform, so they would share one "
+                    "URN and overwrite each other. None of them were emitted. Fix the "
+                    "dbt projects so that each materializes to a distinct relation.",
                     context=context,
                 )
                 drop.update(node.dbt_name for node in contenders)
@@ -2236,10 +2248,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 winner, *losers = contenders
                 self.report.warning(
                     title="Duplicate model names across dbt projects",
-                    message="Multiple dbt models materialize to the same table. "
-                    "Keeping one of them and dropping the rest; their metadata will "
-                    "be lost.",
-                    context=context,
+                    message="Multiple dbt models, seeds, or snapshots materialize to "
+                    "the same table. Keeping one of them and dropping the rest; their "
+                    "metadata will be lost.",
+                    context=f"{context}; keeping {winner.dbt_name}",
                 )
                 for loser in losers:
                     drop.add(loser.dbt_name)
@@ -2277,7 +2289,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         Must run before all_nodes_map is built (and operate on the raw node list,
         not that map), or the collision has already collapsed by the time it's
         detected.
+
+        Since all contenders in one collision share an identical dbt_name/unique_id,
+        that string can't tell an operator which projects to go fix - the failure
+        and warning context instead names each contender's originating manifest
+        path (DBTNode.artifact_props["manifest_path"] / DBTExposure.manifest_path).
         """
+
+        def _manifest_path(item: Any) -> str:
+            path = (
+                item.manifest_path
+                if isinstance(item, DBTExposure)
+                else item.artifact_props.get("manifest_path")
+            )
+            return path or "<unknown manifest>"
 
         def _find_ids_to_drop(
             by_unique_id: Dict[str, List[Any]], kind: str
@@ -2287,10 +2312,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 if len(contenders) < 2:
                     continue
                 self.report.duplicate_unique_ids_detected += 1
-                context = (
-                    f"{unique_id} is claimed by {len(contenders)} {kind}s "
-                    "across projects"
-                )
+                paths = [_manifest_path(item) for item in contenders]
+                context = f"{unique_id} is claimed by {kind}s from: " + ", ".join(paths)
                 if self.config.fail_on_duplicate_models:
                     self.report.failure(
                         title="Duplicate dbt unique_id across projects",
@@ -2307,7 +2330,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         message="Multiple dbt entities share one dbt-assigned "
                         "unique_id. Keeping the first one loaded and dropping the "
                         "rest; their metadata will be lost.",
-                        context=context,
+                        context=f"{context}; keeping {paths[0]}",
                     )
                     drop.update(id(item) for item in contenders[1:])
             return drop

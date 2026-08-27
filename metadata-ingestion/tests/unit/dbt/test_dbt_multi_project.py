@@ -114,20 +114,23 @@ def _write_project(
 
     package_name overrides the dbt package name embedded in each model's
     unique_id (defaults to `project`), so a test can put two distinct project
-    directories on a dbt package name that collides across them.
+    directories on a dbt package name that collides across them. Each entry in
+    `models` may set "resource_type" (defaults to "model") to write a seed or
+    snapshot node instead.
     """
     project_dir = root / project
     project_dir.mkdir(parents=True, exist_ok=True)
     pkg = package_name or project
     nodes: Dict[str, Any] = {}
     for model in models:
-        unique_id = f"model.{pkg}.{model['name']}"
+        resource_type = model.get("resource_type", "model")
+        unique_id = f"{resource_type}.{pkg}.{model['name']}"
         nodes[unique_id] = {
             "unique_id": unique_id,
             "name": model["name"],
             "database": model["database"],
             "schema": model["schema"],
-            "resource_type": "model",
+            "resource_type": resource_type,
             "package_name": pkg,
             "config": {"materialized": "table"},
             "description": "",
@@ -206,6 +209,28 @@ def test_glob_stamps_per_project_provenance(tmp_path: pathlib.Path) -> None:
 
     assert nodes[0].artifact_props["manifest_version"] == "1.8.0"
     assert nodes[0].artifact_props["manifest_adapter"] == "postgres"
+    # Needed so a cross-project collision report can name which project a
+    # contending node came from (see _check_duplicate_unique_ids).
+    assert (
+        nodes[0].artifact_props["manifest_path"]
+        == f"{tmp_path}/project_a/manifest.json"
+    )
+
+
+def test_non_glob_manifest_path_not_stamped_in_artifact_props(
+    tmp_path: pathlib.Path,
+) -> None:
+    """manifest_path is only useful for locating a project under multi-project
+    fan-out, where collisions are possible. Stamping it unconditionally would add
+    a new customProperties key to every existing single-project golden output."""
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+    source = _make_source(manifest_path=f"{tmp_path}/project_a/manifest.json")
+
+    nodes = source.load_nodes()
+
+    assert "manifest_path" not in nodes[0].artifact_props
 
 
 def test_glob_stamps_semantic_model_provenance(tmp_path: pathlib.Path) -> None:
@@ -463,7 +488,46 @@ def test_cross_project_collision_fails_and_drops_all_contenders(
 
     assert nodes == []
     assert source.report.duplicate_models_detected == 1
-    assert source.report.failures
+    failures_by_title = {f.title: f for f in source.report.failures}
+    assert "Duplicate model names across dbt projects" in failures_by_title
+
+
+def test_cross_project_seed_collision_fails(tmp_path: pathlib.Path) -> None:
+    # Same trap, but on a seed rather than a model: exists_in_target_platform is
+    # true for seeds too, so two projects seeding the same relation collide on
+    # the same dataset URN exactly like two models would.
+    _write_project(
+        tmp_path,
+        "project_a",
+        [
+            {
+                "name": "lookup",
+                "database": "db",
+                "schema": "shared",
+                "resource_type": "seed",
+            }
+        ],
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [
+            {
+                "name": "lookup",
+                "database": "db",
+                "schema": "shared",
+                "resource_type": "seed",
+            }
+        ],
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes = source._check_duplicate_models(source.load_nodes())
+
+    assert nodes == []
+    assert source.report.duplicate_models_detected == 1
+    failures_by_title = {f.title: f for f in source.report.failures}
+    assert "Duplicate model names across dbt projects" in failures_by_title
 
 
 def test_cross_project_collision_drop_mode_keeps_first_by_dbt_name(
@@ -488,6 +552,9 @@ def test_cross_project_collision_drop_mode_keeps_first_by_dbt_name(
 
     assert [node.dbt_name for node in nodes] == ["model.project_a.orders"]
     assert source.report.duplicate_models_detected == 1
+    warnings_by_title = {w.title: w for w in source.report.warnings}
+    warning = warnings_by_title["Duplicate model names across dbt projects"]
+    assert any("keeping model.project_a.orders" in entry for entry in warning.context)
 
 
 def test_distinct_schemas_do_not_collide(tmp_path: pathlib.Path) -> None:
@@ -532,7 +599,13 @@ def test_duplicate_unique_id_across_projects_fails_and_drops_all_contenders(
 
     assert nodes == []
     assert source.report.duplicate_unique_ids_detected == 1
-    assert source.report.failures
+    failures_by_title = {f.title: f for f in source.report.failures}
+    failure = failures_by_title["Duplicate dbt unique_id across projects"]
+    # An operator with many colliding projects needs the actual directories, not
+    # just a count - both manifests must be named so they can go fix the right ones.
+    manifest_a = f"{tmp_path}/project_a/manifest.json"
+    manifest_b = f"{tmp_path}/project_b/manifest.json"
+    assert any(manifest_a in entry and manifest_b in entry for entry in failure.context)
 
 
 def test_duplicate_unique_id_drop_mode_keeps_first_loaded(
@@ -564,6 +637,10 @@ def test_duplicate_unique_id_drop_mode_keeps_first_loaded(
     assert len(nodes) == 1
     assert nodes[0].schema == "sch_a"
     assert source.report.duplicate_unique_ids_detected == 1
+    warnings_by_title = {w.title: w for w in source.report.warnings}
+    warning = warnings_by_title["Duplicate dbt unique_id across projects"]
+    manifest_a = f"{tmp_path}/project_a/manifest.json"
+    assert any(f"keeping {manifest_a}" in entry for entry in warning.context)
 
 
 def test_duplicate_exposure_unique_id_across_projects_fails(
@@ -594,7 +671,46 @@ def test_duplicate_exposure_unique_id_across_projects_fails(
     assert exposures == []
     assert len(nodes) == 2  # the models themselves don't collide
     assert source.report.duplicate_unique_ids_detected == 1
-    assert source.report.failures
+    failures_by_title = {f.title: f for f in source.report.failures}
+    failure = failures_by_title["Duplicate dbt unique_id across projects"]
+    manifest_a = f"{tmp_path}/project_a/manifest.json"
+    manifest_b = f"{tmp_path}/project_b/manifest.json"
+    assert any(manifest_a in entry and manifest_b in entry for entry in failure.context)
+
+
+def test_duplicate_exposure_unique_id_drop_mode_keeps_first_loaded(
+    tmp_path: pathlib.Path,
+) -> None:
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders_a", "database": "db", "schema": "sch_a"}],
+        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_a"}},
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "orders_b", "database": "db", "schema": "sch_b"}],
+        exposures={"exposure.shared_pkg.dashboard": {"name": "dashboard_b"}},
+    )
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        fail_on_duplicate_models=False,
+    )
+    all_nodes = source.load_nodes()
+    nodes, exposures = source._check_duplicate_unique_ids(
+        all_nodes, source.load_exposures()
+    )
+
+    # Manifests are loaded in sorted path order, so project_a's exposure is
+    # "first loaded" and survives.
+    assert [e.name for e in exposures] == ["dashboard_a"]
+    assert source.report.duplicate_unique_ids_detected == 1
+    warnings_by_title = {w.title: w for w in source.report.warnings}
+    warning = warnings_by_title["Duplicate dbt unique_id across projects"]
+    manifest_a = f"{tmp_path}/project_a/manifest.json"
+    assert any(f"keeping {manifest_a}" in entry for entry in warning.context)
 
 
 def test_distinct_package_names_do_not_collide_on_unique_id(
