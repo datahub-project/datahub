@@ -62,7 +62,12 @@ class SigmaAPI:
         # /files path walk can land on a folder inode rather than a workspace,
         # and Sigma resolves such an id to its owning workspace. Caching the
         # alias keeps the per-entity lookup a single API call.
-        self.workspace_id_aliases: Dict[str, str] = {}
+        self._workspace_id_aliases: Dict[str, str] = {}
+        # Ids ``/workspaces/{id}`` refused to resolve, and why ("forbidden"
+        # for 403, "unavailable" for anything else). An inaccessible workspace
+        # is referenced by every entity it holds, so without this the same
+        # failing call is reissued once per entity.
+        self._workspace_lookup_failures: Dict[str, str] = {}
         self.users: Dict[str, str] = {}
         # Track source_type values we've already warned about to keep the
         # report summary readable on large tenants with repeated unknown
@@ -152,6 +157,14 @@ class SigmaAPI:
 
         return get_response
 
+    def resolve_workspace_id(self, workspace_id: str) -> str:
+        """The id DataHub keys the Workspace Container on.
+
+        Equal to ``workspace_id`` unless Sigma answered a lookup for it with a
+        different ``workspaceId`` -- see ``get_workspace``.
+        """
+        return self._workspace_id_aliases.get(workspace_id, workspace_id)
+
     def get_workspace(self, workspace_id: str) -> Optional[Workspace]:
         """Resolve a workspace id.
 
@@ -160,14 +173,22 @@ class SigmaAPI:
         segment count of ``path`` as the depth, so a tenant whose ``path``
         does not start at the workspace leaves the walk on a folder inode.
         Sigma resolves such an id to its owning workspace, meaning the
-        returned ``workspaceId`` can differ from the one requested. Callers
-        must re-key the entity onto ``Workspace.workspaceId`` -- parenting it
-        under the requested id yields a Container URN that nothing ever names.
+        returned ``workspaceId`` can differ from the one requested; the alias
+        is recorded so ``resolve_workspace_id`` can map the requested id onto
+        it. Parenting an entity under an unresolved id yields a Container URN
+        that nothing ever names.
+
+        Returns ``None`` when Sigma withholds the workspace (403) or the call
+        fails. Both outcomes are cached: an inaccessible workspace is
+        referenced by every entity it holds, so retrying would cost one API
+        call per entity.
         """
         if workspace_id in self.workspaces:
             return self.workspaces[workspace_id]
-        if workspace_id in self.workspace_id_aliases:
-            return self.workspaces.get(self.workspace_id_aliases[workspace_id])
+        if workspace_id in self._workspace_id_aliases:
+            return self.workspaces.get(self._workspace_id_aliases[workspace_id])
+        if workspace_id in self._workspace_lookup_failures:
+            return None
 
         logger.debug(f"Fetching workspace metadata with id '{workspace_id}'")
         try:
@@ -176,16 +197,30 @@ class SigmaAPI:
             )
             if response.status_code == 403:
                 logger.debug(f"Workspace {workspace_id} not accessible.")
+                self._workspace_lookup_failures[workspace_id] = "forbidden"
                 self.report.non_accessible_workspaces_count += 1
                 return None
             response.raise_for_status()
             workspace = Workspace.model_validate(response.json())
             self.workspaces[workspace.workspaceId] = workspace
             if workspace.workspaceId != workspace_id:
-                self.workspace_id_aliases[workspace_id] = workspace.workspaceId
+                self._workspace_id_aliases[workspace_id] = workspace.workspaceId
                 self.report.workspace_ids_remapped[workspace_id] = workspace.workspaceId
             return workspace
         except Exception as e:
+            # Distinct from the 403 above: a 5xx, a timeout or a malformed
+            # payload degrades the workspace the same way but is not a
+            # permission problem, and ``_log_http_error`` alone is debug-level
+            # for the line naming the workspace.
+            self._workspace_lookup_failures[workspace_id] = "unavailable"
+            self.report.warning(
+                title="Unable to fetch workspace",
+                message="Workspace metadata could not be retrieved. Entities "
+                "under it are parented under a Container named from the "
+                "entity path instead.",
+                context=f"workspace_id={workspace_id}",
+                exc=e,
+            )
             self._log_http_error(
                 message=f"Unable to fetch workspace '{workspace_id}'. Exception: {e}"
             )
@@ -249,12 +284,20 @@ class SigmaAPI:
                 response.raise_for_status()
                 parent_id = response.json()[Constant.PARENTID]
                 path_list.pop()
-            return parent_id
         except Exception as e:
             logger.error(
                 f"Unable to find workspace id using file path '{path}'. Exception: {e}"
             )
             return None
+        # The walk uses the segment count of ``path`` as its depth, so on a
+        # tenant whose ``path`` does not start at the workspace it terminates
+        # on a folder inode. Normalising here is what keeps every consumer of
+        # ``File.workspaceId`` on the id DataHub keys the Container on; doing
+        # it per-consumer instead leaves each new call site free to reintroduce
+        # the split tree. Costs nothing extra -- ``get_workspace`` caches, and
+        # the same lookup happens downstream anyway.
+        workspace = self.get_workspace(parent_id)
+        return workspace.workspaceId if workspace else parent_id
 
     @functools.lru_cache
     def _get_files_metadata(self, file_type: str) -> Dict[str, File]:
@@ -328,9 +371,6 @@ class SigmaAPI:
                         workspace = self.get_workspace(dataset.workspaceId)
 
                     if workspace:
-                        # Re-key onto the id Sigma answered with; see
-                        # get_workspace's docstring.
-                        dataset.workspaceId = workspace.workspaceId
                         if self.config.workspace_pattern.allowed(workspace.name):
                             self.report.datasets.processed(
                                 f"{dataset.name} ({dataset.datasetId}) in {workspace.name}"
@@ -1510,9 +1550,6 @@ class SigmaAPI:
                     workspace = self.get_workspace(candidate_workspace_id)
 
                 if workspace:
-                    # Re-key onto the id Sigma answered with; see
-                    # get_workspace's docstring.
-                    candidate_workspace_id = workspace.workspaceId
                     if self.config.workspace_pattern.allowed(workspace.name):
                         self.report.data_models.processed(
                             f"{data_model.name} ({data_model.dataModelId}) in {workspace.name}"
@@ -1610,9 +1647,6 @@ class SigmaAPI:
                         workspace = self.get_workspace(workbook.workspaceId)
 
                     if workspace:
-                        # Re-key onto the id Sigma answered with; see
-                        # get_workspace's docstring.
-                        workbook.workspaceId = workspace.workspaceId
                         if self.config.workspace_pattern.allowed(workspace.name):
                             self.report.workbooks.processed(
                                 f"{workbook.name} ({workbook.workbookId}) in {workspace.name}"
