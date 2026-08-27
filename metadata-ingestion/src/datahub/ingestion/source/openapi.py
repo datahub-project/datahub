@@ -464,7 +464,11 @@ class APISource(Source, ABC):
         self.report.warning(title=title, message=message, context=context, log=False)
 
     def extract_response_schema_from_endpoint(
-        self, endpoint_spec: Dict, sw_dict: Dict
+        self,
+        endpoint_spec: Dict,
+        sw_dict: Dict,
+        endpoint_k: str = "",
+        method: str = "",
     ) -> Optional[Dict]:
         """
         Extract the response schema from an endpoint specification.
@@ -521,13 +525,19 @@ class APISource(Source, ABC):
             self.report.warning(
                 title="Failed to Extract Response Schema",
                 message="Error extracting response schema from OpenAPI endpoint",
-                context=str(e),
+                context=f"Endpoint: {method} {endpoint_k}: {e}"
+                if endpoint_k
+                else str(e),
                 exc=e,
             )
             return None
 
     def extract_request_schema_from_endpoint(
-        self, endpoint_spec: Dict, sw_dict: Dict
+        self,
+        endpoint_spec: Dict,
+        sw_dict: Dict,
+        endpoint_k: str = "",
+        method: str = "",
     ) -> Optional[Dict]:
         """Extract the request schema from an endpoint specification."""
         try:
@@ -556,7 +566,10 @@ class APISource(Source, ABC):
                 self.report.warning(
                     title="Malformed Request Parameters",
                     message="Skipping malformed 'parameters' value (expected list)",
-                    context=f"Got {type(parameters).__name__}",
+                    context=f"Endpoint: {method} {endpoint_k}: got "
+                    f"{type(parameters).__name__}"
+                    if endpoint_k
+                    else f"Got {type(parameters).__name__}",
                 )
             elif parameters:
                 # Create a schema from parameters
@@ -576,7 +589,9 @@ class APISource(Source, ABC):
             self.report.warning(
                 title="Failed to Extract Request Schema",
                 message="Error extracting request schema from OpenAPI endpoint",
-                context=str(e),
+                context=f"Endpoint: {method} {endpoint_k}: {e}"
+                if endpoint_k
+                else str(e),
                 exc=e,
             )
             return None
@@ -593,7 +608,7 @@ class APISource(Source, ABC):
             if method_spec:
                 # Try response schema first
                 response_schema = self.extract_response_schema_from_endpoint(
-                    method_spec, sw_dict
+                    method_spec, sw_dict, endpoint_k, method
                 )
                 if response_schema:
                     return response_schema
@@ -602,7 +617,7 @@ class APISource(Source, ABC):
                 # other than GET can carry a requestBody worth reading.
                 if method != "get":
                     request_schema = self.extract_request_schema_from_endpoint(
-                        method_spec, sw_dict
+                        method_spec, sw_dict, endpoint_k, method
                     )
                     if request_schema:
                         return request_schema
@@ -1129,7 +1144,7 @@ class APISource(Source, ABC):
                 context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
             )
 
-    def get_report(self):
+    def get_report(self) -> SourceReport:
         return self.report
 
     def close(self) -> None:
@@ -1173,6 +1188,6 @@ class OpenApiSource(APISource):
         super().__init__(config, ctx, "OpenApi")
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "OpenApiSource":
         config = OpenApiConfig.model_validate(config_dict)
         return cls(config, ctx)

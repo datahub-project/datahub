@@ -562,20 +562,26 @@ def extract_fields(
         # the elements are directly inside the dict
         return flatten2list(dict_data), dict_data
     dst_key = list(dict_data)[0]  # the first and unique key is the dataset's name
-
-    try:
-        return flatten2list(dict_data[dst_key]), dict_data[dst_key]
-    except AttributeError:
+    nested = dict_data[dst_key]
+    if isinstance(nested, dict):
+        return flatten2list(nested), nested
+    if isinstance(nested, list):
         # if the content is a list, we should treat each element as a dataset.
         # ..but will take the keys of the first element (to be improved)
-        if isinstance(dict_data[dst_key], list):
-            if len(dict_data[dst_key]) > 0:
-                return flatten2list(dict_data[dst_key][0]), dict_data[dst_key][0]
-            else:
-                return [], {}  # it's empty!
-        else:
-            logger.warning(f"Unable to get the attributes --- {dataset_name}")
-            return [], {}
+        if len(nested) == 0:
+            return [], {}  # it's empty!
+        if isinstance(nested[0], dict):
+            return flatten2list(nested[0]), nested[0]
+        # An unrecognized element shape (e.g. a number, null, or nested list)
+        # is a valid-but-unhelpful response, not a processing error -- degrade
+        # gracefully instead of letting flatten2list raise AttributeError.
+        logger.warning(
+            f"Unrecognized list element type {type(nested[0]).__name__} "
+            f"--- {dataset_name}"
+        )
+        return [], {}
+    logger.warning(f"Unable to get the attributes --- {dataset_name}")
+    return [], {}
 
 
 def get_tok(
@@ -1407,8 +1413,11 @@ def _normalize_map_schemas(schema: object) -> object:
     depth-capped _resolve_schema_refs return may still be the exact same dict
     object as a shared sw_dict component, so rewriting it in place would
     corrupt that component for every other endpoint resolved later in the
-    same run. A branch with nothing to normalize is returned unchanged (same
-    object), so this only allocates along paths that actually changed.
+    same run. A branch with nothing to normalize returns the ORIGINAL object
+    (same identity), so a caller can cheaply tell "changed" from "untouched"
+    with `is` -- though every dict node still gets a shallow copy allocated
+    up front here regardless, to have a safe base to write into if a nested
+    field does change.
     """
     if not isinstance(schema, dict):
         return schema

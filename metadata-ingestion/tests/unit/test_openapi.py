@@ -4730,6 +4730,37 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         )
         self.assertEqual(merged["additionalProperties"], {"type": "string"})
 
+    def test_merge_allof_property_names_false_wins_collision(self):
+        # Regression: unlike its two siblings, propertyNames previously had
+        # NO false/true handling at all -- a "propertyNames: false" colliding
+        # with a dict schema was silently first-wins instead of correctly
+        # winning the intersection.
+        merged = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"propertyNames": {"minLength": 1}},
+                    {"propertyNames": False},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertIs(merged["propertyNames"], False)
+
+    def test_merge_allof_property_names_true_is_noop_against_real_schema(self):
+        # "true" colliding with a real schema must not clobber it.
+        merged = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"propertyNames": {"minLength": 1}},
+                    {"propertyNames": True},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertEqual(merged["propertyNames"], {"minLength": 1})
+
     def test_merge_allof_root_required_cleaned_even_with_boolean_member(self):
         # Regression: the required-sanitization ran only inside the dict-only
         # branch, so a boolean allOf member (a valid draft-6+ member that
