@@ -81,7 +81,7 @@
     "valueType.dateLabel": "日期",
     "valueType.entityDescription": "对 DataHub 数据资产的引用",
     "valueType.entityLabel": "实体",
-    "valueType.entityListDescription": "参考列表DataHub 数据资产",
+    "valueType.entityListDescription": "对 DataHub 数据资产列表的引用",
     "valueType.entityListLabel": "实体 - 列表",
     "valueType.number": "数字",
     "valueType.numberDescription": "整数或小数",
