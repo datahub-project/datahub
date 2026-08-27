@@ -3054,7 +3054,7 @@ class TestInaccessibleWorkspaceContainers:
         source.config = SigmaSourceConfig(client_id="x", client_secret="y")
         source.reporter = SigmaSourceReport()
         source.platform = "sigma"
-        source._inaccessible_workspace_ids = set()
+        source._referenced_workspace_ids = set()
         source._inaccessible_workspace_names = {}
         source.sigma_api = MagicMock()
         source.sigma_api.workspaces = {}
@@ -3064,27 +3064,53 @@ class TestInaccessibleWorkspaceContainers:
     def test_name_comes_from_the_first_path_segment(self) -> None:
         source = self._make_source()
 
-        source._note_inaccessible_workspace("ws-1", "Analytics/Finance/Q3")
+        source._note_referenced_workspace("ws-1", "Analytics/Finance/Q3")
 
         assert source._inaccessible_workspace_names == {"ws-1": "Analytics"}
 
-    def test_known_workspace_is_not_recorded(self) -> None:
+    def test_a_known_allowed_workspace_emits_nothing(self) -> None:
+        """Recorded like any other reference, but named by
+        ``_gen_workspace_workunit``, so the backstop must leave it alone."""
         source = self._make_source()
         source.sigma_api.workspaces = {
             "ws-1": Workspace.model_validate(_workspace_payload("ws-1"))
         }
 
-        source._note_inaccessible_workspace("ws-1", "Analytics")
+        source._note_referenced_workspace("ws-1", "Analytics")
 
-        assert source._inaccessible_workspace_ids == set()
+        assert source._referenced_workspace_ids == {"ws-1"}
+        assert list(source._gen_inaccessible_workspace_workunits()) == []
+        assert source.reporter.warnings == []
 
-    def test_an_aliased_id_is_not_mistaken_for_an_inaccessible_one(self) -> None:
-        """A remapped id resolves to a workspace that was fetched successfully.
+    def test_a_known_denied_workspace_is_still_named(self) -> None:
+        """``_gen_workspace_workunit`` runs off ``_get_allowed_workspaces``, so
+        a workspace the pattern denies is named by nobody -- but its entities
+        were already admitted and still point at the Container."""
+        source = self._make_source()
+        source.config = SigmaSourceConfig(
+            client_id="x",
+            client_secret="y",
+            workspace_pattern=AllowDenyPattern(allow=["^Nothing$"]),
+        )
+        source.sigma_api.workspaces = {
+            # Distinct from the path below, so the assertion tells the cached
+            # name apart from the one recovered from the entity path.
+            "ws-1": Workspace.model_validate(
+                _workspace_payload("ws-1", name="Real Name")
+            )
+        }
 
-        Treating it as inaccessible would emit a second, path-named Container
-        for a workspace that already has a properly named one -- the same split
-        tree, one layer down.
-        """
+        source._note_referenced_workspace("ws-1", "PathDerived/Finance")
+        names = _emitted_container_names(source._gen_inaccessible_workspace_workunits())
+
+        # Real name from the cache beats the one recovered from the path.
+        assert names == ["Real Name"]
+        # Its metadata was not missing, so it is not reported as such.
+        assert list(source.reporter.workspaces_without_metadata) == []
+
+    def test_an_aliased_id_is_recorded_under_the_authoritative_id(self) -> None:
+        """A remapped id must not earn a second, path-named Container beside
+        the properly named one -- the same split tree, one layer down."""
         source = self._make_source()
         source.sigma_api.workspaces = {
             "real-ws": Workspace.model_validate(_workspace_payload("real-ws"))
@@ -3093,18 +3119,19 @@ class TestInaccessibleWorkspaceContainers:
             "real-ws" if workspace_id == "inode" else workspace_id
         )
 
-        source._note_inaccessible_workspace("inode", "Analytics")
+        source._note_referenced_workspace("inode", "Analytics")
 
-        assert source._inaccessible_workspace_ids == set()
+        assert source._referenced_workspace_ids == {"real-ws"}
+        assert list(source._gen_inaccessible_workspace_workunits()) == []
 
     def test_a_real_name_replaces_a_pathless_placeholder(self) -> None:
         source = self._make_source()
 
-        source._note_inaccessible_workspace("ws-1", None)
-        assert source._inaccessible_workspace_ids == {"ws-1"}
+        source._note_referenced_workspace("ws-1", None)
+        assert source._referenced_workspace_ids == {"ws-1"}
         assert source._inaccessible_workspace_names == {}
 
-        source._note_inaccessible_workspace("ws-1", "Analytics")
+        source._note_referenced_workspace("ws-1", "Analytics")
         assert source._inaccessible_workspace_names == {"ws-1": "Analytics"}
 
     def test_a_recovered_name_is_not_clobbered_by_a_pathless_entity(self) -> None:
@@ -3112,14 +3139,14 @@ class TestInaccessibleWorkspaceContainers:
         both orders occur when one workspace holds mixed entity types."""
         source = self._make_source()
 
-        source._note_inaccessible_workspace("ws-1", "Analytics")
-        source._note_inaccessible_workspace("ws-1", None)
+        source._note_referenced_workspace("ws-1", "Analytics")
+        source._note_referenced_workspace("ws-1", None)
 
         assert source._inaccessible_workspace_names == {"ws-1": "Analytics"}
 
     def test_container_is_emitted_with_the_recovered_name(self) -> None:
         source = self._make_source()
-        source._note_inaccessible_workspace("ws-1", "Analytics/Finance")
+        source._note_referenced_workspace("ws-1", "Analytics/Finance")
 
         names = _emitted_container_names(source._gen_inaccessible_workspace_workunits())
 
@@ -3129,7 +3156,7 @@ class TestInaccessibleWorkspaceContainers:
 
     def test_pathless_workspace_falls_back_to_its_id(self) -> None:
         source = self._make_source()
-        source._note_inaccessible_workspace("ws-1", None)
+        source._note_referenced_workspace("ws-1", None)
 
         names = _emitted_container_names(source._gen_inaccessible_workspace_workunits())
 

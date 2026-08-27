@@ -441,7 +441,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # end of the run. Membership and name-known are independent facts: an
         # entity can register the need for a Container before any entity
         # carrying a usable ``path`` turns up.
-        self._inaccessible_workspace_ids: Set[str] = set()
+        self._referenced_workspace_ids: Set[str] = set()
         self._inaccessible_workspace_names: Dict[str, str] = {}
         # Per-platform set: platforms for which we've emitted a "first emission"
         # info message noting that casing is unverified.
@@ -572,43 +572,46 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             last_modified=int(workspace.updatedAt.timestamp() * 1000),
         )
 
-    def _note_inaccessible_workspace(
+    def _note_referenced_workspace(
         self, workspace_id: str, path: Optional[str]
     ) -> None:
-        """Record a Workspace that entities are parented under but whose
-        metadata Sigma withheld.
+        """Record that an entity is parented under this Workspace Container.
 
-        ``/workspaces/{id}`` answers 403 when the ingestion service account
-        reaches an entity through ``/files`` without being a member of the
-        workspace holding it; a 5xx, a timeout or a malformed payload leaves
-        the workspace equally unresolved. Under ``ingest_shared_entities``
-        those entities are still emitted beneath the Workspace Container URN,
-        so that Container needs a name of its own -- otherwise DataHub has no
-        ``containerProperties`` to render and the UI prints the raw
-        ``urn:li:container:<guid>`` as the folder label.
+        Records *every* reference, not just the ones that look unresolvable
+        here. Whether something else ends up naming the Container is decided
+        once, in ``_gen_inaccessible_workspace_workunits``, which runs after
+        all lookups and all entity work units. Deciding it here instead makes
+        the outcome depend on how far through the run we happen to be: a
+        workspace can be forbidden when its entity is admitted and resolved by
+        the time that entity is emitted, and a lookup that resolves late can
+        still land on a workspace ``workspace_pattern`` denies -- which
+        ``_gen_workspace_workunit`` then never names.
 
         ``path`` begins with the workspace name, the same assumption
         ``_gen_entity_browsepath_aspect`` callers make when they drop index 0.
+        It is kept for every reference because a Container that turns out to
+        need naming may have no other source for one.
         """
         workspace_id = self.sigma_api.resolve_workspace_id(workspace_id)
-        if workspace_id in self.sigma_api.workspaces:
-            return
-        self._inaccessible_workspace_ids.add(workspace_id)
+        self._referenced_workspace_ids.add(workspace_id)
         name = path.split("/")[0] if path else ""
         # First usable name wins; a later pathless entity must not clobber it.
         if name:
             self._inaccessible_workspace_names.setdefault(workspace_id, name)
 
     def _gen_inaccessible_workspace_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """Emit a named Container for every Workspace recorded by
-        ``_note_inaccessible_workspace``.
+        """Name every referenced Workspace Container that nothing else named.
 
-        Must run after all entity work units so the set is fully populated.
+        ``_note_referenced_workspace`` records every Workspace an entity was
+        parented under; this is the single place that decides which of them
+        still need a Container of their own. It must run after all lookups and
+        all entity work units, so that decision is made with the finished
+        picture rather than a partial one.
         """
         recorded: List[str] = []
         self.reporter.workspaces_without_metadata = LossyList[str]()
         emitted: Set[str] = set()
-        for noted_id in sorted(self._inaccessible_workspace_ids):
+        for noted_id in sorted(self._referenced_workspace_ids):
             # Re-check rather than trust what was noted: an id recorded while
             # emitting datasets can still resolve later, when workbooks or data
             # models run their own lookups. Sigma can answer for a folder id
@@ -755,7 +758,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         if dataset.workspaceId:
             self.reporter.workspaces.increment_datasets_count(dataset.workspaceId)
-            self._note_inaccessible_workspace(dataset.workspaceId, dataset.path)
+            self._note_referenced_workspace(dataset.workspaceId, dataset.path)
             yield from add_entity_to_container(
                 container_key=self._gen_workspace_key(dataset.workspaceId),
                 entity_type="dataset",
@@ -2917,7 +2920,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 data_model.workspaceId
             )
             parent_container_key = self._gen_workspace_key(data_model.workspaceId)
-            self._note_inaccessible_workspace(data_model.workspaceId, data_model.path)
+            self._note_referenced_workspace(data_model.workspaceId, data_model.path)
         extra_properties: Dict[str, str] = {
             "dataModelId": data_model.dataModelId,
             "dataModelUrlId": data_model.get_url_id(),
@@ -4221,7 +4224,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         paths = workbook.path.split("/")[1:]
         if workbook.workspaceId:
             self.reporter.workspaces.increment_workbooks_count(workbook.workspaceId)
-            self._note_inaccessible_workspace(workbook.workspaceId, workbook.path)
+            self._note_referenced_workspace(workbook.workspaceId, workbook.path)
 
             yield self._gen_entity_browsepath_aspect(
                 entity_urn=dashboard_urn,
@@ -4282,7 +4285,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._customsql_extra_fgls.clear()
         self._workbook_customsql_registered_urns.clear()
         self._workbook_customsql_formula_fields.clear()
-        self._inaccessible_workspace_ids.clear()
+        self._referenced_workspace_ids.clear()
         self._inaccessible_workspace_names.clear()
         self.sigma_api.fill_workspaces()
 

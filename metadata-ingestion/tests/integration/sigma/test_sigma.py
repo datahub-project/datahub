@@ -1,6 +1,6 @@
 import copy
 import json
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, Set, cast
 
 import pytest
 
@@ -9,6 +9,41 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sigma.config import SigmaSourceReport
 from datahub.ingestion.source.sigma.data_classes import WorkspaceKey
 from datahub.testing import mce_helpers
+
+
+def _referenced_container_urns(mces: List[Dict[str, Any]]) -> Set[str]:
+    """Container URNs the emitted aspects point at, from both directions the
+    UI reads: the ``container`` parent link and ``browsePathsV2`` entries."""
+    referenced: Set[str] = set()
+    for mce in mces:
+        if mce["aspectName"] == "container":
+            referenced.add(mce["aspect"]["json"]["container"])
+        elif mce["aspectName"] == "browsePathsV2":
+            referenced.update(
+                entry["urn"]
+                for entry in mce["aspect"]["json"]["path"]
+                if entry.get("urn", "").startswith("urn:li:container:")
+            )
+    return referenced
+
+
+def _named_container_urns(mces: List[Dict[str, Any]]) -> Dict[str, str]:
+    """Container URN -> name, for every Container that got
+    ``containerProperties``. Anything referenced but absent here renders in the
+    UI as a raw ``urn:li:container:<guid>``."""
+    return {
+        mce["entityUrn"]: mce["aspect"]["json"]["name"]
+        for mce in mces
+        if mce["aspectName"] == "containerProperties"
+    }
+
+
+def _assert_every_referenced_container_is_named(mces: List[Dict[str, Any]]) -> None:
+    unnamed = _referenced_container_urns(mces) - set(_named_container_urns(mces))
+    assert not unnamed, (
+        "container URNs referenced with no containerProperties -- the UI "
+        f"renders these as raw URNs: {sorted(unnamed)}"
+    )
 
 
 def _sigma_report(pipeline: Pipeline) -> SigmaSourceReport:
@@ -1919,32 +1954,11 @@ def test_sigma_inaccessible_workspace_container_is_named(tmp_path, requests_mock
     with open(output_path) as f:
         mces = json.load(f)
 
-    named_containers = {
-        mce["entityUrn"]: mce["aspect"]["json"]["name"]
-        for mce in mces
-        if mce["entityType"] == "container"
-        and mce["aspectName"] == "containerProperties"
-    }
-
-    referenced_containers = set()
-    for mce in mces:
-        if mce["aspectName"] == "container":
-            referenced_containers.add(mce["aspect"]["json"]["container"])
-        elif mce["aspectName"] == "browsePathsV2":
-            referenced_containers.update(
-                entry["urn"]
-                for entry in mce["aspect"]["json"]["path"]
-                if entry.get("urn", "").startswith("urn:li:container:")
-            )
-
-    assert not referenced_containers - set(named_containers), (
-        "container URNs referenced with no containerProperties -- the UI "
-        f"renders these as raw URNs: {sorted(referenced_containers - set(named_containers))}"
-    )
+    _assert_every_referenced_container_is_named(mces)
 
     # "New Acryl Data" is the workbook's ``path``; the workspace behind it
     # returns 403 so the name cannot come from ``/workspaces/{id}``.
-    assert "New Acryl Data" in named_containers.values()
+    assert "New Acryl Data" in _named_container_urns(mces).values()
 
 
 @pytest.mark.integration
@@ -2211,23 +2225,7 @@ def test_sigma_late_resolved_but_pattern_denied_workspace_is_still_named(
     with open(output_path) as f:
         mces = json.load(f)
 
-    referenced = set()
-    for mce in mces:
-        if mce["aspectName"] == "container":
-            referenced.add(mce["aspect"]["json"]["container"])
-        elif mce["aspectName"] == "browsePathsV2":
-            referenced.update(
-                entry["urn"]
-                for entry in mce["aspect"]["json"]["path"]
-                if entry.get("urn", "").startswith("urn:li:container:")
-            )
-    named = {
-        mce["entityUrn"] for mce in mces if mce["aspectName"] == "containerProperties"
-    }
-    assert not referenced - named, (
-        "container URNs referenced with no containerProperties -- the UI "
-        f"renders these as raw URNs: {sorted(referenced - named)}"
-    )
+    _assert_every_referenced_container_is_named(mces)
 
 
 @pytest.mark.integration
@@ -2430,16 +2428,7 @@ def test_sigma_workspace_id_remapped_to_authoritative_id(tmp_path, requests_mock
         WorkspaceKey(workspaceId=real_ws_id, platform="sigma")
     )
 
-    referenced = set()
-    for mce in mces:
-        if mce["aspectName"] == "container":
-            referenced.add(mce["aspect"]["json"]["container"])
-        elif mce["aspectName"] == "browsePathsV2":
-            referenced.update(
-                entry["urn"]
-                for entry in mce["aspect"]["json"]["path"]
-                if entry.get("urn", "").startswith("urn:li:container:")
-            )
+    referenced = _referenced_container_urns(mces)
     assert requested_urn not in referenced, (
         "entities are still parented under the folder inode id"
     )
@@ -2451,9 +2440,7 @@ def test_sigma_workspace_id_remapped_to_authoritative_id(tmp_path, requests_mock
         if mce["aspectName"] == "subTypes"
         and mce["aspect"]["json"]["typeNames"] == ["Sigma Workspace"]
     }
-    named = {
-        mce["entityUrn"] for mce in mces if mce["aspectName"] == "containerProperties"
-    }
+    named = set(_named_container_urns(mces))
     assert workspace_containers == {authoritative_urn}, (
         "expected exactly one Workspace Container"
     )
