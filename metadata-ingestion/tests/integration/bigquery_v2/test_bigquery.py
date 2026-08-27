@@ -95,6 +95,7 @@ def _configure_linked_dataset_mocks(
     get_views_for_dataset: MagicMock,
     get_snapshots_for_dataset: MagicMock,
     columns: List[BigqueryColumn],
+    view_columns: Optional[List[BigqueryColumn]] = None,
 ) -> None:
     """Wire the common mock shape for one linked dataset (`linked-dataset-1`, one table
     `table-1`) mirroring `publisher-project-1.source-dataset-1`. The source is reported on
@@ -130,7 +131,24 @@ def _configure_linked_dataset_mocks(
             {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
         )
     }
-    get_columns_for_dataset.return_value = {table_name: columns}
+    columns_by_name: Dict[str, List[BigqueryColumn]] = {table_name: columns}
+    views: List[BigqueryView] = []
+    if view_columns is not None:
+        view_name = "view-1"
+        columns_by_name[view_name] = view_columns
+        views.append(
+            BigqueryView(
+                name=view_name,
+                comment=None,
+                created=None,
+                view_definition=None,
+                last_altered=None,
+                size_in_bytes=None,
+                rows_count=None,
+                materialized=False,
+            )
+        )
+    get_columns_for_dataset.return_value = columns_by_name
     get_sample_data_for_table.return_value = {
         column.name: [random.randint(1, 80) for _ in range(20)] for column in columns
     }
@@ -146,7 +164,7 @@ def _configure_linked_dataset_mocks(
             )
         ]
     )
-    get_views_for_dataset.return_value = iter([])
+    get_views_for_dataset.return_value = iter(views)
     get_snapshots_for_dataset.return_value = iter([])
 
 
@@ -1087,9 +1105,9 @@ def test_bigquery_linked_dataset_no_copy_edge_without_table_lineage(
     pytestconfig,
     tmp_path,
 ):
-    # I7: with include_table_lineage off, a linked dataset is still catalogued (subtype +
-    # source reference) but its COPY upstream is gated off. Asserted directly rather than
-    # against a golden, since the invariant is the absence of upstreamLineage.
+    # I7: with include_table_lineage off (and the parser off, so the schema-registration gate
+    # runs on this path), a linked dataset is still catalogued but its COPY upstream is gated
+    # off. Asserted directly rather than against a golden, since the invariant is absent upstreamLineage.
     mcp_output_path = f"{tmp_path}/linked_no_lineage_output.json"
 
     columns = [
@@ -1122,6 +1140,7 @@ def test_bigquery_linked_dataset_no_copy_edge_without_table_lineage(
         source_config_override={
             "include_linked_dataset_lineage": True,
             "include_table_lineage": False,
+            "lineage_use_sql_parser": False,
         },
     )
     run_and_get_pipeline(pipeline_config_dict)
@@ -1184,6 +1203,19 @@ def test_bigquery_linked_dataset_column_lineage_survives_parser_off(
             policy_tags=[],
         ),
     ]
+    view_columns = [
+        BigqueryColumn(
+            name="email",
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="email",
+            data_type="STRING",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+            policy_tags=[],
+        ),
+    ]
     _configure_linked_dataset_mocks(
         client,
         get_datasets_for_project_id,
@@ -1194,6 +1226,7 @@ def test_bigquery_linked_dataset_column_lineage_survives_parser_off(
         get_views_for_dataset,
         get_snapshots_for_dataset,
         columns=columns,
+        view_columns=view_columns,
     )
 
     pipeline_config_dict: Dict[str, Any] = recipe(
@@ -1209,9 +1242,11 @@ def test_bigquery_linked_dataset_column_lineage_survives_parser_off(
         mcps = json.load(f)
 
     upstreams = [m for m in mcps if m.get("aspectName") == "upstreamLineage"]
-    assert len(upstreams) == 1, "the linked table should still get its COPY edge"
-    aspect = upstreams[0]["aspect"]["json"]
-    assert aspect["upstreams"][0]["type"] == "COPY"
-    assert aspect.get("fineGrainedLineages"), (
-        "identity column lineage should survive lineage_use_sql_parser=false"
-    )
+    # One COPY edge each for the linked table and the linked view.
+    assert len(upstreams) == 2
+    for m in upstreams:
+        aspect = m["aspect"]["json"]
+        assert aspect["upstreams"][0]["type"] == "COPY"
+        assert aspect.get("fineGrainedLineages"), (
+            "identity column lineage should survive lineage_use_sql_parser=false"
+        )
