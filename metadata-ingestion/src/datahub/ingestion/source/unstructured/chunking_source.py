@@ -230,6 +230,15 @@ class DocumentChunkingSource(Source):
                 "vertex_project_id is required when using vertex_ai provider. "
                 "Set embedding.vertex_project_id in your recipe or the VERTEX_AI_PROJECT_ID environment variable."
             )
+        if (
+            provider == "onnx"
+            and not embedding_config.onnx_model_dir
+            and not os.environ.get("ONNX_EMBEDDING_MODEL_DIR")
+        ):
+            raise ValueError(
+                "onnx_model_dir is required when using onnx provider. "
+                "Set embedding.onnx_model_dir in your recipe or the ONNX_EMBEDDING_MODEL_DIR environment variable."
+            )
 
     def _get_provider(self) -> EmbeddingProvider:
         """Lazily instantiate and cache the embedding provider."""

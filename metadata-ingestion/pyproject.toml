@@ -1156,7 +1156,7 @@ vertica = [
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
 ]
 
-# All plugins (excluding: airflow, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc, sqlmesh)
+# All plugins (excluding: airflow, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc, onnx-embeddings, sqlmesh)
 all = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
@@ -1223,7 +1223,6 @@ all = [
     "nltk!=3.10.1",
     "numpy<2",
     "okta~=1.7.0,<2.0.0",
-    "onnxruntime>=1.19.0,<1.24",
     "openpyxl>=3.1.5,<4.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
     "oracledb<4.0.0",
@@ -1273,7 +1272,6 @@ all = [
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
-    "tokenizers>=0.20.0,<1.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==0.7.2",

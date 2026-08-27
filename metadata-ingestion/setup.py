@@ -910,6 +910,10 @@ all_exclude_plugins: Set[str] = {
     "sqlmesh",
     # Debug recording is an optional debugging tool.
     "debug-recording",
+    # onnxruntime is a large native binary; in-process ONNX embedding is a niche
+    # opt-in feature, so keep it out of "all" (and the bundled ingestion image).
+    # Install explicitly with acryl-datahub[onnx-embeddings].
+    "onnx-embeddings",
 }
 
 mypy_stubs = {

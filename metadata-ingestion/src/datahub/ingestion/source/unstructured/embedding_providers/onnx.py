@@ -94,7 +94,6 @@ class OnnxEmbeddingProvider(EmbeddingProvider):
                 f"Unsupported ONNX pooling strategy '{pooling}'. Use 'cls' or 'mean'."
             )
         self._pooling = pooling_normalized
-        self._max_length = max_length
         self.model_id = f"onnx/{model}"
 
         resolved_dir = Path(model_dir)
