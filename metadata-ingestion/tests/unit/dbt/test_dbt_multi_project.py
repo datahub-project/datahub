@@ -367,6 +367,28 @@ def test_glob_fans_out_over_multiple_projects(tmp_path: pathlib.Path) -> None:
     assert source.report.manifests_failed == 0
 
 
+def test_manifest_glob_matching_nothing_is_a_failure(tmp_path: pathlib.Path) -> None:
+    """The manifest is the one mandatory dbt artifact, so a glob that matches none of
+    them must fail rather than warn.
+
+    The same misconfiguration already hard-fails test_connection. Warning instead
+    produced a green run with zero assets, leaving mass soft-deletion to be caught
+    only by the stale-entity handler's generic events-produced fail-safe, whose error
+    never names the glob as the cause.
+    """
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+
+    nodes = source.load_nodes()
+
+    assert nodes == []
+    failures_by_title = {f.title: f for f in source.report.failures}
+    assert "manifest_path glob matched no files" in failures_by_title
+    assert any(
+        str(tmp_path) in entry
+        for entry in failures_by_title["manifest_path glob matched no files"].context
+    )
+
+
 def test_glob_stamps_per_project_provenance(tmp_path: pathlib.Path) -> None:
     _write_project(
         tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]

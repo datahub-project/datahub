@@ -1315,6 +1315,21 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         is_multi_project = _is_glob_pattern(self.config.manifest_path)
         if is_multi_project:
             self.report.manifest_paths_expanded = manifest_paths
+            if not manifest_paths:
+                # The manifest is the one mandatory dbt artifact - a missing literal
+                # manifest_path already raises - so a pattern that matches none of
+                # them is a failure, matching test_connection on the same recipe. As
+                # a warning this produced a green run with zero assets, and left mass
+                # soft-deletion to the stale-entity handler's generic fail-safe, whose
+                # error never names the glob. A failure suppresses soft-deletion here.
+                self.report.failure(
+                    title="manifest_path glob matched no files",
+                    message="The globbed manifest_path matched no manifests, so no "
+                    "dbt project could be ingested. Check the pattern and that the "
+                    "artifacts it points at exist.",
+                    context=self.config.manifest_path,
+                )
+                return []
 
         all_nodes: List[DBTNode] = []
         for manifest_path in manifest_paths:
