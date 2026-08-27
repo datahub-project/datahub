@@ -19,6 +19,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
@@ -59,6 +61,15 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
    * multi-get call bounded.
    */
   private static final int ENTITY_FETCH_CHUNK_SIZE = 100;
+
+  /**
+   * Pagination is {@code search_after} over a live index this step is itself writing to
+   * (backfilling policies as it scans them); without a stable, deterministic sort a document can
+   * move across the cursor between pages and be skipped. Sorting by {@code urn} fixes a total
+   * order the mutations don't disturb, matching {@code BackfillDatasetAliasesStep}.
+   */
+  private static final List<SortCriterion> URN_SORT =
+      ImmutableList.of(new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING));
 
   private final String upgradeId;
   private final Urn upgradeIdUrn;
@@ -166,7 +177,7 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
             ImmutableList.of(Constants.POLICY_ENTITY_NAME),
             "*",
             null,
-            null,
+            URN_SORT,
             scrollId,
             null,
             batchSize);
