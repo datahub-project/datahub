@@ -1,0 +1,76 @@
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+from typing import Any, Optional
+
+from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
+    PartitionDiscovery,
+)
+from datahub.ingestion.source.bigquery_v2.profiling.security import (
+    validate_and_filter_expressions,
+)
+
+
+def make_config(**profiling_overrides: Any) -> BigQueryV2Config:
+    return BigQueryV2Config.parse_obj(
+        {
+            "project_id": "test-project-123456",
+            "profiling": {"enabled": True, **profiling_overrides},
+        }
+    )
+
+
+def make_table(
+    name: str = "test_table",
+    rows_count: Optional[int] = 10000,
+    external: bool = False,
+    max_partition_id: Optional[str] = None,
+    **kwargs: Any,
+) -> BigqueryTable:
+    now = datetime.now(timezone.utc)
+    return BigqueryTable(
+        name=name,
+        comment="",
+        rows_count=rows_count,
+        size_in_bytes=1_000_000 if rows_count else None,
+        last_altered=now - timedelta(days=1),
+        created=now - timedelta(days=30),
+        external=external,
+        max_partition_id=max_partition_id,
+        **kwargs,
+    )
+
+
+def test_unpartitioned_table_returns_empty_list():
+    """An unpartitioned table has no require_partition_filter; probe query succeeds and
+    get_required_partition_filters should return [] (empty, not None).
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return [SimpleNamespace(cnt=42)]
+
+    filters = discovery.get_required_partition_filters(
+        make_table(name="unpartitioned"), "proj", "ds", execute
+    )
+    assert filters == []
+
+
+def test_partition_filter_validation_rejects_injection():
+    """Partition filters that contain SQL injection patterns must be rejected by
+    validate_and_filter_expressions before they reach the custom_sql.
+    """
+    dangerous = [
+        "`date` = '2024-01-01'; DROP TABLE users",
+        "`col` = val /*comment*/",
+        "1=1 UNION SELECT * FROM secrets",
+    ]
+    safe = ["`event_date` = '2024-11-20'", "`region_id` = 42"]
+
+    result = validate_and_filter_expressions(dangerous + safe, "test")
+
+    for expr in dangerous:
+        assert expr not in result
+    for expr in safe:
+        assert expr in result
