@@ -120,7 +120,7 @@ describe('QueriesTab (v2)', () => {
         expect(screen.getByTestId('section-name')).toHaveTextContent('Highlighted Queries');
     });
 
-    it('should show empty section when privileges is undefined (backward compatibility)', () => {
+    it('should show permission denied section when privileges is undefined (fails closed)', () => {
         (useBaseEntity as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
             dataset: {
                 urn: 'urn:li:dataset:test',
@@ -130,6 +130,6 @@ describe('QueriesTab (v2)', () => {
         renderQueriesTab();
 
         expect(screen.getByTestId('empty-queries-section')).toBeInTheDocument();
-        expect(screen.getByTestId('section-name')).toHaveTextContent('Highlighted Queries');
+        expect(screen.getByTestId('empty-text')).toHaveTextContent(/don't have permission to view queries/);
     });
 });
