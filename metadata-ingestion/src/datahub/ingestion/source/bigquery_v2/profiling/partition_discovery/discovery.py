@@ -192,9 +192,11 @@ class PartitionDiscovery:
                     table, project, schema, execute_query_func
                 )
             )
-            # The COLUMNS query has no inherent ordering, so sort for a deterministic
-            # (and stable across runs) positional mapping when no declared order exists.
-            required_partition_columns = sorted(schema_columns)
+            # Preserve the INFORMATION_SCHEMA.COLUMNS ordinal_position order (the query
+            # orders by it) rather than sorting alphabetically: a composite partition key
+            # is positional, so an alphabetical reorder would bind partition-id
+            # components to the wrong columns downstream.
+            required_partition_columns = schema_columns
 
         probe_error: Optional[str] = None
         if not required_partition_columns and not schema_authoritative:
@@ -436,15 +438,20 @@ class PartitionDiscovery:
         project: str,
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-    ) -> Tuple[Set[str], bool]:
+    ) -> Tuple[List[str], bool]:
         """Return (partition columns, authoritative).
 
+        The columns are returned in INFORMATION_SCHEMA.COLUMNS ``ordinal_position`` order
+        (the query orders by it) and de-duplicated preserving that order, because a
+        composite partition key is positional — the caller maps partition-id components
+        to columns by position, so the order must not be lost.
+
         ``authoritative`` is True only when the INFORMATION_SCHEMA.COLUMNS query executed
-        successfully; an empty set with authoritative=True means the table is genuinely
+        successfully; an empty list with authoritative=True means the table is genuinely
         unpartitioned, whereas authoritative=False means the lookup failed and the state
         is unknown (the caller should fall back to a probe).
         """
-        required_partition_columns: Set[str] = set()
+        required_partition_columns: List[str] = []
 
         try:
             safe_info_schema_ref = build_safe_table_reference(
@@ -464,7 +471,10 @@ class PartitionDiscovery:
             query_results = execute_query_func(
                 query, job_config, "partition columns from schema"
             )
-            required_partition_columns = {row.column_name for row in query_results}
+            # dict.fromkeys de-duplicates while keeping the ordinal_position order.
+            required_partition_columns = list(
+                dict.fromkeys(row.column_name for row in query_results)
+            )
             logger.debug(
                 f"Found partition columns from schema: {required_partition_columns}"
             )
@@ -522,7 +532,7 @@ class PartitionDiscovery:
     def _get_partition_datetime_override_filters(
         self,
         table: BigqueryTable,
-        required_columns: Set[str],
+        required_columns: List[str],
         column_types: Dict[str, str],
     ) -> Optional[List[str]]:
         # profiling.partition_datetime pins a specific date/time partition to profile

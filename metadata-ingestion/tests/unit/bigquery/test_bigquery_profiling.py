@@ -46,18 +46,46 @@ def make_table(
 
 
 def test_unpartitioned_table_returns_empty_list():
-    """An unpartitioned table has no require_partition_filter; probe query succeeds and
-    get_required_partition_filters should return [] (empty, not None).
+    """An unpartitioned table's INFORMATION_SCHEMA.COLUMNS lookup succeeds and returns no
+    partitioning columns. That authoritative-empty result means genuinely unpartitioned,
+    so get_required_partition_filters returns [] (empty, not None).
     """
     discovery = PartitionDiscovery(make_config())
 
+    # Return a real (empty) result shape: no partitioning-column rows. Earlier this mock
+    # returned an object lacking `column_name`, so the COLUMNS read raised AttributeError
+    # and the test only passed via the swallowed-error fallback, never exercising the
+    # authoritative-empty path it documents.
     def execute(query: str, job_config: Any, context: str) -> list:
-        return [SimpleNamespace(cnt=42)]
+        return []
 
     filters = discovery.get_required_partition_filters(
-        make_table(name="unpartitioned"), "proj", "ds", execute
+        make_table(name="unpartitioned"), "test-project-123456", "ds", execute
     )
     assert filters == []
+
+
+def test_schema_fallback_preserves_ordinal_column_order():
+    """The INFORMATION_SCHEMA.COLUMNS fallback must return partition columns in
+    ordinal_position order (as the query yields them), not sorted alphabetically — a
+    composite key is positional and reordering would bind values to the wrong columns.
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    # Rows arrive in ordinal_position order (region, then event_date). Alphabetical
+    # sorting would swap them to (event_date, region).
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return [
+            SimpleNamespace(column_name="region"),
+            SimpleNamespace(column_name="event_date"),
+        ]
+
+    columns, authoritative = discovery._get_partition_columns_from_schema(
+        make_table(name="composite"), "test-project-123456", "ds", execute
+    )
+
+    assert authoritative is True
+    assert columns == ["region", "event_date"]
 
 
 def test_partition_columns_from_table_info_preserves_order_and_dedups():
