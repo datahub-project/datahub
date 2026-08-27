@@ -6,7 +6,7 @@
     "graph.title": "行数",
     "percentile.high": "高",
     "percentile.low": "低",
-    "percentile.med": "医学",
+"percentile.med": "中",
     "upstream.directUpstreams": "直接上游",
     "upstream.indirectUpstreams": "间接上游",
     "upstream.unhealthy": "一些上游不健康"
