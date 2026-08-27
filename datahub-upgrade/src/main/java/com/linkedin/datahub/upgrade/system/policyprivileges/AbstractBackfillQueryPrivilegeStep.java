@@ -65,8 +65,8 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
   /**
    * Pagination is {@code search_after} over a live index this step is itself writing to
    * (backfilling policies as it scans them); without a stable, deterministic sort a document can
-   * move across the cursor between pages and be skipped. Sorting by {@code urn} fixes a total
-   * order the mutations don't disturb, matching {@code BackfillDatasetAliasesStep}.
+   * move across the cursor between pages and be skipped. Sorting by {@code urn} fixes a total order
+   * the mutations don't disturb, matching {@code BackfillDatasetAliasesStep}.
    */
   private static final List<SortCriterion> URN_SORT =
       ImmutableList.of(new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING));
