@@ -110,7 +110,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
                     urn,
                     projectedAspects,
                     alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
-            EntityAuthorizationUtils.redactUnauthorizedQuerySqlAspects(
+            EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(
                 opContext, Map.of(urn, response));
             return response;
           } catch (Exception e) {
@@ -165,7 +165,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
                     urns,
                     projectedAspects,
                     alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
-            EntityAuthorizationUtils.redactUnauthorizedQuerySqlAspects(opContext, response);
+            EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(opContext, response);
             return response;
           } catch (Exception e) {
             throw new RuntimeException(

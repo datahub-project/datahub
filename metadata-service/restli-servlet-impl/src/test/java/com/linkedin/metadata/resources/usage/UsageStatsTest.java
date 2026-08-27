@@ -32,7 +32,7 @@ import org.testng.annotations.Test;
  * DatasetUsageStatsResolver} denies {@code usageStats.topSqlQueries} without {@code
  * VIEW_ENTITY_QUERIES}/{@code VIEW_ALL_QUERIES}, but Rest.li's {@code UsageStats} action resource
  * — a completely separate serving path for the same data — returned the same SQL strings gated
- * only by {@code VIEW_DATASET_USAGE_PRIVILEGE}. {@code redactTopSqlQueriesIfRestricted} is the
+ * only by {@code VIEW_DATASET_USAGE_PRIVILEGE}. {@code stripTopSqlQueriesIfRestricted} is the
  * fix; it is exercised here directly via reflection (matching {@code
  * EntityV2ResourceTest}'s pattern for private static authorization helpers on Rest.li resources)
  * rather than through the full {@code Task}-based {@code query}/{@code queryRange} action
@@ -48,7 +48,7 @@ public class UsageStatsTest {
   public void testTopSqlQueriesRedactedWithoutViewEntityQueries() throws Exception {
     UsageQueryResult result = usageQueryResultWithSql();
 
-    invokeRedact(denyAllQueryViewAuthorizer(), result);
+    invokeStripTopSqlQueries(denyAllQueryViewAuthorizer(), result);
 
     assertNull(
         result.getBuckets().get(0).getMetrics().getTopSqlQueries(),
@@ -60,7 +60,7 @@ public class UsageStatsTest {
   public void testTopSqlQueriesKeptWithViewEntityQueries() throws Exception {
     UsageQueryResult result = usageQueryResultWithSql();
 
-    invokeRedact(allowAllAuthorizer(), result);
+    invokeStripTopSqlQueries(allowAllAuthorizer(), result);
 
     assertEquals(result.getBuckets().get(0).getMetrics().getTopSqlQueries(), new StringArray(TEST_SQL));
   }
@@ -78,14 +78,14 @@ public class UsageStatsTest {
     return new UsageQueryResult().setBuckets(new UsageAggregationArray(List.of(bucket)));
   }
 
-  private static void invokeRedact(Authorizer authorizer, UsageQueryResult result) throws Exception {
+  private static void invokeStripTopSqlQueries(Authorizer authorizer, UsageQueryResult result) throws Exception {
     Authentication userAuth = new Authentication(new Actor(ActorType.USER, "test"), "");
     OperationContext opContext =
         TestOperationContexts.userContextNoSearchAuthorization(authorizer, userAuth);
 
     Method method =
         UsageStats.class.getDeclaredMethod(
-            "redactTopSqlQueriesIfRestricted", OperationContext.class, Urn.class, UsageQueryResult.class);
+            "stripTopSqlQueriesIfRestricted", OperationContext.class, Urn.class, UsageQueryResult.class);
     method.setAccessible(true);
     method.invoke(null, opContext, TEST_DATASET_URN, result);
   }

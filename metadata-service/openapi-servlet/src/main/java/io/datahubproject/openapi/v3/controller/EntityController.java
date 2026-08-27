@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.v3.controller;
 
+import static com.linkedin.metadata.Constants.DATASET_USAGE_STATISTICS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.PATCH_FIELD;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
@@ -718,6 +719,13 @@ public class EntityController
                         aspectName ->
                             EntityAuthorizationUtils.isQuerySqlAspectRestricted(
                                 opContext, u, aspectName));
+                if (aspectItemMap.containsKey(DATASET_USAGE_STATISTICS_ASPECT_NAME)) {
+                  EntityAuthorizationUtils.stripTopSqlQueriesFromRawAspect(
+                      opContext,
+                      u,
+                      DATASET_USAGE_STATISTICS_ASPECT_NAME,
+                      aspectItemMap.get(DATASET_USAGE_STATISTICS_ASPECT_NAME).getAspect().data());
+                }
 
                 return GenericEntityV3.builder().build(objectMapper, u, aspectItemMap);
               })

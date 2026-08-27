@@ -169,7 +169,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
           }
 
           UsageQueryResult result = UsageServiceUtil.query(opContext, _timeseriesAspectService, resource, duration, startTime, endTime, maxBuckets, timeZone);
-          redactTopSqlQueriesIfRestricted(opContext, resourceUrn, result);
+          stripTopSqlQueriesIfRestricted(opContext, resourceUrn, result);
           return result;
         },
         MetricRegistry.name(this.getClass(), "query"));
@@ -203,7 +203,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     return RestliUtils.toTask(opContext,
             () -> {
               UsageQueryResult result = UsageServiceUtil.queryRange(opContext, _timeseriesAspectService, resource, duration, range, timeZone);
-              redactTopSqlQueriesIfRestricted(opContext, resourceUrn, result);
+              stripTopSqlQueriesIfRestricted(opContext, resourceUrn, result);
               return result;
             }, MetricRegistry.name(this.getClass(), "queryRange"));
   }
@@ -217,7 +217,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
    * denying the whole call, keeping the numeric usage data {@code VIEW_DATASET_USAGE} alone
    * already authorizes.
    */
-  private static void redactTopSqlQueriesIfRestricted(
+  private static void stripTopSqlQueriesIfRestricted(
       @Nonnull OperationContext opContext, @Nonnull Urn resourceUrn, @Nullable UsageQueryResult result) {
     if (result == null
         || result.getBuckets() == null

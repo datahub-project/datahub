@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.RawAspect;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -128,7 +129,8 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
         for (int idx : indices) {
           results.set(
               idx,
-              buildRawAspectList(responses.get(indexToUrn.get(idx)), entitySpec, aspectsToFetch));
+              buildRawAspectList(
+                  opContext, responses.get(indexToUrn.get(idx)), entitySpec, aspectsToFetch));
         }
       } catch (RemoteInvocationException | URISyntaxException e) {
         throw new RuntimeException(
@@ -153,6 +155,7 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
   }
 
   private static List<RawAspect> buildRawAspectList(
+      final OperationContext opContext,
       final EntityResponse response,
       final EntitySpec entitySpec,
       final Set<String> aspectsToFetch) {
@@ -160,6 +163,7 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
     if (response == null) {
       return out;
     }
+    final Urn entityUrn = response.getUrn();
     for (AspectSpec spec : entitySpec.getAspectSpecs()) {
       if (!aspectsToFetch.contains(spec.getName())) {
         continue;
@@ -167,10 +171,19 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
       if (!response.getAspects().containsKey(spec.getName())) {
         continue;
       }
+      // This resolver serializes raw aspect payloads with no per-field mapper, so SQL-bearing
+      // aspects (viewProperties/dataTransformLogic/chartQuery) must be withheld wholesale here,
+      // the same as the OpenAPI/Rest.li generic-read surfaces that share this predicate.
+      if (EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+          opContext, entityUrn, spec.getName())) {
+        continue;
+      }
       final DataMap resolvedAspect = response.getAspects().get(spec.getName()).getValue().data();
       if (resolvedAspect == null) {
         continue;
       }
+      EntityAuthorizationUtils.stripTopSqlQueriesFromRawAspect(
+          opContext, entityUrn, spec.getName(), resolvedAspect);
       final RawAspect raw = new RawAspect();
       try {
         raw.setPayload(CODEC.mapToString(resolvedAspect));
