@@ -1128,7 +1128,7 @@ def test_contested_urn_drop_mode_keeps_only_the_winning_manifest(
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
-        fail_on_duplicate_models=False,
+        fail_on_cross_project_collisions=False,
     )
     kept = source._check_duplicate_models(source.load_nodes())
 
@@ -1230,7 +1230,7 @@ def test_cross_project_collision_drop_mode_keeps_lowest_dbt_name(
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
-        fail_on_duplicate_models=False,
+        fail_on_cross_project_collisions=False,
     )
     nodes = source._check_duplicate_models(source.load_nodes())
 
@@ -1275,7 +1275,7 @@ def test_drop_mode_rewires_exposure_depends_on_to_the_survivor(
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
-        fail_on_duplicate_models=False,
+        fail_on_cross_project_collisions=False,
     )
     all_nodes = source.load_nodes()
     exposure = next(
@@ -1364,7 +1364,7 @@ def test_duplicate_unique_id_drop_mode_keeps_first_loaded(
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
-        fail_on_duplicate_models=False,
+        fail_on_cross_project_collisions=False,
     )
     all_nodes = source.load_nodes()
     nodes, exposures = source._check_duplicate_unique_ids(
@@ -1436,7 +1436,7 @@ def test_duplicate_unique_id_drop_mode_keeps_the_survivors_run_results(
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
         run_results_paths=[str(run_results_path)],
-        fail_on_duplicate_models=False,
+        fail_on_cross_project_collisions=False,
     )
     all_nodes = source.load_nodes()
 
@@ -1508,7 +1508,7 @@ def test_duplicate_exposure_unique_id_drop_mode_keeps_first_loaded(
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
-        fail_on_duplicate_models=False,
+        fail_on_cross_project_collisions=False,
     )
     all_nodes = source.load_nodes()
     nodes, exposures = source._check_duplicate_unique_ids(
