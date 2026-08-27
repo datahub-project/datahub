@@ -750,6 +750,54 @@ def test_ambiguous_sibling_read_failure_does_not_assert_absence(
     assert any("403 Forbidden" in entry for entry in sources_warning.context)
 
 
+def test_local_os_error_on_sibling_catalog_only_warns(
+    tmp_path: pathlib.Path,
+) -> None:
+    """An unreadable local sibling artifact must warn, exactly as the same condition
+    on an object store does.
+
+    A local read raises OSError subclasses that are not FileNotFoundError - here
+    IsADirectoryError, in production usually PermissionError - while S3/GCS surface
+    every failure as a ValueError from read_file_as_bytes. Catching only ValueError
+    escalated the local case into a whole-project failure, which also suppresses
+    stale-entity soft-deletion run-wide, so the same fault behaved differently
+    depending only on where the artifacts live.
+    """
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+    _write_project(
+        tmp_path, "project_b", [{"name": "events", "database": "db", "schema": "sch_b"}]
+    )
+    (tmp_path / "project_b" / "catalog.json").mkdir()
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes = source.load_nodes()
+
+    assert {node.dbt_name for node in nodes} == {
+        "model.project_a.orders",
+        "model.project_b.events",
+    }
+    assert source.report.manifests_failed == 0
+    assert source.report.failures == []
+
+    manifest_b = f"{tmp_path}/project_b/manifest.json"
+    ambiguous = [
+        w
+        for w in source.report.warnings
+        if w.title == "Could not read catalog file for project"
+        and any(manifest_b in entry for entry in w.context)
+    ]
+    assert len(ambiguous) == 1
+    # Not described as absent: the file is there, it just cannot be read.
+    assert not [
+        w
+        for w in source.report.warnings
+        if w.title == "No catalog file found for project"
+        and any(manifest_b in entry for entry in w.context)
+    ]
+
+
 def test_undecodable_sibling_catalog_is_corrupt_not_absent(
     tmp_path: pathlib.Path,
 ) -> None:

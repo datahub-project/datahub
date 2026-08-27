@@ -1027,7 +1027,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             # as "no catalog file found" - silently ingesting the project with no
             # column metadata.
             raise
-        except (FileNotFoundError, ValueError) as e:
+        except (OSError, ValueError) as e:
+            # OSError, not just FileNotFoundError: a local read also raises
+            # PermissionError or IsADirectoryError, and on an object store the
+            # identical fault arrives as a ValueError from read_file_as_bytes. Both
+            # must reach the caller's warn-and-continue path, or the same fault
+            # fails the whole project locally while only warning on S3/GCS.
             if not optional_artifacts:
                 raise
             return None, e
