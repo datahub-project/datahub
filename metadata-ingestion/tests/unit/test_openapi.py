@@ -2332,6 +2332,36 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertIn("id", resolved["properties"])
         self.assertNotIn("additionalProperties", resolved)
 
+    def test_merge_allof_properties_malformed_existing_discarded(self):
+        # A malformed non-dict "properties" already on merged_schema (e.g.
+        # left by an earlier malformed allOf member) must be discarded
+        # rather than crash when a later member contributes a real dict.
+        merged = merge_allof_schemas(
+            {
+                "allOf": [
+                    "not-a-schema",
+                    {"properties": {"id": {"type": "string"}}},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertEqual(merged["properties"]["id"], {"type": "string"})
+
+    def test_promote_pattern_properties_leaves_conflicting_type_alone(self):
+        # An explicit, non-"object" type alongside patternProperties is
+        # deliberately left untouched (already-malformed input) rather than
+        # overwritten with "object".
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "type": "array",
+            "patternProperties": {"^x_": {"type": "string"}},
+        }
+
+        resolved = resolve_schema_references(schema, sw_dict)
+
+        self.assertEqual(resolved["type"], "array")
+
     def test_merge_allof_pattern_properties_malformed_incoming_keeps_existing(self):
         # A malformed (non-bool, non-dict) incoming value must not clobber a
         # real schema already present for the same pattern.
@@ -4760,6 +4790,77 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             max_depth=10,
         )
         self.assertEqual(merged["propertyNames"], {"minLength": 1})
+
+    def test_merge_allof_property_true_does_not_clobber_real_schema(self):
+        # Regression: unlike additionalProperties/patternProperties/
+        # propertyNames, a colliding "properties" entry took the bare
+        # assignment path and let a later allOf member's bare "true" (a
+        # no-op JSON Schema constraint) clobber an earlier member's real
+        # schema -- order-dependent, and a surviving boolean here crashes
+        # get_schema_metadata (TypeError: argument of type 'bool' is not
+        # iterable).
+        merged_a = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"properties": {"a": {"type": "string"}}},
+                    {"properties": {"a": True}},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertEqual(merged_a["properties"]["a"], {"type": "string"})
+
+        merged_b = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"properties": {"a": True}},
+                    {"properties": {"a": {"type": "string"}}},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertEqual(merged_b["properties"]["a"], {"type": "string"})
+
+    def test_normalize_bare_boolean_property_survives_schema_metadata(self):
+        # Regression: a lone "properties": {"a": true} (no allOf collision
+        # involved) reached get_schema_metadata as a raw bool and crashed it.
+        # "true" (matches anything) normalizes to an empty schema.
+        resolved = resolve_schema_references(
+            {"type": "object", "properties": {"a": True}}, _EMPTY_OPENAPI_SW
+        )
+        self.assertEqual(resolved["properties"]["a"], {})
+        get_schema_metadata(
+            platform="openapi",
+            name="bool-property",
+            json_schema=resolved,
+            swallow_exceptions=False,
+        )
+
+    def test_normalize_bare_boolean_property_false_is_dropped(self):
+        # "false" (matches nothing) can't be represented as a field schema --
+        # drop it rather than let it reach get_schema_metadata.
+        resolved = resolve_schema_references(
+            {"type": "object", "properties": {"a": False, "b": {"type": "string"}}},
+            _EMPTY_OPENAPI_SW,
+        )
+        self.assertNotIn("a", resolved["properties"])
+        self.assertIn("b", resolved["properties"])
+
+    def test_normalize_bare_boolean_items_survives_schema_metadata(self):
+        # Regression: a lone "items": true (no allOf collision) reached
+        # get_schema_metadata as a raw bool and crashed it.
+        resolved = resolve_schema_references(
+            {"type": "array", "items": True}, _EMPTY_OPENAPI_SW
+        )
+        self.assertEqual(resolved["items"], {})
+
+    def test_normalize_bare_boolean_items_false_is_dropped(self):
+        resolved = resolve_schema_references(
+            {"type": "array", "items": False}, _EMPTY_OPENAPI_SW
+        )
+        self.assertNotIn("items", resolved)
 
     def test_merge_allof_root_required_cleaned_even_with_boolean_member(self):
         # Regression: the required-sanitization ran only inside the dict-only

@@ -842,12 +842,24 @@ class APISource(Source, ABC):
         if isinstance(example_data, list):
             example_data = example_data[0] if example_data else None
         if not isinstance(example_data, dict):
+            # Matches the sibling extractors (_extract_schema_from_openapi_spec,
+            # _schema_from_api_response): surface why this strategy didn't
+            # produce a schema instead of silently falling through to
+            # "No Schema Extracted" with no clue what was actually present.
+            self.report.info(
+                message="Example data present but not usable for field extraction",
+                context=f"Name: {dataset_name}, got {type(example_data).__name__}",
+            )
             return None
 
         fields = flatten2list(example_data)
         if fields:
             self.schema_extraction_stats.from_endpoint_data += 1
             return set_metadata(dataset_name, fields, original_data=example_data)
+        self.report.info(
+            message="Example data present but yielded no extractable fields",
+            context=f"Name: {dataset_name}",
+        )
         return None
 
     def _has_credentials(self) -> bool:

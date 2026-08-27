@@ -988,15 +988,17 @@ def _merge_allof_properties(
     )
     merged_schema["properties"] = props
     for prop_name, prop_schema in incoming_props.items():
-        existing = props.get(prop_name)
-        if isinstance(existing, dict) and isinstance(prop_schema, dict):
-            props[prop_name] = merge_allof_schemas(
-                _combine_under_allof(existing, prop_schema),
-                sw_dict,
-                max_depth=max_depth,
-            )
-        else:
+        if prop_name not in props:
+            # First contributor for this property -- nothing to intersect
+            # with yet, take it as-is (including a bare bool).
             props[prop_name] = prop_schema
+            continue
+        # A bare JSON-Schema boolean subschema (true/false) must not clobber
+        # a real schema already contributed by another allOf member -- same
+        # intersection semantics as the map keywords below.
+        props[prop_name] = _intersect_subschemas(
+            props[prop_name], prop_schema, sw_dict, max_depth
+        )
 
 
 def _intersect_subschemas(
@@ -1385,9 +1387,22 @@ def _promote_pattern_properties_to_additional(
 def _normalize_map_schemas_mapping(
     mapping: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], bool]:
-    new_mapping = {}
+    new_mapping: Dict[str, Any] = {}
     changed = False
     for key, value in mapping.items():
+        if value is True:
+            # get_schema_metadata only understands dict schema values; a bare
+            # "true" (matches anything) is equivalent to an empty schema.
+            new_mapping[key] = {}
+            changed = True
+            continue
+        if value is False:
+            # A member schema that can never match can't be represented as a
+            # field/pattern schema -- drop it rather than let get_schema_metadata
+            # crash on a bare bool (TypeError: argument of type 'bool' is not
+            # iterable).
+            changed = True
+            continue
         normalized = _normalize_map_schemas(value)
         if normalized is not value:
             changed = True
@@ -1432,10 +1447,22 @@ def _normalize_map_schemas(schema: object) -> object:
             changed = True
 
     if "items" in schema:
-        normalized_items = _normalize_map_schemas(schema["items"])
-        if normalized_items is not schema["items"]:
-            new_schema["items"] = normalized_items
+        items_value = schema["items"]
+        if items_value is True:
+            new_schema["items"] = {}
             changed = True
+        elif items_value is False:
+            # An array that can never contain a matching item can't be
+            # represented as an "items" schema -- drop it rather than let a
+            # bare bool reach get_schema_metadata (see _normalize_map_schemas_
+            # mapping for the same handling on properties/patternProperties).
+            del new_schema["items"]
+            changed = True
+        else:
+            normalized_items = _normalize_map_schemas(items_value)
+            if normalized_items is not items_value:
+                new_schema["items"] = normalized_items
+                changed = True
 
     additional = schema.get("additionalProperties")
     if isinstance(additional, dict):
