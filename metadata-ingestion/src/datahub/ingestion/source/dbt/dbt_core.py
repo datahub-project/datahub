@@ -70,19 +70,28 @@ class DBTCoreReport(DBTSourceReport):
 class DBTCoreConfig(DBTCommonConfig):
     manifest_path: str = Field(
         description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json. "
-        "This can be a local file or a URI."
+        "This can be a local file or a URI. "
+        "Glob patterns are supported for S3, GCS, and local paths "
+        "(e.g. 's3://bucket/dbt-artifacts/*/manifest.json', 'gs://bucket/dbt-artifacts/*/manifest.json', "
+        "or '/path/to/dbt-artifacts/*/manifest.json'), in which case every matched manifest is ingested as an "
+        "independent dbt project in a single run, and catalog.json and sources.json are resolved automatically "
+        "from each matched manifest's own directory.",
     )
     catalog_path: Optional[str] = Field(
         None,
         description="Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json. "
         "This file is optional, but highly recommended. Without it, some metadata like column info will be incomplete or missing. "
-        "This can be a local file or a URI.",
+        "This can be a local file or a URI. "
+        "Rejected when manifest_path is a glob pattern, since one catalog cannot be paired with many manifests; "
+        "the catalog is then read from each matched manifest's own directory instead.",
     )
     sources_path: Optional[str] = Field(
         default=None,
         description="Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. "
         "If not specified, last-modified fields will not be populated. "
-        "This can be a local file or a URI.",
+        "This can be a local file or a URI. "
+        "Rejected when manifest_path is a glob pattern, since one sources file cannot be paired with many "
+        "manifests; it is then read from each matched manifest's own directory instead.",
     )
     run_results_paths: List[str] = Field(
         default=[],

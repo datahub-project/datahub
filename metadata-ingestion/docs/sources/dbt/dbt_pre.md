@@ -287,7 +287,7 @@ source:
     target_platform: postgres
 ```
 
-Each match is loaded as an independent dbt project. **`catalog.json` and `sources.json` are read automatically from the same directory as the matched `manifest.json` and must not be configured separately** — setting `catalog_path` or `sources_path` alongside a globbed `manifest_path` is a configuration error. A project directory missing its catalog or sources file is only affected for that artifact (with a warning); it does not fail the project.
+Each match is loaded as an independent dbt project. **`catalog.json` and `sources.json` are read automatically from the same directory as the matched `manifest.json` and must not be configured separately** — setting `catalog_path` or `sources_path` alongside a globbed `manifest_path` is a configuration error. A project directory missing its catalog or sources file is only affected for that artifact (with a warning); it does not fail the project. A sibling `catalog.json` that exists but is corrupt, however, skips that project entirely — deliberately, since a reported failure also suppresses soft-deletion, so nothing is wrongly deleted — which means a non-atomic CI upload costs that project all of its models rather than just its schemas.
 
 A broken manifest in one project is reported as a failure for that project only, so every other matched project still ingests fully.
 
@@ -299,12 +299,6 @@ dbt guarantees identities are unique within a single project, but that guarantee
 - **Same dbt `unique_id`**: two projects that share a dbt package name (for example, both scaffolded from the same template and never renamed) produce identical `unique_id`s for their models and exposures. Since `unique_id` is also the key used to resolve lineage between dbt nodes, an undetected collision doesn't just lose metadata — it can point one project's lineage at another project's model.
 
 Both are reported as a failure, and none of the colliding models or exposures are emitted, controlled by `fail_on_duplicate_models` (default `true`). Set it to `false` to instead keep one of them deterministically and emit a warning.
-
-:::note Known limitation: column lineage can still be contaminated
-
-Same-target-table collision detection runs after schema inference and column-level lineage are computed for every node. This means that even in the default fail mode, columns and lineage inferred for the colliding relation may reflect whichever project was processed last, rather than being blocked outright. If you hit this, the fix is the same either way: rename one of the colliding dbt models, seeds, or snapshots so they no longer materialize to the same table.
-
-:::
 
 :::note Failures suppress stale-entity removal for the whole run
 
