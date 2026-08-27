@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from abc import ABC
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -68,20 +69,43 @@ class _CollectingLogHandler(logging.Handler):
     def __init__(self) -> None:
         super().__init__(level=logging.WARNING)
         self.messages: List[str] = []
+        # Multiple APISource instances can run get_workunits_internal
+        # concurrently (e.g. parallel recipes in one process), each attaching
+        # its own handler to the same shared openapi_parser logger. Without
+        # this, every handler would see every thread's records, mis-
+        # attributing another run's parsing warnings to this one's report.
+        self._owner_thread = threading.get_ident()
 
     def emit(self, record: logging.LogRecord) -> None:
-        self.messages.append(record.getMessage())
+        if threading.get_ident() == self._owner_thread:
+            self.messages.append(record.getMessage())
 
 
 @contextmanager
 def _capture_parser_warnings() -> Iterator[List[str]]:
     handler = _CollectingLogHandler()
     parser_logger = logging.getLogger(_PARSER_LOGGER_NAME)
+    # logger.warning(...) short-circuits on isEnabledFor(WARNING), resolved
+    # via the ancestor chain, before any handler (including this one) ever
+    # sees the record. Force this logger's own level down for the duration
+    # of the capture so an ambient config that raised some parent logger's
+    # threshold above WARNING can't silently make this bridge report nothing
+    # while real degradation is still happening.
+    # Only force it down when needed (effective level suppresses WARNING) --
+    # never override a MORE permissive level a user explicitly set (e.g. -v/
+    # --debug), which would otherwise hide their DEBUG/INFO output for the
+    # duration of the capture.
+    previous_level = parser_logger.level
+    lowered_level = parser_logger.getEffectiveLevel() > logging.WARNING
+    if lowered_level:
+        parser_logger.setLevel(logging.WARNING)
     parser_logger.addHandler(handler)
     try:
         yield handler.messages
     finally:
         parser_logger.removeHandler(handler)
+        if lowered_level:
+            parser_logger.setLevel(previous_level)
 
 
 _BAD_RESPONSE_MESSAGES: Dict[int, Tuple[str, str]] = {
@@ -409,7 +433,7 @@ class APISource(Source, ABC):
                 "Unexpected HTTP status when retrieving data from OpenAPI endpoint",
             ),
         )
-        self.report.warning(title=title, message=message, context=context)
+        self.report.warning(title=title, message=message, context=context, log=False)
 
     def extract_response_schema_from_endpoint(
         self, endpoint_spec: Dict, sw_dict: Dict
@@ -919,63 +943,69 @@ class APISource(Source, ABC):
         """
         config = self.config
         with _capture_parser_warnings() as parser_warnings:
+            # try/finally (not two explicit call sites) so parser warnings
+            # captured before an early return AND warnings captured before a
+            # consumer stops draining this generator early (a GeneratorExit
+            # at the `yield from` below skips everything after it) both still
+            # reach the report exactly once.
             try:
-                sw_dict = self.config.get_swagger()
-                self.url_basepath = get_url_basepath(sw_dict)
-                url_endpoints = get_endpoints(sw_dict)
-            except Exception as e:
-                # get_url_basepath/get_endpoints are included here (not just
-                # get_swagger) because a spec that fetches/parses fine but is
-                # missing an expected key (e.g. "paths") would otherwise raise
-                # an unhandled KeyError and crash the whole run instead of
-                # surfacing a report failure.
-                #
-                # Attaching the real exception is safe: get_tok (the only place
-                # a get_token password is ever substituted into a URL) already
-                # sanitizes every exception it raises down to
-                # response.status_code / exception type, with no url4req/
-                # password in the message -- see
-                # test_get_tok_error_does_not_leak_credentials_in_message and
-                # test_get_tok_connection_error_does_not_leak_credentials_in_message.
-                # Hiding it behind a generic RuntimeError would just deprive
-                # operators of the real cause (401, parse error, missing
-                # "paths", TLS failure).
-                self.report.failure(
-                    title="Failed to Fetch OpenAPI Spec",
-                    message="Unable to retrieve, parse, or interpret the OpenAPI specification",
-                    context=f"{config.url} / {config.swagger_file}",
-                    exc=e,
-                )
-                self._report_parser_warnings(parser_warnings)
-                return
-
-            # Sample from "listing endpoint" for guessing composed endpoints
-            root_dataset_samples: Dict[str, Any] = {}
-
-            # Process all endpoints. Materialize each endpoint's workunits inside
-            # the try so consumer-side failures at yield are not mis-attributed here.
-            for endpoint_k, endpoint_dets in url_endpoints.items():
-                if endpoint_k in config.ignore_endpoints:
-                    continue
-
                 try:
-                    workunits = list(
-                        self._process_endpoint(
-                            endpoint_k, endpoint_dets, sw_dict, root_dataset_samples
-                        )
-                    )
+                    sw_dict = self.config.get_swagger()
+                    self.url_basepath = get_url_basepath(sw_dict)
+                    url_endpoints = get_endpoints(sw_dict)
                 except Exception as e:
+                    # get_url_basepath/get_endpoints are included here (not
+                    # just get_swagger) because a spec that fetches/parses
+                    # fine but is missing an expected key (e.g. "paths")
+                    # would otherwise raise an unhandled KeyError and crash
+                    # the whole run instead of surfacing a report failure.
+                    #
+                    # Attaching the real exception is safe: get_tok (the only
+                    # place a get_token password is ever substituted into a
+                    # URL) already sanitizes every exception it raises down
+                    # to response.status_code / exception type, with no
+                    # url4req/password in the message -- see
+                    # test_get_tok_error_does_not_leak_credentials_in_message
+                    # and test_get_tok_connection_error_does_not_leak_credentials_in_message.
+                    # Hiding it behind a generic RuntimeError would just
+                    # deprive operators of the real cause (401, parse error,
+                    # missing "paths", TLS failure).
                     self.report.failure(
-                        title="Failed to Process Endpoint",
-                        message="Unexpected error while processing OpenAPI endpoint",
-                        context=endpoint_k,
+                        title="Failed to Fetch OpenAPI Spec",
+                        message="Unable to retrieve, parse, or interpret the OpenAPI specification",
+                        context=f"{config.url} / {config.swagger_file}",
                         exc=e,
                     )
-                    continue
+                    return
 
-                yield from workunits
+                # Sample from "listing endpoint" for guessing composed endpoints
+                root_dataset_samples: Dict[str, Any] = {}
 
-            self._report_parser_warnings(parser_warnings)
+                # Process all endpoints. Materialize each endpoint's workunits
+                # inside the try so consumer-side failures at yield are not
+                # mis-attributed here.
+                for endpoint_k, endpoint_dets in url_endpoints.items():
+                    if endpoint_k in config.ignore_endpoints:
+                        continue
+
+                    try:
+                        workunits = list(
+                            self._process_endpoint(
+                                endpoint_k, endpoint_dets, sw_dict, root_dataset_samples
+                            )
+                        )
+                    except Exception as e:
+                        self.report.failure(
+                            title="Failed to Process Endpoint",
+                            message="Unexpected error while processing OpenAPI endpoint",
+                            context=endpoint_k,
+                            exc=e,
+                        )
+                        continue
+
+                    yield from workunits
+            finally:
+                self._report_parser_warnings(parser_warnings)
 
     def _report_parser_warnings(self, parser_warnings: List[str]) -> None:
         # Each message is already logged once by the parser's own logger.warning

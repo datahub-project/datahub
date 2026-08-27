@@ -842,6 +842,18 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
         resolved_allof = _resolve_schema_refs(
             allof_schema, sw_dict, max_depth=child_depth
         )
+
+        # A malformed "required" already on merged_schema (e.g. from the root
+        # schema itself) must be dropped regardless of what this member is --
+        # even a boolean member below, which contributes nothing to replace it
+        # with -- otherwise it survives untouched and schema extraction still
+        # raises downstream. Runs before the dict-only guard below, since that
+        # guard `continue`s past this member without ever reaching it.
+        existing_required = merged_schema.get("required")
+        if not isinstance(existing_required, list):
+            merged_schema.pop("required", None)
+            existing_required = []
+
         if not isinstance(resolved_allof, dict):
             # Boolean schemas (true/false) are valid allOf members from JSON Schema
             # draft-6+; "true" is a no-op, and treating "false" as a no-op too is a
@@ -855,16 +867,8 @@ def merge_allof_schemas(schema: Dict, sw_dict: Dict, max_depth: int = 10) -> Dic
         # Merge required fields (union of all required lists). A malformed spec
         # can put a non-list "required" (e.g. a bare string) on either side;
         # existing_required + new_required would raise TypeError and drop the
-        # whole merge instead of just ignoring the malformed keyword. A
-        # malformed value already on merged_schema (e.g. from the root schema
-        # itself) must be dropped even when this member contributes nothing
-        # valid to replace it with -- otherwise it survives untouched and
-        # schema extraction still raises downstream.
+        # whole merge instead of just ignoring the malformed keyword.
         new_required = resolved_allof.get("required")
-        existing_required = merged_schema.get("required")
-        if not isinstance(existing_required, list):
-            merged_schema.pop("required", None)
-            existing_required = []
         if isinstance(new_required, list):
             # Combine required lists and remove duplicates while preserving order
             merged_schema["required"] = list(
@@ -1027,12 +1031,27 @@ def _merge_allof_map_keywords(
             dict(existing_pp) if isinstance(existing_pp, dict) else {}
         )
         for pattern, prop_schema in pattern_props.items():
-            existing = merged_schema["patternProperties"].get(pattern)
+            if pattern not in merged_schema["patternProperties"]:
+                # First contributor for this pattern -- nothing to intersect
+                # with yet, take it as-is (including a bare bool).
+                merged_schema["patternProperties"][pattern] = prop_schema
+                continue
+            existing = merged_schema["patternProperties"][pattern]
+            # JSON-Schema boolean subschemas have fixed intersection semantics
+            # under allOf, independent of the isinstance-guarding below: false
+            # matches nothing, so it wins any collision outright (order-
+            # independent); true matches anything, so colliding with it is a
+            # no-op that must not clobber a real schema on the other side.
+            if existing is False or prop_schema is False:
+                merged_schema["patternProperties"][pattern] = False
+            elif existing is True:
+                merged_schema["patternProperties"][pattern] = prop_schema
+            elif prop_schema is True:
+                pass
             # isinstance-guard both sides before _combine_under_allof, which
-            # declares Dict[str, Any] for both arguments: a boolean
-            # patternProperties member (valid draft-6+ JSON Schema) or other
-            # malformed value must not reach it.
-            if isinstance(existing, dict) and isinstance(prop_schema, dict):
+            # declares Dict[str, Any] for both arguments: any other
+            # malformed (non-bool, non-dict) value must not reach it.
+            elif isinstance(existing, dict) and isinstance(prop_schema, dict):
                 # Resolve the combined fragment the same way additionalProperties/
                 # properties do, so a colliding pattern's merged shape does not
                 # depend on how deeply this schema happens to be nested.
@@ -1251,7 +1270,7 @@ def _lookup_local_ref_target(
     ref_path: object,
     sw_dict: Dict,
 ) -> Optional[Dict[str, Any]]:
-    """Resolve `#/definitions/X` or `#/components/schemas/X`.
+    """Resolve `#/definitions/X`, `#/components/schemas/X`, or `#/$defs/X`.
 
     Returns None for unsupported ref formats (external files, other JSON Pointers,
     a non-string $ref value -- e.g. an empty "$ref:" line parses as None in YAML --
@@ -1268,6 +1287,11 @@ def _lookup_local_ref_target(
         schemas_map = (
             components.get("schemas", {}) if isinstance(components, dict) else {}
         )
+    elif ref_path.startswith("#/$defs/"):
+        # OpenAPI 3.1 adopts JSON Schema 2020-12, where "$defs" is the
+        # idiomatic top-level local-definitions container alongside (or
+        # instead of) "components/schemas".
+        schemas_map = sw_dict.get("$defs", {})
     else:
         return None
     if not isinstance(schemas_map, dict):

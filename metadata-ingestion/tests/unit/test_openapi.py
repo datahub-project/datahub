@@ -1,6 +1,6 @@
 import json
 import unittest
-from typing import Any, Dict, List
+from typing import Any, Dict, Generator, List, cast
 from unittest.mock import MagicMock, patch
 
 import requests
@@ -3159,6 +3159,13 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         self.assertEqual(warning.title, "Failed to Extract Metadata")
         self.assertIn("Unexpected HTTP status", warning.message)
 
+    def test_report_bad_responses_does_not_double_log(self):
+        # Regression: the dict-lookup refactor dropped log=False, so every
+        # bad HTTP response was logged twice (once by self.report.warning's
+        # default log=True, previously suppressed here deliberately).
+        with self.assertNoLogs("datahub.ingestion.api.source", level="WARNING"):
+            self.source.report_bad_responses(401, "GET /secure")
+
     def test_ignore_endpoints_skips_workunits(self):
         self.config.ignore_endpoints = ["/skip"]
         sw_dict = {
@@ -3618,6 +3625,55 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             ],
             [],
         )
+
+    def test_get_workunits_flushes_parser_warnings_on_early_generator_close(self):
+        # Regression: _report_parser_warnings was only called after the
+        # endpoint loop finished (plus once more on the early-fetch-failure
+        # return), so a consumer that stops draining this generator early
+        # (a GeneratorExit at the `yield from`) skipped it entirely,
+        # silently dropping every parser warning captured before that point.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/pets": "not-a-path-item",
+                "/ok": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "content": {
+                                    "application/json": {"schema": {"type": "object"}}
+                                }
+                            }
+                        }
+                    }
+                },
+            },
+        }
+        with patch.object(OpenApiConfig, "get_swagger", return_value=sw_dict):
+            gen = cast(Generator[Any, None, None], self.source.get_workunits_internal())
+            next(gen)  # advance past the malformed-path-item warning
+            gen.close()  # simulate a consumer abandoning the generator early
+        parser_warnings = [
+            w
+            for w in self.source.report.warnings
+            if getattr(w, "title", None) == "OpenAPI Parsing Warning"
+        ]
+        self.assertEqual(len(parser_warnings), 1)
+        self.assertIn("/pets", parser_warnings[0].message)
+
+    def test_lookup_local_ref_target_resolves_defs(self):
+        # OpenAPI 3.1 adopts JSON Schema 2020-12, where "$defs" is the
+        # idiomatic top-level local-definitions container; a $ref using it
+        # must resolve like #/components/schemas/... does, not be reported
+        # as an unresolved reference on an otherwise valid 3.1 spec.
+        sw_dict: Dict[str, Any] = {
+            "openapi": "3.1.0",
+            "$defs": {
+                "Pet": {"type": "object", "properties": {"name": {"type": "string"}}}
+            },
+        }
+        resolved = resolve_schema_references({"$ref": "#/$defs/Pet"}, sw_dict)
+        self.assertEqual(resolved, sw_dict["$defs"]["Pet"])
 
     def test_extract_schema_from_simple_endpoint_live_api_success(self):
         self.source.config = OpenApiConfig(
@@ -4221,6 +4277,62 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             max_depth=10,
         )
         self.assertEqual(merged["patternProperties"]["^x"], {"type": "string"})
+
+    def test_merge_allof_pattern_properties_false_wins_collision(self):
+        # JSON Schema "false" matches nothing -- it's the most restrictive
+        # possible value schema, so it must win any collision outright
+        # (order-independent), not be silently discarded by whichever side
+        # happens to be a dict.
+        merged_false_first = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"patternProperties": {"^x": False}},
+                    {"patternProperties": {"^x": {"type": "string"}}},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertIs(merged_false_first["patternProperties"]["^x"], False)
+
+        merged_false_second = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"patternProperties": {"^x": {"type": "string"}}},
+                    {"patternProperties": {"^x": False}},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertIs(merged_false_second["patternProperties"]["^x"], False)
+
+    def test_merge_allof_pattern_properties_true_is_noop_against_real_schema(self):
+        # JSON Schema "true" matches anything -- colliding with it must not
+        # clobber a real schema on the other side.
+        merged = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"patternProperties": {"^x": {"type": "string"}}},
+                    {"patternProperties": {"^x": True}},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertEqual(merged["patternProperties"]["^x"], {"type": "string"})
+
+    def test_merge_allof_root_required_cleaned_even_with_boolean_member(self):
+        # Regression: the required-sanitization ran only inside the dict-only
+        # branch, so a boolean allOf member (a valid draft-6+ member that
+        # `continue`s past that branch) let a malformed root "required"
+        # survive untouched.
+        schema = {
+            "required": "not-a-list",
+            "allOf": [True],
+        }
+        merged = merge_allof_schemas(schema, _EMPTY_OPENAPI_SW, max_depth=10)
+        self.assertNotIn("required", merged)
 
     def test_merge_allof_three_members_colliding_oneof_all_survive(self):
         # 3+ colliding contributors: a naive pairwise defer-and-recurse loses the
