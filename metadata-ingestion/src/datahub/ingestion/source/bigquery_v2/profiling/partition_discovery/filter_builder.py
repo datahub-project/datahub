@@ -230,9 +230,15 @@ class FilterBuilder:
 
     @staticmethod
     def _format_bound_literal(moment: datetime, col_type: str) -> str:
+        # Build the date/time explicitly rather than via strftime("%Y"): C strftime does
+        # not zero-pad years < 1000 on every platform (e.g. year 5 renders as "5"), which
+        # BigQuery rejects. Explicit %04d guarantees a four-digit year everywhere.
+        date_str = f"{moment.year:04d}-{moment.month:02d}-{moment.day:02d}"
         if col_type == "DATE":
-            return f"'{moment.strftime('%Y-%m-%d')}'"
-        rendered = moment.strftime("%Y-%m-%d %H:%M:%S")
+            return f"'{date_str}'"
+        rendered = (
+            f"{date_str} {moment.hour:02d}:{moment.minute:02d}:{moment.second:02d}"
+        )
         if col_type == "TIMESTAMP":
             # Bounds for a tz-aware instant were normalized to UTC by the caller, so a
             # UTC offset is rendered explicitly (+00:00); a naive value is left bare and
@@ -293,37 +299,51 @@ class FilterBuilder:
         # partition-id bucket shape, or None to fall through to the existing
         # equality/normalization path (e.g. a plain YYYY-MM-DD value on a DATE column,
         # whose day partition is already exactly that date).
-        if PARTITION_ID_YYYYMM_PATTERN.match(str_val):
+
+        # A YYYYMM month bucket spans the whole month for DATE, DATETIME and TIMESTAMP
+        # alike, so a half-open month range is always the right filter.
+        if col_type in (
+            "DATE",
+            "DATETIME",
+            "TIMESTAMP",
+        ) and PARTITION_ID_YYYYMM_PATTERN.match(str_val):
             moment = datetime(int(str_val[:4]), int(str_val[4:6]), 1)
             return FilterBuilder.create_partition_datetime_filter(
                 col_name, moment, col_type, PARTITION_GRANULARITY_MONTH
             )
-        if PARTITION_ID_YYYYMMDDHH_PATTERN.match(str_val):
-            moment = datetime(
-                int(str_val[:4]),
-                int(str_val[4:6]),
-                int(str_val[6:8]),
-                int(str_val[8:10]),
-            )
-            return FilterBuilder.create_partition_datetime_filter(
-                col_name, moment, col_type, PARTITION_GRANULARITY_HOUR
-            )
-        # A YYYYMMDD equality only drops rows for sub-day DATETIME/TIMESTAMP columns;
-        # a DATE column's day partition equals exactly that date, so leave it alone.
-        if col_type in (
-            "DATETIME",
-            "TIMESTAMP",
-        ) and PARTITION_ID_YYYYMMDD_PATTERN.match(str_val):
-            moment = datetime(int(str_val[:4]), int(str_val[4:6]), int(str_val[6:8]))
-            return FilterBuilder.create_partition_datetime_filter(
-                col_name, moment, col_type, PARTITION_GRANULARITY_DAY
-            )
+
+        # Hourly and sub-day day buckets only exist for DATETIME/TIMESTAMP columns. A
+        # DATE column cannot represent an hour, so an hourly range would format both
+        # bounds to the same YYYY-MM-DD and match zero rows; and a DATE day partition is
+        # exactly its date. In both cases DATE must fall through to the plain date
+        # normalization (equality on YYYY-MM-DD), so gate these to the temporal types.
+        if col_type in ("DATETIME", "TIMESTAMP"):
+            if PARTITION_ID_YYYYMMDDHH_PATTERN.match(str_val):
+                moment = datetime(
+                    int(str_val[:4]),
+                    int(str_val[4:6]),
+                    int(str_val[6:8]),
+                    int(str_val[8:10]),
+                )
+                return FilterBuilder.create_partition_datetime_filter(
+                    col_name, moment, col_type, PARTITION_GRANULARITY_HOUR
+                )
+            if PARTITION_ID_YYYYMMDD_PATTERN.match(str_val):
+                moment = datetime(
+                    int(str_val[:4]), int(str_val[4:6]), int(str_val[6:8])
+                )
+                return FilterBuilder.create_partition_datetime_filter(
+                    col_name, moment, col_type, PARTITION_GRANULARITY_DAY
+                )
         return None
 
     @staticmethod
     def _full_year_range(col_name: str, year: str, col_type: str) -> str:
         # col_name is already validated by create_safe_filter before this is reached.
-        start = f"{year}-01-01"
+        # Pad both years to four digits: the incoming YYYY id is already four chars, but
+        # the exclusive end (year+1) must be formatted with %04d so a year such as 0999
+        # produces "1000-01-01" and never a bare-int "1000" or an unpadded low year.
+        start = f"{int(year):04d}-01-01"
         end_year = int(year) + 1
         is_timestamp = col_type.upper() == "TIMESTAMP"
         # BigQuery DATE/DATETIME/TIMESTAMP only accept years up to 9999, so a
@@ -333,7 +353,7 @@ class FilterBuilder:
             if is_timestamp:
                 return f"`{col_name}` >= TIMESTAMP('{start}')"
             return f"`{col_name}` >= '{start}'"
-        end = f"{end_year}-01-01"
+        end = f"{end_year:04d}-01-01"
         if is_timestamp:
             return (
                 f"`{col_name}` >= TIMESTAMP('{start}') "
@@ -369,31 +389,37 @@ class FilterBuilder:
                 col_name = required_columns[0]
                 col_type = column_types.get(col_name)
 
-                # Hand the raw partition ID to create_safe_filter and let it normalize
-                # per the column type (dates -> YYYY-MM-DD[ HH:00:00], numeric -> int,
-                # string -> quoted). Pre-formatting an 8/10-digit ID to a date here would
-                # corrupt STRING partitions ("20250115" is a real string value) and
-                # hourly/numeric partitions. Only apply the legacy date normalization
-                # when the column type is unavailable to guide create_safe_filter.
-                filter_value: PartitionValue = partition_id
-                if (
-                    not col_type
-                    and partition_id.isdigit()
-                    and len(partition_id)
-                    in (PARTITION_ID_YYYYMMDD_LENGTH, PARTITION_ID_YYYYMMDDHH_LENGTH)
-                ):
-                    filter_value = (
-                        f"{partition_id[:4]}-{partition_id[4:6]}-{partition_id[6:8]}"
-                    )
                 if is_range_partition:
-                    # The ID is the max range bucket's inclusive floor; scan `col >= id`
-                    # rather than equality so the whole bucket is profiled.
+                    # The ID is the max RANGE bucket's inclusive integer floor; scan
+                    # `col >= id` rather than equality so the whole bucket is profiled.
+                    # RANGE buckets are integer-only, so the raw id must be passed
+                    # through unchanged — date-normalizing an 8/10-digit id here (as the
+                    # non-range path does when the type is unknown) would turn it into
+                    # "YYYY-MM-DD" and then fail int() parsing, dropping the partition.
                     filters.append(
                         FilterBuilder.create_lower_bound_filter(
-                            col_name, filter_value, col_type
+                            col_name, partition_id, col_type
                         )
                     )
                 else:
+                    # Hand the raw partition ID to create_safe_filter and let it normalize
+                    # per the column type (dates -> YYYY-MM-DD[ HH:00:00], numeric -> int,
+                    # string -> quoted). Pre-formatting an 8/10-digit ID to a date here
+                    # would corrupt STRING partitions ("20250115" is a real string value)
+                    # and hourly/numeric partitions. Only apply the legacy date
+                    # normalization when the column type is unavailable to guide
+                    # create_safe_filter.
+                    filter_value: PartitionValue = partition_id
+                    if (
+                        not col_type
+                        and partition_id.isdigit()
+                        and len(partition_id)
+                        in (
+                            PARTITION_ID_YYYYMMDD_LENGTH,
+                            PARTITION_ID_YYYYMMDDHH_LENGTH,
+                        )
+                    ):
+                        filter_value = f"{partition_id[:4]}-{partition_id[4:6]}-{partition_id[6:8]}"
                     filters.append(
                         FilterBuilder.create_safe_filter(
                             col_name, filter_value, col_type
