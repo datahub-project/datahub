@@ -21,10 +21,14 @@ WHERE is_partitioning_column = '{flag}'
 ORDER BY table_name, ordinal_position
 """
 
-# INFORMATION_SCHEMA.COLUMNS lookups for a single table.
+# INFORMATION_SCHEMA.COLUMNS lookups for a single table. ORDER BY ordinal_position so
+# a composite partition key is returned in declared (positional) order — the fallback
+# schema discovery maps partition-id components to columns positionally, and an
+# alphabetical order would bind values to the wrong columns.
 PARTITION_COLUMN_NAMES = """SELECT column_name
 FROM {info_schema_ref}
-WHERE table_name = @table_name AND is_partitioning_column = '{flag}'"""
+WHERE table_name = @table_name AND is_partitioning_column = '{flag}'
+ORDER BY ordinal_position"""
 
 PARTITION_COLUMN_TYPES = """SELECT column_name, data_type
 FROM {info_schema_ref}
@@ -47,7 +51,12 @@ LIMIT @max_partitions"""
 
 # Cheap probe: succeeds on an unpartitioned table, raises "requires filter over
 # column(s) ..." on a partitioned one so callers can parse the required columns.
-COUNT_STAR_PROBE = "SELECT COUNT(*) FROM {table_ref} LIMIT @limit_rows"
+# Uses `SELECT 1 ... LIMIT n` rather than `SELECT COUNT(*)`: BigQuery raises the
+# require-partition-filter error at planning time for either shape, but COUNT(*)
+# full-scans the table on a non-require-filter table (LIMIT bounds only the single
+# aggregate output row, not the rows scanned), whereas `SELECT 1 ... LIMIT n` reads at
+# most n rows — so the probe stays cheap in the success case.
+PARTITION_FILTER_PROBE = "SELECT 1 FROM {table_ref} LIMIT @limit_rows"
 
 # Confirms a candidate filter set actually matches rows before it is used.
 PARTITION_EXISTS_CHECK = """SELECT 1 as exists_check

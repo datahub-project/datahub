@@ -89,6 +89,18 @@ def test_partition_filters_from_max_partition_id():
     assert filters is not None and len(filters) == 1
     assert "2024-11-15" in filters[0]
 
+    # A DATETIME/TIMESTAMP partition column holds every instant in the day, so the same
+    # YYYYMMDD id must become a half-open day range, not an equality to the day boundary
+    # (which would exclude all rows after midnight).
+    dt_filters = discovery._get_partition_filters_from_max_partition_id(
+        make_table(max_partition_id="20241115"),
+        required_columns=["event_ts"],
+        column_types={"event_ts": "DATETIME"},
+    )
+    assert dt_filters == [
+        "`event_ts` >= '2024-11-15 00:00:00' AND `event_ts` < '2024-11-16 00:00:00'"
+    ]
+
     for sentinel in ("__NULL__", "__UNPARTITIONED__", "__STREAMING_UNPARTITIONED__"):
         assert (
             discovery._get_partition_filters_from_max_partition_id(
@@ -147,7 +159,10 @@ def test_partition_detection_via_query_error():
             raise Exception("COLUMNS unavailable")
         if "INFORMATION_SCHEMA" in query:
             return []
-        if "COUNT(*)" in query and "LIMIT" in query:
+        # The require-filter probe is `SELECT 1 FROM ... LIMIT` (not COUNT(*), and not
+        # the verify query which selects `exists_check`); it raises the partition-filter
+        # error whose text names the required columns.
+        if "SELECT 1 FROM" in query and "exists_check" not in query:
             raise Exception(bq_error)
         if "GROUP BY" in query:
             return [SimpleNamespace(val=date(2024, 11, 20), record_count=5000)]
@@ -162,11 +177,16 @@ def test_partition_detection_via_query_error():
 
 
 def test_unpartitioned_table_returns_empty_list():
-    """An unpartitioned table has no require_partition_filter; probe query succeeds and
-    get_required_partition_filters should return [] (empty, not None).
+    """An unpartitioned table's INFORMATION_SCHEMA.COLUMNS lookup succeeds and returns no
+    partitioning columns. That authoritative-empty result means genuinely unpartitioned,
+    so get_required_partition_filters returns [] (empty, not None).
     """
     discovery = PartitionDiscovery(make_config())
 
+    # Return a real (empty) result shape: no partitioning-column rows. Earlier this mock
+    # returned an object lacking `column_name`, so the COLUMNS read raised AttributeError
+    # and the test only passed via the swallowed-error fallback, never exercising the
+    # authoritative-empty path it documents.
     def execute(query: str, job_config: Any, context: str) -> list:
         # An authoritative (successful) COLUMNS lookup with no partition columns means the
         # table is genuinely unpartitioned; the probe is skipped and [] is returned.
@@ -194,12 +214,13 @@ def test_all_value_queries_fail_returns_is_not_null_fallback():
 
     def execute(query: str, job_config: Any, context: str) -> list:
         # COLUMNS lookup fails, so the probe runs and its error names the column; every
-        # value query then fails, exercising the IS NOT NULL last-resort fallback.
+        # value query then fails, exercising the IS NOT NULL last-resort fallback. The
+        # probe is `SELECT 1 FROM ... LIMIT` (not the verify query with `exists_check`).
         if "INFORMATION_SCHEMA.COLUMNS" in query:
             raise Exception("COLUMNS unavailable")
         if "INFORMATION_SCHEMA" in query:
             return []
-        if "COUNT(*)" in query:
+        if "SELECT 1 FROM" in query and "exists_check" not in query:
             raise Exception(partition_err)
         return []
 
@@ -364,6 +385,29 @@ def test_information_schema_partitions_path():
     assert "2024-11-20" in " ".join(filters)
 
 
+def test_schema_fallback_preserves_ordinal_column_order():
+    """The INFORMATION_SCHEMA.COLUMNS fallback must return partition columns in
+    ordinal_position order (as the query yields them), not sorted alphabetically — a
+    composite key is positional and reordering would bind values to the wrong columns.
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    # Rows arrive in ordinal_position order (region, then event_date). Alphabetical
+    # sorting would swap them to (event_date, region).
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return [
+            SimpleNamespace(column_name="region"),
+            SimpleNamespace(column_name="event_date"),
+        ]
+
+    columns, authoritative = discovery._get_partition_columns_from_schema(
+        make_table(name="composite"), "test-project-123456", "ds", execute
+    )
+
+    assert authoritative is True
+    assert columns == ["region", "event_date"]
+
+
 def test_partition_columns_from_table_info_preserves_order_and_dedups():
     """Composite partition columns are positional, so declared order must be preserved
     (not sorted) and duplicates collapsed.
@@ -448,7 +492,9 @@ def test_date_components_without_year_marked_incomplete():
 
 def test_value_filter_ranges_for_temporal_columns():
     """A discovered MAX value on a DATETIME/TIMESTAMP column must produce a half-open
-    range covering its partition, not an equality to a single instant.
+    range covering its whole partition unit, not an equality to a single instant. This
+    is the shared range logic that _test_date_candidate's strategic path also delegates
+    to, so the exact-bounds assertions here guard both discovery paths.
     """
     discovery = PartitionDiscovery(make_config())
     table = make_table(partition_info=PartitionInfo(fields=("ts",), type="DAY"))
@@ -456,7 +502,16 @@ def test_value_filter_ranges_for_temporal_columns():
     ts_filter = discovery._value_filter(
         table, "ts", datetime(2025, 1, 15, 23, 59, 58), "TIMESTAMP"
     )
-    assert ">=" in ts_filter and "<" in ts_filter
+    assert ts_filter == (
+        "`ts` >= TIMESTAMP('2025-01-15 00:00:00') "
+        "AND `ts` < TIMESTAMP('2025-01-16 00:00:00')"
+    )
+
+    # A DATE column floors to the day and bounds the next day exclusively.
+    date_filter = discovery._value_filter(
+        table, "d", datetime(2025, 1, 15, 12, 0, 0), "DATE"
+    )
+    assert date_filter == "`d` >= '2025-01-15' AND `d` < '2025-01-16'"
 
     # A non-temporal column keeps a plain equality.
     region_filter = discovery._value_filter(table, "region", "emea", "STRING")
@@ -784,3 +839,35 @@ def test_partition_discovery_cache_avoids_repeat_info_schema_queries():
     cache = profiler._partition_metadata_cache[("test-project-123456", "ds")]
     assert cache["table_a"]["partition_columns"] == ["event_date"]
     assert "table_b" in cache
+
+
+def test_sampling_uses_known_columns_when_info_schema_unavailable():
+    """When INFORMATION_SCHEMA.COLUMNS and DDL are both unavailable, sampling must still
+    run using the partition columns the caller already resolved (from partition_info or
+    the require-filter probe error), rather than bailing out.
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(name="sampled")
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        # No INFORMATION_SCHEMA / DDL access; only the date-sample and verify queries work.
+        if "INFORMATION_SCHEMA" in query or "DDL" in query:
+            raise Exception("metadata unavailable")
+        if "ORDER BY" in query:  # LATEST_BY_DATE_SAMPLE
+            return [SimpleNamespace(event_date=date(2024, 11, 20))]
+        if "SELECT 1" in query:  # _verify_partition_has_data
+            return [SimpleNamespace(cnt=1)]
+        return []
+
+    filters = discovery._get_partitions_with_sampling(
+        table,
+        "my-project",
+        "ds",
+        execute,
+        known_columns=["event_date"],
+        known_column_types={"event_date": "DATE"},
+    )
+
+    assert filters is not None and len(filters) == 1
+    assert "event_date" in filters[0]
+    assert "2024-11-20" in filters[0]

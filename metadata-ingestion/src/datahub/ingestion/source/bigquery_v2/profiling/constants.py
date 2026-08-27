@@ -153,6 +153,10 @@ SQL_DANGEROUS_PATTERNS = [
         r"<script[^>]*>",
         r"javascript:",
         r"vbscript:",
+        # URI-scheme markers. These are only scanned against the literal-masked query
+        # (see security.mask_string_literals), so a `data:`/`javascript:` substring
+        # inside a quoted value such as a GCS URI is inert and no longer rejected; only
+        # an occurrence outside any string literal is flagged.
         r"data:",
         r"/\*.*(?:union|select|insert|update|delete|drop|create|alter).*\*/",
         r"--.*(?:union|select|insert|update|delete|drop|create|alter)",
@@ -176,8 +180,11 @@ FILTER_DANGEROUS_PATTERNS = [
         r";\s*(?:DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|TRUNCATE|MERGE|GRANT|REVOKE|EXEC(?:UTE)?|CALL|EXPORT|LOAD)\s+",
         r"UNION\s+(?:(?:ALL|DISTINCT)\s+)?SELECT",
         r"--",
-        # BigQuery '#' line comment: like '--', a value that closes the literal and
-        # appends '# ...' could comment out the rest of the interpolated predicate.
+        # BigQuery '#' line comment. Scanned only against the literal-masked filter
+        # (see security.mask_string_literals), so a '#' inside a quoted STRING/Hive
+        # partition value is inert and no longer rejected. A '#' outside a literal — a
+        # value that managed to close its quote and append '# ...' — is still caught,
+        # though FilterBuilder's literal encoder escapes quotes so that cannot happen.
         r"#",
         r"/\*",
         # xp_cmdshell / sp_executesql intentionally omitted: they are SQL Server
