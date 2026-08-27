@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.load;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
-import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATAHUB_ROLE_ENTITY_NAME;
@@ -61,9 +60,6 @@ public class EntityRelationshipsResultResolver
       Set.of(IS_PART_OF_RELATIONSHIP_NAME);
 
   private static final Set<String> GLOSSARY_CHILD_RELATIONSHIP_TYPES =
-      Set.of(IS_PART_OF_RELATIONSHIP_NAME);
-
-  private static final Set<String> CONTAINER_CHILD_RELATIONSHIP_TYPES =
       Set.of(IS_PART_OF_RELATIONSHIP_NAME);
 
   private static final Set<String> GROUP_MEMBERSHIP_RELATIONSHIP_TYPES =
@@ -143,14 +139,9 @@ public class EntityRelationshipsResultResolver
           "getGlossaryChildRelationships");
     }
 
-    if (isContainerDirectChildrenQuery(urn, relationshipTypes, resolvedDirection)) {
-      return GraphQLConcurrencyUtils.supplyAsync(
-          () ->
-              mapContainerChildRelationships(
-                  context, urn, start, count, relationshipDirection, includeSoftDelete),
-          this.getClass().getSimpleName(),
-          "getContainerChildRelationships");
-    }
+    // Container IsPartOf INCOMING stays on GraphClient: the entity-graph cache models
+    // container→container nesting only, while this API historically returns all contained
+    // assets (datasets, charts, etc.). parentContainers / VBAC still use the cache.
 
     if (isSessionUserOutgoingMembershipQuery(context, urn, relationshipTypes, resolvedDirection)) {
       return GraphQLConcurrencyUtils.supplyAsync(
@@ -211,15 +202,6 @@ public class EntityRelationshipsResultResolver
       @Nonnull RelationshipDirection direction) {
     return GLOSSARY_NODE_ENTITY_NAME.equals(UrnUtils.getUrn(urn).getEntityType())
         && relationshipTypes.equals(GLOSSARY_CHILD_RELATIONSHIP_TYPES)
-        && direction == RelationshipDirection.INCOMING;
-  }
-
-  private static boolean isContainerDirectChildrenQuery(
-      @Nonnull String urn,
-      @Nonnull Set<String> relationshipTypes,
-      @Nonnull RelationshipDirection direction) {
-    return CONTAINER_ENTITY_NAME.equals(UrnUtils.getUrn(urn).getEntityType())
-        && relationshipTypes.equals(CONTAINER_CHILD_RELATIONSHIP_TYPES)
         && direction == RelationshipDirection.INCOMING;
   }
 
@@ -502,24 +484,6 @@ public class EntityRelationshipsResultResolver
         relationshipDirection,
         includeSoftDelete,
         HierarchyBindings.glossarySpec(context.getOperationContext()));
-  }
-
-  private EntityRelationshipsResult mapContainerChildRelationships(
-      @Nonnull final QueryContext context,
-      @Nonnull final String urn,
-      @Nullable final Integer start,
-      @Nullable final Integer count,
-      @Nonnull
-          final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection,
-      final boolean includeSoftDelete) {
-    return mapDirectChildRelationships(
-        context,
-        urn,
-        start,
-        count,
-        relationshipDirection,
-        includeSoftDelete,
-        HierarchyBindings.containerSpec(context.getOperationContext()));
   }
 
   private EntityRelationshipsResult mapDirectChildRelationships(
