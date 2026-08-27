@@ -393,13 +393,12 @@ def test_dbt_ingest(
 def test_dbt_multi_project_glob(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
     projects_root = tmp_path / "projects"
-    # project_a and project_b must use genuinely distinct dbt projects (different
-    # unique_id namespaces), not two dbt-version variants of the same fixture project.
-    # get_workunits_internal collapses nodes into a dict keyed by dbt_name
-    # (all_nodes_map = {node.dbt_name: node for node in all_nodes}), which is exactly
-    # the cross-project collision Task 6 is meant to resolve deterministically; using
-    # same-namespace fixtures here would make that pre-existing last-write-wins
-    # collapse look like a fan-out bug.
+    # project_a and project_b must be genuinely distinct dbt projects (different
+    # unique_id namespaces), not two dbt-version variants of one fixture project.
+    # Nodes that share a unique_id are a cross-project collision, which the collision
+    # checks deliberately resolve by dropping contenders - so same-namespace fixtures
+    # would exercise collision handling here instead of fan-out, and this golden would
+    # prove nothing about ingesting two projects together.
     for project, manifest_file, catalog_file in [
         ("project_a", "sample_dbt_manifest_1.json", "sample_dbt_catalog_1.json"),
         ("project_b", "jaffle_shop_manifest.json", "jaffle_shop_catalog.json"),

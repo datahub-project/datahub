@@ -345,31 +345,14 @@ def test_manifest_path_is_a_node_field_not_a_custom_property(
 
 
 def test_glob_stamps_semantic_model_provenance(tmp_path: pathlib.Path) -> None:
-    """Task 3 review item: semantic-model nodes must carry provenance too, not just
-    regular model nodes. Uses a hand-written manifest rather than _write_project,
-    since folding a semantic_model entry into that helper's signature would ripple
-    into Tasks 5/6, which consume _write_project as-is.
-    """
-    project_dir = tmp_path / "project_a"
-    project_dir.mkdir(parents=True)
-    manifest = {
-        "metadata": {
-            "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json",
-            "dbt_version": "1.8.0",
-            "adapter_type": "postgres",
-            "project_name": "project_a",
-            "generated_at": "2026-01-01T00:00:00.000000Z",
-            "invocation_id": "invocation-project_a",
-        },
-        "nodes": {},
-        "sources": {},
-        "exposures": {},
-        "metrics": {},
-        "macros": {},
-        "child_map": {},
-        "parent_map": {},
-        "disabled": {},
-        "semantic_models": {
+    """Semantic-model nodes must carry per-project artifact provenance too, not just
+    regular model nodes - they are built on a separate code path from the manifest's
+    semantic_models section."""
+    _write_project(
+        tmp_path,
+        "project_a",
+        [],
+        semantic_models={
             "semantic_model.project_a.order_metrics": {
                 "name": "order_metrics",
                 "description": "",
@@ -382,8 +365,7 @@ def test_glob_stamps_semantic_model_provenance(tmp_path: pathlib.Path) -> None:
                 "meta": {},
             }
         },
-    }
-    (project_dir / "manifest.json").write_text(json.dumps(manifest))
+    )
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
     nodes = source.load_nodes()
