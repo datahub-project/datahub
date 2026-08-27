@@ -415,6 +415,10 @@ def _walk_shared_expression(
 
     sub_lets = [(k, v) for k, v in sub_map.items() if v.get("kind") == "LetExpression"]
     if not sub_lets:
+        # Recorded alongside parse failures so the caller's warning names the query.
+        # A bare expression is valid M that the root path also declines to walk, so
+        # the lineage outcome is unchanged -- this only stops it being silent.
+        shared.failures[name] = "no let expression to walk"
         logger.debug("Query '%s' has no let expression to walk", name)
         return
 

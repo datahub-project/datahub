@@ -647,6 +647,13 @@ class PowerBiAPI:
             # already asked for these (datasetExpressions), and a loaded table
             # referencing one has no entity to point an edge at, so its lineage
             # has to come from following the query itself.
+            #
+            # These are disjoint from `tables` in every dataset observed -- a name
+            # here is a shared expression or a parameter, never a loaded table -- so
+            # they are not filtered against the table names collected below. If a
+            # tenant ever returns an overlap, the walk would resolve a loaded
+            # table's own M inline instead of leaving it to that table's lineage;
+            # duplicated work rather than a wrong upstream.
             dataset_instance.expressions = {
                 expression[Constant.NAME]: expression[Constant.EXPRESSION]
                 for expression in dataset_dict.get(Constant.EXPRESSIONS) or []

@@ -2473,6 +2473,36 @@ def test_native_query_opt_out_applies_to_shared_expressions():
 
 
 @pytest.mark.integration
+def test_shared_expression_without_a_let_is_reported():
+    """A hidden query written as a bare expression yields no lineage -- the root
+    path declines those too -- but the operator is told which query it was rather
+    than being left with a table that is quietly short of lineage."""
+    table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression='let Source = #"Bare Query" in Source',
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+    config.enable_advance_lineage_sql_construct = True
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        expressions={"Bare Query": 'Sql.Database("server", "db")'},
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    titles = [w.title for w in reporter.warnings]
+    assert any("referenced query" in (t or "").lower() for t in titles), titles
+
+
+@pytest.mark.integration
 def test_unparseable_shared_expression_is_reported():
     """A query that cannot be parsed leaves the table short of lineage, so it has
     to be named rather than dropped at debug level."""
