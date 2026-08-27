@@ -37,15 +37,19 @@ class FakeSemanticModelClient:
         metric_models: Optional[Dict[str, Dict[str, Any]]] = None,
         attribute_relationships: Optional[Dict[str, Dict[str, Any]]] = None,
         consolidation_models: Optional[Dict[str, Dict[str, Any]]] = None,
+        search_metrics_fails: bool = False,
     ) -> None:
         self._metrics = metrics or []
         self._metric_models = metric_models or {}
         self._attribute_relationships = attribute_relationships or {}
         self._consolidation_models = consolidation_models or {}
+        self._search_metrics_fails = search_metrics_fails
         self.attribute_relationship_calls: List[str] = []
         self.consolidation_calls: List[str] = []
 
     def search_metrics(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        if self._search_metrics_fails:
+            raise MicroStrategyAPIError("metric search unavailable")
         return iter(self._metrics)
 
     def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
@@ -124,12 +128,32 @@ def _fact(object_id: str, name: str) -> Dict[str, Any]:
 
 
 def _table(
-    table_name: str, attributes: List[Dict[str, Any]], facts: List[Dict[str, Any]]
+    table_name: str,
+    attributes: List[Dict[str, Any]],
+    facts: List[Dict[str, Any]],
+    logical_table_id: Optional[str] = None,
+    logical_table_name: Optional[str] = None,
+    physical_table_name: Optional[str] = None,
 ) -> Dict[str, Any]:
+    # The logical table (this dict's own top-level "information") and the
+    # physical table it maps to (nested under "physicalTable") are distinct
+    # MicroStrategy objects with distinct object ids -- the attribute
+    # hierarchy API's relationshipTable refers to the logical table, and more
+    # than one logical table can map to the same physical table (role-
+    # playing). Defaulting the logical id/name to the table_name keeps
+    # existing single-role fixtures unchanged while still exercising real,
+    # distinct ids end to end.
     return {
+        "information": {
+            "objectId": logical_table_id or f"LGT-{table_name}",
+            "name": logical_table_name or table_name,
+        },
         "physicalTable": {
-            "tableName": table_name,
-            "information": {"objectId": f"TBL-{table_name}", "name": table_name},
+            "tableName": physical_table_name or table_name,
+            "information": {
+                "objectId": f"TBL-{physical_table_name or table_name}",
+                "name": physical_table_name or table_name,
+            },
         },
         "attributes": attributes,
         "facts": facts,
@@ -213,6 +237,61 @@ def test_table_with_no_usable_fields_is_skipped_with_warning() -> None:
     assert mapper.report.warnings
 
 
+def test_role_playing_logical_tables_get_distinct_dataset_identities() -> None:
+    # Regression: two logical tables role-playing one physical table (e.g.
+    # "Order Date"/"Ship Date" both backed by one shared date-lookup table)
+    # used to collide on the physical table name as their dataset alias, so
+    # the second table's SemanticModelDataset silently overwrote the first's
+    # under one URN.
+    mapper = _mapper(FakeSemanticModelClient())
+    model_tables = [
+        _table(
+            "ORDER_DATE",
+            attributes=[_attribute("ATTR-ORDER-DATE", "Order Date")],
+            facts=[],
+            logical_table_id="LGT-ORDER-DATE",
+            logical_table_name="Order Date",
+            physical_table_name="LU_DATE",
+        ),
+        _table(
+            "SHIP_DATE",
+            attributes=[_attribute("ATTR-SHIP-DATE", "Ship Date")],
+            facts=[],
+            logical_table_id="LGT-SHIP-DATE",
+            logical_table_name="Ship Date",
+            physical_table_name="LU_DATE",
+        ),
+    ]
+
+    aspects = _aspects_by_urn(
+        list(
+            mapper.emit(
+                project_id="project-1",
+                project_name="Project One",
+                model_tables=model_tables,
+                warehouse_context=None,
+                project_container_key=_project_container_key(),
+            )
+        )
+    )
+
+    order_date_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.Order Date,PROD)"
+    )
+    ship_date_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.Ship Date,PROD)"
+    )
+    assert order_date_urn in aspects
+    assert ship_date_urn in aspects
+
+    order_schema = aspects[order_date_urn]["SchemaMetadataClass"]
+    ship_schema = aspects[ship_date_urn]["SchemaMetadataClass"]
+    assert isinstance(order_schema, SchemaMetadataClass)
+    assert isinstance(ship_schema, SchemaMetadataClass)
+    assert {f.fieldPath for f in order_schema.fields} == {"Order Date"}
+    assert {f.fieldPath for f in ship_schema.fields} == {"Ship Date"}
+
+
 def test_relationship_emitted_for_attribute_shared_across_two_tables() -> None:
     client = FakeSemanticModelClient(
         attribute_relationships={
@@ -222,7 +301,7 @@ def test_relationship_emitted_for_attribute_shared_across_two_tables() -> None:
                         "parent": {"objectId": "ATTR-SHARED", "subType": "attribute"},
                         "child": {"objectId": "ATTR-CHILD", "subType": "attribute"},
                         "relationshipTable": {
-                            "objectId": "TBL-PARENT",
+                            "objectId": "LGT-PARENT",
                             "subType": "logical_table",
                         },
                         "relationshipType": "one_to_many",
@@ -327,7 +406,7 @@ def test_unrecognized_relationship_type_warns_but_still_emits_relationship() -> 
                     {
                         "parent": {"objectId": "ATTR-SHARED", "subType": "attribute"},
                         "child": {"objectId": "ATTR-CHILD", "subType": "attribute"},
-                        "relationshipTable": {"objectId": "TBL-PARENT"},
+                        "relationshipTable": {"objectId": "LGT-PARENT"},
                         "relationshipType": "weird_type",
                     }
                 ]
@@ -558,3 +637,42 @@ def test_metric_model_fetch_failure_warns_and_skips_that_metric() -> None:
     assert metric_urn not in aspects
     assert mapper.report.metric_expression_api_failures == 1
     assert list(mapper.report.failed_metric_model_ids) == ["BROKEN"]
+
+
+def test_metric_search_failure_preserves_model_and_dataset_entities() -> None:
+    # Regression: metric discovery is a separate API call from the tables
+    # fetch that already succeeded by the time this runs. A failure here
+    # used to propagate out of emit() before it yielded anything, dropping
+    # the structural semantic-model entities (model, logical datasets) along
+    # with the metrics.
+    client = FakeSemanticModelClient(search_metrics_fails=True)
+    mapper = _mapper(client)
+    model_tables = [
+        _table(
+            "SALES",
+            attributes=[_attribute("ATTR1", "Region")],
+            facts=[_fact("FACT1", "Revenue")],
+        )
+    ]
+
+    aspects = _aspects_by_urn(
+        list(
+            mapper.emit(
+                project_id="project-1",
+                project_name="Project One",
+                model_tables=model_tables,
+                warehouse_context=None,
+                project_container_key=_project_container_key(),
+            )
+        )
+    )
+
+    model_urn = (
+        "urn:li:semanticModel:(urn:li:dataPlatform:microstrategy,project-1,schema)"
+    )
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.SALES,PROD)"
+    )
+    assert model_urn in aspects
+    assert dataset_urn in aspects
+    assert mapper.report.semantic_model_metric_search_api_failures == 1

@@ -64,7 +64,7 @@ _SEMANTIC_MODEL_ID = "schema"
 @dataclass
 class _TableInfo:
     alias: str
-    table_object_id: Optional[str]
+    logical_table_id: Optional[str]
     warehouse_urn: Optional[str]
     fields: Dict[str, SemanticFieldInput]  # normalized object id -> field
 
@@ -196,12 +196,24 @@ class MicroStrategySemanticModelMapper:
             physical_table = table.get("physicalTable")
             if not isinstance(physical_table, dict):
                 continue
-            alias = self._table_alias(physical_table, warehouse_context)
-            if not alias:
+            physical_alias = self._table_alias(physical_table, warehouse_context)
+            if not physical_alias:
                 continue
-            table_object_id = object_id(physical_table.get("information"))
+            # The logical table (this `table` entry's own "information" block,
+            # distinct from physicalTable's) is what the attribute-hierarchy
+            # API's relationshipTable refers to, and it is what distinguishes
+            # two logical tables role-playing the same physical table (e.g.
+            # "Order Date"/"Ship Date" both mapping to one shared date-lookup
+            # table) -- the physical name alone can't tell them apart.
+            logical_information = table.get("information")
+            logical_table_id = (
+                object_id(logical_information)
+                if isinstance(logical_information, dict)
+                else None
+            )
+            alias = self._dataset_alias(logical_information, physical_alias)
             warehouse_urn = (
-                self.lineage.warehouse_dataset_urn(warehouse_context, alias)
+                self.lineage.warehouse_dataset_urn(warehouse_context, physical_alias)
                 if warehouse_context is not None
                 else None
             )
@@ -236,9 +248,9 @@ class MicroStrategySemanticModelMapper:
             tables.append(
                 _TableInfo(
                     alias=alias,
-                    table_object_id=(
-                        normalize_object_id(table_object_id)
-                        if table_object_id
+                    logical_table_id=(
+                        normalize_object_id(logical_table_id)
+                        if logical_table_id
                         else None
                     ),
                     warehouse_urn=warehouse_urn,
@@ -269,6 +281,23 @@ class MicroStrategySemanticModelMapper:
             return None
         namespace = physical_table.get("namespace")
         return f"{namespace}.{raw}" if isinstance(namespace, str) and namespace else raw
+
+    @staticmethod
+    def _dataset_alias(
+        logical_information: object,
+        physical_alias: str,
+    ) -> str:
+        # Prefer the logical table's own name as this dataset's identity: in
+        # the common (non-role-playing) case it matches the physical table
+        # name anyway, and when a physical table is role-played by more than
+        # one logical table, the logical names are what differ (e.g. "Order
+        # Date" vs "Ship Date" both backed by one date-lookup table) -- using
+        # the physical name here would collapse those into one dataset.
+        if isinstance(logical_information, dict):
+            name = logical_information.get("name")
+            if isinstance(name, str) and name:
+                return name
+        return physical_alias
 
     @staticmethod
     def _fact_field(fact: Dict[str, object]) -> Optional[SemanticFieldInput]:
@@ -363,8 +392,10 @@ class MicroStrategySemanticModelMapper:
         tables: List[_TableInfo],
         attribute_table_aliases: Dict[str, Set[str]],
     ) -> List[SemanticModelRelationshipInput]:
-        table_alias_by_object_id = {
-            info.table_object_id: info.alias for info in tables if info.table_object_id
+        table_alias_by_logical_id = {
+            info.logical_table_id: info.alias
+            for info in tables
+            if info.logical_table_id
         }
         table_info_by_alias = {info.alias: info for info in tables}
 
@@ -407,7 +438,7 @@ class MicroStrategySemanticModelMapper:
                 built = self._relationship_input(
                     project_id,
                     relationship,
-                    table_alias_by_object_id,
+                    table_alias_by_logical_id,
                     attribute_table_aliases,
                     table_info_by_alias,
                 )
@@ -421,7 +452,7 @@ class MicroStrategySemanticModelMapper:
         self,
         project_id: str,
         relationship: AttributeRelationship,
-        table_alias_by_object_id: Dict[str, str],
+        table_alias_by_logical_id: Dict[str, str],
         attribute_table_aliases: Dict[str, Set[str]],
         table_info_by_alias: Dict[str, _TableInfo],
     ) -> Optional[SemanticModelRelationshipInput]:
@@ -432,7 +463,7 @@ class MicroStrategySemanticModelMapper:
             relationship.child_attribute_id, set()
         )
         parent_alias = (
-            table_alias_by_object_id.get(relationship.relationship_table_id)
+            table_alias_by_logical_id.get(relationship.relationship_table_id)
             if relationship.relationship_table_id
             else None
         )
@@ -511,7 +542,26 @@ class MicroStrategySemanticModelMapper:
         alias_to_dataset: Dict[str, SemanticModelDataset],
     ) -> Iterable[Metric]:
         consolidation_cache: Dict[str, List[str]] = {}
-        for metric_object in self.client.search_metrics(project_id):
+        try:
+            metric_objects = list(self.client.search_metrics(project_id))
+        except MicroStrategyAPIError as error:
+            # Metric discovery is a separate API call from the tables fetch
+            # that already succeeded by the time this runs; losing it must
+            # not take the structural semantic-model entities (the model and
+            # its logical datasets, already built by the caller) down with
+            # it, so this degrades to "no metrics" rather than propagating.
+            self.report.report_semantic_model_metric_search_api_failure()
+            self.report.warning(
+                title="MicroStrategy Metric Search Unavailable",
+                message=(
+                    "Skipping metric emission for the semantic model; project "
+                    "metrics could not be enumerated."
+                ),
+                context=f"project_id={project_id}",
+                exc=error,
+            )
+            return
+        for metric_object in metric_objects:
             metric_id = normalize_object_id(metric_object.id)
             try:
                 model = self.client.get_metric_model(project_id, metric_object.id)

@@ -58,6 +58,7 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     semantic_model_relationships_emitted: int = 0
     semantic_model_attribute_relationship_api_failures: int = 0
     semantic_model_consolidation_api_failures: int = 0
+    semantic_model_metric_search_api_failures: int = 0
 
     def report_project_scanned(self) -> None:
         self.projects_scanned += 1
@@ -198,3 +199,6 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_semantic_model_consolidation_api_failure(self) -> None:
         self.semantic_model_consolidation_api_failures += 1
+
+    def report_semantic_model_metric_search_api_failure(self) -> None:
+        self.semantic_model_metric_search_api_failures += 1
