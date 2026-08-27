@@ -300,6 +300,86 @@ public class EntityResourceTest {
   }
 
   /**
+   * Regression for a second residual disclosure the same follow-up audit caught: an explicitly
+   * empty {@code aspects=List()} produces a non-null, empty {@code aspectNames} array, which skips
+   * the {@code aspectNames == null} branch entirely and reaches {@code
+   * pruneQuerySqlRestrictedAspects} with an already-empty {@code requested} set. The fallback
+   * added for the previous fix only triggers when pruning causes emptiness ({@code
+   * !requested.isEmpty()}), so a caller-supplied empty set sailed through untouched and was
+   * misread by the entity service as "fetch everything." An explicit empty array must resolve to
+   * the same projected set as an omitted one.
+   */
+  @Test
+  public void testGetTreatsExplicitEmptyAspectsSameAsOmitted() throws Exception {
+    Urn urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+    Entity entity = new Entity(new DataMap());
+    when(entityService.getEntity(any(OperationContext.class), eq(urn), any(), eq(true)))
+        .thenReturn(entity);
+
+    awaitTask(entityResource.get(urn.toString(), null));
+    ArgumentCaptor<Set<String>> omittedCaptor = ArgumentCaptor.forClass(Set.class);
+    verify(entityService)
+        .getEntity(any(OperationContext.class), eq(urn), omittedCaptor.capture(), eq(true));
+
+    Mockito.clearInvocations(entityService);
+    when(entityService.getEntity(any(OperationContext.class), eq(urn), any(), eq(true)))
+        .thenReturn(entity);
+    awaitTask(entityResource.get(urn.toString(), new String[0]));
+    ArgumentCaptor<Set<String>> explicitEmptyCaptor = ArgumentCaptor.forClass(Set.class);
+    verify(entityService)
+        .getEntity(any(OperationContext.class), eq(urn), explicitEmptyCaptor.capture(), eq(true));
+
+    assertFalse(
+        explicitEmptyCaptor.getValue().isEmpty(),
+        "an explicitly empty aspects=List() must not reach entityService.getEntity as empty");
+    assertEquals(
+        explicitEmptyCaptor.getValue(),
+        omittedCaptor.getValue(),
+        "an explicit empty aspects array must resolve identically to an omitted one");
+  }
+
+  /** Same fix, batch path. */
+  @Test
+  public void testBatchGetTreatsExplicitEmptyAspectsSameAsOmitted() throws Exception {
+    Urn urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+    when(entityService.getEntities(any(OperationContext.class), any(), any(), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(1);
+              java.util.Map<Urn, Entity> out = new java.util.HashMap<>();
+              urns.forEach(u -> out.put(u, new Entity(new DataMap())));
+              return out;
+            });
+
+    awaitTask(entityResource.batchGet(Set.of(urn.toString()), null));
+    ArgumentCaptor<Set<String>> omittedCaptor = ArgumentCaptor.forClass(Set.class);
+    verify(entityService)
+        .getEntities(any(OperationContext.class), any(), omittedCaptor.capture(), eq(true));
+
+    Mockito.clearInvocations(entityService);
+    when(entityService.getEntities(any(OperationContext.class), any(), any(), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(1);
+              java.util.Map<Urn, Entity> out = new java.util.HashMap<>();
+              urns.forEach(u -> out.put(u, new Entity(new DataMap())));
+              return out;
+            });
+    awaitTask(entityResource.batchGet(Set.of(urn.toString()), new String[0]));
+    ArgumentCaptor<Set<String>> explicitEmptyCaptor = ArgumentCaptor.forClass(Set.class);
+    verify(entityService)
+        .getEntities(any(OperationContext.class), any(), explicitEmptyCaptor.capture(), eq(true));
+
+    assertFalse(
+        explicitEmptyCaptor.getValue().isEmpty(),
+        "an explicitly empty aspects=List() must not reach entityService.getEntities as empty");
+    assertEquals(
+        explicitEmptyCaptor.getValue(),
+        omittedCaptor.getValue(),
+        "an explicit empty aspects array must resolve identically to an omitted one");
+  }
+
+  /**
    * Same fix, batch path: urns landing on different projected-aspect sets (here, only one of the
    * two has {@code viewProperties} restricted) must not share a single {@code getEntities} call
    * with the unpruned set, which would either over-withhold for the unrestricted urn or leak for
