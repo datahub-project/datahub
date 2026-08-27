@@ -965,6 +965,55 @@ def test_cross_project_collision_drop_mode_keeps_lowest_dbt_name(
     assert any("keeping model.aaa_pkg.orders" in entry for entry in warning.context)
 
 
+def test_drop_mode_rewires_exposure_depends_on_to_the_survivor(
+    tmp_path: pathlib.Path,
+) -> None:
+    """An exposure depending on a dropped contender must follow the survivor.
+
+    keep-first mode rewired node.upstream_nodes but not DBTExposure.depends_on,
+    which holds the same dbt_name keys and is resolved the same way to build
+    exposure lineage - so the exposure silently lost the edge instead of pointing
+    at the retained node, whose URN is identical.
+    """
+    # project_a's model loses the tie-break (its package name sorts last), and
+    # project_a is also where the exposure lives - so the exposure's dependency is
+    # exactly the dropped contender.
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db", "schema": "shared"}],
+        package_name="zzz_pkg",
+        exposures={
+            "exposure.zzz_pkg.dashboard": {
+                "name": "dashboard_a",
+                "depends_on": {"nodes": ["model.zzz_pkg.orders"]},
+            }
+        },
+    )
+    _write_project(
+        tmp_path,
+        "project_z",
+        [{"name": "orders", "database": "db", "schema": "shared"}],
+        package_name="aaa_pkg",
+    )
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        fail_on_duplicate_models=False,
+    )
+    all_nodes = source.load_nodes()
+    exposure = next(
+        e for e in source.load_exposures() if e.unique_id == "exposure.zzz_pkg.dashboard"
+    )
+    # Precondition: the exposure points at the contender that is about to be dropped.
+    assert exposure.depends_on == ["model.zzz_pkg.orders"]
+
+    kept = source._check_duplicate_models(all_nodes)
+
+    assert [node.dbt_name for node in kept] == ["model.aaa_pkg.orders"]
+    assert exposure.depends_on == ["model.aaa_pkg.orders"]
+
+
 def test_distinct_schemas_do_not_collide(tmp_path: pathlib.Path) -> None:
     _write_project(
         tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]

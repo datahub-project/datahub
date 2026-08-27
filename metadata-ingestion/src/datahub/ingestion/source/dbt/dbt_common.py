@@ -2371,6 +2371,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 for i, upstream in enumerate(node.upstream_nodes):
                     if upstream in rewire:
                         node.upstream_nodes[i] = rewire[upstream]
+            # DBTExposure.depends_on holds the same dbt_name keys and is resolved
+            # through the same map to build exposure lineage, so an exposure
+            # depending on a dropped contender must follow the survivor too or it
+            # silently loses that edge. The URNs are identical, so the edge is
+            # preserved exactly.
+            for exposure in self._exposures:
+                for i, upstream in enumerate(exposure.depends_on):
+                    if upstream in rewire:
+                        exposure.depends_on[i] = rewire[upstream]
         return kept
 
     def _check_duplicate_unique_ids(
