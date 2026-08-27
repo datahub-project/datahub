@@ -12,6 +12,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
@@ -66,5 +67,16 @@ public class AwsClientFactoryShutdownTest {
 
     verify(roleProvider).close();
     verify(s3Client).close();
+  }
+
+  @Test
+  public void shutdownClosesDefaultCredentialsProvider() {
+    DefaultCredentialsProvider credentialsProvider = mock(DefaultCredentialsProvider.class);
+    ReflectionTestUtils.setField(
+        awsClientFactory, "defaultCredentialsProvider", credentialsProvider);
+
+    awsClientFactory.shutdown();
+
+    verify(credentialsProvider).close();
   }
 }

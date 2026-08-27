@@ -23,7 +23,8 @@ public class AwsAuthEfficiencyTest {
       List.of(
           Pattern.compile("DefaultCredentialsProvider\\.create\\(\\)"),
           Pattern.compile("StsClient\\.create\\(\\)"),
-          Pattern.compile("S3Client\\.builder\\(\\)\\.build\\(\\)"));
+          Pattern.compile("S3Client\\.builder\\(\\)"),
+          Pattern.compile("S3Presigner\\.builder\\(\\)"));
 
   private static final List<String> ALLOWED_FILES =
       List.of("aws/AwsClientFactory.java", "s3/StsClientFactory.java");

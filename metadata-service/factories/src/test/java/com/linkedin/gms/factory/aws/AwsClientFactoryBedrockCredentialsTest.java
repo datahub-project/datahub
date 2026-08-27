@@ -5,6 +5,8 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.ObjectStorageConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
@@ -31,6 +33,10 @@ public class AwsClientFactoryBedrockCredentialsTest {
     System.clearProperty("AWS_REGION");
     System.clearProperty("AWS_ENDPOINT_URL");
     System.clearProperty("aws.region");
+
+    DataHubConfiguration dataHubConfiguration = new DataHubConfiguration();
+    dataHubConfiguration.setObjectStorage(new ObjectStorageConfiguration());
+    when(configurationProvider.getDatahub()).thenReturn(dataHubConfiguration);
   }
 
   @AfterMethod
@@ -47,6 +53,7 @@ public class AwsClientFactoryBedrockCredentialsTest {
   public void bedrockEmbeddingConfigRequiresSharedCredentialsEvenWithoutPodRegion() {
     wireBedrockConfig("us-west-2");
     assertTrue(awsClientFactory.isBedrockEmbeddingConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
   }
 
   @Test
@@ -64,6 +71,30 @@ public class AwsClientFactoryBedrockCredentialsTest {
     when(configurationProvider.getElasticSearch()).thenReturn(esConfig);
 
     assertFalse(awsClientFactory.isBedrockEmbeddingConfigured());
+  }
+
+  @Test
+  public void openSearchIamAuthRequiresSharedCredentialsEvenWithoutPodRegion() {
+    ElasticSearchConfiguration esConfig = new ElasticSearchConfiguration();
+    esConfig.setOpensearchUseAwsIamAuth(true);
+    esConfig.setRegion("us-east-1");
+    when(configurationProvider.getElasticSearch()).thenReturn(esConfig);
+
+    assertTrue(awsClientFactory.isOpenSearchIamAuthConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+  }
+
+  @Test
+  public void objectStorageRoleArnRequiresSharedCredentialsEvenWithoutPodRegion() {
+    DataHubConfiguration dataHubConfiguration = new DataHubConfiguration();
+    ObjectStorageConfiguration objectStorage = new ObjectStorageConfiguration();
+    objectStorage.setRoleArn("arn:aws:iam::123456789012:role/test-role");
+    dataHubConfiguration.setObjectStorage(objectStorage);
+    when(configurationProvider.getDatahub()).thenReturn(dataHubConfiguration);
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+
+    assertTrue(awsClientFactory.isObjectStorageRoleArnConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
   }
 
   private void wireBedrockConfig(String bedrockRegion) {

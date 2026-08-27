@@ -1,6 +1,8 @@
 package com.linkedin.gms.factory.s3;
 
 import com.linkedin.gms.factory.aws.AwsClientFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.ObjectStorageConfiguration;
 import jakarta.annotation.PreDestroy;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +27,9 @@ public class StsClientFactory {
   @Qualifier("defaultAwsCredentialsProvider")
   private AwsCredentialsProvider defaultAwsCredentialsProvider;
 
+  @Autowired(required = false)
+  private ConfigurationProvider configurationProvider;
+
   @Nullable private StsClient managedStsClient;
 
   @Bean(name = "stsClient")
@@ -44,10 +49,11 @@ public class StsClientFactory {
     boolean hasAwsRegion =
         (awsRegion != null && !awsRegion.trim().isEmpty())
             || (awsRegionProp != null && !awsRegionProp.trim().isEmpty());
+    boolean hasObjectStorageRoleArn = isObjectStorageRoleArnConfigured();
 
-    if (!hasAwsEndpoint && !hasAwsRegion) {
+    if (!hasAwsEndpoint && !hasAwsRegion && !hasObjectStorageRoleArn) {
       log.debug(
-          "Skipping STS client creation (no AWS_ENDPOINT_URL, AWS_REGION, or aws.region set)");
+          "Skipping STS client creation (no AWS_ENDPOINT_URL, AWS_REGION, aws.region, or objectStorage.roleArn)");
       return null;
     }
 
@@ -68,6 +74,8 @@ public class StsClientFactory {
       } else if (defaultAwsCredentialsProvider != null) {
         log.info("Using shared DefaultCredentialsProvider for StsClient");
         clientBuilder.credentialsProvider(defaultAwsCredentialsProvider);
+        // When only roleArn is configured, leave region to the SDK default chain (IRSA / IMDS /
+        // AWS_REGION). Explicit region/endpoint paths set region above or via the environment.
       }
 
       managedStsClient = clientBuilder.build();
@@ -79,7 +87,9 @@ public class StsClientFactory {
       boolean expectedNonAws =
           e instanceof SdkClientException
               && msg != null
-              && (msg.contains("Unable to load region") || msg.contains("EC2 metadata service"));
+              && (msg.contains("Unable to load region")
+                  || msg.contains("EC2 metadata service")
+                  || msg.contains("Unable to load credentials"));
       if (expectedNonAws) {
         log.debug("STS client not available (not running in AWS or AWS not configured): {}", msg);
       } else {
@@ -87,6 +97,19 @@ public class StsClientFactory {
       }
       return null;
     }
+  }
+
+  private boolean isObjectStorageRoleArnConfigured() {
+    if (configurationProvider == null || configurationProvider.getDatahub() == null) {
+      return false;
+    }
+    ObjectStorageConfiguration objectStorage =
+        configurationProvider.getDatahub().getObjectStorage();
+    if (objectStorage == null) {
+      return false;
+    }
+    String roleArn = objectStorage.getRoleArn();
+    return roleArn != null && !roleArn.trim().isEmpty();
   }
 
   @PreDestroy

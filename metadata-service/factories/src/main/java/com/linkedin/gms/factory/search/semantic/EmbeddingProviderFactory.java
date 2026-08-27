@@ -65,9 +65,13 @@ public class EmbeddingProviderFactory {
    * <p>Returns a no-op provider if semantic search is not enabled, allowing the system to start
    * without requiring embedding configuration.
    *
+   * <p>{@code destroyMethod} is disabled so this factory's {@link PreDestroy} is the sole closer of
+   * the Bedrock Runtime client (avoids double-close with Spring's inferred {@code Closeable}
+   * destroy).
+   *
    * @return EmbeddingProvider instance configured based on application.yaml settings
    */
-  @Bean(name = "embeddingProvider")
+  @Bean(name = "embeddingProvider", destroyMethod = "")
   @Nonnull
   protected EmbeddingProvider getInstance() {
     SemanticSearchConfiguration semanticSearchConfig =

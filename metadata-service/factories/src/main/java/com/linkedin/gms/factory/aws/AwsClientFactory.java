@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.aws;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.ObjectStorageConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
@@ -15,6 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -28,6 +30,9 @@ import software.amazon.awssdk.utils.SdkAutoCloseable;
  * <p>Centralizes {@link DefaultCredentialsProvider#create()} and shared S3 clients so IRSA refresh
  * tasks are not orphaned by per-call client construction. Callers should inject these beans rather
  * than creating their own credential providers or S3 clients.
+ *
+ * <p>Non-AWS environments (no region/endpoint, no IAM auth, no Bedrock, no object-storage role)
+ * skip bean creation and do not fail startup.
  */
 @Slf4j
 @Configuration
@@ -46,14 +51,15 @@ public class AwsClientFactory {
   /**
    * The only place in GMS that calls {@link DefaultCredentialsProvider#create()}.
    *
-   * <p>Created when AWS region/endpoint configuration or Bedrock embedding is present.
+   * <p>Created when AWS region/endpoint, OpenSearch IAM auth, Bedrock embedding, or object-storage
+   * role assumption is configured.
    */
   @Bean(name = "defaultAwsCredentialsProvider")
   @Nullable
   protected AwsCredentialsProvider defaultAwsCredentialsProvider() {
     if (!isAwsCredentialsRequired()) {
       log.debug(
-          "Skipping DefaultCredentialsProvider (no AWS region, endpoint, or Bedrock embedding configured)");
+          "Skipping DefaultCredentialsProvider (no AWS region/endpoint, OpenSearch IAM, Bedrock, or object-storage roleArn)");
       return null;
     }
     log.info("Creating shared DefaultCredentialsProvider bean");
@@ -67,15 +73,16 @@ public class AwsClientFactory {
       @Autowired(required = false) @Qualifier("defaultAwsCredentialsProvider")
           AwsCredentialsProvider defaultProvider,
       @Autowired(required = false) @Qualifier("stsClient") StsClient stsClient) {
-    ObjectStorageConfiguration objectStorageConfiguration = getObjectStorageConfiguration();
-    String roleArn =
-        objectStorageConfiguration != null ? objectStorageConfiguration.getRoleArn() : null;
-    if (roleArn == null || roleArn.trim().isEmpty()) {
+    String roleArn = getObjectStorageRoleArn();
+    if (roleArn == null) {
       return defaultProvider;
     }
     if (stsClient == null) {
-      throw new IllegalStateException(
-          "StsClient bean is required when datahub.objectStorage.roleArn is configured");
+      // Soft-skip so search-only / non-AWS processes that import this factory still start.
+      // objectStorageS3Client fails fast when roleArn is set with AWS region/endpoint present.
+      log.warn(
+          "datahub.objectStorage.roleArn is set but StsClient is unavailable; skipping assume-role credentials");
+      return null;
     }
     log.info("Creating shared StsAssumeRoleCredentialsProvider for object storage");
     objectStorageRoleCredentialsProvider =
@@ -92,18 +99,12 @@ public class AwsClientFactory {
   protected S3Client objectStorageS3Client(
       @Autowired(required = false) @Qualifier("objectStorageCredentialsProvider")
           AwsCredentialsProvider credentialsProvider) {
-    ObjectStorageConfiguration objectStorageConfiguration = getObjectStorageConfiguration();
-    String roleArn =
-        objectStorageConfiguration != null ? objectStorageConfiguration.getRoleArn() : null;
-    boolean hasRoleArn = roleArn != null && !roleArn.trim().isEmpty();
+    String roleArn = getObjectStorageRoleArn();
+    boolean hasRoleArn = roleArn != null;
 
     String endpointUrl = envOrProperty("AWS_ENDPOINT_URL");
-    String awsRegion = envOrProperty("AWS_REGION");
-    String awsRegionProp = System.getProperty("aws.region");
     boolean hasAwsEndpoint = endpointUrl != null && !endpointUrl.isEmpty();
-    boolean hasAwsRegion =
-        (awsRegion != null && !awsRegion.trim().isEmpty())
-            || (awsRegionProp != null && !awsRegionProp.trim().isEmpty());
+    boolean hasAwsRegion = hasAwsRegion();
 
     if (!hasRoleArn && !hasAwsEndpoint && !hasAwsRegion) {
       log.debug(
@@ -112,6 +113,14 @@ public class AwsClientFactory {
     }
 
     if (hasRoleArn && credentialsProvider == null) {
+      if (hasAwsRegion || hasAwsEndpoint) {
+        throw new IllegalStateException(
+            "StsClient / object-storage credentials are required when datahub.objectStorage.roleArn "
+                + "is configured with AWS region or endpoint");
+      }
+      log.warn(
+          "datahub.objectStorage.roleArn is set but assume-role credentials are unavailable "
+              + "(no AWS region/endpoint); skipping shared S3Client for non-AWS environments");
       return null;
     }
 
@@ -132,8 +141,19 @@ public class AwsClientFactory {
       managedObjectStorageS3Client = clientBuilder.build();
       return managedObjectStorageS3Client;
     } catch (Exception e) {
-      log.error("Failed to create shared object storage S3Client", e);
-      return null;
+      // Explicit role assumption misconfiguration should fail fast. Opportunistic
+      // region/endpoint-only setup (including invalid LocalStack URLs in tests / non-AWS)
+      // soft-skips.
+      if (hasRoleArn) {
+        throw new IllegalStateException("Failed to create shared object storage S3Client", e);
+      }
+      if (isExpectedNonAwsFailure(e) || isInvalidEndpointConfiguration(e)) {
+        log.debug(
+            "Skipping shared object storage S3Client (AWS SDK not usable in this environment): {}",
+            e.getMessage());
+        return null;
+      }
+      throw new IllegalStateException("Failed to create shared object storage S3Client", e);
     }
   }
 
@@ -187,6 +207,19 @@ public class AwsClientFactory {
     return configurationProvider.getDatahub().getObjectStorage();
   }
 
+  @Nullable
+  private String getObjectStorageRoleArn() {
+    ObjectStorageConfiguration objectStorageConfiguration = getObjectStorageConfiguration();
+    if (objectStorageConfiguration == null) {
+      return null;
+    }
+    String roleArn = objectStorageConfiguration.getRoleArn();
+    if (roleArn == null || roleArn.trim().isEmpty()) {
+      return null;
+    }
+    return roleArn.trim();
+  }
+
   static boolean isAwsConfigured() {
     return hasAwsEndpoint() || hasAwsRegion();
   }
@@ -215,8 +248,25 @@ public class AwsClientFactory {
         && !bedrock.getAwsRegion().trim().isEmpty();
   }
 
-  private boolean isAwsCredentialsRequired() {
-    return isAwsConfigured() || isBedrockEmbeddingConfigured();
+  /** True when OpenSearch requests are signed with AWS IAM. */
+  boolean isOpenSearchIamAuthConfigured() {
+    if (configurationProvider == null || configurationProvider.getElasticSearch() == null) {
+      return false;
+    }
+    ElasticSearchConfiguration esConfig = configurationProvider.getElasticSearch();
+    return esConfig.isOpensearchUseAwsIamAuth();
+  }
+
+  /** True when object storage is configured to assume an IAM role. */
+  boolean isObjectStorageRoleArnConfigured() {
+    return getObjectStorageRoleArn() != null;
+  }
+
+  boolean isAwsCredentialsRequired() {
+    return isAwsConfigured()
+        || isBedrockEmbeddingConfigured()
+        || isOpenSearchIamAuthConfigured()
+        || isObjectStorageRoleArnConfigured();
   }
 
   private static boolean hasAwsEndpoint() {
@@ -231,6 +281,42 @@ public class AwsClientFactory {
     }
     String awsRegionProp = System.getProperty("aws.region");
     return awsRegionProp != null && !awsRegionProp.trim().isEmpty();
+  }
+
+  static boolean isExpectedNonAwsFailure(@Nonnull Throwable error) {
+    Throwable current = error;
+    while (current != null) {
+      if (current instanceof SdkClientException) {
+        String msg = current.getMessage();
+        if (msg != null
+            && (msg.contains("Unable to load region")
+                || msg.contains("EC2 metadata service")
+                || msg.contains("Unable to load credentials"))) {
+          return true;
+        }
+      }
+      current = current.getCause();
+    }
+    return false;
+  }
+
+  static boolean isInvalidEndpointConfiguration(@Nonnull Throwable error) {
+    Throwable current = error;
+    while (current != null) {
+      if (current instanceof IllegalArgumentException
+          || current instanceof java.net.URISyntaxException) {
+        String msg = current.getMessage();
+        if (msg != null
+            && (msg.contains("URI")
+                || msg.contains("uri")
+                || msg.contains("Illegal character")
+                || msg.contains("endpoint"))) {
+          return true;
+        }
+      }
+      current = current.getCause();
+    }
+    return false;
   }
 
   @Nullable
