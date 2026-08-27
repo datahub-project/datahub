@@ -2346,12 +2346,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         loaded wins, which - because manifests are expanded in sorted path order - is
         the one from the lowest-sorting manifest path.
         """
-        # Restricted to entities that can actually be emitted, so a collision between
-        # entities the user has excluded never fails the run.
+        # Deliberately NOT restricted to _is_allowed_node, unlike the exposure pass
+        # below. all_nodes_map is built later from the unfiltered node list (it must
+        # be, since a filtered node's metadata may still be used by an unfiltered
+        # one), and it's the lookup that resolves every node's upstream_nodes. An
+        # excluded contender sharing a unique_id would still collapse last-wins into
+        # that map, silently corrupting lineage resolution for an emitted node in a
+        # different project. Restricting detection here would hide that corruption
+        # instead of preventing it.
         by_node_id: Dict[str, List[DBTNode]] = defaultdict(list)
         for node in nodes:
-            if self._is_allowed_node(node):
-                by_node_id[node.dbt_name].append(node)
+            by_node_id[node.dbt_name].append(node)
         (
             drop_nodes,
             self.report.duplicate_node_unique_ids_detected,

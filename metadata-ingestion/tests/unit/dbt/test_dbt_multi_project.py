@@ -915,28 +915,33 @@ def test_collision_emits_nothing_for_colliding_urn_end_to_end(
 def test_collision_between_excluded_nodes_does_not_fail_the_run(
     tmp_path: pathlib.Path,
 ) -> None:
-    """A collision must never fail a run over entities that would not be emitted.
+    """The class-1 model-URN collision stays restricted to _is_allowed_node: its harm
+    is aspect clobber on the contenders' own shared URN, so excluding both of them
+    from emission genuinely removes the harm.
 
-    Both passes are restricted to _is_allowed_node, the same predicate _filter_nodes
-    uses, so a node the operator has already excluded cannot trip a failure that
-    also suppresses stale-entity soft-deletion for every other project.
+    The two projects use distinct package names so they don't also collide on
+    unique_id - that class of collision is a different pass with a different rule,
+    since its harm is not confined to the contenders (see
+    test_node_pass_detects_collision_even_when_one_contender_is_excluded).
     """
     _write_project(
         tmp_path,
         "project_a",
         [{"name": "orders", "database": "db", "schema": "shared"}],
-        package_name="excluded_pkg",
+        package_name="excluded_pkg_a",
     )
     _write_project(
         tmp_path,
         "project_b",
         [{"name": "orders", "database": "db", "schema": "shared"}],
-        package_name="excluded_pkg",
+        package_name="excluded_pkg_b",
     )
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
-        node_name_pattern={"deny": ["model.excluded_pkg..*"]},
+        node_name_pattern={
+            "deny": ["model.excluded_pkg_a..*", "model.excluded_pkg_b..*"]
+        },
     )
     all_nodes = source.load_nodes()
     nodes, _ = source._check_duplicate_unique_ids(all_nodes, source.load_exposures())
@@ -945,6 +950,50 @@ def test_collision_between_excluded_nodes_does_not_fail_the_run(
     assert not source.report.failures
     assert source.report.duplicate_models_detected == 0
     assert source.report.duplicate_node_unique_ids_detected == 0
+
+
+def test_node_pass_detects_collision_even_when_one_contender_is_excluded(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The class-2 unique_id collision pass must NOT restrict to _is_allowed_node,
+    unlike its class-1 and exposure siblings.
+
+    node_name_pattern can't discriminate these two contenders - they share a
+    dbt_name by construction, so it would deny (or allow) both identically.
+    materialized_node_pattern can, because it keys on database/schema/name, which
+    differ across the two projects. Excluding project_a here leaves project_b
+    emitted; all_nodes_map is built from the unfiltered node list, so without this
+    pass project_b's dbt_name would resolve to whichever of the two loaded last,
+    silently corrupting lineage for a node nobody excluded.
+    """
+    _write_project(
+        tmp_path,
+        "project_a",
+        [{"name": "orders", "database": "db_a", "schema": "sch"}],
+        package_name="shared_pkg",
+    )
+    _write_project(
+        tmp_path,
+        "project_b",
+        [{"name": "orders", "database": "db_b", "schema": "sch"}],
+        package_name="shared_pkg",
+    )
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        materialized_node_pattern={"database_pattern": {"deny": ["db_a"]}},
+    )
+    assert not source._is_allowed_node(
+        next(n for n in source.load_nodes() if n.database == "db_a")
+    )
+
+    all_nodes = source.load_nodes()
+    nodes, _ = source._check_duplicate_unique_ids(all_nodes, source.load_exposures())
+
+    assert nodes == []
+    assert source.report.duplicate_node_unique_ids_detected == 2
+    failures_by_title = {f.title: f for f in source.report.failures}
+    assert "Duplicate dbt unique_id across projects" in failures_by_title
 
 
 def test_exposure_collision_ignored_when_exposures_are_disabled(
