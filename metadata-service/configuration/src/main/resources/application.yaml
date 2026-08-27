@@ -1536,6 +1536,9 @@ systemUpdate:
     delayMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DELAY_MS:1000}
     gracePeriodSeconds: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GRACE_PERIOD_SECONDS:14400}  # 4 hours - exclude recently modified entities to avoid eventual consistency false positives
     limit: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LIMIT:0}
+    # Min ms between progress/ETA INFO lines per entity type (checkpoints stay silent every batch)
+    progressLogIntervalMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_PROGRESS_LOG_INTERVAL_MS:60000}
+    progressWarmupMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_PROGRESS_WARMUP_MS:30000}
     entityTypes: []  # Job-level override of entity types for default checks. Empty = types with registered default checks.
     checkIds: []  # Check IDs to run. Empty = all default checks for the entity types.
     reprocess:
@@ -2041,6 +2044,35 @@ metadataChangeLog:
 
 eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}
+
+trace:
+  timeout-seconds: ${TRACE_TIMEOUT_SECONDS:30}
+  pollMaxAttempts: ${TRACE_POLL_MAX_ATTEMPTS:5}
+  pollDurationMs: ${TRACE_POLL_DURATION_MS:1000}
+  futures:
+    cancel-on-timeout: ${TRACE_FUTURES_CANCEL_ON_TIMEOUT:true}
+  executor:
+    thread-pool-size: ${TRACE_EXECUTOR_THREAD_POOL_SIZE:10}
+    queue-size: ${TRACE_EXECUTOR_QUEUE_SIZE:${TRACE_EXECUTOR_THREAD_POOL_SIZE:10}}
+    keep-alive-seconds: ${TRACE_EXECUTOR_KEEP_ALIVE_SECONDS:60}
+    shutdown-timeout-seconds: ${TRACE_EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS:60}
+  pgqueue:
+    peek-batch-limit: ${TRACE_PGQUEUE_PEEK_BATCH_LIMIT:2000}
+    peek-max-rounds: ${TRACE_PGQUEUE_PEEK_MAX_ROUNDS:5}
+  kafka:
+    consumerPool:
+      enabled: ${TRACE_KAFKA_CONSUMER_POOL_ENABLED:true}
+      initialSize: ${TRACE_KAFKA_CONSUMER_POOL_INITIAL_SIZE:4}
+      maxSize: ${TRACE_KAFKA_CONSUMER_POOL_MAX_SIZE:16}
+      borrowTimeoutMs: ${TRACE_KAFKA_CONSUMER_POOL_BORROW_TIMEOUT_MS:5000}
+      validationTimeoutSeconds: ${TRACE_KAFKA_CONSUMER_POOL_VALIDATION_TIMEOUT_SECONDS:5}
+      validationCacheIntervalMinutes: ${TRACE_KAFKA_CONSUMER_POOL_VALIDATION_CACHE_INTERVAL_MINUTES:5}
+      leaveGroupOnClose: ${TRACE_KAFKA_CONSUMER_POOL_LEAVE_GROUP_ON_CLOSE:false}
+      groupId:
+        mcp: ${TRACE_KAFKA_CONSUMER_POOL_GROUP_ID_MCP:trace-reader-mcp}
+        mcpFailed: ${TRACE_KAFKA_CONSUMER_POOL_GROUP_ID_MCP_FAILED:trace-reader-mcp-failed}
+        mclVersioned: ${TRACE_KAFKA_CONSUMER_POOL_GROUP_ID_MCL_VERSIONED:trace-reader-mcl-versioned}
+        mclTimeseries: ${TRACE_KAFKA_CONSUMER_POOL_GROUP_ID_MCL_TIMESERIES:trace-reader-mcl-timeseries}
 
 icebergCatalog:
   enablePublicRead: ${ENABLE_PUBLIC_READ:false}
