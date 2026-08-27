@@ -242,9 +242,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           // This legacy Snapshot-based API has no per-field mapper the way GraphQL has, so
           // SQL-bearing aspects the actor lacks VIEW_ENTITY_QUERIES for are pruned from the
           // requested set before the fetch, rather than redacted from the returned Snapshot
-          // afterward.
+          // afterward. An explicitly empty aspects=List() must resolve to the full aspect set
+          // exactly like an omitted param does: an empty set reaching entityService.getEntity is
+          // read as "fetch everything" by the lower layer, so leaving it empty here would bypass
+          // pruning entirely instead of pruning nothing.
           final Set<String> requestedAspects =
-              aspectNames == null
+              aspectNames == null || aspectNames.length == 0
                   ? opContext.getEntityAspectNames(urn)
                   : new HashSet<>(Arrays.asList(aspectNames));
           final Set<String> projectedAspects =
@@ -286,8 +289,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     return RestliUtils.toTask(opContext,
         () -> {
+          // Same normalization as get() above: an explicitly empty aspects=List() must fall back
+          // to each urn's full aspect set exactly like an omitted param does.
           final Set<String> explicitAspects =
-              aspectNames == null ? null : new HashSet<>(Arrays.asList(aspectNames));
+              aspectNames == null || aspectNames.length == 0
+                  ? null
+                  : new HashSet<>(Arrays.asList(aspectNames));
 
           // Same pruning as get() above, but urns in one batch can span entity types (or differ
           // in which SQL-bearing aspect is restricted for them), so each urn's final projected
