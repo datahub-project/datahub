@@ -21,6 +21,61 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
 logger = logging.getLogger(__name__)
 
 
+def mask_string_literals(sql: str) -> str:
+    """Blank out the *contents* of quoted string literals so structural denylist scans
+    see SQL structure, not data.
+
+    A partition value such as a GCS URI (`gs://b/data:x`), a Hive key, or any STRING
+    that legitimately contains ``#``, ``--``, ``data:`` etc. is interpolated inside a
+    quoted literal by ``FilterBuilder``. Scanning the raw text would flag those
+    characters as injection even though they are inert literal data (false positive).
+    Conversely, a token that appears *outside* any literal is real SQL and must still be
+    caught. Masking the literal interior — while preserving the delimiters, length, and
+    everything outside literals — gives the denylists a quote-aware view that satisfies
+    both: injection tokens outside literals survive, data tokens inside literals do not.
+
+    Backtick identifiers are intentionally left untouched (they are validated separately
+    by ``validate_bigquery_identifier``). BigQuery backslash escapes (``\\'``, ``\\\\``)
+    and ANSI doubled-quote (``''``) escaping are both honoured so an escaped quote does
+    not prematurely close the literal.
+    """
+    out: List[str] = []
+    i = 0
+    n = len(sql)
+    quote = None  # opening quote char of the literal we are inside, or None
+    while i < n:
+        ch = sql[i]
+        if quote is None:
+            out.append(ch)
+            if ch in ("'", '"'):
+                quote = ch
+            i += 1
+            continue
+        # Inside a literal.
+        if ch == "\\" and i + 1 < n:
+            # Backslash escape: mask both the backslash and the escaped char.
+            out.append("x")
+            out.append("x")
+            i += 2
+            continue
+        if ch == quote:
+            if i + 1 < n and sql[i + 1] == quote:
+                # Doubled quote — an escaped quote that stays inside the literal.
+                out.append("x")
+                out.append("x")
+                i += 2
+                continue
+            # Closing delimiter.
+            out.append(ch)
+            quote = None
+            i += 1
+            continue
+        # Ordinary literal content.
+        out.append("x")
+        i += 1
+    return "".join(out)
+
+
 def _validate_identifier_format(identifier_type: str, clean_identifier: str) -> None:
     if identifier_type == "project":
         if not PROJECT_ID_RE.match(clean_identifier):
@@ -168,13 +223,24 @@ def validate_sql_structure(query: str) -> bool:
     if not query or not isinstance(query, str):
         return False
 
-    normalized_query = WHITESPACE_RE.sub(" ", query.upper().strip())
+    # Scan a quote-aware view so dangerous tokens inside string literals (partition
+    # values, URIs) are not misread as injection, while tokens outside literals — the
+    # actual SQL — are still caught.
+    masked = mask_string_literals(query)
+    scan_target = WHITESPACE_RE.sub(" ", masked.upper().strip())
+
+    # Reject a statement separator that is followed by more SQL: a read-only profiling
+    # query is a single statement, so a second statement after ';' is never legitimate.
+    # The check runs on the masked query so a ';' inside a literal value is ignored.
+    stripped_masked = masked.rstrip().rstrip(";").rstrip()
+    if ";" in stripped_masked:
+        raise ValueError("Query must be a single statement")
 
     for pattern in SQL_DANGEROUS_PATTERNS:
-        if pattern.search(normalized_query):
+        if pattern.search(scan_target):
             raise ValueError(f"Query contains dangerous pattern: {pattern.pattern}")
 
-    if not any(p.match(normalized_query) for p in SQL_ALLOWED_START_PATTERNS):
+    if not any(p.match(scan_target) for p in SQL_ALLOWED_START_PATTERNS):
         raise ValueError(f"Query must start with SELECT or WITH: {query[:100]}...")
 
     return True
@@ -184,8 +250,13 @@ def validate_filter_expression(filter_expr: str) -> bool:
     if not filter_expr or not isinstance(filter_expr, str):
         return False
 
+    # Scan with literal contents masked so a comment/injection token that is really part
+    # of a quoted STRING or Hive partition value (e.g. `# ` in a URL, `--` in a path) is
+    # not misread as SQL. A token outside any literal — genuine injection — still trips
+    # the guard because masking only blanks the literal interior.
+    masked_expr = mask_string_literals(filter_expr)
     for pattern in FILTER_DANGEROUS_PATTERNS:
-        if pattern.search(filter_expr):
+        if pattern.search(masked_expr):
             logger.warning(
                 f"Filter contains dangerous pattern {pattern.pattern}: {filter_expr}"
             )
