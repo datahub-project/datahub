@@ -3,10 +3,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+    BIGQUERY_BOOLEAN_TYPES,
     BIGQUERY_NUMERIC_TYPES,
     DATE_TIME_TYPES,
     ISO_DATE_PATTERN,
     ISO_DATETIME_FLEX_PATTERN,
+    PARTITION_GRANULARITY_DAY,
     PARTITION_GRANULARITY_HOUR,
     PARTITION_GRANULARITY_MONTH,
     PARTITION_GRANULARITY_YEAR,
@@ -44,8 +46,23 @@ class FilterBuilder:
 
         str_val = str(val)
 
-        if any(pattern in str_val for pattern in [";", "--", "/*", "\\"]):
+        # Reject only the injection boundaries that also broaden the interpolated
+        # predicate (statement terminator, line/block comment). Backslashes and quotes
+        # are legitimate inside a STRING/Hive partition value and are escaped when the
+        # quoted-literal branch builds the predicate below.
+        if any(pattern in str_val for pattern in [";", "--", "/*", "#"]):
             raise ValueError(f"Invalid value for filter: {val}")
+
+        if col_type and col_type.upper() in BIGQUERY_BOOLEAN_TYPES:
+            normalized = str_val.strip().lower()
+            if normalized in ("true", "1"):
+                return f"`{col_name}` = TRUE"
+            if normalized in ("false", "0"):
+                return f"`{col_name}` = FALSE"
+            raise ValueError(
+                f"Non-boolean value '{str_val}' for boolean column "
+                f"{col_name} ({col_type})"
+            )
 
         if col_type and col_type.upper() in BIGQUERY_NUMERIC_TYPES:
             try:
@@ -84,6 +101,16 @@ class FilterBuilder:
             ):
                 return FilterBuilder._full_year_range(col_name, str_val, col_type)
 
+            # A compact partition-id (YYYYMM / YYYYMMDDHH, or YYYYMMDD on a sub-day
+            # DATETIME/TIMESTAMP column) denotes a whole time-unit bucket. Emit the
+            # granularity-aware half-open range rather than an equality to the bucket
+            # start, which would drop the rest of the month/hour/day.
+            range_filter = FilterBuilder._partition_id_range(
+                col_name, str_val, col_type.upper()
+            )
+            if range_filter is not None:
+                return range_filter
+
             formatted_val = FilterBuilder._format_date_value(str_val, col_type.upper())
             if formatted_val:
                 if col_type.upper() == "TIMESTAMP" and " " not in formatted_val:
@@ -98,11 +125,11 @@ class FilterBuilder:
                 f"Could not format date value '{str_val}' for {col_type} column {col_name}"
             )
 
-        if "'" in str_val:
-            escaped_val = str_val.replace("'", "''")
-            return f"`{col_name}` = '{escaped_val}'"
-        else:
-            return f"`{col_name}` = '{str_val}'"
+        # Escape backslashes first (BigQuery treats '\' as an escape char in string
+        # literals), then double single quotes, so a legitimate value containing either
+        # is encoded rather than rejected or emitted as broken SQL.
+        escaped_val = str_val.replace("\\", "\\\\").replace("'", "''")
+        return f"`{col_name}` = '{escaped_val}'"
 
     @staticmethod
     def create_lower_bound_filter(
@@ -255,6 +282,42 @@ class FilterBuilder:
         # A bare YYYY partition ID is a yearly partition and is handled as a full-year
         # range in create_safe_filter (an equality to Jan 1 would exclude the rest of
         # the year), so it must not be normalized to a single boundary value here.
+        return None
+
+    @staticmethod
+    def _partition_id_range(
+        col_name: str, str_val: str, col_type: str
+    ) -> Optional[str]:
+        # col_name is already validated by create_safe_filter before this is reached.
+        # Returns a granularity-aware half-open range for a recognized compact
+        # partition-id bucket shape, or None to fall through to the existing
+        # equality/normalization path (e.g. a plain YYYY-MM-DD value on a DATE column,
+        # whose day partition is already exactly that date).
+        if PARTITION_ID_YYYYMM_PATTERN.match(str_val):
+            moment = datetime(int(str_val[:4]), int(str_val[4:6]), 1)
+            return FilterBuilder.create_partition_datetime_filter(
+                col_name, moment, col_type, PARTITION_GRANULARITY_MONTH
+            )
+        if PARTITION_ID_YYYYMMDDHH_PATTERN.match(str_val):
+            moment = datetime(
+                int(str_val[:4]),
+                int(str_val[4:6]),
+                int(str_val[6:8]),
+                int(str_val[8:10]),
+            )
+            return FilterBuilder.create_partition_datetime_filter(
+                col_name, moment, col_type, PARTITION_GRANULARITY_HOUR
+            )
+        # A YYYYMMDD equality only drops rows for sub-day DATETIME/TIMESTAMP columns;
+        # a DATE column's day partition equals exactly that date, so leave it alone.
+        if col_type in (
+            "DATETIME",
+            "TIMESTAMP",
+        ) and PARTITION_ID_YYYYMMDD_PATTERN.match(str_val):
+            moment = datetime(int(str_val[:4]), int(str_val[4:6]), int(str_val[6:8]))
+            return FilterBuilder.create_partition_datetime_filter(
+                col_name, moment, col_type, PARTITION_GRANULARITY_DAY
+            )
         return None
 
     @staticmethod

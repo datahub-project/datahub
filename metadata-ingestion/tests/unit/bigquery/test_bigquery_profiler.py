@@ -91,7 +91,7 @@ def create_test_table(
     )
     if partitioned:
         table.partition_info = SimpleNamespace(  # type: ignore[assignment]
-            type_="DAY",
+            type="DAY",
             field="date_partition",
             fields=["date_partition"],
             columns=None,
@@ -629,22 +629,26 @@ def test_probe_error_on_internal_table_is_reported():
     table = create_test_table(name="internal", external=False)
 
     def failing_probe_execute(query, job_config, context):
-        if "INFORMATION_SCHEMA" in query:
-            return []
+        # Make column-type detection inconclusive (COLUMNS lookup fails) so discovery
+        # falls back to the probe query. An empty COLUMNS result would be authoritative
+        # ("unpartitioned") and skip the probe entirely; here we want the probe to run
+        # and fail so we can assert the failure is surfaced rather than swallowed.
         raise RuntimeError("job exceeded partition_fetch_timeout")
 
     result = discovery.get_required_partition_filters(
         table, "test-project-123456", "test_dataset", failing_probe_execute
     )
 
-    assert result == []
+    # Detection was inconclusive (not an authoritative "unpartitioned"), so discovery
+    # skips the table (None) rather than profiling it unfiltered, and reports why.
+    assert result is None
     assert any("partition column" in str(w).lower() for w in report.warnings)
 
 
 def _table_with_non_date_partition(require_filter: bool) -> BigqueryTable:
     table = create_test_table(name="non_date_partitioned")
     table.partition_info = SimpleNamespace(  # type: ignore[assignment]
-        type_="DAY",
+        type="DAY",
         field="flow_id",
         fields=["flow_id"],
         columns=None,
@@ -1099,10 +1103,15 @@ def test_partition_discovery_enhance_partition_filters_with_actual_values():
     table = create_test_table(external=True)
 
     def mock_execute_query(query, config, context):
-        if "region" in query:
-            return [SimpleNamespace(col_value="US", row_count=100)]
+        # region is resolved before category, so by the time category is queried the
+        # WHERE clause already carries the resolved `region = 'US'` constraint (values
+        # are resolved under prior filters to keep the composite key co-occurring). Match
+        # the more specific column first so the region constraint on the category query
+        # doesn't hijack the region branch.
         if "category" in query:
             return [SimpleNamespace(col_value="retail", row_count=50)]
+        if "region" in query:
+            return [SimpleNamespace(col_value="US", row_count=100)]
         return []
 
     base_filters = ["`event_date` = '2023-12-25'"]
@@ -1969,14 +1978,14 @@ def test_security_validate_sql_structure_comprehensive():
         "MERGE INTO table USING source ON condition",
         "CALL procedure_name()",
         "EXECUTE IMMEDIATE 'SELECT 1'",
+        # EXPORT DATA is a dangerous-pattern denylist hit (caught before the
+        # "must start with SELECT/WITH" structural check).
+        "EXPORT DATA OPTIONS() AS SELECT * FROM table",
     ]
 
     for dangerous_sql in additional_dangerous:
         with pytest.raises(ValueError, match="Query contains dangerous pattern"):
             validate_sql_structure(dangerous_sql)
-
-    with pytest.raises(ValueError, match="Query must start with SELECT or WITH"):
-        validate_sql_structure("EXPORT DATA OPTIONS() AS SELECT * FROM table")
 
     complex_valid = [
         "SELECT a.col1, b.col2 FROM `project.dataset.table_a` a JOIN `project.dataset.table_b` b ON a.id = b.id",
@@ -2036,7 +2045,7 @@ def test_hierarchical_year_month_day_components():
     table = create_test_table(name="logs_by_date", partitioned=True)
 
     partition_info = SimpleNamespace(
-        type_="DAY",
+        type="DAY",
         field="year",  # Primary field
         fields=["year", "month", "day", "source"],  # All partition fields
         columns=None,
@@ -2557,7 +2566,7 @@ def test_partition_discovery_empty_table():
             "month_column",
             "202601",
             "DATE",
-            "`month_column` = '2026-01-01'",
+            "`month_column` >= '2026-01-01' AND `month_column` < '2026-02-01'",
             False,
             None,
             id="date_yyyymm_formatted",
@@ -2566,7 +2575,8 @@ def test_partition_discovery_empty_table():
             "run_timestamp",
             "20250115",
             "TIMESTAMP",
-            "`run_timestamp` = TIMESTAMP('2025-01-15')",
+            "`run_timestamp` >= TIMESTAMP('2025-01-15 00:00:00') "
+            "AND `run_timestamp` < TIMESTAMP('2025-01-16 00:00:00')",
             False,
             None,
             id="timestamp_yyyymmdd_with_cast",
@@ -2575,7 +2585,8 @@ def test_partition_discovery_empty_table():
             "run_timestamp",
             "202601",
             "TIMESTAMP",
-            "`run_timestamp` = TIMESTAMP('2026-01-01')",
+            "`run_timestamp` >= TIMESTAMP('2026-01-01 00:00:00') "
+            "AND `run_timestamp` < TIMESTAMP('2026-02-01 00:00:00')",
             False,
             None,
             id="timestamp_yyyymm_with_cast",
@@ -2584,7 +2595,8 @@ def test_partition_discovery_empty_table():
             "run_timestamp",
             "2025011523",
             "TIMESTAMP",
-            "`run_timestamp` = '2025-01-15 23:00:00'",
+            "`run_timestamp` >= TIMESTAMP('2025-01-15 23:00:00') "
+            "AND `run_timestamp` < TIMESTAMP('2025-01-16 00:00:00')",
             False,
             None,
             id="timestamp_yyyymmddhh_with_time",
@@ -2593,7 +2605,8 @@ def test_partition_discovery_empty_table():
             "event_time",
             "2025011523",
             "DATETIME",
-            "`event_time` = '2025-01-15 23:00:00'",
+            "`event_time` >= '2025-01-15 23:00:00' "
+            "AND `event_time` < '2025-01-16 00:00:00'",
             False,
             None,
             id="datetime_yyyymmddhh_with_time",
@@ -2683,7 +2696,11 @@ def test_filter_builder_convert_partition_id_with_column_types():
     )
     assert filters is not None
     assert len(filters) == 1
-    assert "`run_timestamp` = TIMESTAMP('2026-01-01')" in filters[0]
+    # A YYYYMM id on a TIMESTAMP column is a whole-month bucket -> half-open range.
+    assert filters[0] == (
+        "`run_timestamp` >= TIMESTAMP('2026-01-01 00:00:00') "
+        "AND `run_timestamp` < TIMESTAMP('2026-02-01 00:00:00')"
+    )
 
     filters = FilterBuilder.convert_partition_id_to_filters(
         partition_id="999",
@@ -3156,6 +3173,21 @@ def test_widen_client_connection_pool_ignores_client_without_http():
     _widen_client_connection_pool(
         cast(bigquery.Client, SimpleNamespace(_http=None)), 40
     )
+
+
+def test_validate_filter_expression_blocks_union_distinct_and_hash_comment():
+    # UNION DISTINCT SELECT must be caught like UNION ALL SELECT.
+    assert (
+        validate_filter_expression("`p` = 1 UNION DISTINCT SELECT secret FROM t")
+        is False
+    )
+    # '#' line comment could comment out the rest of the interpolated predicate.
+    assert validate_filter_expression("`p` = 1 # ") is False
+
+
+def test_validate_column_name_rejects_trailing_newline():
+    # A trailing newline must not slip through (fullmatch, not match with a `$` anchor).
+    assert validate_column_name("valid_col\n") is False
 
 
 if __name__ == "__main__":
