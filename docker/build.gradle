@@ -560,7 +560,10 @@ task prepareOnnxModel(type: Exec) {
     description = 'Downloads the default ONNX embedding model for quickstartDebugBuiltinEmbedding'
     def modelDir = file("${project.projectDir}/datahub-gms-onnx/models/snowflake_arctic_embed_s")
     def modelFile = file("${modelDir}/model.onnx")
-    onlyIf { !modelFile.exists() }
+    def tokenizerFile = file("${modelDir}/tokenizer.json")
+    // Re-run if EITHER file is missing so an interrupted download (model present,
+    // tokenizer absent) doesn't skip forever and leave GMS unable to load.
+    onlyIf { !(modelFile.exists() && tokenizerFile.exists()) }
     workingDir "${project.projectDir}/datahub-gms-onnx"
     commandLine 'bash', 'download-model.sh', 'snowflake_arctic_embed_s'
 }

@@ -56,19 +56,24 @@ HF_BASE="https://huggingface.co/${REPO}/resolve/main"
 
 echo "Downloading ${MODEL_NAME} (${DIMS} dims) from ${REPO}..."
 
-echo "  -> model.onnx"
-curl -fL --progress-bar "${HF_BASE}/${ONNX_PATH}" -o "${OUT_DIR}/model.onnx"
-
-echo "  -> tokenizer.json"
-curl -fL --progress-bar "${HF_BASE}/tokenizer.json" -o "${OUT_DIR}/tokenizer.json"
-
-# Verify downloads are not empty / error pages
-for f in "${OUT_DIR}/model.onnx" "${OUT_DIR}/tokenizer.json"; do
-  if [ ! -s "$f" ]; then
-    echo "Error: Downloaded file is empty: $f"
+# Download to a temp file and rename atomically: an interrupted curl must not
+# leave a partial file at the final path, or later runs would see it as done.
+download() {
+  local url="$1" dest="$2" tmp="$2.tmp"
+  curl -fL --progress-bar "$url" -o "$tmp"
+  if [ ! -s "$tmp" ]; then
+    echo "Error: Downloaded file is empty: $dest"
+    rm -f "$tmp"
     exit 1
   fi
-done
+  mv "$tmp" "$dest"
+}
+
+echo "  -> model.onnx"
+download "${HF_BASE}/${ONNX_PATH}" "${OUT_DIR}/model.onnx"
+
+echo "  -> tokenizer.json"
+download "${HF_BASE}/tokenizer.json" "${OUT_DIR}/tokenizer.json"
 
 echo ""
 echo "Downloaded to: ${OUT_DIR}"
@@ -80,6 +85,10 @@ echo "  ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true"
 echo "  SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true"
 echo "  ONNX_EMBEDDING_MODEL_NAME=${MODEL_NAME}"
 echo "  ONNX_EMBEDDING_MODEL_DIR=/datahub/models/${MODEL_NAME}"
+# All supported models are CLS-pooled asymmetric-retrieval models: queries must
+# carry the instruction prefix or query/doc vectors diverge and recall degrades.
+echo "  ONNX_EMBEDDING_POOLING=cls"
+echo "  ONNX_EMBEDDING_QUERY_INSTRUCTION=\"Represent this sentence for searching relevant passages: \""
 echo ""
 echo "Or use the quickstart target:"
 echo "  ./gradlew quickstartDebugBuiltinEmbedding"

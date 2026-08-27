@@ -71,7 +71,9 @@ class EmbeddingConfig(ConfigModel):
     onnx_pooling: str = Field(
         default="cls",
         description="Pooling strategy for provider='onnx': 'cls' (first-token, default) or 'mean' "
-        "(attention-masked mean). Must match the GMS provider's pooling for query/doc vector parity.",
+        "(attention-masked mean). Must match the GMS provider's pooling for query/doc vector parity. "
+        "When config is loaded from the server, falls back to the ONNX_EMBEDDING_POOLING env var "
+        "(the same variable GMS reads), since the server API does not expose pooling.",
     )
     model: Optional[str] = Field(
         default=None,
@@ -192,12 +194,15 @@ class EmbeddingConfig(ConfigModel):
                 _LOCAL_EMBEDDING_DEFAULT_ENDPOINT,
             )
 
-        # The server names the onnx model but not where its files live; the
-        # executor resolves the directory from the same env var GMS uses so both
-        # sides load the identical model.onnx + tokenizer.json.
+        # The server names the onnx model but not where its files live or how it
+        # pools; the executor resolves both from the same env vars GMS uses so
+        # both sides load the identical model.onnx + tokenizer.json and pool the
+        # same way (query/doc vector parity).
         onnx_model_dir: Optional[str] = None
+        onnx_pooling = "cls"
         if provider == "onnx":
             onnx_model_dir = os.environ.get("ONNX_EMBEDDING_MODEL_DIR")
+            onnx_pooling = os.environ.get("ONNX_EMBEDDING_POOLING", "cls")
 
         config = cls(
             provider=provider,
@@ -209,6 +214,7 @@ class EmbeddingConfig(ConfigModel):
             api_key=api_key,
             endpoint=endpoint,
             onnx_model_dir=onnx_model_dir,
+            onnx_pooling=onnx_pooling,
         )
         # Set private field after construction
         config._server_config = server_config
