@@ -1,12 +1,17 @@
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Optional
+from unittest.mock import patch
+
+import pytest
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
 )
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_and_filter_expressions,
 )
@@ -40,6 +45,164 @@ def make_table(
         max_partition_id=max_partition_id,
         **kwargs,
     )
+
+
+def test_profiler_staleness_check():
+    config = make_config(skip_stale_tables=True, staleness_threshold_days=30)
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    now = datetime.now(timezone.utc)
+    fresh = BigqueryTable(
+        name="fresh",
+        comment="",
+        rows_count=1000,
+        size_in_bytes=1_000_000,
+        last_altered=now - timedelta(hours=1),
+        created=now - timedelta(days=1),
+    )
+    assert profiler._should_skip_profiling_due_to_staleness(fresh) is False
+
+    stale = BigqueryTable(
+        name="stale",
+        comment="",
+        rows_count=1000,
+        size_in_bytes=1_000_000,
+        last_altered=now - timedelta(days=60),
+        created=now - timedelta(days=90),
+    )
+    assert profiler._should_skip_profiling_due_to_staleness(stale) is True
+
+
+def test_batch_kwargs_sampling_threshold():
+    """Below sample_size → no TABLESAMPLE; above sample_size → TABLESAMPLE added."""
+    config = make_config(use_sampling=True, sample_size=1000, profiling_row_limit=10000)
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    with patch.object(
+        profiler.partition_discovery,
+        "get_required_partition_filters",
+        return_value=["`date` = '2023-12-25'"],
+    ):
+        small = profiler.get_batch_kwargs(
+            make_table(rows_count=500), "test_dataset", "test-project-123456"
+        )
+        assert "TABLESAMPLE" not in small["custom_sql"]
+        assert "LIMIT" in small["custom_sql"]
+
+        large = profiler.get_batch_kwargs(
+            make_table(rows_count=50_000), "test_dataset", "test-project-123456"
+        )
+        assert "TABLESAMPLE SYSTEM" in large["custom_sql"]
+
+
+def test_batch_kwargs_rejects_invalid_identifier():
+    config = make_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    with patch.object(
+        profiler.partition_discovery, "get_required_partition_filters", return_value=[]
+    ):
+        profiler.get_batch_kwargs(
+            make_table(), "valid_dataset", "valid-project-123"
+        )  # no raise
+
+        with pytest.raises(ValueError, match="Invalid dataset identifier"):
+            profiler.get_batch_kwargs(
+                make_table(), "invalid;dataset", "valid-project-123"
+            )
+
+
+def test_batch_kwargs_partition_spec_classification():
+    """A single-partition scan carries the partition key (PARTITION); an unpartitioned
+    table and a window-widened scan do not (QUERY/FULL_TABLE), so the reported
+    partitionSpec matches the data actually scanned."""
+    # Windowing off, single partition column -> the scan is exactly one partition, so
+    # the partition key is set.
+    config = make_config(partition_datetime_window_days=None)
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    with patch.object(
+        profiler.partition_discovery,
+        "get_required_partition_filters",
+        return_value=["`date` = '2023-12-25'"],
+    ):
+        partitioned = profiler.get_batch_kwargs(
+            make_table(rows_count=1000, max_partition_id="20231225"),
+            "test_dataset",
+            "test-project-123456",
+        )
+        assert partitioned.get("partition") == "20231225"
+
+    # No partition filters and no partition id -> unpartitioned; no partition key.
+    with patch.object(
+        profiler.partition_discovery,
+        "get_required_partition_filters",
+        return_value=[],
+    ):
+        unpartitioned = profiler.get_batch_kwargs(
+            make_table(rows_count=500),
+            "test_dataset",
+            "test-project-123456",
+        )
+        assert "partition" not in unpartitioned
+
+    # A partition id exists but discovery produced no usable filter, so the profile is
+    # a full-table/sample/limit scan. Labeling it with the partition id would
+    # misdescribe the data, so the key must be omitted.
+    with patch.object(
+        profiler.partition_discovery,
+        "get_required_partition_filters",
+        return_value=[],
+    ):
+        empty_predicate = profiler.get_batch_kwargs(
+            make_table(rows_count=1000, max_partition_id="20231225"),
+            "test_dataset",
+            "test-project-123456",
+        )
+        assert "partition" not in empty_predicate
+
+    # Windowing on (default) widens the scan to a range, so labeling it with the single
+    # anchor partition id would misdescribe the data — the key must be omitted.
+    windowed_config = make_config(partition_datetime_window_days=30)
+    windowed_profiler = BigqueryProfiler(windowed_config, BigQueryV2Report())
+    with patch.object(
+        windowed_profiler.partition_discovery,
+        "get_required_partition_filters",
+        return_value=["`date` = '2023-12-25'"],
+    ):
+        windowed = windowed_profiler.get_batch_kwargs(
+            make_table(rows_count=1000, max_partition_id="20231225"),
+            "test_dataset",
+            "test-project-123456",
+        )
+        assert "partition" not in windowed
+
+
+def test_predicate_scans_single_partition_ignores_operators_in_literals():
+    """A range operator (or BETWEEN) that only appears inside a quoted STRING/Hive
+    partition value must not be mistaken for a range predicate, so an exact equality
+    scan keeps its single-partition label."""
+    single = BigqueryProfiler._predicate_scans_single_partition
+    # Equalities whose literal contains a comparison operator / BETWEEN are still one
+    # partition each.
+    assert single("`country` = 'a>b'")
+    assert single("`region` = 'x<y'")
+    assert single("`label` = 'BETWEEN us and them'")
+    # Genuine generated ranges span several partitions.
+    assert not single("`date` >= '2025-01-01' AND `date` < '2026-01-01'")
+    assert not single("`ts` BETWEEN '2025-01-01' AND '2025-02-01'")
+    # A same-day (zero-width) range still scans exactly one partition.
+    assert single("`date` >= '2025-01-01' AND `date` <= '2025-01-01'")
+
+
+def test_sample_percent_guards_zero_sample_size():
+    """A zero/non-positive sample size or empty table must not emit
+    TABLESAMPLE SYSTEM (0 PERCENT), which BigQuery rejects."""
+    profiler = BigqueryProfiler(make_config(sample_size=0), BigQueryV2Report())
+    assert profiler._sample_percent(1000) == 100.0
+
+    profiler = BigqueryProfiler(make_config(sample_size=1000), BigQueryV2Report())
+    assert profiler._sample_percent(0) == 100.0
+    assert 0 < profiler._sample_percent(10000) <= 100.0
 
 
 def test_partition_discovery_strategic_dates():
@@ -303,6 +466,117 @@ def test_compound_partition_non_date_query_failure_still_returns_date_filter():
     assert any("event_date" in f or "2024-11-20" in f for f in filters)
 
 
+def test_batch_kwargs_safety_limit_for_large_unsampled_table():
+    """Without sampling enabled or an explicit row limit, a table with >1M rows should
+    get a 100k safety LIMIT in the custom_sql to avoid accidentally full-scanning it.
+    """
+    config = make_config(use_sampling=False, profiling_row_limit=0)
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    with patch.object(
+        profiler.partition_discovery, "get_required_partition_filters", return_value=[]
+    ):
+        kwargs = profiler.get_batch_kwargs(
+            make_table(name="big_table", rows_count=2_000_000),
+            "ds",
+            "test-project-123456",
+        )
+
+    assert "LIMIT 100000" in kwargs["custom_sql"]
+    assert "TABLESAMPLE" not in kwargs["custom_sql"]
+
+
+def test_batch_kwargs_sampling_with_partition_filter():
+    """When both sampling and a partition filter are active the custom_sql should contain
+    both TABLESAMPLE and WHERE.
+    """
+    config = make_config(use_sampling=True, sample_size=5000)
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    with patch.object(
+        profiler.partition_discovery,
+        "get_required_partition_filters",
+        return_value=["`event_date` = '2024-11-20'"],
+    ):
+        kwargs = profiler.get_batch_kwargs(
+            make_table(name="events", rows_count=500_000), "ds", "test-project-123456"
+        )
+
+    assert "TABLESAMPLE SYSTEM" in kwargs["custom_sql"]
+    assert "WHERE" in kwargs["custom_sql"]
+    assert "event_date" in kwargs["custom_sql"]
+
+
+def test_external_table_deferred_in_get_workunits():
+    """External tables must be routed to deferred partition discovery (wrapped in a
+    DeferredExternalTable), not profiled synchronously in the main loop.
+    """
+    config = make_config(profile_external_tables=True, partition_profiling_enabled=True)
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = make_table(name="ext_table", external=True)
+
+    captured: dict = {}
+
+    def fake_generate(profile_requests, deferred_external, **kwargs):
+        captured["profile_requests"] = list(profile_requests)
+        captured["deferred_external"] = list(deferred_external)
+        return []
+
+    with (
+        patch.object(
+            profiler.partition_discovery,
+            "get_required_partition_filters",
+            return_value=["`event_date` = '2024-11-20'"],
+        ),
+        patch.object(
+            profiler,
+            "generate_profile_workunits_with_deferred_partitions",
+            side_effect=fake_generate,
+        ),
+    ):
+        list(profiler.get_workunits("test-project-123456", {"ds": [table]}))
+
+    assert captured["profile_requests"] == []
+    assert len(captured["deferred_external"]) == 1
+    deferred = captured["deferred_external"][0]
+    assert deferred.bq_table is table
+    assert deferred.db_name == "test-project-123456"
+    assert deferred.schema_name == "ds"
+
+
+def test_partition_discovery_cache_avoids_repeat_info_schema_queries():
+    """The dataset-level partition metadata cache should be populated with a single
+    INFORMATION_SCHEMA.COLUMNS query for the whole dataset, so per-table calls hit
+    the cache and don't issue further queries.
+    """
+    profiler = BigqueryProfiler(make_config(), BigQueryV2Report())
+
+    call_count = 0
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        nonlocal call_count
+        if "INFORMATION_SCHEMA.COLUMNS" in query and "is_partitioning_column" in query:
+            call_count += 1
+            return [
+                SimpleNamespace(
+                    table_name="table_a", column_name="event_date", data_type="DATE"
+                ),
+                SimpleNamespace(
+                    table_name="table_b", column_name="run_date", data_type="DATE"
+                ),
+            ]
+        return []
+
+    with patch.object(profiler.query_executor, "execute_query_safely", new=execute):
+        profiler._populate_partition_metadata_cache("test-project-123456", "ds")
+        profiler._populate_partition_metadata_cache("test-project-123456", "ds")
+
+    assert call_count == 1
+    cache = profiler._partition_metadata_cache[("test-project-123456", "ds")]
+    assert cache["table_a"]["partition_columns"] == ["event_date"]
+    assert "table_b" in cache
+
+
 def test_partition_filter_validation_rejects_injection():
     """Partition filters that contain SQL injection patterns must be rejected by
     validate_and_filter_expressions before they reach the custom_sql.
@@ -355,3 +629,7 @@ def test_information_schema_partitions_path():
 
     assert filters is not None and len(filters) > 0
     assert "2024-11-20" in " ".join(filters)
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
