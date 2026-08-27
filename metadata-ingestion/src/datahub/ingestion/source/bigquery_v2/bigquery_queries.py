@@ -51,7 +51,7 @@ class BigQueryQueriesSourceConfig(
     )
 
 
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 class BigQueryQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: BigQueryQueriesSourceConfig):
         self.ctx = ctx

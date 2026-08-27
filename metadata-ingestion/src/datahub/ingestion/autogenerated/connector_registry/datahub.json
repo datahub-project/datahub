@@ -41,7 +41,7 @@
       "classname": "datahub.ingestion.source.abs.source.ABSSource",
       "platform_id": "abs",
       "platform_name": "ABS Data Lake",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "aerospike": {
       "capabilities": [
@@ -67,7 +67,7 @@
       "classname": "datahub.ingestion.source.aerospike.AerospikeSource",
       "platform_id": "aerospike",
       "platform_name": "Aerospike",
-      "support_status": "TESTING"
+      "support_status": "ALPHA"
     },
     "airbyte": {
       "capabilities": [
@@ -105,7 +105,7 @@
       "classname": "datahub.ingestion.source.airbyte.source.AirbyteSource",
       "platform_id": "airbyte",
       "platform_name": "Airbyte",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "athena": {
       "capabilities": [
@@ -184,7 +184,7 @@
       "classname": "datahub.ingestion.source.sql.athena.AthenaSource",
       "platform_id": "athena",
       "platform_name": "Athena",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "azure-ad": {
       "capabilities": [
@@ -198,7 +198,7 @@
       "classname": "datahub.ingestion.source.identity.azure_ad.AzureADSource",
       "platform_id": "azure-ad",
       "platform_name": "Azure AD",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "azure-data-factory": {
       "capabilities": [
@@ -243,7 +243,7 @@
       "classname": "datahub.ingestion.source.azure_data_factory.adf_source.AzureDataFactorySource",
       "platform_id": "azure-data-factory",
       "platform_name": "Azure Data Factory",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "bigid": {
       "capabilities": [
@@ -305,7 +305,7 @@
       "classname": "datahub.ingestion.source.bigid.bigid_source.BigIDSource",
       "platform_id": "bigid",
       "platform_name": "BigID",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "bigquery": {
       "capabilities": [
@@ -395,7 +395,7 @@
       "classname": "datahub.ingestion.source.bigquery_v2.bigquery.BigqueryV2Source",
       "platform_id": "bigquery",
       "platform_name": "BigQuery",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "cassandra": {
       "capabilities": [
@@ -427,7 +427,7 @@
       "classname": "datahub.ingestion.source.cassandra.cassandra.CassandraSource",
       "platform_id": "cassandra",
       "platform_name": "Cassandra",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "clickhouse": {
       "capabilities": [
@@ -507,7 +507,7 @@
       "classname": "datahub.ingestion.source.sql.clickhouse.ClickHouseSource",
       "platform_id": "clickhouse",
       "platform_name": "ClickHouse",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "clickhouse-usage": {
       "capabilities": [
@@ -533,7 +533,7 @@
       "classname": "datahub.ingestion.source.usage.clickhouse_usage.ClickHouseUsageSource",
       "platform_id": "clickhouse",
       "platform_name": "ClickHouse",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "cockroachdb": {
       "capabilities": [
@@ -608,7 +608,7 @@
       "classname": "datahub.ingestion.source.sql.cockroachdb.CockroachDBSource",
       "platform_id": "cockroachdb",
       "platform_name": "CockroachDB",
-      "support_status": "TESTING"
+      "support_status": "ALPHA"
     },
     "confluence": {
       "capabilities": [
@@ -634,7 +634,7 @@
       "classname": "datahub.ingestion.source.confluence.confluence_source.ConfluenceSource",
       "platform_id": "confluence",
       "platform_name": "Confluence",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "csv-enricher": {
       "capabilities": [
@@ -666,7 +666,7 @@
       "classname": "datahub.ingestion.source.csv_enricher.CSVEnricherSource",
       "platform_id": "csv-enricher",
       "platform_name": "CSV Enricher",
-      "support_status": "INCUBATING"
+      "support_status": "GA"
     },
     "cube": {
       "capabilities": [
@@ -746,7 +746,7 @@
       "classname": "datahub.ingestion.source.cube.cube.CubeSource",
       "platform_id": "cube",
       "platform_name": "Cube",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "datahub": {
       "capabilities": [
@@ -768,28 +768,28 @@
       "classname": "datahub.ingestion.source.datahub.datahub_source.DataHubSource",
       "platform_id": "datahub",
       "platform_name": "DataHub",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "datahub-apply": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.apply.datahub_apply.DataHubApplySource",
       "platform_id": "datahubapply",
       "platform_name": "DataHubApply",
-      "support_status": "TESTING"
+      "support_status": null
     },
     "datahub-business-glossary": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.metadata.business_glossary.BusinessGlossaryFileSource",
       "platform_id": "business-glossary",
       "platform_name": "Business Glossary",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "datahub-debug": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.debug.datahub_debug.DataHubDebugSource",
       "platform_id": "datahubdebug",
       "platform_name": "DataHubDebug",
-      "support_status": "TESTING"
+      "support_status": null
     },
     "datahub-documents": {
       "capabilities": [
@@ -803,14 +803,14 @@
       "classname": "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubDocumentsSource",
       "platform_id": "datahub-documents",
       "platform_name": "DataHubDocuments",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "datahub-gc": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.gc.datahub_gc.DataHubGcSource",
       "platform_id": "datahubgc",
       "platform_name": "DataHubGc",
-      "support_status": "TESTING"
+      "support_status": null
     },
     "datahub-lineage-file": {
       "capabilities": [
@@ -830,7 +830,7 @@
       "classname": "datahub.ingestion.source.metadata.lineage.LineageFileSource",
       "platform_id": "file-based-lineage",
       "platform_name": "File Based Lineage",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "dataplex": {
       "capabilities": [
@@ -886,7 +886,7 @@
       "classname": "datahub.ingestion.source.dataplex.dataplex.DataplexSource",
       "platform_id": "dataplex",
       "platform_name": "Google Cloud Knowledge Catalog (Dataplex)",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "db2": {
       "capabilities": [
@@ -961,7 +961,7 @@
       "classname": "datahub.ingestion.source.sql.db2.Db2Source",
       "platform_id": "db2",
       "platform_name": "IBM Db2",
-      "support_status": "TESTING"
+      "support_status": "ALPHA"
     },
     "dbt": {
       "capabilities": [
@@ -993,7 +993,7 @@
       "classname": "datahub.ingestion.source.dbt.dbt_core.DBTCoreSource",
       "platform_id": "dbt",
       "platform_name": "dbt",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "dbt-cloud": {
       "capabilities": [
@@ -1025,7 +1025,7 @@
       "classname": "datahub.ingestion.source.dbt.dbt_cloud.DBTCloudSource",
       "platform_id": "dbt",
       "platform_name": "dbt",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "delta-lake": {
       "capabilities": [
@@ -1059,14 +1059,14 @@
       "classname": "datahub.ingestion.source.delta_lake.source.DeltaLakeSource",
       "platform_id": "delta-lake",
       "platform_name": "Delta Lake",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "demo-data": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.demo_data.DemoDataSource",
       "platform_id": "demo-data",
       "platform_name": "Demo Data",
-      "support_status": null
+      "support_status": "BETA"
     },
     "dlt": {
       "capabilities": [
@@ -1098,7 +1098,7 @@
       "classname": "datahub.ingestion.source.dlt.dlt.DltSource",
       "platform_id": "dlt",
       "platform_name": "dlt",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "doris": {
       "capabilities": [
@@ -1181,7 +1181,7 @@
       "classname": "datahub.ingestion.source.sql.doris.doris_source.DorisSource",
       "platform_id": "doris",
       "platform_name": "Apache Doris",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "dremio": {
       "capabilities": [
@@ -1262,7 +1262,7 @@
       "classname": "datahub.ingestion.source.dremio.dremio_source.DremioSource",
       "platform_id": "dremio",
       "platform_name": "Dremio",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "druid": {
       "capabilities": [
@@ -1331,7 +1331,7 @@
       "classname": "datahub.ingestion.source.sql.druid.DruidSource",
       "platform_id": "druid",
       "platform_name": "Druid",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "dynamodb": {
       "capabilities": [
@@ -1357,7 +1357,7 @@
       "classname": "datahub.ingestion.source.dynamodb.dynamodb.DynamoDBSource",
       "platform_id": "dynamodb",
       "platform_name": "DynamoDB",
-      "support_status": "INCUBATING"
+      "support_status": "GA"
     },
     "elasticsearch": {
       "capabilities": [
@@ -1377,7 +1377,7 @@
       "classname": "datahub.ingestion.source.elastic_search.ElasticsearchSource",
       "platform_id": "elasticsearch",
       "platform_name": "Elasticsearch",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "excel": {
       "capabilities": [
@@ -1409,7 +1409,7 @@
       "classname": "datahub.ingestion.source.excel.source.ExcelSource",
       "platform_id": "excel",
       "platform_name": "Excel",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "fabric-data-factory": {
       "capabilities": [
@@ -1441,7 +1441,7 @@
       "classname": "datahub.ingestion.source.fabric.data_factory.source.FabricDataFactorySource",
       "platform_id": "fabric-data-factory",
       "platform_name": "Fabric Data Factory",
-      "support_status": "TESTING"
+      "support_status": "BETA"
     },
     "fabric-onelake": {
       "capabilities": [
@@ -1491,7 +1491,7 @@
       "classname": "datahub.ingestion.source.fabric.onelake.source.FabricOneLakeSource",
       "platform_id": "fabric-onelake",
       "platform_name": "Fabric OneLake",
-      "support_status": "TESTING"
+      "support_status": "BETA"
     },
     "feast": {
       "capabilities": [
@@ -1523,7 +1523,7 @@
       "classname": "datahub.ingestion.source.feast.FeastRepositorySource",
       "platform_id": "feast",
       "platform_name": "Feast",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "file": {
       "capabilities": [
@@ -1543,7 +1543,7 @@
       "classname": "datahub.ingestion.source.file.GenericFileSource",
       "platform_id": "metadata-file",
       "platform_name": "Metadata File",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "fivetran": {
       "capabilities": [
@@ -1569,7 +1569,7 @@
       "classname": "datahub.ingestion.source.fivetran.fivetran.FivetranSource",
       "platform_id": "fivetran",
       "platform_name": "Fivetran",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "flink": {
       "capabilities": [
@@ -1595,7 +1595,7 @@
       "classname": "datahub.ingestion.source.flink.source.FlinkSource",
       "platform_id": "flink",
       "platform_name": "Flink",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "gcs": {
       "capabilities": [
@@ -1630,7 +1630,7 @@
       "classname": "datahub.ingestion.source.gcs.gcs_source.GCSSource",
       "platform_id": "gcs",
       "platform_name": "Google Cloud Storage",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "github-documents": {
       "capabilities": [
@@ -1650,7 +1650,7 @@
       "classname": "datahub.ingestion.source.github_documents.github_documents_source.GitHubDocumentsSource",
       "platform_id": "github",
       "platform_name": "GitHub",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "glue": {
       "capabilities": [
@@ -1702,7 +1702,7 @@
       "classname": "datahub.ingestion.source.aws.glue.GlueSource",
       "platform_id": "glue",
       "platform_name": "Glue",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "grafana": {
       "capabilities": [
@@ -1746,7 +1746,7 @@
       "classname": "datahub.ingestion.source.grafana.grafana_source.GrafanaSource",
       "platform_id": "grafana",
       "platform_name": "Grafana",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "hana": {
       "capabilities": [
@@ -1833,7 +1833,7 @@
       "classname": "datahub.ingestion.source.sql.hana.hana.HanaSource",
       "platform_id": "hana",
       "platform_name": "SAP HANA",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "hex": {
       "capabilities": [
@@ -1897,7 +1897,7 @@
       "classname": "datahub.ingestion.source.hex.hex.HexSource",
       "platform_id": "hex",
       "platform_name": "Hex",
-      "support_status": "INCUBATING"
+      "support_status": "GA"
     },
     "hive": {
       "capabilities": [
@@ -1968,7 +1968,7 @@
       "classname": "datahub.ingestion.source.sql.hive.hive_source.HiveSource",
       "platform_id": "hive",
       "platform_name": "Hive",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "hive-metastore": {
       "capabilities": [
@@ -2039,7 +2039,7 @@
       "classname": "datahub.ingestion.source.sql.hive.hive_metastore_source.HiveMetastoreSource",
       "platform_id": "hive-metastore",
       "platform_name": "Hive Metastore",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "iceberg": {
       "capabilities": [
@@ -2089,7 +2089,7 @@
       "classname": "datahub.ingestion.source.iceberg.iceberg.IcebergSource",
       "platform_id": "iceberg",
       "platform_name": "Iceberg",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "informatica": {
       "capabilities": [
@@ -2139,7 +2139,7 @@
       "classname": "datahub.ingestion.source.informatica.source.InformaticaSource",
       "platform_id": "informatica",
       "platform_name": "Informatica",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "informix": {
       "capabilities": [
@@ -2205,7 +2205,7 @@
       "classname": "datahub.ingestion.source.informix.source.InformixSource",
       "platform_id": "informix",
       "platform_name": "Informix",
-      "support_status": "TESTING"
+      "support_status": "ALPHA"
     },
     "json-schema": {
       "capabilities": [
@@ -2249,7 +2249,7 @@
       "classname": "datahub.ingestion.source.schema.json_schema.JsonSchemaSource",
       "platform_id": "json-schema",
       "platform_name": "JSON Schemas",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "kafka": {
       "capabilities": [
@@ -2311,7 +2311,7 @@
       "classname": "datahub.ingestion.source.kafka.kafka.KafkaSource",
       "platform_id": "kafka",
       "platform_name": "Kafka",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "kafka-connect": {
       "capabilities": [
@@ -2349,7 +2349,7 @@
       "classname": "datahub.ingestion.source.kafka_connect.kafka_connect.KafkaConnectSource",
       "platform_id": "kafka-connect",
       "platform_name": "Kafka Connect",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "kinesis": {
       "capabilities": [
@@ -2393,7 +2393,7 @@
       "classname": "datahub.ingestion.source.kinesis.kinesis.KinesisSource",
       "platform_id": "kinesis",
       "platform_name": "Amazon Kinesis Data Streams",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "ldap": {
       "capabilities": [
@@ -2407,7 +2407,7 @@
       "classname": "datahub.ingestion.source.ldap.LDAPSource",
       "platform_id": "ldap",
       "platform_name": "LDAP",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "looker": {
       "capabilities": [
@@ -2472,7 +2472,7 @@
       "classname": "datahub.ingestion.source.looker.looker_source.LookerDashboardSource",
       "platform_id": "looker",
       "platform_name": "Looker",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "lookml": {
       "capabilities": [
@@ -2512,7 +2512,7 @@
       "classname": "datahub.ingestion.source.looker.lookml_source.LookMLSource",
       "platform_id": "looker",
       "platform_name": "Looker",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "mariadb": {
       "capabilities": [
@@ -2595,7 +2595,7 @@
       "classname": "datahub.ingestion.source.sql.mariadb.MariaDBSource",
       "platform_id": "mariadb",
       "platform_name": "MariaDB",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "matillion-dpc": {
       "capabilities": [
@@ -2627,7 +2627,7 @@
       "classname": "datahub.ingestion.source.matillion_dpc.matillion.MatillionSource",
       "platform_id": "matillion-dpc",
       "platform_name": "Matillion",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "metabase": {
       "capabilities": [
@@ -2653,7 +2653,7 @@
       "classname": "datahub.ingestion.source.metabase.MetabaseSource",
       "platform_id": "metabase",
       "platform_name": "Metabase",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "microstrategy": {
       "capabilities": [
@@ -2727,7 +2727,7 @@
       "classname": "datahub.ingestion.source.microstrategy.source.MicroStrategySource",
       "platform_id": "microstrategy",
       "platform_name": "MicroStrategy",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "mlflow": {
       "capabilities": [
@@ -2761,7 +2761,7 @@
       "classname": "datahub.ingestion.source.mlflow.MLflowSource",
       "platform_id": "mlflow",
       "platform_name": "MLflow",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "mode": {
       "capabilities": [
@@ -2811,7 +2811,7 @@
       "classname": "datahub.ingestion.source.mode.ModeSource",
       "platform_id": "mode",
       "platform_name": "Mode",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "mongodb": {
       "capabilities": [
@@ -2845,7 +2845,7 @@
       "classname": "datahub.ingestion.source.mongodb.MongoDBSource",
       "platform_id": "mongodb",
       "platform_name": "MongoDB",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "mssql": {
       "capabilities": [
@@ -2922,7 +2922,7 @@
       "classname": "datahub.ingestion.source.sql.mssql.source.SQLServerSource",
       "platform_id": "mssql",
       "platform_name": "Microsoft SQL Server",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "mysql": {
       "capabilities": [
@@ -3005,7 +3005,7 @@
       "classname": "datahub.ingestion.source.sql.mysql.MySQLSource",
       "platform_id": "mysql",
       "platform_name": "MySQL",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "neo4j": {
       "capabilities": [
@@ -3025,7 +3025,7 @@
       "classname": "datahub.ingestion.source.neo4j.neo4j_source.Neo4jSource",
       "platform_id": "neo4j",
       "platform_name": "Neo4j",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "nifi": {
       "capabilities": [
@@ -3045,7 +3045,7 @@
       "classname": "datahub.ingestion.source.nifi.NifiSource",
       "platform_id": "nifi",
       "platform_name": "NiFi",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "notion": {
       "capabilities": [
@@ -3065,7 +3065,7 @@
       "classname": "datahub.ingestion.source.notion.notion_source.NotionSource",
       "platform_id": "notion",
       "platform_name": "Notion",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "odcs": {
       "capabilities": [
@@ -3103,7 +3103,7 @@
       "classname": "datahub.ingestion.source.odcs.odcs_source.ODCSSource",
       "platform_id": "odcs",
       "platform_name": "Open Data Contract Standard",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "okta": {
       "capabilities": [
@@ -3123,7 +3123,7 @@
       "classname": "datahub.ingestion.source.identity.okta.OktaSource",
       "platform_id": "okta",
       "platform_name": "Okta",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "omni": {
       "capabilities": [
@@ -3179,7 +3179,7 @@
       "classname": "datahub.ingestion.source.omni.omni.OmniSource",
       "platform_id": "omni",
       "platform_name": "Omni",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "openapi": {
       "capabilities": [
@@ -3217,7 +3217,7 @@
       "classname": "datahub.ingestion.source.openapi.OpenApiSource",
       "platform_id": "openapi",
       "platform_name": "OpenAPI",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "oracle": {
       "capabilities": [
@@ -3294,7 +3294,7 @@
       "classname": "datahub.ingestion.source.sql.oracle.OracleSource",
       "platform_id": "oracle",
       "platform_name": "Oracle",
-      "support_status": "INCUBATING"
+      "support_status": "GA"
     },
     "pinecone": {
       "capabilities": [
@@ -3332,7 +3332,7 @@
       "classname": "datahub.ingestion.source.pinecone.pinecone_source.PineconeSource",
       "platform_id": "pinecone",
       "platform_name": "Pinecone",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "postgres": {
       "capabilities": [
@@ -3407,7 +3407,7 @@
       "classname": "datahub.ingestion.source.sql.postgres.source.PostgresSource",
       "platform_id": "postgres",
       "platform_name": "Postgres",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "powerbi": {
       "capabilities": [
@@ -3484,7 +3484,7 @@
       "classname": "datahub.ingestion.source.powerbi.powerbi.PowerBiDashboardSource",
       "platform_id": "powerbi",
       "platform_name": "PowerBI",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "powerbi-report-server": {
       "capabilities": [
@@ -3504,7 +3504,7 @@
       "classname": "datahub.ingestion.source.powerbi_report_server.report_server.PowerBiReportServerDashboardSource",
       "platform_id": "powerbi-report-server",
       "platform_name": "PowerBI Report Server",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "preset": {
       "capabilities": [
@@ -3536,7 +3536,7 @@
       "classname": "datahub.ingestion.source.preset.PresetSource",
       "platform_id": "preset",
       "platform_name": "Preset",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "presto": {
       "capabilities": [
@@ -3607,7 +3607,7 @@
       "classname": "datahub.ingestion.source.sql.presto.PrestoSource",
       "platform_id": "presto",
       "platform_name": "Presto",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "presto-on-hive": {
       "capabilities": [
@@ -3678,7 +3678,7 @@
       "classname": "datahub.ingestion.source.sql.hive.hive_metastore_source.HiveMetastoreSource",
       "platform_id": "hive-metastore",
       "platform_name": "Hive Metastore",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "pulsar": {
       "capabilities": [
@@ -3710,7 +3710,7 @@
       "classname": "datahub.ingestion.source.pulsar.PulsarSource",
       "platform_id": "pulsar",
       "platform_name": "Pulsar",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "qlik-sense": {
       "capabilities": [
@@ -3772,7 +3772,7 @@
       "classname": "datahub.ingestion.source.qlik_sense.qlik_sense.QlikSenseSource",
       "platform_id": "qlik-sense",
       "platform_name": "Qlik Sense",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "quicksight": {
       "capabilities": [
@@ -3840,7 +3840,7 @@
       "classname": "datahub.ingestion.source.quicksight.quicksight.QuickSightSource",
       "platform_id": "quicksight",
       "platform_name": "QuickSight",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "rdf": {
       "capabilities": [
@@ -3896,7 +3896,7 @@
       "classname": "datahub.ingestion.source.rdf.ingestion.rdf_source.RDFSource",
       "platform_id": "rdf",
       "platform_name": "RDF",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "redash": {
       "capabilities": [
@@ -3916,7 +3916,7 @@
       "classname": "datahub.ingestion.source.redash.RedashSource",
       "platform_id": "redash",
       "platform_name": "Redash",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "redshift": {
       "capabilities": [
@@ -4005,7 +4005,7 @@
       "classname": "datahub.ingestion.source.redshift.redshift.RedshiftSource",
       "platform_id": "redshift",
       "platform_name": "Redshift",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "s3": {
       "capabilities": [
@@ -4052,7 +4052,7 @@
       "classname": "datahub.ingestion.source.s3.source.S3Source",
       "platform_id": "s3",
       "platform_name": "S3 / Local Files",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "sac": {
       "capabilities": [
@@ -4090,7 +4090,7 @@
       "classname": "datahub.ingestion.source.sac.sac.SACSource",
       "platform_id": "sac",
       "platform_name": "SAP Analytics Cloud",
-      "support_status": "TESTING"
+      "support_status": "BETA"
     },
     "sagemaker": {
       "capabilities": [
@@ -4110,7 +4110,7 @@
       "classname": "datahub.ingestion.source.aws.sagemaker.SagemakerSource",
       "platform_id": "sagemaker",
       "platform_name": "SageMaker",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "salesforce": {
       "capabilities": [
@@ -4171,7 +4171,7 @@
       "classname": "datahub.ingestion.source.salesforce.SalesforceSource",
       "platform_id": "salesforce",
       "platform_name": "Salesforce",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "sap-datasphere": {
       "capabilities": [
@@ -4233,7 +4233,7 @@
       "classname": "datahub.ingestion.source.sap_datasphere.source.SapDatasphereSource",
       "platform_id": "sap-datasphere",
       "platform_name": "SAP Datasphere",
-      "support_status": "TESTING"
+      "support_status": "ALPHA"
     },
     "sigma": {
       "capabilities": [
@@ -4304,7 +4304,7 @@
       "classname": "datahub.ingestion.source.sigma.sigma.SigmaSource",
       "platform_id": "sigma",
       "platform_name": "Sigma",
-      "support_status": "INCUBATING"
+      "support_status": "GA"
     },
     "slack": {
       "capabilities": [
@@ -4318,7 +4318,7 @@
       "classname": "datahub.ingestion.source.slack.slack.SlackSource",
       "platform_id": "slack",
       "platform_name": "Slack",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "snaplogic": {
       "capabilities": [
@@ -4350,7 +4350,7 @@
       "classname": "datahub.ingestion.source.snaplogic.snaplogic.SnaplogicSource",
       "platform_id": "snaplogic",
       "platform_name": "SnapLogic",
-      "support_status": "TESTING"
+      "support_status": "ALPHA"
     },
     "snowflake": {
       "capabilities": [
@@ -4439,7 +4439,7 @@
       "classname": "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeV2Source",
       "platform_id": "snowflake",
       "platform_name": "Snowflake",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "snowplow": {
       "capabilities": [
@@ -4483,7 +4483,7 @@
       "classname": "datahub.ingestion.source.snowplow.snowplow.SnowplowSource",
       "platform_id": "snowplow",
       "platform_name": "Snowplow",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "sql-queries": {
       "capabilities": [
@@ -4509,7 +4509,7 @@
       "classname": "datahub.ingestion.source.sql_queries.SqlQueriesSource",
       "platform_id": "sql-queries",
       "platform_name": "SQL Queries",
-      "support_status": "INCUBATING"
+      "support_status": "GA"
     },
     "sqlalchemy": {
       "capabilities": [
@@ -4578,7 +4578,7 @@
       "classname": "datahub.ingestion.source.sql.sql_generic.SQLAlchemyGenericSource",
       "platform_id": "sqlalchemy",
       "platform_name": "SQLAlchemy",
-      "support_status": "INCUBATING"
+      "support_status": "GA"
     },
     "sqlmesh": {
       "capabilities": [
@@ -4610,7 +4610,7 @@
       "classname": "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshSource",
       "platform_id": "sqlmesh",
       "platform_name": "SQLMesh",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "starburst-trino-usage": {
       "capabilities": [
@@ -4624,7 +4624,7 @@
       "classname": "datahub.ingestion.source.usage.starburst_trino_usage.TrinoUsageSource",
       "platform_id": "trino",
       "platform_name": "Trino",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "starrocks": {
       "capabilities": [
@@ -4699,7 +4699,7 @@
       "classname": "datahub.ingestion.source.sql.starrocks.StarRocksSource",
       "platform_id": "starrocks",
       "platform_name": "StarRocks",
-      "support_status": "TESTING"
+      "support_status": "ALPHA"
     },
     "superset": {
       "capabilities": [
@@ -4731,7 +4731,7 @@
       "classname": "datahub.ingestion.source.superset.SupersetSource",
       "platform_id": "superset",
       "platform_name": "Superset",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "tableau": {
       "capabilities": [
@@ -4812,7 +4812,7 @@
       "classname": "datahub.ingestion.source.tableau.tableau.TableauSource",
       "platform_id": "tableau",
       "platform_name": "Tableau",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "teradata": {
       "capabilities": [
@@ -4900,7 +4900,7 @@
       "classname": "datahub.ingestion.source.sql.teradata.TeradataSource",
       "platform_id": "teradata",
       "platform_name": "Teradata",
-      "support_status": "TESTING"
+      "support_status": "BETA"
     },
     "thoughtspot": {
       "capabilities": [
@@ -4968,7 +4968,7 @@
       "classname": "datahub.ingestion.source.thoughtspot.source.ThoughtSpotSource",
       "platform_id": "thoughtspot",
       "platform_name": "ThoughtSpot",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "tidb": {
       "capabilities": [
@@ -5051,7 +5051,7 @@
       "classname": "datahub.ingestion.source.sql.tidb.TiDBSource",
       "platform_id": "tidb",
       "platform_name": "TiDB",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "timescaledb": {
       "capabilities": [
@@ -5121,7 +5121,7 @@
       "classname": "datahub.ingestion.source.sql.timescaledb.TimescaleDBSource",
       "platform_id": "timescaledb",
       "platform_name": "TimescaleDB",
-      "support_status": "INCUBATING"
+      "support_status": "ALPHA"
     },
     "trino": {
       "capabilities": [
@@ -5192,7 +5192,7 @@
       "classname": "datahub.ingestion.source.sql.trino.TrinoSource",
       "platform_id": "trino",
       "platform_name": "Trino",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "unity-catalog": {
       "capabilities": [
@@ -5281,7 +5281,7 @@
       "classname": "datahub.ingestion.source.unity.source.UnityCatalogSource",
       "platform_id": "databricks",
       "platform_name": "Databricks",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     },
     "vertexai": {
       "capabilities": [
@@ -5319,7 +5319,7 @@
       "classname": "datahub.ingestion.source.vertexai.vertexai.VertexAISource",
       "platform_id": "vertexai",
       "platform_name": "Vertex AI",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "vertica": {
       "capabilities": [
@@ -5395,7 +5395,7 @@
       "classname": "datahub.ingestion.source.sql.vertica.VerticaSource",
       "platform_id": "vertica",
       "platform_name": "Vertica",
-      "support_status": "CERTIFIED"
+      "support_status": "GA"
     }
   }
 }

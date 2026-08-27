@@ -299,7 +299,7 @@ def construct_schema_pymongo(
 
 @platform_name("MongoDB")
 @config_class(MongoDBConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(

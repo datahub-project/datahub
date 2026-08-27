@@ -103,7 +103,7 @@ class DocumentChunkingReport(SourceReport):
 
 
 @platform_name("DataHub")
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @config_class(DocumentChunkingSourceConfig)
 class DocumentChunkingSource(Source):
     """Source that chunks documents and generates embeddings."""
