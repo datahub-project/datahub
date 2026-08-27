@@ -2,7 +2,7 @@
     "card.nodeGroupCountTooltip_one": "包含 {{count}} 术语分组",
     "card.nodeGroupCountTooltip_other": "包含 {{count}} 术语分组",
     "card.termCountTooltip_one": "包含 {{count}} 术语",
-    "card.termCountTooltip_other": "包含{{count}}术语",
+    "card.termCountTooltip_other": "包含 {{count}} 术语",
     "empty.addTerm": "添加业务术语",
     "empty.addTermGroup": "添加术语分组",
     "empty.description": "创建术语和术语分组以使用共享词汇表组织数据资产。",
