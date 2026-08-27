@@ -548,8 +548,9 @@ def test_profiler_staleness_check():
 
 def test_batch_kwargs_sampling_threshold():
     """Unpartitioned sampling threshold: at/below sample_size the table is profiled in
-    full (no custom_sql), above sample_size TABLESAMPLE is applied. Sampling only ever
-    happens on this unpartitioned path — the partition path never samples (see
+    full (no custom_sql). Above sample_size the profiler still emits no inline
+    TABLESAMPLE — the downstream profiler adapter samples the source table once, and an
+    inline TABLESAMPLE would double-sample. The partition path never samples (see
     test_batch_kwargs_sampling_with_partition_filter).
     """
     config = make_config(use_sampling=True, sample_size=1000, profiling_row_limit=10000)
@@ -568,7 +569,8 @@ def test_batch_kwargs_sampling_threshold():
         large = profiler.get_batch_kwargs(
             make_table(rows_count=50_000), "test_dataset", "test-project-123456"
         )
-        assert "TABLESAMPLE SYSTEM" in large["custom_sql"]
+        assert "TABLESAMPLE" not in large.get("custom_sql", "")
+        assert large["row_count"] == 50_000
 
 
 def test_batch_kwargs_rejects_invalid_identifier():
@@ -668,17 +670,6 @@ def test_predicate_scans_single_partition_ignores_operators_in_literals():
     assert not single("`ts` BETWEEN '2025-01-01' AND '2025-02-01'")
     # A same-day (zero-width) range still scans exactly one partition.
     assert single("`date` >= '2025-01-01' AND `date` <= '2025-01-01'")
-
-
-def test_sample_percent_guards_zero_sample_size():
-    """A zero/non-positive sample size or empty table must not emit
-    TABLESAMPLE SYSTEM (0 PERCENT), which BigQuery rejects."""
-    profiler = BigqueryProfiler(make_config(sample_size=0), BigQueryV2Report())
-    assert profiler._sample_percent(1000) == 100.0
-
-    profiler = BigqueryProfiler(make_config(sample_size=1000), BigQueryV2Report())
-    assert profiler._sample_percent(0) == 100.0
-    assert 0 < profiler._sample_percent(10000) <= 100.0
 
 
 def test_batch_kwargs_safety_limit_for_large_unsampled_table():

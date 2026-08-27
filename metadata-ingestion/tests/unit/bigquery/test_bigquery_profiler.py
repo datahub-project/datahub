@@ -719,21 +719,24 @@ def test_profiler_get_batch_kwargs(mock_get_filters):
 
 
 @patch.object(PartitionDiscovery, "get_required_partition_filters")
-def test_profiler_get_batch_kwargs_with_sampling(mock_get_filters):
+def test_profiler_get_batch_kwargs_sampling_deferred_downstream(mock_get_filters):
     config = create_test_config(use_sampling=True, sample_size=5000)
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
 
-    # Unpartitioned: sampling only applies on the non-partition path. With a partition
-    # filter the SQL never emits TABLESAMPLE (BigQuery would sample whole-table blocks
-    # before the WHERE); that is covered by test_batch_kwargs_sampling_with_partition_filter.
+    # Unpartitioned table large enough to sample. The profiler no longer emits an inline
+    # TABLESAMPLE: the SQLAlchemy adapter (_setup_sampling, mirrored by the GE profiler)
+    # samples the source table once. Emitting it here too would double-sample. It just
+    # forwards the crawl-collected row count so the adapter can size the sample without a
+    # COUNT(*).
     mock_get_filters.return_value = []
 
     table = create_test_table(rows_count=100000)
 
     result = profiler.get_batch_kwargs(table, "test_dataset", "test-project")
 
-    assert "TABLESAMPLE SYSTEM" in result["custom_sql"]
+    assert "TABLESAMPLE" not in result.get("custom_sql", "")
+    assert result["row_count"] == 100000
 
 
 def test_profiler_get_batch_kwargs_security_validation():
@@ -1699,6 +1702,26 @@ def test_partition_datetime_window_days_zero_is_same_day_range():
     assert (
         range_filter == "`event_date` >= '2024-10-15' AND `event_date` <= '2024-10-15'"
     )
+
+
+def test_partition_datetime_window_leaves_discovered_range_untouched():
+    """A discovered range predicate (half-open month/timestamp partition) has no `col =`
+    literal. Windowing must NOT inject a today-based range on top of it — that would AND
+    two ranges and, for a partition older than the window, select nothing. The discovered
+    range is left exactly as-is."""
+    config = create_test_config(partition_datetime_window_days=7)
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table()
+
+    # event_date is a recognised date-like column, so it enters the windowing loop; the
+    # half-open range (no `event_date = X` literal) must survive untouched.
+    discovered = [
+        "`event_date` >= DATE('2024-01-01') AND `event_date` < DATE('2024-02-01')"
+    ]
+
+    windowed = profiler._apply_partition_date_windowing(discovered, table)
+
+    assert windowed == discovered
 
 
 def test_internal_table_finds_actual_latest_date_comprehensive():
