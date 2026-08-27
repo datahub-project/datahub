@@ -440,3 +440,46 @@ def test_validate_and_filter_expressions():
     )
     assert len(result) == 2
     assert "`valid_col` = '2023-12-25'" in result
+
+
+@pytest.mark.parametrize(
+    "dangerous_sql",
+    [
+        "SELECT 1; EXPORT DATA OPTIONS(uri='gs://x') AS SELECT * FROM t",
+        "SELECT 1; LOAD DATA INTO t FROM FILES(uri=['gs://x'])",
+        "SELECT 1; CALL `p.d.proc`()",
+    ],
+)
+def test_validate_sql_structure_blocks_export_load_call(dangerous_sql: str) -> None:
+    with pytest.raises(ValueError):
+        validate_sql_structure(dangerous_sql)
+
+
+def test_validate_filter_expression_blocks_union_distinct_and_hash_comment():
+    # UNION DISTINCT SELECT must be caught like UNION ALL SELECT.
+    assert (
+        validate_filter_expression("`p` = 1 UNION DISTINCT SELECT secret FROM t")
+        is False
+    )
+    # '#' line comment could comment out the rest of the interpolated predicate.
+    assert validate_filter_expression("`p` = 1 # ") is False
+
+
+def test_validate_filter_expression_allows_between():
+    assert (
+        validate_filter_expression("`event_date` BETWEEN '2023-01-01' AND '2023-01-31'")
+        is True
+    )
+
+
+def test_validate_column_name_rejects_trailing_newline():
+    # A trailing newline must not slip through (fullmatch, not match with a `$` anchor).
+    assert validate_column_name("valid_col\n") is False
+
+
+def test_build_safe_table_reference_allows_digit_leading_shard():
+    # BigQuery date-sharded tables are digit-leading, backtick-quoted names.
+    assert (
+        build_safe_table_reference("my-project", "my_dataset", "20200101")
+        == "`my-project`.`my_dataset`.`20200101`"
+    )

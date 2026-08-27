@@ -4,7 +4,10 @@ from typing import Callable, Dict, List, Optional
 from google.cloud.bigquery import QueryJobConfig, Row, ScalarQueryParameter
 
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    RANGE_PARTITION_NAME,
+    BigqueryTable,
+)
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_NULL_PARTITION_ID,
     BQ_STREAMING_UNPARTITIONED_PARTITION_ID,
@@ -56,14 +59,10 @@ class InfoSchemaQueries:
                 query, job_config, "partition columns from info schema"
             )
 
-            partition_columns = [row.column_name for row in partition_column_rows]
-
-            if partition_columns:
-                return self.get_partition_column_types(
-                    table, project, schema, partition_columns, execute_query_func
-                )
-            else:
-                return {}
+            # PARTITION_COLUMN_TYPES already selects data_type, so build the
+            # {column -> type} map directly rather than issuing a second
+            # INFORMATION_SCHEMA.COLUMNS round trip (and extra failure point).
+            return {row.column_name: row.data_type for row in partition_column_rows}
         except Exception as e:
             warn(
                 self.report,
@@ -144,6 +143,15 @@ class InfoSchemaQueries:
         if not required_columns:
             return []
 
+        # A RANGE (integer) partition_id is the max bucket's inclusive floor, so it must
+        # be scanned with `>=` rather than an equality that only matches the floor row.
+        # Temporal (DATE/DATETIME/TIMESTAMP) granularity is inferred from the
+        # partition_id shape inside convert_partition_id_to_filters.
+        is_range_partition = (
+            table.partition_info is not None
+            and table.partition_info.type == RANGE_PARTITION_NAME
+        )
+
         try:
             safe_info_schema_ref = build_safe_table_reference(
                 project, schema, "INFORMATION_SCHEMA.PARTITIONS"
@@ -184,7 +192,10 @@ class InfoSchemaQueries:
                 try:
                     filters_for_partition = (
                         FilterBuilder.convert_partition_id_to_filters(
-                            partition_id, required_columns, column_types
+                            partition_id,
+                            required_columns,
+                            column_types,
+                            is_range_partition=is_range_partition,
                         )
                     )
 

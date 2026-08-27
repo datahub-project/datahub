@@ -3,7 +3,10 @@ from types import SimpleNamespace
 from typing import Any, Optional
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigqueryTable,
+    PartitionInfo,
+)
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
 )
@@ -355,3 +358,123 @@ def test_information_schema_partitions_path():
 
     assert filters is not None and len(filters) > 0
     assert "2024-11-20" in " ".join(filters)
+
+
+def test_partition_columns_from_table_info_preserves_order_and_dedups():
+    """Composite partition columns are positional, so declared order must be preserved
+    (not sorted) and duplicates collapsed.
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(
+        partition_info=PartitionInfo(fields=("region", "event_date", "region"))
+    )
+
+    columns = discovery._get_partition_columns_from_table_info(table)
+
+    assert columns == ["region", "event_date"]
+
+
+def test_inconclusive_detection_skips_partitioned_table():
+    """When the COLUMNS lookup fails and the probe errors, the partition state is unknown.
+    The table must be skipped (None), not treated as unpartitioned ([]).
+    """
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        raise RuntimeError("INFORMATION_SCHEMA unavailable")
+
+    class ProbeErrorDiscovery(PartitionDiscovery):
+        def _probe_required_partition_columns(self, *args: Any, **kwargs: Any):
+            return set(), "query timed out"
+
+    discovery = ProbeErrorDiscovery(make_config())
+
+    filters = discovery.get_required_partition_filters(
+        make_table(name="unknown_state"), "proj", "ds", execute
+    )
+
+    assert filters is None
+
+
+def test_authoritative_empty_columns_skips_probe():
+    """A successful, empty COLUMNS result is definitive (unpartitioned), so the probe
+    fallback must not run and the table is profiled unfiltered ([]).
+    """
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return []
+
+    class ProbeGuardDiscovery(PartitionDiscovery):
+        def _probe_required_partition_columns(self, *args: Any, **kwargs: Any):
+            raise AssertionError(
+                "probe must not run after an authoritative COLUMNS result"
+            )
+
+    discovery = ProbeGuardDiscovery(make_config())
+
+    filters = discovery.get_required_partition_filters(
+        make_table(name="authoritative_unpartitioned"),
+        "test-project-123456",
+        "ds",
+        execute,
+    )
+
+    assert filters == []
+
+
+def test_date_components_without_year_marked_incomplete():
+    """A month/day component without a year can't pin a single partition, so the
+    hierarchy must be flagged incomplete (not silently dropped as a complete empty set).
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        raise AssertionError("no query should run when year is absent")
+
+    result = discovery._process_date_components_hierarchically(
+        {"year": None, "month": "month", "day": None},
+        "`p`.`d`.`t`",
+        execute,
+        {},
+        {},
+    )
+
+    assert result.filters == []
+    assert result.incomplete is True
+
+
+def test_value_filter_ranges_for_temporal_columns():
+    """A discovered MAX value on a DATETIME/TIMESTAMP column must produce a half-open
+    range covering its partition, not an equality to a single instant.
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(partition_info=PartitionInfo(fields=("ts",), type="DAY"))
+
+    ts_filter = discovery._value_filter(
+        table, "ts", datetime(2025, 1, 15, 23, 59, 58), "TIMESTAMP"
+    )
+    assert ">=" in ts_filter and "<" in ts_filter
+
+    # A non-temporal column keeps a plain equality.
+    region_filter = discovery._value_filter(table, "region", "emea", "STRING")
+    assert region_filter == "`region` = 'emea'"
+
+
+def test_ingestion_time_partition_datetime_override_applies():
+    """_PARTITIONTIME is absent from INFORMATION_SCHEMA.COLUMNS, so column_types is empty;
+    the configured partition_datetime must still apply by inferring the pseudo-column type.
+    """
+    discovery = PartitionDiscovery(
+        make_config(partition_datetime=datetime(2025, 1, 15))
+    )
+    table = make_table(
+        partition_info=PartitionInfo(fields=("_PARTITIONTIME",), type="DAY")
+    )
+
+    filters = discovery._get_partition_datetime_override_filters(
+        table, {"_PARTITIONTIME"}, {}
+    )
+
+    assert filters is not None
+    assert len(filters) == 1
+    assert "_PARTITIONTIME" in filters[0]
+    assert ">=" in filters[0]
