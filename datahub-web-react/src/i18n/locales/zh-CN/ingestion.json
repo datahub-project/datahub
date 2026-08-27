@@ -125,7 +125,7 @@
     "source.emptySearchTitle": "没有搜索结果！",
     "source.emptyTitle": "还没有{{sourceType}}！",
     "source.entityTypeNameCount_one": "{{type}}",
-    "source.entityTypeNameCount_other": "{{type}}s",
+"source.entityTypeNameCount_other": "{{type}}",
     "source.execute": "执行",
     "source.executeConfirmText": "单击“执行”运行此数据采集源。",
     "source.executeConfirmTitle": "确认源执行",
