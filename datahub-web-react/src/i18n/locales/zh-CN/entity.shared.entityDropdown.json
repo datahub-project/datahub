@@ -14,7 +14,7 @@
     "createGlossary.nameMaxLengthError": "名称不得超过 100 个字符。",
     "createGlossary.namePlaceholder": "提供一个名字...",
     "createGlossary.nameRequired": "输入 {{entityName}} 名称。",
-    "createGlossary.parentLabel": "母体<optional>（可选）</optional>",
+"createGlossary.parentLabel": "父级<optional>（可选）</optional>",
     "createGlossary.searchParentPlaceholder": "搜索家长组...",
     "createGlossary.success": "创建了{{entityName}}！",
     "createGlossary.title": "创建{{entityName}}",
