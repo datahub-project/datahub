@@ -81,19 +81,40 @@ class _CollectingLogHandler(logging.Handler):
             self.messages.append(record.getMessage())
 
 
-# Guards the openapi_parser logger's level so concurrent APISource runs (see
-# _CollectingLogHandler above) don't stomp on each other's save/restore of a
-# single shared logger: only the first concurrent capture lowers the level,
-# only the last one restores it, and _saved_level always reflects the level
-# from before any concurrent capture was active.
-_level_override_lock = threading.Lock()
-_level_override_refcount = 0
-_saved_level: int = logging.NOTSET
+class _RefcountedLevelOverride:
+    """Guards a shared logger's level so concurrent APISource runs (see
+    _CollectingLogHandler above) don't stomp on each other's save/restore of
+    it: only the first concurrent lower() call actually lowers the level,
+    only the matching last restore() call restores it, and the saved level
+    always reflects the level from before any concurrent override was
+    active. The lock and refcount/saved-level are only ever touched together,
+    so they're owned by one object instead of three independent globals."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._refcount = 0
+        self._saved_level = logging.NOTSET
+
+    def lower(self, target_logger: logging.Logger, level: int) -> None:
+        with self._lock:
+            if self._refcount == 0:
+                self._saved_level = target_logger.level
+            self._refcount += 1
+            if target_logger.getEffectiveLevel() > level:
+                target_logger.setLevel(level)
+
+    def restore(self, target_logger: logging.Logger) -> None:
+        with self._lock:
+            self._refcount -= 1
+            if self._refcount == 0:
+                target_logger.setLevel(self._saved_level)
+
+
+_parser_level_override = _RefcountedLevelOverride()
 
 
 @contextmanager
 def _capture_parser_warnings() -> Iterator[List[str]]:
-    global _level_override_refcount, _saved_level
     handler = _CollectingLogHandler()
     parser_logger = logging.getLogger(_PARSER_LOGGER_NAME)
     # logger.warning(...) short-circuits on isEnabledFor(WARNING), resolved
@@ -106,21 +127,13 @@ def _capture_parser_warnings() -> Iterator[List[str]]:
     # never override a MORE permissive level a user explicitly set (e.g. -v/
     # --debug), which would otherwise hide their DEBUG/INFO output for the
     # duration of the capture.
-    with _level_override_lock:
-        if _level_override_refcount == 0:
-            _saved_level = parser_logger.level
-        _level_override_refcount += 1
-        if parser_logger.getEffectiveLevel() > logging.WARNING:
-            parser_logger.setLevel(logging.WARNING)
+    _parser_level_override.lower(parser_logger, logging.WARNING)
     parser_logger.addHandler(handler)
     try:
         yield handler.messages
     finally:
         parser_logger.removeHandler(handler)
-        with _level_override_lock:
-            _level_override_refcount -= 1
-            if _level_override_refcount == 0:
-                parser_logger.setLevel(_saved_level)
+        _parser_level_override.restore(parser_logger)
 
 
 _BAD_RESPONSE_MESSAGES: Dict[int, Tuple[str, str]] = {
@@ -766,63 +779,57 @@ class APISource(Source, ABC):
 
         # Try to extract schema from all methods for this endpoint
         schema = self.extract_schema_from_all_methods(endpoint_k, sw_dict)
+        if not schema:
+            logger.debug(f"No schema found in OpenAPI spec for {dataset_name}")
+            return None
 
-        if schema:
-            schema_metadata = self.create_schema_metadata_from_schema(
-                dataset_name, schema
-            )
-            if not schema_metadata:
-                return None
-            if not schema_metadata.fields:
-                # A schema that resolves without error but yields zero fields (e.g. a
-                # map-only response with no explicit "type": "object") is not a
-                # successful extraction — counting it as one hides the gap from users.
-                self.report.warning(
-                    title="Schema Extracted With No Fields",
-                    message="OpenAPI spec schema resolved but produced no extractable fields",
-                    context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                )
-                return None
-            # self.report.info already logs this at INFO level -- a separate
-            # logger.info call here would just duplicate it.
-            self.report.info(
-                message="Schema extracted from OpenAPI specification",
+        schema_metadata = self.create_schema_metadata_from_schema(dataset_name, schema)
+        if not schema_metadata:
+            return None
+        if not schema_metadata.fields:
+            # A schema that resolves without error but yields zero fields (e.g. a
+            # map-only response with no explicit "type": "object") is not a
+            # successful extraction — counting it as one hides the gap from users.
+            self.report.warning(
+                title="Schema Extracted With No Fields",
+                message="OpenAPI spec schema resolved but produced no extractable fields",
                 context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
             )
-            self.schema_extraction_stats.from_openapi_spec += 1
-            return schema_metadata
-        else:
-            logger.debug(f"No schema found in OpenAPI spec for {dataset_name}")
-
-        return None
+            return None
+        # self.report.info already logs this at INFO level -- a separate
+        # logger.info call here would just duplicate it.
+        self.report.info(
+            message="Schema extracted from OpenAPI specification",
+            context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+        )
+        self.schema_extraction_stats.from_openapi_spec += 1
+        return schema_metadata
 
     def _extract_schema_from_endpoint_data(
         self, endpoint_dets: Dict, dataset_name: str
     ) -> Optional[SchemaMetadataClass]:
         """Extract schema from endpoint data if available."""
-        if "data" in endpoint_dets:
-            # Extract fields from the example data using flatten2list
-            example_data = endpoint_dets["data"]
-            # The OpenAPI "example" value is free-form JSON, so it may legitimately
-            # be a list (e.g. an array-typed response: "example": [{"id": 1}, ...])
-            # or a bare scalar rather than an object. flatten2list only understands
-            # a dict of fields and calls .items() unconditionally -- passing it
-            # anything else raises AttributeError/TypeError, which aborts this
-            # endpoint's entire processing (see get_workunits_internal's per-endpoint
-            # except) instead of falling through to the next extraction strategy.
-            if isinstance(example_data, list):
-                example_data = (
-                    example_data[0]
-                    if example_data and isinstance(example_data[0], dict)
-                    else None
-                )
-            if not isinstance(example_data, dict):
-                return None
+        if "data" not in endpoint_dets:
+            return None
 
-            fields = flatten2list(example_data)
-            if fields:
-                self.schema_extraction_stats.from_endpoint_data += 1
-                return set_metadata(dataset_name, fields, original_data=example_data)
+        # Extract fields from the example data using flatten2list
+        example_data = endpoint_dets["data"]
+        # The OpenAPI "example" value is free-form JSON, so it may legitimately
+        # be a list (e.g. an array-typed response: "example": [{"id": 1}, ...])
+        # or a bare scalar rather than an object. flatten2list only understands
+        # a dict of fields and calls .items() unconditionally -- passing it
+        # anything else raises AttributeError/TypeError, which aborts this
+        # endpoint's entire processing (see get_workunits_internal's per-endpoint
+        # except) instead of falling through to the next extraction strategy.
+        if isinstance(example_data, list):
+            example_data = example_data[0] if example_data else None
+        if not isinstance(example_data, dict):
+            return None
+
+        fields = flatten2list(example_data)
+        if fields:
+            self.schema_extraction_stats.from_endpoint_data += 1
+            return set_metadata(dataset_name, fields, original_data=example_data)
         return None
 
     def _has_credentials(self) -> bool:

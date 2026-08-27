@@ -726,6 +726,54 @@ paths:
         self.assertIn("/pets", endpoints)
         self.assertNotIn("/broken", endpoints)
 
+    def test_get_endpoints_malformed_tags_warns_and_falls_back_to_empty_list(
+        self,
+    ) -> None:
+        # Regression: a malformed non-list "tags" (e.g. a bare string) used to
+        # be stored as-is and later iterated character-by-character by the
+        # caller, silently emitting one bogus single-letter tag per character
+        # instead of failing loudly.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/pets": {
+                    "get": {
+                        "tags": "not-a-list",
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                },
+            },
+        }
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ) as cm:
+            endpoints = get_endpoints(sw_dict)
+        self.assertEqual(endpoints["/pets"]["tags"], [])
+        self.assertTrue(any("malformed 'tags'" in msg for msg in cm.output))
+
+    def test_get_endpoints_malformed_description_warns_and_falls_back_to_empty_string(
+        self,
+    ) -> None:
+        # Regression: a non-string description/summary flowed straight into
+        # DatasetPropertiesClass with no validation or warning.
+        sw_dict = {
+            "openapi": "3.0.0",
+            "paths": {
+                "/pets": {
+                    "get": {
+                        "description": {"not": "a string"},
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                },
+            },
+        }
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="WARNING"
+        ) as cm:
+            endpoints = get_endpoints(sw_dict)
+        self.assertEqual(endpoints["/pets"]["description"], "")
+        self.assertTrue(any("malformed 'description'" in msg for msg in cm.output))
+
     def test_get_endpoints_malformed_content_does_not_abort_other_endpoints(
         self,
     ) -> None:
@@ -2142,6 +2190,24 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
             any("removed to avoid jsonref failure" in msg for msg in cm.output)
         )
 
+    def test_resolve_schema_references_external_ref_logs_info_not_warning(self):
+        # Regression: an external-file $ref (a normal, spec-legal pattern this
+        # connector doesn't resolve) was logged identically to a genuinely
+        # broken local ref, misleading operators into treating a healthy
+        # spec's use of split files as evidence of a malformed spec.
+        schema = {"$ref": "external.yaml#/Pet"}
+        with self.assertLogs(
+            "datahub.ingestion.source.openapi_parser", level="INFO"
+        ) as cm:
+            resolved = resolve_schema_references(schema, _EMPTY_OPENAPI_SW)
+        self.assertNotIn("$ref", resolved)
+        self.assertFalse(
+            any("Unable to resolve schema $ref" in msg for msg in cm.output)
+        )
+        self.assertTrue(
+            any("external/unsupported schema $ref" in msg for msg in cm.output)
+        )
+
     def test_resolve_schema_references_null_components_does_not_crash(self):
         # Regression: `sw_dict.get("components", {}).get("schemas", {})` chained a
         # second .get() before the isinstance guard could run, so an explicit
@@ -2254,6 +2320,83 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
         self.assertEqual(resolved["additionalProperties"], {"type": "string"})
         self.assertIsNot(resolved["additionalProperties"], value_schema)
+
+    def test_merge_allof_additional_properties_deep_merges_across_members(self):
+        # Two allOf members each contributing a dict-valued additionalProperties
+        # must be deep-merged (matching top-level "properties" semantics), not
+        # first-wins/overwritten.
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "allOf": [
+                {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {"a": {"type": "string"}},
+                    },
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {"b": {"type": "integer"}},
+                    },
+                },
+            ]
+        }
+
+        resolved = merge_allof_schemas(schema, sw_dict)
+
+        additional = resolved["additionalProperties"]
+        self.assertEqual(additional["properties"]["a"]["type"], "string")
+        self.assertEqual(additional["properties"]["b"]["type"], "integer")
+
+    def test_merge_allof_items_deep_merges_across_members(self):
+        # Two allOf members each contributing a distinct "items" schema must be
+        # unioned into one item schema via the same merge machinery as
+        # top-level "properties", not overwritten by the later member.
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "allOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {"a": {"type": "string"}},
+                    },
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {"b": {"type": "integer"}},
+                    },
+                },
+            ]
+        }
+
+        resolved = merge_allof_schemas(schema, sw_dict)
+
+        items = resolved["items"]
+        self.assertEqual(items["properties"]["a"]["type"], "string")
+        self.assertEqual(items["properties"]["b"]["type"], "integer")
+
+    def test_merge_allof_property_names_deep_merges_across_members(self):
+        # Two plain (non-$ref) allOf members each contributing a distinct
+        # propertyNames schema must be combined, not overwritten.
+        sw_dict = _EMPTY_OPENAPI_SW
+        schema = {
+            "allOf": [
+                {"type": "object", "propertyNames": {"minLength": 1}},
+                {"type": "object", "propertyNames": {"maxLength": 8}},
+            ]
+        }
+
+        resolved = merge_allof_schemas(schema, sw_dict)
+
+        names = resolved["propertyNames"]
+        self.assertEqual(names.get("minLength"), 1)
+        self.assertEqual(names.get("maxLength"), 8)
 
     def test_merge_allof_mismatched_numeric_bounds_no_error(self):
         # Type-mismatched minLength across allOf members must not TypeError.

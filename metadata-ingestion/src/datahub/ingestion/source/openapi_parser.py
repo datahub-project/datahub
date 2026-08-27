@@ -208,7 +208,7 @@ def get_url_basepath(sw_dict: dict) -> str:
     return ""
 
 
-def _require_object(value: object, label: str, context: str) -> bool:
+def _is_object(value: object, label: str, context: str) -> TypeGuard[Dict[Any, Any]]:
     """Log and reject a malformed non-object value; never logs the value
     itself, since it may be arbitrarily large (e.g. a full response body)."""
     if isinstance(value, dict):
@@ -266,56 +266,72 @@ def get_endpoints(sw_dict: dict) -> dict:
     for p_k, p_o in sw_dict["paths"].items():
         # Only set metadata if it doesn't already exist (don't overwrite higher-priority metadata)
         # A malformed path item must not abort every other endpoint's extraction.
-        if not _require_object(p_o, "path item", p_k):
+        if not _is_object(p_o, "path item", p_k):
             continue
 
         for method in all_methods:
             method_spec = p_o.get(method)
             if not method_spec:
                 continue
-            if not _require_object(method_spec, "method spec", f"{method} {p_k}"):
+            if not _is_object(method_spec, "method spec", f"{method} {p_k}"):
                 continue
 
             responses = method_spec.get("responses", {})
-            if not _require_object(responses, "responses", f"{method} {p_k}"):
+            if not _is_object(responses, "responses", f"{method} {p_k}"):
                 continue
             base_res = responses.get("200") or responses.get(200)
             if not base_res:
                 # if there is no 200 response, we skip this method
                 continue
-            if not _require_object(base_res, "200 response", f"{method} {p_k}"):
+            if not _is_object(base_res, "200 response", f"{method} {p_k}"):
                 continue
 
             # Initialize endpoint details if it doesn't exist
-            if p_k not in url_details:
-                url_details[p_k] = {}
+            details = url_details.setdefault(p_k, {})
 
             # Only set metadata if it doesn't already exist (preserve higher-priority metadata)
-            if "method" not in url_details[p_k]:
-                url_details[p_k]["method"] = method.lower()
+            if "method" not in details:
+                details["method"] = method.lower()
 
-            if (
-                "description" not in url_details[p_k]
-                or not url_details[p_k]["description"]
-            ):
+            if "description" not in details or not details["description"]:
                 # if the description is not present, we will use the summary
                 # if both are not present, we will use an empty string
                 desc = method_spec.get("description") or method_spec.get("summary", "")
-                url_details[p_k]["description"] = desc
+                if not isinstance(desc, str):
+                    logger.warning(
+                        "Skipping malformed 'description'/'summary' %r on %r "
+                        "(expected string, got %s)",
+                        desc,
+                        f"{method} {p_k}",
+                        type(desc).__name__,
+                    )
+                    desc = ""
+                details["description"] = desc
 
-            if "tags" not in url_details[p_k] or not url_details[p_k]["tags"]:
+            if "tags" not in details or not details["tags"]:
                 # if the tags are not present, we will use an empty list
                 tags = method_spec.get("tags", [])
-                url_details[p_k]["tags"] = tags
+                if not isinstance(tags, list) or not all(
+                    isinstance(tag, str) for tag in tags
+                ):
+                    logger.warning(
+                        "Skipping malformed 'tags' %r on %r (expected list of "
+                        "strings, got %s)",
+                        tags,
+                        f"{method} {p_k}",
+                        type(tags).__name__,
+                    )
+                    tags = []
+                details["tags"] = tags
 
             # Example data can be added from any method (accumulate if needed)
             example_data = check_for_api_example_data(base_res, p_k)
-            if example_data and "data" not in url_details[p_k]:
-                url_details[p_k]["data"] = example_data
+            if example_data and "data" not in details:
+                details["data"] = example_data
 
             # checking whether there are defined parameters to execute the call...
-            if "parameters" in method_spec and "parameters" not in url_details[p_k]:
-                url_details[p_k]["parameters"] = method_spec["parameters"]
+            if "parameters" in method_spec and "parameters" not in details:
+                details["parameters"] = method_spec["parameters"]
 
     return dict(sorted(url_details.items()))
 
@@ -967,23 +983,20 @@ def _merge_allof_properties(
         return
     existing_props = merged_schema.get("properties")
     # Copy before mutate — merged_schema may still alias a member's properties dict.
-    merged_schema["properties"] = (
+    props: Dict[str, Any] = (
         dict(existing_props) if isinstance(existing_props, dict) else {}
     )
+    merged_schema["properties"] = props
     for prop_name, prop_schema in incoming_props.items():
-        existing = merged_schema["properties"].get(prop_name)
-        if (
-            existing is not None
-            and isinstance(existing, dict)
-            and isinstance(prop_schema, dict)
-        ):
-            merged_schema["properties"][prop_name] = merge_allof_schemas(
+        existing = props.get(prop_name)
+        if isinstance(existing, dict) and isinstance(prop_schema, dict):
+            props[prop_name] = merge_allof_schemas(
                 _combine_under_allof(existing, prop_schema),
                 sw_dict,
                 max_depth=max_depth,
             )
         else:
-            merged_schema["properties"][prop_name] = prop_schema
+            props[prop_name] = prop_schema
 
 
 def _merge_allof_map_keywords(
@@ -1252,6 +1265,9 @@ def _combine_under_allof(
         else:
             members.append(part)
     return {"allOf": members}
+
+
+_LOCAL_REF_PREFIXES = ("#/definitions/", "#/components/schemas/", "#/$defs/")
 
 
 def _decode_json_pointer_token(token: str) -> str:
@@ -1545,10 +1561,20 @@ def _resolve_schema_refs(schema: object, sw_dict: Dict, max_depth: int = 10) -> 
                 sw_dict,
                 max_depth=max_depth - 1,
             )
-        logger.warning(
-            "Unable to resolve schema $ref %r; leaving reference unresolved",
-            ref_path,
-        )
+        if isinstance(ref_path, str) and not ref_path.startswith(_LOCAL_REF_PREFIXES):
+            # An external-file reference or an unsupported local JSON Pointer
+            # shape -- a normal, spec-legal pattern this connector doesn't
+            # resolve, not evidence the spec itself is broken.
+            logger.info(
+                "Leaving external/unsupported schema $ref %r unresolved "
+                "(only local definitions/components/$defs refs are supported)",
+                ref_path,
+            )
+        else:
+            logger.warning(
+                "Unable to resolve schema $ref %r; leaving reference unresolved",
+                ref_path,
+            )
 
     # Recursively resolve references in properties. Shallow schema.copy() still
     # aliases the nested properties map from sw_dict — copy before rewrite so
