@@ -416,22 +416,53 @@ public final class EntityAspectAuthorizationUtils {
   }
 
   /**
-   * Subject-match mode for query-read authorization. With the dedicated flag enabled (the default),
-   * the operator-configured {@code requireAllSubjects} applies — default false: any single subject
-   * dataset suffices. When active only via the legacy view-authorization switch (dedicated flag
-   * explicitly disabled), the original all-subjects behavior is preserved.
+   * Resolves the operator-configured {@code requireAllSubjects} mode. With the dedicated flag
+   * enabled (the default), the configured mode applies — default {@code FALSE}: any single subject
+   * dataset suffices everywhere. When active only via the legacy view-authorization switch
+   * (dedicated flag explicitly disabled), the original all-subjects behavior is preserved ({@code
+   * TRUE}, regardless of the configured mode).
    */
-  public static boolean requireAllQuerySubjects(
-      @Nonnull io.datahubproject.metadata.context.OperationContext opContext) {
+  private static com.datahub.authorization.config.ViewAuthorizationConfiguration
+          .RequireAllSubjectsMode
+      requireAllSubjectsMode(
+          @Nonnull io.datahubproject.metadata.context.OperationContext opContext) {
     com.datahub.authorization.config.ViewAuthorizationConfiguration view =
         opContext.getOperationContextConfig().getViewAuthorizationConfiguration();
     if (view.getQueryEntities() == null) {
-      return false;
+      return com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
+          .FALSE;
     }
     if (view.getQueryEntities().isEnabled()) {
-      return view.getQueryEntities().isRequireAllSubjects();
+      return view.getQueryEntities().getRequireAllSubjects();
     }
-    return true;
+    return com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
+        .TRUE;
+  }
+
+  /**
+   * Subject-match mode for query-read authorization everywhere EXCEPT the dataset view page's
+   * Queries tab (see {@link #requireAllQuerySubjectsOnDatasetViewPage}): direct Query entity reads,
+   * REST/OpenAPI, {@code topSqlQueries}. {@code COMPAT} resolves to any-subject here — only the
+   * literal {@code TRUE} mode requires all subjects for these callers.
+   */
+  public static boolean requireAllQuerySubjects(
+      @Nonnull io.datahubproject.metadata.context.OperationContext opContext) {
+    return requireAllSubjectsMode(opContext)
+        == com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
+            .TRUE;
+  }
+
+  /**
+   * Subject-match mode for the dataset view page's Queries tab (the {@code listQueries} GraphQL
+   * query when scoped to a dataset via {@code ListQueriesInput.datasetUrn}). {@code COMPAT}
+   * resolves to require-all here, unlike {@link #requireAllQuerySubjects} — only the literal {@code
+   * FALSE} mode accepts any single subject for this caller.
+   */
+  public static boolean requireAllQuerySubjectsOnDatasetViewPage(
+      @Nonnull io.datahubproject.metadata.context.OperationContext opContext) {
+    return requireAllSubjectsMode(opContext)
+        != com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
+            .FALSE;
   }
 
   /**

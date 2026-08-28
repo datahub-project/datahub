@@ -981,21 +981,50 @@ public class EntityAspectAuthorizationUtilsTest {
     ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig strict =
         ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
             .enabled(true)
-            .requireAllSubjects(true)
+            .requireAllSubjects(ViewAuthorizationConfiguration.RequireAllSubjectsMode.TRUE)
             .build();
     Assert.assertTrue(
         EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(
             queryAuthContext(strict, false)));
     Assert.assertTrue(
         EntityAspectAuthorizationUtils.requireAllQuerySubjects(queryAuthContext(strict, false)));
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.requireAllQuerySubjectsOnDatasetViewPage(
+            queryAuthContext(strict, false)));
 
     ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig anyMode =
         ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
             .enabled(true)
-            .requireAllSubjects(false)
+            .requireAllSubjects(ViewAuthorizationConfiguration.RequireAllSubjectsMode.FALSE)
             .build();
     Assert.assertFalse(
         EntityAspectAuthorizationUtils.requireAllQuerySubjects(queryAuthContext(anyMode, false)));
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.requireAllQuerySubjectsOnDatasetViewPage(
+            queryAuthContext(anyMode, false)));
+  }
+
+  /**
+   * COMPAT splits behavior by caller: the dataset view page's Queries tab requires all subjects
+   * (same as strict mode), but every other caller — direct Query entity reads, REST/OpenAPI, {@code
+   * topSqlQueries} — gets any-subject (same as the default any mode).
+   */
+  @Test
+  public void testRequireAllQuerySubjects_compatModeSplitsByCallSite() {
+    ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig compat =
+        ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
+            .enabled(true)
+            .requireAllSubjects(ViewAuthorizationConfiguration.RequireAllSubjectsMode.COMPAT)
+            .build();
+    io.datahubproject.metadata.context.OperationContext compatContext =
+        queryAuthContext(compat, false);
+
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.requireAllQuerySubjects(compatContext),
+        "COMPAT must behave like any-subject mode everywhere except the dataset view page");
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.requireAllQuerySubjectsOnDatasetViewPage(compatContext),
+        "COMPAT must require all subjects on the dataset view page's Queries tab");
   }
 
   private io.datahubproject.metadata.context.OperationContext queryAuthContext(

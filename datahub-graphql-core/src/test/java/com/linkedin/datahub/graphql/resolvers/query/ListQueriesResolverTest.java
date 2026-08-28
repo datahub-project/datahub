@@ -61,6 +61,8 @@ public class ListQueriesResolverTest {
 
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)");
+  private static final Urn TEST_DATASET_URN_2 =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my-test-2,PROD)");
   private static final Urn TEST_QUERY_URN = Urn.createFromTuple("query", "test-id");
 
   private static final ListQueriesInput TEST_INPUT_FULL_FILTERS =
@@ -312,6 +314,106 @@ public class ListQueriesResolverTest {
     ListQueriesResult result = resolver.get(mockEnv).get();
     assertEquals(result.getQueries().size(), 1);
     Mockito.verify(aspectRetriever, Mockito.never()).getLatestAspectObjects(any(), any(), any());
+  }
+
+  /**
+   * COMPAT mode requires all subjects on the dataset view page's Queries tab ({@code datasetUrn}
+   * set) but any-subject everywhere else ({@code datasetUrn} unset) — verified with a two-subject
+   * query where the actor holds VIEW_ENTITY_QUERIES on only one of the two subjects.
+   */
+  @Test
+  public void testCompatModeRequiresAllSubjectsOnlyWhenDatasetScoped() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(aspectRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+
+    QuerySubjects twoSubjects = new QuerySubjects();
+    twoSubjects.setSubjects(
+        new QuerySubjectArray(
+            new QuerySubject().setEntity(TEST_DATASET_URN),
+            new QuerySubject().setEntity(TEST_DATASET_URN_2)));
+    Mockito.when(
+            aspectRetriever.getLatestAspectObjects(
+                any(),
+                eq(ImmutableSet.of(TEST_QUERY_URN)),
+                eq(ImmutableSet.of(Constants.QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_QUERY_URN,
+                ImmutableMap.of(
+                    Constants.QUERY_SUBJECTS_ASPECT_NAME, new Aspect(twoSubjects.data()))));
+
+    // Grants VIEW_ENTITY_QUERIES on TEST_DATASET_URN only, not TEST_DATASET_URN_2.
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              boolean allowed =
+                  request.getResourceSpec().isPresent()
+                      && TEST_DATASET_URN
+                          .toString()
+                          .equals(request.getResourceSpec().get().getEntity());
+              return new AuthorizationResult(
+                  request,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  "");
+            });
+
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.QUERY_ENTITY_NAME),
+                any(),
+                any(),
+                any(),
+                anyInt(),
+                any()))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(new SearchEntity().setEntity(TEST_QUERY_URN)))));
+
+    ViewAuthorizationConfiguration compatConfig =
+        ViewAuthorizationConfiguration.builder()
+            .enabled(false)
+            .queryEntities(
+                ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
+                    .enabled(true)
+                    .requireAllSubjects(
+                        ViewAuthorizationConfiguration.RequireAllSubjectsMode.COMPAT)
+                    .build())
+            .build();
+
+    ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
+
+    // Dataset-scoped (the dataset view page's Queries tab): COMPAT requires all subjects, so the
+    // query must be excluded since TEST_DATASET_URN_2 is not viewable.
+    QueryContext datasetScopedContext =
+        createContext(mockAuthorizer, aspectRetriever, compatConfig);
+    DataFetchingEnvironment datasetScopedEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(datasetScopedEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(TEST_INPUT_FULL_FILTERS);
+    Mockito.when(datasetScopedEnv.getContext()).thenReturn(datasetScopedContext);
+    assertEquals(
+        resolver.get(datasetScopedEnv).get().getQueries().size(),
+        0,
+        "COMPAT must require all subjects on the dataset view page");
+
+    // Unscoped (everywhere else): COMPAT is any-subject, so the query is included.
+    QueryContext unscopedContext = createContext(mockAuthorizer, aspectRetriever, compatConfig);
+    DataFetchingEnvironment unscopedEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(unscopedEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_SOURCE_FILTER);
+    Mockito.when(unscopedEnv.getContext()).thenReturn(unscopedContext);
+    assertEquals(
+        resolver.get(unscopedEnv).get().getQueries().size(),
+        1,
+        "COMPAT must accept any single subject when not scoped to a dataset");
   }
 
   @Test

@@ -32,6 +32,15 @@ import io.datahubproject.metadata.context.OperationContext;
  * VIEW_ENTITY_QUERIES} and {@code VIEW_ALL_QUERIES} is reserved for admin/reader-tier roles that
  * genuinely need unconditional visibility into every query, not just orphaned ones.
  *
+ * <p>When {@code VIEW_AUTHORIZATION_ENABLED} is on, this backfill is restricted to built-in system
+ * policies ({@code editable=false}, e.g. Root/Admin/Editor/Reader) and skips custom, editable
+ * policies entirely — a VBAC-enabled deployment shouldn't have this migration silently widen a
+ * narrowly-scoped custom policy with an unconditional, platform-level privilege. Administrators who
+ * want a specific custom policy to hold {@code VIEW_ALL_QUERIES} must add it manually. The sibling
+ * {@link BackfillViewEntityQueriesPrivilegeStep} is unaffected: {@code VIEW_ENTITY_QUERIES} is
+ * resource-scoped, not platform-level, so it is backfilled the same way regardless of {@code
+ * VIEW_AUTHORIZATION_ENABLED}.
+ *
  * <p>Scrolling, batching, and policy-mutation logic live in {@link
  * AbstractBackfillQueryPrivilegeStep}, shared with {@link BackfillViewEntityQueriesPrivilegeStep}.
  */
@@ -53,11 +62,18 @@ public class BackfillViewAllQueriesPrivilegeStep extends AbstractBackfillQueryPr
         entityService,
         searchService,
         reprocessEnabled,
-        batchSize);
+        batchSize,
+        /* restrictToSystemPoliciesWhenViewAuthEnabled= */ true);
   }
 
   @VisibleForTesting
   static boolean shouldBackfill(DataHubPolicyInfo info) {
-    return AbstractBackfillQueryPrivilegeStep.shouldBackfill(info, VIEW_ALL_QUERIES);
+    return shouldBackfill(info, /* restrictToSystemPolicies= */ false);
+  }
+
+  @VisibleForTesting
+  static boolean shouldBackfill(DataHubPolicyInfo info, boolean restrictToSystemPolicies) {
+    return AbstractBackfillQueryPrivilegeStep.shouldBackfill(
+        info, VIEW_ALL_QUERIES, restrictToSystemPolicies);
   }
 }

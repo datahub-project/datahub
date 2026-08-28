@@ -64,11 +64,23 @@ public class ViewAuthorizationConfiguration {
     @Builder.Default private boolean enabled = true;
 
     /**
-     * When true, reading a query requires {@code VIEW_ENTITY_QUERIES} on ALL of its subject
-     * datasets (a query's SQL reveals information about every dataset it touches). When false (the
-     * default), holding the privilege on any single subject dataset suffices — the initial rollout
-     * posture, with the strict mode as the eventual destination.
+     * Subject-match mode for query reads. {@code TRUE} requires {@code VIEW_ENTITY_QUERIES} on ALL
+     * of a query's subject datasets everywhere (a query's SQL reveals information about every
+     * dataset it touches). {@code FALSE} (the default) accepts the privilege on any single subject
+     * dataset everywhere — the initial rollout posture. {@code COMPAT} splits the difference:
+     * require-all on the dataset view page's Queries tab (the listing an admin is most likely to
+     * treat as authoritative for "what queries touch this dataset"), any-subject everywhere else
+     * (direct Query entity reads, REST/OpenAPI, {@code topSqlQueries}) — a middle ground for
+     * deployments not yet ready for strict everywhere.
      */
-    private boolean requireAllSubjects;
+    @Builder.Default
+    private RequireAllSubjectsMode requireAllSubjects = RequireAllSubjectsMode.FALSE;
+  }
+
+  /** See {@link QueryEntityAuthorizationConfig#requireAllSubjects}. */
+  public enum RequireAllSubjectsMode {
+    TRUE,
+    FALSE,
+    COMPAT
   }
 }

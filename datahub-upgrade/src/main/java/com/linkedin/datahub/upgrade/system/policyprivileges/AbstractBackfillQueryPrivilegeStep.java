@@ -79,6 +79,7 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
   private final Integer batchSize;
   private final EntityService<?> entityService;
   private final SearchService searchService;
+  private final boolean restrictToSystemPoliciesWhenViewAuthEnabled;
 
   protected AbstractBackfillQueryPrivilegeStep(
       String upgradeId,
@@ -88,6 +89,35 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
       SearchService searchService,
       boolean reprocessEnabled,
       Integer batchSize) {
+    this(
+        upgradeId,
+        targetPrivilege,
+        opContext,
+        entityService,
+        searchService,
+        reprocessEnabled,
+        batchSize,
+        false);
+  }
+
+  /**
+   * @param restrictToSystemPoliciesWhenViewAuthEnabled when true AND {@code
+   *     VIEW_AUTHORIZATION_ENABLED} is on, only backfills policies with {@code editable=false} (the
+   *     built-in Root/Admin/Editor/Reader-style policies — see {@code SystemPolicyValidator}).
+   *     Custom, editable policies are left untouched: a VBAC-enabled deployment shouldn't have this
+   *     migration silently widen a narrowly-scoped custom policy. Has no effect when {@code
+   *     VIEW_AUTHORIZATION_ENABLED} is off, or when false (the sibling {@code VIEW_ENTITY_QUERIES}
+   *     backfill's behavior, unchanged).
+   */
+  protected AbstractBackfillQueryPrivilegeStep(
+      String upgradeId,
+      String targetPrivilege,
+      OperationContext opContext,
+      EntityService<?> entityService,
+      SearchService searchService,
+      boolean reprocessEnabled,
+      Integer batchSize,
+      boolean restrictToSystemPoliciesWhenViewAuthEnabled) {
     this.upgradeId = upgradeId;
     this.upgradeIdUrn = BootstrapStep.getUpgradeUrn(upgradeId);
     this.targetPrivilege = targetPrivilege;
@@ -96,6 +126,7 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
     this.searchService = searchService;
     this.reprocessEnabled = reprocessEnabled;
     this.batchSize = batchSize;
+    this.restrictToSystemPoliciesWhenViewAuthEnabled = restrictToSystemPoliciesWhenViewAuthEnabled;
   }
 
   @Override
@@ -233,7 +264,13 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
         entityResponse.getAspects().get(DATAHUB_POLICY_INFO_ASPECT_NAME).getValue().data();
     final DataHubPolicyInfo infoAspect = new DataHubPolicyInfo(dataMap);
 
-    if (!shouldBackfill(infoAspect, targetPrivilege)) {
+    final boolean restrictToSystemPolicies =
+        restrictToSystemPoliciesWhenViewAuthEnabled
+            && opContext
+                .getOperationContextConfig()
+                .getViewAuthorizationConfiguration()
+                .isEnabled();
+    if (!shouldBackfill(infoAspect, targetPrivilege, restrictToSystemPolicies)) {
       return;
     }
 
@@ -251,8 +288,19 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
   }
 
   protected static boolean shouldBackfill(DataHubPolicyInfo info, String targetPrivilege) {
+    return shouldBackfill(info, targetPrivilege, false);
+  }
+
+  /**
+   * @param restrictToSystemPolicies when true, only a policy with {@code editable=false} (a
+   *     built-in system policy) qualifies — see {@link
+   *     #restrictToSystemPoliciesWhenViewAuthEnabled}.
+   */
+  protected static boolean shouldBackfill(
+      DataHubPolicyInfo info, String targetPrivilege, boolean restrictToSystemPolicies) {
     return info.hasPrivileges()
         && info.getPrivileges().contains(VIEW_ENTITY_PAGE)
-        && !info.getPrivileges().contains(targetPrivilege);
+        && !info.getPrivileges().contains(targetPrivilege)
+        && (!restrictToSystemPolicies || !info.isEditable());
   }
 }

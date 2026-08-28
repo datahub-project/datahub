@@ -351,7 +351,8 @@ public class QueryTypeTest {
                 .queryEntities(
                     ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
                         .enabled(true)
-                        .requireAllSubjects(true)
+                        .requireAllSubjects(
+                            ViewAuthorizationConfiguration.RequireAllSubjectsMode.TRUE)
                         .build())
                 .build());
     QueryContext mockContext = Mockito.mock(QueryContext.class);
