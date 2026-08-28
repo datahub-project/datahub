@@ -60,18 +60,18 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
   /**
    * Upper bound on raw search candidates a single request will fetch while overfetching past the
    * requested page to authorize it exactly. Protects an unscoped call (no dataset/source filter)
-   * from scrolling the entire Query index one batch at a time. Real callers today always scope
-   * this call to one dataset, so this should never trigger in practice; if it does, the request is
+   * from scrolling the entire Query index one batch at a time. Real callers today always scope this
+   * call to one dataset, so this should never trigger in practice; if it does, the request is
    * rejected outright rather than returning a partial page or an inexact total.
    */
   static final int MAX_QUERY_OVERFETCH_CANDIDATES = 10_000;
 
   /**
    * Wall-clock budget for that same overfetch, independent of the candidate cap above: bounds
-   * against slow individual batches (a degraded search cluster, an unusually large policy set)
-   * that a fixed candidate count can't anticipate. Comfortably under
-   * {@code DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS} (55s default) so this fails with a clear,
-   * specific error before the servlet's own request timeout would.
+   * against slow individual batches (a degraded search cluster, an unusually large policy set) that
+   * a fixed candidate count can't anticipate. Comfortably under {@code
+   * DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS} (55s default) so this fails with a clear, specific error
+   * before the servlet's own request timeout would.
    */
   static final long MAX_QUERY_OVERFETCH_MILLIS = 30_000L;
 
@@ -149,9 +149,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
             count);
 
     final List<Urn> queryUrns =
-        gmsResult.getEntities().stream()
-            .map(SearchEntity::getEntity)
-            .collect(Collectors.toList());
+        gmsResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
 
     final ListQueriesResult result = new ListQueriesResult();
     result.setStart(gmsResult.getFrom());
@@ -164,8 +162,8 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
   /**
    * Applies the requested query/filters/sort to obtain one stable ordered stream via {@link
    * EntityClient#scrollAcrossEntities}, authorizes it batch by batch in that same order, and only
-   * then applies start/count to the authorized stream — so start, count, and total all describe
-   * the actor's authorized view rather than the raw search result. Pagination has to happen after
+   * then applies start/count to the authorized stream — so start, count, and total all describe the
+   * actor's authorized view rather than the raw search result. Pagination has to happen after
    * authorization, not before: filtering an already-paginated raw page (as a single search call
    * would) leaks the existence/count of denied queries through a shifting total and can strand
    * authorized queries behind a raw-page boundary.

@@ -436,8 +436,8 @@ public class ListQueriesResolverTest {
 
   /**
    * A request whose authorized scan would exceed {@link
-   * ListQueriesResolver#MAX_QUERY_OVERFETCH_CANDIDATES} is rejected outright rather than
-   * returning a partial page or an inexact total.
+   * ListQueriesResolver#MAX_QUERY_OVERFETCH_CANDIDATES} is rejected outright rather than returning
+   * a partial page or an inexact total.
    */
   @Test
   public void testGetThrowsWhenCandidateScanExceedsCap() throws Exception {
@@ -455,9 +455,7 @@ public class ListQueriesResolverTest {
             mockClient.scrollAcrossEntities(
                 any(), any(), any(), any(), any(), any(), any(), anyInt()))
         .thenReturn(
-            new ScrollResult()
-                .setEntities(new SearchEntityArray(fullBatch))
-                .setScrollId("more"));
+            new ScrollResult().setEntities(new SearchEntityArray(fullBatch)).setScrollId("more"));
 
     // Grant VIEW_ALL_QUERIES so every candidate is trivially authorized without any per-query
     // subject lookup — the cap must trip on candidate count alone.
