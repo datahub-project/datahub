@@ -45,7 +45,7 @@ claude mcp add --transport http \
 
 :::
 
-### Self-Hosted DataHub
+### DataHub Core
 
 Install [`uv`](https://github.com/astral-sh/uv) (`curl -LsSf https://astral.sh/uv/install.sh | sh`), then:
 
@@ -101,7 +101,7 @@ Open **Claude Desktop → Settings → Developer → Edit Config** and update `c
 }
 ```
 
-### Self-Hosted DataHub
+### DataHub Core
 
 1. Run `which uvx` to find the full path to `uvx`.
 2. Open **Claude Desktop → Settings → Developer → Edit Config** and update `claude_desktop_config.json`:

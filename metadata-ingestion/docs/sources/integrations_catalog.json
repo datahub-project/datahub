@@ -3,7 +3,7 @@
     "external": true,
     "platform_type": "Orchestrator",
     "connection_type": "Push",
-    "support_status": "Certified",
+    "support_status": "GA",
     "description": "Airflow is an open-source data orchestration tool used for scheduling, monitoring, and managing complex data pipelines.",
     "title": "Airflow",
     "doc_path_override": "docs/lineage/airflow",
@@ -66,7 +66,7 @@
     "external": true,
     "platform_type": "Orchestrator",
     "connection_type": "Pull",
-    "support_status": "Certified",
+    "support_status": "GA",
     "description": "Dagster is a next-generation open source orchestration platform for the development, production, and observation of data assets.",
     "title": "Dagster",
     "doc_path_override": "docs/lineage/dagster",
@@ -175,6 +175,7 @@
     "external": true,
     "platform_type": "Data Quality",
     "connection_type": "Push",
+    "support_status": "GA",
     "description": "Great Expectations is an open-source data validation and testing tool that helps data teams maintain data quality and integrity.",
     "title": "Great Expectations",
     "img_path": "img/logos/platforms/great-expectations.png",
@@ -363,7 +364,7 @@
     "external": true,
     "platform_type": "Orchestrator",
     "connection_type": "Pull",
-    "support_status": "Certified",
+    "support_status": "GA",
     "description": "Prefect is a modern workflow orchestration for data and ML engineers.",
     "title": "Prefect",
     "doc_path_override": "docs/lineage/prefect",
@@ -392,6 +393,7 @@
     "external": true,
     "platform_type": "Metadata Systems",
     "connection_type": "Pull",
+    "support_status": "GA",
     "description": "Protobuf Schemas is a data tool used for defining and serializing structured data in a compact and efficient manner.",
     "title": "Protobuf Schemas",
     "img_path": "img/logos/platforms/protobuf.png",
@@ -473,6 +475,7 @@
     "external": true,
     "platform_type": "ETL/ELT",
     "connection_type": "Push",
+    "support_status": "GA",
     "description": "Spark is a data processing tool that enables fast and efficient processing of large-scale data sets using distributed computing.",
     "title": "Spark",
     "doc_path_override": "docs/metadata-integration/java/acryl-spark-lineage"
@@ -804,7 +807,7 @@
   },
   "openlineage": {
     "platform_type": "Data Catalog",
-    "support_status": "Certified",
+    "support_status": "GA",
     "title": "OpenLineage",
     "description": "Open standard for data lineage collection and analysis. DataHub supports OpenLineage via a native REST endpoint and Spark event listener plugin.",
     "img_path": "img/logos/platforms/openlineage.svg",
@@ -952,9 +955,10 @@
     "description": "Unified analytics platform from Microsoft that integrates data engineering, data science, warehousing, and real-time analytics.",
     "img_path": "img/logos/platforms/microsoft-fabric.svg"
   },
-  "monte-carlo": {
+  "montecarlo": {
     "api_connector": true,
     "platform_type": "Data Quality",
+    "support_status": "Alpha",
     "title": "Monte Carlo",
     "description": "Data observability platform that detects, resolves, and prevents data quality issues across your data stack.",
     "img_path": "img/logos/platforms/monte-carlo.svg"

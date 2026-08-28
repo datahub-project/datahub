@@ -340,10 +340,10 @@ This section covers how to design access policies when **view-based access contr
 
 ### When this guidance applies
 
-| Deployment            | VBAC prerequisite                                                                      | What it enables                                                                                                                     |
-| --------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **DataHub Cloud**     | [Search Access Controls](../features/feature-guides/search-access-controls.md) enabled | **`View Entity`** privilege; search results filtered at query time                                                                  |
-| **Self-hosted (OSS)** | `VIEW_AUTHORIZATION_ENABLED=true` on GMS                                               | **`View Entity Page`** privilege; entity page gating and optional post-search result masking — **not** Elasticsearch query pushdown |
+| Deployment        | VBAC prerequisite                                                                      | What it enables                                                                                                                     |
+| ----------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **DataHub Cloud** | [Search Access Controls](../features/feature-guides/search-access-controls.md) enabled | **`View Entity`** privilege; search results filtered at query time                                                                  |
+| **DataHub Core**  | `VIEW_AUTHORIZATION_ENABLED=true` on GMS                                               | **`View Entity Page`** privilege; entity page gating and optional post-search result masking — **not** Elasticsearch query pushdown |
 
 When VBAC is enabled (`VIEW_AUTHORIZATION_ENABLED` on OSS, or Cloud Search Access Controls), entity types are
 **restricted by default**. Types marked `viewUnrestricted: true` in `entity-registry.yml`, plus optional

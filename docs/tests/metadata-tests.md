@@ -275,7 +275,7 @@ Metadata Tests are evaluated in two scenarios:
 
 2. **Scheduled evaluation**: A dedicated Metadata Test evaluator runs on a recurring schedule (typically every 24 hours) and evaluates all tests against the entire Metadata Graph. The cadence can be adjusted. It can be made more frequent in limited cases where metadata is small, subject to discussion.
 
-Both scenarios have increased server load concerns which may require additional server resources and consultation with your Acryl representative for the associated cost.
+Both scenarios have increased server load concerns which may require additional server resources and consultation with your DataHub representative for the associated cost.
 
 **Can I configure a custom evaluation schedule for my Metadata Test?**
 
