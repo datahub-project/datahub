@@ -53,6 +53,8 @@ import lombok.extern.slf4j.Slf4j;
 public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep {
   private static final String VIEW_ENTITY_PAGE =
       PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType();
+  private static final String VIEW_DATASET_USAGE =
+      PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE.getType();
 
   /**
    * Each scroll page (sized by the configurable {@code batchSize}, which can run into the
@@ -80,6 +82,7 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
   private final EntityService<?> entityService;
   private final SearchService searchService;
   private final boolean restrictToSystemPoliciesWhenViewAuthEnabled;
+  private final boolean alsoTriggerOnViewDatasetUsage;
 
   protected AbstractBackfillQueryPrivilegeStep(
       String upgradeId,
@@ -118,6 +121,37 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
       boolean reprocessEnabled,
       Integer batchSize,
       boolean restrictToSystemPoliciesWhenViewAuthEnabled) {
+    this(
+        upgradeId,
+        targetPrivilege,
+        opContext,
+        entityService,
+        searchService,
+        reprocessEnabled,
+        batchSize,
+        restrictToSystemPoliciesWhenViewAuthEnabled,
+        false);
+  }
+
+  /**
+   * @param alsoTriggerOnViewDatasetUsage when true, a policy granting {@code VIEW_DATASET_USAGE}
+   *     (not just {@code VIEW_ENTITY_PAGE}) also qualifies for backfill — used by {@link
+   *     BackfillViewEntityQueriesPrivilegeStep} so a usage-only policy (no entity-page grant at
+   *     all) doesn't lose the {@code topSqlQueries} access it had pre-upgrade. Left {@code false}
+   *     for {@link BackfillViewAllQueriesPrivilegeStep}: {@code VIEW_ALL_QUERIES} is a broad,
+   *     unconditional platform privilege that should stay tied to entity-page visibility
+   *     specifically, not usage-stats-only access.
+   */
+  protected AbstractBackfillQueryPrivilegeStep(
+      String upgradeId,
+      String targetPrivilege,
+      OperationContext opContext,
+      EntityService<?> entityService,
+      SearchService searchService,
+      boolean reprocessEnabled,
+      Integer batchSize,
+      boolean restrictToSystemPoliciesWhenViewAuthEnabled,
+      boolean alsoTriggerOnViewDatasetUsage) {
     this.upgradeId = upgradeId;
     this.upgradeIdUrn = BootstrapStep.getUpgradeUrn(upgradeId);
     this.targetPrivilege = targetPrivilege;
@@ -127,6 +161,7 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
     this.reprocessEnabled = reprocessEnabled;
     this.batchSize = batchSize;
     this.restrictToSystemPoliciesWhenViewAuthEnabled = restrictToSystemPoliciesWhenViewAuthEnabled;
+    this.alsoTriggerOnViewDatasetUsage = alsoTriggerOnViewDatasetUsage;
   }
 
   @Override
@@ -270,7 +305,8 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
                 .getOperationContextConfig()
                 .getViewAuthorizationConfiguration()
                 .isEnabled();
-    if (!shouldBackfill(infoAspect, targetPrivilege, restrictToSystemPolicies)) {
+    if (!shouldBackfill(
+        infoAspect, targetPrivilege, restrictToSystemPolicies, alsoTriggerOnViewDatasetUsage)) {
       return;
     }
 
@@ -288,7 +324,7 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
   }
 
   protected static boolean shouldBackfill(DataHubPolicyInfo info, String targetPrivilege) {
-    return shouldBackfill(info, targetPrivilege, false);
+    return shouldBackfill(info, targetPrivilege, false, false);
   }
 
   /**
@@ -298,9 +334,25 @@ public abstract class AbstractBackfillQueryPrivilegeStep implements UpgradeStep 
    */
   protected static boolean shouldBackfill(
       DataHubPolicyInfo info, String targetPrivilege, boolean restrictToSystemPolicies) {
-    return info.hasPrivileges()
-        && info.getPrivileges().contains(VIEW_ENTITY_PAGE)
-        && !info.getPrivileges().contains(targetPrivilege)
-        && (!restrictToSystemPolicies || !info.isEditable());
+    return shouldBackfill(info, targetPrivilege, restrictToSystemPolicies, false);
+  }
+
+  /**
+   * @param alsoTriggerOnViewDatasetUsage when true, {@code VIEW_DATASET_USAGE} also counts as a
+   *     triggering privilege alongside {@code VIEW_ENTITY_PAGE} — see {@link
+   *     #alsoTriggerOnViewDatasetUsage}.
+   */
+  protected static boolean shouldBackfill(
+      DataHubPolicyInfo info,
+      String targetPrivilege,
+      boolean restrictToSystemPolicies,
+      boolean alsoTriggerOnViewDatasetUsage) {
+    if (!info.hasPrivileges() || info.getPrivileges().contains(targetPrivilege)) {
+      return false;
+    }
+    boolean triggeringPrivilegeGranted =
+        info.getPrivileges().contains(VIEW_ENTITY_PAGE)
+            || (alsoTriggerOnViewDatasetUsage && info.getPrivileges().contains(VIEW_DATASET_USAGE));
+    return triggeringPrivilegeGranted && (!restrictToSystemPolicies || !info.isEditable());
   }
 }

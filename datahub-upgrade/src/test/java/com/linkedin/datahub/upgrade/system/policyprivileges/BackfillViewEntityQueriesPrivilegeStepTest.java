@@ -28,6 +28,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -45,6 +46,8 @@ public class BackfillViewEntityQueriesPrivilegeStepTest {
 
   private static final String VIEW_ENTITY_PAGE =
       PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType();
+  private static final String VIEW_DATASET_USAGE =
+      PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE.getType();
   private static final String VIEW_ENTITY_QUERIES =
       PoliciesConfig.VIEW_ENTITY_QUERIES_PRIVILEGE.getType();
 
@@ -85,6 +88,49 @@ public class BackfillViewEntityQueriesPrivilegeStepTest {
     assertFalse(
         BackfillViewEntityQueriesPrivilegeStep.shouldBackfill(new DataHubPolicyInfo()),
         "policies without privileges are untouched");
+  }
+
+  /**
+   * VIEW_DATASET_USAGE is also a triggering privilege: pre-upgrade, holding it alone (no
+   * VIEW_ENTITY_PAGE) was enough to see a dataset's topSqlQueries, since query-SQL gating didn't
+   * exist yet. Without this, a usage-only policy would silently lose that access on upgrade.
+   */
+  @Test
+  public void testShouldBackfillAlsoTriggersOnViewDatasetUsageAlone() {
+    assertTrue(
+        BackfillViewEntityQueriesPrivilegeStep.shouldBackfill(policyInfo(VIEW_DATASET_USAGE)),
+        "a usage-only policy must still qualify for the backfill");
+  }
+
+  /**
+   * A policy holding BOTH triggering privileges (VIEW_ENTITY_PAGE and VIEW_DATASET_USAGE) must
+   * still get VIEW_ENTITY_QUERIES added exactly once — not duplicated in the privileges array, and
+   * not ingested as two separate proposals.
+   */
+  @Test
+  public void testExecutableDoesNotDoubleAddWhenBothTriggeringPrivilegesPresent() throws Exception {
+    mockScrollWithSinglePolicy();
+    mockPolicyResponse(policyInfo(VIEW_ENTITY_PAGE, VIEW_DATASET_USAGE, "EDIT_ENTITY_TAGS"));
+
+    BackfillViewEntityQueriesPrivilegeStep step =
+        new BackfillViewEntityQueriesPrivilegeStep(
+            opContext, mockEntityService, mockSearchService, false, 100);
+    UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    List<MetadataChangeProposal> policyProposals = capturePolicyInfoProposals();
+    assertEquals(
+        policyProposals.size(),
+        1,
+        "exactly one policy-info proposal must be ingested, even though both triggers matched");
+
+    DataHubPolicyInfo updated =
+        GenericRecordUtils.deserializeAspect(
+            policyProposals.get(0).getAspect().getValue(),
+            policyProposals.get(0).getAspect().getContentType(),
+            DataHubPolicyInfo.class);
+    long occurrences = updated.getPrivileges().stream().filter(VIEW_ENTITY_QUERIES::equals).count();
+    assertEquals(occurrences, 1, "VIEW_ENTITY_QUERIES must appear exactly once, not duplicated");
   }
 
   @Test

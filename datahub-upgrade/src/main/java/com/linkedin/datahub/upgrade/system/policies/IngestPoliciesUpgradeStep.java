@@ -17,6 +17,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.models.AspectSpec;
@@ -51,6 +52,8 @@ import org.springframework.core.io.Resource;
 public class IngestPoliciesUpgradeStep implements UpgradeStep {
 
   private static final String STEP_ID = "ingest-policies";
+  private static final String VIEW_ALL_QUERIES =
+      PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE.getType();
 
   private final EntityService<?> _entityService;
   private final EntitySearchService _entitySearchService;
@@ -140,6 +143,18 @@ public class IngestPoliciesUpgradeStep implements UpgradeStep {
         ingestPolicy(systemOperationContext, urn, info);
       } else {
         if (!hasPolicy(systemOperationContext, urn)) {
+          // Stock editable defaults (e.g. "All Users") ship with VIEW_ALL_QUERIES for
+          // pre-VIEW_AUTHORIZATION_ENABLED compatibility, mirroring the upgrade-side
+          // BackfillViewAllQueriesPrivilegeStep restriction to non-editable (system) policies: a
+          // fresh install that already has VIEW_AUTHORIZATION_ENABLED=true from day one should not
+          // grant that broad, unconditional privilege to a customer-editable default this widely.
+          if (info.hasPrivileges()
+              && systemOperationContext
+                  .getOperationContextConfig()
+                  .getViewAuthorizationConfiguration()
+                  .isEnabled()) {
+            info.getPrivileges().remove(VIEW_ALL_QUERIES);
+          }
           log.info("Ingesting default policy with urn {}", urn);
           ingestPolicy(systemOperationContext, urn, info);
         } else {

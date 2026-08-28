@@ -561,14 +561,18 @@ public class EntityAuthorizationUtilsTest {
   public void testCanViewEntity_queriesUseSharedRequireAllSubjects() {
     try (MockedStatic<EntityAspectAuthorizationUtils> queryAuth =
         Mockito.mockStatic(EntityAspectAuthorizationUtils.class)) {
+      // Stubbed to false (not true) so a regression that hardcodes true instead of forwarding
+      // requireAllQuerySubjects's result fails this test: canViewQueryEntity is only stubbed for
+      // eq(false), so a hardcoded-true call site would hit the unstubbed default (false) and
+      // assertTrue below would fail.
       queryAuth
           .when(() -> EntityAspectAuthorizationUtils.requireAllQuerySubjects(opContext))
-          .thenReturn(true);
+          .thenReturn(false);
       queryAuth
           .when(
               () ->
                   EntityAspectAuthorizationUtils.canViewQueryEntity(
-                      eq(opContext), eq(opContext), eq(aspectRetriever), eq(QUERY_URN), eq(true)))
+                      eq(opContext), eq(opContext), eq(aspectRetriever), eq(QUERY_URN), eq(false)))
           .thenReturn(true);
 
       assertTrue(EntityAuthorizationUtils.canViewEntity(opContext, QUERY_URN));
