@@ -282,7 +282,8 @@ def _write_project(
     unique_id (defaults to `project`), so a test can put two distinct project
     directories on a dbt package name that collides across them. Each entry in
     `models` may set "resource_type" (defaults to "model") to write a seed or
-    snapshot node instead. semantic_models is written verbatim into the manifest's
+    snapshot node instead, and "materialized" (defaults to "table") to write e.g. an
+    ephemeral model. semantic_models is written verbatim into the manifest's
     semantic_models section, and generated_at overrides the manifest's own
     generated_at (which drives Query entity timestamps).
     """
@@ -300,7 +301,7 @@ def _write_project(
             "schema": model["schema"],
             "resource_type": resource_type,
             "package_name": pkg,
-            "config": {"materialized": "table"},
+            "config": {"materialized": model.get("materialized", "table")},
             "description": "",
             "columns": {},
             "meta": {},
@@ -967,6 +968,85 @@ def test_cross_project_seed_collision_fails(tmp_path: pathlib.Path) -> None:
     assert source.report.duplicate_models_detected == 2
     failures_by_title = {f.title: f for f in source.report.failures}
     assert "Duplicate model names across dbt projects" in failures_by_title
+
+
+def test_cross_project_ephemeral_collision_fails(tmp_path: pathlib.Path) -> None:
+    """Ephemeral models collide across projects too, despite never being materialized.
+
+    exists_in_target_platform is false for them, but they are still emitted as
+    dbt-platform datasets keyed on the same get_db_fqn() as any other node, so two
+    projects declaring the same ephemeral relation share one URN and overwrite each
+    other. The unique_id pass cannot catch it, because their package names differ.
+    """
+    for project in ("project_a", "project_b"):
+        _write_project(
+            tmp_path,
+            project,
+            [
+                {
+                    "name": "orders",
+                    "database": "db",
+                    "schema": "shared",
+                    "materialized": "ephemeral",
+                }
+            ],
+        )
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json",
+        # The default PATCH semantics require a graph, which this offline test has no
+        # need for otherwise.
+        write_semantics="OVERRIDE",
+    )
+    # Guard the premise: if these stopped being ephemeral the test would pass on the
+    # ordinary model-collision path and prove nothing.
+    assert [
+        node.dbt_name for node in source.load_nodes() if node.is_ephemeral_model()
+    ] == [
+        "model.project_a.orders",
+        "model.project_b.orders",
+    ]
+
+    workunits = [
+        wu for wu in source.get_workunits() if isinstance(wu, MetadataWorkUnit)
+    ]
+
+    assert source.report.duplicate_models_detected == 2
+    assert "Duplicate model names across dbt projects" in {
+        f.title for f in source.report.failures
+    }
+    assert not any("db.shared.orders" in wu.get_urn() for wu in workunits)
+
+
+def test_single_project_ephemeral_model_is_not_a_collision(
+    tmp_path: pathlib.Path,
+) -> None:
+    """dbt keeps model names unique within a project, so one project's ephemeral
+    model must stay clean - widening the check must not hard-fail a correct
+    single-project run."""
+    _write_project(
+        tmp_path,
+        "project_a",
+        [
+            {
+                "name": "stg_orders",
+                "database": "db",
+                "schema": "sch_a",
+                "materialized": "ephemeral",
+            },
+            {"name": "orders", "database": "db", "schema": "sch_a"},
+        ],
+    )
+
+    source = _make_source(manifest_path=f"{tmp_path}/project_a/manifest.json")
+    nodes = source.load_nodes()
+    assert [node.dbt_name for node in nodes if node.is_ephemeral_model()] == [
+        "model.project_a.stg_orders"
+    ]
+
+    assert source._check_duplicate_models(nodes) == nodes
+    assert not source.report.failures
+    assert source.report.duplicate_models_detected == 0
 
 
 def _semantic_model(
