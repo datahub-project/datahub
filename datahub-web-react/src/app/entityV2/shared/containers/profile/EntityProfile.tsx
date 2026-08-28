@@ -38,6 +38,7 @@ import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSib
 import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
 import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import LineageGraph from '@app/lineageV3/LineageGraph';
+import { useUpdateMarketplaceEntityDataOnChange } from '@app/marketplace/useUpdateMarketplaceEntityDataOnChange';
 import { useUpdateMetricsEntityDataOnChange } from '@app/metrics/useUpdateMetricsEntityDataOnChange';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
@@ -122,9 +123,7 @@ const HeaderAndTabsFlex = styled.div`
 `;
 
 const Header = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    /* padding: ${(props) => (props.$isShowNavBarRedesign ? '4px 8px 4px 4px' : '0px 16px 0px 16px')}; */
-    padding: ${(props) => (props.$isShowNavBarRedesign ? '5px 9px 4px 5px' : '0px 16px 0px 16px')};
-    ${(props) => props.$isShowNavBarRedesign && 'margin-right: 0px;'}
+    padding: ${(props) => (props.$isShowNavBarRedesign ? '0' : '0px 16px 0px 16px')};
     display: flex;
     align-items: center;
 `;
@@ -141,7 +140,7 @@ const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    padding: ${(props) => (props.$isShowNavBarRedesign ? '12px 8px 4px 4px' : '12px 16px 12px 16px')};
+    padding: ${(props) => (props.$isShowNavBarRedesign ? '8px 0 0 0' : '12px 16px 12px 16px')};
     height: 100%;
     overflow: hidden;
     display: flex;
@@ -260,6 +259,7 @@ export const EntityProfile = <T, U>({
     useUpdateGlossaryEntityDataOnChange(entityData, entityType);
     useUpdateDomainEntityDataOnChangeV2(entityData, entityType);
     useUpdateMetricsEntityDataOnChange(entityData, entityType);
+    useUpdateMarketplaceEntityDataOnChange(entityData, entityType);
 
     const maybeUpdateEntity = useUpdateQuery?.({
         onCompleted: () => refetch(),
@@ -425,6 +425,7 @@ export const EntityProfile = <T, U>({
                                         width={width}
                                         contextType={TabContextType.PROFILE_SIDEBAR}
                                         headerDropdownItems={headerDropdownItems}
+                                        flushOuterMargin={isShowNavBarRedesign}
                                         $isShowNavBarRedesign={isShowNavBarRedesign}
                                     />
                                 )}

@@ -520,3 +520,9 @@ SELECT id FROM dbo.Orders
     assert len(corrupted_extraction.references) == 1
     assert "USE Reports" not in corrupted_extraction.references[0].inner_sql
     assert "GO" not in corrupted_extraction.references[0].inner_sql
+    
+def test_get_tables_blank_query_returns_empty():
+    """sqlparse yields no statements at all for blank input, which a native query
+    can become once the M-Query escape sequences are stripped."""
+    assert native_sql_parser.get_tables("") == []
+    assert native_sql_parser.get_tables("#(lf) #(tab)") == []

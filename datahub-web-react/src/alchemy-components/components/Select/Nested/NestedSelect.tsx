@@ -51,6 +51,7 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     shouldDisplayConfirmationFooter?: boolean;
     selectLabelProps?: SelectLabelProps;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
+    renderCustomSelectedValue?: (option: OptionType) => React.ReactNode;
     dataTestId?: string;
 }
 
@@ -93,6 +94,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     shouldDisplayConfirmationFooter = selectDefaults.shouldDisplayConfirmationFooter,
     selectLabelProps,
     renderCustomOptionText,
+    renderCustomSelectedValue,
     dataTestId,
     ...props
 }: SelectProps<OptionType>) => {
@@ -102,6 +104,12 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     const [stagedOptions, setStagedOptions] = useState<OptionType[]>(initialValues);
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const previousInitialValueKeysRef = useRef<string>(
+        (initialValues ?? [])
+            .map((value) => value.value)
+            .sort()
+            .join(','),
+    );
     const {
         isOpen,
         isVisible,
@@ -110,16 +118,22 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     } = useSelectDropdown(false, selectRef, dropdownRef);
 
     useEffect(() => {
-        if (initialValues && shouldAlwaysSyncParentValues) {
-            // Check if selectedOptions and initialValues are different
-            const areDifferent = JSON.stringify(selectedOptions) !== JSON.stringify(initialValues);
-
-            if (initialValues && areDifferent) {
-                setSelectedOptions(initialValues);
-            }
+        if (!shouldAlwaysSyncParentValues) {
+            return;
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [initialValues]);
+
+        const initialValueKeys = (initialValues ?? [])
+            .map((value) => value.value)
+            .sort()
+            .join(',');
+        if (initialValueKeys === previousInitialValueKeysRef.current) {
+            return;
+        }
+
+        previousInitialValueKeysRef.current = initialValueKeys;
+        setSelectedOptions(initialValues ?? []);
+        setStagedOptions(initialValues ?? []);
+    }, [initialValues, shouldAlwaysSyncParentValues]);
 
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {
@@ -328,6 +342,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                             placeholder={placeholder || t('select.placeholder')}
                             isMultiSelect={isMultiSelect}
                             removeOption={(option) => removeOptions([option], true)}
+                            renderCustomSelectedValue={renderCustomSelectedValue}
                             {...(selectLabelProps || {})}
                         />
                         <SelectActionButtons

@@ -7,6 +7,8 @@ services:
       MINIO_ROOT_USER: "miniouser"
       MINIO_ROOT_PASSWORD: "miniopassword"
     ports:
-      - 9000:9000  # S3 API
-      - 9001:9001  # Web UI
+      # Ephemeral: only the S3 API port needs host access (test process connects
+      # via localhost); the web UI isn't used from the host so its mapping is
+      # dropped entirely rather than left on a fixed port.
+      - "9000"
     command: server /data --console-address ":9001"

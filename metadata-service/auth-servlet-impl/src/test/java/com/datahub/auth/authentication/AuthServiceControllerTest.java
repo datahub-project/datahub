@@ -280,6 +280,38 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   }
 
   @Test
+  public void testGenerateSessionTokenForUserEnumNameLoginSourceHeader() throws Exception {
+    // Some clients send LoginSource.name() (PASSWORD_LOGIN) rather than getSource()
+    // (passwordLogin). Both must resolve so loginSource is retained on the usage event.
+    String userId = "testUser";
+    String generatedToken = "test-token";
+
+    Authentication systemAuth = mock(Authentication.class);
+    Actor systemActor = new Actor(ActorType.USER, SYSTEM_CLIENT_ID);
+    when(systemAuth.getActor()).thenReturn(systemActor);
+    when(systemAuth.getCredentials())
+        .thenReturn(String.format("Basic %s:%s", SYSTEM_CLIENT_ID, "systemSecret"));
+    AuthenticationContext.setAuthentication(systemAuth);
+
+    when(mockTokenService.generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong()))
+        .thenReturn(generatedToken);
+    when(mockConfigProvider.getAuthentication()).thenReturn(new AuthenticationConfiguration());
+
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userId", userId);
+    HttpHeaders headers = new HttpHeaders();
+    headers.add(DATAHUB_LOGIN_SOURCE_HEADER_NAME, "PASSWORD_LOGIN");
+    HttpEntity<String> httpEntity =
+        new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
+
+    ResponseEntity<String> response =
+        authServiceController.generateSessionTokenForUser(request, httpEntity).join();
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    verifyLoginMetric("success", LoginSource.PASSWORD_LOGIN.getSource(), "none");
+  }
+
+  @Test
   public void testGenerateSessionTokenForUserUnauthorized() throws Exception {
     setNonSystemAuthentication();
     ObjectNode requestBody = objectMapper.createObjectNode();

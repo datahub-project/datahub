@@ -7,6 +7,7 @@ import {
     createColumnRef,
     createEdgeId,
     createFineGrainedOperationRef,
+    getSiblingUrns,
     isUrnTransformational,
     parseColumnRef,
     setDefault,
@@ -51,6 +52,14 @@ export function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: 
 }
 
 /**
+ * Whether two datasets are drawn as one node because they are siblings, e.g. a dbt model and the
+ * warehouse table it produces. Either node's sibling list settles it, as only one may be loaded.
+ */
+export function areSiblings(urnA: string, urnB: string, nodes: NodeContext['nodes']): boolean {
+    return getSiblingUrns(urnA, nodes).includes(urnB) || getSiblingUrns(urnB, nodes).includes(urnA);
+}
+
+/**
  * Piece together column-level lineage directly from aspects,
  * e.g. dataset upstreamLineage, chart inputFields, and datajob dataJobInputOutput
  *
@@ -81,6 +90,15 @@ export default function getFineGrainedLineage(
 
         // Drop ghost edges and self edges
         if (!nodes.has(upstreamUrn) || !nodes.has(downstreamUrn) || upstreamRef === downstreamRef) return;
+
+        // Siblings are drawn as a single node, so an edge between the same column on two of them is
+        // a self edge too. It can never be drawn, and would make the column look like it has lineage
+        if (
+            downgradeV2FieldPath(upstreamField) === downgradeV2FieldPath(downstreamField) &&
+            areSiblings(upstreamUrn, downstreamUrn, nodes)
+        ) {
+            return;
+        }
 
         // Validate that both upstream and downstream schema fields actually exist in their datasets
         // This prevents phantom lineage connections when fine-grained lineage references non-existent fields

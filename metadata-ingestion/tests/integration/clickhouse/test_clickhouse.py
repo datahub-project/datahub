@@ -15,12 +15,18 @@ FROZEN_TIME_DT = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc
 
 @time_machine.travel(FROZEN_TIME_DT, tick=False)
 @pytest.mark.integration
-def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path):
+def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, monkeypatch):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/clickhouse"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "clickhouse"
     ) as docker_services:
         wait_for_port(docker_services, "testclickhouse", 8123, timeout=120)
+        # Ports are ephemeral (Docker-assigned) to avoid clashing with a leaked
+        # container from a prior CI run; recipe ymls pick the real one up via
+        # ${CLICKHOUSE_PORT}.
+        monkeypatch.setenv(
+            "CLICKHOUSE_PORT", str(docker_services.port_for("clickhouse", 8123))
+        )
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "clickhouse_to_file.yml").resolve()
         run_datahub_cmd(
@@ -44,12 +50,20 @@ def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path):
 
 @time_machine.travel(FROZEN_TIME_DT, tick=False)
 @pytest.mark.integration
-def test_clickhouse_ingest_uri_form(docker_compose_runner, pytestconfig, tmp_path):
+def test_clickhouse_ingest_uri_form(
+    docker_compose_runner, pytestconfig, tmp_path, monkeypatch
+):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/clickhouse"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "clickhouse"
     ) as docker_services:
         wait_for_port(docker_services, "testclickhouse", 8123, timeout=120)
+        # Ports are ephemeral (Docker-assigned) to avoid clashing with a leaked
+        # container from a prior CI run; recipe ymls pick the real one up via
+        # ${CLICKHOUSE_PORT}.
+        monkeypatch.setenv(
+            "CLICKHOUSE_PORT", str(docker_services.port_for("clickhouse", 8123))
+        )
 
         # Run the metadata ingestion pipeline with uri form.
         config_file = (test_resources_dir / "clickhouse_to_file_uri_form.yml").resolve()

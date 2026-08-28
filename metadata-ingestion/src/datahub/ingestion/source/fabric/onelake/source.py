@@ -137,7 +137,7 @@ class WarehouseSchemaKey(WarehouseKey):
 
 @platform_name("Fabric OneLake")
 @config_class(FabricOneLakeSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")

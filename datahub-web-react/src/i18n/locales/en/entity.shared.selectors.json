@@ -2,6 +2,8 @@
     "actorsSearch.placeholder": "Search for users or groups",
     "domainSelector.label": "Domains",
     "domainSelector.placeholder": "Select domains",
+    "domainSelector.singleLabel": "Domain",
+    "domainSelector.singlePlaceholder": "Select domain",
     "domainSelector.searchPlaceholder": "Search all domains...",
     "entitySearch.noEntitiesFound": "No entities found",
     "entitySearch.placeholder": "Search for entities...",

@@ -1,0 +1,868 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_00,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_00"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_01,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_01"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_02,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_02"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_03,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_03"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_04,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_04"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_05,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_05"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_06,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_06"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_07,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_07"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_08,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_08"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_09,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_09"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_10,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_10"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_11,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_11"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_12,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_12"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_13,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_13"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_14,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_14"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_15,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_15"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_16,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_16"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_17,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_17"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_18,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_18"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_19,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_19"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_20,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_20"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_21,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_21"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_customers_a,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_customers_a"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_customers_b,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "pw_dpbx_customers_b"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_00,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_01,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_01,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_02,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_02,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_03,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_03,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_04,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_04,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_05,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_05,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_06,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_06,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_07,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_07,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_08,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_08,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_09,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_09,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_10,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_10,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_11,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_11,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_12,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_12,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_13,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_13,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_14,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_14,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_15,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_15,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_16,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_16,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_17,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_17,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_18,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_18,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_19,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_19,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_20,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_20,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_21,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pw_dpbx_product",
+    "changeType": "UPSERT",
+    "aspectName": "dataProductProperties",
+    "aspect": {
+      "json": {
+        "name": "PW Bounding Box Product",
+        "description": "Data product for bounding box search e2e tests",
+        "assets": [
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_00,PROD)",
+            "outputPort": true
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_01,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_02,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_03,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_04,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_05,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_06,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_07,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_08,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_09,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_10,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_11,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_12,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_13,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_14,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_15,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_16,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_17,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_18,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_19,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_20,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_21,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_customers_a,PROD)",
+            "outputPort": false
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_dpbx.pw_dpbx_customers_b,PROD)",
+            "outputPort": false
+          }
+        ]
+      }
+    }
+  }
+]

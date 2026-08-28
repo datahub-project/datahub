@@ -281,7 +281,7 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
 
 @platform_name("Postgres")
 @config_class(PostgresConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
