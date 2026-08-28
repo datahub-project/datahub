@@ -133,7 +133,7 @@ class MetabaseReport(StaleEntityRemovalSourceReport):
 
 @platform_name("Metabase")
 @config_class(MetabaseConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class MetabaseSource(StatefulIngestionSourceBase):

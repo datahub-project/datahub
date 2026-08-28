@@ -1561,6 +1561,7 @@ module.exports = {
       },
       items: [
         "docs/slack",
+        { type: "doc", label: "Otto (Community Assistant)", id: "docs/otto" },
         "docs/townhalls",
         //        "docs/townhall-history",
         "docs/CODE_OF_CONDUCT",

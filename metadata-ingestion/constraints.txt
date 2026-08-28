@@ -1310,8 +1310,6 @@ sortedcontainers==2.4.0
     #   snowflake-connector-python
 soupsieve==2.8.3
     # via beautifulsoup4
-sql-metadata==2.20.0
-    # via acryl-datahub
 sqlalchemy==1.4.44
     # via
     #   acryl-datahub
@@ -1354,11 +1352,10 @@ sqlglot==30.12.0
     #   sqlglotc
 sqlglotc==30.12.0
     # via sqlglot
-sqlparse==0.5.5
+sqlparse==0.6.0
     # via
     #   acryl-datahub
     #   mlflow-skinny
-    #   sql-metadata
 sspilib==0.5.0 ; sys_platform == 'win32'
     # via pyspnego
 starlette==0.52.1
