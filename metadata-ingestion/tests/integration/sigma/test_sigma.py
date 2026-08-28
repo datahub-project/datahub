@@ -2108,26 +2108,43 @@ def test_sigma_alias_learned_after_emission_leaves_no_unnamed_container(
         "json": {"entries": [], "total": 0, "nextPage": None},
     }
     register_mock_api(request_mock=requests_mock, override_data=override_data)
-    # Fails through the walk and the dataset admission loop, then recovers --
-    # so the alias is learned only after the datasets have been emitted.
+
+    # The workspace lookup fails until the workbook file listing is requested,
+    # which happens only after every dataset has been emitted. Keying off that
+    # request rather than a fixed number of failures states the ordering the
+    # test is about, and survives the fixture gaining or losing entities or the
+    # source issuing a different number of lookups.
+    datasets_are_emitted = False
+
+    def _workbook_files(request: Any, context: Any) -> Dict[str, Any]:
+        nonlocal datasets_are_emitted
+        datasets_are_emitted = True
+        context.status_code = 200
+        return override_data[
+            "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook"
+        ]["json"]
+
+    def _workspace_lookup(request: Any, context: Any) -> Dict[str, Any]:
+        if not datasets_are_emitted:
+            context.status_code = 500
+            return {}
+        context.status_code = 200
+        return {
+            "workspaceId": real_ws_id,
+            "name": "Analytics",
+            "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+            "createdAt": "2024-03-12T08:31:04.826Z",
+            "updatedAt": "2024-03-12T08:31:04.826Z",
+        }
+
+    requests_mock.get(
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook",
+        json=_workbook_files,
+    )
     requests_mock.get(
         f"https://aws-api.sigmacomputing.com/v2/workspaces/{inode_id}",
-        [
-            {"status_code": 500, "json": {}},
-            {"status_code": 500, "json": {}},
-            {"status_code": 500, "json": {}},
-            {
-                "status_code": 200,
-                "json": {
-                    "workspaceId": real_ws_id,
-                    "name": "Analytics",
-                    "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
-                    "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
-                    "createdAt": "2024-03-12T08:31:04.826Z",
-                    "updatedAt": "2024-03-12T08:31:04.826Z",
-                },
-            },
-        ],
+        json=_workspace_lookup,
     )
 
     output_path: str = f"{tmp_path}/sigma_alias_after_emission_mces.json"
