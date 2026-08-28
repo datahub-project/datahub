@@ -854,7 +854,9 @@ public class EntityRelationshipsResultResolverTest {
     membershipInput.setDirection(RelationshipDirection.OUTGOING);
     membershipInput.setRelatedEntityTypes(List.of("dataHubRole"));
     membershipInput.setStart(0);
-    membershipInput.setCount(10);
+    // count=1 forces filter-before-paginate: page-then-filter would keep only the group and drop
+    // the role.
+    membershipInput.setCount(1);
     when(mockEnv.getArgument(eq("input"))).thenReturn(membershipInput);
 
     EntityRelationshipsResult result = resolver.get(mockEnv).get();
