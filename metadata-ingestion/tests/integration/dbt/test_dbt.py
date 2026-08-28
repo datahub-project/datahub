@@ -14,8 +14,10 @@ from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.testing import mce_helpers
+from datahub.testing.compare_metadata_json import assert_metadata_files_equal
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from tests.test_helpers import test_connection_helpers
+from tests.test_helpers.state_helpers import run_and_get_pipeline
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 GMS_PORT = 8080
@@ -122,8 +124,8 @@ class DbtTestConfig:
         )
 
 
-def run_and_verify(config: DbtTestConfig, tmp_path: PathLike) -> None:
-    pipeline = Pipeline.create(
+def run_and_verify(config: DbtTestConfig) -> None:
+    run_and_get_pipeline(
         {
             "run_id": config.run_id,
             "source": {"type": "dbt", "config": config.source_config},
@@ -133,12 +135,7 @@ def run_and_verify(config: DbtTestConfig, tmp_path: PathLike) -> None:
             },
         }
     )
-    pipeline.run()
-    pipeline.raise_from_status()
-    # pytestconfig is unused inside check_golden_file (see its own TODO); update-golden
-    # is actually read from a separate settings singleton, not this argument.
-    mce_helpers.check_golden_file(
-        pytestconfig=None,  # type: ignore[arg-type]
+    assert_metadata_files_equal(
         output_path=config.output_path,
         golden_path=config.golden_path,
     )
@@ -385,7 +382,7 @@ def test_dbt_ingest(
         tmp_path=tmp_path,
     )
 
-    run_and_verify(config, tmp_path)
+    run_and_verify(config)
 
 
 @pytest.mark.integration
@@ -393,13 +390,12 @@ def test_dbt_ingest(
 def test_dbt_multi_project_glob(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
     projects_root = tmp_path / "projects"
-    # project_a and project_b must use genuinely distinct dbt projects (different
-    # unique_id namespaces), not two dbt-version variants of the same fixture project.
-    # get_workunits_internal collapses nodes into a dict keyed by dbt_name
-    # (all_nodes_map = {node.dbt_name: node for node in all_nodes}), which is exactly
-    # the cross-project collision Task 6 is meant to resolve deterministically; using
-    # same-namespace fixtures here would make that pre-existing last-write-wins
-    # collapse look like a fan-out bug.
+    # project_a and project_b must be genuinely distinct dbt projects (different
+    # unique_id namespaces), not two dbt-version variants of one fixture project.
+    # Nodes that share a unique_id are a cross-project collision, which the collision
+    # checks deliberately resolve by dropping contenders - so same-namespace fixtures
+    # would exercise collision handling here instead of fan-out, and this golden would
+    # prove nothing about ingesting two projects together.
     for project, manifest_file, catalog_file in [
         ("project_a", "sample_dbt_manifest_1.json", "sample_dbt_catalog_1.json"),
         ("project_b", "jaffle_shop_manifest.json", "jaffle_shop_catalog.json"),
@@ -424,7 +420,7 @@ def test_dbt_multi_project_glob(pytestconfig, tmp_path):
         test_resources_dir=test_resources_dir,
         tmp_path=tmp_path,
     )
-    run_and_verify(config, tmp_path)
+    run_and_verify(config)
 
 
 @pytest.mark.parametrize(

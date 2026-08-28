@@ -1,6 +1,6 @@
 import json
 import pathlib
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, NoReturn, Optional
 from unittest import mock
 
 import dateutil.parser
@@ -50,6 +50,63 @@ def test_expand_glob_path_passes_through_non_glob_path() -> None:
     assert source._expand_glob_path("s3://bucket/project/manifest.json") == [
         "s3://bucket/project/manifest.json"
     ]
+
+
+def test_presigned_http_url_is_not_a_glob() -> None:
+    """A '?' starts an HTTP(S) URL's query string, where presigned URLs carry their
+    signature - it is not a glob metacharacter there. Treating it as one expanded the
+    URL to nothing and turned a working recipe into a green run with zero assets."""
+    url = "https://bucket.s3.amazonaws.com/manifest.json?X-Amz-Signature=abc"
+    source = _make_source()
+
+    assert source._expand_glob_path(url) == [url]
+    assert source.report.warnings == []
+
+
+def test_http_url_with_a_globbed_path_still_warns() -> None:
+    """Only the URL's query string is exempt. A real pattern in the path component is
+    still an unsupported glob, and must keep saying so rather than 404 later."""
+    source = _make_source()
+
+    assert source._expand_glob_path("https://host/*/manifest.json") == []
+    assert [w.title for w in source.report.warnings] == [
+        "Glob patterns not supported for HTTP(S) URIs"
+    ]
+
+
+def test_literal_local_path_containing_glob_characters_is_read_literally(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A directory may simply be named with glob metacharacters. `dbt[prod]` char-classes
+    to a class that matches nothing, so expanding it silently found no manifest."""
+    project_dir = tmp_path / "dbt[prod]"
+    project_dir.mkdir()
+    manifest_path = str(project_dir / "manifest.json")
+    (project_dir / "manifest.json").write_text("{}")
+
+    source = _make_source()
+
+    assert source._expand_glob_path(manifest_path) == [manifest_path]
+    assert source.report.warnings == []
+
+
+def test_literal_path_with_glob_characters_accepts_explicit_catalog_path(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The config validator rejects catalog_path only for a real glob. A literal path
+    that happens to contain those characters names exactly one manifest, so its
+    catalog_path can be paired with it."""
+    project_dir = tmp_path / "dbt[prod]"
+    project_dir.mkdir()
+    (project_dir / "manifest.json").write_text("{}")
+
+    config = DBTCoreConfig(
+        manifest_path=str(project_dir / "manifest.json"),
+        catalog_path=str(project_dir / "catalog.json"),
+        target_platform="postgres",
+    )
+
+    assert config.catalog_path == str(project_dir / "catalog.json")
 
 
 def test_expand_run_results_paths_preserves_config_order(
@@ -310,6 +367,28 @@ def test_glob_fans_out_over_multiple_projects(tmp_path: pathlib.Path) -> None:
     assert source.report.manifests_failed == 0
 
 
+def test_manifest_glob_matching_nothing_is_a_failure(tmp_path: pathlib.Path) -> None:
+    """The manifest is the one mandatory dbt artifact, so a glob that matches none of
+    them must fail rather than warn.
+
+    The same misconfiguration already hard-fails test_connection. Warning instead
+    produced a green run with zero assets, leaving mass soft-deletion to be caught
+    only by the stale-entity handler's generic events-produced fail-safe, whose error
+    never names the glob as the cause.
+    """
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+
+    nodes = source.load_nodes()
+
+    assert nodes == []
+    failures_by_title = {f.title: f for f in source.report.failures}
+    assert "manifest_path glob matched no files" in failures_by_title
+    assert any(
+        str(tmp_path) in entry
+        for entry in failures_by_title["manifest_path glob matched no files"].context
+    )
+
+
 def test_glob_stamps_per_project_provenance(tmp_path: pathlib.Path) -> None:
     _write_project(
         tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
@@ -345,31 +424,14 @@ def test_manifest_path_is_a_node_field_not_a_custom_property(
 
 
 def test_glob_stamps_semantic_model_provenance(tmp_path: pathlib.Path) -> None:
-    """Task 3 review item: semantic-model nodes must carry provenance too, not just
-    regular model nodes. Uses a hand-written manifest rather than _write_project,
-    since folding a semantic_model entry into that helper's signature would ripple
-    into Tasks 5/6, which consume _write_project as-is.
-    """
-    project_dir = tmp_path / "project_a"
-    project_dir.mkdir(parents=True)
-    manifest = {
-        "metadata": {
-            "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json",
-            "dbt_version": "1.8.0",
-            "adapter_type": "postgres",
-            "project_name": "project_a",
-            "generated_at": "2026-01-01T00:00:00.000000Z",
-            "invocation_id": "invocation-project_a",
-        },
-        "nodes": {},
-        "sources": {},
-        "exposures": {},
-        "metrics": {},
-        "macros": {},
-        "child_map": {},
-        "parent_map": {},
-        "disabled": {},
-        "semantic_models": {
+    """Semantic-model nodes must carry per-project artifact provenance too, not just
+    regular model nodes - they are built on a separate code path from the manifest's
+    semantic_models section."""
+    _write_project(
+        tmp_path,
+        "project_a",
+        [],
+        semantic_models={
             "semantic_model.project_a.order_metrics": {
                 "name": "order_metrics",
                 "description": "",
@@ -382,8 +444,7 @@ def test_glob_stamps_semantic_model_provenance(tmp_path: pathlib.Path) -> None:
                 "meta": {},
             }
         },
-    }
-    (project_dir / "manifest.json").write_text(json.dumps(manifest))
+    )
 
     source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
     nodes = source.load_nodes()
@@ -668,6 +729,42 @@ def test_non_glob_corrupt_manifest_raises_instead_of_reporting_failure(
     assert not source.report.failures
 
 
+def test_memory_error_propagates_instead_of_being_skipped(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Per-project isolation must not absorb an exhausted process.
+
+    MemoryError is an Exception subclass, so the generic per-project handler
+    recorded an oversized catalog as one skipped project and went on fetching and
+    parsing every remaining manifest into a process that had already run out of
+    memory. Unlike a corrupt manifest, this is not contained by skipping the
+    project - see test_corrupt_manifest_is_a_failure_and_other_projects_still_load
+    for the behaviour that must stay.
+    """
+    for project in ("project_a", "project_b", "project_c"):
+        _write_project(
+            tmp_path, project, [{"name": project, "database": "db", "schema": "sch"}]
+        )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    attempted: List[str] = []
+
+    def _raise_memory_error(
+        manifest_path: str, *args: object, **kwargs: object
+    ) -> NoReturn:
+        attempted.append(manifest_path)
+        raise MemoryError("catalog too large to parse")
+
+    with mock.patch.object(source, "_load_project_nodes", _raise_memory_error):
+        with pytest.raises(MemoryError):
+            source.load_nodes()
+
+    # Stopped at the first project instead of fetching the other two.
+    assert len(attempted) == 1
+    assert source.report.manifests_failed == 0
+    assert not source.report.failures
+
+
 def test_ambiguous_sibling_read_failure_does_not_assert_absence(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -709,6 +806,54 @@ def test_ambiguous_sibling_read_failure_does_not_assert_absence(
     sources_warning = warnings_by_title["Could not read sources file for project"]
     assert any("403 Forbidden" in entry for entry in catalog_warning.context)
     assert any("403 Forbidden" in entry for entry in sources_warning.context)
+
+
+def test_local_os_error_on_sibling_catalog_only_warns(
+    tmp_path: pathlib.Path,
+) -> None:
+    """An unreadable local sibling artifact must warn, exactly as the same condition
+    on an object store does.
+
+    A local read raises OSError subclasses that are not FileNotFoundError - here
+    IsADirectoryError, in production usually PermissionError - while S3/GCS surface
+    every failure as a ValueError from read_file_as_bytes. Catching only ValueError
+    escalated the local case into a whole-project failure, which also suppresses
+    stale-entity soft-deletion run-wide, so the same fault behaved differently
+    depending only on where the artifacts live.
+    """
+    _write_project(
+        tmp_path, "project_a", [{"name": "orders", "database": "db", "schema": "sch_a"}]
+    )
+    _write_project(
+        tmp_path, "project_b", [{"name": "events", "database": "db", "schema": "sch_b"}]
+    )
+    (tmp_path / "project_b" / "catalog.json").mkdir()
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    nodes = source.load_nodes()
+
+    assert {node.dbt_name for node in nodes} == {
+        "model.project_a.orders",
+        "model.project_b.events",
+    }
+    assert source.report.manifests_failed == 0
+    assert source.report.failures == []
+
+    manifest_b = f"{tmp_path}/project_b/manifest.json"
+    ambiguous = [
+        w
+        for w in source.report.warnings
+        if w.title == "Could not read catalog file for project"
+        and any(manifest_b in entry for entry in w.context)
+    ]
+    assert len(ambiguous) == 1
+    # Not described as absent: the file is there, it just cannot be read.
+    assert not [
+        w
+        for w in source.report.warnings
+        if w.title == "No catalog file found for project"
+        and any(manifest_b in entry for entry in w.context)
+    ]
 
 
 def test_undecodable_sibling_catalog_is_corrupt_not_absent(
@@ -1019,7 +1164,7 @@ def test_contested_urn_drop_mode_keeps_only_the_winning_manifest(
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
-        fail_on_duplicate_models=False,
+        fail_on_cross_project_collisions=False,
     )
     kept = source._check_duplicate_models(source.load_nodes())
 
@@ -1121,7 +1266,7 @@ def test_cross_project_collision_drop_mode_keeps_lowest_dbt_name(
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
-        fail_on_duplicate_models=False,
+        fail_on_cross_project_collisions=False,
     )
     nodes = source._check_duplicate_models(source.load_nodes())
 
@@ -1166,7 +1311,7 @@ def test_drop_mode_rewires_exposure_depends_on_to_the_survivor(
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
-        fail_on_duplicate_models=False,
+        fail_on_cross_project_collisions=False,
     )
     all_nodes = source.load_nodes()
     exposure = next(
@@ -1255,7 +1400,7 @@ def test_duplicate_unique_id_drop_mode_keeps_first_loaded(
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
-        fail_on_duplicate_models=False,
+        fail_on_cross_project_collisions=False,
     )
     all_nodes = source.load_nodes()
     nodes, exposures = source._check_duplicate_unique_ids(
@@ -1327,7 +1472,7 @@ def test_duplicate_unique_id_drop_mode_keeps_the_survivors_run_results(
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
         run_results_paths=[str(run_results_path)],
-        fail_on_duplicate_models=False,
+        fail_on_cross_project_collisions=False,
     )
     all_nodes = source.load_nodes()
 
@@ -1399,7 +1544,7 @@ def test_duplicate_exposure_unique_id_drop_mode_keeps_first_loaded(
 
     source = _make_source(
         manifest_path=f"{tmp_path}/*/manifest.json",
-        fail_on_duplicate_models=False,
+        fail_on_cross_project_collisions=False,
     )
     all_nodes = source.load_nodes()
     nodes, exposures = source._check_duplicate_unique_ids(

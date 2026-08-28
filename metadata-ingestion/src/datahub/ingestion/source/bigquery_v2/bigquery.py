@@ -62,7 +62,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(  # DataPlatformAspect is set to project id, but not added to urns as project id is in the container path
     SourceCapability.PLATFORM_INSTANCE,
     "Platform instance is pre-set to the BigQuery project id",

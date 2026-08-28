@@ -39,6 +39,6 @@ source:
     # aws_connection:
     #   aws_region: us-east-1
     # A model or dbt package name colliding across two of the matched projects
-    # is reported as a failure by default; see fail_on_duplicate_models.
+    # is reported as a failure by default; see fail_on_cross_project_collisions.
 
 # sink configs

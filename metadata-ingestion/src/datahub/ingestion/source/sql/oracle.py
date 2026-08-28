@@ -1386,7 +1386,7 @@ class OracleSourceReport(SQLSourceReport):
 
 @platform_name("Oracle")
 @config_class(OracleConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_COARSE,

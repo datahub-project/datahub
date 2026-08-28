@@ -744,7 +744,7 @@ class DBTCommonConfig(
         "This ensures that lineage is generated reliably, but will lose any documentation associated only with the source.",
     )
 
-    fail_on_duplicate_models: bool = Field(
+    fail_on_cross_project_collisions: bool = Field(
         default=True,
         description="When enabled, a cross-project identity collision is reported as a failure and none of the "
         "colliding entities are emitted. This covers two cases that only arise when ingesting multiple dbt "
@@ -1526,7 +1526,7 @@ def get_column_type(
 
 @platform_name("dbt")
 @config_class(DBTCommonConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
@@ -2304,7 +2304,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         in place lets one project's schema drive the other project's inferred column
         lineage.
 
-        Tie-break when fail_on_duplicate_models is disabled: the contender with the
+        Tie-break when fail_on_cross_project_collisions is disabled: the contender with the
         lowest-sorting dbt_name wins, and only nodes from that winner's manifest are
         kept. That is independent of manifest load order, so the surviving entities
         are stable across runs.
@@ -2349,7 +2349,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 node.dbt_name for node in group
             )
 
-            if self.config.fail_on_duplicate_models:
+            if self.config.fail_on_cross_project_collisions:
                 self.report.failure(
                     title="Duplicate model names across dbt projects",
                     message="Multiple dbt nodes materialize to the same table in "
@@ -2432,7 +2432,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         that string can't tell an operator which projects to go fix - the failure
         and warning context instead names each contender's originating manifest path.
 
-        Tie-break when fail_on_duplicate_models is disabled: the first contender
+        Tie-break when fail_on_cross_project_collisions is disabled: the first contender
         loaded wins, which - because manifests are expanded in sorted path order - is
         the one from the lowest-sorting manifest path.
         """
@@ -2452,7 +2452,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.report.duplicate_node_unique_ids_detected,
         ) = self._find_unique_id_collisions(by_node_id, "node")
 
-        if drop_nodes and not self.config.fail_on_duplicate_models:
+        if drop_nodes and not self.config.fail_on_cross_project_collisions:
             # load_run_results runs inside load_nodes, before this pass, and attaches
             # test results and model performances through its own local node map -
             # which collapses colliding unique_ids last-wins, so results can land on
@@ -2505,7 +2505,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             colliding += len(contenders)
             paths = [item.manifest_path or "<unknown manifest>" for item in contenders]
             context = f"{unique_id} is claimed by {kind}s from: " + ", ".join(paths)
-            if self.config.fail_on_duplicate_models:
+            if self.config.fail_on_cross_project_collisions:
                 self.report.failure(
                     title="Duplicate dbt unique_id across projects",
                     message="Multiple dbt entities share one dbt-assigned "

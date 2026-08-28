@@ -4,6 +4,7 @@ import logging
 import os
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union, cast
+from urllib.parse import urlparse
 
 from packaging import version
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -57,6 +58,32 @@ from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
+
+
+def _is_glob_pattern(path: str) -> bool:
+    """Whether a configured artifact path should be glob-expanded rather than read as-is.
+
+    Deliberately narrower than has_glob_characters, because two shapes carry those
+    characters without being patterns, and expanding either one matches nothing -
+    which would turn a previously working recipe into a run that quietly ingests
+    no assets.
+
+    An HTTP(S) URL's `?` opens its query string, which is where a presigned URL
+    carries its signature, so only the URL's path component can make it a pattern.
+    And a local file or directory may simply be named with them: `dbt[prod]` is a
+    legitimate directory name that fnmatch reads as a character class matching
+    nothing, so a path that already resolves literally is read literally.
+
+    The literal-path check does not extend to object stores: os.path.exists is
+    always False for an s3:// or gs:// URI, so those keep expanding. Recognising an
+    object key that literally contains glob characters would need an existence
+    probe against the store per path.
+    """
+    if is_http_uri(path):
+        return has_glob_characters(urlparse(path).path)
+    if not has_glob_characters(path):
+        return False
+    return not os.path.exists(path)
 
 
 @dataclasses.dataclass
@@ -173,7 +200,7 @@ class DBTCoreConfig(DBTCommonConfig):
 
     @model_validator(mode="after")
     def artifact_paths_must_not_be_set_with_globbed_manifest(self) -> "DBTCoreConfig":
-        if not has_glob_characters(self.manifest_path):
+        if not _is_glob_pattern(self.manifest_path):
             return self
 
         conflicting = [
@@ -743,18 +770,23 @@ def _parse_model_run(
 def load_run_results(
     config: DBTCommonConfig,
     test_results_json: Dict[str, Any],
-    all_nodes: List[DBTNode],
-) -> List[DBTNode]:
+    all_nodes_map: Dict[str, DBTNode],
+) -> None:
+    """Attach one run_results file's test results and model performances to their nodes.
+
+    Takes the dbt_name -> node lookup rather than the node list, because the caller
+    loops this over every matched run_results file. Rebuilding the map per file cost
+    O(files x total_nodes) over the whole multi-project node union, and all but the
+    first build was wasted - the nodes are mutated in place.
+    """
     if test_results_json.get("args", {}).get("which") == "generate":
         logger.warning(
             "The run results file is from a `dbt docs generate` command, "
             "instead of a build/run/test command. Skipping this file."
         )
-        return all_nodes
+        return
 
     dbt_metadata = DBTRunMetadata.model_validate(test_results_json.get("metadata", {}))
-
-    all_nodes_map: Dict[str, DBTNode] = {x.dbt_name: x for x in all_nodes}
 
     results = test_results_json.get("results", [])
     for result in results:
@@ -786,12 +818,10 @@ def load_run_results(
 
             model_node.model_performances.append(model_performance)
 
-    return all_nodes
-
 
 @platform_name("dbt")
 @config_class(DBTCoreConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class DBTCoreSource(DBTSourceBase, TestableSource):
     config: DBTCoreConfig
@@ -934,7 +964,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         reports a failure for a recipe that would ingest fine. Passing a throwaway
         report keeps every diagnostic here intact for the ingestion path.
         """
-        if not has_glob_characters(path):
+        if not _is_glob_pattern(path):
             return [path]
 
         if is_s3_uri(path):
@@ -1074,7 +1104,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             # as "no catalog file found" - silently ingesting the project with no
             # column metadata.
             raise
-        except (FileNotFoundError, ValueError) as e:
+        except (OSError, ValueError) as e:
+            # OSError, not just FileNotFoundError: a local read also raises
+            # PermissionError or IsADirectoryError, and on an object store the
+            # identical fault arrives as a ValueError from read_file_as_bytes. Both
+            # must reach the caller's warn-and-continue path, or the same fault
+            # fails the whole project locally while only warning on S3/GCS.
             if not optional_artifacts:
                 raise
             return None, e
@@ -1350,9 +1385,24 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
     def load_nodes(self) -> List[DBTNode]:
         manifest_paths = sorted(self._expand_glob_path(self.config.manifest_path))
-        is_multi_project = has_glob_characters(self.config.manifest_path)
+        is_multi_project = _is_glob_pattern(self.config.manifest_path)
         if is_multi_project:
             self.report.manifest_paths_expanded = manifest_paths
+            if not manifest_paths:
+                # The manifest is the one mandatory dbt artifact - a missing literal
+                # manifest_path already raises - so a pattern that matches none of
+                # them is a failure, matching test_connection on the same recipe. As
+                # a warning this produced a green run with zero assets, and left mass
+                # soft-deletion to the stale-entity handler's generic fail-safe, whose
+                # error never names the glob. A failure suppresses soft-deletion here.
+                self.report.failure(
+                    title="manifest_path glob matched no files",
+                    message="The globbed manifest_path matched no manifests, so no "
+                    "dbt project could be ingested. Check the pattern and that the "
+                    "artifacts it points at exist.",
+                    context=self.config.manifest_path,
+                )
+                return []
 
         project_paths: List[Tuple[str, Optional[str], Optional[str]]] = []
         for manifest_path in manifest_paths:
@@ -1396,6 +1446,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     sources_path,
                     optional_artifacts=is_multi_project,
                 )
+            except MemoryError:
+                # Per-project isolation exists to contain one project's bad artifacts.
+                # Exhausted memory is not contained by it: every remaining project
+                # would be fetched and parsed into the same exhausted process, so
+                # continuing produces a run that is slower and no more complete.
+                raise
             except Exception as e:
                 # In single-project mode, a bad manifest fails the run exactly as it
                 # always has. In glob mode, one broken project shouldn't take down
@@ -1416,17 +1472,21 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         expanded_run_results_paths = self._expand_run_results_paths()
         if expanded_run_results_paths:
             self.report.run_results_paths_expanded = expanded_run_results_paths
-        prefetched_run_results = self._maybe_prefetch(
-            [[path] for path in expanded_run_results_paths], enabled=is_multi_project
-        )
-        for run_results_path in expanded_run_results_paths:
-            if prefetched_run_results is not None:
-                self._prefetched_artifacts = next(prefetched_run_results)
-            all_nodes = load_run_results(
-                self.config,
-                self._load_artifact_json(run_results_path),
-                all_nodes,
+            prefetched_run_results = self._maybe_prefetch(
+                [[path] for path in expanded_run_results_paths],
+                enabled=is_multi_project,
             )
+            # Built once, not per file: load_run_results mutates nodes in place, so a
+            # per-file rebuild over the whole node union was pure waste.
+            nodes_by_name = {node.dbt_name: node for node in all_nodes}
+            for run_results_path in expanded_run_results_paths:
+                if prefetched_run_results is not None:
+                    self._prefetched_artifacts = next(prefetched_run_results)
+                load_run_results(
+                    self.config,
+                    self._load_artifact_json(run_results_path),
+                    nodes_by_name,
+                )
 
         return all_nodes
 

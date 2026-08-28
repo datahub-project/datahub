@@ -2956,8 +2956,7 @@ def test_load_run_results_skips_generate():
     }
     nodes = [_make_dbt_node("model.project.my_model")]
     config = mock.MagicMock()
-    result = load_run_results(config, run_results_json, nodes)
-    assert result is nodes
+    load_run_results(config, run_results_json, {n.dbt_name: n for n in nodes})
     assert len(nodes[0].test_results) == 0
     assert len(nodes[0].model_performances) == 0
 
@@ -3002,7 +3001,11 @@ def test_load_run_results_with_test_and_model():
     model_node = _make_dbt_node("model.project.my_model")
 
     config = mock.MagicMock()
-    load_run_results(config, run_results_json, [test_node, model_node])
+    load_run_results(
+        config,
+        run_results_json,
+        {test_node.dbt_name: test_node, model_node.dbt_name: model_node},
+    )
 
     assert len(test_node.test_results) == 1
     assert test_node.test_results[0].status == "pass"
@@ -3037,7 +3040,7 @@ def test_load_run_results_failed_test():
     )
 
     config = mock.MagicMock()
-    load_run_results(config, run_results_json, [test_node])
+    load_run_results(config, run_results_json, {test_node.dbt_name: test_node})
 
     assert len(test_node.test_results) == 1
     tr = test_node.test_results[0]
@@ -3069,8 +3072,8 @@ def test_load_run_results_unknown_node_skipped():
         ],
     }
     config = mock.MagicMock()
-    result = load_run_results(config, run_results_json, [])
-    assert result == []
+    # No matching node: the result is dropped rather than raising.
+    load_run_results(config, run_results_json, {})
 
 
 def test_load_file_as_json_s3():

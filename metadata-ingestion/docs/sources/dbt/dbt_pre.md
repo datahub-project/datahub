@@ -291,6 +291,16 @@ Each match is loaded as an independent dbt project. **`catalog.json` and `source
 
 A broken manifest in one project is reported as a failure for that project only, so every other matched project still ingests fully.
 
+:::caution Point the glob at a stable artifact location
+
+A project whose manifest is simply *absent* when the glob is expanded is indistinguishable from a project that has been deleted, so its previously-ingested entities are soft-deleted. There is no warning for this: the run sees a smaller match set and succeeds, and the stale-entity fail-safe only trips when a large enough share of the estate disappears at once.
+
+The usual cause is a CI job rewriting `target/` in place, so a run that lists objects mid-upload sees a partial set. Point the glob at a location that is written atomically or is immutable once published — for example a per-run prefix that is only swapped in when complete — rather than at a directory being overwritten by a live build.
+
+The number of manifests actually matched is reported as `manifests_loaded`, and every matched path is listed under `manifest_paths_expanded`, so an unexpected drop is visible in the run report even though it is not flagged as an error.
+
+:::
+
 ##### Cross-project identity collisions
 
 dbt guarantees identities are unique within a single project, but that guarantee doesn't extend across independently-developed projects combined by a glob:
@@ -298,11 +308,11 @@ dbt guarantees identities are unique within a single project, but that guarantee
 - **Same target table**: two projects that materialize to the same `database.schema.table` would resolve to the same dataset URN and silently overwrite each other's metadata.
 - **Same dbt `unique_id`**: two projects that share a dbt package name (for example, both scaffolded from the same template and never renamed) produce identical `unique_id`s for their models and exposures. Since `unique_id` is also the key used to resolve lineage between dbt nodes, an undetected collision doesn't just lose metadata — it can point one project's lineage at another project's model.
 
-Both are reported as a failure, and none of the colliding models or exposures are emitted, controlled by `fail_on_duplicate_models` (default `true`). Set it to `false` to instead keep one of them deterministically and emit a warning.
+Both are reported as a failure, and none of the colliding models or exposures are emitted, controlled by `fail_on_cross_project_collisions` (default `true`). Set it to `false` to instead keep one of them deterministically and emit a warning.
 
 :::note Failures suppress stale-entity removal for the whole run
 
-A reported failure — from either collision above, or from any other project failing to load — disables stale-entity soft-deletion for the **entire run**, across every project, not just the one that failed. This is deliberately the safe direction: a run with a reported problem should not delete metadata. If a persistent naming collision between two projects is blocking stale-entity cleanup for every other project, either fix the colliding dbt project(s), or set `fail_on_duplicate_models: false` as an explicit escape hatch.
+A reported failure — from either collision above, or from any other project failing to load — disables stale-entity soft-deletion for the **entire run**, across every project, not just the one that failed. This is deliberately the safe direction: a run with a reported problem should not delete metadata. If a persistent naming collision between two projects is blocking stale-entity cleanup for every other project, either fix the colliding dbt project(s), or set `fail_on_cross_project_collisions: false` as an explicit escape hatch.
 
 :::
 
