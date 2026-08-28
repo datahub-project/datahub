@@ -551,6 +551,30 @@ public class EntityAuthorizationUtilsTest {
     }
   }
 
+  /**
+   * canViewEntity's Query-entity branch (search-result masking, related-entity visibility — see
+   * ESAccessControlUtil/AuthorizationUtils.canView) shares the same requireAllQuerySubjects
+   * resolution as every other Query-entity-subject caller (QueryType, listQueries, REST reads), so
+   * that COMPAT's VIEW_AUTHORIZATION_ENABLED-driven single/all switch applies to it uniformly.
+   */
+  @Test
+  public void testCanViewEntity_queriesUseSharedRequireAllSubjects() {
+    try (MockedStatic<EntityAspectAuthorizationUtils> queryAuth =
+        Mockito.mockStatic(EntityAspectAuthorizationUtils.class)) {
+      queryAuth
+          .when(() -> EntityAspectAuthorizationUtils.requireAllQuerySubjects(opContext))
+          .thenReturn(true);
+      queryAuth
+          .when(
+              () ->
+                  EntityAspectAuthorizationUtils.canViewQueryEntity(
+                      eq(opContext), eq(opContext), eq(aspectRetriever), eq(QUERY_URN), eq(true)))
+          .thenReturn(true);
+
+      assertTrue(EntityAuthorizationUtils.canViewEntity(opContext, QUERY_URN));
+    }
+  }
+
   @Test
   public void testCanViewEntity_delegatesSchemaFields() {
     try (MockedStatic<EntityAspectAuthorizationUtils> schemaFieldAuth =
