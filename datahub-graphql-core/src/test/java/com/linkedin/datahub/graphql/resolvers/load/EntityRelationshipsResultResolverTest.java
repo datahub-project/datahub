@@ -16,6 +16,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.datahub.authorization.SessionActorIdentity;
 import com.linkedin.common.EntityRelationship;
@@ -49,6 +50,7 @@ import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nonnull;
@@ -941,11 +943,67 @@ public class EntityRelationshipsResultResolverTest {
    * surface group grants alongside users (not drop groups or bypass to the live graph).
    */
   @Test
+  public void testDataHubRoleIncomingMembersHonorsRelatedEntityTypes()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    setupDataHubRoleIncomingMembersMembershipCache(userUrn, groupUrn, List.of("corpuser"), null, 2);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), userUrn.toString());
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testDataHubRoleIncomingMembersRelatedEntityTypesUsesMaxEdgesFetchCap()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    int fetchCap = 2;
+    EntityGraphCache entityGraphCache =
+        setupDataHubRoleIncomingMembersMembershipCache(
+            userUrn, groupUrn, List.of("corpuser"), fetchCap, 2);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), userUrn.toString());
+    verify(entityGraphCache)
+        .listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq("urn:li:dataHubRole:Editor"),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfRole")),
+            anyInt(),
+            eq(0),
+            eq(fetchCap),
+            any(ReadMode.class));
+  }
+
+  @Test
+  public void testDataHubRoleIncomingMembersRelatedEntityTypesFailsClosedWhenFetchTruncated()
+      throws URISyntaxException {
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    // Cap fetches 2 neighbors but backend reports total 5 → refuse truncated filter+page.
+    setupDataHubRoleIncomingMembersMembershipCache(userUrn, groupUrn, List.of("corpuser"), 2, 5);
+
+    ExecutionException thrown =
+        expectThrows(ExecutionException.class, () -> resolver.get(mockEnv).get());
+    assertTrue(thrown.getCause() instanceof IllegalStateException);
+    assertTrue(thrown.getCause().getMessage().contains("fetch cap"));
+  }
+
+  @Test
   public void testDataHubRoleIncomingMembersIncludeGroupsViaMembershipCache()
       throws ExecutionException, InterruptedException, URISyntaxException {
     Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
     Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
-    setupDataHubRoleIncomingMembersMembershipCache(userUrn, groupUrn, null);
+    setupDataHubRoleIncomingMembersMembershipCache(userUrn, groupUrn, null, null, 2);
 
     EntityRelationshipsResult result = resolver.get(mockEnv).get();
 
@@ -960,23 +1018,19 @@ public class EntityRelationshipsResultResolverTest {
     verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
   }
 
-  @Test
-  public void testDataHubRoleIncomingMembersHonorsRelatedEntityTypes()
-      throws ExecutionException, InterruptedException, URISyntaxException {
-    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
-    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
-    setupDataHubRoleIncomingMembersMembershipCache(userUrn, groupUrn, List.of("corpuser"));
-
-    EntityRelationshipsResult result = resolver.get(mockEnv).get();
-
-    assertEquals(result.getTotal().intValue(), 1);
-    assertEquals(result.getCount().intValue(), 1);
-    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), userUrn.toString());
-    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
-  }
-
-  private void setupDataHubRoleIncomingMembersMembershipCache(
-      @Nonnull Urn userUrn, @Nonnull Urn groupUrn, @Nullable List<String> relatedEntityTypes)
+  /**
+   * @param relatedTypeFilterFetchCap when non-null (and relatedEntityTypes set), stubs {@code
+   *     maxEdgesForGraph} and expects {@code listRelated} count to match the cap
+   * @param reportedTotal total reported by the membership hit (may exceed fetched neighbors to
+   *     simulate truncation)
+   */
+  @Nonnull
+  private EntityGraphCache setupDataHubRoleIncomingMembersMembershipCache(
+      @Nonnull Urn userUrn,
+      @Nonnull Urn groupUrn,
+      @Nullable List<String> relatedEntityTypes,
+      @Nullable Integer relatedTypeFilterFetchCap,
+      int reportedTotal)
       throws URISyntaxException {
     Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Editor");
 
@@ -992,6 +1046,10 @@ public class EntityRelationshipsResultResolverTest {
             .build();
     when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP))
         .thenReturn(Optional.of(binding));
+    if (relatedTypeFilterFetchCap != null) {
+      when(entityGraphCache.maxEdgesForGraph("membership"))
+          .thenReturn(OptionalInt.of(relatedTypeFilterFetchCap));
+    }
     when(entityGraphCache.listRelated(
             eq("membership"),
             eq(GraphSnapshotSource.GRAPH),
@@ -1000,14 +1058,16 @@ public class EntityRelationshipsResultResolverTest {
             eq(Set.of("IsMemberOfRole")),
             anyInt(),
             eq(0),
-            anyInt(),
+            relatedTypeFilterFetchCap != null && relatedEntityTypes != null
+                ? eq(relatedTypeFilterFetchCap)
+                : anyInt(),
             any(ReadMode.class)))
         .thenReturn(
             MembershipNeighborResult.fromNeighbors(
                 List.of(
                     new MembershipNeighborResult.Neighbor(userUrn.toString(), "IsMemberOfRole"),
                     new MembershipNeighborResult.Neighbor(groupUrn.toString(), "IsMemberOfRole")),
-                2));
+                reportedTotal));
 
     QueryContext queryContext = getMockAllowContext();
     OperationContext baseContext = queryContext.getOperationContext();
@@ -1037,6 +1097,7 @@ public class EntityRelationshipsResultResolverTest {
     when(mockEnv.getArgument(eq("input"))).thenReturn(membersInput);
 
     when(_entityService.exists(any(), anySet(), eq(false))).thenAnswer(inv -> inv.getArgument(1));
+    return entityGraphCache;
   }
 
   private com.linkedin.datahub.graphql.generated.EntityRelationship resultRelationship(
