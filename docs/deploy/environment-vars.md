@@ -927,6 +927,15 @@ Reference Links:
 | `BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_DELAY_MS`   | `1000`  | Ingestion indices delay in milliseconds | System Update |
 | `BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_CLL_LIMIT`  | `0`     | Ingestion indices CLL limit             | System Update |
 
+### Data Product Indices Configuration
+
+| Environment Variable                                      | Default | Description                                  | Components    |
+| --------------------------------------------------------- | ------- | -------------------------------------------- | ------------- |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_INDICES_ENABLED`    | `true`  | Enable data product indices backfill         | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_INDICES_BATCH_SIZE` | `5000`  | Data product indices batch size              | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_INDICES_DELAY_MS`   | `1000`  | Data product indices delay in milliseconds   | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_INDICES_LIMIT`      | `0`     | Data product indices limit (`0` = no limit)  | System Update |
+
 ### Policy Fields Configuration
 
 | Environment Variable                               | Default | Description                     | Components    |
