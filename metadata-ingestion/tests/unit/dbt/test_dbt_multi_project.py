@@ -1,6 +1,6 @@
 import json
 import pathlib
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, NoReturn, Optional
 from unittest import mock
 
 import dateutil.parser
@@ -726,6 +726,42 @@ def test_non_glob_corrupt_manifest_raises_instead_of_reporting_failure(
     with pytest.raises(json.JSONDecodeError):
         source.load_nodes()
 
+    assert source.report.manifests_failed == 0
+    assert not source.report.failures
+
+
+def test_memory_error_propagates_instead_of_being_skipped(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Per-project isolation must not absorb an exhausted process.
+
+    MemoryError is an Exception subclass, so the generic per-project handler
+    recorded an oversized catalog as one skipped project and went on fetching and
+    parsing every remaining manifest into a process that had already run out of
+    memory. Unlike a corrupt manifest, this is not contained by skipping the
+    project - see test_corrupt_manifest_is_a_failure_and_other_projects_still_load
+    for the behaviour that must stay.
+    """
+    for project in ("project_a", "project_b", "project_c"):
+        _write_project(
+            tmp_path, project, [{"name": project, "database": "db", "schema": "sch"}]
+        )
+
+    source = _make_source(manifest_path=f"{tmp_path}/*/manifest.json")
+    attempted: List[str] = []
+
+    def _raise_memory_error(
+        manifest_path: str, *args: object, **kwargs: object
+    ) -> NoReturn:
+        attempted.append(manifest_path)
+        raise MemoryError("catalog too large to parse")
+
+    with mock.patch.object(source, "_load_project_nodes", _raise_memory_error):
+        with pytest.raises(MemoryError):
+            source.load_nodes()
+
+    # Stopped at the first project instead of fetching the other two.
+    assert len(attempted) == 1
     assert source.report.manifests_failed == 0
     assert not source.report.failures
 

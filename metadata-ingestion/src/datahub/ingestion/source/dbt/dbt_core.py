@@ -1367,6 +1367,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     sources_path,
                     optional_artifacts=is_multi_project,
                 )
+            except MemoryError:
+                # Per-project isolation exists to contain one project's bad artifacts.
+                # Exhausted memory is not contained by it: every remaining project
+                # would be fetched and parsed into the same exhausted process, so
+                # continuing produces a run that is slower and no more complete.
+                raise
             except Exception as e:
                 # In single-project mode, a bad manifest fails the run exactly as it
                 # always has. In glob mode, one broken project shouldn't take down
