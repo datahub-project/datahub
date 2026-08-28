@@ -117,8 +117,10 @@ public class RollbackServiceMetricsTest {
         .thenReturn(new ArrayList<>());
 
     when(mockEntityService.rollbackRun(eq(opContext), anyList(), eq(TEST_RUN_ID), eq(true)))
-        .thenReturn(new RollbackRunResult(firstPage, 0, rollbackResults(firstPage)))
-        .thenReturn(new RollbackRunResult(secondPage, 0, rollbackResults(secondPage)));
+        .thenReturn(
+            new RollbackRunResult(new ArrayList<>(firstPage), 0, rollbackResults(firstPage)))
+        .thenReturn(
+            new RollbackRunResult(new ArrayList<>(secondPage), 0, rollbackResults(secondPage)));
 
     DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
     timeseriesResult.setNumDocsDeleted(0L);

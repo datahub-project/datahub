@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.form.DynamicFormAssignment;
 import io.datahubproject.metadata.context.OperationContext;
+import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Value;
 
@@ -15,9 +16,9 @@ import lombok.Value;
 @Builder
 @Value
 public class FormAssignmentScrollRequest {
-  OperationContext opContext;
-  DynamicFormAssignment formFilters;
-  Urn formUrn;
+  @Nonnull OperationContext opContext;
+  @Nonnull DynamicFormAssignment formFilters;
+  @Nonnull Urn formUrn;
   int batchFormEntityCount;
-  SystemEntityClient entityClient;
+  @Nonnull SystemEntityClient entityClient;
 }

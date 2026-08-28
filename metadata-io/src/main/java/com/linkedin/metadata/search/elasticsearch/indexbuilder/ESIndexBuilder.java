@@ -1135,6 +1135,9 @@ public class ESIndexBuilder {
         count++;
         Thread.sleep(Math.min(finalCheckIntervalMilli, initialCheckIntervalMilli * count));
       }
+      // Note: recordPage() above counts poll ticks (sleep iterations), not data pages. For a
+      // multi-hour reindex this over-reports relative to chunks of work processed; acceptable as a
+      // liveness signal (poll is making progress) but not a throughput counter.
 
       log.error(
           "Reindex {} -> {} timed out or exhausted retries at {}/{} docs. Last reindex task [{}]: {}",

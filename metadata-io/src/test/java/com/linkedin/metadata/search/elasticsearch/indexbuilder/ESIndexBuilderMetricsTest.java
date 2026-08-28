@@ -32,11 +32,11 @@ import java.util.Optional;
 import org.apache.http.HttpEntity;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.action.admin.cluster.node.tasks.get.GetTaskRequest;
-import org.opensearch.action.admin.cluster.node.tasks.get.GetTaskResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
+import org.opensearch.client.tasks.GetTaskRequest;
+import org.opensearch.client.tasks.GetTaskResponse;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

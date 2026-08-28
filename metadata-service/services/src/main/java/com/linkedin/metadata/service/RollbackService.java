@@ -229,7 +229,8 @@ public class RollbackService {
 
       final List<AspectRowSummary> keyAspects = aspectsSplitByIsKeyAspects.get(true);
 
-      final long entitiesDeleted = keyAspects.size();
+      final long entitiesDeleted =
+          deletedRows.stream().filter(AspectRowSummary::isKeyAspect).count();
       final long affectedEntities =
           deletedRows.stream()
               .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
