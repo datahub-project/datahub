@@ -2280,9 +2280,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         """Detect nodes from different dbt projects that resolve to the same dataset URN.
 
         Covers models, seeds, snapshots, and semantic models - every node type that
-        exists_in_target_platform routes to a get_db_fqn()-derived dataset URN - plus
-        ephemeral models, which do not exist in the target platform but are still
-        emitted under a dbt-platform URN built from the very same get_db_fqn().
+        exists_in_target_platform routes to a get_db_fqn()-derived dataset URN.
 
         The URN is derived from get_db_fqn() -> database.schema.name, and dbt's
         unique_id (which carries the project name) is not part of it. dbt guarantees
@@ -2315,13 +2313,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         for node in nodes:
             if (
                 node.node_type in {"model", "seed", "snapshot", "semantic_model"}
-                # Ephemeral models are excluded by exists_in_target_platform, but they
-                # are still emitted as dbt-platform datasets whose URN comes from the
-                # same get_db_fqn() - database.schema.name, which carries no project
-                # identity - so two projects' same-named ephemeral models overwrite
-                # each other exactly as two materialized models would. Their differing
-                # package names keep the unique_id pass from catching it.
-                and (node.exists_in_target_platform or node.is_ephemeral_model())
+                and node.exists_in_target_platform
                 # Restricted to entities that can actually be emitted, so a collision
                 # between two nodes the user has excluded never fails the run.
                 and self._is_allowed_node(node)
