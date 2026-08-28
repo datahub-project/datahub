@@ -19,6 +19,7 @@ Usage:
           tenant_id: ${AZURE_TENANT_ID}
 """
 
+import json
 import logging
 import re
 from collections import deque
@@ -63,6 +64,7 @@ from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
     CopyActivityColumnLineageExtractor,
     DatasetSchemaInfo,
     get_activity_translator_config,
+    parse_translator_column_mappings,
 )
 from datahub.ingestion.source.azure_data_factory.adf_config import (
     AzureDataFactoryConfig,
@@ -150,6 +152,19 @@ LINKED_SERVICE_SELF_REFERENCE_PATTERN = re.compile(r"^@\{linkedService\(\)\.(\w+
 # finds nothing and the reference is left unresolved rather than wrong.
 ORACLE_SERVICE_PARAM_HINT_PATTERN = re.compile(
     r"linkedService\(\)\.(\w*(?:service|sid)\w*)", re.IGNORECASE
+)
+# Matches an ADF expression referencing a sibling activity's own run
+# output by dotted path, e.g. "activity('LookupMapping').output.firstRow.value"
+# -> group(1) = "LookupMapping", group(2) = "firstRow.value". Used to resolve
+# a Copy activity's translator when it's itself sourced from another
+# activity's run output (e.g. a Lookup that reads a data-driven
+# column-mapping table) rather than a static config. Uses .search(), not
+# .match(), since the reference is often embedded inside a larger
+# expression (e.g. an @if(...)/coalesce(...) wrapper); repeated
+# references within the same expression all resolve to the same value, so
+# matching only the first is sufficient.
+ACTIVITY_OUTPUT_REFERENCE_PATTERN = re.compile(
+    r"activity\('([^']+)'\)\.output\.([\w.]+)"
 )
 
 # Mapping of ADF activity types to DataHub subtypes
@@ -2098,6 +2113,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         factory_key: str,
         pipeline_run: PipelineRun,
         activity_run: ActivityRun,
+        sibling_activity_runs: dict[str, list[ActivityRun]],
     ) -> tuple[list[DatasetUrn], list[DatasetUrn], list[tuple[tuple[str, ...], str]]]:
         """Resolve the best-available inlets/outlets (and, where possible,
         column-level lineage) for one activity run: static lineage, plus
@@ -2108,7 +2124,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         run. That query is the only Azure API field that exposes a
         per-iteration resolved value for ForEach-looped Copy activities
         (e.g. "@item().X") - the ForEach activity's own run only ever
-        reports an item count."""
+        reports an item count. sibling_activity_runs (all other activity
+        runs from this same pipeline run, keyed by activity name) lets a
+        Copy activity's own translator be resolved when it's itself
+        sourced from another activity's run output (e.g. a Lookup that
+        reads a data-driven column-mapping table)."""
         input_urns = {
             str(u) for u in self._extract_activity_inputs(activity, factory_key)
         }
@@ -2151,7 +2171,29 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             output_urns = query_output_urns
 
         column_mappings: list[tuple[tuple[str, ...], str]] = []
-        if len(query_output_urns) == 1:
+        translator = get_activity_translator_config(activity)
+        if (
+            translator is not None
+            and translator.get("type") == "Expression"
+            and len(input_urns) == 1
+            and len(output_urns) == 1
+        ):
+            # The activity's own translator is itself dynamic (e.g.
+            # sourced from a sibling Lookup activity's run output at
+            # execution time). There's a real, data-driven mapping
+            # intended here - resolve it via that sibling's actual output
+            # for this specific run rather than falling through to a
+            # same-name guess, which could be actively wrong.
+            resolved_translator = self._resolve_cross_activity_translator(
+                translator, sibling_activity_runs
+            )
+            if resolved_translator is not None:
+                column_mappings = self._translator_to_column_mappings(
+                    resolved_translator,
+                    next(iter(input_urns)),
+                    next(iter(output_urns)),
+                )
+        elif len(query_output_urns) == 1:
             # Only attempt column-level lineage when there's a single,
             # unambiguous per-run sink table to pair columns against.
             column_mappings = self._extract_query_column_lineage(
@@ -2161,6 +2203,82 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         inlets = [DatasetUrn.from_string(u) for u in input_urns]
         outlets = [DatasetUrn.from_string(u) for u in output_urns]
         return inlets, outlets, column_mappings
+
+    def _resolve_cross_activity_translator(
+        self,
+        translator: dict[str, Any],
+        sibling_activity_runs: dict[str, list[ActivityRun]],
+    ) -> Optional[dict[str, Any]]:
+        """Resolve a Copy activity's translator when it's itself an
+        unresolved ADF expression referencing another activity's run
+        output (e.g. a Lookup activity that reads a data-driven
+        column-mapping table from a control table) - the only place such
+        a mapping is ever exposed. Returns None (not a guess) when the
+        sibling run is unavailable, the output path doesn't resolve, or
+        the resolved value isn't valid JSON.
+
+        Requires the referenced activity to have run exactly once in this
+        pipeline run. A parallel ForEach can run the same-named sibling
+        once per iteration with a different resolved output each time -
+        with no per-iteration correlation available from the API, picking
+        any one of them here would risk pairing the wrong iteration's
+        mapping with this run's actual source/sink tables."""
+        expr = translator.get("value")
+        if not isinstance(expr, str):
+            return None
+        match = ACTIVITY_OUTPUT_REFERENCE_PATTERN.search(expr)
+        if not match:
+            return None
+        referenced_activity_name, output_path = match.group(1), match.group(2)
+        referenced_runs = sibling_activity_runs.get(referenced_activity_name)
+        if not referenced_runs:
+            return None
+        if len(referenced_runs) > 1:
+            self.report.warning(
+                title="Ambiguous Cross-Activity Translator Reference",
+                message="A Copy activity's translator references a sibling activity that ran more than once in this pipeline run (e.g. inside a parallel ForEach); skipping column lineage rather than risk pairing the wrong iteration's mapping.",
+                context=f"activity={referenced_activity_name}",
+                log=False,
+            )
+            return None
+        referenced_run = referenced_runs[0]
+
+        value: Any = referenced_run.output
+        for segment in output_path.split("."):
+            if not isinstance(value, dict) or segment not in value:
+                return None
+            value = value[segment]
+        if not isinstance(value, str) or not value.strip():
+            return None
+
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return None
+        if isinstance(parsed, dict):
+            return {"type": "TabularTranslator", "columnMappings": parsed}
+        if isinstance(parsed, list):
+            return {"type": "TabularTranslator", "mappings": parsed}
+        return None
+
+    def _translator_to_column_mappings(
+        self,
+        translator: dict[str, Any],
+        source_urn: str,
+        sink_urn: str,
+    ) -> list[tuple[tuple[str, ...], str]]:
+        """Convert a resolved translator config into the same (upstream
+        schema field urns, downstream schema field urn) tuple form used
+        elsewhere in _dynamic_lineage_cache."""
+        column_mappings: list[tuple[tuple[str, ...], str]] = []
+        for lineage in parse_translator_column_mappings(
+            translator, source_urn, sink_urn
+        ):
+            if not lineage.upstreams or not lineage.downstreams:
+                continue
+            column_mappings.append((tuple(lineage.upstreams), lineage.downstreams[0]))
+            self.report.report_column_lineage_extracted()
+        return column_mappings
 
     def _resolve_dataset_ref_context(
         self,
@@ -2473,11 +2591,22 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         pipeline_run_id = pipeline_run.run_id or "Unknown"
 
         try:
-            for activity_run in self.client.get_activity_runs(
-                resource_group,
-                factory_name,
-                pipeline_run_id,
-            ):
+            # Materialized (not streamed) so a Copy activity's translator
+            # can be resolved against a sibling activity's run output
+            # (e.g. a Lookup that reads a column-mapping table)
+            # regardless of which order the API returns them in.
+            activity_runs = list(
+                self.client.get_activity_runs(
+                    resource_group,
+                    factory_name,
+                    pipeline_run_id,
+                )
+            )
+            sibling_activity_runs: dict[str, list[ActivityRun]] = {}
+            for run in activity_runs:
+                if run.activity_name:
+                    sibling_activity_runs.setdefault(run.activity_name, []).append(run)
+            for activity_run in activity_runs:
                 self.report.report_api_call()
                 self.report.report_activity_run_scanned()
 
@@ -2537,7 +2666,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     if activity_obj is not None:
                         inlets, outlets, column_mappings = (
                             self._resolve_activity_run_lineage(
-                                activity_obj, factory_key, pipeline_run, activity_run
+                                activity_obj,
+                                factory_key,
+                                pipeline_run,
+                                activity_run,
+                                sibling_activity_runs,
                             )
                         )
                         if inlets or outlets:
