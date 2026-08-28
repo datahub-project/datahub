@@ -198,6 +198,45 @@ def test_value_filter_ranges_for_temporal_columns():
     assert region_filter == "`region` = 'emea'"
 
 
+def test_strategic_candidate_path_emits_half_open_range_for_timestamp():
+    """The strategic-candidate discovery path (_test_date_candidate) must delegate a
+    TIMESTAMP partition column to the same half-open range logic as direct discovery, so
+    a candidate date yields a full-day range rather than an equality to a single instant.
+    """
+
+    class NoEnhanceDiscovery(PartitionDiscovery):
+        def _verify_partition_has_data(self, *args: Any, **kwargs: Any) -> bool:
+            return True
+
+        def _enhance_partition_filters_with_actual_values(
+            self, table, project, schema, required_columns, filters, *args, **kwargs
+        ):
+            # Isolate the candidate-filter construction from the co-occurrence enhancement.
+            return filters
+
+    discovery = NoEnhanceDiscovery(make_config())
+    table = make_table(partition_info=PartitionInfo(fields=("event_ts",), type="DAY"))
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return []
+
+    result = discovery._test_date_candidate(
+        table,
+        "test-project-123456",
+        "ds",
+        datetime(2025, 1, 15, 8, 30, 0, tzinfo=timezone.utc),
+        "today",
+        ["event_ts"],
+        {"event_ts": "TIMESTAMP"},
+        execute,
+    )
+
+    assert result == [
+        "`event_ts` >= TIMESTAMP('2025-01-15 00:00:00+00:00') "
+        "AND `event_ts` < TIMESTAMP('2025-01-16 00:00:00+00:00')"
+    ]
+
+
 def test_ingestion_time_partition_datetime_override_applies():
     """_PARTITIONTIME is absent from INFORMATION_SCHEMA.COLUMNS, so column_types is empty;
     the configured partition_datetime must still apply by inferring the pseudo-column type.

@@ -703,8 +703,17 @@ class PartitionDiscovery:
                 result_values[component_col] = max_value
                 resolved_type = col_type
                 if not resolved_type:
+                    # Infer the type from the value BigQuery returned, not from its string
+                    # shape: a Hive-style STRING component like "2024"/"01" is digit-looking
+                    # but must stay a quoted string, otherwise the predicate becomes
+                    # STRING = INT64 which BigQuery rejects. Only a genuine Python int
+                    # (excluding bool) is an INT64 column; anything else is left unknown so
+                    # create_safe_filter quotes it.
                     resolved_type = (
-                        "INT64" if str(max_value).strip().lstrip("-").isdigit() else ""
+                        "INT64"
+                        if isinstance(max_value, int)
+                        and not isinstance(max_value, bool)
+                        else ""
                     )
                 filter_expr = self._create_safe_filter(
                     component_col, max_value, resolved_type
