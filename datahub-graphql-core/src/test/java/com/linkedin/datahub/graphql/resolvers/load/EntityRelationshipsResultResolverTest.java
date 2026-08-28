@@ -973,6 +973,77 @@ public class EntityRelationshipsResultResolverTest {
     verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
   }
 
+  @Test
+  public void testDataHubRoleIncomingMembersHonorsRelatedEntityTypes()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Editor");
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+
+    CorpGroup roleSource = new CorpGroup();
+    roleSource.setUrn(roleUrn.toString());
+    when(mockEnv.getSource()).thenReturn(roleSource);
+
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder()
+            .graphId("membership")
+            .source(GraphSnapshotSource.GRAPH)
+            .build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP))
+        .thenReturn(Optional.of(binding));
+    when(entityGraphCache.listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(roleUrn.toString()),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfRole")),
+            anyInt(),
+            eq(0),
+            anyInt(),
+            any(ReadMode.class)))
+        .thenReturn(
+            MembershipNeighborResult.fromNeighbors(
+                List.of(
+                    new MembershipNeighborResult.Neighbor(userUrn.toString(), "IsMemberOfRole"),
+                    new MembershipNeighborResult.Neighbor(groupUrn.toString(), "IsMemberOfRole")),
+                2));
+
+    QueryContext queryContext = getMockAllowContext();
+    OperationContext baseContext = queryContext.getOperationContext();
+    OperationContext opContext =
+        baseContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .entityGraphCache(entityGraphCache)
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .build())
+            .build(baseContext.getSessionAuthentication(), false);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput membersInput = new RelationshipsInput();
+    membersInput.setTypes(List.of("IsMemberOfRole"));
+    membersInput.setDirection(RelationshipDirection.INCOMING);
+    membersInput.setRelatedEntityTypes(List.of("corpuser"));
+    membersInput.setIncludeSoftDelete(false);
+    membersInput.setStart(0);
+    membersInput.setCount(50);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(membersInput);
+
+    when(_entityService.exists(any(), anySet(), eq(false))).thenAnswer(inv -> inv.getArgument(1));
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), userUrn.toString());
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
   private com.linkedin.datahub.graphql.generated.EntityRelationship resultRelationship(
       Entity entity) {
     return new com.linkedin.datahub.graphql.generated.EntityRelationship(
