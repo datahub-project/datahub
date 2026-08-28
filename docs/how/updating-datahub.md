@@ -141,18 +141,18 @@ Usage` alone (with no `View Entity Page`) was already enough to see a dataset's
   - **`VIEW_ALL_QUERIES`**: platform-level privilege that grants unconditional visibility into
     every query's SQL text, subjects or not, with no per-dataset restriction — it is checked
     before, and short-circuits, the `VIEW_ENTITY_QUERIES` subject-dataset logic entirely. It is
-    not consulted by any query create/edit/delete check. On a fresh install with
-    `VIEW_AUTHORIZATION_ENABLED=false` (the default), the default policies grant it to Root,
-    Admin, Editor, Reader, and all users — so by default nobody's query visibility is actually
-    restricted by `VIEW_ENTITY_QUERIES` yet; an administrator who wants the new per-dataset
-    restriction to take effect must revoke `VIEW_ALL_QUERIES` from the relevant policies first.
-    On a fresh install with `VIEW_AUTHORIZATION_ENABLED=true` already set, the editable "All
-    Users" default policy does **not** get `VIEW_ALL_QUERIES` seeded — Root and the built-in
-    Admin/Editor/Reader roles still do — matching the same system-policies-only restriction
-    described below for the upgrade backfill. On upgrade, a one-time system-update step grants it
-    to every policy that already grants `View Entity Page`, matching pre-upgrade behavior (page
-    visibility implied visibility into all of an entity's queries, subjects or not) and covering
-    the same policies as the fresh-install default. Set
+    not consulted by any query create/edit/delete check. On a fresh install — regardless of
+    `VIEW_AUTHORIZATION_ENABLED` — the default policies grant it to Root, Admin, Editor, Reader,
+    and all users, exactly as shipped in `boot/policies.json`; nothing strips it automatically,
+    even if `VIEW_AUTHORIZATION_ENABLED=true` is already set at install time. An administrator who
+    wants the new per-dataset restriction to actually take effect — on a fresh install or
+    otherwise — must revoke `VIEW_ALL_QUERIES` from the relevant policies themselves, as a
+    one-time action. On upgrade, a one-time system-update step grants it to every policy that
+    already grants `View Entity Page`, matching pre-upgrade behavior (page visibility implied
+    visibility into all of an entity's queries, subjects or not) and covering the same policies as
+    the fresh-install default, but — unlike the fresh-install case — restricted to built-in
+    (`editable=false`) policies when `VIEW_AUTHORIZATION_ENABLED` is already on; see below for why
+    upgrades and fresh installs are handled differently here. Set
     `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_ENABLED=false` to skip this backfill
     entirely — see the **Action** note below for why that is not the recommended way to scope it
     down under `VIEW_AUTHORIZATION_ENABLED`.
@@ -161,16 +161,23 @@ Usage` alone (with no `View Entity Page`) was already enough to see a dataset's
     `VIEW_ALL_QUERIES` backfill above restricts itself to system policies (`editable=false` —
     the built-in Root/Admin/Editor/Reader-style policies) and skips custom, editable policies
     entirely, so it doesn't silently widen a narrowly-scoped custom policy with an unconditional
-    platform-level privilege. This check reads `VIEW_AUTHORIZATION_ENABLED` from the
-    **system-update job's own environment**, not GMS's — the stock
-    `docker/profiles/docker-compose.gms.yml` now passes `VIEW_AUTHORIZATION_ENABLED` to the
-    non-blocking `system-update` container with the same value GMS gets. **Action:** if you run a
-    custom Helm chart or a custom/forked compose stack, make sure `VIEW_AUTHORIZATION_ENABLED` is
-    passed to the non-blocking `system-update` job the same way it's passed to GMS — this is the
-    recommended way to get the system-policies-only scoping, both for the upgrade backfill and for
-    the fresh-install "All Users" seeding above. Without it, the backfill silently treats view
-    authorization as off and adds `VIEW_ALL_QUERIES` to every matching policy regardless of
-    `editable`. Once `VIEW_AUTHORIZATION_ENABLED=true` and wired through correctly: still review
+    platform-level privilege. An upgrading install already has real users depending on whatever
+    effective access they had before the upgrade, so the backfill's job is to preserve that:
+    broadly, for installs that aren't enforcing view-based access at all, and narrowly (system
+    policies only) for those that are, so it doesn't hand a newly-VBAC-enabled install's custom
+    policies a platform-wide privilege they never asked for. A fresh install has no such prior
+    state to preserve — it always ingests the stock policies (including "All Users") exactly as
+    declared, and an operator enabling `VIEW_AUTHORIZATION_ENABLED=true` from day one is expected
+    to review and trim those defaults themselves, the same as for the `VIEW_AUTHORIZATION_ENABLED=false`
+    case described above. This check reads `VIEW_AUTHORIZATION_ENABLED` from the **system-update
+    job's own environment**, not GMS's — the stock `docker/profiles/docker-compose.gms.yml` now
+    passes `VIEW_AUTHORIZATION_ENABLED` to the non-blocking `system-update` container with the
+    same value GMS gets. **Action:** if you run a custom Helm chart or a custom/forked compose
+    stack, make sure `VIEW_AUTHORIZATION_ENABLED` is passed to the non-blocking `system-update` job
+    the same way it's passed to GMS — this is the recommended way to get the system-policies-only
+    scoping for the upgrade backfill. Without it, the backfill silently treats view authorization
+    as off and adds `VIEW_ALL_QUERIES` to every matching policy regardless of `editable`. Once
+    `VIEW_AUTHORIZATION_ENABLED=true` and wired through correctly: still review
     which system policies received `VIEW_ALL_QUERIES` and revoke it from any you don't want it on
     — the backfill preserves Root and built-in-role compatibility access, which is intended, not
     something to avoid. Setting
