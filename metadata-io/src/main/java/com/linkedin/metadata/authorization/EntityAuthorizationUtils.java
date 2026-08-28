@@ -36,6 +36,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -133,18 +134,34 @@ public final class EntityAuthorizationUtils {
     if (apiOperation != READ) {
       return AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, queryUrns);
     }
-    if (!AuthUtil.isRestApiAuthorizationEnabled()
+    return filterAPIAuthorizedQueryUrns(opContext, queryUrns).containsAll(queryUrns);
+  }
+
+  /**
+   * Filters {@code queryUrns} down to the subset viewable by the actor, per {@link
+   * EntityAspectAuthorizationUtils#filterViewableQueryEntities} — same activation conditions as
+   * {@link #isAPIAuthorizedQueryUrns} (REST API authorization enabled, query-read authorization
+   * enabled, not system auth), returning every urn unfiltered when any of those are inactive. Used
+   * by result-set surfaces (search/scroll) that need to keep the queries the actor IS authorized to
+   * see rather than rejecting the whole result because it also contains one they aren't — the same
+   * all-or-nothing boolean above is correct for single-entity or batch existence-style checks,
+   * where a mixed outcome should reasonably deny the caller's specific request.
+   */
+  @Nonnull
+  public static Set<Urn> filterAPIAuthorizedQueryUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> queryUrns) {
+    if (queryUrns.isEmpty()
+        || !AuthUtil.isRestApiAuthorizationEnabled()
         || !EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(opContext)
         || opContext.isSystemAuth()) {
-      return true;
+      return new HashSet<>(queryUrns);
     }
     return EntityAspectAuthorizationUtils.filterViewableQueryEntities(
-            opContext,
-            opContext,
-            opContext.getAspectRetriever(),
-            queryUrns,
-            EntityAspectAuthorizationUtils.requireAllQuerySubjects(opContext))
-        .containsAll(queryUrns);
+        opContext,
+        opContext,
+        opContext.getAspectRetriever(),
+        queryUrns,
+        EntityAspectAuthorizationUtils.requireAllQuerySubjects(opContext));
   }
 
   /**
