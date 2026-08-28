@@ -222,8 +222,7 @@ public class ListQueriesResolverTest {
 
   /**
    * Escape valve: with query-read authorization explicitly disabled (and legacy view-auth off), no
-   * filtering — and no subject lookups — happen at all. This is the only path that still calls
-   * {@code EntityClient.search} rather than scrolling.
+   * filtering — and no subject lookups — happen at all.
    */
   @Test
   public void testGetReturnsQueriesWhenQueryAuthorizationDisabled() throws Exception {
@@ -263,6 +262,52 @@ public class ListQueriesResolverTest {
                         .enabled(false)
                         .build())
                 .build());
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_FULL_FILTERS);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    ListQueriesResult result = resolver.get(mockEnv).get();
+    assertEquals(result.getQueries().size(), 1);
+    Mockito.verify(aspectRetriever, Mockito.never()).getLatestAspectObjects(any(), any(), any());
+    Mockito.verify(mockClient, Mockito.never())
+        .scrollAcrossEntities(any(), any(), any(), any(), any(), any(), any(), anyInt());
+  }
+
+  /**
+   * An actor holding VIEW_ALL_QUERIES uses the same fast path as query-authorization-disabled: it
+   * proves every match is already visible to them regardless of subjects, so there's nothing to
+   * scroll or authorize per-query.
+   */
+  @Test
+  public void testGetReturnsQueriesWhenActorHasViewAllQueriesPrivilege() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(aspectRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Authorizer mockAuthorizer = viewAllQueriesAuthorizer();
+
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.QUERY_ENTITY_NAME),
+                any(),
+                any(),
+                any(),
+                anyInt(),
+                any()))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(new SearchEntity().setEntity(TEST_QUERY_URN)))));
+
+    ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
+    // Query-view-authorization active by default (VAE off, dedicated flag defaults on) — only the
+    // VIEW_ALL_QUERIES bypass should route this to the fast path.
+    QueryContext mockContext = createContext(mockAuthorizer, aspectRetriever, false);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_FULL_FILTERS);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -457,11 +502,13 @@ public class ListQueriesResolverTest {
         .thenReturn(
             new ScrollResult().setEntities(new SearchEntityArray(fullBatch)).setScrollId("more"));
 
-    // Grant VIEW_ALL_QUERIES so every candidate is trivially authorized without any per-query
-    // subject lookup — the cap must trip on candidate count alone.
-    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
-    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    // Deny everything, including VIEW_ALL_QUERIES (which would otherwise route this to the fast
+    // path and skip the scroll loop entirely). With no subjects aspect found, every candidate is
+    // fail-closed regardless of the authorizer — the cap must trip on candidate count alone before
+    // authorization outcome matters.
+    Authorizer mockAuthorizer = denyAllAuthorizer();
+    Mockito.when(aspectRetriever.getLatestAspectObjects(any(), any(), any()))
+        .thenReturn(ImmutableMap.of());
 
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
     QueryContext mockContext = createContext(mockAuthorizer, aspectRetriever, false);
@@ -481,7 +528,6 @@ public class ListQueriesResolverTest {
       assertEquals(
           ((DataHubGraphQLException) rootCause).errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
     }
-    Mockito.verify(aspectRetriever, Mockito.never()).getLatestAspectObjects(any(), any(), any());
   }
 
   @Test
@@ -605,19 +651,28 @@ public class ListQueriesResolverTest {
    * EDIT_ENTITY) is controlled by {@code hasQueryViewPrivilege}.
    */
   private Authorizer queryViewPrivilegeAuthorizer(boolean hasQueryViewPrivilege) {
+    // Deliberately excludes VIEW_ALL_QUERIES_PRIVILEGE: that platform-level bypass now has its own
+    // dedicated fast path and test (testGetReturnsQueriesWhenActorHasViewAllQueriesPrivilege) — a
+    // "true" here must exercise the per-subject-dataset scroll path, not the bypass.
     Set<String> queryViewPrivileges =
         ImmutableSet.of(
             PoliciesConfig.VIEW_ENTITY_QUERIES_PRIVILEGE.getType(),
             PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType(),
-            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
-            PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE.getType());
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType());
     Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
     Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
         .thenAnswer(
             invocation -> {
               AuthorizationRequest request = invocation.getArgument(0);
-              boolean allowed =
-                  hasQueryViewPrivilege || !queryViewPrivileges.contains(request.getPrivilege());
+              boolean allowed;
+              if (PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE
+                  .getType()
+                  .equals(request.getPrivilege())) {
+                allowed = false;
+              } else {
+                allowed =
+                    hasQueryViewPrivilege || !queryViewPrivileges.contains(request.getPrivilege());
+              }
               return new AuthorizationResult(
                   request,
                   allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
@@ -650,6 +705,23 @@ public class ListQueriesResolverTest {
     Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
     Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
         .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
+    return mockAuthorizer;
+  }
+
+  /** Authorizer granting only the platform-level VIEW_ALL_QUERIES privilege (no resource spec). */
+  private Authorizer viewAllQueriesAuthorizer() {
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              boolean allowed =
+                  PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE.getType().equals(request.getPrivilege());
+              return new AuthorizationResult(
+                  request,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  "");
+            });
     return mockAuthorizer;
   }
 
