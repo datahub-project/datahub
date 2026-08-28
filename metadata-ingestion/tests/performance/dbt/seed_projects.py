@@ -12,13 +12,14 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor
 from itertools import islice
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterator, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import boto3
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
+    from mypy_boto3_s3.type_defs import ObjectIdentifierTypeDef
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +125,9 @@ def clean(target: str, *, profile: Optional[str] = None) -> None:
         for page in paginator.paginate(
             Bucket=bucket, Prefix=f"{prefix}/" if prefix else ""
         ):
-            keys = [{"Key": obj["Key"]} for obj in page.get("Contents", [])]
+            keys: List["ObjectIdentifierTypeDef"] = [
+                {"Key": obj["Key"]} for obj in page.get("Contents", [])
+            ]
             if keys:
                 client.delete_objects(Bucket=bucket, Delete={"Objects": keys})
                 deleted += len(keys)
