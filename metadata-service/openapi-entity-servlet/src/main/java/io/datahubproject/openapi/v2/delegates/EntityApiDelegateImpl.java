@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.v2.delegates;
 
+import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
@@ -682,16 +683,27 @@ public class EntityApiDelegateImpl<I, O, S> {
             null,
             count);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
-    }
+    List<Urn> resultUrns =
+        result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
 
-    String[] urns =
-        result.getEntities().stream()
-            .map(SearchEntity::getEntity)
-            .map(Urn::toString)
-            .toArray(String[]::new);
+    String[] urns;
+    if (QUERY_ENTITY_NAME.equals(entitySpec.getName())) {
+      // Query visibility varies per entity (subject-dataset scoped), so a mixed page must keep
+      // the queries the actor IS authorized to see rather than rejecting the whole page.
+      Set<Urn> viewableQueryUrns =
+          EntityAuthorizationUtils.filterAPIAuthorizedQueryUrns(opContext, resultUrns);
+      urns =
+          resultUrns.stream()
+              .filter(viewableQueryUrns::contains)
+              .map(Urn::toString)
+              .toArray(String[]::new);
+    } else {
+      if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
+        throw new UnauthorizedException(
+            authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
+      }
+      urns = resultUrns.stream().map(Urn::toString).toArray(String[]::new);
+    }
     String[] requestedAspects =
         Optional.ofNullable(aspects)
             .map(asp -> asp.stream().distinct().toArray(String[]::new))
