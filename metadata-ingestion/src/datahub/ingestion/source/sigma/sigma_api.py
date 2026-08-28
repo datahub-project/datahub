@@ -288,6 +288,31 @@ class SigmaAPI:
             self.report.diag_walk_examples.append(detail)
         logger.info("sigma-diag walk %s", detail)
 
+    def _diag_verdict(self, file_type: str) -> None:
+        """Print the answer as soon as a file type is walked, not at the end.
+
+        Every walk happens inside ``_get_files_metadata``, which runs in the
+        first minutes of a run. Waiting for the final report would mean waiting
+        for the whole ingestion -- over seven hours on the tenant this targets.
+        Logged at WARNING when anything landed somewhere other than a
+        workspace, so it survives an INFO-filtered log and is greppable.
+        """
+        outcomes = dict(self.report.diag_walk_outcomes)
+        bad = {k: v for k, v in outcomes.items() if k != "workspace"}
+        banner = f"sigma-diag VERDICT after file_type={file_type}: {outcomes or '{}'}"
+        if not bad:
+            logger.info("%s -- all walks landed on a workspace so far", banner)
+            return
+        logger.warning(
+            "%s -- %d walk(s) did NOT land on a workspace. "
+            "folder-alias => entities are parented under a Container nothing "
+            "names; root-sentinel/walk-failed => the walk climbed past the "
+            "workspace. Examples: %s",
+            banner,
+            sum(bad.values()),
+            list(self.report.diag_walk_examples)[:5],
+        )
+
     @functools.lru_cache
     def _get_files_metadata(self, file_type: str) -> Dict[str, File]:
         logger.debug(f"Fetching file metadata with type {file_type}.")
@@ -311,8 +336,10 @@ class SigmaAPI:
                 else:
                     break
             self.report.number_of_files_metadata[file_type] = len(files_metadata)
+            self._diag_verdict(file_type)
             return files_metadata
         except Exception as e:
+            self._diag_verdict(file_type)
             self._log_http_error(
                 message=f"Unable to fetch files metadata. Exception: {e}"
             )
