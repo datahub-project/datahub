@@ -56,6 +56,7 @@ The connector automatically maps ADF linked service types to DataHub platforms. 
 | AzureSynapseAnalytics    | `mssql`          |
 | AzureSqlMI               | `mssql`          |
 | SqlServer                | `mssql`          |
+| AmazonRdsForSqlServer    | `mssql`          |
 | AzureDatabricks          | `databricks`     |
 | AzureDatabricksDeltaLake | `databricks`     |
 | AmazonS3                 | `s3`             |
@@ -63,22 +64,40 @@ The connector automatically maps ADF linked service types to DataHub platforms. 
 | AmazonRedshift           | `redshift`       |
 | GoogleCloudStorage       | `gcs`            |
 | GoogleBigQuery           | `bigquery`       |
+| GoogleBigQueryV2         | `bigquery`       |
+| GoogleSheets             | `google_sheets`  |
 | Snowflake                | `snowflake`      |
+| SnowflakeV2              | `snowflake`      |
 | PostgreSql               | `postgres`       |
+| PostgreSqlV2             | `postgres`       |
 | AzurePostgreSql          | `postgres`       |
 | MySql                    | `mysql`          |
 | AzureMySql               | `mysql`          |
+| MariaDB                  | `mariadb`        |
+| AzureMariaDB             | `mariadb`        |
 | Oracle                   | `oracle`         |
 | OracleServiceCloud       | `oracle`         |
+| AmazonRdsForOracle       | `oracle`         |
 | Db2                      | `db2`            |
 | Teradata                 | `teradata`       |
 | Vertica                  | `vertica`        |
+| Informix                 | `informix`       |
+| Presto                   | `presto`         |
+| Cassandra                | `cassandra`      |
+| Couchbase                | `couchbase`      |
+| SapHana                  | `hana`           |
+| MongoDb                  | `mongodb`        |
+| MongoDbV2                | `mongodb`        |
+| MongoDbAtlas             | `mongodb`        |
+| CosmosDbMongoDbApi       | `mongodb`        |
 | Hive                     | `hive`           |
 | Spark                    | `spark`          |
 | Hdfs                     | `hdfs`           |
 | Salesforce               | `salesforce`     |
 | SalesforceServiceCloud   | `salesforce`     |
+| SalesforceServiceCloudV2 | `salesforce`     |
 | SalesforceMarketingCloud | `salesforce`     |
+| SalesforceV2             | `salesforce`     |
 
 Unsupported linked service types log a warning and skip lineage for that dataset.
 

@@ -21,6 +21,11 @@ ADF_LINKED_SERVICE_PLATFORM_MAP: Dict[str, str] = {
     "SqlServer": "mssql",
     "AzurePostgreSql": "postgres",
     "AzureMySql": "mysql",
+    "AzureMariaDB": "mariadb",
+    # RDS-hosted databases speak the same wire protocol as their
+    # on-prem/Azure counterparts, same as the Synapse variants above.
+    "AmazonRdsForOracle": "oracle",
+    "AmazonRdsForSqlServer": "mssql",
     # Databricks
     "AzureDatabricks": "databricks",
     "AzureDatabricksDeltaLake": "databricks",
@@ -30,15 +35,31 @@ ADF_LINKED_SERVICE_PLATFORM_MAP: Dict[str, str] = {
     "GoogleCloudStorage": "gcs",
     "AmazonRedshift": "redshift",
     "GoogleBigQuery": "bigquery",
+    "GoogleBigQueryV2": "bigquery",
     "Snowflake": "snowflake",
+    "SnowflakeV2": "snowflake",
+    "GoogleSheets": "google_sheets",
     # Traditional Databases
     "PostgreSql": "postgres",
+    "PostgreSqlV2": "postgres",
     "MySql": "mysql",
+    "MariaDB": "mariadb",
     "Oracle": "oracle",
     "OracleServiceCloud": "oracle",
     "Db2": "db2",
     "Teradata": "teradata",
     "Vertica": "vertica",
+    "Informix": "informix",
+    "Presto": "presto",
+    "Cassandra": "cassandra",
+    "Couchbase": "couchbase",
+    # MongoDb, MongoDbV2, and MongoDbAtlas all speak the MongoDB wire
+    # protocol, as does Cosmos DB's Mongo-API-compatible endpoint.
+    "MongoDb": "mongodb",
+    "MongoDbV2": "mongodb",
+    "MongoDbAtlas": "mongodb",
+    "CosmosDbMongoDbApi": "mongodb",
+    "SapHana": "hana",
     # Data Warehouses
     "Hive": "hive",
     "Spark": "spark",
@@ -46,5 +67,7 @@ ADF_LINKED_SERVICE_PLATFORM_MAP: Dict[str, str] = {
     # SaaS Applications
     "Salesforce": "salesforce",
     "SalesforceServiceCloud": "salesforce",
+    "SalesforceServiceCloudV2": "salesforce",
     "SalesforceMarketingCloud": "salesforce",
+    "SalesforceV2": "salesforce",
 }

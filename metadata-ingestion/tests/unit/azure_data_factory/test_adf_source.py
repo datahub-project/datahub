@@ -107,6 +107,50 @@ class TestLinkedServicePlatformMapping:
         assert ADF_LINKED_SERVICE_PLATFORM_MAP.get("UnknownServiceType") is None
         assert ADF_LINKED_SERVICE_PLATFORM_MAP.get("CustomConnector") is None
 
+    def test_v2_and_rds_variants_map_to_the_same_platform_as_their_base(self) -> None:
+        """Regression test: several ADF linked service types were missing
+        from the map even though a real DataHub platform for them exists -
+        "V2" (newer connector version) and Amazon RDS variants speak the
+        same wire protocol as their already-mapped counterparts, and
+        should map identically."""
+        variants = {
+            "PostgreSqlV2": "postgres",
+            "SnowflakeV2": "snowflake",
+            "GoogleBigQueryV2": "bigquery",
+            "SalesforceV2": "salesforce",
+            "SalesforceServiceCloudV2": "salesforce",
+            "AmazonRdsForOracle": "oracle",
+            "AmazonRdsForSqlServer": "mssql",
+        }
+        for service_type, expected_platform in variants.items():
+            assert (
+                ADF_LINKED_SERVICE_PLATFORM_MAP.get(service_type) == expected_platform
+            ), f"{service_type} should map to '{expected_platform}'"
+
+    def test_additional_database_platforms_covered(self) -> None:
+        """Regression test: these ADF-supported database linked service
+        types have a real, existing DataHub platform but were previously
+        missing from the map entirely, silently skipping lineage for any
+        activity using them."""
+        additional_databases = {
+            "MariaDB": "mariadb",
+            "AzureMariaDB": "mariadb",
+            "Cassandra": "cassandra",
+            "Couchbase": "couchbase",
+            "Informix": "informix",
+            "Presto": "presto",
+            "SapHana": "hana",
+            "MongoDb": "mongodb",
+            "MongoDbV2": "mongodb",
+            "MongoDbAtlas": "mongodb",
+            "CosmosDbMongoDbApi": "mongodb",
+            "GoogleSheets": "google_sheets",
+        }
+        for service_type, expected_platform in additional_databases.items():
+            assert (
+                ADF_LINKED_SERVICE_PLATFORM_MAP.get(service_type) == expected_platform
+            ), f"{service_type} should map to '{expected_platform}'"
+
 
 class TestNestedActivityTraversal:
     """Tests for BFS traversal over nested container activities
