@@ -293,7 +293,7 @@ A broken manifest in one project is reported as a failure for that project only,
 
 :::caution Point the glob at a stable artifact location
 
-A project whose manifest is simply *absent* when the glob is expanded is indistinguishable from a project that has been deleted, so its previously-ingested entities are soft-deleted. There is no warning for this: the run sees a smaller match set and succeeds, and the stale-entity fail-safe only trips when a large enough share of the estate disappears at once.
+A project whose manifest is simply _absent_ when the glob is expanded is indistinguishable from a project that has been deleted, so its previously-ingested entities are soft-deleted. There is no warning for this: the run sees a smaller match set and succeeds, and the stale-entity fail-safe only trips when a large enough share of the estate disappears at once.
 
 The usual cause is a CI job rewriting `target/` in place, so a run that lists objects mid-upload sees a partial set. Point the glob at a location that is written atomically or is immutable once published — for example a per-run prefix that is only swapped in when complete — rather than at a directory being overwritten by a live build.
 
