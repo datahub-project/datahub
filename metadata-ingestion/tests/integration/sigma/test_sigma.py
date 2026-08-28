@@ -2334,12 +2334,13 @@ def test_sigma_late_resolved_but_pattern_denied_workspace_is_still_named(
 
     _assert_every_referenced_container_is_named(mces)
     # The Container exists for a workspace the operator excluded, while
-    # ``workspaces.dropped`` also lists it. Without this field an operator has
-    # no way to explain the one from the other.
+    # ``workspaces.dropped`` also lists it. Without the warning an operator has
+    # no way to tell the one from the other.
     report = _sigma_report(pipeline)
-    assert list(report.workspaces_named_despite_pattern) == [
-        f"Denied Workspace ({ws_id})"
-    ]
+    assert any(
+        "workspace_pattern" in str(warning) and ws_id in str(warning)
+        for warning in report.warnings
+    ), report.warnings
 
 
 @pytest.mark.integration

@@ -168,11 +168,6 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # path because ``/workspaces/{id}`` withheld its metadata; unbounded on
     # large tenants.
     workspaces_without_metadata: LossyList[str] = field(default_factory=LossyList)
-    # Workspaces ``workspace_pattern`` denies that still had to be named,
-    # because entities admitted before the workspace resolved are parented
-    # under them. Without this the Container appears in the UI while the
-    # report lists the workspace only as dropped.
-    workspaces_named_despite_pattern: LossyList[str] = field(default_factory=LossyList)
     # Requested workspace id -> the id Sigma answered with, when the two
     # differ. A non-empty map means the /files path walk is landing on folder
     # inodes rather than workspaces on this tenant.

@@ -633,12 +633,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if known is not None and self.config.workspace_pattern.allowed(known.name):
                 continue
             if known is not None:
-                # Denied by the pattern, but its entities were admitted before
-                # the workspace resolved and still point here. The real name
-                # beats the one recovered from the path.
+                # Denied by the pattern, but its entities were admitted by
+                # ``ingest_shared_entities`` while the workspace was still
+                # unresolvable, and they still point here. The real name beats
+                # the one recovered from the path.
                 name = known.name
-                self.reporter.workspaces_named_despite_pattern.append(
-                    f"{known.name} ({workspace_id})"
+                # Warned rather than counted: the report already lists this
+                # workspace as dropped, so a Container appearing for it needs
+                # an explanation at the moment it happens, not a field that is
+                # empty on every ordinary run.
+                self.reporter.warning(
+                    title="Workspace Container emitted despite workspace_pattern",
+                    message="This workspace is excluded by workspace_pattern, "
+                    "but entities were admitted under it by "
+                    "ingest_shared_entities before it resolved, and they are "
+                    "already parented under its Container. Leaving that "
+                    "Container unnamed would render it as a raw URN, so it is "
+                    "named from the workspace metadata. Disable "
+                    "ingest_shared_entities to drop those entities instead.",
+                    context=f"{known.name} ({workspace_id})",
                 )
             else:
                 path_name = self._workspace_names_from_path.get(workspace_id)
@@ -4279,10 +4292,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._workbook_customsql_formula_fields.clear()
         self._referenced_workspace_ids.clear()
         self._workspace_names_from_path.clear()
-        # These are derived from the state above, so they are reset with it
-        # rather than accumulated across runs of this generator.
+        # Derived from the state above, so it is reset with it rather than
+        # accumulated across runs of this generator.
         self.reporter.workspaces_without_metadata = LossyList()
-        self.reporter.workspaces_named_despite_pattern = LossyList()
         self.sigma_api.fill_workspaces()
 
         # Materialize the Sigma Dataset list once and populate the
