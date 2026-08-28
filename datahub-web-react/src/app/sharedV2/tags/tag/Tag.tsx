@@ -1,9 +1,15 @@
 import { toast } from '@components';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
+import {
+    formatAttributionOrigin,
+    getAttributionOrigin,
+    isExternal,
+} from '@app/entity/shared/propagation/utils';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
@@ -41,6 +47,19 @@ const StyledHighlight = styled(Highlight)<{ $maxWidth?: number }>`
 const PillDeprecationSlot = styled.span`
     display: inline-flex;
     align-items: center;
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
+`;
+
+// Indicates the tag was ingested from an external source (e.g. Lake Formation)
+// rather than added in DataHub. The icon inherits the pill's text color; full
+// provenance (source + time) is shown in the pill's hover card.
+const PillIngestedSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    margin-right: 2px;
     & svg {
         width: 12px;
         height: 12px;
@@ -86,6 +105,7 @@ export default function Tag({
 }: Props) {
     const theme = useTheme();
     const { t } = useTranslation('shared.tags');
+    const { t: tp } = useTranslation('shared.propagation');
     const entityRegistry = useEntityRegistry();
     const isEmbeddedProfile = useIsEmbeddedProfile();
     const [removeTagMutation] = useRemoveTagMutation();
@@ -97,6 +117,9 @@ export default function Tag({
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
     const previewContext = { propagationDetails: { context, attribution: tag.attribution } };
+    const isDeprecated = !!(tag.tag.deprecation && tag.tag.deprecation.deprecated);
+    const isExternalTag = isExternal(tag.attribution?.sourceDetail);
+    const externalOrigin = formatAttributionOrigin(getAttributionOrigin(tag.attribution?.sourceDetail));
 
     const showTagProfileDrawer = (urn: string) => {
         if (!readOnly) {
@@ -161,15 +184,27 @@ export default function Tag({
                         size={fontSize && fontSize <= 10 ? 'sm' : 'md'}
                         dataTestId={`tag-${displayName}-pill`}
                         rightAdornment={
-                            tag.tag.deprecation && tag.tag.deprecation.deprecated ? (
-                                <PillDeprecationSlot>
-                                    <DeprecationIcon
-                                        urn={tag.tag.urn}
-                                        deprecation={tag.tag.deprecation}
-                                        showUndeprecate={false}
-                                        showText={false}
-                                    />
-                                </PillDeprecationSlot>
+                            isExternalTag || isDeprecated ? (
+                                <>
+                                    {isExternalTag && (
+                                        <PillIngestedSlot
+                                            data-testid={`tag-${displayName}-ingested`}
+                                            title={tp('ingestedFrom', { origin: externalOrigin ?? '' })}
+                                        >
+                                            <Database weight="fill" />
+                                        </PillIngestedSlot>
+                                    )}
+                                    {tag.tag.deprecation?.deprecated && (
+                                        <PillDeprecationSlot>
+                                            <DeprecationIcon
+                                                urn={tag.tag.urn}
+                                                deprecation={tag.tag.deprecation}
+                                                showUndeprecate={false}
+                                                showText={false}
+                                            />
+                                        </PillDeprecationSlot>
+                                    )}
+                                </>
                             ) : undefined
                         }
                         onRemove={
