@@ -300,13 +300,7 @@ public class EntityRelationshipsResultResolver
     List<EntityRelationship> page = paginateRelationships(relationships, start, count);
     EntityRelationshipsResult result =
         mapEntityRelationshipsFromList(
-            context,
-            page,
-            relationshipDirection,
-            includeSoftDelete,
-            0,
-            page.size(),
-            relatedEntityTypes);
+            context, page, relationshipDirection, includeSoftDelete, 0, page.size(), null);
     result.setStart(start != null ? start : 0);
     result.setTotal(relationships.size());
     result.setCount(page.size());
@@ -386,10 +380,11 @@ public class EntityRelationshipsResultResolver
       relationships = paginateRelationships(relationships, start, count);
     } else {
       // When filtering by relatedEntityTypes, page after filter so totals/pages match the
-      // filtered set (same as the live-graph mapper).
+      // filtered set (same as the live-graph mapper). Cap the pre-filter fetch at the membership
+      // graph's bounds.maxEdges (via MembershipReadSpec) and fail closed if truncated.
+      int fetchCap = spec.getRelatedTypeFilterFetchCap();
       int fetchStart = filterByRelatedType ? 0 : (start != null ? start : 0);
-      int fetchCount =
-          filterByRelatedType ? Integer.MAX_VALUE : (count != null ? count : Integer.MAX_VALUE);
+      int fetchCount = filterByRelatedType ? fetchCap : (count != null ? count : Integer.MAX_VALUE);
       MembershipNeighborResult result =
           BoundMembershipAccess.listRelated(
               context.getOperationContext(),
@@ -409,6 +404,15 @@ public class EntityRelationshipsResultResolver
                           .setType(neighbor.relationshipType()))
               .collect(Collectors.toList());
       if (filterByRelatedType) {
+        if (result instanceof MembershipNeighborResult.Hit hit
+            && hit.total() > relationships.size()) {
+          throw new IllegalStateException(
+              "Membership listing for "
+                  + urn
+                  + " exceeds relatedEntityTypes fetch cap ("
+                  + fetchCap
+                  + " from membership bounds.maxEdges); refusing truncated filter+page results");
+        }
         relationships = filterByRelatedEntityTypes(relationships, relatedEntityTypes);
         total = relationships.size();
         relationships = paginateRelationships(relationships, start, count);
@@ -426,7 +430,7 @@ public class EntityRelationshipsResultResolver
             includeSoftDelete,
             0,
             relationships.size(),
-            relatedEntityTypes);
+            null);
     mapped.setStart(start != null ? start : 0);
     mapped.setTotal(total);
     mapped.setCount(mapped.getRelationships().size());

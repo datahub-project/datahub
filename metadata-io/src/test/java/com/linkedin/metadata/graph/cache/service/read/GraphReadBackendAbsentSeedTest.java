@@ -49,6 +49,10 @@ public class GraphReadBackendAbsentSeedTest {
   }
 
   private static GraphReadResult expand(String seed) {
+    return expand(Set.of(seed));
+  }
+
+  private static GraphReadResult expand(Set<String> seeds) {
     GraphReadBackend backend = new GraphReadBackend(null, null, null, null, null, null);
     EntityGraphView view = viewWithoutAbsentSeed();
     GraphComponentContext component =
@@ -56,7 +60,7 @@ public class GraphReadBackendAbsentSeedTest {
     return backend.expandFromView(
         DEFINITION,
         TraversalDirection.REVERSE,
-        Set.of(seed),
+        seeds,
         Integer.MAX_VALUE,
         15,
         view,
@@ -67,6 +71,16 @@ public class GraphReadBackendAbsentSeedTest {
   public void expandMissesWhenSeedAbsentFromSnapshot() {
     GraphReadResult result = expand(ABSENT);
     assertFalse(result.isHit(), "absent seed must not be served as an authoritative empty hit");
+    assertTrue(result.isMiss());
+    assertEquals(((GraphReadResult.Miss) result).reason(), ReadMissReason.ABSENT);
+  }
+
+  @Test
+  public void expandMissesWhenAnyMultiRootSeedAbsentFromSnapshot() {
+    // Mixed present+absent must not return a partial HIT that expands only PRESENT — callers
+    // (VBAC / policy ancestor paths) would treat that as complete and skip live fallback.
+    GraphReadResult result = expand(Set.of(PRESENT, ABSENT));
+    assertFalse(result.isHit(), "mixed absent seed must not be served as a partial hit");
     assertTrue(result.isMiss());
     assertEquals(((GraphReadResult.Miss) result).reason(), ReadMissReason.ABSENT);
   }
