@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATAHUB_ROLE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
@@ -250,11 +251,10 @@ public class EntityRelationshipsResultResolver
         && relationshipTypes.equals(ROLE_MEMBERSHIP_RELATIONSHIP_TYPES)) {
       return true;
     }
-    // dataHubRole INCOMING IsMemberOfRole is intentionally NOT served from the membership cache: a
-    // role's members include groups as well as users, but the cache snapshot's reverse role lookup
-    // is user-only and would silently drop group grants. Fall through to the live graph, which
-    // returns both.
-    return false;
+    // Role members are users and groups (both IsMemberOfRole edges in the membership snapshot).
+    return DATAHUB_ROLE_ENTITY_NAME.equals(entityType)
+        && direction == RelationshipDirection.INCOMING
+        && relationshipTypes.equals(ROLE_MEMBERSHIP_RELATIONSHIP_TYPES);
   }
 
   private static boolean isSubsetOf(@Nonnull Set<String> requested, @Nonnull Set<String> allowed) {
