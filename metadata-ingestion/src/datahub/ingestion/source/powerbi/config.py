@@ -265,6 +265,21 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_resolver_errors: int = 0
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
+    # NodeKinds the resolver walk could not follow, against the number of tables
+    # each affected. Non-empty means some M shape is unsupported, which is the
+    # usual reason an expression parses and still yields no lineage.
+    m_query_unhandled_node_kinds: Dict[str, int] = dataclass_field(default_factory=dict)
+    # Sample of tables whose expression parsed but produced no lineage, so the
+    # count above has concrete examples behind it.
+    m_query_tables_without_lineage: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
+    # Sample of "<table> -> <name>" pairs where the expression references a name
+    # it does not define. A name recurring across many tables is usually a query
+    # that is not loaded into the model.
+    m_query_unresolved_identifiers: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
