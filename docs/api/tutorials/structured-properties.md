@@ -1428,6 +1428,7 @@ The hard delete is NOT reversible.
 
 Structured Property Hard Delete Effects:
 
+- Hard delete requires the property to be soft deleted first (`status.removed=true`); hard deleting an active property is rejected. Ingestion rollback and internal system operations are exempt.
 - Structured Property entity is removed
 - GMS emits a companion `propertyDefinition` DELETE metadata change log before the entity is removed, so assignment cleanup (`PropertyDefinitionDeleteSideEffect`) can scroll entities and issue PATCH REMOVE operations on their `structuredProperties` aspects
 - Structured Property values are removed from other entities asynchronously via those PATCH operations
@@ -1576,12 +1577,18 @@ Example Response:
 
 ### Hard Delete
 
+Hard delete is a two-step operation: the property must be soft deleted first. Hard deleting an
+active property is rejected with an error explaining the consequence (the qualified name stays
+reserved in the entity index mappings until reindex).
+
 <Tabs>
 <TabItem value="CLI" label="CLI (Hard Delete)">
 
-The following command will hard delete the test property.
+The following commands will hard delete the test property: soft delete it first to confirm, then
+hard delete.
 
 ```commandline
+datahub delete --urn {urn} --soft
 datahub delete --urn {urn} --hard
 ```
 
@@ -1589,9 +1596,15 @@ datahub delete --urn {urn} --hard
 
 <TabItem value="OpenAPI v3" label="OpenAPI v3 (Hard Delete)">
 
-The following command will hard delete the test property.
+The following commands will hard delete the test property. First soft delete it by setting the
+`status` aspect's `removed` flag, then issue the delete.
 
 ```shell
+curl -v -X 'POST' \
+  'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/status?createIfNotExists=false' \
+  -H 'Content-Type: application/json' \
+  -d '{"value": {"removed": true}}'
+
 curl -v -X 'DELETE' \
   'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime'
 ```
@@ -1609,6 +1622,9 @@ Example Response:
 < Content-Length: 0
 < Server: Jetty(11.0.19)
 ```
+
+Attempting the `DELETE` on an active (not soft deleted) property returns `400 Bad Request` with a
+message directing you to soft delete first.
 
 </TabItem>
 

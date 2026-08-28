@@ -68,7 +68,7 @@ FOLDER_SUBTYPE = "Folder"
 
 @platform_name("Confluence")
 @config_class(ConfluenceSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")

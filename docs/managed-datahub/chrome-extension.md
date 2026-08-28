@@ -78,9 +78,9 @@ Once you have everything configured on your extension, it's time to use it!
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/extension_view_in_looker.png"/>
 </p>
 
-## Advanced: Self-Hosted DataHub
+## Advanced: DataHub Core
 
-If you are using the DataHub Cloud Chrome extension for your self-hosted DataHub instance, everything above is applicable. However, there is one additional step you must take in order to set up your instance to be compatible with the extension.
+If you are using the DataHub Cloud Chrome extension for your DataHub Core instance, everything above is applicable. However, there is one additional step you must take in order to set up your instance to be compatible with the extension.
 
 ### Configure Auth Cookies
 

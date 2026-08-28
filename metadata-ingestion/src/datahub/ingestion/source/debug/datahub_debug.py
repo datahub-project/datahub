@@ -28,7 +28,7 @@ class DataHubDebugSourceConfig(ConfigModel):
 
 @platform_name("DataHubDebug")
 @config_class(DataHubDebugSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.UNKNOWN)
 class DataHubDebugSource(Source):
     """
     DataHubDebugSource is helper to debug things in executor where ingestion is running.

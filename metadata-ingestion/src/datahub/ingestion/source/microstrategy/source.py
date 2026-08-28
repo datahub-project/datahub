@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, Iterable, List, Optional, Sequence, Set
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set
 
 from pydantic import ValidationError
 
@@ -49,6 +49,9 @@ from datahub.ingestion.source.microstrategy.lineage import (
     warehouse_context_with_connection,
 )
 from datahub.ingestion.source.microstrategy.mapper import MicroStrategyMapper
+from datahub.ingestion.source.microstrategy.microstrategy_semantic_model import (
+    MicroStrategySemanticModelMapper,
+)
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
@@ -76,7 +79,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("MicroStrategy")
 @config_class(MicroStrategyConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Projects and folders emit as containers")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
@@ -287,6 +290,38 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 lineage_context,
                 linked_report_ids,
             )
+        if self.config.emit_semantic_model_entities:
+            yield from self._process_project_semantic_model(project, lineage_context)
+
+    def _process_project_semantic_model(
+        self,
+        project: Project,
+        lineage_context: "_LazyProjectLineage",
+    ) -> Iterable[MetadataWorkUnit]:
+        model_tables = lineage_context.model_tables
+        if not model_tables:
+            self.report.warning(
+                title="MicroStrategy Semantic Model Unavailable",
+                message=(
+                    "Skipping semantic-model emission for this project because no "
+                    "logical tables were returned by the model tables API."
+                ),
+                context=f"project_id={project.id}",
+            )
+            return
+        semantic_model_mapper = MicroStrategySemanticModelMapper(
+            config=self.config,
+            report=self.report,
+            client=self.client,
+            lineage=self.lineage,
+        )
+        yield from semantic_model_mapper.emit(
+            project_id=project.id,
+            project_name=project.name,
+            model_tables=model_tables,
+            warehouse_context=lineage_context.warehouse_context,
+            project_container_key=self.mapper.project_key(project.id),
+        )
 
     def _get_project_source_warehouses(self, project_id: str) -> List[Datasource]:
         if not self.config.extract_source_warehouses:
@@ -773,24 +808,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             }
         )
 
-    def _get_project_model_lineage_index(
-        self,
-        project_id: str,
-        warehouse_context: Optional[WarehouseLineageContext],
-    ) -> Optional[ModelLineageIndex]:
-        if not self.config.extract_lineage or not self.config.extract_model_lineage:
-            return None
-        if warehouse_context is None:
-            self.report.warning(
-                title="MicroStrategy Model Lineage Unavailable",
-                message=(
-                    "Skipping logical table lineage because no supported source "
-                    "warehouse context was discovered for this project."
-                ),
-                context=f"project_id={project_id}",
-            )
-            return None
+    def _fetch_project_model_tables(
+        self, project_id: str
+    ) -> Optional[List[Dict[str, object]]]:
+        """Paginate /api/model/tables for a project.
 
+        Returns None on API failure (already reported/warned); an empty list is
+        a genuine "no model tables" result, distinct from a failed fetch.
+        Shared by the classic per-report model-lineage path and the
+        project-level semantic-model path, so it is fetched at most once per
+        project regardless of how many consumers need it.
+        """
         model_tables: List[Dict[str, object]] = []
         offset = 0
         while True:
@@ -799,7 +827,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     project_id,
                     limit=self.config.page_size,
                     offset=offset,
-                    fields="physicalTable,attributes,facts",
+                    fields="information,physicalTable,attributes,facts",
                 )
             except MicroStrategyAPIError as error:
                 self.report.report_model_lineage_api_failure()
@@ -848,6 +876,30 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 break
 
         self.report.report_model_tables_scanned(len(model_tables))
+        return model_tables
+
+    def _get_project_model_lineage_index(
+        self,
+        project_id: str,
+        warehouse_context: Optional[WarehouseLineageContext],
+        model_tables_provider: Callable[[], Optional[List[Dict[str, object]]]],
+    ) -> Optional[ModelLineageIndex]:
+        if not self.config.extract_lineage or not self.config.extract_model_lineage:
+            return None
+        if warehouse_context is None:
+            self.report.warning(
+                title="MicroStrategy Model Lineage Unavailable",
+                message=(
+                    "Skipping logical table lineage because no supported source "
+                    "warehouse context was discovered for this project."
+                ),
+                context=f"project_id={project_id}",
+            )
+            return None
+
+        # Deferred until here (not called unconditionally by the caller) so the
+        # fetch stays skipped when these flags are off, exactly as before.
+        model_tables = model_tables_provider()
         if not model_tables:
             return None
         return self.lineage.model_lineage_index_from_tables(
@@ -1355,6 +1407,8 @@ class _LazyProjectLineage:
         self._context_resolved = False
         self._index: Optional[ModelLineageIndex] = None
         self._index_resolved = False
+        self._model_tables: Optional[List[Dict[str, object]]] = None
+        self._model_tables_resolved = False
 
     @property
     def warehouse_context(self) -> Optional[WarehouseLineageContext]:
@@ -1371,12 +1425,29 @@ class _LazyProjectLineage:
         return self._context
 
     @property
+    def model_tables(self) -> Optional[List[Dict[str, object]]]:
+        """Raw /api/model/tables rows, fetched at most once per project.
+
+        Shared by model_lineage_index (below) and the semantic-model pass, so
+        toggling both on for the same run costs one fetch, not two.
+        """
+        if not self._model_tables_resolved:
+            try:
+                self._model_tables = self._source._fetch_project_model_tables(
+                    self._project_id
+                )
+            finally:
+                self._model_tables_resolved = True
+        return self._model_tables
+
+    @property
     def model_lineage_index(self) -> Optional[ModelLineageIndex]:
         if not self._index_resolved:
             try:
                 self._index = self._source._get_project_model_lineage_index(
                     self._project_id,
                     self.warehouse_context,
+                    lambda: self.model_tables,
                 )
             finally:
                 self._index_resolved = True

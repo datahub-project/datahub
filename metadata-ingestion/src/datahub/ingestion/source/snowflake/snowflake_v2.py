@@ -137,7 +137,7 @@ def _close_without_masking(
 
 @platform_name("Snowflake", doc_order=1)
 @config_class(SnowflakeV2Config)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
