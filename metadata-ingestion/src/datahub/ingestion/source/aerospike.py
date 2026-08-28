@@ -301,7 +301,7 @@ def construct_schema_aerospike(
 
 @platform_name("Aerospike")
 @config_class(AerospikeConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @dataclass

@@ -19,6 +19,7 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -691,6 +692,86 @@ public class SemanticSearchAcrossEntitiesResolverTest {
             eq(0),
             eq(10),
             anyList()); // Should include structured property URNs as facets
+  }
+
+  @Test
+  public void testStructuredPropertyFacetsScopedToSearchedEntityTypes() throws Exception {
+    // Given: dataset-only search with structured property facets enabled
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DATASET));
+    input.setQuery("test");
+    input.setStart(0);
+    input.setCount(10);
+    SearchFlags flags = new SearchFlags();
+    flags.setIncludeStructuredPropertyFacets(true);
+    input.setSearchFlags(flags);
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+
+    // Two properties: one scoped to glossary terms only, one scoped to datasets
+    SearchEntity termScopedSp =
+        new SearchEntity()
+            .setEntity(UrnUtils.getUrn("urn:li:structuredProperty:termScoped"))
+            .setExtraFields(
+                new StringMap(
+                    java.util.Map.of(
+                        "entityTypes", "[\"urn:li:entityType:datahub.glossaryTerm\"]")));
+    SearchEntity datasetScopedSp =
+        new SearchEntity()
+            .setEntity(UrnUtils.getUrn("urn:li:structuredProperty:datasetScoped"))
+            .setExtraFields(
+                new StringMap(
+                    java.util.Map.of("entityTypes", "[\"urn:li:entityType:datahub.dataset\"]")));
+    SearchResult structuredPropResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray(termScopedSp, datasetScopedSp))
+            .setFrom(0)
+            .setPageSize(1000)
+            .setNumEntities(2)
+            .setMetadata(new SearchResultMetadata());
+    when(mockEntityClient.searchAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(),
+            anyInt(),
+            anyInt(),
+            any(),
+            any()))
+        .thenReturn(structuredPropResult);
+
+    SearchResult mockSearchResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setFrom(0)
+            .setPageSize(10)
+            .setNumEntities(0)
+            .setMetadata(new SearchResultMetadata());
+    when(mockSemanticSearchService.semanticSearchAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(),
+            anyList(),
+            anyInt(),
+            anyInt(),
+            anyList()))
+        .thenReturn(mockSearchResult);
+
+    // When
+    resolver.get(mockEnvironment).get();
+
+    // Then: only the dataset-scoped property survives as a facet; the glossary-term-only
+    // property is filtered out.
+    verify(mockSemanticSearchService, times(1))
+        .semanticSearchAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            eq("test"),
+            any(),
+            anyList(),
+            eq(0),
+            eq(10),
+            eq(Collections.singletonList("urn:li:structuredProperty:datasetScoped")));
   }
 
   @Test

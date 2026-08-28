@@ -361,7 +361,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
 
 @platform_name("Microsoft SQL Server", id="mssql")
 @config_class(SQLServerConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")

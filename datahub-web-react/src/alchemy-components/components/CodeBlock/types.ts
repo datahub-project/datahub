@@ -14,13 +14,32 @@ export interface CodeBlockPropsDefaults {
     showLineNumbers: boolean;
     wrap: boolean;
     overflow: 'auto' | 'hidden';
+    showFormat: boolean;
 }
 
 export interface CodeBlockProps
     extends Partial<CodeBlockPropsDefaults>,
-        Omit<HTMLAttributes<HTMLDivElement>, 'onCopy'> {
-    /** Source code to display */
+        Omit<HTMLAttributes<HTMLDivElement>, 'onCopy' | 'onChange'> {
+    /** Source code to display, or the controlled value when writable */
     code: string;
+
+    /**
+     * Called as the user edits. Providing this enables the writable editor
+     * unless `isReadOnly` is set.
+     */
+    onChange?: (code: string) => void;
+
+    /**
+     * Force a read-only highlighter even when `onChange` is provided.
+     * Defaults to read-only when `onChange` is omitted.
+     */
+    isReadOnly?: boolean;
+
+    /** Disable editing without switching back to the read-only highlighter */
+    isDisabled?: boolean;
+
+    /** Placeholder shown when the writable editor is empty */
+    placeholder?: string;
 
     /**
      * Prism language id used for highlighting (e.g. `sql`, `yaml`, `json`).
@@ -99,7 +118,10 @@ export interface CodeBlockProps
     /** Escape hatch for per-line props (merged with highlight styles) */
     lineProps?: (lineNumber: number) => React.HTMLProps<HTMLElement>;
 
-    /** Max height of the code body; enables scrolling when overflow is auto */
+    /**
+     * Max height of the code body. Read-only uses this on the content pane.
+     * Writable editors default to 400px and scroll inside the overlay; pass `"none"` to grow with content.
+     */
     maxHeight?: number | string;
 
     overflow?: 'auto' | 'hidden';
@@ -113,7 +135,31 @@ export interface CodeBlockProps
     /** Additional styles forwarded to Prism's `customStyle` */
     customStyle?: CSSProperties;
 
-    /** Click handler on the code body (e.g. expand query card) */
+    /**
+     * Show a Format action in the header when the editor is writable.
+     * SQL (including dialects), JSON, YAML, and GraphQL are pretty-printed;
+     * other languages get whitespace tidying.
+     */
+    showFormat?: boolean;
+
+    /**
+     * When true on a writable editor, shows a Validate action in the header.
+     * Clicking it runs a syntax check and lists any problems found.
+     * JSON / YAML / GraphQL surface as errors; SQL surfaces as a soft warning.
+     * Does not block editing. Off by default so chat / read surfaces stay light.
+     */
+    validateSyntax?: boolean;
+
+    /** Hard validation message from the parent (implies invalid border). */
+    error?: string;
+
+    /** Soft validation message from the parent (warning border when not invalid). */
+    warning?: string;
+
+    /** Force invalid border without a message; also true when `error` is set. */
+    isInvalid?: boolean;
+
+    /** Click handler on the code body (e.g. expand query card). Ignored while writable. */
     onCodeClick?: () => void;
 
     /** Override data-testid on the copy button */
@@ -131,4 +177,5 @@ export type CodeBlockStyleProps = {
     $overflow: 'auto' | 'hidden';
     $maxHeight?: number | string;
     $clickable?: boolean;
+    $editable?: boolean;
 };
