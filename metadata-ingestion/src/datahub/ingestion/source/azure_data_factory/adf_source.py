@@ -20,6 +20,7 @@ Usage:
 """
 
 import logging
+from collections import deque
 from typing import Any, Iterable, Optional
 
 from azure.mgmt.datafactory.models import (
@@ -448,9 +449,17 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             # Emit activities as DataJobs, using BFS to recurse into container
             # activities (ForEach, IfCondition, Until, Switch) so nested activities
             # like Copy also get DataJobs with proper lineage.
-            activities_to_process: list[Activity] = list(pipeline.activities or [])
+            activities_to_process: deque[Activity] = deque(pipeline.activities or [])
+            visited_activity_ids: set[int] = set()
             while activities_to_process:
-                activity = activities_to_process.pop(0)
+                activity = activities_to_process.popleft()
+                if id(activity) in visited_activity_ids:
+                    # Defends against a malformed/self-referencing pipeline
+                    # definition looping forever; a well-formed pipeline's
+                    # activities form a tree, so this never triggers in
+                    # practice.
+                    continue
+                visited_activity_ids.add(id(activity))
                 self.report.report_activity_scanned()
 
                 datajob = self._create_datajob(
