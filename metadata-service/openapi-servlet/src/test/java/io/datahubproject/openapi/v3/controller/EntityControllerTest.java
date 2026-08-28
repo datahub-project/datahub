@@ -811,6 +811,16 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
    * A page containing both an authorized and an unauthorized query must keep the authorized one
    * rather than rejecting the whole page — the bug this test guards against would have thrown 403
    * for the entire request merely because one of the two queries was denied.
+   *
+   * <p>Flaky when run as part of the full {@code openapi-servlet} module suite (passes reliably
+   * alone, and alongside every other test in this class/package): suspected cause is that {@code
+   * authorizerChain} is a Spring-managed mock bean, and Spring's test-context caching can reuse
+   * the same {@code ApplicationContext} (and therefore the same mock instance) across other test
+   * classes with an equivalent configuration; a stub left behind by one of those other classes can
+   * outlast this test's own {@code reset(authorizerChain)} depending on run order. This is a
+   * pre-existing pattern (see {@link #stubQueryViewAuthorization}, which does the identical
+   * reset-then-restub), not something introduced by this test — it just hadn't collided with
+   * anything before.
    */
   @Test
   public void testScrollQueryEntitiesFiltersMixedPageInsteadOfRejectingIt() throws Exception {
