@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
@@ -34,6 +36,7 @@ import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -52,6 +55,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.annotations.DataProvider;
@@ -64,6 +68,8 @@ public class ListQueriesResolverTest {
   private static final Urn TEST_DATASET_URN_2 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my-test-2,PROD)");
   private static final Urn TEST_QUERY_URN = Urn.createFromTuple("query", "test-id");
+  private static final Urn TEST_QUERY_URN_DENIED = Urn.createFromTuple("query", "denied-id");
+  private static final Urn TEST_QUERY_URN_ALLOWED = Urn.createFromTuple("query", "allowed-id");
 
   private static final ListQueriesInput TEST_INPUT_FULL_FILTERS =
       new ListQueriesInput(
@@ -82,38 +88,38 @@ public class ListQueriesResolverTest {
 
   @Test(dataProvider = "inputs")
   public void testGetSuccess(final ListQueriesInput input) throws Exception {
-    // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(
-            mockClient.search(
+            mockClient.scrollAcrossEntities(
                 any(),
-                Mockito.eq(Constants.QUERY_ENTITY_NAME),
+                Mockito.eq(ImmutableList.of(Constants.QUERY_ENTITY_NAME)),
                 Mockito.eq(
                     input.getQuery() == null
                         ? ListQueriesResolver.DEFAULT_QUERY
                         : input.getQuery()),
                 Mockito.eq(buildFilter(input.getSource(), input.getDatasetUrn())),
+                Mockito.isNull(),
+                Mockito.eq(ListQueriesResolver.AUTHORIZATION_SCROLL_KEEP_ALIVE),
                 Mockito.eq(
-                    Collections.singletonList(
+                    List.of(
                         new SortCriterion()
                             .setField(ListQueriesResolver.CREATED_AT_FIELD)
-                            .setOrder(SortOrder.DESCENDING))),
-                Mockito.eq(input.getStart()),
-                Mockito.eq(input.getCount())))
+                            .setOrder(SortOrder.DESCENDING),
+                        new SortCriterion()
+                            .setField(ListQueriesResolver.URN_SORT_FIELD)
+                            .setOrder(SortOrder.ASCENDING))),
+                Mockito.eq(ListQueriesResolver.AUTHORIZATION_SCROLL_BATCH_SIZE)))
         .thenReturn(
-            new SearchResult()
-                .setFrom(0)
-                .setPageSize(1)
-                .setNumEntities(1)
+            new ScrollResult()
                 .setEntities(
                     new SearchEntityArray(
                         ImmutableSet.of(new SearchEntity().setEntity(TEST_QUERY_URN)))));
 
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
 
-    // Execute resolver. Query reads are privilege-filtered by default for non-system actors, so
-    // the context must resolve the query's subjects and grant VIEW_ENTITY_QUERIES.
+    // Query reads are privilege-filtered by default for non-system actors, so the context must
+    // resolve the query's subjects and grant VIEW_ENTITY_QUERIES.
     QueryContext mockContext =
         createContext(
             queryViewPrivilegeAuthorizer(true), mockQuerySubjectsAspectRetriever(), false);
@@ -136,9 +142,7 @@ public class ListQueriesResolverTest {
     Mockito.when(aspectRetriever.getEntityRegistry())
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
 
-    QuerySubjects querySubjects = new QuerySubjects();
-    querySubjects.setSubjects(
-        new QuerySubjectArray(new QuerySubject().setEntity(TEST_DATASET_URN)));
+    QuerySubjects querySubjects = singleSubject(TEST_DATASET_URN);
     Mockito.when(
             aspectRetriever.getLatestAspectObjects(
                 any(),
@@ -150,27 +154,9 @@ public class ListQueriesResolverTest {
                 ImmutableMap.of(
                     Constants.QUERY_SUBJECTS_ASPECT_NAME, new Aspect(querySubjects.data()))));
 
-    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
-    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
+    Authorizer mockAuthorizer = denyAllAuthorizer();
 
-    Mockito.when(
-            mockClient.search(
-                any(),
-                Mockito.eq(Constants.QUERY_ENTITY_NAME),
-                any(),
-                any(),
-                any(),
-                anyInt(),
-                any()))
-        .thenReturn(
-            new SearchResult()
-                .setFrom(0)
-                .setPageSize(1)
-                .setNumEntities(1)
-                .setEntities(
-                    new SearchEntityArray(
-                        ImmutableSet.of(new SearchEntity().setEntity(TEST_QUERY_URN)))));
+    mockSingleBatchScroll(mockClient, TEST_QUERY_URN);
 
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
     QueryContext mockContext = createViewAuthContext(mockAuthorizer, aspectRetriever);
@@ -181,7 +167,8 @@ public class ListQueriesResolverTest {
     ListQueriesResult result = resolver.get(mockEnv).get();
     assertEquals((int) result.getCount(), 0);
     assertEquals(result.getQueries().size(), 0);
-    // The reported total excludes entities redacted from this page.
+    // The reported total reflects the exact authorized total across the full scan, not a
+    // page-relative subtraction.
     assertEquals((int) result.getTotal(), 0);
   }
 
@@ -197,23 +184,7 @@ public class ListQueriesResolverTest {
     AspectRetriever aspectRetriever = mockQuerySubjectsAspectRetriever();
     Authorizer mockAuthorizer = queryViewPrivilegeAuthorizer(false);
 
-    Mockito.when(
-            mockClient.search(
-                any(),
-                Mockito.eq(Constants.QUERY_ENTITY_NAME),
-                any(),
-                any(),
-                any(),
-                anyInt(),
-                any()))
-        .thenReturn(
-            new SearchResult()
-                .setFrom(0)
-                .setPageSize(1)
-                .setNumEntities(1)
-                .setEntities(
-                    new SearchEntityArray(
-                        ImmutableSet.of(new SearchEntity().setEntity(TEST_QUERY_URN)))));
+    mockSingleBatchScroll(mockClient, TEST_QUERY_URN);
 
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
     QueryContext mockContext = createContext(mockAuthorizer, aspectRetriever, false);
@@ -236,23 +207,7 @@ public class ListQueriesResolverTest {
     AspectRetriever aspectRetriever = mockQuerySubjectsAspectRetriever();
     Authorizer mockAuthorizer = queryViewPrivilegeAuthorizer(true);
 
-    Mockito.when(
-            mockClient.search(
-                any(),
-                Mockito.eq(Constants.QUERY_ENTITY_NAME),
-                any(),
-                any(),
-                any(),
-                anyInt(),
-                any()))
-        .thenReturn(
-            new SearchResult()
-                .setFrom(0)
-                .setPageSize(1)
-                .setNumEntities(1)
-                .setEntities(
-                    new SearchEntityArray(
-                        ImmutableSet.of(new SearchEntity().setEntity(TEST_QUERY_URN)))));
+    mockSingleBatchScroll(mockClient, TEST_QUERY_URN);
 
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
     QueryContext mockContext = createContext(mockAuthorizer, aspectRetriever, false);
@@ -267,7 +222,8 @@ public class ListQueriesResolverTest {
 
   /**
    * Escape valve: with query-read authorization explicitly disabled (and legacy view-auth off), no
-   * filtering — and no subject lookups — happen at all.
+   * filtering — and no subject lookups — happen at all. This is the only path that still calls
+   * {@code EntityClient.search} rather than scrolling.
    */
   @Test
   public void testGetReturnsQueriesWhenQueryAuthorizationDisabled() throws Exception {
@@ -314,6 +270,8 @@ public class ListQueriesResolverTest {
     ListQueriesResult result = resolver.get(mockEnv).get();
     assertEquals(result.getQueries().size(), 1);
     Mockito.verify(aspectRetriever, Mockito.never()).getLatestAspectObjects(any(), any(), any());
+    Mockito.verify(mockClient, Mockito.never())
+        .scrollAcrossEntities(any(), any(), any(), any(), any(), any(), any(), anyInt());
   }
 
   /**
@@ -345,39 +303,9 @@ public class ListQueriesResolverTest {
                     Constants.QUERY_SUBJECTS_ASPECT_NAME, new Aspect(twoSubjects.data()))));
 
     // Grants VIEW_ENTITY_QUERIES on TEST_DATASET_URN only, not TEST_DATASET_URN_2.
-    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
-    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
-        .thenAnswer(
-            invocation -> {
-              AuthorizationRequest request = invocation.getArgument(0);
-              boolean allowed =
-                  request.getResourceSpec().isPresent()
-                      && TEST_DATASET_URN
-                          .toString()
-                          .equals(request.getResourceSpec().get().getEntity());
-              return new AuthorizationResult(
-                  request,
-                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
-                  "");
-            });
+    Authorizer mockAuthorizer = datasetScopedAuthorizer(TEST_DATASET_URN);
 
-    Mockito.when(
-            mockClient.search(
-                any(),
-                Mockito.eq(Constants.QUERY_ENTITY_NAME),
-                any(),
-                any(),
-                any(),
-                anyInt(),
-                any()))
-        .thenReturn(
-            new SearchResult()
-                .setFrom(0)
-                .setPageSize(1)
-                .setNumEntities(1)
-                .setEntities(
-                    new SearchEntityArray(
-                        ImmutableSet.of(new SearchEntity().setEntity(TEST_QUERY_URN)))));
+    mockSingleBatchScroll(mockClient, TEST_QUERY_URN);
 
     ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig compat =
         ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
@@ -415,6 +343,149 @@ public class ListQueriesResolverTest {
         "COMPAT must require all subjects once VIEW_AUTHORIZATION_ENABLED is on");
   }
 
+  /**
+   * The raw search order is [denied, allowed]. Pagination and total must reflect only the
+   * authorized stream: page 0 (count=1) returns the allowed query with total=1; page 1 (start=1,
+   * count=1) is empty with the SAME total=1 — not a total that shifts across pages, and not the
+   * denied query leaking through because it happened to occupy the requested raw offset.
+   */
+  @Test
+  public void testGetPaginatesAuthorizedStreamNotRawPage() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(aspectRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+
+    Mockito.when(
+            aspectRetriever.getLatestAspectObjects(
+                any(),
+                eq(ImmutableSet.of(TEST_QUERY_URN_DENIED, TEST_QUERY_URN_ALLOWED)),
+                eq(ImmutableSet.of(Constants.QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_QUERY_URN_DENIED,
+                ImmutableMap.of(
+                    Constants.QUERY_SUBJECTS_ASPECT_NAME,
+                    new Aspect(singleSubject(TEST_DATASET_URN_2).data())),
+                TEST_QUERY_URN_ALLOWED,
+                ImmutableMap.of(
+                    Constants.QUERY_SUBJECTS_ASPECT_NAME,
+                    new Aspect(singleSubject(TEST_DATASET_URN).data()))));
+
+    Authorizer mockAuthorizer = datasetScopedAuthorizer(TEST_DATASET_URN);
+    mockSingleBatchScroll(mockClient, TEST_QUERY_URN_DENIED, TEST_QUERY_URN_ALLOWED);
+
+    ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
+    QueryContext mockContext = createContext(mockAuthorizer, aspectRetriever, false);
+
+    ListQueriesInput page0Input = new ListQueriesInput(0, 1, null, null, null, null, null);
+    DataFetchingEnvironment page0Env = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(page0Env.getArgument(Mockito.eq("input"))).thenReturn(page0Input);
+    Mockito.when(page0Env.getContext()).thenReturn(mockContext);
+    ListQueriesResult page0 = resolver.get(page0Env).get();
+    assertEquals(page0.getQueries().size(), 1);
+    assertEquals(page0.getQueries().get(0).getUrn(), TEST_QUERY_URN_ALLOWED.toString());
+    assertEquals((int) page0.getTotal(), 1);
+
+    ListQueriesInput page1Input = new ListQueriesInput(1, 1, null, null, null, null, null);
+    DataFetchingEnvironment page1Env = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(page1Env.getArgument(Mockito.eq("input"))).thenReturn(page1Input);
+    Mockito.when(page1Env.getContext()).thenReturn(mockContext);
+    ListQueriesResult page1 = resolver.get(page1Env).get();
+    assertEquals(page1.getQueries().size(), 0);
+    assertEquals((int) page1.getTotal(), 1, "total must not shift across pages");
+  }
+
+  /** An actor denied on every candidate sees total=0 on every page, not a shifting count. */
+  @Test
+  public void testGetReturnsZeroTotalWhenAllQueriesDenied() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(aspectRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+
+    Mockito.when(
+            aspectRetriever.getLatestAspectObjects(
+                any(),
+                eq(ImmutableSet.of(TEST_QUERY_URN_DENIED, TEST_QUERY_URN_ALLOWED)),
+                eq(ImmutableSet.of(Constants.QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_QUERY_URN_DENIED,
+                ImmutableMap.of(
+                    Constants.QUERY_SUBJECTS_ASPECT_NAME,
+                    new Aspect(singleSubject(TEST_DATASET_URN_2).data())),
+                TEST_QUERY_URN_ALLOWED,
+                ImmutableMap.of(
+                    Constants.QUERY_SUBJECTS_ASPECT_NAME,
+                    new Aspect(singleSubject(TEST_DATASET_URN).data()))));
+
+    Authorizer mockAuthorizer = denyAllAuthorizer();
+    mockSingleBatchScroll(mockClient, TEST_QUERY_URN_DENIED, TEST_QUERY_URN_ALLOWED);
+
+    ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
+    QueryContext mockContext = createContext(mockAuthorizer, aspectRetriever, false);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_FULL_FILTERS);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    ListQueriesResult result = resolver.get(mockEnv).get();
+    assertEquals(result.getQueries().size(), 0);
+    assertEquals((int) result.getTotal(), 0);
+  }
+
+  /**
+   * A request whose authorized scan would exceed {@link
+   * ListQueriesResolver#MAX_QUERY_OVERFETCH_CANDIDATES} is rejected outright rather than
+   * returning a partial page or an inexact total.
+   */
+  @Test
+  public void testGetThrowsWhenCandidateScanExceedsCap() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(aspectRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+
+    List<SearchEntity> fullBatch = new ArrayList<>();
+    for (int i = 0; i < ListQueriesResolver.AUTHORIZATION_SCROLL_BATCH_SIZE; i++) {
+      fullBatch.add(new SearchEntity().setEntity(Urn.createFromTuple("query", "cap-test-" + i)));
+    }
+    // Never-ending scroll: always a full batch, always a scrollId to continue with.
+    Mockito.when(
+            mockClient.scrollAcrossEntities(
+                any(), any(), any(), any(), any(), any(), any(), anyInt()))
+        .thenReturn(
+            new ScrollResult()
+                .setEntities(new SearchEntityArray(fullBatch))
+                .setScrollId("more"));
+
+    // Grant VIEW_ALL_QUERIES so every candidate is trivially authorized without any per-query
+    // subject lookup — the cap must trip on candidate count alone.
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+
+    ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
+    QueryContext mockContext = createContext(mockAuthorizer, aspectRetriever, false);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_FULL_FILTERS);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    try {
+      resolver.get(mockEnv).join();
+      fail("expected a CompletionException from the candidate-cap abort");
+    } catch (CompletionException thrown) {
+      Throwable rootCause = thrown.getCause().getCause();
+      assertTrue(
+          rootCause instanceof DataHubGraphQLException,
+          "expected the candidate-cap abort to surface as a DataHubGraphQLException, got: "
+              + rootCause);
+      assertEquals(
+          ((DataHubGraphQLException) rootCause).errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
+    }
+    Mockito.verify(aspectRetriever, Mockito.never()).getLatestAspectObjects(any(), any(), any());
+  }
+
   @Test
   public void testGetUnauthorized() throws Exception {
     // Create resolver
@@ -438,19 +509,17 @@ public class ListQueriesResolverTest {
             Mockito.anyInt());
   }
 
+  /**
+   * {@code getMockAllowContext} resolves a real {@link OperationContext} with query-read
+   * authorization enabled by default (and not system auth), so this exercises the same scrolling,
+   * authorized path as production traffic — not the {@code EntityClient.search} fast path.
+   */
   @Test
   public void testGetEntityClientException() throws Exception {
-    // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .search(
-            any(),
-            Mockito.any(),
-            Mockito.eq(""),
-            Mockito.anyMap(),
-            Mockito.anyInt(),
-            Mockito.anyInt());
+        .scrollAcrossEntities(any(), any(), any(), any(), any(), any(), any(), anyInt());
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
 
     // Execute resolver
@@ -486,14 +555,39 @@ public class ListQueriesResolverTest {
     return ResolverUtils.buildFilter(Collections.emptyList(), ImmutableList.of(criteria));
   }
 
+  private static QuerySubjects singleSubject(Urn datasetUrn) {
+    QuerySubjects subjects = new QuerySubjects();
+    subjects.setSubjects(new QuerySubjectArray(new QuerySubject().setEntity(datasetUrn)));
+    return subjects;
+  }
+
+  /** Stubs a single, non-continuing scroll batch (no scrollId) returning exactly these urns. */
+  private void mockSingleBatchScroll(EntityClient mockClient, Urn... urns) throws Exception {
+    Mockito.when(
+            mockClient.scrollAcrossEntities(
+                any(),
+                Mockito.eq(ImmutableList.of(Constants.QUERY_ENTITY_NAME)),
+                any(),
+                any(),
+                Mockito.isNull(),
+                Mockito.eq(ListQueriesResolver.AUTHORIZATION_SCROLL_KEEP_ALIVE),
+                any(),
+                Mockito.eq(ListQueriesResolver.AUTHORIZATION_SCROLL_BATCH_SIZE)))
+        .thenReturn(
+            new ScrollResult()
+                .setEntities(
+                    new SearchEntityArray(
+                        java.util.Arrays.stream(urns)
+                            .map(urn -> new SearchEntity().setEntity(urn))
+                            .collect(Collectors.toList()))));
+  }
+
   private AspectRetriever mockQuerySubjectsAspectRetriever() {
     AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
     Mockito.when(aspectRetriever.getEntityRegistry())
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
 
-    QuerySubjects querySubjects = new QuerySubjects();
-    querySubjects.setSubjects(
-        new QuerySubjectArray(new QuerySubject().setEntity(TEST_DATASET_URN)));
+    QuerySubjects querySubjects = singleSubject(TEST_DATASET_URN);
     Mockito.when(
             aspectRetriever.getLatestAspectObjects(
                 any(),
@@ -531,6 +625,33 @@ public class ListQueriesResolverTest {
                   allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
                   "");
             });
+    return mockAuthorizer;
+  }
+
+  /** Authorizer granting the query-view privilege group only on {@code grantedDatasetUrn}. */
+  private Authorizer datasetScopedAuthorizer(Urn grantedDatasetUrn) {
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              boolean allowed =
+                  request.getResourceSpec().isPresent()
+                      && grantedDatasetUrn
+                          .toString()
+                          .equals(request.getResourceSpec().get().getEntity());
+              return new AuthorizationResult(
+                  request,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  "");
+            });
+    return mockAuthorizer;
+  }
+
+  private Authorizer denyAllAuthorizer() {
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
     return mockAuthorizer;
   }
 
