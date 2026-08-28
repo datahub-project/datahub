@@ -20,11 +20,15 @@ Usage:
 """
 
 import logging
+import re
 from collections import deque
 from typing import Any, Iterable, Optional
 
+import sqlglot
+import sqlglot.expressions as sqlglot_exp
 from azure.mgmt.datafactory.models import (
     Activity,
+    ActivityRun,
     DataFlowResource,
     DatasetResource,
     Factory,
@@ -87,6 +91,8 @@ from datahub.sdk._shared import DatasetUrnOrStr
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
+from datahub.sql_parsing.sql_parsing_common import get_dialect_str
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +103,51 @@ PLATFORM = "azure-data-factory"
 MAX_RUN_MESSAGE_LENGTH = 500  # Truncate long error/status messages
 MAX_RUN_PARAMETERS = 10  # Limit number of parameters to store
 MAX_PARAMETER_VALUE_LENGTH = 100  # Truncate long parameter values
+
+# Matches ADF dynamic content that reads a dataset's own parameter, e.g.
+# "@dataset().table_name" -> group(1) = "table_name".
+DYNAMIC_CONTENT_DATASET_PARAM_PATTERN = re.compile(r"^@dataset\(\)\.(\w+)$")
+# Matches ADF dynamic content that reads a pipeline parameter, e.g.
+# "@pipeline().parameters.SourceTable" -> group(1) = "SourceTable". Only
+# resolvable using a specific pipeline run's actual parameter values
+# (execution history), not from static definitions alone.
+PIPELINE_PARAMETER_REFERENCE_PATTERN = re.compile(r"^@pipeline\(\)\.parameters\.(\w+)$")
+# Matches ADF dynamic content that reads a factory-level *global*
+# parameter, e.g. "@pipeline().globalParameters.databricks_workspace_url"
+# -> group(1) = "databricks_workspace_url". Unlike pipeline parameters,
+# these are tenant-wide literal constants - always resolvable without any
+# run history, from the factory's global parameters definition alone.
+GLOBAL_PARAMETER_REFERENCE_PATTERN = re.compile(
+    r"^@pipeline\(\)\.globalParameters\.(\w+)$"
+)
+# Matches the ADO.NET connection-string convention for naming the target
+# database, e.g. "...;Initial Catalog=MyDb;..." or "...;Database=MyDb;...".
+CONNECTION_STRING_DATABASE_PATTERN = re.compile(
+    r"(?:Initial Catalog|Database)\s*=\s*([^;]+)", re.IGNORECASE
+)
+# ADF's "inline expression" templating syntax (e.g. "@{linkedService().X}",
+# "@dataset()...", "@pipeline()...") that Azure does not always evaluate
+# before recording a resolved query/DDL statement on an ActivityRun -
+# observed on some sink preCopyScript values even though ActivityRun's own
+# source.query is always fully resolved. Never treat a match as a real
+# identifier - it's the same class of bug as the original garbage-URN issue.
+UNRESOLVED_ADF_EXPRESSION_PATTERN = re.compile(
+    r"@\{|@dataset\(\)|@pipeline\(\)|@activity\(|@item\(\)|@linkedService\(\)"
+)
+# Matches a "parameterized" linked service referencing one of its own
+# declared parameters inline, e.g. "@{linkedService().dbNameParam}" ->
+# group(1) = "dbNameParam". The parameter's own declared default value
+# (resolved separately) is the real value, not this template text.
+LINKED_SERVICE_SELF_REFERENCE_PATTERN = re.compile(r"^@\{linkedService\(\)\.(\w+)\}$")
+# Oracle's linked service exposes no database/catalog field at all - its
+# identity (a TNS service name or SID) is baked into a free-form "server"
+# connect string, conventionally built (via a concat() expression) from a
+# linked service parameter with "service"/"sid" in its name. Best-effort
+# only: if a tenant doesn't follow this naming convention, this simply
+# finds nothing and the reference is left unresolved rather than wrong.
+ORACLE_SERVICE_PARAM_HINT_PATTERN = re.compile(
+    r"linkedService\(\)\.(\w*(?:service|sid)\w*)", re.IGNORECASE
+)
 
 # Mapping of ADF activity types to DataHub subtypes
 ACTIVITY_SUBTYPE_MAP: dict[str, str] = {
@@ -204,6 +255,20 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         self._data_flows_cache: dict[str, dict[str, DataFlowResource]] = {}
         self._pipelines_cache: dict[str, dict[str, PipelineResource]] = {}
         self._triggers_cache: dict[str, list[TriggerResource]] = {}
+        # Factory-level global parameters (tenant-wide literal constants,
+        # e.g. shared server names/workspace URLs referenced via
+        # "@pipeline().globalParameters.X") - unlike pipeline parameters,
+        # these are always resolvable without any run history.
+        self._global_parameters_cache: dict[str, dict[str, str]] = {}
+
+        # Dataset URNs resolved only via execution-history pipeline-run
+        # parameters (e.g. an activity dataset parameter set to
+        # "@pipeline().parameters.X"), aggregated across processed runs for
+        # later union into the DataJob's static lineage. Keyed by
+        # (factory_key, pipeline_name, activity_name) -> (input urns, output urns).
+        self._dynamic_lineage_cache: dict[
+            tuple[str, str, str], tuple[set[str], set[str]]
+        ] = {}
 
         # Column-level lineage extractors - extensible for different activity types
         self._column_lineage_extractors: list[ColumnLineageExtractor] = [
@@ -324,6 +389,17 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 self.report.report_linked_service_scanned()
                 if ls.name:  # Skip linked services with no name
                     self._linked_services_cache[factory_key][ls.name] = ls
+
+        # Cache global parameters (tenant-wide literal constants referenced
+        # via "@pipeline().globalParameters.X" - needed for lineage resolution)
+        if self.config.include_lineage:
+            self._global_parameters_cache[factory_key] = {}
+            for gp in self.client.get_global_parameters(resource_group, factory_name):
+                self.report.report_api_call()
+                for name, spec in (gp.properties or {}).items():
+                    value = getattr(spec, "value", None)
+                    if isinstance(value, str):
+                        self._global_parameters_cache[factory_key][name] = value
 
         # Cache triggers (for custom properties on pipelines)
         self._triggers_cache[factory_key] = []
@@ -683,7 +759,9 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         # Note: Only some activity types (e.g., CopyActivity) have inputs/outputs
         for input_ref in getattr(activity, "inputs", None) or []:
             dataset_urn = self._resolve_dataset_urn(
-                input_ref.reference_name, factory_key
+                input_ref.reference_name,
+                factory_key,
+                activity_dataset_parameters=getattr(input_ref, "parameters", None),
             )
             if dataset_urn:
                 inputs.append(str(dataset_urn))
@@ -700,7 +778,13 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             if dataset_ref:
                 ref_name = getattr(dataset_ref, "reference_name", None)
                 if ref_name:
-                    dataset_urn = self._resolve_dataset_urn(ref_name, factory_key)
+                    dataset_urn = self._resolve_dataset_urn(
+                        ref_name,
+                        factory_key,
+                        activity_dataset_parameters=getattr(
+                            dataset_ref, "parameters", None
+                        ),
+                    )
                     if dataset_urn:
                         inputs.append(str(dataset_urn))
                         self.report.report_lineage_extracted("dataset")
@@ -731,7 +815,9 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         # Note: Only some activity types (e.g., CopyActivity) have inputs/outputs
         for output_ref in getattr(activity, "outputs", None) or []:
             dataset_urn = self._resolve_dataset_urn(
-                output_ref.reference_name, factory_key
+                output_ref.reference_name,
+                factory_key,
+                activity_dataset_parameters=getattr(output_ref, "parameters", None),
             )
             if dataset_urn:
                 outputs.append(str(dataset_urn))
@@ -1182,51 +1268,93 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 ),
             ).as_workunit()
 
-    def _resolve_dataset_urn(
-        self, dataset_name: str, factory_key: str
-    ) -> Optional[DatasetUrn]:
-        """Resolve an ADF dataset reference to a DataHub DatasetUrn."""
-        # Get dataset from cache
-        datasets = self._datasets_cache.get(factory_key, {})
-        dataset = datasets.get(dataset_name)
+    def _resolve_dataset_platform_context(
+        self,
+        dataset_name: str,
+        factory_key: str,
+        activity_dataset_parameters: Optional[dict[str, Any]] = None,
+        report_unmapped_platform: bool = False,
+    ) -> Optional[
+        tuple[DatasetResource, LinkedServiceResource, str, str, Optional[str]]
+    ]:
+        """Shared lookup chain used by both the static (_resolve_dataset_urn)
+        and query-based (_resolve_dataset_ref_context) lineage resolution
+        paths: dataset -> linked service -> DataHub platform -> platform
+        instance (auto-derived for Databricks when not already mapped).
+        Returns (dataset, linked_service, ls_ref_name, platform,
+        platform_instance), or None if any step can't be resolved.
 
+        report_unmapped_platform controls whether an unresolvable platform
+        mapping is reported via self.report.report_unmapped_platform -
+        only _resolve_dataset_urn does this; _resolve_dataset_ref_context
+        is a best-effort Layer 2 helper that fails silently by design.
+        """
+        dataset = self._datasets_cache.get(factory_key, {}).get(dataset_name)
         if not dataset:
             logger.debug(f"Dataset not found in cache: {dataset_name}")
             return None
 
-        # Get linked service to determine platform
         linked_service_ref = dataset.properties.linked_service_name
         if not linked_service_ref or not linked_service_ref.reference_name:
-            self.report.report_unmapped_platform(dataset_name, "unknown")
+            if report_unmapped_platform:
+                self.report.report_unmapped_platform(dataset_name, "unknown")
             return None
 
         ls_ref_name = linked_service_ref.reference_name
-        linked_services = self._linked_services_cache.get(factory_key, {})
-        linked_service = linked_services.get(ls_ref_name)
-
-        if not linked_service:
-            self.report.report_unmapped_platform(dataset_name, "unknown")
+        linked_service = self._linked_services_cache.get(factory_key, {}).get(
+            ls_ref_name
+        )
+        if not linked_service or not linked_service.properties:
+            if report_unmapped_platform:
+                self.report.report_unmapped_platform(dataset_name, "unknown")
             return None
 
-        # Map linked service type to DataHub platform
-        ls_type = linked_service.properties.type if linked_service.properties else None
+        ls_type = linked_service.properties.type
         if not ls_type:
-            self.report.report_unmapped_platform(dataset_name, "unknown")
+            if report_unmapped_platform:
+                self.report.report_unmapped_platform(dataset_name, "unknown")
             return None
 
         platform = ADF_LINKED_SERVICE_PLATFORM_MAP.get(ls_type)
-
         if not platform:
-            self.report.report_unmapped_platform(dataset_name, ls_type)
+            if report_unmapped_platform:
+                self.report.report_unmapped_platform(dataset_name, ls_type)
             return None
 
+        platform_instance = self.config.platform_instance_map.get(ls_ref_name)
+        if not platform_instance and platform == "databricks":
+            platform_instance = self._derive_databricks_platform_instance(
+                linked_service,
+                factory_key,
+                dataset=dataset,
+                activity_dataset_parameters=activity_dataset_parameters,
+            )
+
+        return dataset, linked_service, ls_ref_name, platform, platform_instance
+
+    def _resolve_dataset_urn(
+        self,
+        dataset_name: str,
+        factory_key: str,
+        activity_dataset_parameters: Optional[dict[str, Any]] = None,
+    ) -> Optional[DatasetUrn]:
+        """Resolve an ADF dataset reference to a DataHub DatasetUrn."""
+        context = self._resolve_dataset_platform_context(
+            dataset_name,
+            factory_key,
+            activity_dataset_parameters,
+            report_unmapped_platform=True,
+        )
+        if not context:
+            return None
+        dataset, linked_service, _ls_ref_name, platform, platform_instance = context
+
         # Build dataset name from type properties
-        table_name = self._extract_table_name(dataset, linked_service)
+        table_name = self._extract_table_name(
+            dataset, linked_service, dataset_name, activity_dataset_parameters
+        )
         if not table_name:
             table_name = dataset_name  # Fallback to ADF dataset name
-
-        # Check if there's a platform instance mapping
-        platform_instance = self.config.platform_instance_map.get(ls_ref_name)
 
         return DatasetUrn.create_from_ids(
             platform_id=platform,
@@ -1235,45 +1363,424 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             platform_instance=platform_instance,
         )
 
+    def _resolve_default_database(
+        self,
+        linked_service: LinkedServiceResource,
+        platform: str,
+        factory_key: str,
+        ls_ref_name: Optional[str] = None,
+        dataset: Optional[DatasetResource] = None,
+        activity_dataset_parameters: Optional[dict[str, Any]] = None,
+    ) -> Optional[str]:
+        """Best-effort resolution of a default database/catalog to fully
+        qualify a 2-part schema.table reference, since ADF's own metadata
+        rarely exposes it directly:
+        - For connection-string-based linked services (SQL Server,
+          Synapse, ODBC, etc.), parse "Initial Catalog=" / "Database="
+          from the connection string - the standard ADO.NET convention.
+        - MySQL and PostgreSQL instead expose a standalone "database"
+          typeProperty rather than embedding it in a connection string.
+        - Oracle exposes no database/catalog field at all - its identity
+          (a TNS service name or SID) is baked into a free-form "server"
+          connect string, so it's only resolvable when the tenant
+          parameterizes "server" using a "service"/"sid"-named parameter.
+        - Whichever shape yields a candidate value, it commonly turns out
+          to be a "parameterized" reference to one of the linked
+          service's own declared parameters (e.g.
+          "@{linkedService().dbNameParam}") rather than a literal - see
+          _resolve_database_param_via_dataset_chain for how that's
+          resolved to a real value, in the same activity-override >
+          dataset-default > linked-service-default precedence already
+          used for table/schema names.
+        - For Databricks, ADF datasets and linked services only ever
+          model database(=schema)/table and workspace connection details,
+          with no catalog or metastore anywhere in the API - resolve
+          those from the operator-supplied databricks_catalog_map (keyed
+          by linked service name), falling back to the simpler
+          databricks_default_catalog if the linked service isn't in that
+          map; otherwise leave the reference as schema.table rather than
+          guessing a catalog that may not match reality. When a metastore
+          is also configured, it's folded into this same return value as
+          "metastore.catalog" - DataHub's own dataset name join treats
+          this as one opaque segment either way, so this alone produces
+          the metastore.catalog.schema.table shape DataHub's Unity
+          Catalog source uses when ingested with include_metastore.
+        """
+
+        def resolve_param(param_name: str) -> Optional[str]:
+            if dataset is not None:
+                return self._resolve_database_param_via_dataset_chain(
+                    dataset,
+                    linked_service,
+                    param_name,
+                    activity_dataset_parameters,
+                    factory_key,
+                )
+            return self._resolve_linked_service_parameter_default(
+                linked_service, param_name, factory_key
+            )
+
+        def resolve_candidate(candidate: str) -> Optional[str]:
+            self_ref = LINKED_SERVICE_SELF_REFERENCE_PATTERN.match(candidate)
+            if self_ref:
+                return resolve_param(self_ref.group(1))
+            if not UNRESOLVED_ADF_EXPRESSION_PATTERN.search(candidate):
+                return candidate
+            return None
+
+        connection_string = getattr(
+            linked_service.properties, "connection_string", None
+        )
+        if isinstance(connection_string, str):
+            match = CONNECTION_STRING_DATABASE_PATTERN.search(connection_string)
+            if match:
+                resolved = resolve_candidate(match.group(1).strip())
+                if resolved:
+                    return resolved
+
+        database = getattr(linked_service.properties, "database", None)
+        if isinstance(database, str) and database:
+            resolved = resolve_candidate(database)
+            if resolved:
+                return resolved
+
+        if platform == "oracle":
+            server = getattr(linked_service.properties, "server", None)
+            if isinstance(server, str):
+                hint = ORACLE_SERVICE_PARAM_HINT_PATTERN.search(server)
+                if hint:
+                    resolved = resolve_param(hint.group(1))
+                    if resolved:
+                        return resolved
+
+        if platform == "databricks":
+            catalog_mapping = (
+                self.config.databricks_catalog_map.get(ls_ref_name)
+                if ls_ref_name
+                else None
+            )
+            if catalog_mapping:
+                if catalog_mapping.metastore:
+                    return f"{catalog_mapping.metastore}.{catalog_mapping.catalog}"
+                return catalog_mapping.catalog
+            return self.config.databricks_default_catalog
+
+        return None
+
+    def _resolve_literal_or_global_parameter(
+        self, value: Any, factory_key: str
+    ) -> Optional[str]:
+        """Resolve a value that is either already a literal, or a
+        reference to a factory-level global parameter (e.g.
+        "@pipeline().globalParameters.databricks_workspace_url") - unlike
+        pipeline parameters, global parameters are tenant-wide literal
+        constants and are always resolvable without any run history."""
+        unwrapped = self._unwrap_expression_value(value)
+        if not isinstance(unwrapped, str) or not unwrapped:
+            return None
+        global_param_match = GLOBAL_PARAMETER_REFERENCE_PATTERN.match(unwrapped.strip())
+        if global_param_match:
+            return self._global_parameters_cache.get(factory_key, {}).get(
+                global_param_match.group(1)
+            )
+        if not UNRESOLVED_ADF_EXPRESSION_PATTERN.search(unwrapped):
+            return unwrapped
+        return None
+
+    def _resolve_database_param_via_dataset_chain(
+        self,
+        dataset: DatasetResource,
+        linked_service: LinkedServiceResource,
+        ls_param_name: str,
+        activity_dataset_parameters: Optional[dict[str, Any]],
+        factory_key: str,
+    ) -> Optional[str]:
+        """Resolve a linked service parameter (e.g. the one backing its
+        connection string's database/catalog reference) by walking the
+        same precedence chain already used for table/schema names:
+        1. A value supplied by the calling activity's
+           DatasetReference.parameters - the most specific, per-usage
+           value. This is commonly a literal, but can also be a
+           reference to a factory-level global parameter (e.g.
+           "@pipeline().globalParameters.X"), which is just as
+           resolvable since global parameters are tenant-wide constants.
+        2. The dataset's own declared parameter default.
+        3. Only if the dataset doesn't override this linked service
+           parameter at all: the linked service's own declared default
+           (the previous, less precise behavior) - since once a dataset
+           does override it, the linked service's separate default may
+           not even apply at connection time.
+        """
+        ls_ref_params = (
+            getattr(dataset.properties.linked_service_name, "parameters", None) or {}
+        )
+        forward_value = self._unwrap_expression_value(ls_ref_params.get(ls_param_name))
+
+        if forward_value is None:
+            return self._resolve_linked_service_parameter_default(
+                linked_service, ls_param_name, factory_key
+            )
+        if not isinstance(forward_value, str):
+            return None
+
+        dataset_param_match = DYNAMIC_CONTENT_DATASET_PARAM_PATTERN.match(
+            forward_value.strip()
+        )
+        if not dataset_param_match:
+            # The dataset forwards a fixed, hardcoded value rather than
+            # one of its own parameters.
+            if UNRESOLVED_ADF_EXPRESSION_PATTERN.search(forward_value):
+                return None
+            return forward_value
+
+        dataset_param_name = dataset_param_match.group(1)
+
+        if activity_dataset_parameters:
+            resolved_override = self._resolve_literal_or_global_parameter(
+                activity_dataset_parameters.get(dataset_param_name), factory_key
+            )
+            if resolved_override:
+                return resolved_override
+
+        dataset_params = getattr(dataset.properties, "parameters", None) or {}
+        param_spec = dataset_params.get(dataset_param_name)
+        default_value = None
+        if isinstance(param_spec, dict):
+            default_value = param_spec.get(
+                "defaultValue", param_spec.get("default_value")
+            )
+        elif param_spec is not None:
+            default_value = getattr(param_spec, "default_value", None)
+        resolved_default = self._resolve_literal_or_global_parameter(
+            default_value, factory_key
+        )
+        if resolved_default:
+            return resolved_default
+
+        # The dataset overrides this linked service parameter but we
+        # couldn't resolve what it forwards - don't fall back to the
+        # linked service's own default, since that may not even apply
+        # once the dataset explicitly overrides it.
+        return None
+
+    def _resolve_linked_service_parameter_default(
+        self, linked_service: LinkedServiceResource, param_name: str, factory_key: str
+    ) -> Optional[str]:
+        """Resolve a linked service's own declared parameter default
+        value (e.g. its database/catalog parameter), mirroring how a
+        dataset's declared parameter defaults are resolved."""
+        params = getattr(linked_service.properties, "parameters", None) or {}
+        param_spec = params.get(param_name)
+        if param_spec is None:
+            return None
+        if isinstance(param_spec, dict):
+            default_value = param_spec.get(
+                "defaultValue", param_spec.get("default_value")
+            )
+        else:
+            default_value = getattr(param_spec, "default_value", None)
+        return self._resolve_literal_or_global_parameter(default_value, factory_key)
+
+    def _derive_databricks_platform_instance(
+        self,
+        linked_service: LinkedServiceResource,
+        factory_key: str,
+        dataset: Optional[DatasetResource] = None,
+        activity_dataset_parameters: Optional[dict[str, Any]] = None,
+    ) -> Optional[str]:
+        """Auto-derive a Databricks platform_instance from the linked
+        service's workspace URL, mirroring exactly how DataHub's own
+        Unity Catalog source derives its platform_instance when
+        workspace_name isn't explicitly configured: the first
+        dot-separated label of the workspace URL's host (e.g.
+        "https://adb-1234567890123456.4.azuredatabricks.net/" ->
+        "adb-1234567890123456"). The domain is very often a
+        "parameterized" self-reference (e.g. "@{linkedService().dbx_domain}")
+        rather than a literal - resolved through the same
+        activity-override > dataset-default > linked-service-default
+        chain used elsewhere, plus (uniquely relevant here) an
+        activity-level reference to a factory-level global parameter
+        (e.g. "@pipeline().globalParameters.databricks_workspace_url"),
+        since that's how this value is commonly threaded through in
+        practice."""
+        domain = getattr(linked_service.properties, "domain", None)
+        resolved_domain = self._resolve_literal_or_global_parameter(domain, factory_key)
+        if resolved_domain is None and isinstance(domain, str):
+            self_ref = LINKED_SERVICE_SELF_REFERENCE_PATTERN.match(domain.strip())
+            if self_ref:
+                param_name = self_ref.group(1)
+                if dataset is not None:
+                    resolved_domain = self._resolve_database_param_via_dataset_chain(
+                        dataset,
+                        linked_service,
+                        param_name,
+                        activity_dataset_parameters,
+                        factory_key,
+                    )
+                else:
+                    resolved_domain = self._resolve_linked_service_parameter_default(
+                        linked_service, param_name, factory_key
+                    )
+
+        if not resolved_domain or "//" not in resolved_domain:
+            return None
+        host = resolved_domain.split("//", 1)[1].split("/", 1)[0]
+        workspace_instance = host.split(".")[0]
+        return workspace_instance or None
+
+    @staticmethod
+    def _unwrap_expression_value(value: Any) -> Any:
+        """ADF dynamic-content values can appear either as a plain string
+        (e.g. "@item().TableName") or as an Expression-wrapped dict
+        ({"value": "@item().TableName", "type": "Expression"}), depending
+        on how they were authored - ADF's "Add dynamic content" UI wraps
+        even literal values this way. Normalize either shape to the
+        underlying value."""
+        if isinstance(value, dict) and value.get("type") == "Expression":
+            return value.get("value")
+        return value
+
+    def _resolve_dynamic_content_value(
+        self,
+        expr: str,
+        dataset_props: Any,
+        dataset_name: str,
+        activity_dataset_parameters: Optional[dict[str, Any]],
+    ) -> Optional[str]:
+        """Resolve an ADF dynamic-content expression of the form
+        "@dataset().<paramName>" using (in order): a literal override
+        supplied by the calling activity's DatasetReference.parameters, or
+        the dataset's own declared parameter default. Returns None (and
+        warns, unless deferring to execution-history resolution) if the
+        expression can't be resolved statically."""
+        match = DYNAMIC_CONTENT_DATASET_PARAM_PATTERN.match(expr.strip())
+        if not match:
+            self.report.report_unresolved_dynamic_property(dataset_name, expr)
+            return None
+        param_name = match.group(1)
+
+        activity_params = activity_dataset_parameters or {}
+        has_override = param_name in activity_params
+        override = (
+            self._unwrap_expression_value(activity_params.get(param_name))
+            if has_override
+            else None
+        )
+        if has_override:
+            if isinstance(override, str) and not override.startswith("@"):
+                # Even a value that looks literal can carry embedded,
+                # still-unevaluated ADF templating (the same quirk seen on
+                # preCopyScript/pipeline parameters) - never trust it blindly.
+                if UNRESOLVED_ADF_EXPRESSION_PATTERN.search(override):
+                    self.report.report_unresolved_dynamic_property(dataset_name, expr)
+                    return None
+                return override
+            if isinstance(override, str) and PIPELINE_PARAMETER_REFERENCE_PATTERN.match(
+                override.strip()
+            ):
+                # Only resolvable using a specific pipeline run's actual
+                # parameter values - see _harvest_dynamic_dataset_lineage.
+                if not self.config.include_execution_history:
+                    self.report.report_unresolved_dynamic_property(dataset_name, expr)
+                return None
+            # The activity supplies an override, but it's some other dynamic
+            # expression (e.g. "@item().TableName" from a ForEach loop) that
+            # we have no way to resolve - not even from execution history,
+            # since Azure's ForEach ActivityRun only reports an item *count*,
+            # never the per-iteration resolved values. Falling through to the
+            # dataset's own static default here would be actively misleading
+            # (it would silently substitute a placeholder default for what is
+            # explicitly a per-iteration dynamic value), so warn and stop.
+            self.report.report_unresolved_dynamic_property(dataset_name, expr)
+            return None
+
+        # No override at all - the activity relies on the dataset's own
+        # declared parameter default.
+        dataset_params = getattr(dataset_props, "parameters", None) or {}
+        param_spec = dataset_params.get(param_name)
+        default_value = None
+        if isinstance(param_spec, dict):
+            default_value = param_spec.get(
+                "defaultValue", param_spec.get("default_value")
+            )
+        elif param_spec is not None:
+            default_value = getattr(param_spec, "default_value", None)
+        if isinstance(default_value, str) and not default_value.startswith("@"):
+            if UNRESOLVED_ADF_EXPRESSION_PATTERN.search(default_value):
+                self.report.report_unresolved_dynamic_property(dataset_name, expr)
+                return None
+            return default_value
+
+        self.report.report_unresolved_dynamic_property(dataset_name, expr)
+        return None
+
     def _extract_table_name(
-        self, dataset: DatasetResource, linked_service: LinkedServiceResource
+        self,
+        dataset: DatasetResource,
+        linked_service: LinkedServiceResource,
+        dataset_name: str,
+        activity_dataset_parameters: Optional[dict[str, Any]] = None,
     ) -> Optional[str]:
         """Extract table/file name from dataset properties.
 
         SDK dataset subclasses have type-specific properties as direct attributes
-        (e.g., table_name, table, schema_type_properties_schema, file_name, etc.)
+        (e.g., table_name, table, schema_type_properties_schema, file_name, etc.).
+        A property may instead be ADF dynamic content, e.g.
+        {"value": "@dataset().table_name", "type": "Expression"} - resolved
+        against the parameter value supplied by the calling activity's
+        DatasetReference, falling back to the dataset's own declared parameter
+        default.
         """
         props = dataset.properties
 
+        def resolve_value(raw: Any) -> Optional[str]:
+            """Resolve a typeProperties value that may be a literal or ADF
+            dynamic content. Never blindly stringifies an Expression dict."""
+            if raw is None:
+                return None
+            if isinstance(raw, str):
+                return raw
+            if not isinstance(raw, dict) or raw.get("type") != "Expression":
+                return str(raw)
+
+            expr = raw.get("value")
+            if not isinstance(expr, str):
+                return None
+            return self._resolve_dynamic_content_value(
+                expr, props, dataset_name, activity_dataset_parameters
+            )
+
         # SQL-like datasets - check for table_name or table attributes
-        table_name = getattr(props, "table_name", None)
+        table_name = resolve_value(getattr(props, "table_name", None))
         if table_name:
-            return str(table_name) if not isinstance(table_name, str) else table_name
+            return table_name
 
-        table = getattr(props, "table", None)
-        if table:
-            return str(table) if not isinstance(table, str) else table
-
-        # Structured table reference (schema.table)
-        schema = getattr(props, "schema_type_properties_schema", None)
+        table = resolve_value(getattr(props, "table", None))
+        # Structured table reference (schema.table) - computed independently
+        # of `table` so schema+table can combine even when table alone is set.
+        schema = resolve_value(getattr(props, "schema_type_properties_schema", None))
         if schema and table:
             return f"{schema}.{table}"
+        if table:
+            return table
+        if schema:
+            return schema
 
         # File-based datasets
-        file_name = getattr(props, "file_name", None)
+        file_name = resolve_value(getattr(props, "file_name", None))
         if file_name:
-            folder_path = getattr(props, "folder_path", None)
-            if folder_path and file_name:
+            folder_path = resolve_value(getattr(props, "folder_path", None))
+            if folder_path:
                 return f"{folder_path}/{file_name}"
-            return str(file_name) if not isinstance(file_name, str) else file_name
+            return file_name
 
         # Container/path based (e.g., DelimitedTextDataset with location)
         location = getattr(props, "location", None)
         if location:
-            container = getattr(location, "container", None)
-            folder = getattr(location, "folder_path", None)
-            filename = getattr(location, "file_name", None)
-            parts = [str(p) for p in [container, folder, filename] if p]
+            container = resolve_value(getattr(location, "container", None))
+            folder = resolve_value(getattr(location, "folder_path", None))
+            filename = resolve_value(getattr(location, "file_name", None))
+            parts = [p for p in [container, folder, filename] if p]
             if parts:
                 return "/".join(parts)
 
@@ -1321,6 +1828,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
             yield from self._emit_pipeline_run(pipeline_run, factory, resource_group)
 
+        yield from self._emit_dynamic_lineage_augmentation(factory, resource_group)
+
     def _emit_pipeline_run(
         self,
         pipeline_run: PipelineRun,
@@ -1353,8 +1862,14 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         if pipeline_run.message:
             properties["message"] = pipeline_run.message[:MAX_RUN_MESSAGE_LENGTH]
         if pipeline_run.invoked_by:
-            invoker_name = pipeline_run.invoked_by.get("name", "")
-            invoker_type = pipeline_run.invoked_by.get("invokedByType", "")
+            invoked_by = pipeline_run.invoked_by
+            if isinstance(invoked_by, dict):
+                invoker_name = invoked_by.get("name", "")
+                invoker_type = invoked_by.get("invokedByType", "")
+            else:
+                # SDK's PipelineRunInvokedBy is a typed model, not a dict.
+                invoker_name = getattr(invoked_by, "name", "") or ""
+                invoker_type = getattr(invoked_by, "invoked_by_type", "") or ""
             if invoker_name:
                 properties["invoked_by"] = invoker_name
             if invoker_type:
@@ -1406,6 +1921,401 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
         # Emit activity runs for this pipeline run
         yield from self._emit_activity_runs(pipeline_run, factory, resource_group)
+
+    def _resolve_dynamic_dataset_refs(
+        self,
+        dataset_refs: list[Any],
+        factory_key: str,
+        pipeline_run_parameters: dict[str, str],
+    ) -> set[str]:
+        """Resolve DatasetReference.parameters values driven by
+        "@pipeline().parameters.X" against a specific run's actual resolved
+        pipeline parameter values."""
+        resolved: set[str] = set()
+        for ref in dataset_refs:
+            static_params = getattr(ref, "parameters", None)
+            reference_name = getattr(ref, "reference_name", None)
+            if not static_params or not reference_name:
+                continue
+            effective_params = self._substitute_pipeline_run_parameters(
+                static_params, pipeline_run_parameters
+            )
+            if not effective_params:
+                continue
+            urn = self._resolve_dataset_urn(
+                reference_name,
+                factory_key,
+                activity_dataset_parameters=effective_params,
+            )
+            if urn:
+                resolved.add(str(urn))
+        return resolved
+
+    def _substitute_pipeline_run_parameters(
+        self,
+        static_params: dict[str, Any],
+        pipeline_run_parameters: dict[str, str],
+    ) -> Optional[dict[str, Any]]:
+        """Replace "@pipeline().parameters.X" values in a DatasetReference's
+        static parameters dict with this run's actual resolved value for X.
+        Returns None if nothing was substituted."""
+        substituted = False
+        effective: dict[str, Any] = dict(static_params)
+        for key, raw_value in static_params.items():
+            value = self._unwrap_expression_value(raw_value)
+            if not isinstance(value, str):
+                continue
+            match = PIPELINE_PARAMETER_REFERENCE_PATTERN.match(value.strip())
+            if not match:
+                continue
+            pipeline_param_name = match.group(1)
+            if pipeline_param_name not in pipeline_run_parameters:
+                continue
+            resolved_value = pipeline_run_parameters[pipeline_param_name]
+            # Azure sometimes records a pipeline parameter's value as
+            # literal, still-unevaluated ADF templating text (the same
+            # quirk observed on preCopyScript) rather than a resolved
+            # string - e.g. a parameter whose own default forwards to
+            # "@{linkedService().someField}" for the connector to
+            # evaluate at connection time. Never trust it as a real value.
+            if UNRESOLVED_ADF_EXPRESSION_PATTERN.search(resolved_value):
+                self.report.report_unresolved_dynamic_property(
+                    pipeline_param_name, resolved_value
+                )
+                continue
+            effective[key] = resolved_value
+            substituted = True
+        return effective if substituted else None
+
+    def _find_activity_by_name(
+        self, pipeline: PipelineResource, activity_name: str
+    ) -> Optional[Activity]:
+        """BFS over a pipeline's activities (including nested container
+        children) to find the activity with the given name."""
+        activities_to_process: deque[Activity] = deque(pipeline.activities or [])
+        visited_activity_ids: set[int] = set()
+        while activities_to_process:
+            activity = activities_to_process.popleft()
+            if id(activity) in visited_activity_ids:
+                continue
+            visited_activity_ids.add(id(activity))
+            if activity.name == activity_name:
+                return activity
+            activities_to_process.extend(self._get_nested_activities(activity))
+        return None
+
+    def _emit_dynamic_lineage_augmentation(
+        self, factory: Factory, resource_group: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Union dynamically-resolved dataset URNs (from execution-history
+        pipeline run parameters) into each affected DataJob's static
+        dataJobInputOutput aspect, so per-run-parameterized lineage shows up
+        in the main lineage graph."""
+        factory_name = factory.name or "Unknown"
+        factory_key = f"{resource_group}/{factory_name}"
+
+        for cache_key, (
+            dynamic_inputs,
+            dynamic_outputs,
+        ) in self._dynamic_lineage_cache.items():
+            cache_factory_key, pipeline_name, activity_name = cache_key
+            if cache_factory_key != factory_key:
+                continue
+
+            pipeline = self._pipelines_cache.get(factory_key, {}).get(pipeline_name)
+            if not pipeline:
+                continue
+            activity = self._find_activity_by_name(pipeline, activity_name)
+            if activity is None:
+                continue
+
+            static_inputs = {
+                str(u) for u in self._extract_activity_inputs(activity, factory_key)
+            }
+            static_outputs = {
+                str(u) for u in self._extract_activity_outputs(activity, factory_key)
+            }
+
+            # Dynamically-resolved values are strictly more accurate than
+            # the static/placeholder fallback (e.g. the generic ADF dataset
+            # name used when an "@item()"/pipeline-parameter expression
+            # can't be resolved statically) - prefer them outright rather
+            # than unioning, so the placeholder doesn't linger alongside
+            # the real table once it's known.
+            combined_inputs = dynamic_inputs or static_inputs
+            combined_outputs = dynamic_outputs or static_outputs
+            if combined_inputs == static_inputs and combined_outputs == static_outputs:
+                continue
+
+            flow_name = f"{factory_name}.{pipeline_name}"
+            flow_urn = DataFlowUrn.create_from_ids(
+                orchestrator=PLATFORM,
+                flow_id=flow_name,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+            )
+            job_urn = DataJobUrn.create_from_ids(
+                data_flow_urn=str(flow_urn), job_id=activity_name
+            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=str(job_urn),
+                aspect=DataJobInputOutputClass(
+                    inputDatasets=sorted(combined_inputs),
+                    outputDatasets=sorted(combined_outputs),
+                ),
+            ).as_workunit()
+
+    def _resolve_activity_run_lineage(
+        self,
+        activity: Activity,
+        factory_key: str,
+        pipeline_run: PipelineRun,
+        activity_run: ActivityRun,
+    ) -> tuple[list[DatasetUrn], list[DatasetUrn]]:
+        """Resolve the best-available inlets/outlets for one activity run:
+        static lineage, plus anything additionally resolvable from this
+        specific run's actual pipeline parameters
+        (e.g. "@pipeline().parameters.X"), plus - for Copy activities with
+        a custom SQL query source - the real source table(s) parsed from
+        the resolved query recorded on this specific run. That query is
+        the only Azure API field that exposes a per-iteration resolved
+        value for ForEach-looped Copy activities (e.g. "@item().X") - the
+        ForEach activity's own run only ever reports an item count."""
+        input_urns = {
+            str(u) for u in self._extract_activity_inputs(activity, factory_key)
+        }
+        output_urns = {
+            str(u) for u in self._extract_activity_outputs(activity, factory_key)
+        }
+
+        if pipeline_run.parameters:
+            # Prefer resolved-from-parameters values over the static
+            # fallback outright (rather than unioning) so a generic
+            # placeholder name doesn't linger alongside the real table.
+            resolved_inputs = self._resolve_dynamic_dataset_refs(
+                getattr(activity, "inputs", None) or [],
+                factory_key,
+                pipeline_run.parameters,
+            )
+            resolved_outputs = self._resolve_dynamic_dataset_refs(
+                getattr(activity, "outputs", None) or [],
+                factory_key,
+                pipeline_run.parameters,
+            )
+            if resolved_inputs:
+                input_urns = resolved_inputs
+            if resolved_outputs:
+                output_urns = resolved_outputs
+
+        query_input_urns = self._extract_query_source_urns(
+            activity, activity_run, factory_key
+        )
+        if query_input_urns:
+            # A per-run observed query is even more authoritative than
+            # pipeline-parameter substitution, since it reflects what this
+            # specific run actually read rather than a resolved reference.
+            input_urns = query_input_urns
+
+        query_output_urns = self._extract_query_sink_urns(
+            activity, activity_run, factory_key
+        )
+        if query_output_urns:
+            output_urns = query_output_urns
+
+        inlets = [DatasetUrn.from_string(u) for u in input_urns]
+        outlets = [DatasetUrn.from_string(u) for u in output_urns]
+        return inlets, outlets
+
+    def _resolve_dataset_ref_context(
+        self,
+        reference_name: str,
+        factory_key: str,
+        activity_dataset_parameters: Optional[dict[str, Any]] = None,
+    ) -> Optional[tuple[str, Optional[str], Optional[str]]]:
+        """Resolve (platform, platform_instance, default_db) for a dataset
+        reference, independent of whether the table name itself is
+        statically resolvable. Needed to pick the right SQL dialect and
+        fully qualify a table name parsed from a raw query/DDL string.
+        activity_dataset_parameters, when given, is the calling
+        activity's own DatasetReference.parameters for this reference -
+        the most specific source for resolving a parameterized database
+        name (see _resolve_database_param_via_dataset_chain)."""
+        context = self._resolve_dataset_platform_context(
+            reference_name, factory_key, activity_dataset_parameters
+        )
+        if not context:
+            return None
+        dataset, linked_service, ls_ref_name, platform, platform_instance = context
+        default_db = self._resolve_default_database(
+            linked_service,
+            platform,
+            factory_key,
+            ls_ref_name=ls_ref_name,
+            dataset=dataset,
+            activity_dataset_parameters=activity_dataset_parameters,
+        )
+        return platform, platform_instance, default_db
+
+    def _extract_query_source_urns(
+        self,
+        activity: Activity,
+        activity_run: ActivityRun,
+        factory_key: str,
+    ) -> set[str]:
+        """For Copy activities with a custom SQL query source, parse the
+        resolved query recorded on this specific ActivityRun to recover
+        the real source table(s)."""
+        if activity.type != "Copy":
+            return set()
+
+        activity_input = activity_run.input
+        if not isinstance(activity_input, dict):
+            return set()
+        source = activity_input.get("source")
+        if not isinstance(source, dict):
+            return set()
+        query = source.get("query")
+        if not isinstance(query, str) or not query.strip():
+            return set()
+        if UNRESOLVED_ADF_EXPRESSION_PATTERN.search(query):
+            self.report.warning(
+                title="Unresolved ADF Expression in Activity Run Query",
+                message="The resolved query recorded on an activity run still contains unevaluated ADF templating syntax; skipping to avoid emitting a garbage table reference.",
+                context=f"activity={activity.name}",
+                log=False,
+            )
+            return set()
+
+        input_ref = next(iter(getattr(activity, "inputs", None) or []), None)
+        reference_name = (
+            getattr(input_ref, "reference_name", None) if input_ref else None
+        )
+        if not reference_name:
+            return set()
+        context = self._resolve_dataset_ref_context(
+            reference_name,
+            factory_key,
+            activity_dataset_parameters=getattr(input_ref, "parameters", None),
+        )
+        if not context:
+            return set()
+        platform, platform_instance, default_db = context
+
+        try:
+            result = create_lineage_sql_parsed_result(
+                query=query,
+                default_db=default_db,
+                default_schema=None,
+                platform=platform,
+                platform_instance=platform_instance,
+                env=self.config.env,
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to Parse Activity Run Query",
+                message="Could not parse the resolved SQL query recorded on an activity run for lineage.",
+                context=f"activity={activity.name}",
+                exc=e,
+                log=False,
+            )
+            return set()
+
+        if result.debug_info.error or not result.in_tables:
+            return set()
+        return {str(u) for u in result.in_tables}
+
+    def _extract_query_sink_urns(
+        self,
+        activity: Activity,
+        activity_run: ActivityRun,
+        factory_key: str,
+    ) -> set[str]:
+        """Mirror of _extract_query_source_urns for the destination side:
+        parses a sink-side DDL statement (e.g. a Copy activity's
+        preCopyScript, typically "TRUNCATE TABLE schema.table") recorded
+        on this specific ActivityRun to recover the real destination
+        table - the only field that exposes a per-iteration resolved sink
+        identity for otherwise-unresolvable ("@item()"-driven) outputs."""
+        if activity.type != "Copy":
+            return set()
+
+        activity_input = activity_run.input
+        if not isinstance(activity_input, dict):
+            return set()
+        sink = activity_input.get("sink")
+        if not isinstance(sink, dict):
+            return set()
+        statement = sink.get("preCopyScript")
+        if not isinstance(statement, str) or not statement.strip():
+            return set()
+        if UNRESOLVED_ADF_EXPRESSION_PATTERN.search(statement):
+            self.report.warning(
+                title="Unresolved ADF Expression in Activity Run DDL Statement",
+                message="A sink DDL statement (e.g. preCopyScript) recorded on an activity run still contains unevaluated ADF templating syntax; skipping to avoid emitting a garbage table reference.",
+                context=f"activity={activity.name}",
+                log=False,
+            )
+            return set()
+
+        output_ref = next(iter(getattr(activity, "outputs", None) or []), None)
+        reference_name = (
+            getattr(output_ref, "reference_name", None) if output_ref else None
+        )
+        if not reference_name:
+            return set()
+        context = self._resolve_dataset_ref_context(
+            reference_name,
+            factory_key,
+            activity_dataset_parameters=getattr(output_ref, "parameters", None),
+        )
+        if not context:
+            return set()
+        platform, platform_instance, default_db = context
+
+        table_name = self._extract_ddl_target_table(statement, platform, default_db)
+        if not table_name:
+            return set()
+
+        urn = DatasetUrn.create_from_ids(
+            platform_id=platform,
+            table_name=table_name,
+            env=self.config.env,
+            platform_instance=platform_instance,
+        )
+        return {str(urn)}
+
+    def _extract_ddl_target_table(
+        self, statement: str, platform: str, default_db: Optional[str]
+    ) -> Optional[str]:
+        """Best-effort extraction of the single table referenced by an
+        administrative DDL/DML statement (e.g. "TRUNCATE TABLE
+        schema.table") that sqlglot's lineage machinery doesn't model -
+        it resolves SELECT/INSERT/MERGE data flow, not standalone
+        statements like this."""
+        try:
+            dialect = get_dialect_str(platform)
+            parsed = sqlglot.parse_one(statement, dialect=dialect)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to Parse Activity Run DDL Statement",
+                message="Could not parse a sink DDL statement (e.g. preCopyScript) recorded on an activity run for lineage.",
+                context=f"platform={platform}",
+                exc=e,
+                log=False,
+            )
+            return None
+
+        table = parsed.find(sqlglot_exp.Table)
+        if table is None:
+            return None
+
+        parts = [p for p in (table.catalog, table.db, table.name) if p]
+        if not parts:
+            return None
+        if len(parts) < 3 and default_db:
+            parts = [default_db, *parts]
+        return ".".join(parts)
 
     def _map_run_status(self, status: str) -> Optional[InstanceRunResult]:
         """Map ADF run status to DataHub InstanceRunResult."""
@@ -1491,6 +2401,32 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     if error_msg:
                         properties["error"] = error_msg[:MAX_RUN_MESSAGE_LENGTH]
 
+                inlets: list[DatasetUrn] = []
+                outlets: list[DatasetUrn] = []
+                if self.config.include_lineage:
+                    factory_key = f"{resource_group}/{factory_name}"
+                    pipeline = self._pipelines_cache.get(factory_key, {}).get(
+                        activity_pipeline
+                    )
+                    activity_obj = (
+                        self._find_activity_by_name(pipeline, activity_name)
+                        if pipeline
+                        else None
+                    )
+                    if activity_obj is not None:
+                        inlets, outlets = self._resolve_activity_run_lineage(
+                            activity_obj, factory_key, pipeline_run, activity_run
+                        )
+                        if inlets or outlets:
+                            cache_key = (factory_key, activity_pipeline, activity_name)
+                            cached_inputs, cached_outputs = (
+                                self._dynamic_lineage_cache.setdefault(
+                                    cache_key, (set(), set())
+                                )
+                            )
+                            cached_inputs.update(str(u) for u in inlets)
+                            cached_outputs.update(str(u) for u in outlets)
+
                 # Create DataProcessInstance linked to DataJob
                 dpi = DataProcessInstance(
                     id=activity_run_id,
@@ -1503,6 +2439,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                         factory, resource_group, pipeline_run_id
                     ),
                     data_platform_instance=self.config.platform_instance,
+                    inlets=inlets,
+                    outlets=outlets,
                 )
 
                 # Emit the instance

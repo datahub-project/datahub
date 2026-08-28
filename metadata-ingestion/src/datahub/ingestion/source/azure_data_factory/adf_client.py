@@ -19,6 +19,7 @@ from azure.mgmt.datafactory.models import (
     DataFlowResource,
     DatasetResource,
     Factory,
+    GlobalParameterResource,
     LinkedServiceResource,
     PipelineResource,
     PipelineRun,
@@ -282,6 +283,36 @@ class AzureDataFactoryClient:
         except HttpResponseError as e:
             logger.error(
                 f"Failed to list triggers for factory {factory_name}: {e.message}"
+            )
+            raise
+
+    def get_global_parameters(
+        self,
+        resource_group: str,
+        factory_name: str,
+    ) -> Iterator[GlobalParameterResource]:
+        """List all factory-level global parameters (tenant-wide literal
+        constants, distinct from per-pipeline parameters).
+
+        API Reference: https://learn.microsoft.com/en-us/rest/api/datafactory/global-parameters/list-by-factory
+
+        Args:
+            resource_group: Resource group name
+            factory_name: Data Factory name
+
+        Yields:
+            GlobalParameterResource objects (SDK model)
+        """
+        try:
+            global_parameters_response = self._client.global_parameters.list_by_factory(
+                resource_group_name=resource_group,
+                factory_name=factory_name,
+            )
+            yield from global_parameters_response
+
+        except HttpResponseError as e:
+            logger.error(
+                f"Failed to list global parameters for factory {factory_name}: {e.message}"
             )
             raise
 

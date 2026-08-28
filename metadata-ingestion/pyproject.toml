@@ -152,6 +152,7 @@ azure-auth = [
 azure-data-factory = [
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
+    "sqlglot[c]==30.12.0",
 ]
 
 bigid = [

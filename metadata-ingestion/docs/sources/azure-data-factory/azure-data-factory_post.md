@@ -112,6 +112,30 @@ source:
 
 Without matching `platform_instance` values, lineage will create separate dataset entities instead of connecting to your existing ingested datasets.
 
+**Step 3: Databricks Catalog and Metastore**
+
+ADF's own API never exposes a Databricks table's catalog or Unity Catalog metastore — only its schema and table name. To fill this gap:
+
+- **`platform_instance`** for a Databricks linked service is derived automatically from its workspace URL (e.g. `adb-1234567890123456`), matching how DataHub's own Unity Catalog source derives it. You only need `platform_instance_map` if your Databricks recipe sets an explicit `platform_instance` of its own.
+- **`databricks_default_catalog`** fully qualifies every Databricks reference with a single catalog name, for tenants with one workspace/catalog.
+- **`databricks_catalog_map`** maps individual linked service names to their own catalog (and optionally Unity Catalog metastore name), for tenants with multiple Databricks workspaces that don't share a catalog:
+
+```yaml
+source:
+  type: azure-data-factory
+  config:
+    subscription_id: ${AZURE_SUBSCRIPTION_ID}
+    databricks_catalog_map:
+      # Key: Your ADF linked service name (exact match required)
+      "MyDatabricksLS":
+        catalog: "prod_catalog"
+        # Only set metastore if your Unity Catalog source was ingested
+        # with include_metastore enabled.
+        metastore: "prod_metastore"
+```
+
+Without one of these set, Databricks references are left as `schema.table` rather than guessing a catalog that may not match reality.
+
 ##### Data Flow Transformation Scripts
 
 For Data Flow activities, the connector extracts the transformation script and stores it in the `dataTransformLogic` aspect, visible in the DataHub UI under activity details.
