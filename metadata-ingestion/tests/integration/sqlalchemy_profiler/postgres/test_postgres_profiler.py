@@ -11,7 +11,7 @@ from datahub.metadata.schema_classes import DatasetProfileClass
 from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2024-01-01 12:00:00"
-POSTGRES_PORT = 5433
+POSTGRES_CONTAINER_PORT = 5432
 
 
 @pytest.fixture(scope="module")
@@ -24,15 +24,17 @@ def postgres_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "postgres"
     ) as docker_services:
-        # Wait for PostgreSQL to be ready
-        # The container exposes port 5432 internally, but maps to 5433 on host
+        # The compose file exposes the port ephemerally, so a leaked container
+        # from a prior run can never hold onto the port a fresh run needs.
+        port = docker_services.port_for("postgres", POSTGRES_CONTAINER_PORT)
+
         wait_for_port(
             docker_services,
             container_name="testpostgres_profiler",
-            container_port=5432,  # Internal container port
+            container_port=POSTGRES_CONTAINER_PORT,
             timeout=120,
         )
-        yield docker_services
+        yield port
 
 
 @pytest.fixture
@@ -43,7 +45,7 @@ def postgres_source(postgres_runner):
     config_dict = {
         "username": "testuser",
         "password": "testpass",
-        "host_port": f"localhost:{POSTGRES_PORT}",
+        "host_port": f"localhost:{postgres_runner}",
         "database": "testdb",
         "profiling": {
             "enabled": True,
@@ -356,7 +358,7 @@ def test_edge_case_all_nulls(postgres_source):
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_row_count_estimation(postgres_source):
+def test_row_count_estimation(postgres_runner):
     """Test row count estimation for PostgreSQL."""
     from datahub.ingestion.source.sql.postgres import PostgresConfig
 
@@ -364,7 +366,7 @@ def test_row_count_estimation(postgres_source):
     config_dict = {
         "username": "testuser",
         "password": "testpass",
-        "host_port": f"localhost:{POSTGRES_PORT}",
+        "host_port": f"localhost:{postgres_runner}",
         "database": "testdb",
         "profiling": {
             "enabled": True,

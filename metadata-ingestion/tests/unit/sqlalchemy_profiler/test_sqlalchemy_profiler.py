@@ -123,6 +123,9 @@ class TestSQLAlchemyProfiler:
         assert not profiler._should_ignore_column(sa.Integer(), "id")
         assert not profiler._should_ignore_column(sa.String(), "name")
         assert not profiler._should_ignore_column(sa.Float(), "value")
+        # NullType stringifies to "NULL"; this is how Databricks VARIANT columns
+        # (reflected as NullType) get skipped for profiling instead of erroring.
+        assert profiler._should_ignore_column(sa.types.NullType(), "payload")
 
     def test_generate_profiles_empty_list(self, profiler):
         """Test generate_profiles with empty request list."""

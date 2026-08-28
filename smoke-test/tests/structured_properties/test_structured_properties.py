@@ -751,7 +751,20 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph_client, c
     validate_search(property1.qualified_name, expected=[dataset_urns[0]])
     validate_search(property2.qualified_name, expected=[dataset_urns[0]])
 
-    # delete the structured property #1
+    # hard deleting an active (not soft-deleted) structured property is rejected
+    with pytest.raises(OperationalError, match="Soft-delete"):
+        graph_client.hard_delete_entity(urn=property1.urn)
+
+    # both properties are still assigned after the rejected hard delete
+    assert get_property_from_entity(
+        dataset_urns[0],
+        property1.qualified_name,
+        graph=graph_client,
+    ) == ["foo"]
+
+    # soft delete first, then the hard delete of structured property #1 succeeds
+    graph_client.soft_delete_entity(urn=property1.urn)
+    wait_for_writes_to_sync(mcp_only=True)
     graph_client.hard_delete_entity(urn=property1.urn)
     wait_for_writes_to_sync()
 
