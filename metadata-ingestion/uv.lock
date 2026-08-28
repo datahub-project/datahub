@@ -1945,12 +1945,12 @@ requires-dist = [
     { name = "geoalchemy2", marker = "extra == 'redshift'", specifier = "<0.19.0" },
     { name = "geoalchemy2", marker = "extra == 'redshift-slim'", specifier = "<0.19.0" },
     { name = "geoalchemy2", marker = "extra == 'timescaledb'", specifier = "<0.19.0" },
-    { name = "gitpython", marker = "extra == 'all'", specifier = ">2,<4.0.0" },
-    { name = "gitpython", marker = "extra == 'dev'", specifier = ">2,<4.0.0" },
-    { name = "gitpython", marker = "extra == 'docs'", specifier = ">2,<4.0.0" },
-    { name = "gitpython", marker = "extra == 'looker'", specifier = ">2,<4.0.0" },
-    { name = "gitpython", marker = "extra == 'lookml'", specifier = ">2,<4.0.0" },
-    { name = "gitpython", marker = "extra == 'odcs'", specifier = ">2,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'all'", specifier = ">=3.1.58,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'dev'", specifier = ">=3.1.58,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'docs'", specifier = ">=3.1.58,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'looker'", specifier = ">=3.1.58,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'lookml'", specifier = ">=3.1.58,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'odcs'", specifier = ">=3.1.58,<4.0.0" },
     { name = "google-auth", marker = "extra == 'all'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'confluence'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'datahub-documents'", specifier = ">=2.0.0,<3.0.0" },
@@ -5326,14 +5326,14 @@ wheels = [
 
 [[package]]
 name = "gitpython"
-version = "3.1.46"
+version = "3.1.61"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "gitdb" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/df/b5/59d16470a1f0dfe8c793f9ef56fd3826093fc52b3bd96d6b9d6c26c7e27b/gitpython-3.1.46.tar.gz", hash = "sha256:400124c7d0ef4ea03f7310ac2fbf7151e09ff97f2a3288d64a440c584a29c37f", size = 215371, upload-time = "2026-01-01T15:37:32.073Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6f/61/3285044215fb596bf093e39ccb96ece0a1076a8ca57a61e069a6a33cdb1b/gitpython-3.1.61.tar.gz", hash = "sha256:f51c24d8c0f733a195447385f5774a5dfe8767f5acfd7994a33755644c6ecc95", size = 231680, upload-time = "2026-08-28T11:01:13.761Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6a/09/e21df6aef1e1ffc0c816f0522ddc3f6dcded766c3261813131c78a704470/gitpython-3.1.46-py3-none-any.whl", hash = "sha256:79812ed143d9d25b6d176a10bb511de0f9c67b1fa641d82097b0ab90398a2058", size = 208620, upload-time = "2026-01-01T15:37:30.574Z" },
+    { url = "https://files.pythonhosted.org/packages/6f/5e/49cc172da4d0578644ba37cec5cb365b1fefc603b26edea9bcac1c7f830a/gitpython-3.1.61-py3-none-any.whl", hash = "sha256:8ab28c9da863cdd9e7d7694ec46cf3e6c9a12d8a30a1acd3447aec11975d530c", size = 222118, upload-time = "2026-08-28T11:01:12.262Z" },
 ]
 
 [[package]]
