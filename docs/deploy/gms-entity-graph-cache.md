@@ -147,10 +147,9 @@ Container call sites use [`BoundHierarchyAccess`](../../metadata-io/src/main/jav
 | -------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------- | ----------------------------- |
 | VBAC / policy `CONTAINER` field (`ContainerFieldResolverProvider`)               | **Core** — `VIEW_AUTHORIZATION_ENABLED` | `FORWARD` ancestor expand on container URNs | Aspect parent walk            |
 | GraphQL container hierarchy (`parentContainers` on datasets, charts, containers) | **Core**                                | Ordered `FORWARD` parent walk               | Aspect parent walk            |
-| GraphQL container children (`relationships` INCOMING `IsPartOf` on `container`)  | **Core**                                | `REVERSE` direct children (`maxDepth=1`)    | `GraphRetriever` scroll       |
 | Search filter rewriters (`ContainerExpansionRewriter`, `container.keyword`)      | **Core**                                | `FORWARD` or `REVERSE` per filter           | `GraphRetriever` scroll       |
 
-Direct-child `relationships` queries return **nested sub-containers only** (container → container edges), not datasets or other assets in the container. Asset listing uses `Container.entities` (search on `container.keyword`).
+GraphQL `Container.relationships(types: [IsPartOf], direction: INCOMING)` does **not** use this cache. That API is a generic graph-edge listing and returns all contained assets (datasets, charts, dashboards, nested containers, etc.) via `GraphClient` / the live graph index — the same behavior as before the entity graph cache. Prefer `Container.entities` (search on `container.keyword`) when you only need assets under a container with search filters and paging.
 
 Sync invalidation on **`container` entity** `container` aspect changes drops all partial keys (`DROP_PARTIAL`). Updates to asset `container` aspects (dataset moves between schemas) do **not** invalidate this graph — call sites read the direct parent from primary storage first.
 

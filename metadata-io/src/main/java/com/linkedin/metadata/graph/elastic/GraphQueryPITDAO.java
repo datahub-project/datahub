@@ -23,7 +23,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
@@ -134,6 +136,9 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                   .getIndexName(opContext, INDEX_NAME));
       final String tempPitId = pitId;
 
+      // One budget shared across all slices of this hop (see GraphQueryBaseDAO); null == unlimited.
+      final AtomicInteger sharedRemaining = newSharedRelationshipBudget(maxRelations);
+
       for (int sliceId = 0; sliceId < slices; sliceId++) {
         final int currentSliceId = sliceId;
 
@@ -150,6 +155,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                       remainingHops,
                       existingPaths,
                       maxRelations,
+                      sharedRemaining,
                       defaultPageSize,
                       currentSliceId,
                       slices,
@@ -163,8 +169,13 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         sliceFutures.add(sliceFuture);
       }
 
-      // Reuse the common slice coordination logic
-      return processSliceFutures(sliceFutures, remainingTime, allowPartialResults);
+      // Reuse the common slice coordination logic. If the shared budget ended exhausted, the hop
+      // was truncated at maxRelations — report partial explicitly, since the outer unique-entity
+      // limit check can miss it when cross-slice duplicates merge away.
+      return markPartialIfSharedBudgetExhausted(
+          processSliceFutures(sliceFutures, remainingTime, allowPartialResults),
+          sharedRemaining,
+          allowPartialResults);
     } finally {
       // Cancel any still-running slice futures, then wait (bounded, see GraphQueryConstants) before
       // deleting the shared PIT. cancel(true) only sends an interrupt — without waiting, slices
@@ -191,6 +202,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       int remainingHops,
       ThreadSafePathStore existingPaths,
       int maxRelations, // This is the REMAINING capacity, not the original total limit
+      @Nullable AtomicInteger sharedRemaining, // budget shared across this hop's slices; null=∞
       int defaultPageSize,
       int sliceId,
       int totalSlices,
@@ -205,8 +217,13 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
     long deadline = System.currentTimeMillis() + remainingTime;
 
     try {
-      // If maxRelations is -1 or 0, treat as unlimited (only bound by time)
-      while (maxRelations <= 0 || sliceRelationships.size() < maxRelations) {
+      // Fixed page size (capped to maxRelations so a small limit does not over-fetch). Retention is
+      // bounded per page below by reserving the ACTUAL retained count from the budget shared across
+      // this hop's slices and truncating any tail past it, so the slices can never collectively
+      // retain more than maxRelations. Reserving a full page BEFORE fetching would instead let the
+      // first slice speculatively grab the whole budget and starve its siblings.
+      int pageSize = maxRelations > 0 ? Math.min(defaultPageSize, maxRelations) : defaultPageSize;
+      while (true) {
         // Check for thread interruption (from future.cancel(true))
         if (Thread.currentThread().isInterrupted()) {
           log.warn("Slice {} was interrupted, cleaning up PIT and stopping", sliceId);
@@ -219,11 +236,19 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
           break;
         }
 
+        // Stop before fetching once the shared per-hop budget is exhausted (consumed by this or
+        // another slice): strict mode rejects, partial mode stops and searchWithSlices marks the
+        // hop partial. Retention is already bounded by the reservation below.
+        if (stopSliceIfSharedBudgetExhausted(
+            sharedRemaining, maxRelations, sliceId, allowPartialResults)) {
+          break;
+        }
+
         // Build search request with PIT and slice configuration
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(query);
-        searchSourceBuilder.size(defaultPageSize);
+        searchSourceBuilder.size(pageSize);
 
         // Add sorting for consistent results and search_after using Edge sort fields
         ESUtils.buildSortOrder(searchSourceBuilder, Edge.EDGE_SORT_CRITERION, List.of(), false);
@@ -274,25 +299,18 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                 existingPaths,
                 false); // exploreMultiplePaths - not needed for impact lineage
 
+        int before = sliceRelationships.size();
         sliceRelationships.addAll(pageRelationships);
 
-        // Safety check to prevent exceeding the limit (skip if unlimited, i.e., -1 or 0)
-        if (maxRelations > 0 && sliceRelationships.size() >= maxRelations) {
-          if (allowPartialResults) {
-            log.warn(
-                "Slice {} reached maxRelations limit, stopping PIT search. Results will be marked as partial.",
-                sliceId);
-            break;
-          } else {
-            log.error(
-                "Slice {} exceeded maxRelations limit of {}. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
-                sliceId,
-                maxRelations);
-            throw new IllegalStateException(
-                String.format(
-                    "Slice %d exceeded maxRelations limit of %d. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
-                    sliceId, maxRelations));
-          }
+        // Bound retained relationships to this slice's atomic share of the hop's shared budget.
+        if (reserveOrTruncateToSharedBudget(
+            sliceRelationships,
+            before,
+            sharedRemaining,
+            maxRelations,
+            sliceId,
+            allowPartialResults)) {
+          break; // shared budget exhausted; partial results
         }
 
         // Get search_after for next page

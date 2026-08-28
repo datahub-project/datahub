@@ -53,6 +53,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -1617,6 +1618,137 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
    * (see {@code elasticsearch.search.graph.sliceFutureDrainTimeoutSeconds}) is a bounded join on
    * those stages, not a reliable wait for in-flight HTTP to finish.
    */
+  /**
+   * A hop's relationship budget shared across its parallel slices. Each slice draws from this
+   * single counter instead of independently self-capping to the full remaining {@code
+   * maxRelations}; that per-slice independence made the per-hop transient peak {@code slices *
+   * maxRelations} relationships in memory, which could exhaust the GMS heap. {@code null} means
+   * unlimited ({@code maxRelations <= 0}), which never caps.
+   */
+  @Nullable
+  static AtomicInteger newSharedRelationshipBudget(int maxRelations) {
+    return maxRelations > 0 ? new AtomicInteger(maxRelations) : null;
+  }
+
+  /**
+   * Atomically reserve up to {@code want} units from the budget shared across a hop's slices, to be
+   * claimed BEFORE fetching a page. Because the reservation is atomic, the reservations held by all
+   * slices at once can never exceed the budget, so the combined retained relationships stay within
+   * {@code maxRelations} even under concurrent slices (a plain read-then-deduct would let two
+   * slices observe the same remaining and overshoot). Returns the amount reserved (0..want); 0
+   * means the budget is exhausted. A {@code null} budget (unlimited) reserves the full {@code
+   * want}.
+   */
+  static int reserveSharedBudget(@Nullable AtomicInteger sharedRemaining, int want) {
+    if (want <= 0) {
+      return 0;
+    }
+    if (sharedRemaining == null) {
+      return want;
+    }
+    while (true) {
+      int current = sharedRemaining.get();
+      if (current <= 0) {
+        return 0;
+      }
+      int grant = Math.min(current, want);
+      if (sharedRemaining.compareAndSet(current, current - grant)) {
+        return grant;
+      }
+    }
+  }
+
+  /**
+   * Bound a slice's retained relationships to its atomic share of the hop's shared budget. The
+   * slice materializes a page, appends it to {@code sliceRelationships}, then calls this to keep
+   * only what it can reserve, dropping any tail past the limit. Reserving the ACTUAL retained count
+   * after the fetch (rather than a full page before it) keeps the relationships retained across all
+   * slices within {@code maxRelations} without letting the first slice speculatively grab the whole
+   * budget and starve its siblings, and the atomic reservation avoids the read-then-deduct
+   * overshoot a plain deduct would allow. Returns {@code true} when the shared budget is exhausted
+   * so the caller stops; throws when the limit is hit and partial results are disallowed.
+   */
+  boolean reserveOrTruncateToSharedBudget(
+      List<LineageRelationship> sliceRelationships,
+      int before,
+      @Nullable AtomicInteger sharedRemaining,
+      int maxRelations,
+      int sliceId,
+      boolean allowPartialResults) {
+    int added = sliceRelationships.size() - before;
+    if (added <= 0) {
+      return false; // nothing new retained this batch (all dropped as visited/duplicate)
+    }
+    int reserved = reserveSharedBudget(sharedRemaining, added);
+    if (reserved >= added) {
+      return false; // fully covered, or unlimited budget
+    }
+    if (!allowPartialResults) {
+      throw rejectMaxRelationsExceeded(sliceId, maxRelations);
+    }
+    // Shared budget ran out mid-page: keep only what we reserved, drop the over-limit tail so the
+    // combined retained relationships never exceed maxRelations.
+    sliceRelationships.subList(before + reserved, sliceRelationships.size()).clear();
+    log.warn(
+        "Shared maxRelations budget exhausted during slice {}, stopping. Results will be marked as partial.",
+        sliceId);
+    return true;
+  }
+
+  /**
+   * Guard to run before a slice fetches a page: when the shared per-hop budget is already exhausted
+   * (by this or any other slice), reject in strict mode — reaching the cap is an error, matching
+   * the pre-shared-budget per-slice behavior — or tell the caller to stop with partial results.
+   * Also avoids wasteful post-exhaustion fetches, including pages whose hits would all be dropped
+   * as already visited.
+   */
+  static boolean stopSliceIfSharedBudgetExhausted(
+      @Nullable AtomicInteger sharedRemaining,
+      int maxRelations,
+      int sliceId,
+      boolean allowPartialResults) {
+    if (sharedRemaining == null || sharedRemaining.get() > 0) {
+      return false;
+    }
+    if (!allowPartialResults) {
+      throw rejectMaxRelationsExceeded(sliceId, maxRelations);
+    }
+    log.warn(
+        "Shared maxRelations budget exhausted before slice {} fetch, stopping. Results will be marked as partial.",
+        sliceId);
+    return true;
+  }
+
+  /**
+   * Mark a hop's fetch result partial when its shared relationship budget ended exhausted: the hop
+   * was truncated at the shared maxRelations capacity, which the outer unique-entity limit check
+   * can miss when cross-slice duplicates merge to fewer unique entities than relationships were
+   * retained. Only applies with partial results allowed; in strict mode a slice rejects instead.
+   */
+  static LineageSliceFetchResult markPartialIfSharedBudgetExhausted(
+      LineageSliceFetchResult fetch,
+      @Nullable AtomicInteger sharedRemaining,
+      boolean allowPartialResults) {
+    if (!allowPartialResults
+        || fetch.isPartial()
+        || sharedRemaining == null
+        || sharedRemaining.get() > 0) {
+      return fetch;
+    }
+    return new LineageSliceFetchResult(fetch.getLineageRelationships(), true);
+  }
+
+  private static IllegalStateException rejectMaxRelationsExceeded(int sliceId, int maxRelations) {
+    log.error(
+        "Slice {} exceeded maxRelations limit of {}. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
+        sliceId,
+        maxRelations);
+    return new IllegalStateException(
+        String.format(
+            "Slice %d exceeded maxRelations limit of %d. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
+            sliceId, maxRelations));
+  }
+
   protected void cancelAndDrainSliceFutures(
       List<CompletableFuture<List<LineageRelationship>>> sliceFutures) {
     if (sliceFutures.isEmpty()) {
