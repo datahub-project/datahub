@@ -30,6 +30,7 @@ type DomainSelectorProps = {
     placeholder?: string;
     label?: string;
     isMultiSelect?: boolean;
+    isRequired?: boolean;
 };
 
 /**
@@ -49,6 +50,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     placeholder,
     label,
     isMultiSelect = false,
+    isRequired = false,
 }) => {
     const { t } = useTranslation('entity.shared.selectors');
     const resolvedPlaceholder =
@@ -250,6 +252,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             scrollRef={scrollRef}
             width="full"
             isMultiSelect={isMultiSelect}
+            isRequired={isRequired}
             showSearch
             implicitlySelectChildren={false}
             areParentsSelectable
