@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional, Tuple, cast
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union, cast
 
 from packaging import version
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -54,6 +54,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     parse_freshness_criteria,
 )
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
+from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +110,16 @@ class DBTCoreConfig(DBTCommonConfig):
         default=False,
         description="[experimental] If true, only include nodes that are also present in the catalog file. "
         "This is useful if you only want to include models that have been built by the associated run.",
+    )
+
+    artifact_read_concurrency: int = Field(
+        default=8,
+        ge=1,
+        description="Number of parallel reads used to fetch dbt artifact files when manifest_path "
+        "is a glob pattern. Peak memory grows with concurrency (roughly concurrency x the largest "
+        "project's raw artifact bytes), so lower this for estates with very large manifest or "
+        "catalog files. Set to 1 to read artifacts sequentially. Has no effect when manifest_path "
+        "is a single file.",
     )
 
     # Because we now also collect model performance metadata, the "test_results" field was renamed to "run_results".
@@ -789,6 +800,10 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
     def __init__(self, config: DBTCommonConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.report = DBTCoreReport()
+        # Artifact bytes (or the exception their read raised) prefetched for the
+        # project currently being processed, keyed by URI. Filled and consumed on
+        # the main thread only; see _load_artifact_json / _prefetch_in_order.
+        self._prefetched_artifacts: Dict[str, Union[bytes, Exception]] = {}
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -971,6 +986,70 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             expanded_paths.extend(self._expand_glob_path(path))
         return expanded_paths
 
+    def _load_artifact_json(self, uri: str) -> Dict:
+        """Load one artifact, preferring bytes prefetched by _prefetch_in_order.
+
+        A prefetched Exception is the exact exception the inline read would have
+        raised (workers only capture, they never classify), so re-raising it here
+        keeps _is_missing_file_error and per-project failure isolation unchanged.
+        """
+        prefetched = self._prefetched_artifacts.pop(uri, None)
+        if prefetched is None:
+            return self.load_file_as_json(
+                uri, self.config.aws_connection, self.config.gcs_connection
+            )
+        if isinstance(prefetched, Exception):
+            raise prefetched
+        # json.loads on raw bytes sniffs the BOM, matching load_file_as_json.
+        return json.loads(prefetched)
+
+    def _fetch_artifact_group(
+        self, index: int, uris: List[str]
+    ) -> Tuple[int, Dict[str, Union[bytes, Exception]]]:
+        # Runs on a worker thread: fetch only - never parse, classify, or touch
+        # self.report. A failed read hands its exception back for the main thread
+        # to re-raise at the original call site.
+        fetched: Dict[str, Union[bytes, Exception]] = {}
+        for uri in uris:
+            try:
+                fetched[uri] = read_file_as_bytes(
+                    uri, self.config.aws_connection, self.config.gcs_connection
+                )
+            except Exception as e:
+                fetched[uri] = e
+        return index, fetched
+
+    def _prefetch_in_order(
+        self, uri_groups: List[List[str]], concurrency: int
+    ) -> Iterator[Dict[str, Union[bytes, Exception]]]:
+        """Fetch each group's files on a bounded pool, yielding groups in input order.
+
+        BackpressureAwareExecutor completes out of order, so a small reorder
+        buffer (bounded by its max_pending) restores input order; in-flight raw
+        bytes stay bounded at roughly 2 x concurrency groups.
+        """
+        buffered: Dict[int, Dict[str, Union[bytes, Exception]]] = {}
+        next_index = 0
+        for future in BackpressureAwareExecutor.map(
+            self._fetch_artifact_group,
+            [(index, uris) for index, uris in enumerate(uri_groups)],
+            max_workers=concurrency,
+            max_pending=concurrency,
+        ):
+            index, fetched = future.result()
+            buffered[index] = fetched
+            while next_index in buffered:
+                yield buffered.pop(next_index)
+                next_index += 1
+
+    def _maybe_prefetch(
+        self, uri_groups: List[List[str]], *, enabled: bool
+    ) -> Optional[Iterator[Dict[str, Union[bytes, Exception]]]]:
+        concurrency = min(self.config.artifact_read_concurrency, len(uri_groups))
+        if not enabled or concurrency <= 1:
+            return None
+        return self._prefetch_in_order(uri_groups, concurrency)
+
     def _load_optional_artifact_json(
         self, path: Optional[str], *, optional_artifacts: bool
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Exception]]:
@@ -987,12 +1066,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         if path is None:
             return None, None
         try:
-            return (
-                self.load_file_as_json(
-                    path, self.config.aws_connection, self.config.gcs_connection
-                ),
-                None,
-            )
+            return self._load_artifact_json(path), None
         except (json.JSONDecodeError, UnicodeDecodeError):
             # A file that exists but cannot be decoded is corrupt, never missing.
             # UnicodeDecodeError is a ValueError subclass but not a JSONDecodeError,
@@ -1021,11 +1095,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         (True) where the file simply not existing beside this particular manifest is
         expected and must warn rather than fail.
         """
-        dbt_manifest_json = self.load_file_as_json(
-            manifest_path,
-            self.config.aws_connection,
-            self.config.gcs_connection,
-        )
+        dbt_manifest_json = self._load_artifact_json(manifest_path)
         dbt_manifest_metadata = dbt_manifest_json["metadata"]
         if not optional_artifacts:
             # manifest_info/catalog_info are single report-level fields, so in glob
@@ -1284,7 +1354,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         if is_multi_project:
             self.report.manifest_paths_expanded = manifest_paths
 
-        all_nodes: List[DBTNode] = []
+        project_paths: List[Tuple[str, Optional[str], Optional[str]]] = []
         for manifest_path in manifest_paths:
             catalog_path: Optional[str]
             sources_path: Optional[str]
@@ -1304,6 +1374,20 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             else:
                 catalog_path = self.config.catalog_path
                 sources_path = self.config.sources_path
+            project_paths.append((manifest_path, catalog_path, sources_path))
+
+        # Overlap the per-project artifact reads (the dominant cost on object
+        # stores) while keeping processing order, reporting, and error
+        # classification identical to the sequential path.
+        prefetched_projects = self._maybe_prefetch(
+            [[path for path in paths if path is not None] for paths in project_paths],
+            enabled=is_multi_project,
+        )
+
+        all_nodes: List[DBTNode] = []
+        for manifest_path, catalog_path, sources_path in project_paths:
+            if prefetched_projects is not None:
+                self._prefetched_artifacts = next(prefetched_projects)
 
             try:
                 project_nodes = self._load_project_nodes(
@@ -1332,14 +1416,15 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         expanded_run_results_paths = self._expand_run_results_paths()
         if expanded_run_results_paths:
             self.report.run_results_paths_expanded = expanded_run_results_paths
+        prefetched_run_results = self._maybe_prefetch(
+            [[path] for path in expanded_run_results_paths], enabled=is_multi_project
+        )
         for run_results_path in expanded_run_results_paths:
+            if prefetched_run_results is not None:
+                self._prefetched_artifacts = next(prefetched_run_results)
             all_nodes = load_run_results(
                 self.config,
-                self.load_file_as_json(
-                    run_results_path,
-                    self.config.aws_connection,
-                    self.config.gcs_connection,
-                ),
+                self._load_artifact_json(run_results_path),
                 all_nodes,
             )
 

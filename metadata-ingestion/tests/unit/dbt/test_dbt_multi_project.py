@@ -1674,3 +1674,58 @@ def test_exposure_collision_ignored_when_exposures_are_disabled(
     assert len(exposures) == 2
     assert not source.report.failures
     assert source.report.duplicate_exposure_unique_ids_detected is None
+
+
+def test_artifact_read_concurrency_matches_sequential_results(
+    tmp_path: pathlib.Path,
+) -> None:
+    for i in range(5):
+        _write_project(
+            tmp_path,
+            f"project_{i}",
+            [{"name": f"model_{i}", "database": "db", "schema": f"sch_{i}"}],
+            catalog_generated_at="2026-01-01T00:00:00.000000Z",
+        )
+
+    sequential = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json", artifact_read_concurrency=1
+    ).load_nodes()
+    parallel_source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json", artifact_read_concurrency=4
+    )
+    parallel = parallel_source.load_nodes()
+
+    # Same nodes in the same order: prefetch must not reorder project processing.
+    assert [node.dbt_name for node in parallel] == [
+        node.dbt_name for node in sequential
+    ]
+    assert parallel_source.report.manifests_loaded == 5
+    assert parallel_source.report.manifests_failed == 0
+
+
+def test_artifact_read_concurrency_replays_fetch_errors_per_project(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A fetch error captured in a worker must fail only its own project.
+
+    manifest.json as a directory makes the read raise (IsADirectoryError) inside
+    the prefetch worker; the error must surface on the main thread through the
+    same per-project isolation path as a sequential read failure.
+    """
+    for name in ["project_a", "project_c"]:
+        _write_project(
+            tmp_path, name, [{"name": f"m_{name}", "database": "db", "schema": name}]
+        )
+    (tmp_path / "project_b" / "manifest.json").mkdir(parents=True)
+
+    source = _make_source(
+        manifest_path=f"{tmp_path}/*/manifest.json", artifact_read_concurrency=4
+    )
+    nodes = source.load_nodes()
+
+    assert {node.dbt_name for node in nodes} == {
+        "model.project_a.m_project_a",
+        "model.project_c.m_project_c",
+    }
+    assert source.report.manifests_loaded == 2
+    assert source.report.manifests_failed == 1
