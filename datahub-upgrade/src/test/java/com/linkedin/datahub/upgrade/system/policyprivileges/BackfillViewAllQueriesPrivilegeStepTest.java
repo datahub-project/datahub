@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,6 +15,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
@@ -34,6 +36,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -87,6 +90,101 @@ public class BackfillViewAllQueriesPrivilegeStepTest {
     assertFalse(
         BackfillViewAllQueriesPrivilegeStep.shouldBackfill(new DataHubPolicyInfo()),
         "policies without privileges are untouched");
+  }
+
+  /**
+   * {@code restrictToSystemPolicies=true} models {@code VIEW_AUTHORIZATION_ENABLED=true}: only a
+   * built-in system policy ({@code editable=false}) qualifies; a custom, editable policy is skipped
+   * even though it otherwise matches.
+   */
+  @Test
+  public void testShouldBackfillRestrictedToSystemPolicies() {
+    DataHubPolicyInfo systemPolicy = policyInfo(VIEW_ENTITY_PAGE);
+    systemPolicy.setEditable(false);
+    assertTrue(
+        BackfillViewAllQueriesPrivilegeStep.shouldBackfill(
+            systemPolicy, /* restrictToSystemPolicies= */ true),
+        "a built-in (non-editable) policy still qualifies when restricted to system policies");
+
+    DataHubPolicyInfo customPolicy = policyInfo(VIEW_ENTITY_PAGE);
+    customPolicy.setEditable(true);
+    assertFalse(
+        BackfillViewAllQueriesPrivilegeStep.shouldBackfill(
+            customPolicy, /* restrictToSystemPolicies= */ true),
+        "a custom (editable) policy is skipped when restricted to system policies");
+    assertTrue(
+        BackfillViewAllQueriesPrivilegeStep.shouldBackfill(
+            customPolicy, /* restrictToSystemPolicies= */ false),
+        "the same custom policy still qualifies when not restricted");
+  }
+
+  /**
+   * End-to-end: with VIEW_AUTHORIZATION_ENABLED=true, a custom (editable) policy that otherwise
+   * matches must not be backfilled at all.
+   */
+  @Test
+  public void testExecutableSkipsCustomPolicyWhenViewAuthEnabled() throws Exception {
+    mockScrollWithSinglePolicy();
+    DataHubPolicyInfo customPolicy = policyInfo(VIEW_ENTITY_PAGE, "EDIT_ENTITY_TAGS");
+    customPolicy.setEditable(true);
+    mockPolicyResponse(customPolicy);
+
+    BackfillViewAllQueriesPrivilegeStep step =
+        new BackfillViewAllQueriesPrivilegeStep(
+            viewAuthEnabledOpContext(), mockEntityService, mockSearchService, false, 100);
+    UpgradeStepResult result = step.executable().apply(viewAuthEnabledUpgradeContext());
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    assertTrue(
+        capturePolicyInfoProposals().isEmpty(),
+        "a custom (editable) policy must not be backfilled when VIEW_AUTHORIZATION_ENABLED=true");
+  }
+
+  /**
+   * End-to-end counterpart: with VIEW_AUTHORIZATION_ENABLED=true, a built-in system (non-editable)
+   * policy that otherwise matches is still backfilled.
+   */
+  @Test
+  public void testExecutableStillBackfillsSystemPolicyWhenViewAuthEnabled() throws Exception {
+    mockScrollWithSinglePolicy();
+    DataHubPolicyInfo systemPolicy = policyInfo(VIEW_ENTITY_PAGE, "EDIT_ENTITY_TAGS");
+    systemPolicy.setEditable(false);
+    mockPolicyResponse(systemPolicy);
+
+    BackfillViewAllQueriesPrivilegeStep step =
+        new BackfillViewAllQueriesPrivilegeStep(
+            viewAuthEnabledOpContext(), mockEntityService, mockSearchService, false, 100);
+    UpgradeStepResult result = step.executable().apply(viewAuthEnabledUpgradeContext());
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    List<MetadataChangeProposal> policyProposals = capturePolicyInfoProposals();
+    assertEquals(
+        policyProposals.size(),
+        1,
+        "a built-in (non-editable) policy must still be backfilled when"
+            + " VIEW_AUTHORIZATION_ENABLED=true");
+  }
+
+  private OperationContext viewAuthEnabledOpContext() {
+    return TestOperationContexts.systemContext(
+        () ->
+            OperationContextConfig.builder()
+                .viewAuthorizationConfiguration(
+                    ViewAuthorizationConfiguration.builder().enabled(true).build())
+                .build(),
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null);
+  }
+
+  private UpgradeContext viewAuthEnabledUpgradeContext() {
+    UpgradeContext context = mock(UpgradeContext.class);
+    when(context.opContext()).thenReturn(viewAuthEnabledOpContext());
+    return context;
   }
 
   @Test

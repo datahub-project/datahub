@@ -618,6 +618,8 @@ Domain URNs are read from the product's `domains` aspect, preferring `domainAsso
 
 **View All Queries** is a platform privilege, not tied to any dataset, and is checked before the subject-dataset logic above: an actor who holds it can read any Query regardless of subjects. This is the only way to read a Query with **no subjects at all** — such a Query has no dataset for the ordinary privileges to be checked against, so it is otherwise denied to every actor, including root/admin, in both modes. It is also the only way to read one under `QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS=true` when the Query has subjects but the actor's grant doesn't cover all of them.
 
+`QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS` also accepts `COMPAT`, a middle ground between the table's two modes: require-all applies only to the dataset view page's Queries tab (`listQueries` scoped to a dataset); every read in the table above — direct Query reads, REST/OpenAPI, `topSqlQueries` — stays any-subject, same as the `false` default.
+
 Schema field subjects are resolved to their parent dataset for authorization. Read enforcement is controlled by `QUERY_ENTITY_AUTHORIZATION_ENABLED` (default `true`), independently of the general `VIEW_AUTHORIZATION_ENABLED` switch (default `false`) — disabling the latter does not disable query read authorization.
 
 #### Schema field entities (view)

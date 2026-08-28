@@ -114,7 +114,8 @@ public class DatasetUsageStatsResolverTest {
                 .queryEntities(
                     ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
                         .enabled(true)
-                        .requireAllSubjects(true)
+                        .requireAllSubjects(
+                            ViewAuthorizationConfiguration.RequireAllSubjectsMode.TRUE)
                         .build())
                 .build(),
             /* selectsTopSqlQueries= */ true);
@@ -144,7 +145,8 @@ public class DatasetUsageStatsResolverTest {
                 .queryEntities(
                     ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
                         .enabled(true)
-                        .requireAllSubjects(true)
+                        .requireAllSubjects(
+                            ViewAuthorizationConfiguration.RequireAllSubjectsMode.TRUE)
                         .build())
                 .build(),
             /* selectsTopSqlQueries= */ true);

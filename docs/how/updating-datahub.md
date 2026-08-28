@@ -251,6 +251,28 @@ Requirements:
     fresh-install default. Set `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_ENABLED=false`
     to skip this backfill.
 
+  - **`VIEW_AUTHORIZATION_ENABLED` operators:** when `VIEW_AUTHORIZATION_ENABLED=true`, the
+    `VIEW_ALL_QUERIES` backfill above restricts itself to system policies (`editable=false` —
+    the built-in Root/Admin/Editor/Reader-style policies) and skips custom, editable policies
+    entirely, so it doesn't silently widen a narrowly-scoped custom policy with an unconditional
+    platform-level privilege. This check reads `VIEW_AUTHORIZATION_ENABLED` from the
+    **system-update job's own environment**, not GMS's — the stock
+    `docker/profiles/docker-compose.gms.yml` now passes `VIEW_AUTHORIZATION_ENABLED` to the
+    non-blocking `system-update` container with the same value GMS gets. **Action:** if you run a
+    custom Helm chart or a custom/forked compose stack, make sure `VIEW_AUTHORIZATION_ENABLED` is
+    passed to the non-blocking `system-update` job the same way it's passed to GMS — otherwise the
+    backfill silently treats view authorization as off and adds `VIEW_ALL_QUERIES` to every
+    matching policy regardless of `editable`. Either way, once `VIEW_AUTHORIZATION_ENABLED=true`:
+    review which system policies received `VIEW_ALL_QUERIES` and revoke it from any you don't want
+    it on. If you'd rather not run the backfill at all, set
+    `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_ENABLED=false` on the `system-update` job
+    and add `VIEW_ALL_QUERIES` to only the specific policies you choose.
+
+  - **`QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS`** now also accepts `COMPAT` in addition to
+    `true`/`false`: require-all applies only to the dataset view page's Queries tab, any-subject
+    everywhere else (direct Query entity reads, REST/OpenAPI, `topSqlQueries`) — see
+    [Policies](../authorization/policies.md#query-entities).
+
 - #18987 **(GMS / GraphQL)** GraphQL entity hydration now fetches only the aspects a query's selection set requires (schema-driven aspect mapping), instead of each entity loader's full default aspect set. Reduces primary-store reads on search cards, entity profiles, and browse. **Action:** none; set `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED=false` to revert to legacy full-aspect hydration if a specific query or page regresses.
 
 - #18924 **(Ingestion / SDK)** DataJobs emitted through the Python SDK now set the parent DataFlow's browse-path entry `id` to the DataFlow URN instead of the raw flow id. This lets Browse (V2) resolve and show the flow's display name rather than an opaque id — most visibly, Airbyte connections that previously appeared as UUID folders now show their connection name. This affects every connector that emits DataJobs via the SDK (for example Airbyte, Fivetran, Azure Data Factory, Flink, Informatica, dlt). The change is to emitted metadata only; there is no model change and no reindex is required. **Action:** none is strictly required, but re-ingest the affected pipelines to refresh their browse paths and pick up the improved navigation.
