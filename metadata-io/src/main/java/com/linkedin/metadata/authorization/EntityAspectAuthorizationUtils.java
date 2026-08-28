@@ -417,10 +417,11 @@ public final class EntityAspectAuthorizationUtils {
 
   /**
    * Resolves the operator-configured {@code requireAllSubjects} mode. With the dedicated flag
-   * enabled (the default), the configured mode applies — default {@code FALSE}: any single subject
-   * dataset suffices everywhere. When active only via the legacy view-authorization switch
-   * (dedicated flag explicitly disabled), the original all-subjects behavior is preserved ({@code
-   * TRUE}, regardless of the configured mode).
+   * enabled (the default), the configured mode applies — default {@code COMPAT}. When active only
+   * via the legacy view-authorization switch (dedicated flag explicitly disabled), the original
+   * all-subjects behavior is preserved ({@code TRUE}, regardless of the configured mode). A missing
+   * {@code queryEntities} config block (should not occur outside tests — {@code application.yaml}
+   * always declares it) falls back to {@code COMPAT} too, matching the same default.
    */
   private static com.datahub.authorization.config.ViewAuthorizationConfiguration
           .RequireAllSubjectsMode
@@ -430,7 +431,7 @@ public final class EntityAspectAuthorizationUtils {
         opContext.getOperationContextConfig().getViewAuthorizationConfiguration();
     if (view.getQueryEntities() == null) {
       return com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
-          .FALSE;
+          .COMPAT;
     }
     if (view.getQueryEntities().isEnabled()) {
       return view.getQueryEntities().getRequireAllSubjects();
@@ -440,29 +441,48 @@ public final class EntityAspectAuthorizationUtils {
   }
 
   /**
-   * Subject-match mode for query-read authorization everywhere EXCEPT the dataset view page's
-   * Queries tab (see {@link #requireAllQuerySubjectsOnDatasetViewPage}): direct Query entity reads,
-   * REST/OpenAPI, {@code topSqlQueries}. {@code COMPAT} resolves to any-subject here — only the
-   * literal {@code TRUE} mode requires all subjects for these callers.
+   * Subject-match mode for ordinary Query-entity-subject checks: direct Query entity reads, {@code
+   * listQueries}, REST/OpenAPI reads, and {@link
+   * com.linkedin.metadata.authorization.EntityAuthorizationUtils#canViewEntity}'s Query-entity
+   * branch (search-result masking, related-entity visibility) all share this one answer. {@code
+   * TRUE} and {@code FALSE} apply literally everywhere. {@code COMPAT} resolves to {@code
+   * VIEW_AUTHORIZATION_ENABLED}'s current state: require-all when it's on, any-subject when it's
+   * off — so turning on VBAC uniformly tightens every one of these paths, and COMPAT is a no-op
+   * relative to the old any-subject-everywhere default for deployments that never enable it.
+   *
+   * <p>Does NOT apply to {@code topSqlQueries} — see {@link
+   * #requireAllQuerySubjectsForTopSqlQueries} for that deliberate carve-out.
    */
   public static boolean requireAllQuerySubjects(
       @Nonnull io.datahubproject.metadata.context.OperationContext opContext) {
-    return requireAllSubjectsMode(opContext)
+    com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode mode =
+        requireAllSubjectsMode(opContext);
+    if (mode
+        == com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
+            .COMPAT) {
+      return opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled();
+    }
+    return mode
         == com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
             .TRUE;
   }
 
   /**
-   * Subject-match mode for the dataset view page's Queries tab (the {@code listQueries} GraphQL
-   * query when scoped to a dataset via {@code ListQueriesInput.datasetUrn}). {@code COMPAT}
-   * resolves to require-all here, unlike {@link #requireAllQuerySubjects} — only the literal {@code
-   * FALSE} mode accepts any single subject for this caller.
+   * Subject-match mode for {@code topSqlQueries} specifically — deliberately carved out from {@link
+   * #requireAllQuerySubjects}. {@code topSqlQueries} entries are bare SQL strings with no recorded
+   * per-statement dataset association, unlike a Query entity's {@code querySubjects}, so there is
+   * nothing for a require-all check to verify beyond the one containing dataset. {@code TRUE} and
+   * {@code FALSE} still apply literally (see {@link #isTopSqlQueriesRestricted}'s use of this for
+   * what {@code TRUE} means here), but {@code COMPAT} always resolves to any-subject, regardless of
+   * {@code VIEW_AUTHORIZATION_ENABLED} — an actor with {@code VIEW_ENTITY_QUERIES} on a dataset
+   * keeps seeing that dataset's own top queries under COMPAT even once VBAC is turned on, without
+   * needing the platform-wide {@code VIEW_ALL_QUERIES}.
    */
-  public static boolean requireAllQuerySubjectsOnDatasetViewPage(
+  public static boolean requireAllQuerySubjectsForTopSqlQueries(
       @Nonnull io.datahubproject.metadata.context.OperationContext opContext) {
     return requireAllSubjectsMode(opContext)
-        != com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
-            .FALSE;
+        == com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
+            .TRUE;
   }
 
   /**
@@ -527,10 +547,12 @@ public final class EntityAspectAuthorizationUtils {
    *   <li>Default (any-subject) mode, without {@code VIEW_ALL_QUERIES}: permitted iff the actor
    *       holds {@code VIEW_ENTITY_QUERIES} on {@code resourceUrn} itself — consistent with the
    *       any-subject rule, since every statement in the list ran against this dataset.
-   *   <li>Strict ({@code requireAllSubjects}) mode, without {@code VIEW_ALL_QUERIES}: ALWAYS
-   *       restricted, even for an actor holding {@code VIEW_ENTITY_QUERIES} on {@code resourceUrn}
-   *       — a statement may reference other datasets the actor cannot see, and bare strings carry
-   *       no way to verify that. Documented limitation of strict mode.
+   *   <li>Literal {@code TRUE} mode, without {@code VIEW_ALL_QUERIES}: ALWAYS restricted, even for
+   *       an actor holding {@code VIEW_ENTITY_QUERIES} on {@code resourceUrn} — a statement may
+   *       reference other datasets the actor cannot see, and bare strings carry no way to verify
+   *       that. Documented limitation of strict mode. {@code COMPAT} does NOT get this treatment —
+   *       see {@link #requireAllQuerySubjectsForTopSqlQueries} for why it stays any-subject here
+   *       even once {@code VIEW_AUTHORIZATION_ENABLED} is on.
    * </ul>
    *
    * <p>Uses {@link #isQueryViewAuthorizationEnabled} (not a narrower, dedicated-flag-only check) so
@@ -544,7 +566,7 @@ public final class EntityAspectAuthorizationUtils {
     if (!isQueryViewAuthorizationEnabled(opContext) || opContext.isSystemAuth()) {
       return false;
     }
-    if (requireAllQuerySubjects(opContext)) {
+    if (requireAllQuerySubjectsForTopSqlQueries(opContext)) {
       return !hasViewAllQueriesPrivilege(opContext);
     }
     return !allowedToViewQueriesOnEntity(opContext, resourceUrn);

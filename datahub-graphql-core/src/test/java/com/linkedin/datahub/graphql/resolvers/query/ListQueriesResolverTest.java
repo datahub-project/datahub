@@ -317,12 +317,12 @@ public class ListQueriesResolverTest {
   }
 
   /**
-   * COMPAT mode requires all subjects on the dataset view page's Queries tab ({@code datasetUrn}
-   * set) but any-subject everywhere else ({@code datasetUrn} unset) — verified with a two-subject
-   * query where the actor holds VIEW_ENTITY_QUERIES on only one of the two subjects.
+   * COMPAT mode tracks VIEW_AUTHORIZATION_ENABLED's runtime state uniformly: a two-subject query
+   * where the actor holds VIEW_ENTITY_QUERIES on only one subject is included when the flag is off
+   * (any-subject, matching the old default) and excluded once it's on (require-all).
    */
   @Test
-  public void testCompatModeRequiresAllSubjectsOnlyWhenDatasetScoped() throws Exception {
+  public void testCompatModeTracksViewAuthorizationEnabled() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
     Mockito.when(aspectRetriever.getEntityRegistry())
@@ -379,41 +379,40 @@ public class ListQueriesResolverTest {
                     new SearchEntityArray(
                         ImmutableSet.of(new SearchEntity().setEntity(TEST_QUERY_URN)))));
 
-    ViewAuthorizationConfiguration compatConfig =
-        ViewAuthorizationConfiguration.builder()
-            .enabled(false)
-            .queryEntities(
-                ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
-                    .enabled(true)
-                    .requireAllSubjects(
-                        ViewAuthorizationConfiguration.RequireAllSubjectsMode.COMPAT)
-                    .build())
+    ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig compat =
+        ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
+            .enabled(true)
+            .requireAllSubjects(ViewAuthorizationConfiguration.RequireAllSubjectsMode.COMPAT)
             .build();
-
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
 
-    // Dataset-scoped (the dataset view page's Queries tab): COMPAT requires all subjects, so the
-    // query must be excluded since TEST_DATASET_URN_2 is not viewable.
-    QueryContext datasetScopedContext =
-        createContext(mockAuthorizer, aspectRetriever, compatConfig);
-    DataFetchingEnvironment datasetScopedEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(datasetScopedEnv.getArgument(Mockito.eq("input")))
-        .thenReturn(TEST_INPUT_FULL_FILTERS);
-    Mockito.when(datasetScopedEnv.getContext()).thenReturn(datasetScopedContext);
+    // VIEW_AUTHORIZATION_ENABLED off: any-subject, so the query is included.
+    ViewAuthorizationConfiguration viewAuthOffConfig =
+        ViewAuthorizationConfiguration.builder().enabled(false).queryEntities(compat).build();
+    QueryContext viewAuthOffContext =
+        createContext(mockAuthorizer, aspectRetriever, viewAuthOffConfig);
+    DataFetchingEnvironment viewAuthOffEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(viewAuthOffEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(TEST_INPUT_SOURCE_FILTER);
+    Mockito.when(viewAuthOffEnv.getContext()).thenReturn(viewAuthOffContext);
     assertEquals(
-        resolver.get(datasetScopedEnv).get().getQueries().size(),
-        0,
-        "COMPAT must require all subjects on the dataset view page");
-
-    // Unscoped (everywhere else): COMPAT is any-subject, so the query is included.
-    QueryContext unscopedContext = createContext(mockAuthorizer, aspectRetriever, compatConfig);
-    DataFetchingEnvironment unscopedEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(unscopedEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_SOURCE_FILTER);
-    Mockito.when(unscopedEnv.getContext()).thenReturn(unscopedContext);
-    assertEquals(
-        resolver.get(unscopedEnv).get().getQueries().size(),
+        resolver.get(viewAuthOffEnv).get().getQueries().size(),
         1,
-        "COMPAT must accept any single subject when not scoped to a dataset");
+        "COMPAT must be any-subject when VIEW_AUTHORIZATION_ENABLED is off");
+
+    // VIEW_AUTHORIZATION_ENABLED on: require-all, so the query is excluded.
+    ViewAuthorizationConfiguration viewAuthOnConfig =
+        ViewAuthorizationConfiguration.builder().enabled(true).queryEntities(compat).build();
+    QueryContext viewAuthOnContext =
+        createContext(mockAuthorizer, aspectRetriever, viewAuthOnConfig);
+    DataFetchingEnvironment viewAuthOnEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(viewAuthOnEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(TEST_INPUT_SOURCE_FILTER);
+    Mockito.when(viewAuthOnEnv.getContext()).thenReturn(viewAuthOnContext);
+    assertEquals(
+        resolver.get(viewAuthOnEnv).get().getQueries().size(),
+        0,
+        "COMPAT must require all subjects once VIEW_AUTHORIZATION_ENABLED is on");
   }
 
   @Test

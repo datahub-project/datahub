@@ -938,6 +938,87 @@ public class EntityAspectAuthorizationUtilsTest {
     Assert.assertTrue(viewable.isEmpty(), "no subjects means nothing to grant against, any mode");
   }
 
+  /**
+   * End-to-end regression for the default enforcement mode (queryEntities.enabled=true,
+   * requireAllSubjects=COMPAT — i.e. no explicit QUERY_ENTITY_AUTHORIZATION_* overrides at all),
+   * combining filterViewableQueryEntities's per-subject counting with requireAllQuerySubjects's
+   * VIEW_AUTHORIZATION_ENABLED-driven resolution for a two-subject-dataset query: with
+   * VIEW_AUTHORIZATION_ENABLED on, holding VIEW_ENTITY_QUERIES on one of two subjects is denied, on
+   * both of two succeeds, and on neither is denied; with VIEW_AUTHORIZATION_ENABLED off, one of two
+   * already suffices, matching the pre-existing default.
+   */
+  @Test
+  public void testFilterViewableQueryEntities_defaultModeAcrossViewAuthorizationEnabled() {
+    stubTwoSubjectQuery();
+
+    ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig defaultConfig =
+        ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder().build();
+    boolean requireAllViewAuthOn =
+        EntityAspectAuthorizationUtils.requireAllQuerySubjects(
+            queryAuthContext(defaultConfig, true));
+    boolean requireAllViewAuthOff =
+        EntityAspectAuthorizationUtils.requireAllQuerySubjects(
+            queryAuthContext(defaultConfig, false));
+    Assert.assertTrue(
+        requireAllViewAuthOn,
+        "default (COMPAT) mode must require all subjects once VIEW_AUTHORIZATION_ENABLED is on");
+    Assert.assertFalse(
+        requireAllViewAuthOff,
+        "default (COMPAT) mode must be any-subject when VIEW_AUTHORIZATION_ENABLED is off");
+
+    // VIEW_AUTHORIZATION_ENABLED on, neither of two subjects granted: denied.
+    stubSubjectGrant(SUBJECT_DATASET, false);
+    stubSubjectGrant(ASSET_URN, false);
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+                OperationFingerprint.EMPTY,
+                mockAuthSession,
+                mockAspectRetriever,
+                List.of(QUERY_URN),
+                requireAllViewAuthOn)
+            .isEmpty(),
+        "VIEW_AUTHORIZATION_ENABLED on, default mode: neither subject granted must deny");
+
+    // VIEW_AUTHORIZATION_ENABLED on, one of two subjects granted: still denied.
+    stubSubjectGrant(SUBJECT_DATASET, true);
+    stubSubjectGrant(ASSET_URN, false);
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+                OperationFingerprint.EMPTY,
+                mockAuthSession,
+                mockAspectRetriever,
+                List.of(QUERY_URN),
+                requireAllViewAuthOn)
+            .isEmpty(),
+        "VIEW_AUTHORIZATION_ENABLED on, default mode: one of two subjects granted must deny");
+
+    // VIEW_AUTHORIZATION_ENABLED on, both of two subjects granted: succeeds.
+    stubSubjectGrant(SUBJECT_DATASET, true);
+    stubSubjectGrant(ASSET_URN, true);
+    Assert.assertEquals(
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            OperationFingerprint.EMPTY,
+            mockAuthSession,
+            mockAspectRetriever,
+            List.of(QUERY_URN),
+            requireAllViewAuthOn),
+        Set.of(QUERY_URN),
+        "VIEW_AUTHORIZATION_ENABLED on, default mode: both subjects granted must succeed");
+
+    // VIEW_AUTHORIZATION_ENABLED off, one of two subjects granted: already suffices.
+    stubSubjectGrant(SUBJECT_DATASET, true);
+    stubSubjectGrant(ASSET_URN, false);
+    Assert.assertEquals(
+        EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            OperationFingerprint.EMPTY,
+            mockAuthSession,
+            mockAspectRetriever,
+            List.of(QUERY_URN),
+            requireAllViewAuthOff),
+        Set.of(QUERY_URN),
+        "VIEW_AUTHORIZATION_ENABLED off, default mode: one of two subjects granted must suffice");
+  }
+
   private void stubTwoSubjectQuery() {
     QuerySubjects querySubjects = new QuerySubjects();
     QuerySubject subjectA = new QuerySubject();
@@ -954,7 +1035,8 @@ public class EntityAspectAuthorizationUtilsTest {
 
   @Test
   public void testQueryViewAuthorizationEnabled_configResolution() {
-    // Missing config block means the default: enabled, any-subject mode.
+    // Missing config block means the default: enabled, COMPAT mode. requireAllQuerySubjects is
+    // any-subject under COMPAT regardless of legacy view-auth state.
     Assert.assertTrue(
         EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(
             queryAuthContext(null, false)));
@@ -989,8 +1071,9 @@ public class EntityAspectAuthorizationUtilsTest {
     Assert.assertTrue(
         EntityAspectAuthorizationUtils.requireAllQuerySubjects(queryAuthContext(strict, false)));
     Assert.assertTrue(
-        EntityAspectAuthorizationUtils.requireAllQuerySubjectsOnDatasetViewPage(
-            queryAuthContext(strict, false)));
+        EntityAspectAuthorizationUtils.requireAllQuerySubjectsForTopSqlQueries(
+            queryAuthContext(strict, false)),
+        "literal TRUE mode still locks topSqlQueries behind VIEW_ALL_QUERIES");
 
     ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig anyMode =
         ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
@@ -1000,31 +1083,45 @@ public class EntityAspectAuthorizationUtilsTest {
     Assert.assertFalse(
         EntityAspectAuthorizationUtils.requireAllQuerySubjects(queryAuthContext(anyMode, false)));
     Assert.assertFalse(
-        EntityAspectAuthorizationUtils.requireAllQuerySubjectsOnDatasetViewPage(
+        EntityAspectAuthorizationUtils.requireAllQuerySubjectsForTopSqlQueries(
             queryAuthContext(anyMode, false)));
   }
 
   /**
-   * COMPAT splits behavior by caller: the dataset view page's Queries tab requires all subjects
-   * (same as strict mode), but every other caller — direct Query entity reads, REST/OpenAPI, {@code
-   * topSqlQueries} — gets any-subject (same as the default any mode).
+   * COMPAT (the default) resolves {@link EntityAspectAuthorizationUtils#requireAllQuerySubjects}
+   * uniformly by VIEW_AUTHORIZATION_ENABLED's runtime state — any-subject when it's off,
+   * require-all when it's on — for every Query-entity-subject caller (direct Query reads,
+   * listQueries, REST reads, and canViewEntity's search-masking branch all share this one method).
+   * {@link EntityAspectAuthorizationUtils#requireAllQuerySubjectsForTopSqlQueries} is a deliberate
+   * carve-out: always any-subject under COMPAT regardless of VIEW_AUTHORIZATION_ENABLED, since
+   * topSqlQueries entries have no per-statement dataset association to verify against.
    */
   @Test
-  public void testRequireAllQuerySubjects_compatModeSplitsByCallSite() {
+  public void testRequireAllQuerySubjects_compatModeTracksViewAuthorizationEnabled() {
     ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig compat =
         ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
             .enabled(true)
             .requireAllSubjects(ViewAuthorizationConfiguration.RequireAllSubjectsMode.COMPAT)
             .build();
-    io.datahubproject.metadata.context.OperationContext compatContext =
-        queryAuthContext(compat, false);
 
+    io.datahubproject.metadata.context.OperationContext viewAuthOffContext =
+        queryAuthContext(compat, false);
     Assert.assertFalse(
-        EntityAspectAuthorizationUtils.requireAllQuerySubjects(compatContext),
-        "COMPAT must behave like any-subject mode everywhere except the dataset view page");
+        EntityAspectAuthorizationUtils.requireAllQuerySubjects(viewAuthOffContext),
+        "COMPAT must be any-subject when VIEW_AUTHORIZATION_ENABLED is off");
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.requireAllQuerySubjectsForTopSqlQueries(viewAuthOffContext));
+
+    io.datahubproject.metadata.context.OperationContext viewAuthOnContext =
+        queryAuthContext(compat, true);
     Assert.assertTrue(
-        EntityAspectAuthorizationUtils.requireAllQuerySubjectsOnDatasetViewPage(compatContext),
-        "COMPAT must require all subjects on the dataset view page's Queries tab");
+        EntityAspectAuthorizationUtils.requireAllQuerySubjects(viewAuthOnContext),
+        "COMPAT must require all subjects once VIEW_AUTHORIZATION_ENABLED is on");
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.requireAllQuerySubjectsForTopSqlQueries(viewAuthOnContext),
+        "topSqlQueries stays any-subject under COMPAT even with VIEW_AUTHORIZATION_ENABLED on, so"
+            + " ordinary per-dataset users keep seeing their dataset's own top queries without"
+            + " VIEW_ALL_QUERIES");
   }
 
   private io.datahubproject.metadata.context.OperationContext queryAuthContext(

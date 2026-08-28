@@ -162,10 +162,20 @@ Requirements:
     `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_ENABLED=false` on the `system-update` job
     and add `VIEW_ALL_QUERIES` to only the specific policies you choose.
 
-  - **`QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS`** now also accepts `COMPAT` in addition to
-    `true`/`false`: require-all applies only to the dataset view page's Queries tab, any-subject
-    everywhere else (direct Query entity reads, REST/OpenAPI, `topSqlQueries`) — see
-    [Policies](../authorization/policies.md#query-entities).
+  - **`QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS`** now also accepts `COMPAT`, which is also
+    the new default (was `false`). COMPAT requires all subjects only on the one query-read path
+    actually gated by `VIEW_AUTHORIZATION_ENABLED` (the shared entity-VIEW evaluator's Query-entity
+    branch — search-result masking, related-entity visibility — unreachable when that switch is
+    off); every other path (direct Query entity reads, `listQueries`, REST/OpenAPI,
+    `topSqlQueries`) is gated by the independent `QUERY_ENTITY_AUTHORIZATION_ENABLED` flag instead
+    and stays any-subject under COMPAT. See [Policies](../authorization/policies.md#query-entities).
+    **Action:** the new default is a no-op for deployments that never turn on
+    `VIEW_AUTHORIZATION_ENABLED`. Deployments that already have `VIEW_AUTHORIZATION_ENABLED=true`
+    and left this var unset pick up a real behavior change on upgrade: an actor without
+    `VIEW_ALL_QUERIES` who has `VIEW_ENTITY_QUERIES` on some but not all of a query's subject
+    datasets will stop seeing that query masked-in during search-result/related-entity visibility
+    checks. Set `QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS=false` explicitly to keep the old
+    any-subject-everywhere behavior.
 
 ## v1.7.0
 

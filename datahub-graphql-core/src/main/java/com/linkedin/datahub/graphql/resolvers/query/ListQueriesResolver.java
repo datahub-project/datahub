@@ -106,22 +106,14 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
             if (EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(
                     context.getOperationContext())
                 && !context.getOperationContext().isSystemAuth()) {
-              // A dataset-scoped listing is the dataset view page's Queries tab, where COMPAT mode
-              // requires all subjects; an unscoped listing (no datasetUrn) falls under COMPAT's
-              // any-subject "everywhere else" behavior instead.
-              final boolean requireAllSubjects =
-                  input.getDatasetUrn() != null
-                      ? EntityAspectAuthorizationUtils.requireAllQuerySubjectsOnDatasetViewPage(
-                          context.getOperationContext())
-                      : EntityAspectAuthorizationUtils.requireAllQuerySubjects(
-                          context.getOperationContext());
               final Set<Urn> viewableQueryUrns =
                   EntityAspectAuthorizationUtils.filterViewableQueryEntities(
                       context.getOperationContext(),
                       context.getOperationContext(),
                       context.getOperationContext().getAspectRetriever(),
                       queryUrns,
-                      requireAllSubjects);
+                      EntityAspectAuthorizationUtils.requireAllQuerySubjects(
+                          context.getOperationContext()));
               authorizedQueryUrns =
                   queryUrns.stream()
                       .filter(viewableQueryUrns::contains)

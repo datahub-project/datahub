@@ -115,10 +115,15 @@ authorization:
       # Subject-match mode for query reads: TRUE, FALSE, or COMPAT.
       # - TRUE: reading a query requires VIEW_ENTITY_QUERIES on ALL of its subject datasets
       #   everywhere (a query's SQL reveals information about every dataset it touches).
-      # - FALSE (the default): the privilege on any single subject dataset suffices everywhere.
-      # - COMPAT: require-all on the dataset view page's Queries tab, any-subject everywhere else
-      #   (direct Query entity reads, REST/OpenAPI, topSqlQueries).
-      requireAllSubjects: ${QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS:false}
+      # - FALSE: the privilege on any single subject dataset suffices everywhere.
+      # - COMPAT (the default): require-all only on the query-read path actually gated by
+      #   VIEW_AUTHORIZATION_ENABLED (the shared entity-VIEW evaluator's Query-entity branch, used
+      #   by search-result masking / related-entity visibility, unreachable when that switch is
+      #   off); any-subject on every other path (direct Query entity reads, listQueries,
+      #   REST/OpenAPI, topSqlQueries), which are gated by QUERY_ENTITY_AUTHORIZATION_ENABLED
+      #   instead. A no-op relative to the old any-subject-everywhere default for deployments that
+      #   never turn on VIEW_AUTHORIZATION_ENABLED.
+      requireAllSubjects: ${QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS:compat}
     # Entity types that bypass view authorization when enabled. All other types are restricted by
     # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`). Empty `value`
     # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
