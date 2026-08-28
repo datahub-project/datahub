@@ -2070,6 +2070,83 @@ def test_sigma_transient_workspace_failure_does_not_cost_the_workspace(
 
 
 @pytest.mark.integration
+def test_sigma_alias_learned_after_emission_leaves_no_unnamed_container(
+    tmp_path, requests_mock
+):
+    """An alias learned *after* an entity was emitted must not orphan its
+    Container.
+
+    ``_gen_workspace_key`` resolves, so the URN an entity is parented under
+    depends on what the alias table held at that moment. Datasets here are
+    emitted while the id is still unresolved; a later workbook lookup succeeds
+    and Sigma answers with a different ``workspaceId``. If the backstop
+    re-resolved, it would name the workspace the id aliases to *now* and leave
+    the URN the datasets actually point at unnamed -- the raw-URN bug again.
+
+    ``get_workspace_id_from_file_path`` is ``lru_cache``d per
+    ``(parentId, path)``, so the two file types use different paths to make the
+    second walk actually re-issue the lookup.
+    """
+    inode_id = "3ee61405-3be2-4000-ba72-60d36757b95b"
+    real_ws_id = "aaaa1111-2222-3333-4444-555566667777"
+    override_data: Dict[str, Any] = {}
+    for file_type, path in (("dataset", "Analytics"), ("workbook", "Reports")):
+        files_mock = copy.deepcopy(
+            default_mock_api()[
+                f"https://aws-api.sigmacomputing.com/v2/files?typeFilters={file_type}"
+            ]
+        )
+        for entry in files_mock["json"]["entries"]:
+            entry["parentId"] = inode_id
+            entry["path"] = path
+        override_data[
+            f"https://aws-api.sigmacomputing.com/v2/files?typeFilters={file_type}"
+        ] = files_mock
+    override_data["https://aws-api.sigmacomputing.com/v2/workspaces?limit=50"] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": [], "total": 0, "nextPage": None},
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+    # Fails through the walk and the dataset admission loop, then recovers --
+    # so the alias is learned only after the datasets have been emitted.
+    requests_mock.get(
+        f"https://aws-api.sigmacomputing.com/v2/workspaces/{inode_id}",
+        [
+            {"status_code": 500, "json": {}},
+            {"status_code": 500, "json": {}},
+            {"status_code": 500, "json": {}},
+            {
+                "status_code": 200,
+                "json": {
+                    "workspaceId": real_ws_id,
+                    "name": "Analytics",
+                    "createdBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                    "updatedBy": "CPbEdA26GNQ2cM2Ra2BeO0fa5Awz1",
+                    "createdAt": "2024-03-12T08:31:04.826Z",
+                    "updatedAt": "2024-03-12T08:31:04.826Z",
+                },
+            },
+        ],
+    )
+
+    output_path: str = f"{tmp_path}/sigma_alias_after_emission_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    # Both the pre-alias and post-alias URNs are referenced here; the invariant
+    # is that every referenced one is named, not that there is only one.
+    _assert_every_referenced_container_is_named(mces)
+    assert _sigma_report(pipeline).workspace_ids_remapped == {inode_id: real_ws_id}
+
+
+@pytest.mark.integration
 def test_sigma_late_resolved_workspace_keeps_its_real_name(tmp_path, requests_mock):
     """A workspace can resolve *after* the reference to it was recorded.
 

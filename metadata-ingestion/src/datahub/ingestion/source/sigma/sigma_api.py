@@ -217,12 +217,10 @@ class SigmaAPI:
         except Exception as e:
             # Not a permission problem, unlike the 403 above, so it gets its
             # own warning rather than the "add the user to the workspace"
-            # remediation. Reported once per id -- the call itself stays
-            # retryable, so without this gate the report would carry one entry
-            # per entity in the workspace.
-            # ``report.warning`` keys on title+message, so repeated failures
-            # collapse into one entry with the workspace ids accumulating in
-            # its (lossy, bounded) context -- no gate needed here.
+            # remediation. The call stays retryable; no de-duplication is
+            # needed here because ``report.warning`` keys entries on
+            # title+message, so repeated failures collapse into one entry with
+            # the workspace ids accumulating in its bounded context.
             self.report.warning(
                 title="Unable to fetch workspace",
                 message="Workspace metadata could not be retrieved. Entities "

@@ -531,8 +531,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Resolving here rather than at each caller makes it impossible to
         # build a Workspace Container key from an id Sigma has already told us
         # is an alias for another workspace.
+        return self._workspace_key_verbatim(
+            self.sigma_api.resolve_workspace_id(workspace_id)
+        )
+
+    def _workspace_key_verbatim(self, workspace_id: str) -> WorkspaceKey:
+        """Build a Workspace key from an id that is already final.
+
+        Resolution is time-dependent: an alias learned mid-run changes what
+        ``_gen_workspace_key`` returns for the same argument. Anything naming a
+        Container an entity was *already* parented under must reproduce the key
+        as it was then, not as it would be resolved now.
+        """
         return WorkspaceKey(
-            workspaceId=self.sigma_api.resolve_workspace_id(workspace_id),
+            workspaceId=workspace_id,
             platform=self.platform,
             instance=self.config.platform_instance,
         )
@@ -609,15 +621,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         all entity work units, so that decision is made with the finished
         picture rather than a partial one.
         """
-        # A late-learned alias can collapse two noted ids onto one workspace,
-        # so map first and emit once per resolved id.
-        by_resolved_id: Dict[str, str] = {}
-        for noted_id in sorted(self._referenced_workspace_ids):
-            by_resolved_id.setdefault(
-                self.sigma_api.resolve_workspace_id(noted_id), noted_id
-            )
-
-        for workspace_id, noted_id in by_resolved_id.items():
+        # The ids are used exactly as recorded. Re-resolving them here would
+        # name whatever they alias to *now*, which is not necessarily the
+        # Container the entity was parented under: an alias learned after that
+        # entity was emitted leaves its Container URN behind, unnamed.
+        for workspace_id in sorted(self._referenced_workspace_ids):
             known = self.sigma_api.workspaces.get(workspace_id)
             # Being in the cache is not enough to skip: _gen_workspace_workunit
             # runs off _get_allowed_workspaces, so a cached workspace the
@@ -633,9 +641,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     f"{known.name} ({workspace_id})"
                 )
             else:
-                path_name = self._workspace_names_from_path.get(
-                    noted_id
-                ) or self._workspace_names_from_path.get(workspace_id)
+                path_name = self._workspace_names_from_path.get(workspace_id)
                 self.reporter.workspaces_without_metadata.append(
                     f"{path_name or 'unknown'} ({workspace_id})"
                 )
@@ -643,7 +649,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # Sigma returned no path either.
                 name = path_name or workspace_id
             yield from gen_containers(
-                container_key=self._gen_workspace_key(workspace_id),
+                container_key=self._workspace_key_verbatim(workspace_id),
                 name=name,
                 sub_types=[BIContainerSubTypes.SIGMA_WORKSPACE],
             )
