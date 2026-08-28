@@ -7,8 +7,8 @@ from typing import Callable, Dict, List, Optional, Tuple, Type
 
 import sqlglot
 from sqlglot import ParseError, expressions as exp
-from typing_extensions import LiteralString
 from sqlparse.exceptions import SQLParseError
+from typing_extensions import LiteralString
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter import mce_builder as builder
@@ -611,7 +611,7 @@ class AbstractLineage(ABC):
             upstreams=upstreams,
             rewritten_query=extraction.rewritten_query,
         )
-      
+
     def get_tables_using_old_parser(self, query: str) -> List[str]:
         # sqlparse raises SQLParseError once its DoS-protection limits
         # (MAX_GROUPING_DEPTH / MAX_GROUPING_TOKENS) are hit. Without this, the
