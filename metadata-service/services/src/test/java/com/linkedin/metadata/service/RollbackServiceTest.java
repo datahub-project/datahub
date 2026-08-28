@@ -195,6 +195,47 @@ public class RollbackServiceTest {
   }
 
   @Test
+  public void testRollbackIngestion_SoftDeleteExecuteExcludesKeyAspects()
+      throws AuthenticationException {
+    // Soft-delete execute must match dry-run: aspectsReverted excludes key aspects and
+    // rowSummaries do not list them.
+    List<AspectRowSummary> testAspects = createTestAspectRows(true);
+
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(testAspects)
+        .thenReturn(new ArrayList<>());
+
+    RollbackRunResult mockRollbackResult =
+        new RollbackRunResult(testAspects, 0, Collections.emptyList());
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(false)))
+        .thenReturn(mockRollbackResult);
+
+    DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
+    timeseriesResult.setNumDocsDeleted(0L);
+    when(mockTimeseriesAspectService.rollbackTimeseriesAspects(
+            eq(operationContext), eq(TEST_RUN_ID)))
+        .thenReturn(timeseriesResult);
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(new ArrayList<>());
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            false, // dryRun
+            false, // hardDelete — soft delete
+            null);
+
+    assertEquals(response.getAspectsReverted(), 2); // 4 rows - 2 key aspects
+    assertNotNull(response.getAspectRowSummaries());
+    assertTrue(
+        response.getAspectRowSummaries().stream().noneMatch(AspectRowSummary::isKeyAspect),
+        "soft-delete rowSummaries must not include key aspects");
+  }
+
+  @Test
   public void testRollbackIngestion_MultiplePages() throws AuthenticationException {
     // Arrange
     List<AspectRowSummary> firstPageAspects = createTestAspectRows(true);

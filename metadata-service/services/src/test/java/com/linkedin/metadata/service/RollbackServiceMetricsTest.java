@@ -93,7 +93,7 @@ public class RollbackServiceMetricsTest {
   }
 
   @Test
-  public void testMultiPageExecuteEmitsEntitiesPagesAndDuration() throws Exception {
+  public void testMultiPageExecuteEmitsRowsPagesAndDuration() throws Exception {
     List<AspectRowSummary> firstPage = createAspectRows(TEST_URN_1, TEST_URN_2, true);
     // Pad to apiDefault so the while-loop runs a second page.
     while (firstPage.size() < MAX_SEARCH_RESULTS) {
@@ -128,16 +128,20 @@ public class RollbackServiceMetricsTest {
             any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
 
+    // Capture before rollbackIngestion: execute path mutates the list returned by
+    // RollbackRunResult.getRowsRolledBack() (same instance as firstPage) via addAll.
+    final int expectedRows = firstPage.size() + secondPage.size();
+
     rollbackService.rollbackIngestion(opContext, TEST_RUN_ID, false, true, null);
 
-    Counter entities =
+    Counter rows =
         meterRegistry
-            .find(RollbackService.METRIC_PREFIX + ".entities_processed")
+            .find(RollbackService.METRIC_PREFIX + ".rows_processed")
             .tag("operation_type", RollbackService.OPERATION_TYPE)
             .tag("phase", RollbackService.PHASE_EXECUTE)
             .counter();
-    assertNotNull(entities);
-    assertEquals(entities.count(), (double) (firstPage.size() + secondPage.size()));
+    assertNotNull(rows);
+    assertEquals(rows.count(), (double) expectedRows);
 
     Counter pages =
         meterRegistry

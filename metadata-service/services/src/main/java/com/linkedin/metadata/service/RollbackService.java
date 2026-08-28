@@ -171,7 +171,7 @@ public class RollbackService {
                 .limit(DEFAULT_UNSAFE_ENTITIES_PAGE_SIZE)
                 .collect(Collectors.toList());
 
-        metrics.recordEntities(aspectRowsToDelete.size());
+        metrics.recordRows(aspectRowsToDelete.size());
         metrics.recordPage();
 
         return new RollbackResponse()
@@ -216,7 +216,7 @@ public class RollbackService {
       int timeseriesDeleted = timeseriesRollbackResult.getNumDocsDeleted().intValue();
       rowsDeletedFromEntityDeletion += timeseriesDeleted;
       if (timeseriesDeleted > 0) {
-        metrics.recordEntities(timeseriesDeleted);
+        metrics.recordRows(timeseriesDeleted);
         metrics.recordPage();
       }
 
@@ -239,6 +239,15 @@ public class RollbackService {
       final AspectRowSummaryArray rowSummaries =
           new AspectRowSummaryArray(
               aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size())));
+
+      // Soft delete does not remove key aspects — match dry-run response semantics. Count keys from
+      // deletedRows (all pages), not aspectRowsToDelete (last page only after the while-loop).
+      if (!hardDelete) {
+        int keyAspectsReverted =
+            (int) deletedRows.stream().filter(AspectRowSummary::isKeyAspect).count();
+        aspectsReverted -= keyAspectsReverted;
+        rowSummaries.removeIf(AspectRowSummary::isKeyAspect);
+      }
 
       log.info("computing aspects affected by this rollback...");
       // Compute the aspects that exist referencing the key aspects we are deleting
@@ -308,7 +317,7 @@ public class RollbackService {
       final LongRunningOperationMetrics metrics, final RollbackRunResult result) {
     int processed = result.getRowsRolledBack().size() + result.getRowsDeletedFromEntityDeletion();
     if (processed > 0) {
-      metrics.recordEntities(processed);
+      metrics.recordRows(processed);
       metrics.recordPage();
     }
   }

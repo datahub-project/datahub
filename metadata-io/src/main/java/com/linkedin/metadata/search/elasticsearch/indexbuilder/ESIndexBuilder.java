@@ -21,6 +21,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import com.linkedin.metadata.utils.metrics.LongRunningOperationMetrics;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -29,6 +30,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
+import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.time.Duration;
@@ -98,6 +100,10 @@ import org.opensearch.tasks.TaskInfo;
 
 @Slf4j
 public class ESIndexBuilder {
+
+  static final String METRIC_PREFIX = "datahub.es.reindex";
+  static final String OPERATION_TYPE = "esReindex";
+  static final String PHASE_POLL = "poll";
 
   //  this setting is not allowed to change as of now in AOS:
   // https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-operations.html
@@ -972,155 +978,190 @@ public class ESIndexBuilder {
       Map<String, Object> reindexInfo,
       String taskId)
       throws Throwable {
-    final long initialCheckIntervalMilli = 1000;
-    final long finalCheckIntervalMilli = 60000;
-    final long timeoutAt = computeTimeoutAt();
+    final LongRunningOperationMetrics metrics =
+        LongRunningOperationMetrics.begin(
+            opContext.getMetricUtils().orElse(null),
+            METRIC_PREFIX,
+            Tags.of(
+                LongRunningOperationMetrics.TAG_OPERATION,
+                OPERATION_TYPE,
+                LongRunningOperationMetrics.TAG_PHASE,
+                PHASE_POLL));
 
-    Map<String, Object> latestReindexInfo = new HashMap<>(reindexInfo);
-    int reindexCount = 1;
-    int count = 0;
-    // The active ES task id changes each time we re-submit on stall; track it so status lookups
-    // and diagnostics always reference the reindex that is currently running.
-    String activeTaskId = taskId;
-    Pair<Long, Long> documentCounts =
-        getDocumentCounts(opContext, expectedCountSupplier, destIndex);
-    long documentCountsLastUpdated = System.currentTimeMillis();
-    final long pollStartTimeMillis = documentCountsLastUpdated;
-    final long pollStartDocCount = documentCounts.getSecond();
-    long estimatedMinutesRemaining = 0;
+    try {
+      final long initialCheckIntervalMilli = 1000;
+      final long finalCheckIntervalMilli = 60000;
+      final long timeoutAt = computeTimeoutAt();
 
-    while (System.currentTimeMillis() < timeoutAt) {
-      log.info(
-          "Task: {} - Reindexing from {} to {} in progress...",
-          activeTaskId,
-          sourceIndex,
-          destIndex);
-
-      Pair<Long, Long> latestCounts =
+      Map<String, Object> latestReindexInfo = new HashMap<>(reindexInfo);
+      int reindexCount = 1;
+      int count = 0;
+      // The active ES task id changes each time we re-submit on stall; track it so status lookups
+      // and diagnostics always reference the reindex that is currently running.
+      String activeTaskId = taskId;
+      Pair<Long, Long> documentCounts =
           getDocumentCounts(opContext, expectedCountSupplier, destIndex);
-      long currentTime = System.currentTimeMillis();
+      long documentCountsLastUpdated = System.currentTimeMillis();
+      final long pollStartTimeMillis = documentCountsLastUpdated;
+      final long pollStartDocCount = documentCounts.getSecond();
+      long estimatedMinutesRemaining = 0;
 
-      if (!latestCounts.equals(documentCounts)) {
-        // Stall-detection bookkeeping only; the ETA below is computed unconditionally.
-        documentCountsLastUpdated = currentTime;
-        documentCounts = latestCounts;
-      }
-
-      estimatedMinutesRemaining =
-          estimateMinutesRemaining(
-              latestCounts.getSecond() - pollStartDocCount,
-              currentTime - pollStartTimeMillis,
-              latestCounts.getFirst() - latestCounts.getSecond());
-
-      final ReindexTaskLookup taskLookup = lookupReindexTask(opContext, activeTaskId);
-      final long expectedCount = documentCounts.getFirst();
-      final long destCount = documentCounts.getSecond();
-
-      // dest >= expected: equality or overshoot after scroll captured writes past the launch
-      // snapshot. Only accept when the task is known finished (or there is no usable task id) —
-      // not while RUNNING, and not on LOOKUP_ERROR (transient getTask failures).
-      if (destCount >= expectedCount && allowsCountBasedCompletion(taskLookup)) {
+      while (System.currentTimeMillis() < timeoutAt) {
         log.info(
-            "Reindex {} -> {} complete. expected={} dest={} taskLookup={} taskId={}",
-            sourceIndex,
-            destIndex,
-            expectedCount,
-            destCount,
-            taskLookup,
-            activeTaskId);
-        return new PollReindexResult(true, latestReindexInfo, documentCounts);
-      }
-
-      if (destCount >= expectedCount && taskLookup == ReindexTaskLookup.RUNNING) {
-        log.info(
-            "Document counts meet expected for {} -> {} (dest={} expected={}), but reindex task"
-                + " [{}] is still running. Continuing to poll.",
-            sourceIndex,
-            destIndex,
-            destCount,
-            expectedCount,
-            activeTaskId);
-      } else if (destCount >= expectedCount && taskLookup == ReindexTaskLookup.LOOKUP_ERROR) {
-        log.warn(
-            "Document counts meet expected for {} -> {} (dest={} expected={}), but task status"
-                + " lookup failed for [{}]. Continuing to poll (will not complete on counts alone).",
-            sourceIndex,
-            destIndex,
-            destCount,
-            expectedCount,
-            activeTaskId);
-      } else if (destCount < expectedCount) {
-        float progressPercentage =
-            expectedCount > 0 ? (100 * (1.0f * destCount)) / expectedCount : 0;
-
-        log.warn(
-            "Document counts do not match {} != {}. Complete: {}%. Estimated time remaining: {}"
-                + " minutes. Reindex task [{}]: {}",
-            expectedCount,
-            destCount,
-            progressPercentage,
-            estimatedMinutesRemaining,
+            "Task: {} - Reindexing from {} to {} in progress...",
             activeTaskId,
-            taskLookup);
-      }
+            sourceIndex,
+            destIndex);
 
-      // A completed task whose destination is still short of the source dropped documents. Waiting
-      // out the no-progress timer is pointless, so re-trigger immediately; the retry (bounded by
-      // numRetries) lets a transient shortfall converge on a fresh attempt, and a persistent one
-      // fails loudly once retries are exhausted. Overshoot (dest > expected) is accepted above once
-      // the task is finished — it is not treated as a drop.
-      final boolean completedButShort =
-          taskLookup == ReindexTaskLookup.COMPLETED && destCount < expectedCount;
+        Pair<Long, Long> latestCounts =
+            getDocumentCounts(opContext, expectedCountSupplier, destIndex);
+        long currentTime = System.currentTimeMillis();
 
-      final long lastUpdateDelta = System.currentTimeMillis() - documentCountsLastUpdated;
-      final int noProgressRetryMinutes = getReindexNoProgressRetryMinutes();
-      if (completedButShort || lastUpdateDelta > (noProgressRetryMinutes * 60L * 1000)) {
-        if (reindexCount <= indexConfig.getNumRetries()) {
-          log.warn(
-              "Re-triggering reindex #{} for {} ({}). Prior task [{}]: {}",
-              reindexCount,
+        if (!latestCounts.equals(documentCounts)) {
+          // Stall-detection bookkeeping only; the ETA below is computed unconditionally.
+          documentCountsLastUpdated = currentTime;
+          documentCounts = latestCounts;
+        }
+
+        estimatedMinutesRemaining =
+            estimateMinutesRemaining(
+                latestCounts.getSecond() - pollStartDocCount,
+                currentTime - pollStartTimeMillis,
+                latestCounts.getFirst() - latestCounts.getSecond());
+
+        final ReindexTaskLookup taskLookup = lookupReindexTask(opContext, activeTaskId);
+        final long expectedCount = documentCounts.getFirst();
+        final long destCount = documentCounts.getSecond();
+
+        // dest >= expected: equality or overshoot after scroll captured writes past the launch
+        // snapshot. Only accept when the task is known finished (or there is no usable task id) —
+        // not while RUNNING, and not on LOOKUP_ERROR (transient getTask failures).
+        if (destCount >= expectedCount && allowsCountBasedCompletion(taskLookup)) {
+          log.info(
+              "Reindex {} -> {} complete. expected={} dest={} taskLookup={} taskId={}",
               sourceIndex,
-              completedButShort
-                  ? "task completed but destination is short"
-                  : String.format("no progress for %d minutes", noProgressRetryMinutes),
+              destIndex,
+              expectedCount,
+              destCount,
+              taskLookup,
+              activeTaskId);
+          // Volume for this family is destination documents (not entity URNs / aspect rows).
+          recordReindexDocuments(metrics, destCount);
+          metrics.recordPage();
+          return new PollReindexResult(true, latestReindexInfo, documentCounts);
+        }
+
+        if (destCount >= expectedCount && taskLookup == ReindexTaskLookup.RUNNING) {
+          log.info(
+              "Document counts meet expected for {} -> {} (dest={} expected={}), but reindex task"
+                  + " [{}] is still running. Continuing to poll.",
+              sourceIndex,
+              destIndex,
+              destCount,
+              expectedCount,
+              activeTaskId);
+        } else if (destCount >= expectedCount && taskLookup == ReindexTaskLookup.LOOKUP_ERROR) {
+          log.warn(
+              "Document counts meet expected for {} -> {} (dest={} expected={}), but task status"
+                  + " lookup failed for [{}]. Continuing to poll (will not complete on counts alone).",
+              sourceIndex,
+              destIndex,
+              destCount,
+              expectedCount,
+              activeTaskId);
+        } else if (destCount < expectedCount) {
+          float progressPercentage =
+              expectedCount > 0 ? (100 * (1.0f * destCount)) / expectedCount : 0;
+
+          log.warn(
+              "Document counts do not match {} != {}. Complete: {}%. Estimated time remaining: {}"
+                  + " minutes. Reindex task [{}]: {}",
+              expectedCount,
+              destCount,
+              progressPercentage,
+              estimatedMinutesRemaining,
               activeTaskId,
               taskLookup);
-          latestReindexInfo =
-              submitReindex(
-                  opContext,
-                  new String[] {sourceIndex},
-                  destIndex,
-                  getReindexBatchSize(),
-                  null,
-                  null,
-                  targetShards);
-          // Follow the newly submitted task so subsequent status lookups reference the live
-          // reindex.
-          final Object resubmittedTaskId = latestReindexInfo.get("taskId");
-          if (resubmittedTaskId != null) {
-            activeTaskId = (String) resubmittedTaskId;
-          }
-          reindexCount++;
-          documentCountsLastUpdated = System.currentTimeMillis();
-        } else {
-          log.warn("Reindex retry limit reached for {}.", sourceIndex);
-          break;
         }
+
+        // A completed task whose destination is still short of the source dropped documents.
+        // Waiting
+        // out the no-progress timer is pointless, so re-trigger immediately; the retry (bounded by
+        // numRetries) lets a transient shortfall converge on a fresh attempt, and a persistent one
+        // fails loudly once retries are exhausted. Overshoot (dest > expected) is accepted above
+        // once
+        // the task is finished — it is not treated as a drop.
+        final boolean completedButShort =
+            taskLookup == ReindexTaskLookup.COMPLETED && destCount < expectedCount;
+
+        final long lastUpdateDelta = System.currentTimeMillis() - documentCountsLastUpdated;
+        final int noProgressRetryMinutes = getReindexNoProgressRetryMinutes();
+        if (completedButShort || lastUpdateDelta > (noProgressRetryMinutes * 60L * 1000)) {
+          if (reindexCount <= indexConfig.getNumRetries()) {
+            log.warn(
+                "Re-triggering reindex #{} for {} ({}). Prior task [{}]: {}",
+                reindexCount,
+                sourceIndex,
+                completedButShort
+                    ? "task completed but destination is short"
+                    : String.format("no progress for %d minutes", noProgressRetryMinutes),
+                activeTaskId,
+                taskLookup);
+            latestReindexInfo =
+                submitReindex(
+                    opContext,
+                    new String[] {sourceIndex},
+                    destIndex,
+                    getReindexBatchSize(),
+                    null,
+                    null,
+                    targetShards);
+            // Follow the newly submitted task so subsequent status lookups reference the live
+            // reindex.
+            final Object resubmittedTaskId = latestReindexInfo.get("taskId");
+            if (resubmittedTaskId != null) {
+              activeTaskId = (String) resubmittedTaskId;
+            }
+            reindexCount++;
+            documentCountsLastUpdated = System.currentTimeMillis();
+          } else {
+            log.warn("Reindex retry limit reached for {}.", sourceIndex);
+            metrics.recordPage();
+            break;
+          }
+        }
+
+        metrics.recordPage();
+        count++;
+        Thread.sleep(Math.min(finalCheckIntervalMilli, initialCheckIntervalMilli * count));
       }
 
-      count++;
-      Thread.sleep(Math.min(finalCheckIntervalMilli, initialCheckIntervalMilli * count));
+      log.error(
+          "Reindex {} -> {} timed out or exhausted retries at {}/{} docs. Last reindex task [{}]: {}",
+          sourceIndex,
+          destIndex,
+          documentCounts.getSecond(),
+          documentCounts.getFirst(),
+          activeTaskId,
+          lookupReindexTask(opContext, activeTaskId));
+      metrics.failed("timeout");
+      recordReindexDocuments(metrics, documentCounts.getSecond());
+      return new PollReindexResult(false, latestReindexInfo, documentCounts);
+    } catch (Throwable t) {
+      metrics.failed("unexpected");
+      throw t;
+    } finally {
+      metrics.finish();
     }
+  }
 
-    log.error(
-        "Reindex {} -> {} timed out or exhausted retries at {}/{} docs. Last reindex task [{}]: {}",
-        sourceIndex,
-        destIndex,
-        documentCounts.getSecond(),
-        documentCounts.getFirst(),
-        activeTaskId,
-        lookupReindexTask(opContext, activeTaskId));
-    return new PollReindexResult(false, latestReindexInfo, documentCounts);
+  /** Caps doc counts into {@link LongRunningOperationMetrics#recordEntities(int)}. */
+  private static void recordReindexDocuments(
+      final LongRunningOperationMetrics metrics, final long documents) {
+    if (documents <= 0) {
+      return;
+    }
+    metrics.recordEntities((int) Math.min(documents, Integer.MAX_VALUE));
   }
 
   /**

@@ -119,11 +119,29 @@ public class SearchBasedFormAssignmentManager {
       // if the typed RemoteInvocationException is needed upstream.
       throw new RuntimeException(e);
     } catch (Exception e) {
-      metrics.failed("unexpected");
+      // FormService.verifyEntitiesExist wraps client RIEs in RuntimeException — unwrap so the
+      // error taxonomy stays remote_invocation instead of unexpected.
+      if (isRemoteInvocationFailure(e)) {
+        metrics.failed("remote_invocation");
+        log.error("Error while assigning form to entities.", e);
+      } else {
+        metrics.failed("unexpected");
+      }
       throw e;
     } finally {
       metrics.finish();
     }
+  }
+
+  static boolean isRemoteInvocationFailure(final Throwable throwable) {
+    Throwable current = throwable;
+    while (current != null) {
+      if (current instanceof RemoteInvocationException) {
+        return true;
+      }
+      current = current.getCause();
+    }
+    return false;
   }
 
   private SearchBasedFormAssignmentManager() {}

@@ -6,15 +6,24 @@ import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Metrics for one run of a long-running, page-at-a-time operation: an ES scroll, a reindex, a
  * backfill step.
  *
- * <p>Emits, under a caller-supplied prefix: {@code .launches} at start, {@code .entities_processed}
- * and {@code .pages} as work completes, {@code .errors} tagged {@code error_type}, and {@code
- * .duration} once at {@link #finish()} tagged {@code status=completed|failed} with percentiles and
- * hour-scale SLO buckets.
+ * <p>Emits, under a caller-supplied prefix: {@code .launches} at start, volume counters as work
+ * completes ({@link #recordEntities} → {@code .entities_processed} for entity URNs; {@link
+ * #recordRows} → {@code .rows_processed} for aspect/metadata rows), {@code .pages}, {@code .errors}
+ * tagged {@code error_type}, and {@code .duration} once at {@link #finish()} tagged {@code
+ * status=completed|failed}.
+ *
+ * <p><b>Do not compare volume counters across operation families.</b> Scroll ops count URNs;
+ * rollback counts aspect rows. Mixing them corrupts tenant-size classification.
+ *
+ * <p><b>Duration aggregation.</b> {@link #finish()} publishes both Micrometer percentiles and SLO
+ * histogram buckets. For cross-replica or multi-day classification, use only the {@code _bucket}
+ * series from {@code serviceLevelObjectives} — averaged percentile series are not aggregatable.
  *
  * <p><b>Why {@code .launches} increments at the start.</b> {@link #finish()} is meant to be called
  * from a {@code finally}, which covers exceptions but does not run when the process dies — a
@@ -30,8 +39,11 @@ import javax.annotation.Nullable;
  * <p><b>Single-threaded.</b> One instance tracks one run. Do not share across threads — {@code
  * status} is mutated by {@link #failed} / {@link #finish} with no synchronization.
  *
- * <p>Every method is a no-op when no {@link MetricUtils} was available. Nothing here throws.
+ * <p>Every method is a no-op when no {@link MetricUtils} was available. Emission failures are
+ * swallowed (same as {@link CascadeOperationContext#close()}) so a registry error in {@code
+ * finally} cannot replace the real operation exception.
  */
+@Slf4j
 public final class LongRunningOperationMetrics {
 
   /** Tag key for the operation family (e.g. {@code searchBasedFormAssignment}). */
@@ -73,16 +85,24 @@ public final class LongRunningOperationMetrics {
     final MeterRegistry registry = metricUtils == null ? null : metricUtils.getRegistry();
     final LongRunningOperationMetrics metrics =
         new LongRunningOperationMetrics(registry, prefix, tags);
-    if (registry != null) {
-      registry.counter(prefix + ".launches", tags).increment();
-    }
+    metrics.emit(() -> registry.counter(prefix + ".launches", tags).increment());
     return metrics;
   }
 
-  /** Records entities completed in one page. Call after the page's work has actually succeeded. */
+  /**
+   * Records entity URNs completed in one page. Call after the page's work has actually succeeded.
+   * Use {@link #recordRows} when counting aspect/metadata rows (e.g. ingestion rollback).
+   */
   public void recordEntities(final int count) {
-    if (registry != null && count > 0) {
-      registry.counter(prefix + ".entities_processed", tags).increment(count);
+    if (count > 0) {
+      emit(() -> registry.counter(prefix + ".entities_processed", tags).increment(count));
+    }
+  }
+
+  /** Records aspect/metadata rows completed in one batch (not entity URNs). */
+  public void recordRows(final int count) {
+    if (count > 0) {
+      emit(() -> registry.counter(prefix + ".rows_processed", tags).increment(count));
     }
   }
 
@@ -92,9 +112,7 @@ public final class LongRunningOperationMetrics {
    * {@link #finish()}.
    */
   public void recordPage() {
-    if (registry != null) {
-      registry.counter(prefix + ".pages", tags).increment();
-    }
+    emit(() -> registry.counter(prefix + ".pages", tags).increment());
   }
 
   /**
@@ -105,30 +123,43 @@ public final class LongRunningOperationMetrics {
    */
   public void failed(final String errorType) {
     status = STATUS_FAILED;
-    if (registry != null) {
-      registry.counter(prefix + ".errors", tags.and(TAG_ERROR_TYPE, errorType)).increment();
-    }
+    emit(
+        () ->
+            registry.counter(prefix + ".errors", tags.and(TAG_ERROR_TYPE, errorType)).increment());
   }
 
   /** Records duration. Call from a {@code finally} so a failed run still lands. */
   public void finish() {
+    emit(
+        () ->
+            Timer.builder(prefix + ".duration")
+                .tags(tags.and(TAG_STATUS, status))
+                .publishPercentiles(PERCENTILES)
+                .serviceLevelObjectives(
+                    Duration.ofMinutes(1),
+                    Duration.ofMinutes(5),
+                    Duration.ofMinutes(15),
+                    Duration.ofMinutes(30),
+                    Duration.ofHours(1),
+                    Duration.ofHours(2),
+                    Duration.ofHours(6),
+                    Duration.ofHours(12),
+                    Duration.ofHours(24))
+                .minimumExpectedValue(Duration.ofSeconds(1))
+                .maximumExpectedValue(Duration.ofHours(24))
+                .register(registry)
+                .record(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS));
+  }
+
+  private void emit(final Runnable action) {
     if (registry == null) {
       return;
     }
-    Timer.builder(prefix + ".duration")
-        .tags(tags.and(TAG_STATUS, status))
-        .publishPercentiles(PERCENTILES)
-        .serviceLevelObjectives(
-            Duration.ofMinutes(1),
-            Duration.ofMinutes(5),
-            Duration.ofMinutes(15),
-            Duration.ofMinutes(30),
-            Duration.ofHours(1),
-            Duration.ofHours(2),
-            Duration.ofHours(6))
-        .minimumExpectedValue(Duration.ofSeconds(1))
-        .maximumExpectedValue(Duration.ofHours(6))
-        .register(registry)
-        .record(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS);
+    try {
+      action.run();
+    } catch (Exception e) {
+      // Never propagate — observability must not mask the operation failure.
+      log.debug("Failed to emit long-running operation metric under {}", prefix, e);
+    }
   }
 }

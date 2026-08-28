@@ -165,6 +165,44 @@ public class SearchBasedFormAssignmentManagerMetricsTest {
   }
 
   @Test
+  public void testWrappedRemoteInvocationStillTaggedRemote() throws Exception {
+    // FormService.verifyEntitiesExist wraps client RIE in RuntimeException — must not become
+    // error_type=unexpected.
+    final SystemEntityClient client = mock(SystemEntityClient.class);
+    stubFormDefinition(client);
+    when(client.filterExistingUrns(any(), anyCollection()))
+        .thenThrow(new RemoteInvocationException("upstream"));
+    when(client.scrollAcrossEntities(
+            any(), anyList(), anyString(), any(), any(), anyString(), anyList(), anyInt()))
+        .thenReturn(scrollPage(datasetUrns(0, 1), null));
+    when(client.exists(any(), eq(FORM_URN))).thenReturn(true);
+
+    try {
+      SearchBasedFormAssignmentManager.apply(scrollRequest(FORM_URN, 1, client));
+      fail("expected RuntimeException wrapping RemoteInvocationException");
+    } catch (RuntimeException e) {
+      assertTrue(SearchBasedFormAssignmentManager.isRemoteInvocationFailure(e));
+    }
+
+    Counter errors =
+        meterRegistry
+            .find(SearchBasedFormAssignmentManager.METRIC_PREFIX + ".errors")
+            .tag("operation_type", SearchBasedFormAssignmentManager.OPERATION_TYPE)
+            .tag("phase", "assign")
+            .tag("error_type", "remote_invocation")
+            .counter();
+    assertNotNull(errors, "wrapped RIE must stay tagged remote_invocation");
+    assertEquals(errors.count(), 1.0);
+
+    Counter unexpected =
+        meterRegistry
+            .find(SearchBasedFormAssignmentManager.METRIC_PREFIX + ".errors")
+            .tag("error_type", "unexpected")
+            .counter();
+    assertTrue(unexpected == null || unexpected.count() == 0.0);
+  }
+
+  @Test
   public void testFailedRunRecordsDurationTaggedFailed() throws Exception {
     final SystemEntityClient client = mockClientFailingOnSecondScrollWithRemoteInvocation();
 
