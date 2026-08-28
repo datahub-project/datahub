@@ -104,6 +104,39 @@ class ColumnLineageExtractor(ABC):
         pass
 
 
+def get_activity_translator_config(
+    activity: ActivityProtocol,
+) -> Optional[dict[str, Any]]:
+    """Get an activity's translator (column mapping) configuration, if
+    any. The Azure SDK sometimes flattens CopyActivity properties to the
+    activity level rather than nesting them in typeProperties.
+
+    Also used outside this module (adf_source.py) to detect whether an
+    activity has its own explicit column mapping before attempting any
+    other column-lineage recovery, so both code paths agree on what
+    counts as "explicit".
+    """
+    # Try SDK-flattened attribute first
+    translator = activity.translator if hasattr(activity, "translator") else None
+    if translator is not None:
+        # Could be a dict or an SDK object - normalize to dict
+        if hasattr(translator, "as_dict"):
+            return translator.as_dict()
+        if isinstance(translator, dict):
+            return translator
+
+    # Fall back to typeProperties (raw JSON or mock data)
+    type_properties = (
+        activity.type_properties if hasattr(activity, "type_properties") else None
+    )
+    if type_properties and isinstance(type_properties, dict):
+        translator = type_properties.get("translator")
+        if isinstance(translator, dict):
+            return translator
+
+    return None
+
+
 class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
     """Extracts column-level lineage from ADF Copy activities.
 
@@ -195,25 +228,7 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         The Azure SDK sometimes flattens CopyActivity properties to the activity
         level rather than nesting them in typeProperties.
         """
-        # Try SDK-flattened attribute first
-        translator = activity.translator if hasattr(activity, "translator") else None
-        if translator is not None:
-            # Could be a dict or an SDK object - normalize to dict
-            if hasattr(translator, "as_dict"):
-                return translator.as_dict()
-            if isinstance(translator, dict):
-                return translator
-
-        # Fall back to typeProperties (raw JSON or mock data)
-        type_properties = (
-            activity.type_properties if hasattr(activity, "type_properties") else None
-        )
-        if type_properties and isinstance(type_properties, dict):
-            translator = type_properties.get("translator")
-            if isinstance(translator, dict):
-                return translator
-
-        return None
+        return get_activity_translator_config(activity)
 
     def _get_translator_type(self, translator: dict[str, Any]) -> Optional[str]:
         """Get the translator type from the translator configuration."""

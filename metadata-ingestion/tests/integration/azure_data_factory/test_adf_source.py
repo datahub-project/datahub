@@ -3268,3 +3268,357 @@ def test_adf_source_mixed_dependencies(pytestconfig, tmp_path):
         output_path=str(output_file),
         golden_path=str(golden_file),
     )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_adf_source_dynamic_column_lineage_via_query_parsing(tmp_path):
+    """Regression test: for a ForEach-looped Copy activity with no
+    explicit ADF translator (column mapping), the real per-iteration
+    column-level lineage should be recovered from the resolved query's
+    own selected column list, the same way per-iteration table names are
+    already recovered - "@item()"-driven per-iteration values can only
+    ever be read off a specific ActivityRun, never resolved statically.
+    Two different iterations copying different tables should each get
+    their own column-level lineage, not a single static fallback."""
+    output_file = tmp_path / "adf_dynamic_column_lineage_events.json"
+
+    factory_name = "dynamic-column-lineage-test-factory"
+    resource_group = "dynamic-column-lineage-test-rg"
+
+    copy_activity = create_mock_activity(
+        name="MirrorManyTablesWithColumns",
+        activity_type="Copy",
+        inputs=[
+            {
+                "referenceName": "DatabricksSourceDataset",
+                "type": "DatasetReference",
+                "parameters": {"table_name": "@item().table_name"},
+            }
+        ],
+        outputs=[
+            {
+                "referenceName": "MssqlSinkDataset",
+                "type": "DatasetReference",
+                "parameters": {"table_name": "@item().table_name"},
+            }
+        ],
+    )
+    pipeline_def = create_mock_pipeline(
+        name="MirrorColumnsPipeline",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        activities=[copy_activity],
+    )
+    databricks_dataset = create_mock_dataset(
+        name="DatabricksSourceDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="DatabricksLS",
+        dataset_type="AzureDatabricksDeltaLakeDataset",
+        type_properties={
+            "table": {"value": "@dataset().table_name", "type": "Expression"},
+        },
+    )
+    mssql_dataset = create_mock_dataset(
+        name="MssqlSinkDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="SqlSinkLS",
+        dataset_type="AzureSqlTableDataset",
+        type_properties={
+            "table": {"value": "@dataset().table_name", "type": "Expression"},
+        },
+    )
+
+    pipeline_runs = [
+        create_mock_pipeline_run(
+            run_id="run-cols", pipeline_name="MirrorColumnsPipeline"
+        ),
+    ]
+    activity_runs = {
+        "run-cols": [
+            create_mock_activity_run(
+                activity_run_id="act-cols-1",
+                activity_name="MirrorManyTablesWithColumns",
+                activity_type="Copy",
+                pipeline_run_id="run-cols",
+                pipeline_name="MirrorColumnsPipeline",
+            ),
+            create_mock_activity_run(
+                activity_run_id="act-cols-2",
+                activity_name="MirrorManyTablesWithColumns",
+                activity_type="Copy",
+                pipeline_run_id="run-cols",
+                pipeline_name="MirrorColumnsPipeline",
+            ),
+        ]
+    }
+    activity_runs["run-cols"][0]["input"] = {
+        "source": {"query": "SELECT id, name, amount FROM sales.orders_table"},
+        "sink": {"preCopyScript": "truncate table sales.orders_table"},
+    }
+    activity_runs["run-cols"][1]["input"] = {
+        "source": {"query": "SELECT id, email FROM sales.customers_table"},
+        "sink": {"preCopyScript": "truncate table sales.customers_table"},
+    }
+
+    test_data = {
+        "factories": [
+            create_mock_factory(factory_name, resource_group, SUBSCRIPTION_ID)
+        ],
+        "pipelines": [pipeline_def],
+        "datasets": [databricks_dataset, mssql_dataset],
+        "linked_services": [
+            create_mock_linked_service(
+                name="DatabricksLS",
+                factory_name=factory_name,
+                resource_group=resource_group,
+                subscription_id=SUBSCRIPTION_ID,
+                service_type="AzureDatabricksDeltaLake",
+            ),
+            create_mock_linked_service(
+                name="SqlSinkLS",
+                factory_name=factory_name,
+                resource_group=resource_group,
+                subscription_id=SUBSCRIPTION_ID,
+                service_type="SqlServer",
+            ),
+        ],
+        "triggers": [],
+        "pipeline_runs": pipeline_runs,
+        "activity_runs": activity_runs,
+    }
+    mock_client = create_mock_client(test_data, include_activity_runs=True)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-dynamic-column-lineage",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": SUBSCRIPTION_ID,
+                            "resource_group": resource_group,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_column_lineage": True,
+                            "include_execution_history": True,
+                            "execution_history_days": 7,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": str(output_file)},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    events = json.loads(output_file.read_text())
+    lineage_aspects = [
+        e
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and "MirrorManyTablesWithColumns" in e.get("entityUrn", "")
+    ]
+    assert len(lineage_aspects) >= 1
+    aspect = lineage_aspects[-1]["aspect"]["json"]
+    fine_grained_lineages = aspect.get("fineGrainedLineages")
+    assert fine_grained_lineages, "expected column-level lineage to be emitted"
+
+    # 3 columns for orders_table + 2 columns for customers_table = 5 total
+    # distinct column-level mappings, each pointing at its own real table
+    # pair - not a single static/generic fallback.
+    assert len(fine_grained_lineages) == 5
+
+    mappings = {
+        (fgl["upstreams"][0], fgl["downstreams"][0]) for fgl in fine_grained_lineages
+    }
+    assert (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,sales.orders_table,DEV),id)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,sales.orders_table,DEV),id)",
+    ) in mappings
+    assert (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,sales.customers_table,DEV),email)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,sales.customers_table,DEV),email)",
+    ) in mappings
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_adf_source_dynamic_column_lineage_skipped_with_explicit_translator(tmp_path):
+    """Regression test: when the Copy activity has its own explicit ADF
+    translator (column mapping), the query-based column-lineage recovery
+    must stay out of the way entirely - inventing a same-name mapping
+    here could silently contradict the user's own explicit one."""
+    output_file = tmp_path / "adf_dynamic_column_lineage_translator_events.json"
+
+    factory_name = "translator-skip-test-factory"
+    resource_group = "translator-skip-test-rg"
+
+    copy_activity = create_mock_activity(
+        name="MirrorWithExplicitTranslator",
+        activity_type="Copy",
+        inputs=[
+            {
+                "referenceName": "DatabricksSourceDataset",
+                "type": "DatasetReference",
+                "parameters": {"table_name": "@item().table_name"},
+            }
+        ],
+        outputs=[
+            {
+                "referenceName": "MssqlSinkDataset",
+                "type": "DatasetReference",
+                "parameters": {"table_name": "@item().table_name"},
+            }
+        ],
+    )
+    copy_activity["typeProperties"]["translator"] = {
+        "type": "TabularTranslator",
+        "columnMappings": {"id": "id", "name": "full_name"},
+    }
+    pipeline_def = create_mock_pipeline(
+        name="TranslatorSkipPipeline",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        activities=[copy_activity],
+    )
+    databricks_dataset = create_mock_dataset(
+        name="DatabricksSourceDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="DatabricksLS",
+        dataset_type="AzureDatabricksDeltaLakeDataset",
+        type_properties={
+            "table": {"value": "@dataset().table_name", "type": "Expression"},
+        },
+    )
+    mssql_dataset = create_mock_dataset(
+        name="MssqlSinkDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="SqlSinkLS",
+        dataset_type="AzureSqlTableDataset",
+        type_properties={
+            "table": {"value": "@dataset().table_name", "type": "Expression"},
+        },
+    )
+
+    pipeline_runs = [
+        create_mock_pipeline_run(
+            run_id="run-translator", pipeline_name="TranslatorSkipPipeline"
+        ),
+    ]
+    activity_runs = {
+        "run-translator": [
+            create_mock_activity_run(
+                activity_run_id="act-translator-1",
+                activity_name="MirrorWithExplicitTranslator",
+                activity_type="Copy",
+                pipeline_run_id="run-translator",
+                pipeline_name="TranslatorSkipPipeline",
+            ),
+        ]
+    }
+    activity_runs["run-translator"][0]["input"] = {
+        "source": {"query": "SELECT id, name FROM sales.orders_table"},
+        "sink": {"preCopyScript": "truncate table sales.orders_table"},
+    }
+
+    test_data = {
+        "factories": [
+            create_mock_factory(factory_name, resource_group, SUBSCRIPTION_ID)
+        ],
+        "pipelines": [pipeline_def],
+        "datasets": [databricks_dataset, mssql_dataset],
+        "linked_services": [
+            create_mock_linked_service(
+                name="DatabricksLS",
+                factory_name=factory_name,
+                resource_group=resource_group,
+                subscription_id=SUBSCRIPTION_ID,
+                service_type="AzureDatabricksDeltaLake",
+            ),
+            create_mock_linked_service(
+                name="SqlSinkLS",
+                factory_name=factory_name,
+                resource_group=resource_group,
+                subscription_id=SUBSCRIPTION_ID,
+                service_type="SqlServer",
+            ),
+        ],
+        "triggers": [],
+        "pipeline_runs": pipeline_runs,
+        "activity_runs": activity_runs,
+    }
+    mock_client = create_mock_client(test_data, include_activity_runs=True)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-translator-skip",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": SUBSCRIPTION_ID,
+                            "resource_group": resource_group,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_column_lineage": True,
+                            "include_execution_history": True,
+                            "execution_history_days": 7,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": str(output_file)},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    events = json.loads(output_file.read_text())
+    lineage_aspects = [
+        e
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and "MirrorWithExplicitTranslator" in e.get("entityUrn", "")
+    ]
+    assert len(lineage_aspects) >= 1
+    aspect = lineage_aspects[-1]["aspect"]["json"]
+    fine_grained_lineages = aspect.get("fineGrainedLineages")
+
+    # The query-based per-run mechanism must not have contributed any
+    # mapping pointing at the real per-iteration "sales.orders_table"
+    # dataset - that would mean it ignored the explicit translator.
+    if fine_grained_lineages:
+        for fgl in fine_grained_lineages:
+            assert "sales.orders_table" not in fgl["upstreams"][0]
