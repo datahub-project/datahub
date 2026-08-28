@@ -311,7 +311,17 @@ export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onE
         </Tooltip>
     );
 
-    const filters = (
+    const hasVisibleFilters =
+        domainOptions.length > 0 ||
+        selectedDomainUrns.length > 0 ||
+        ownerOptions.length > 0 ||
+        selectedOwnerUrns.length > 0 ||
+        tagOptions.length > 0 ||
+        selectedTagUrns.length > 0 ||
+        promotedBrowseFilters.size > 0 ||
+        addFilterOptions.length > 0;
+
+    const filters = hasVisibleFilters ? (
         <>
             <MarketplaceSidebarSearchFilters
                 selectedDomainUrns={selectedDomainUrns}
@@ -341,7 +351,7 @@ export default function MarketplaceSidebar({ isCollapsed, onToggleCollapsed, onE
                 dataTestId="marketplace-sidebar-add-filter"
             />
         </>
-    );
+    ) : null;
 
     return (
         <HierarchicalBrowseSidebar
