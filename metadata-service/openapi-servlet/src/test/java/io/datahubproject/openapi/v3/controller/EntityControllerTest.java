@@ -814,8 +814,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
    *
    * <p>Flaky when run as part of the full {@code openapi-servlet} module suite (passes reliably
    * alone, and alongside every other test in this class/package): suspected cause is that {@code
-   * authorizerChain} is a Spring-managed mock bean, and Spring's test-context caching can reuse
-   * the same {@code ApplicationContext} (and therefore the same mock instance) across other test
+   * authorizerChain} is a Spring-managed mock bean, and Spring's test-context caching can reuse the
+   * same {@code ApplicationContext} (and therefore the same mock instance) across other test
    * classes with an equivalent configuration; a stub left behind by one of those other classes can
    * outlast this test's own {@code reset(authorizerChain)} depending on run order. This is a
    * pre-existing pattern (see {@link #stubQueryViewAuthorization}, which does the identical
