@@ -183,6 +183,28 @@ class InfoSchemaQueries:
                 )
                 return None
 
+            if is_range_partition:
+                # A RANGE bucket id is only its inclusive integer floor; the bucket width
+                # is not exposed in INFORMATION_SCHEMA.PARTITIONS, so `col >= floor` cannot
+                # be bounded to a single bucket by width. Selecting the *maximum* populated
+                # bucket makes the lower-bound scan exact: nothing exists above the top
+                # bucket, so `col >= max_floor` reads that bucket alone and cannot spill
+                # into higher buckets (the bug that picking a mid-range, most-recently
+                # modified bucket would cause).
+                range_filters = self._range_partition_lower_bound_filters(
+                    table,
+                    project,
+                    schema,
+                    partition_rows,
+                    required_columns,
+                    column_types,
+                    execute_query_func,
+                    verify_partition_has_data,
+                )
+                if range_filters:
+                    return range_filters
+                return None
+
             partition_filters = []
             convert_failures = 0
 
@@ -246,3 +268,52 @@ class InfoSchemaQueries:
                 context=f"{table.name}: {e}",
             )
             return None
+
+    def _range_partition_lower_bound_filters(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_rows: List[Row],
+        required_columns: List[str],
+        column_types: Dict[str, str],
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+        verify_partition_has_data: Callable,
+    ) -> Optional[List[str]]:
+        # Pick the maximum integer bucket floor across the fetched partitions so the
+        # `col >= floor` scan reads exactly the top bucket. INFORMATION_SCHEMA.PARTITIONS
+        # is ordered by last-modified, not by bucket value, so the most-recently-modified
+        # bucket can be a mid-range floor whose `>=` predicate would also pull in every
+        # higher bucket; the max floor has nothing above it and cannot over-select.
+        max_floor: Optional[int] = None
+        for partition_row in partition_rows:
+            partition_id = partition_row.partition_id
+            if partition_id is None or not str(partition_id).lstrip("-").isdigit():
+                continue
+            value = int(partition_id)
+            if max_floor is None or value > max_floor:
+                max_floor = value
+
+        if max_floor is None:
+            return None
+
+        try:
+            filters_for_partition = FilterBuilder.convert_partition_id_to_filters(
+                str(max_floor),
+                required_columns,
+                column_types,
+                is_range_partition=True,
+            )
+        except Exception as e:
+            logger.debug(f"Error building range partition filter for {table.name}: {e}")
+            return None
+
+        if filters_for_partition and verify_partition_has_data(
+            table,
+            project,
+            schema,
+            filters_for_partition,
+            execute_query_func,
+        ):
+            return filters_for_partition
+        return None
