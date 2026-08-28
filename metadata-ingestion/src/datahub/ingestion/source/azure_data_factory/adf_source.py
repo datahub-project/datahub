@@ -63,6 +63,7 @@ from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
     CopyActivityColumnLineageExtractor,
     DatasetSchemaInfo,
     get_activity_translator_config,
+    infer_auto_mappings_by_name,
     parse_translator_column_mappings,
 )
 from datahub.ingestion.source.azure_data_factory.adf_config import (
@@ -281,6 +282,14 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         self._column_lineage_extractors: list[ColumnLineageExtractor] = [
             CopyActivityColumnLineageExtractor(),
         ]
+
+        # Schemas looked up from DataHub itself (e.g. a SELECT * source
+        # table this connector has no direct schema access to, but that
+        # was likely already ingested by a different connector run) -
+        # cached since the same source table is often referenced by many
+        # activity runs. None means "looked up, nothing usable found" -
+        # distinct from "not looked up yet".
+        self._graph_schema_cache: dict[str, Optional[DatasetSchemaInfo]] = {}
 
     @classmethod
     def create(
@@ -2221,10 +2230,18 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         """Convert a resolved translator config into the same (upstream
         schema field urns, downstream schema field urn) tuple form used
         elsewhere in _dynamic_lineage_cache."""
+        return self._lineages_to_column_mappings(
+            parse_translator_column_mappings(translator, source_urn, sink_urn)
+        )
+
+    def _lineages_to_column_mappings(
+        self, lineages: list[FineGrainedLineageClass]
+    ) -> list[tuple[tuple[str, ...], str]]:
+        """Convert FineGrainedLineageClass objects into the same (upstream
+        schema field urns, downstream schema field urn) tuple form used
+        elsewhere in _dynamic_lineage_cache, counting each one extracted."""
         column_mappings: list[tuple[tuple[str, ...], str]] = []
-        for lineage in parse_translator_column_mappings(
-            translator, source_urn, sink_urn
-        ):
+        for lineage in lineages:
             if not lineage.upstreams or not lineage.downstreams:
                 continue
             column_mappings.append((tuple(lineage.upstreams), lineage.downstreams[0]))
@@ -2352,9 +2369,14 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         reach this method - inventing a same-name mapping here could
         otherwise conflict with the user's own explicit one.
 
-        Skipped (not guessed) when the query uses "SELECT *" - expanding
-        it to real column names would require live schema access this
-        connector doesn't have.
+        When the query is an unambiguous single-table "SELECT * FROM
+        <table>", falls back to looking up that table's real schema from
+        DataHub itself (e.g. already ingested by that platform's own
+        metadata source) rather than skipping outright - the same
+        "auto-map by name" assumption, just sourced from DataHub's own
+        knowledge of the table instead of the query text. Unavailable
+        (no graph configured, or the table hasn't been ingested there)
+        just means this fallback is skipped too, not an error.
 
         Returns a list of (upstream schema field urns, downstream schema
         field urn) tuples - the raw, hashable form stored in
@@ -2406,6 +2428,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             return []
 
         if result.debug_info.error or not result.column_lineage:
+            if len(result.in_tables) == 1 and self._is_simple_select_star(
+                query, platform
+            ):
+                return self._infer_column_lineage_from_graph_schema(
+                    next(iter(result.in_tables)), sink_urn
+                )
             return []
 
         column_mappings: list[tuple[tuple[str, ...], str]] = []
@@ -2417,6 +2445,70 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             column_mappings.append((upstream_urns, downstream_urn))
             self.report.report_column_lineage_extracted()
         return column_mappings
+
+    def _is_simple_select_star(self, query: str, platform: str) -> bool:
+        """True only for an unambiguous single-table "SELECT * FROM
+        <table>" (no joins, no other expressions) - the one shape where
+        "all of that table's columns, same name on both sides" is a safe
+        assumption. Anything more complex (joins, a real column list
+        sqlglot merely failed to parse for an unrelated reason, etc.) is
+        left alone rather than guessed."""
+        try:
+            dialect = get_dialect_str(platform)
+            parsed = sqlglot.parse_one(query, dialect=dialect)
+        except Exception:
+            return False
+        if not isinstance(parsed, sqlglot_exp.Select):
+            return False
+        if len(parsed.expressions) != 1 or not isinstance(
+            parsed.expressions[0], sqlglot_exp.Star
+        ):
+            return False
+        return len(list(parsed.find_all(sqlglot_exp.Table))) == 1
+
+    def _infer_column_lineage_from_graph_schema(
+        self, source_urn: str, sink_urn: str
+    ) -> list[tuple[tuple[str, ...], str]]:
+        """Same-name column mapping for every column in source_urn's
+        schema, looked up from DataHub itself rather than the query
+        text - see _resolve_schema_via_graph."""
+        source_schema = self._resolve_schema_via_graph(source_urn)
+        if not source_schema:
+            return []
+        return self._lineages_to_column_mappings(
+            infer_auto_mappings_by_name(source_urn, sink_urn, source_schema)
+        )
+
+    def _resolve_schema_via_graph(
+        self, dataset_urn: str
+    ) -> Optional[DatasetSchemaInfo]:
+        """Look up a dataset's schema from DataHub itself, for a table
+        this connector has no direct schema access to (e.g. a SELECT *
+        source table) but that was likely already ingested by a
+        different connector run (e.g. that platform's own SQL metadata
+        source). No graph configured (e.g. a file sink) or a lookup
+        failure both just mean the enrichment is skipped, not an error -
+        cached either way since the same source table is often
+        referenced by many activity runs."""
+        if dataset_urn in self._graph_schema_cache:
+            return self._graph_schema_cache[dataset_urn]
+
+        schema_info: Optional[DatasetSchemaInfo] = None
+        if self.ctx.graph is not None:
+            try:
+                schema_metadata = self.ctx.graph.get_schema_metadata(dataset_urn)
+            except Exception as e:
+                logger.debug(
+                    f"Failed to fetch schema for {dataset_urn} from graph: {e}"
+                )
+                schema_metadata = None
+            if schema_metadata and schema_metadata.fields:
+                columns = [f.fieldPath for f in schema_metadata.fields if f.fieldPath]
+                if columns:
+                    schema_info = DatasetSchemaInfo(columns=columns)
+
+        self._graph_schema_cache[dataset_urn] = schema_info
+        return schema_info
 
     def _extract_query_sink_urns(
         self,

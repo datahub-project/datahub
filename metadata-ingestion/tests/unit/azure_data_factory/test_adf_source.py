@@ -15,10 +15,12 @@ We do NOT test:
 
 from types import SimpleNamespace
 from typing import Any, Callable, Optional
+from unittest.mock import MagicMock
 
 import pytest
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
 from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
     CopyActivityColumnLineageExtractor,
@@ -39,6 +41,11 @@ from datahub.ingestion.source.azure_data_factory.adf_source import (
 from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    OtherSchemaClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
 )
 
 
@@ -1768,3 +1775,144 @@ class TestFineGrainedLineageOutput:
 
         assert len(lineages) == 1
         assert lineages[0].downstreamType == FineGrainedLineageDownstreamTypeClass.FIELD
+
+
+class TestSimpleSelectStarDetection:
+    """Tests for _is_simple_select_star - the gate that decides whether
+    a query is unambiguously "copy this whole table", the one shape
+    where falling back to a DataHub-graph schema lookup is safe."""
+
+    def _make_source(self) -> AzureDataFactorySource:
+        source = object.__new__(AzureDataFactorySource)
+        source.report = AzureDataFactorySourceReport()
+        return source
+
+    def test_simple_select_star_detected(self) -> None:
+        source = self._make_source()
+        assert source._is_simple_select_star("SELECT * FROM my_table", "mssql")
+
+    def test_select_star_with_join_rejected(self) -> None:
+        """A join means the result set isn't just "all of one table's
+        columns" - must not be treated as a safe whole-table copy."""
+        source = self._make_source()
+        query = "SELECT * FROM a JOIN b ON a.id = b.id"
+        assert not source._is_simple_select_star(query, "mssql")
+
+    def test_explicit_column_list_rejected(self) -> None:
+        source = self._make_source()
+        assert not source._is_simple_select_star(
+            "SELECT id, name FROM my_table", "mssql"
+        )
+
+    def test_malformed_sql_rejected(self) -> None:
+        source = self._make_source()
+        assert not source._is_simple_select_star("NOT VALID SQL {{{", "mssql")
+
+
+class TestGraphSchemaColumnLineageFallback:
+    """Tests for resolving column lineage from DataHub's own knowledge of
+    a source table's schema, when a dynamic "SELECT *" query gives the
+    connector no column list of its own to work from."""
+
+    def _make_source(self, graph: Optional[Any]) -> AzureDataFactorySource:
+        source = object.__new__(AzureDataFactorySource)
+        source.report = AzureDataFactorySourceReport()
+        source.ctx = PipelineContext(run_id="test", graph=graph)
+        source._graph_schema_cache = {}
+        return source
+
+    def _schema_metadata(self, columns: list) -> SchemaMetadataClass:
+        return SchemaMetadataClass(
+            schemaName="test",
+            platform="urn:li:dataPlatform:mssql",
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=[
+                SchemaFieldClass(
+                    fieldPath=col,
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    nativeDataType="varchar",
+                )
+                for col in columns
+            ],
+        )
+
+    def test_resolves_schema_and_builds_same_name_mappings(self) -> None:
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.orders,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)"
+
+        mock_graph = MagicMock()
+        mock_graph.get_schema_metadata.return_value = self._schema_metadata(
+            ["id", "customer_name"]
+        )
+        source = self._make_source(graph=mock_graph)
+
+        mappings = source._infer_column_lineage_from_graph_schema(source_urn, sink_urn)
+
+        assert set(mappings) == {
+            (
+                (f"urn:li:schemaField:({source_urn},id)",),
+                f"urn:li:schemaField:({sink_urn},id)",
+            ),
+            (
+                (f"urn:li:schemaField:({source_urn},customer_name)",),
+                f"urn:li:schemaField:({sink_urn},customer_name)",
+            ),
+        }
+        mock_graph.get_schema_metadata.assert_called_once_with(source_urn)
+
+    def test_caches_schema_lookup_across_calls(self) -> None:
+        """The same source table is often referenced by many activity
+        runs - the graph should only be queried once for it."""
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.orders,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)"
+
+        mock_graph = MagicMock()
+        mock_graph.get_schema_metadata.return_value = self._schema_metadata(["id"])
+        source = self._make_source(graph=mock_graph)
+
+        source._infer_column_lineage_from_graph_schema(source_urn, sink_urn)
+        source._infer_column_lineage_from_graph_schema(source_urn, sink_urn)
+
+        mock_graph.get_schema_metadata.assert_called_once_with(source_urn)
+
+    def test_no_graph_configured_returns_empty_without_error(self) -> None:
+        """A file sink (or any recipe without datahub_api/datahub-rest)
+        leaves ctx.graph unset - the fallback must degrade gracefully,
+        not crash."""
+        source = self._make_source(graph=None)
+
+        mappings = source._infer_column_lineage_from_graph_schema(
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,t,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,t,PROD)",
+        )
+
+        assert mappings == []
+
+    def test_graph_lookup_failure_returns_empty_without_error(self) -> None:
+        """The table might genuinely not exist in DataHub yet, or GMS
+        might be transiently unavailable - either way, this is an
+        optional enrichment, not a hard dependency."""
+        mock_graph = MagicMock()
+        mock_graph.get_schema_metadata.side_effect = Exception("GMS unavailable")
+        source = self._make_source(graph=mock_graph)
+
+        mappings = source._infer_column_lineage_from_graph_schema(
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,t,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,t,PROD)",
+        )
+
+        assert mappings == []
+
+    def test_schema_with_no_fields_returns_empty(self) -> None:
+        mock_graph = MagicMock()
+        mock_graph.get_schema_metadata.return_value = self._schema_metadata([])
+        source = self._make_source(graph=mock_graph)
+
+        mappings = source._infer_column_lineage_from_graph_schema(
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,t,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,t,PROD)",
+        )
+
+        assert mappings == []

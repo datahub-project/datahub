@@ -238,6 +238,41 @@ def parse_translator_column_mappings(
     return []
 
 
+def infer_auto_mappings_by_name(
+    source_urn: str,
+    sink_urn: str,
+    source_schema: Optional[DatasetSchemaInfo],
+) -> list[FineGrainedLineageClass]:
+    """Infer 1:1 column mappings from a source schema by name.
+
+    When no explicit column mappings are configured and the translator
+    type is TabularTranslator, ADF auto-maps columns by name. We
+    replicate this behavior by creating identity mappings for each
+    source column. Also used outside this module (adf_source.py) to
+    apply the same assumption using a schema looked up from DataHub
+    itself, for a source table this connector has no direct schema
+    access to (e.g. a dynamic "SELECT *" query).
+
+    Reference: https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-schema-and-type-mapping#default-mapping
+    """
+    if not source_schema or not source_schema.columns:
+        return []
+
+    lineages: list[FineGrainedLineageClass] = []
+    for col in source_schema.columns:
+        if not col:
+            continue
+        lineages.append(
+            create_fine_grained_lineage(
+                source_urn,
+                col,
+                sink_urn,
+                col,  # Auto-mapped: same column name
+            )
+        )
+    return lineages
+
+
 class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
     """Extracts column-level lineage from ADF Copy activities.
 
@@ -388,22 +423,5 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         When no explicit column mappings are configured and the translator type
         is TabularTranslator, ADF auto-maps columns by name. We replicate this
         behavior by creating identity mappings for each source column.
-
-        Reference: https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-schema-and-type-mapping#default-mapping
         """
-        if not source_schema or not source_schema.columns:
-            return []
-
-        lineages: list[FineGrainedLineageClass] = []
-        for col in source_schema.columns:
-            if not col:
-                continue
-            lineages.append(
-                self._create_fine_grained_lineage(
-                    source_urn,
-                    col,
-                    sink_urn,
-                    col,  # Auto-mapped: same column name
-                )
-            )
-        return lineages
+        return infer_auto_mappings_by_name(source_urn, sink_urn, source_schema)
