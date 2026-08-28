@@ -273,16 +273,12 @@ class AwsConnectionConfig(ConfigModel):
 
     _credentials_expiration: Optional[datetime] = None
     _cached_credentials: Optional[dict] = None
-    # boto3 clients and resources are thread-safe (Sessions are not), so cached
-    # instances may be shared across threads; only construction is guarded by the
-    # lock. A single lock covers both caches since they share one invalidation rule.
+    # boto3 clients are thread-safe (Sessions are not), so cached clients may be
+    # shared across threads; only construction is guarded by the lock.
     _s3_client_cache: Dict[Optional[Union[bool, str]], "S3Client"] = PrivateAttr(
         default_factory=dict
     )
-    _s3_resource_cache: Dict[Optional[Union[bool, str]], "S3ServiceResource"] = (
-        PrivateAttr(default_factory=dict)
-    )
-    _s3_lock: threading.Lock = PrivateAttr(default_factory=threading.Lock)
+    _s3_client_lock: threading.Lock = PrivateAttr(default_factory=threading.Lock)
 
     aws_access_key_id: Optional[str] = Field(
         default=None,
@@ -470,27 +466,25 @@ class AwsConnectionConfig(ConfigModel):
             **self.aws_advanced_config,
         )
 
-    def _invalidate_s3_caches_if_stale(self) -> None:
-        # Caller must hold self._s3_lock. _cached_credentials is set only when a role
-        # was actually assumed (see get_session); that is the one path whose static
-        # creds expire. Guard on it rather than on aws_role merely being configured,
-        # else a role that matches the ambient identity (never assumed, so no expiry
-        # recorded) would rebuild on every call. Both caches share these credentials,
-        # so both are dropped together.
-        if self._cached_credentials is not None and self._should_refresh_credentials():
-            self._s3_client_cache.clear()
-            self._s3_resource_cache.clear()
-
     def get_s3_client(
         self, verify_ssl: Optional[Union[bool, str]] = None
     ) -> "S3Client":
         # Building a session + client per call is expensive (fresh TLS pool and
         # credential resolution, ~seconds with an SSO profile), so memoize the
-        # client per verify_ssl value; profile and explicit-key sessions self-refresh
-        # inside botocore, and assumed-role credentials are handled by the cache
-        # invalidation above.
-        with self._s3_lock:
-            self._invalidate_s3_caches_if_stale()
+        # client per verify_ssl value. Manually-assumed role credentials are
+        # static, so drop cached clients once those credentials need a refresh;
+        # profile and explicit-key sessions self-refresh inside botocore.
+        with self._s3_client_lock:
+            # _cached_credentials is set only when a role was actually assumed (see
+            # get_session); that is the one path whose static creds expire. Guard on
+            # it rather than on aws_role merely being configured, else a role that
+            # matches the ambient identity (never assumed, so no expiry recorded)
+            # would rebuild the client on every call.
+            if (
+                self._cached_credentials is not None
+                and self._should_refresh_credentials()
+            ):
+                self._s3_client_cache.clear()
             if verify_ssl not in self._s3_client_cache:
                 self._s3_client_cache[verify_ssl] = self.get_session().client(
                     "s3",
@@ -503,29 +497,19 @@ class AwsConnectionConfig(ConfigModel):
     def get_s3_resource(
         self, verify_ssl: Optional[Union[bool, str]] = None
     ) -> "S3ServiceResource":
-        # Memoized per verify_ssl like get_s3_client. The GCS OAuth subclass
-        # re-applies its before-send handlers on the returned resource's client each
-        # call, but those register with botocore unique_ids so re-application on a
-        # cached resource is a no-op (see _register_gcs_oauth_before_send).
-        with self._s3_lock:
-            self._invalidate_s3_caches_if_stale()
-            if verify_ssl not in self._s3_resource_cache:
-                resource = self.get_session().resource(
-                    "s3",
-                    endpoint_url=self.aws_endpoint_url,
-                    config=self._aws_config(),
-                    verify=verify_ssl,
-                )
-                # according to: https://stackoverflow.com/questions/32618216/override-s3-endpoint-using-boto3-configuration-file
-                # boto3 only reads the signature version for s3 from that config file. boto3 automatically changes the endpoint to
-                # your_bucket_name.s3.amazonaws.com when it sees fit. If you'll be working with both your own host and s3, you may wish
-                # to override the functionality rather than removing it altogether.
-                if self.aws_endpoint_url is not None and self.aws_proxy is not None:
-                    resource.meta.client.meta.events.unregister(
-                        "before-sign.s3", fix_s3_host
-                    )
-                self._s3_resource_cache[verify_ssl] = resource
-            return self._s3_resource_cache[verify_ssl]
+        resource = self.get_session().resource(
+            "s3",
+            endpoint_url=self.aws_endpoint_url,
+            config=self._aws_config(),
+            verify=verify_ssl,
+        )
+        # according to: https://stackoverflow.com/questions/32618216/override-s3-endpoint-using-boto3-configuration-file
+        # boto3 only reads the signature version for s3 from that config file. boto3 automatically changes the endpoint to
+        # your_bucket_name.s3.amazonaws.com when it sees fit. If you'll be working with both your own host and s3, you may wish
+        # to override the functionality rather than removing it altogether.
+        if self.aws_endpoint_url is not None and self.aws_proxy is not None:
+            resource.meta.client.meta.events.unregister("before-sign.s3", fix_s3_host)
+        return resource
 
     def get_glue_client(self) -> "GlueClient":
         # TODO: apply aws_endpoint_url consistently across all service clients (and

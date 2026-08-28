@@ -616,67 +616,6 @@ class TestAwsCommon:
             assert config.get_s3_client() is client1
             assert mock_get_session.call_count == 1
 
-    def test_get_s3_resource_cached_per_verify_ssl(self):
-        """
-        get_s3_resource() memoizes like get_s3_client(): repeated calls return the
-        same object, and each verify_ssl value gets its own resource.
-        """
-        config = AwsConnectionConfig(
-            aws_access_key_id="test-key",
-            aws_secret_access_key="test-secret",
-            aws_region="us-east-1",
-        )
-
-        with patch.object(AwsConnectionConfig, "get_session") as mock_get_session:
-            mock_get_session.return_value.resource.side_effect = (
-                lambda *args, **kwargs: MagicMock()
-            )
-
-            resource1 = config.get_s3_resource()
-            resource2 = config.get_s3_resource()
-            assert resource1 is resource2
-            assert mock_get_session.call_count == 1
-
-            resource3 = config.get_s3_resource(verify_ssl=False)
-            assert resource3 is not resource1
-            assert mock_get_session.call_count == 2
-            assert config.get_s3_resource(verify_ssl=False) is resource3
-
-    def test_get_s3_resource_rebuilt_when_role_credentials_need_refresh(self):
-        """
-        The resource cache shares the client cache's invalidation, so once assumed
-        role credentials need a refresh the cached resource is rebuilt too.
-        """
-        config = AwsConnectionConfig(
-            aws_region="us-east-1",
-            aws_role="arn:aws:iam::123456789012:role/test-role",
-        )
-        config._cached_credentials = {
-            "AccessKeyId": "ASSUMED_KEY",
-            "SecretAccessKey": "ASSUMED_SECRET",
-            "SessionToken": "ASSUMED_TOKEN",
-        }
-
-        with (
-            patch.object(AwsConnectionConfig, "get_session") as mock_get_session,
-            patch.object(
-                AwsConnectionConfig, "_should_refresh_credentials"
-            ) as mock_should_refresh,
-        ):
-            mock_get_session.return_value.resource.side_effect = (
-                lambda *args, **kwargs: MagicMock()
-            )
-
-            mock_should_refresh.return_value = False
-            resource1 = config.get_s3_resource()
-            assert config.get_s3_resource() is resource1
-            assert mock_get_session.call_count == 1
-
-            mock_should_refresh.return_value = True
-            resource2 = config.get_s3_resource()
-            assert resource2 is not resource1
-            assert mock_get_session.call_count == 2
-
     @mock_aws
     def test_role_assumption_without_caching_before_fix(self):
         """
