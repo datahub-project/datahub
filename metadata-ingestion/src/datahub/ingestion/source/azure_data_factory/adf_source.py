@@ -62,6 +62,7 @@ from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
     ColumnLineageExtractor,
     CopyActivityColumnLineageExtractor,
     DatasetSchemaInfo,
+    get_activity_translator_config,
 )
 from datahub.ingestion.source.azure_data_factory.adf_config import (
     AzureDataFactoryConfig,
@@ -83,10 +84,12 @@ from datahub.metadata.schema_classes import (
     DataTransformClass,
     DataTransformLogicClass,
     FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     QueryLanguageClass,
     QueryStatementClass,
 )
-from datahub.metadata.urns import DataFlowUrn, DataJobUrn, DatasetUrn
+from datahub.metadata.urns import DataFlowUrn, DataJobUrn, DatasetUrn, SchemaFieldUrn
 from datahub.sdk._shared import DatasetUrnOrStr
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
@@ -261,13 +264,16 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         # these are always resolvable without any run history.
         self._global_parameters_cache: dict[str, dict[str, str]] = {}
 
-        # Dataset URNs resolved only via execution-history pipeline-run
-        # parameters (e.g. an activity dataset parameter set to
-        # "@pipeline().parameters.X"), aggregated across processed runs for
-        # later union into the DataJob's static lineage. Keyed by
-        # (factory_key, pipeline_name, activity_name) -> (input urns, output urns).
+        # Dataset URNs (and column-level mappings) resolved only via
+        # execution-history pipeline-run parameters (e.g. an activity
+        # dataset parameter set to "@pipeline().parameters.X"), aggregated
+        # across processed runs for later union into the DataJob's static
+        # lineage. Keyed by (factory_key, pipeline_name, activity_name) ->
+        # (input urns, output urns, column mappings as
+        # (upstream schema field urns, downstream schema field urn)).
         self._dynamic_lineage_cache: dict[
-            tuple[str, str, str], tuple[set[str], set[str]]
+            tuple[str, str, str],
+            tuple[set[str], set[str], set[tuple[tuple[str, ...], str]]],
         ] = {}
 
         # Column-level lineage extractors - extensible for different activity types
@@ -2017,6 +2023,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         for cache_key, (
             dynamic_inputs,
             dynamic_outputs,
+            dynamic_columns,
         ) in self._dynamic_lineage_cache.items():
             cache_factory_key, pipeline_name, activity_name = cache_key
             if cache_factory_key != factory_key:
@@ -2044,7 +2051,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             # the real table once it's known.
             combined_inputs = dynamic_inputs or static_inputs
             combined_outputs = dynamic_outputs or static_outputs
-            if combined_inputs == static_inputs and combined_outputs == static_outputs:
+            if (
+                combined_inputs == static_inputs
+                and combined_outputs == static_outputs
+                and not dynamic_columns
+            ):
                 continue
 
             flow_name = f"{factory_name}.{pipeline_name}"
@@ -2058,11 +2069,26 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 data_flow_urn=str(flow_urn), job_id=activity_name
             )
 
+            fine_grained_lineages = (
+                [
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=list(upstream_urns),
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[downstream_urn],
+                    )
+                    for upstream_urns, downstream_urn in sorted(dynamic_columns)
+                ]
+                if dynamic_columns
+                else None
+            )
+
             yield MetadataChangeProposalWrapper(
                 entityUrn=str(job_urn),
                 aspect=DataJobInputOutputClass(
                     inputDatasets=sorted(combined_inputs),
                     outputDatasets=sorted(combined_outputs),
+                    fineGrainedLineages=fine_grained_lineages,
                 ),
             ).as_workunit()
 
@@ -2072,16 +2098,17 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         factory_key: str,
         pipeline_run: PipelineRun,
         activity_run: ActivityRun,
-    ) -> tuple[list[DatasetUrn], list[DatasetUrn]]:
-        """Resolve the best-available inlets/outlets for one activity run:
-        static lineage, plus anything additionally resolvable from this
-        specific run's actual pipeline parameters
-        (e.g. "@pipeline().parameters.X"), plus - for Copy activities with
-        a custom SQL query source - the real source table(s) parsed from
-        the resolved query recorded on this specific run. That query is
-        the only Azure API field that exposes a per-iteration resolved
-        value for ForEach-looped Copy activities (e.g. "@item().X") - the
-        ForEach activity's own run only ever reports an item count."""
+    ) -> tuple[list[DatasetUrn], list[DatasetUrn], list[tuple[tuple[str, ...], str]]]:
+        """Resolve the best-available inlets/outlets (and, where possible,
+        column-level lineage) for one activity run: static lineage, plus
+        anything additionally resolvable from this specific run's actual
+        pipeline parameters (e.g. "@pipeline().parameters.X"), plus - for
+        Copy activities with a custom SQL query source - the real source
+        table(s) parsed from the resolved query recorded on this specific
+        run. That query is the only Azure API field that exposes a
+        per-iteration resolved value for ForEach-looped Copy activities
+        (e.g. "@item().X") - the ForEach activity's own run only ever
+        reports an item count."""
         input_urns = {
             str(u) for u in self._extract_activity_inputs(activity, factory_key)
         }
@@ -2123,9 +2150,17 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         if query_output_urns:
             output_urns = query_output_urns
 
+        column_mappings: list[tuple[tuple[str, ...], str]] = []
+        if len(query_output_urns) == 1:
+            # Only attempt column-level lineage when there's a single,
+            # unambiguous per-run sink table to pair columns against.
+            column_mappings = self._extract_query_column_lineage(
+                activity, activity_run, factory_key, next(iter(query_output_urns))
+            )
+
         inlets = [DatasetUrn.from_string(u) for u in input_urns]
         outlets = [DatasetUrn.from_string(u) for u in output_urns]
-        return inlets, outlets
+        return inlets, outlets, column_mappings
 
     def _resolve_dataset_ref_context(
         self,
@@ -2224,6 +2259,92 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         if result.debug_info.error or not result.in_tables:
             return set()
         return {str(u) for u in result.in_tables}
+
+    def _extract_query_column_lineage(
+        self,
+        activity: Activity,
+        activity_run: ActivityRun,
+        factory_key: str,
+        sink_urn: str,
+    ) -> list[tuple[tuple[str, ...], str]]:
+        """For Copy activities with a custom SQL query source and a
+        resolved sink table, derive column-level (fine-grained) lineage
+        from the query's own selected column list, assuming the sink
+        column has the same name - the same "auto-map by name" default
+        ADF itself uses for a Copy activity with no explicit translator
+        (CopyActivityColumnLineageExtractor's auto-mapping already makes
+        this same assumption for the static/no-execution-history case).
+
+        Skipped (not guessed) when:
+        - an explicit translator is configured - CopyActivityColumnLineageExtractor
+          owns that case, and inventing a same-name mapping here could
+          conflict with the user's own explicit one.
+        - the query uses "SELECT *" - expanding it to real column names
+          would require live schema access this connector doesn't have.
+
+        Returns a list of (upstream schema field urns, downstream schema
+        field urn) tuples - the raw, hashable form stored in
+        _dynamic_lineage_cache; converted to FineGrainedLineageClass only
+        at emission time.
+        """
+        if activity.type != "Copy":
+            return []
+        if get_activity_translator_config(activity) is not None:
+            return []
+
+        activity_input = activity_run.input
+        if not isinstance(activity_input, dict):
+            return []
+        source = activity_input.get("source")
+        if not isinstance(source, dict):
+            return []
+        query = source.get("query")
+        if not isinstance(query, str) or not query.strip():
+            return []
+        if UNRESOLVED_ADF_EXPRESSION_PATTERN.search(query):
+            # Already warned about by _extract_query_source_urns.
+            return []
+
+        input_ref = next(iter(getattr(activity, "inputs", None) or []), None)
+        reference_name = (
+            getattr(input_ref, "reference_name", None) if input_ref else None
+        )
+        if not reference_name:
+            return []
+        context = self._resolve_dataset_ref_context(
+            reference_name,
+            factory_key,
+            activity_dataset_parameters=getattr(input_ref, "parameters", None),
+        )
+        if not context:
+            return []
+        platform, platform_instance, default_db = context
+
+        try:
+            result = create_lineage_sql_parsed_result(
+                query=query,
+                default_db=default_db,
+                default_schema=None,
+                platform=platform,
+                platform_instance=platform_instance,
+                env=self.config.env,
+            )
+        except Exception:
+            # Already warned about by _extract_query_source_urns.
+            return []
+
+        if result.debug_info.error or not result.column_lineage:
+            return []
+
+        column_mappings: list[tuple[tuple[str, ...], str]] = []
+        for column in result.column_lineage:
+            upstream_urns = tuple(column.upstream_schema_field_urns())
+            if not upstream_urns or not column.downstream.column:
+                continue
+            downstream_urn = str(SchemaFieldUrn(sink_urn, column.downstream.column))
+            column_mappings.append((upstream_urns, downstream_urn))
+            self.report.report_column_lineage_extracted()
+        return column_mappings
 
     def _extract_query_sink_urns(
         self,
@@ -2414,18 +2535,21 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                         else None
                     )
                     if activity_obj is not None:
-                        inlets, outlets = self._resolve_activity_run_lineage(
-                            activity_obj, factory_key, pipeline_run, activity_run
+                        inlets, outlets, column_mappings = (
+                            self._resolve_activity_run_lineage(
+                                activity_obj, factory_key, pipeline_run, activity_run
+                            )
                         )
                         if inlets or outlets:
                             cache_key = (factory_key, activity_pipeline, activity_name)
-                            cached_inputs, cached_outputs = (
+                            cached_inputs, cached_outputs, cached_columns = (
                                 self._dynamic_lineage_cache.setdefault(
-                                    cache_key, (set(), set())
+                                    cache_key, (set(), set(), set())
                                 )
                             )
                             cached_inputs.update(str(u) for u in inlets)
                             cached_outputs.update(str(u) for u in outlets)
+                            cached_columns.update(column_mappings)
 
                 # Create DataProcessInstance linked to DataJob
                 dpi = DataProcessInstance(

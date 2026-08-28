@@ -171,10 +171,14 @@ The connector extracts **column-level lineage** from Copy activities, enabled by
 | **List Format**       | Current format with structured source/sink objects                          | `translator.mappings: [{source: {name}, sink: {name}}]` |
 | **Auto-mapping**      | Inferred 1:1 mappings when no explicit mappings and source schema available | TabularTranslator with no columnMappings or mappings    |
 
+**Column Lineage for Dynamic (ForEach-Looped) Copy Activities**
+
+The mapping formats above rely on a static ADF dataset schema, which a fully dynamic Copy activity (e.g. a `ForEach` loop that copies whichever table `@item()` resolves to) never has - the same reason table-level lineage for these needs execution history (see [How Lineage Resolution Works](#how-lineage-resolution-works) above). When `include_execution_history` is enabled, the connector additionally parses the resolved query text recorded on each `ActivityRun` (the only place a per-iteration value is ever exposed) to recover column-level lineage for that specific run's real source and destination table, assuming a same-name column copy - the same default ADF itself uses when no explicit translator is configured. This is skipped (not guessed) when the query uses `SELECT *` (no live schema access to expand it) or when the activity has its own explicit translator (which takes precedence).
+
 **Limitations**
 
 - **Copy Activity Only**: Column lineage is currently extracted only from Copy activities. Other activity types (Data Flow, Lookup, etc.) produce table-level lineage only.
-- **Schema Availability**: Auto-mapping inference requires source dataset schema information (defined in ADF dataset's `schema` or `structure` property). If schema is unavailable, only explicit mappings are extracted.
+- **Schema Availability**: Auto-mapping inference requires source dataset schema information (defined in ADF dataset's `schema` or `structure` property). If schema is unavailable, only explicit mappings are extracted, unless the dynamic per-iteration recovery above applies.
 
 #### Execution History
 

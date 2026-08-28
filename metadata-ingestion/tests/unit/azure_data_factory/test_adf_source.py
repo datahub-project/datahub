@@ -23,6 +23,7 @@ from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM
 from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
     CopyActivityColumnLineageExtractor,
     DatasetSchemaInfo,
+    get_activity_translator_config,
 )
 from datahub.ingestion.source.azure_data_factory.adf_config import (
     AzureDataFactoryConfig,
@@ -1008,6 +1009,19 @@ class TestExpressionParameterResolution:
         )
 
         assert result == {"table_name": "Orders"}
+
+    def test_get_activity_translator_config_from_sdk_object_attribute(self) -> None:
+        """An SDK-typed translator object (exposing as_dict(), rather
+        than already being a plain dict) counts as present too - the
+        shape adf_source.py's column-lineage skip-check needs to
+        recognize, on top of the dict/typeProperties shapes already
+        covered by TestCopyActivityColumnLineageExtractor."""
+        translator_obj = SimpleNamespace(
+            as_dict=lambda: {"type": "TabularTranslator", "columnMappings": {}}
+        )
+        activity = SimpleNamespace(translator=translator_obj, type_properties={})
+        result = get_activity_translator_config(activity)
+        assert result == {"type": "TabularTranslator", "columnMappings": {}}
 
 
 class TestFilePathExtractionLogic:
