@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.controller;
 
+import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.TIMESTAMP_MILLIS;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
@@ -38,6 +39,7 @@ import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchService;
@@ -291,9 +293,27 @@ public abstract class GenericEntitiesController<
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
+    SearchEntityArray authorizedEntities;
+    if (QUERY_ENTITY_NAME.equals(entityName)) {
+      // Query visibility varies per entity (subject-dataset scoped), unlike the uniform,
+      // type-level checks other entity types get below — so a mixed page must keep the queries
+      // the actor IS authorized to see rather than rejecting the whole page over the ones they
+      // aren't.
+      Set<Urn> queryUrns =
+          result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toSet());
+      Set<Urn> viewableQueryUrns =
+          EntityAuthorizationUtils.filterAPIAuthorizedQueryUrns(opContext, queryUrns);
+      authorizedEntities =
+          new SearchEntityArray(
+              result.getEntities().stream()
+                  .filter(e -> viewableQueryUrns.contains(e.getEntity()))
+                  .collect(Collectors.toList()));
+    } else {
+      if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
+        throw new UnauthorizedException(
+            authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
+      }
+      authorizedEntities = result.getEntities();
     }
 
     Set<String> mergedAspects =
@@ -302,7 +322,7 @@ public abstract class GenericEntitiesController<
     return ResponseEntity.ok(
         buildScrollResult(
             opContext,
-            result.getEntities(),
+            authorizedEntities,
             null,
             mergedAspects,
             withSystemMetadata,

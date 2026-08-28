@@ -798,8 +798,97 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             .andExpect(
                 MockMvcResultMatchers.jsonPath("$.entities[0].urn").value(queryUrn.toString()));
       } else {
-        result.andExpect(status().isForbidden());
+        // The actor isn't rejected outright — the unauthorized query is filtered out of an
+        // otherwise-successful response, the same as GraphQL's listQueries.
+        result
+            .andExpect(status().is2xxSuccessful())
+            .andExpect(MockMvcResultMatchers.jsonPath("$.entities").isEmpty());
       }
+    }
+  }
+
+  /**
+   * A page containing both an authorized and an unauthorized query must keep the authorized one
+   * rather than rejecting the whole page — the bug this test guards against would have thrown 403
+   * for the entire request merely because one of the two queries was denied.
+   */
+  @Test
+  public void testScrollQueryEntitiesFiltersMixedPageInsteadOfRejectingIt() throws Exception {
+    Urn allowedQueryUrn = UrnUtils.getUrn("urn:li:query:view-entity-queries-scroll-allowed");
+    Urn deniedQueryUrn = UrnUtils.getUrn("urn:li:query:view-entity-queries-scroll-denied");
+    Urn allowedDataset =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:testPlatform,query-scroll-allowed,PROD)");
+    Urn deniedDataset =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:testPlatform,query-scroll-denied,PROD)");
+
+    when(testAspectRetriever.getLatestAspectObjects(
+            any(),
+            eq(Set.of(allowedQueryUrn, deniedQueryUrn)),
+            eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(
+            Map.of(
+                allowedQueryUrn, querySubjectAspects(allowedDataset),
+                deniedQueryUrn, querySubjectAspects(deniedDataset)));
+    when(mockSearchService.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("query")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(
+            new ScrollResult()
+                .setNumEntities(2)
+                .setEntities(
+                    new SearchEntityArray(
+                        List.of(
+                            new SearchEntity().setEntity(deniedQueryUrn),
+                            new SearchEntity().setEntity(allowedQueryUrn)))));
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                allowedQueryUrn,
+                List.of(
+                    new EnvelopedAspect()
+                        .setName(QUERY_PROPERTIES_ASPECT_NAME)
+                        .setValue(new Aspect(testQueryProperties().data())))));
+
+    try (MockedStatic<AuthUtil> authUtil =
+        Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      reset(authorizerChain);
+      org.mockito.stubbing.Answer<AuthorizationResult> answer =
+          invocation -> {
+            AuthorizationRequest authRequest = invocation.getArgument(0);
+            boolean allowed =
+                authRequest.getResourceSpec().isPresent()
+                    && allowedDataset
+                        .toString()
+                        .equals(authRequest.getResourceSpec().get().getEntity());
+            return new AuthorizationResult(
+                authRequest,
+                allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                "mixed-page query scroll test");
+          };
+      when(authorizerChain.authorize(any(AuthorizationRequest.class))).thenAnswer(answer);
+      when(authorizerChain.authorize(
+              any(AuthorizationRequest.class), any(Map.class), any(OperationContext.class)))
+          .thenAnswer(answer);
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.get("/openapi/v3/entity/query")
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful())
+          .andExpect(MockMvcResultMatchers.jsonPath("$.entities.length()").value(1))
+          .andExpect(
+              MockMvcResultMatchers.jsonPath("$.entities[0].urn")
+                  .value(allowedQueryUrn.toString()));
     }
   }
 
