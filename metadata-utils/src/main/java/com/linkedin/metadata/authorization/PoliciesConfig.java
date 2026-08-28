@@ -495,7 +495,9 @@ public class PoliciesConfig {
       Privilege.of(
           "VIEW_DATASET_USAGE",
           "View Dataset Usage",
-          "The ability to access dataset usage information (includes usage statistics and queries).");
+          "The ability to access dataset usage information (numeric usage statistics only —"
+              + " viewing the SQL text of the dataset's top queries additionally requires View"
+              + " Entity Queries or View All Queries).");
 
   public static final Privilege VIEW_DATASET_PROFILE_PRIVILEGE =
       Privilege.of(

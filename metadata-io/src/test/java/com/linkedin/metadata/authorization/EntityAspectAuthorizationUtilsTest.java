@@ -1036,7 +1036,8 @@ public class EntityAspectAuthorizationUtilsTest {
   @Test
   public void testQueryViewAuthorizationEnabled_configResolution() {
     // Missing config block means the default: enabled, COMPAT mode. requireAllQuerySubjects is
-    // any-subject under COMPAT regardless of legacy view-auth state.
+    // any-subject under COMPAT when VIEW_AUTHORIZATION_ENABLED is off (require-all when it's on
+    // — see testRequireAllQuerySubjects_compatModeTracksViewAuthorizationEnabled below).
     Assert.assertTrue(
         EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(
             queryAuthContext(null, false)));

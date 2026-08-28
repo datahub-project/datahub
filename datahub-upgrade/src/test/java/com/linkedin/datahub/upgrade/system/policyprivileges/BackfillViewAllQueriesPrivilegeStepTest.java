@@ -50,6 +50,8 @@ public class BackfillViewAllQueriesPrivilegeStepTest {
 
   private static final String VIEW_ENTITY_PAGE =
       PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType();
+  private static final String VIEW_DATASET_USAGE =
+      PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE.getType();
   private static final String VIEW_ALL_QUERIES =
       PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE.getType();
 
@@ -90,6 +92,18 @@ public class BackfillViewAllQueriesPrivilegeStepTest {
     assertFalse(
         BackfillViewAllQueriesPrivilegeStep.shouldBackfill(new DataHubPolicyInfo()),
         "policies without privileges are untouched");
+  }
+
+  /**
+   * Unlike the sibling VIEW_ENTITY_QUERIES backfill, VIEW_ALL_QUERIES must stay tied to
+   * VIEW_ENTITY_PAGE alone: it is a broad, unconditional platform privilege, so a usage-only policy
+   * should not gain it just because it also holds VIEW_DATASET_USAGE.
+   */
+  @Test
+  public void testShouldBackfillDoesNotTriggerOnViewDatasetUsageAlone() {
+    assertFalse(
+        BackfillViewAllQueriesPrivilegeStep.shouldBackfill(policyInfo(VIEW_DATASET_USAGE)),
+        "a usage-only policy must not gain the broad VIEW_ALL_QUERIES privilege");
   }
 
   /**

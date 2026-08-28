@@ -122,8 +122,16 @@ Requirements:
     SQL embedded in dataset usage statistics: requests selecting `topSqlQueries` are denied
     with an authorization error when the user lacks the privilege on the dataset (numeric usage
     data remains gated by `View Dataset Usage` alone). A one-time system-update step grants it
-    to every policy that already grants `View Entity Page`, so existing permissions are
-    unimpacted by the upgrade; administrators may then revoke it for more granular control.
+    to every policy that already grants `View Entity Page` **or** `View Dataset Usage`, so
+    existing permissions are unimpacted by the upgrade — pre-upgrade, holding `View Dataset
+Usage` alone (with no `View Entity Page`) was already enough to see a dataset's
+    `topSqlQueries`, since query-SQL gating didn't exist yet; without matching on it too, such a
+    usage-only policy would silently lose that access on upgrade. **Action:** this backfill is not
+    perfectly surgical — granting `VIEW_ENTITY_QUERIES` to preserve `topSqlQueries` access also
+    grants visibility into that dataset's other query-derived content (Query entities, view
+    definitions, transform logic touching the same dataset). This is the same compatibility
+    trade-off the `View Entity Page` trigger already makes; administrators may revoke the
+    privilege afterward for more granular control.
     `VIEW_ENTITY_QUERIES` alone has no resource to grant against a query with no recorded
     subject datasets, so that privilege by itself never authorizes reading one — see
     `VIEW_ALL_QUERIES` below for the only way to. In `REQUIRE_ALL_SUBJECTS` mode, holding
@@ -133,17 +141,21 @@ Requirements:
   - **`VIEW_ALL_QUERIES`**: platform-level privilege that grants unconditional visibility into
     every query's SQL text, subjects or not, with no per-dataset restriction — it is checked
     before, and short-circuits, the `VIEW_ENTITY_QUERIES` subject-dataset logic entirely. It is
-    not consulted by any query create/edit/delete check. On fresh installs, the default policies
-    grant it to Root, Admin, Editor, Reader, and all users — so by default nobody's query
-    visibility is actually restricted by `VIEW_ENTITY_QUERIES` yet; an administrator who wants
-    the new per-dataset restriction to take effect must revoke `VIEW_ALL_QUERIES` from the
-    relevant policies first. It was granted this broadly on fresh installs for consistency with
-    the upgrade path below, where the same grant preserves pre-upgrade behavior for existing
-    installs. On upgrade, a one-time system-update step grants it to every policy that already
-    grants `View Entity Page`, matching pre-upgrade behavior (page visibility implied visibility
-    into all of an entity's queries, subjects or not) and covering the same policies as the
-    fresh-install default. Set `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_ENABLED=false`
-    to skip this backfill.
+    not consulted by any query create/edit/delete check. On a fresh install with
+    `VIEW_AUTHORIZATION_ENABLED=false` (the default), the default policies grant it to Root,
+    Admin, Editor, Reader, and all users — so by default nobody's query visibility is actually
+    restricted by `VIEW_ENTITY_QUERIES` yet; an administrator who wants the new per-dataset
+    restriction to take effect must revoke `VIEW_ALL_QUERIES` from the relevant policies first.
+    On a fresh install with `VIEW_AUTHORIZATION_ENABLED=true` already set, the editable "All
+    Users" default policy does **not** get `VIEW_ALL_QUERIES` seeded — Root and the built-in
+    Admin/Editor/Reader roles still do — matching the same system-policies-only restriction
+    described below for the upgrade backfill. On upgrade, a one-time system-update step grants it
+    to every policy that already grants `View Entity Page`, matching pre-upgrade behavior (page
+    visibility implied visibility into all of an entity's queries, subjects or not) and covering
+    the same policies as the fresh-install default. Set
+    `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_ENABLED=false` to skip this backfill
+    entirely — see the **Action** note below for why that is not the recommended way to scope it
+    down under `VIEW_AUTHORIZATION_ENABLED`.
 
   - **`VIEW_AUTHORIZATION_ENABLED` operators:** when `VIEW_AUTHORIZATION_ENABLED=true`, the
     `VIEW_ALL_QUERIES` backfill above restricts itself to system policies (`editable=false` —
@@ -154,13 +166,18 @@ Requirements:
     `docker/profiles/docker-compose.gms.yml` now passes `VIEW_AUTHORIZATION_ENABLED` to the
     non-blocking `system-update` container with the same value GMS gets. **Action:** if you run a
     custom Helm chart or a custom/forked compose stack, make sure `VIEW_AUTHORIZATION_ENABLED` is
-    passed to the non-blocking `system-update` job the same way it's passed to GMS — otherwise the
-    backfill silently treats view authorization as off and adds `VIEW_ALL_QUERIES` to every
-    matching policy regardless of `editable`. Either way, once `VIEW_AUTHORIZATION_ENABLED=true`:
-    review which system policies received `VIEW_ALL_QUERIES` and revoke it from any you don't want
-    it on. If you'd rather not run the backfill at all, set
-    `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_ENABLED=false` on the `system-update` job
-    and add `VIEW_ALL_QUERIES` to only the specific policies you choose.
+    passed to the non-blocking `system-update` job the same way it's passed to GMS — this is the
+    recommended way to get the system-policies-only scoping, both for the upgrade backfill and for
+    the fresh-install "All Users" seeding above. Without it, the backfill silently treats view
+    authorization as off and adds `VIEW_ALL_QUERIES` to every matching policy regardless of
+    `editable`. Once `VIEW_AUTHORIZATION_ENABLED=true` and wired through correctly: still review
+    which system policies received `VIEW_ALL_QUERIES` and revoke it from any you don't want it on
+    — the backfill preserves Root and built-in-role compatibility access, which is intended, not
+    something to avoid. Setting
+    `BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_ENABLED=false` instead skips the backfill
+    _entirely_, including that intended Root/built-in-role grant — prefer passing
+    `VIEW_AUTHORIZATION_ENABLED` to `system-update` unless you specifically want to deny even
+    Root the compatibility grant and add `VIEW_ALL_QUERIES` to chosen policies by hand.
 
   - **`QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS`** now also accepts `COMPAT`, which is also
     the new default (was `false`). COMPAT requires all subjects only on the one query-read path
