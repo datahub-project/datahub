@@ -690,6 +690,13 @@ public class EntityApiDelegateImpl<I, O, S> {
     if (QUERY_ENTITY_NAME.equals(entitySpec.getName())) {
       // Query visibility varies per entity (subject-dataset scoped), so a mixed page must keep
       // the queries the actor IS authorized to see rather than rejecting the whole page.
+      //
+      // Known limitation, accepted and documented rather than implemented: this v2 scroll
+      // response has no total/count field, but the returned page can still come back with fewer
+      // than `count` entities relative to what was requested, since denied queries are dropped
+      // here rather than backfilled by scrolling further. Backfilling would require scrolling to
+      // exhaustion and authorizing per batch — the pattern ListQueriesResolver uses for GraphQL —
+      // out of scope for this REST surface.
       Set<Urn> viewableQueryUrns =
           EntityAuthorizationUtils.filterAPIAuthorizedQueryUrns(opContext, resultUrns);
       urns =

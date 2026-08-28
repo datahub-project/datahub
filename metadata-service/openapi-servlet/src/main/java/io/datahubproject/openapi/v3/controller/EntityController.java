@@ -311,6 +311,16 @@ public class EntityController
                             || viewableQueryUrns.contains(e.getEntity()))
                 .collect(Collectors.toList()));
 
+    // Known limitations, accepted and documented rather than implemented (would require scrolling
+    // to exhaustion, authorizing per batch, and either recomputing an exact total or reimplementing
+    // facet bucketing in application code — the pattern ListQueriesResolver uses for GraphQL, out
+    // of scope for this REST surface):
+    //  - totalCount below is result.getNumEntities(), the raw, unfiltered candidate count; when
+    //    the page mixes query and non-query entities, authorizedEntities can be a strict subset of
+    //    result.getEntities() (denied queries dropped), so the total can include queries the actor
+    //    can't see and the returned page can be underfilled relative to `count`.
+    //  - result.getMetadata() (facets) is computed by the search backend over the same raw,
+    //    unfiltered candidate set and isn't recomputed against the authorized subset either.
     return ResponseEntity.ok(
         buildScrollResult(
             opContext,

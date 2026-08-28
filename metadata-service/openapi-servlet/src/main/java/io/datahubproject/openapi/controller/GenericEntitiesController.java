@@ -319,6 +319,14 @@ public abstract class GenericEntitiesController<
     Set<String> mergedAspects =
         ImmutableSet.<String>builder().addAll(aspects1).addAll(aspects2).build();
 
+    // Known limitation: totalCount is result.getNumEntities(), the search backend's raw,
+    // unfiltered candidate count. For QUERY_ENTITY_NAME, authorizedEntities can be a strict subset
+    // of result.getEntities() (denied queries dropped from this page), so a mixed page is
+    // reported with a total that includes queries the actor can't see, and the page itself can
+    // come back with fewer than `count` entities without that being reflected in the total.
+    // Recomputing an exact, authorized-only total would require scrolling to exhaustion (the
+    // pattern ListQueriesResolver uses for GraphQL) rather than a single page fetch; out of scope
+    // here — accepted and documented rather than implemented.
     return ResponseEntity.ok(
         buildScrollResult(
             opContext,

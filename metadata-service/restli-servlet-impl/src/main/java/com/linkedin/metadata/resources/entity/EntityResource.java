@@ -567,6 +567,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
    * (subject-dataset scoped, so authorization can vary within one page), while everything else
    * keeps the existing all-or-nothing check — an unauthorized non-query urn still rejects the
    * whole request, matching existing behavior for those entity types.
+   *
+   * <p>Known limitation, accepted and documented rather than implemented, for every caller of this
+   * method: the {@code total}/{@code numEntities} on the {@code SearchResult}/{@code ScrollResult}/
+   * {@code LineageSearchResult}/{@code LineageScrollResult} these calls filter is the search
+   * backend's raw, unfiltered candidate count, not recomputed against the authorized-only subset
+   * returned here. When a page mixes query and non-query entities, a total can include queries the
+   * actor can't see, and the returned page can come back with fewer entities than requested
+   * without that being reflected in the total. An exact fix would require scrolling to exhaustion
+   * and authorizing per batch before slicing and reporting an exact total — the pattern
+   * ListQueriesResolver uses for GraphQL — which is out of scope for this Rest.li surface.
    */
   private Set<Urn> authorizedResultUrns(OperationContext opContext, List<Urn> urns) {
     List<Urn> queryUrns =
@@ -949,6 +959,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   result.getEntities().stream()
                       .filter(e -> authorizedUrns.contains(e.getUrn()))
                       .collect(Collectors.toList())));
+          // Known limitation, accepted and documented rather than implemented: result.getGroups()
+          // (and its numGroups/numElements) is a path-hierarchy aggregation computed by the search
+          // backend over the raw, unfiltered candidate set — unlike the entity list filtered above,
+          // there's no per-item authorized subset to slice these bucket counts down to without
+          // either backend support for authorization-aware aggregation or reimplementing the
+          // bucketing logic here in application code. Out of scope; group counts can include
+          // entities the actor can't see in the returned entity list.
           return validateBrowseResult(opContext,
                 result,
                   entityService);
