@@ -126,6 +126,11 @@ listed in the report under `workspaces_without_metadata`. A workspace that faile
 reason — a 5xx, a timeout, a malformed payload — is degraded the same way but is reported separately
 as an `Unable to fetch workspace` warning, since adding the user to the workspace will not fix it.
 
+The path-derived name is the first segment of the entity's `path`, so it is wrong for a workspace
+whose own name contains a `/` — only the part before the first slash is recovered. A path alone
+cannot say where such a name ends, so granting access is the only way to get the real name. This
+affects the fallback only; a workspace Sigma does describe is always named from its metadata.
+
 On some tenants the `path` a file reports does not start at its workspace, so the `parentId` walk
 that derives a workspace id terminates on a folder instead. Sigma resolves such an id to its owning
 workspace, and ingestion adopts the id Sigma answers with so that entities, filtering and the
