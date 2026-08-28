@@ -3626,49 +3626,35 @@ def test_adf_source_dynamic_column_lineage_skipped_with_explicit_translator(tmp_
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_adf_source_cross_activity_translator_resolution(tmp_path):
-    """Regression test: a Copy activity's own translator can itself be a
-    dynamic ADF expression referencing a sibling activity's run output
-    (e.g. a Lookup activity that reads a data-driven column-mapping
-    table from a control table) rather than a static config. The real
-    mapping is only ever exposed on that sibling's own ActivityRun for
-    this specific pipeline run - resolve it from there instead of
-    falling back to a same-name guess, which could silently produce the
-    wrong column edges."""
-    output_file = tmp_path / "adf_cross_activity_translator_events.json"
+def test_adf_source_dynamic_translator_resolved_from_run_input(tmp_path):
+    """Regression test: a Copy activity's translator can itself be a
+    dynamic ADF expression (e.g. sourced from a Lookup activity that
+    reads a data-driven column-mapping table), rather than a static
+    config. ADF resolves such expressions before running and records
+    the resolved value directly on the ActivityRun's own input - the
+    connector should read it from there rather than treat the activity
+    as unmappable."""
+    output_file = tmp_path / "adf_dynamic_translator_run_input_events.json"
 
-    factory_name = "cross-activity-translator-test-factory"
-    resource_group = "cross-activity-translator-test-rg"
+    factory_name = "dynamic-translator-run-input-test-factory"
+    resource_group = "dynamic-translator-run-input-test-rg"
 
-    lookup_activity = create_mock_activity(
-        name="GetMapping",
-        activity_type="Lookup",
-        dataset={
-            "referenceName": "MappingConfigDataset",
-            "type": "DatasetReference",
-        },
-    )
     copy_activity = create_mock_activity(
         name="MirrorWithDynamicTranslator",
         activity_type="Copy",
         inputs=[{"referenceName": "SourceDataset", "type": "DatasetReference"}],
         outputs=[{"referenceName": "SinkDataset", "type": "DatasetReference"}],
-        depends_on=[{"activity": "GetMapping"}],
     )
     copy_activity["typeProperties"]["translator"] = {
         "type": "Expression",
-        "value": (
-            "@if(equals(coalesce(activity('GetMapping').output.firstRow.mapping_json,'empty'),'empty'),"
-            "activity('GetMapping').output.firstRow.mapping_json,"
-            "json(activity('GetMapping').output.firstRow.mapping_json))"
-        ),
+        "value": "@json(activity('LookupMapping').output.firstRow.mapping_json)",
     }
     pipeline_def = create_mock_pipeline(
-        name="CrossActivityTranslatorPipeline",
+        name="DynamicTranslatorRunInputPipeline",
         factory_name=factory_name,
         resource_group=resource_group,
         subscription_id=SUBSCRIPTION_ID,
-        activities=[lookup_activity, copy_activity],
+        activities=[copy_activity],
     )
     source_dataset = create_mock_dataset(
         name="SourceDataset",
@@ -3688,45 +3674,32 @@ def test_adf_source_cross_activity_translator_resolution(tmp_path):
         dataset_type="AzurePostgreSqlTableDataset",
         type_properties={"table": "sink_table"},
     )
-    mapping_config_dataset = create_mock_dataset(
-        name="MappingConfigDataset",
-        factory_name=factory_name,
-        resource_group=resource_group,
-        subscription_id=SUBSCRIPTION_ID,
-        linked_service_name="SqlSourceLS",
-        dataset_type="AzureSqlTableDataset",
-        type_properties={"table": "column_mapping_config"},
-    )
 
     pipeline_runs = [
         create_mock_pipeline_run(
-            run_id="run-cross-activity",
-            pipeline_name="CrossActivityTranslatorPipeline",
+            run_id="run-dynamic-translator",
+            pipeline_name="DynamicTranslatorRunInputPipeline",
         ),
     ]
     activity_runs = {
-        "run-cross-activity": [
-            create_mock_activity_run(
-                activity_run_id="act-lookup-1",
-                activity_name="GetMapping",
-                activity_type="Lookup",
-                pipeline_run_id="run-cross-activity",
-                pipeline_name="CrossActivityTranslatorPipeline",
-            ),
+        "run-dynamic-translator": [
             create_mock_activity_run(
                 activity_run_id="act-copy-1",
                 activity_name="MirrorWithDynamicTranslator",
                 activity_type="Copy",
-                pipeline_run_id="run-cross-activity",
-                pipeline_name="CrossActivityTranslatorPipeline",
+                pipeline_run_id="run-dynamic-translator",
+                pipeline_name="DynamicTranslatorRunInputPipeline",
             ),
         ]
     }
-    activity_runs["run-cross-activity"][0]["output"] = {
-        "firstRow": {
-            "mapping_json": json.dumps({"id": "id", "name": "full_name"}),
+    # ADF resolves the "@json(activity(...)...)" expression before running
+    # and records the resolved dict directly on this run's own input -
+    # not the raw JSON string, and not anything on a sibling's run.
+    activity_runs["run-dynamic-translator"][0]["input"] = {
+        "translator": {
+            "type": "TabularTranslator",
+            "columnMappings": {"id": "id", "name": "full_name"},
         },
-        "count": 1,
     }
 
     test_data = {
@@ -3734,7 +3707,7 @@ def test_adf_source_cross_activity_translator_resolution(tmp_path):
             create_mock_factory(factory_name, resource_group, SUBSCRIPTION_ID)
         ],
         "pipelines": [pipeline_def],
-        "datasets": [source_dataset, sink_dataset, mapping_config_dataset],
+        "datasets": [source_dataset, sink_dataset],
         "linked_services": [
             create_mock_linked_service(
                 name="SqlSourceLS",
@@ -3767,7 +3740,7 @@ def test_adf_source_cross_activity_translator_resolution(tmp_path):
         ):
             pipeline = Pipeline.create(
                 {
-                    "run_id": "adf-test-cross-activity-translator",
+                    "run_id": "adf-test-dynamic-translator-run-input",
                     "source": {
                         "type": "azure-data-factory",
                         "config": {
@@ -3802,7 +3775,7 @@ def test_adf_source_cross_activity_translator_resolution(tmp_path):
     aspect = lineage_aspects[-1]["aspect"]["json"]
     fine_grained_lineages = aspect.get("fineGrainedLineages")
     assert fine_grained_lineages, (
-        "expected column-level lineage resolved via the sibling activity's output"
+        "expected column-level lineage resolved from this run's own resolved translator"
     )
 
     mappings = {
@@ -3820,19 +3793,19 @@ def test_adf_source_cross_activity_translator_resolution(tmp_path):
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_adf_source_cross_activity_translator_unresolvable_emits_no_column_lineage(
+def test_adf_source_dynamic_translator_resolved_to_none_falls_back_to_same_name(
     tmp_path,
 ):
-    """Regression test: when a Copy activity's translator references a
-    sibling activity's run output, but that sibling never ran (e.g. it
-    was skipped, or execution history doesn't cover it), there IS a
-    real, data-driven mapping intended - just not resolvable this run.
-    No column-level lineage should be emitted; falling back to a
-    same-name guess here could silently produce the wrong column edges."""
-    output_file = tmp_path / "adf_cross_activity_unresolvable_events.json"
+    """Regression test: when a Copy activity's dynamic translator
+    resolves to nothing for this specific run (e.g. a data-driven
+    mapping table had no override for this table), ADF's own runtime
+    behavior is a plain same-name column copy - the connector must
+    recover that from the resolved query's column list rather than
+    emitting no column lineage at all."""
+    output_file = tmp_path / "adf_dynamic_translator_none_events.json"
 
-    factory_name = "cross-activity-unresolvable-test-factory"
-    resource_group = "cross-activity-unresolvable-test-rg"
+    factory_name = "dynamic-translator-none-test-factory"
+    resource_group = "dynamic-translator-none-test-rg"
 
     copy_activity = create_mock_activity(
         name="MirrorWithDynamicTranslator",
@@ -3842,10 +3815,10 @@ def test_adf_source_cross_activity_translator_unresolvable_emits_no_column_linea
     )
     copy_activity["typeProperties"]["translator"] = {
         "type": "Expression",
-        "value": "@activity('GetMapping').output.firstRow.mapping_json",
+        "value": "@json(activity('LookupMapping').output.firstRow.mapping_json)",
     }
     pipeline_def = create_mock_pipeline(
-        name="CrossActivityUnresolvablePipeline",
+        name="DynamicTranslatorNonePipeline",
         factory_name=factory_name,
         resource_group=resource_group,
         subscription_id=SUBSCRIPTION_ID,
@@ -3872,21 +3845,27 @@ def test_adf_source_cross_activity_translator_unresolvable_emits_no_column_linea
 
     pipeline_runs = [
         create_mock_pipeline_run(
-            run_id="run-unresolvable",
-            pipeline_name="CrossActivityUnresolvablePipeline",
+            run_id="run-dynamic-translator-none",
+            pipeline_name="DynamicTranslatorNonePipeline",
         ),
     ]
     activity_runs = {
-        "run-unresolvable": [
-            # Note: no "GetMapping" activity run at all - it never ran.
+        "run-dynamic-translator-none": [
             create_mock_activity_run(
                 activity_run_id="act-copy-1",
                 activity_name="MirrorWithDynamicTranslator",
                 activity_type="Copy",
-                pipeline_run_id="run-unresolvable",
-                pipeline_name="CrossActivityUnresolvablePipeline",
+                pipeline_run_id="run-dynamic-translator-none",
+                pipeline_name="DynamicTranslatorNonePipeline",
             ),
         ]
+    }
+    # The control table had no override for this table - ADF resolves
+    # the dynamic translator expression down to null for this run.
+    activity_runs["run-dynamic-translator-none"][0]["input"] = {
+        "translator": None,
+        "source": {"query": "SELECT id, name FROM source_table"},
+        "sink": {"preCopyScript": "truncate table sink_table"},
     }
 
     test_data = {
@@ -3927,7 +3906,7 @@ def test_adf_source_cross_activity_translator_unresolvable_emits_no_column_linea
         ):
             pipeline = Pipeline.create(
                 {
-                    "run_id": "adf-test-cross-activity-unresolvable",
+                    "run_id": "adf-test-dynamic-translator-none",
                     "source": {
                         "type": "azure-data-factory",
                         "config": {
@@ -3960,28 +3939,37 @@ def test_adf_source_cross_activity_translator_unresolvable_emits_no_column_linea
     ]
     assert len(lineage_aspects) >= 1
     aspect = lineage_aspects[-1]["aspect"]["json"]
-    assert not aspect.get("fineGrainedLineages"), (
-        "must not guess column lineage when the referenced sibling run is unavailable"
+    fine_grained_lineages = aspect.get("fineGrainedLineages")
+    assert fine_grained_lineages, (
+        "expected a same-name column copy when the dynamic translator resolved to nothing for this run"
     )
+
+    mappings = {
+        (fgl["upstreams"][0], fgl["downstreams"][0]) for fgl in fine_grained_lineages
+    }
+    assert (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,source_table,DEV),id)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,sink_table,DEV),id)",
+    ) in mappings
+    assert (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,source_table,DEV),name)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,sink_table,DEV),name)",
+    ) in mappings
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_adf_source_cross_activity_translator_ambiguous_with_multiple_sibling_runs(
+def test_adf_source_dynamic_translator_unusable_shape_emits_no_column_lineage(
     tmp_path,
 ):
-    """Regression test: a parallel ForEach can run the same-named sibling
-    activity once per iteration, each with its own resolved output (e.g.
-    a Lookup returning a different column-mapping per table). The
-    Activity Runs API exposes no per-iteration correlation between
-    siblings, so picking any one of several same-named runs risks
-    pairing the wrong iteration's mapping with this run's actual
-    source/sink tables. No column-level lineage should be emitted in
-    that case, for either iteration."""
-    output_file = tmp_path / "adf_cross_activity_ambiguous_events.json"
+    """Regression test: if a Copy activity's dynamic translator resolves
+    to something other than a dict or null (e.g. a malformed/unexpected
+    value), the connector must not guess column lineage from it - and
+    must not crash."""
+    output_file = tmp_path / "adf_dynamic_translator_unusable_events.json"
 
-    factory_name = "cross-activity-ambiguous-test-factory"
-    resource_group = "cross-activity-ambiguous-test-rg"
+    factory_name = "dynamic-translator-unusable-test-factory"
+    resource_group = "dynamic-translator-unusable-test-rg"
 
     copy_activity = create_mock_activity(
         name="MirrorWithDynamicTranslator",
@@ -3991,10 +3979,10 @@ def test_adf_source_cross_activity_translator_ambiguous_with_multiple_sibling_ru
     )
     copy_activity["typeProperties"]["translator"] = {
         "type": "Expression",
-        "value": "@activity('GetMapping').output.firstRow.mapping_json",
+        "value": "@activity('LookupMapping').output.firstRow.mapping_json",
     }
     pipeline_def = create_mock_pipeline(
-        name="CrossActivityAmbiguousPipeline",
+        name="DynamicTranslatorUnusablePipeline",
         factory_name=factory_name,
         resource_group=resource_group,
         subscription_id=SUBSCRIPTION_ID,
@@ -4021,42 +4009,25 @@ def test_adf_source_cross_activity_translator_ambiguous_with_multiple_sibling_ru
 
     pipeline_runs = [
         create_mock_pipeline_run(
-            run_id="run-ambiguous",
-            pipeline_name="CrossActivityAmbiguousPipeline",
+            run_id="run-dynamic-translator-unusable",
+            pipeline_name="DynamicTranslatorUnusablePipeline",
         ),
     ]
     activity_runs = {
-        "run-ambiguous": [
-            # Two concurrent ForEach iterations, each with its own
-            # "GetMapping" run carrying a different resolved mapping.
-            create_mock_activity_run(
-                activity_run_id="act-lookup-1",
-                activity_name="GetMapping",
-                activity_type="Lookup",
-                pipeline_run_id="run-ambiguous",
-                pipeline_name="CrossActivityAmbiguousPipeline",
-            ),
-            create_mock_activity_run(
-                activity_run_id="act-lookup-2",
-                activity_name="GetMapping",
-                activity_type="Lookup",
-                pipeline_run_id="run-ambiguous",
-                pipeline_name="CrossActivityAmbiguousPipeline",
-            ),
+        "run-dynamic-translator-unusable": [
             create_mock_activity_run(
                 activity_run_id="act-copy-1",
                 activity_name="MirrorWithDynamicTranslator",
                 activity_type="Copy",
-                pipeline_run_id="run-ambiguous",
-                pipeline_name="CrossActivityAmbiguousPipeline",
+                pipeline_run_id="run-dynamic-translator-unusable",
+                pipeline_name="DynamicTranslatorUnusablePipeline",
             ),
         ]
     }
-    activity_runs["run-ambiguous"][0]["output"] = {
-        "firstRow": {"mapping_json": json.dumps({"id": "id", "name": "full_name"})},
-    }
-    activity_runs["run-ambiguous"][1]["output"] = {
-        "firstRow": {"mapping_json": json.dumps({"id": "user_id"})},
+    # Malformed/unexpected shape: a raw string rather than a resolved
+    # translator dict or null.
+    activity_runs["run-dynamic-translator-unusable"][0]["input"] = {
+        "translator": "unexpected-string-value",
     }
 
     test_data = {
@@ -4097,7 +4068,7 @@ def test_adf_source_cross_activity_translator_ambiguous_with_multiple_sibling_ru
         ):
             pipeline = Pipeline.create(
                 {
-                    "run_id": "adf-test-cross-activity-ambiguous",
+                    "run_id": "adf-test-dynamic-translator-unusable",
                     "source": {
                         "type": "azure-data-factory",
                         "config": {
@@ -4131,6 +4102,5 @@ def test_adf_source_cross_activity_translator_ambiguous_with_multiple_sibling_ru
     assert len(lineage_aspects) >= 1
     aspect = lineage_aspects[-1]["aspect"]["json"]
     assert not aspect.get("fineGrainedLineages"), (
-        "must not guess which iteration's mapping applies when the "
-        "referenced sibling activity ran more than once in this pipeline run"
+        "must not guess column lineage from an unusable resolved translator shape"
     )
