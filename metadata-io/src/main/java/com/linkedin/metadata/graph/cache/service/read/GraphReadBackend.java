@@ -220,6 +220,13 @@ public class GraphReadBackend {
       @Nonnull EntityGraphView view,
       @Nonnull List<GraphComponentContext> components) {
     Set<String> normalizedRoots = rootsFrom(roots);
+    // If no root is present in the snapshot, the seed was never captured (e.g. created/re-parented
+    // by a write that did not pass the sync gate). Report ABSENT so callers fall back to the live
+    // graph, instead of returning an empty result that reads as an authoritative "no neighbors".
+    // Mirrors the membership read guard in listRelatedFromView.
+    if (normalizedRoots.stream().noneMatch(view::containsVertex)) {
+      return GraphReadResult.miss(ReadMissReason.ABSENT);
+    }
     int effectiveDepth = resolveExpandDepth(definition, maxDepth, direction, components);
     logIncompleteCoverage(definition, direction, components);
     EntityGraphView.ExpandResult expandResult =

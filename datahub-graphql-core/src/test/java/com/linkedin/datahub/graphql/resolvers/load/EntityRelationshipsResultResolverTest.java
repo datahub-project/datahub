@@ -893,6 +893,100 @@ public class EntityRelationshipsResultResolverTest {
     verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
   }
 
+  /**
+   * A role's members ({@code IsMemberOfRole} INCOMING) can be both users and groups. The membership
+   * cache snapshot is user-centric — its reverse role lookup returns only user members, silently
+   * dropping group grants. So {@code dataHubRole.relationships(IsMemberOfRole, INCOMING)} must not
+   * be served from the membership cache; it has to go through the live graph, which returns both.
+   */
+  @Test
+  public void testDataHubRoleIncomingMembersIncludeGroupsViaLiveGraph()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Editor");
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+
+    CorpGroup roleSource = new CorpGroup();
+    roleSource.setUrn(roleUrn.toString());
+    when(mockEnv.getSource()).thenReturn(roleSource);
+
+    // Membership cache reverse role lookup returns only the user (drops the group) — the defect.
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder()
+            .graphId("membership")
+            .source(GraphSnapshotSource.GRAPH)
+            .build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP))
+        .thenReturn(Optional.of(binding));
+    when(entityGraphCache.listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(roleUrn.toString()),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfRole")),
+            anyInt(),
+            eq(0),
+            anyInt(),
+            any(ReadMode.class)))
+        .thenReturn(
+            MembershipNeighborResult.fromNeighbors(
+                List.of(
+                    new MembershipNeighborResult.Neighbor(userUrn.toString(), "IsMemberOfRole")),
+                1));
+
+    // The live graph holds BOTH a user and a group as members of the role.
+    EntityRelationships roleMembers =
+        new EntityRelationships()
+            .setStart(0)
+            .setCount(2)
+            .setTotal(2)
+            .setRelationships(
+                new EntityRelationshipArray(
+                    new EntityRelationship().setEntity(userUrn).setType("IsMemberOfRole"),
+                    new EntityRelationship().setEntity(groupUrn).setType("IsMemberOfRole")));
+    when(_graphClient.getRelatedEntities(eq(roleUrn.toString()), any(), any(), any(), any(), any()))
+        .thenReturn(roleMembers);
+    when(_entityService.exists(any(), anySet(), eq(false))).thenAnswer(inv -> inv.getArgument(1));
+
+    QueryContext queryContext = getMockAllowContext();
+    OperationContext baseContext = queryContext.getOperationContext();
+    OperationContext opContext =
+        baseContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .entityGraphCache(entityGraphCache)
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .build())
+            .build(baseContext.getSessionAuthentication(), false);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput membersInput = new RelationshipsInput();
+    membersInput.setTypes(List.of("IsMemberOfRole"));
+    membersInput.setDirection(RelationshipDirection.INCOMING);
+    membersInput.setIncludeSoftDelete(false);
+    membersInput.setStart(0);
+    membersInput.setCount(50);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(membersInput);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    Set<String> members = new HashSet<>();
+    for (var rel : result.getRelationships()) {
+      members.add(rel.getEntity().getUrn());
+    }
+    assertTrue(
+        members.contains(groupUrn.toString()),
+        "role member listing must include group grants, not only users");
+    assertTrue(members.contains(userUrn.toString()));
+    verify(_graphClient)
+        .getRelatedEntities(eq(roleUrn.toString()), any(), any(), any(), any(), any());
+  }
+
   private com.linkedin.datahub.graphql.generated.EntityRelationship resultRelationship(
       Entity entity) {
     return new com.linkedin.datahub.graphql.generated.EntityRelationship(
