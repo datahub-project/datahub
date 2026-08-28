@@ -812,15 +812,18 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
    * rather than rejecting the whole page — the bug this test guards against would have thrown 403
    * for the entire request merely because one of the two queries was denied.
    *
-   * <p>Flaky when run as part of the full {@code openapi-servlet} module suite (passes reliably
-   * alone, and alongside every other test in this class/package): suspected cause is that {@code
-   * authorizerChain} is a Spring-managed mock bean, and Spring's test-context caching can reuse the
-   * same {@code ApplicationContext} (and therefore the same mock instance) across other test
-   * classes with an equivalent configuration; a stub left behind by one of those other classes can
-   * outlast this test's own {@code reset(authorizerChain)} depending on run order. This is a
-   * pre-existing pattern (see {@link #stubQueryViewAuthorization}, which does the identical
-   * reset-then-restub), not something introduced by this test — it just hadn't collided with
-   * anything before.
+   * <p>Was flaky under the full module suite (never in isolation): {@code getEntities} first runs
+   * a type-level check ({@code EntityAuthorizationUtils.isAPIAuthorizedSearchEntityTypes}) before
+   * ever reaching the per-query filtering this test targets, and that check is gated by {@code
+   * AuthUtil.isRestApiAuthorizationEnabled} — a {@code private static} field read directly (not
+   * through the mockable getter), set by {@code @PostConstruct} on whichever Spring context most
+   * recently built an {@code AuthUtil} bean, JVM-wide, independent of this test's own {@code
+   * ApplicationContext}. This test's authorizer stub used to recognize only the per-query,
+   * dataset-urn-shaped resource spec; whenever an earlier-run test class left that static field
+   * {@code true}, the type-level check fired for real (entity type "query", resource spec with a
+   * blank entity) and the narrow stub denied it, 403ing before the mixed-page logic ever ran. The
+   * stub below now allows the type-level check too, so the outcome no longer depends on that
+   * field's value.
    */
   @Test
   public void testScrollQueryEntitiesFiltersMixedPageInsteadOfRejectingIt() throws Exception {
@@ -875,11 +878,15 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
       org.mockito.stubbing.Answer<AuthorizationResult> answer =
           invocation -> {
             AuthorizationRequest authRequest = invocation.getArgument(0);
+            // Allow both the per-query, dataset-urn-shaped check this test targets AND the
+            // type-level check (blank resource entity) that precedes it in getEntities — see the
+            // class javadoc above for why the latter must be stubbed too.
             boolean allowed =
                 authRequest.getResourceSpec().isPresent()
-                    && allowedDataset
-                        .toString()
-                        .equals(authRequest.getResourceSpec().get().getEntity());
+                    && (authRequest.getResourceSpec().get().getEntity().isEmpty()
+                        || allowedDataset
+                            .toString()
+                            .equals(authRequest.getResourceSpec().get().getEntity()));
             return new AuthorizationResult(
                 authRequest,
                 allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,

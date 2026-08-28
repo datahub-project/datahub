@@ -108,16 +108,20 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
                             .setField(CREATED_AT_FIELD)
                             .setOrder(SortOrder.DESCENDING));
 
-            // Active when query-read authorization is enabled (dedicated flag or the legacy
-            // view-authorization switch); disabled means no subject lookups at all, and the raw
-            // search page can be returned as-is.
-            final boolean authorizationActive =
+            // Per-query authorization is skippable when it's disabled, the caller is system-auth,
+            // or the caller already holds VIEW_ALL_QUERIES (which makes every match visible
+            // regardless of subjects) — in all three cases, the raw search page is exactly the
+            // authorized page.
+            final boolean needsPerQueryAuthorization =
                 EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(
                         context.getOperationContext())
-                    && !context.getOperationContext().isSystemAuth();
+                    && !context.getOperationContext().isSystemAuth()
+                    && !EntityAspectAuthorizationUtils.hasViewAllQueriesPrivilege(
+                        context.getOperationContext());
 
-            if (!authorizationActive) {
-              return searchUnauthorized(context, query, finalFilter, sortCriteria, start, count);
+            if (!needsPerQueryAuthorization) {
+              return searchWithoutAuthorization(
+                  context, query, finalFilter, sortCriteria, start, count);
             }
             return searchAuthorized(context, query, finalFilter, sortCriteria, start, count);
           } catch (Exception e) {
@@ -128,7 +132,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
         "get");
   }
 
-  private ListQueriesResult searchUnauthorized(
+  private ListQueriesResult searchWithoutAuthorization(
       QueryContext context,
       String query,
       Filter finalFilter,
