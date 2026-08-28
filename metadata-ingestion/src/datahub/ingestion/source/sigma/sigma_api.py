@@ -52,6 +52,10 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
+# DIAGNOSTIC ONLY -- do not merge. Sigma reports this id as the parent of every
+# top-level workspace, i.e. the root of the file tree.
+DIAG_ROOT_SENTINEL = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+
 
 class SigmaAPI:
     def __init__(self, config: SigmaSourceConfig, report: SigmaSourceReport) -> None:
@@ -219,6 +223,7 @@ class SigmaAPI:
     def get_workspace_id_from_file_path(
         self, parent_id: str, path: str
     ) -> Optional[str]:
+        hops = 0
         try:
             path_list = path.split("/")
             while len(path_list) != 1:  # means current parent id is folder's id
@@ -228,12 +233,60 @@ class SigmaAPI:
                 response.raise_for_status()
                 parent_id = response.json()[Constant.PARENTID]
                 path_list.pop()
+                hops += 1
+            self._diag_record(path, hops, parent_id)
             return parent_id
         except Exception as e:
+            self._diag_record(path, hops, None)
             logger.error(
                 f"Unable to find workspace id using file path '{path}'. Exception: {e}"
             )
             return None
+
+    # ---------------------------------------------------------------- diag
+    # DIAGNOSTIC ONLY -- do not merge. Answers one question: when the
+    # ``parentId`` walk finishes, has it landed on a workspace or on something
+    # else? Nothing below changes what the connector emits.
+
+    @functools.lru_cache(maxsize=None)
+    def _diag_classify(self, terminal_id: str) -> str:
+        """What kind of node did the walk stop on?
+
+        Deliberately does not use ``get_workspace``: that populates
+        ``self.workspaces`` and would change behaviour. Cached per id, so this
+        costs at most one extra call per distinct terminal (bounded by the
+        number of workspaces, not by the number of files).
+        """
+        if terminal_id == DIAG_ROOT_SENTINEL:
+            return "root-sentinel"
+        if terminal_id in self.workspaces:
+            return "workspace"
+        try:
+            r = self._get_api_call(f"{self.config.api_url}/workspaces/{terminal_id}")
+            if r.status_code == 403:
+                return "forbidden"
+            r.raise_for_status()
+            answered = r.json().get(Constant.WORKSPACEID)
+            if answered and answered != terminal_id:
+                return "folder-alias"
+            return "workspace-unlisted"
+        except Exception:
+            return "unresolved"
+
+    def _diag_record(self, path: str, hops: int, terminal_id: Optional[str]) -> None:
+        kind = (
+            "walk-failed" if terminal_id is None else self._diag_classify(terminal_id)
+        )
+        self.report.diag_walk_outcomes[kind] = (
+            self.report.diag_walk_outcomes.get(kind, 0) + 1
+        )
+        detail = (
+            f"kind={kind} segments={len(path.split('/')) if path else 0} "
+            f"hops={hops} terminal={terminal_id} path={path!r}"
+        )
+        if kind != "workspace":
+            self.report.diag_walk_examples.append(detail)
+        logger.info("sigma-diag walk %s", detail)
 
     @functools.lru_cache
     def _get_files_metadata(self, file_type: str) -> Dict[str, File]:

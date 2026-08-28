@@ -17,6 +17,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 
 class Constant:
@@ -172,6 +173,20 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
 
     number_of_files_metadata: Dict[str, int] = field(default_factory=dict)
     empty_workspaces: List[str] = field(default_factory=list)
+
+    # DIAGNOSTIC ONLY -- do not merge.
+    # What the ``parentId`` walk landed on, per outcome:
+    #   workspace         -- correct; the walk found a known workspace
+    #   folder-alias      -- landed on a FOLDER that Sigma resolves to another
+    #                        workspace, so entities are parented under a
+    #                        Container nothing ever names (the "undershoot")
+    #   root-sentinel     -- climbed to the root of the tree (the "overshoot")
+    #   walk-failed       -- climbed past the root and 404'd
+    #   forbidden         -- terminal id returns 403
+    #   workspace-unlisted-- resolves to itself but was not in /workspaces
+    diag_walk_outcomes: Dict[str, int] = field(default_factory=dict)
+    # One line per non-"workspace" outcome, sampled.
+    diag_walk_examples: LossyList[str] = field(default_factory=LossyList)
 
     # Sheet upstream skipped because the upstream element was filtered out
     # of the chart map (e.g. pivot-table blocked by page-element allowlist).
