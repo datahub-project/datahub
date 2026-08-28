@@ -153,7 +153,8 @@ public class EntityRelationshipsResultResolver
                   start,
                   count,
                   relationshipDirection,
-                  includeSoftDelete),
+                  includeSoftDelete,
+                  relatedEntityTypes),
           this.getClass().getSimpleName(),
           "getSessionUserMembershipRelationships");
     }
@@ -270,7 +271,8 @@ public class EntityRelationshipsResultResolver
       @Nullable final Integer count,
       @Nonnull
           final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection,
-      final boolean includeSoftDelete) {
+      final boolean includeSoftDelete,
+      @Nullable final Set<String> relatedEntityTypes) {
     ActorContext sessionActor = context.getOperationContext().getSessionActorContext();
     List<EntityRelationship> relationships = new ArrayList<>();
 
@@ -294,10 +296,17 @@ public class EntityRelationshipsResultResolver
       }
     }
 
+    relationships = filterByRelatedEntityTypes(relationships, relatedEntityTypes);
     List<EntityRelationship> page = paginateRelationships(relationships, start, count);
     EntityRelationshipsResult result =
         mapEntityRelationshipsFromList(
-            context, page, relationshipDirection, includeSoftDelete, 0, page.size(), null);
+            context,
+            page,
+            relationshipDirection,
+            includeSoftDelete,
+            0,
+            page.size(),
+            relatedEntityTypes);
     result.setStart(start != null ? start : 0);
     result.setTotal(relationships.size());
     result.setCount(page.size());

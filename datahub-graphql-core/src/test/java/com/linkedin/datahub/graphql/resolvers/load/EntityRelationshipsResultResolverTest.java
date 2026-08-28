@@ -51,6 +51,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -826,6 +828,44 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   @Test
+  public void testSessionUserOutgoingMembershipHonorsRelatedEntityTypes()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn actorUrn = Urn.createFromString("urn:li:corpuser:test");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:session-group");
+    Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Editor");
+
+    CorpUser userSource = new CorpUser();
+    userSource.setUrn(actorUrn.toString());
+    when(mockEnv.getSource()).thenReturn(userSource);
+
+    SessionActorIdentity sessionIdentity =
+        new SessionActorIdentity(actorUrn, List.of(groupUrn), Set.of(roleUrn));
+    QueryContext queryContext =
+        withSessionActorIdentity(getMockAllowContext(actorUrn.toString()), sessionIdentity);
+    when(queryContext
+            .getOperationContext()
+            .getAuthorizationContext()
+            .resolveSessionActorRoles(any(), any()))
+        .thenReturn(Set.of(roleUrn));
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput membershipInput = new RelationshipsInput();
+    membershipInput.setTypes(List.of("IsMemberOfGroup", "IsMemberOfRole"));
+    membershipInput.setDirection(RelationshipDirection.OUTGOING);
+    membershipInput.setRelatedEntityTypes(List.of("dataHubRole"));
+    membershipInput.setStart(0);
+    membershipInput.setCount(10);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(membershipInput);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), roleUrn.toString());
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
   public void testCorpGroupIncomingMembersUsesMembershipCache()
       throws ExecutionException, InterruptedException, URISyntaxException {
     Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
@@ -901,64 +941,9 @@ public class EntityRelationshipsResultResolverTest {
   @Test
   public void testDataHubRoleIncomingMembersIncludeGroupsViaMembershipCache()
       throws ExecutionException, InterruptedException, URISyntaxException {
-    Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Editor");
     Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
     Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
-
-    CorpGroup roleSource = new CorpGroup();
-    roleSource.setUrn(roleUrn.toString());
-    when(mockEnv.getSource()).thenReturn(roleSource);
-
-    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
-    EntityGraphBinding binding =
-        EntityGraphBinding.builder()
-            .graphId("membership")
-            .source(GraphSnapshotSource.GRAPH)
-            .build();
-    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP))
-        .thenReturn(Optional.of(binding));
-    when(entityGraphCache.listRelated(
-            eq("membership"),
-            eq(GraphSnapshotSource.GRAPH),
-            eq(roleUrn.toString()),
-            eq(TraversalDirection.REVERSE),
-            eq(Set.of("IsMemberOfRole")),
-            anyInt(),
-            eq(0),
-            anyInt(),
-            any(ReadMode.class)))
-        .thenReturn(
-            MembershipNeighborResult.fromNeighbors(
-                List.of(
-                    new MembershipNeighborResult.Neighbor(userUrn.toString(), "IsMemberOfRole"),
-                    new MembershipNeighborResult.Neighbor(groupUrn.toString(), "IsMemberOfRole")),
-                2));
-
-    QueryContext queryContext = getMockAllowContext();
-    OperationContext baseContext = queryContext.getOperationContext();
-    OperationContext opContext =
-        baseContext.toBuilder()
-            .retrieverContext(
-                RetrieverContext.builder()
-                    .entityGraphCache(entityGraphCache)
-                    .graphRetriever(GraphRetriever.EMPTY)
-                    .searchRetriever(SearchRetriever.EMPTY)
-                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
-                    .aspectRetriever(mock(AspectRetriever.class))
-                    .build())
-            .build(baseContext.getSessionAuthentication(), false);
-    when(queryContext.getOperationContext()).thenReturn(opContext);
-    when(mockEnv.getContext()).thenReturn(queryContext);
-
-    RelationshipsInput membersInput = new RelationshipsInput();
-    membersInput.setTypes(List.of("IsMemberOfRole"));
-    membersInput.setDirection(RelationshipDirection.INCOMING);
-    membersInput.setIncludeSoftDelete(false);
-    membersInput.setStart(0);
-    membersInput.setCount(50);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(membersInput);
-
-    when(_entityService.exists(any(), anySet(), eq(false))).thenAnswer(inv -> inv.getArgument(1));
+    setupDataHubRoleIncomingMembersMembershipCache(userUrn, groupUrn, null);
 
     EntityRelationshipsResult result = resolver.get(mockEnv).get();
 
@@ -976,9 +961,22 @@ public class EntityRelationshipsResultResolverTest {
   @Test
   public void testDataHubRoleIncomingMembersHonorsRelatedEntityTypes()
       throws ExecutionException, InterruptedException, URISyntaxException {
-    Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Editor");
     Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
     Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    setupDataHubRoleIncomingMembersMembershipCache(userUrn, groupUrn, List.of("corpuser"));
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), userUrn.toString());
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  private void setupDataHubRoleIncomingMembersMembershipCache(
+      @Nonnull Urn userUrn, @Nonnull Urn groupUrn, @Nullable List<String> relatedEntityTypes)
+      throws URISyntaxException {
+    Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Editor");
 
     CorpGroup roleSource = new CorpGroup();
     roleSource.setUrn(roleUrn.toString());
@@ -1028,20 +1026,15 @@ public class EntityRelationshipsResultResolverTest {
     RelationshipsInput membersInput = new RelationshipsInput();
     membersInput.setTypes(List.of("IsMemberOfRole"));
     membersInput.setDirection(RelationshipDirection.INCOMING);
-    membersInput.setRelatedEntityTypes(List.of("corpuser"));
+    if (relatedEntityTypes != null) {
+      membersInput.setRelatedEntityTypes(relatedEntityTypes);
+    }
     membersInput.setIncludeSoftDelete(false);
     membersInput.setStart(0);
     membersInput.setCount(50);
     when(mockEnv.getArgument(eq("input"))).thenReturn(membersInput);
 
     when(_entityService.exists(any(), anySet(), eq(false))).thenAnswer(inv -> inv.getArgument(1));
-
-    EntityRelationshipsResult result = resolver.get(mockEnv).get();
-
-    assertEquals(result.getTotal().intValue(), 1);
-    assertEquals(result.getCount().intValue(), 1);
-    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), userUrn.toString());
-    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
   }
 
   private com.linkedin.datahub.graphql.generated.EntityRelationship resultRelationship(
