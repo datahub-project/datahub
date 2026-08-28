@@ -14,7 +14,7 @@ import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
 import IngestionRoutes from '@app/ingestV2/IngestionRoutes';
-import MarketplaceRoutes from '@app/marketplace/MarketplaceRoutes';
+import DataProductsRoutes from '@app/dataProducts/DataProductsRoutes';
 import MetricsRoutes from '@app/metrics/MetricsRoutes';
 import { MFERoutes } from '@app/mfeframework/mfeConfigLoader';
 import { SearchPage as SearchPageV2 } from '@app/searchV2/SearchPage';
@@ -47,7 +47,7 @@ export const SearchRoutes = (): JSX.Element => {
     const { metricsEnabled } = config.featureFlags;
 
     // Get entities, filtering out Document when context documents is enabled (handled by ContextRoutes),
-    // Metric + SemanticModel (MetricsRoutes), and DataProduct (MarketplaceRoutes).
+    // Metric + SemanticModel (MetricsRoutes), and DataProduct (DataProductsRoutes).
     const allEntities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
@@ -108,8 +108,8 @@ export const SearchRoutes = (): JSX.Element => {
                     />
                 )}
                 <Route
-                    path={[`${PageRoutes.DATA_PRODUCT_ENTITY}/:urn`, PageRoutes.MARKETPLACE]}
-                    render={() => <MarketplaceRoutes />}
+                    path={[`${PageRoutes.DATA_PRODUCT_ENTITY}/:urn`, PageRoutes.DATA_PRODUCTS]}
+                    render={() => <DataProductsRoutes />}
                 />
                 <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPageV2 />} />
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />

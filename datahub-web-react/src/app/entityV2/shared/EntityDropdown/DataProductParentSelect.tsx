@@ -14,7 +14,7 @@ import { DataProductLink } from '@app/sharedV2/tags/DataProductLink';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Loader, SimpleSelect } from '@src/alchemy-components';
 
-import { useScrollDataProductsLazyQuery } from '@graphql/marketplaceBrowse.generated';
+import { useScrollDataProductsLazyQuery } from '@graphql/dataProductsBrowse.generated';
 import { DataProduct, EntityType } from '@types';
 
 // Caret column (20px) + caret→content gap (8px). Matches NodeParentSelect / AddTermsModal.

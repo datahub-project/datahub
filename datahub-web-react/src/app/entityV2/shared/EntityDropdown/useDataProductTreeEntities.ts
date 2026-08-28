@@ -6,14 +6,14 @@ import {
     getDataProductChildrenScrollInput,
     getDataProductRootsScrollInput,
 } from '@app/entityV2/shared/EntityDropdown/dataProductTreeUtils';
-import { DataProductEntity } from '@app/marketplace/marketplaceTypes';
+import { DataProductEntity } from '@app/dataProducts/dataProductsTypes';
 
 import {
     ScrollDataProductsDocument,
     ScrollDataProductsQuery,
     ScrollDataProductsQueryVariables,
     useScrollDataProductsQuery,
-} from '@graphql/marketplaceBrowse.generated';
+} from '@graphql/dataProductsBrowse.generated';
 import { DataProduct, EntityType } from '@types';
 
 type UseDataProductTreeEntitiesResult = {
