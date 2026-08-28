@@ -9,6 +9,7 @@ import {
     Container,
     DropdownContainer,
     OptionList,
+    Required,
     SelectBase,
     SelectLabel,
 } from '@components/components/Select/components';
@@ -268,7 +269,11 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
 
     return (
         <Container ref={selectRef} size={size || 'md'} width={props.width || 255} $minWidth={props.minWidth}>
-            {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
+            {label && (
+                <SelectLabel onClick={handleSelectClick}>
+                    {label} {isRequired && <Required>*</Required>}
+                </SelectLabel>
+            )}
             {isVisible && (
                 <Dropdown
                     open={isOpen}
