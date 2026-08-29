@@ -939,7 +939,7 @@ Reference Links:
 
 ### View Entity Queries Privilege Configuration
 
-One-time upgrade step that grants `VIEW_ENTITY_QUERIES` to every existing policy that already grants `VIEW_ENTITY_PAGE`, preserving existing query visibility across the upgrade. See [Query entities](../authorization/policies.md#query-entities).
+One-time upgrade step that grants `VIEW_ENTITY_QUERIES` to every existing policy that already grants `VIEW_ENTITY_PAGE` or `VIEW_DATASET_USAGE`, preserving existing query visibility across the upgrade — the `VIEW_DATASET_USAGE` trigger keeps a usage-only policy's pre-upgrade `topSqlQueries` access from being silently lost. See [Query entities](../authorization/policies.md#query-entities).
 
 | Environment Variable                                               | Default | Description                               | Components    |
 | ------------------------------------------------------------------ | ------- | ----------------------------------------- | ------------- |
