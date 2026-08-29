@@ -87,6 +87,7 @@ public class ValidationExceptionCollection
             || !subTypeHashCodes.get(ValidationSubType.FILTER).contains(hashCode));
   }
 
+  // Message for logs: full per-entity/aspect breakdown, including the submitted aspect payloads.
   @Override
   public String toString() {
     return String.format(
@@ -103,14 +104,30 @@ public class ValidationExceptionCollection
 
   /**
    * The validators' own messages, without the EntityAspect/collection wrapper that toString() adds
-   * for logging. Intended for surfacing to end users (e.g. as a GraphQL/REST error message);
-   * toString() remains unchanged for existing log/diagnostic callers.
+   * for logging. Excludes FILTER-subtype messages, which describe aspects dropped as part of normal
+   * operation rather than user-correctable failures - the same exclusion {@link
+   * #hasFatalExceptions()} makes. May therefore be empty; callers own their fallback.
    */
+  // Message for API/UI users: validator text only, safe to surface verbatim.
   public String getCollectiveMessage() {
+    return collectMessages(false);
+  }
+
+  /**
+   * As {@link #getCollectiveMessage()} but retains FILTER-subtype text, for callers that would
+   * otherwise have nothing to report (a batch can be rejected on a filter alone).
+   */
+  // Message for logs: may carry filter/infrastructure text that users must not see.
+  public String getCollectiveMessageIncludingFiltered() {
+    return collectMessages(true);
+  }
+
+  private String collectMessages(boolean includeFiltered) {
     return entrySet().stream()
         // sort by entity/aspect, matching toString()'s ordering
         .sorted(Comparator.comparing(p -> p.getKey().toString()))
         .flatMap(e -> e.getValue().stream())
+        .filter(e -> includeFiltered || !ValidationSubType.FILTER.equals(e.getSubType()))
         .map(AspectValidationException::getMsg)
         .filter(msg -> msg != null && !msg.isEmpty())
         .collect(Collectors.joining("; "));

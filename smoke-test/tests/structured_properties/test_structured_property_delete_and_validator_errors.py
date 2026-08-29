@@ -1,5 +1,6 @@
 import logging
 from random import randint
+from typing import List
 
 import pytest
 
@@ -14,13 +15,29 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.urn import Urn
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import delete_urn
+from tests.utilities.domains import Domain
+from tests.utils import delete_urns
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 dataset_urn = make_dataset_urn(
     "snowflake", f"validator_error_test_{randint(10, 10000)}"
 )
+
+# Everything this module creates, so cleanup runs even when an assertion aborts a test.
+generated_urns: List[str] = []
+
+
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_generated_urns(graph_client):
+    try:
+        yield
+    finally:
+        logger.info("removing structured property validator test data")
+        delete_urns(graph_client, generated_urns)
+        wait_for_writes_to_sync()
 
 
 def create_property_with_id(
@@ -30,6 +47,8 @@ def create_property_with_id(
     client-side name sanitization) so server-side validators are the only thing standing
     between this call and success."""
     property_urn = f"urn:li:structuredProperty:{property_id}"
+    # Register before emitting: a partially-applied write still needs cleaning up.
+    generated_urns.append(property_urn)
     mcp = MetadataChangeProposalWrapper(
         entityUrn=property_urn,
         aspect=StructuredPropertyDefinitionClass(
@@ -107,6 +126,7 @@ def test_hard_deleted_structured_property_rolls_up_out_of_search(graph_client):
             ]
         ),
     )
+    generated_urns.append(dataset_urn)
     graph_client.emit_mcp(mcp)
     wait_for_writes_to_sync()
 
@@ -114,12 +134,10 @@ def test_hard_deleted_structured_property_rolls_up_out_of_search(graph_client):
     assert facet_before is not None, "property should be aggregatable before delete"
     assert any(agg["value"] == "42.0" for agg in facet_before["aggregations"])
 
-    delete_urn(graph_client, property_urn)
+    delete_urns(graph_client, [property_urn])
     wait_for_writes_to_sync()
 
     facet_after = _numeric_metric_facet(graph_client, property_id)
     assert facet_after is None or not facet_after["aggregations"], (
         f"deleted property still has aggregatable values in search: {facet_after}"
     )
-
-    delete_urn(graph_client, dataset_urn)

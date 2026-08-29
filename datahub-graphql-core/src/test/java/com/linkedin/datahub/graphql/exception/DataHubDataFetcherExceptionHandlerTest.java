@@ -617,4 +617,71 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertTrue(error.getMessage().contains("Not authorized to modify this aspect"));
     assertEquals(error.getExtensions().get("errorSource"), null);
   }
+
+  @Test
+  public void testHandleMetadataValidationExceptionWithoutMessageFallsBack()
+      throws ExecutionException, InterruptedException {
+    // Not every construction path supplies a message (e.g. ValidationApiUtils wraps an
+    // IllegalArgumentException whose getMessage() can be null). GraphQL's `message` is non-null,
+    // and a placeholder must not be marked as real validator text.
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException((String) null);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "An unknown error occurred.");
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), null);
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionWithBlankValidatorMessages()
+      throws ExecutionException, InterruptedException {
+    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
+        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
+            .newCollection();
+    collection.addException(mockBatchItem(), "");
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    // ValidationException.getMessage() falls back to the collection dump for logs/REST, but the
+    // client must never see it: the handler reads the collection's user-facing text, finds none,
+    // and degrades to the generic message without the VALIDATION marker.
+    assertTrue(exception.getMessage().contains("Failed to validate MCP due to:"));
+    assertEquals(error.getMessage(), "An unknown error occurred.");
+    assertFalse(error.getMessage().contains("ValidationExceptionCollection"));
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), null);
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionFilterSubTypeNotSurfaced()
+      throws ExecutionException, InterruptedException {
+    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
+        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
+            .newCollection();
+    collection.addException(
+        com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forFilter(
+            mockBatchItem(), "Dropping write per precondition header If-None-Match: *"));
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    // FILTER text describes an internal drop, not something the user did wrong - it stays in the
+    // logs/REST message and the client degrades to its own default.
+    assertTrue(exception.getMessage().contains("If-None-Match"));
+    assertEquals(error.getMessage(), "An unknown error occurred.");
+    assertEquals(error.getExtensions().get("errorSource"), null);
+  }
 }

@@ -364,4 +364,50 @@ public class ValidationExceptionCollectionTest {
     assertTrue(exceptions.contains(authItem));
     assertFalse(exceptions.contains(successItem));
   }
+
+  @Test
+  public void testGetCollectiveMessageExcludesFilterSubType() {
+    BatchItem validationItem =
+        TestMCP.ofOneMCP(TEST_URN, new Status(), testEntityRegistry).stream().findFirst().get();
+    BatchItem filterItem =
+        TestMCP.ofOneMCP(UrnUtils.getUrn("urn:li:chart:456"), new Status(), testEntityRegistry)
+            .stream()
+            .findFirst()
+            .get();
+
+    collection.addException(AspectValidationException.forItem(validationItem, ERROR_MESSAGE));
+    collection.addException(AspectValidationException.forFilter(filterItem, "filtered out"));
+
+    // FILTER is normal operation (aspect excluded from further processing), not a user-facing
+    // failure - its message must not dilute the real validator error.
+    String result = collection.getCollectiveMessage();
+    assertEquals(result, ERROR_MESSAGE);
+    assertFalse(result.contains("filtered out"));
+
+    // ...but it is still available for callers that would otherwise have nothing to report.
+    assertTrue(collection.getCollectiveMessageIncludingFiltered().contains("filtered out"));
+  }
+
+  @Test
+  public void testGetCollectiveMessageFilterOnly() {
+    BatchItem filterItem =
+        TestMCP.ofOneMCP(TEST_URN, new Status(), testEntityRegistry).stream().findFirst().get();
+
+    collection.addException(AspectValidationException.forFilter(filterItem, "filtered out"));
+
+    assertEquals(collection.getCollectiveMessage(), "");
+    assertEquals(collection.getCollectiveMessageIncludingFiltered(), "filtered out");
+  }
+
+  @Test
+  public void testGetCollectiveMessageEmptyWhenNoUsableMessages() {
+    BatchItem testItem =
+        TestMCP.ofOneMCP(TEST_URN, new Status(), testEntityRegistry).stream().findFirst().get();
+
+    collection.addException(
+        new AspectValidationException(testItem, "", ValidationSubType.VALIDATION, null));
+
+    // Callers that surface this directly are responsible for their own fallback.
+    assertEquals(collection.getCollectiveMessage(), "");
+  }
 }
