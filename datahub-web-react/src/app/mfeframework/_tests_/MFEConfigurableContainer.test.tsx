@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
 import * as navBarHooks from '@app/useShowNavBarRedesign';
-import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 // Mock theme and navbar hooks
 vi.spyOn(navBarHooks, 'useShowNavBarRedesign').mockReturnValue(true);
@@ -72,21 +71,13 @@ describe('MFEBaseConfigurablePage', () => {
         vi.clearAllMocks();
     });
 
-    // The page only mounts the MFE once appConfig has loaded, so tests must render inside a
-    // provider with loaded: true (the bare context default is loaded: false).
-    const renderWithAppConfig = (yaml: any, mfeLoadTimeoutMs?: number) => {
-        const config = {
-            ...DEFAULT_APP_CONFIG,
-            dataHubConfig: { ...DEFAULT_APP_CONFIG.dataHubConfig, mfeLoadTimeoutMs },
-        };
+    const renderPage = (yaml: any, loadTimeoutMs?: number) => {
         render(
-            <AppConfigContext.Provider value={{ config, loaded: true, refreshContext: () => null }}>
-                <MemoryRouter>
-                    <ThemeProvider theme={sampleTheme as any}>
-                        <MFEBaseConfigurablePage config={yaml} />
-                    </ThemeProvider>
-                </MemoryRouter>
-            </AppConfigContext.Provider>,
+            <MemoryRouter>
+                <ThemeProvider theme={sampleTheme as any}>
+                    <MFEBaseConfigurablePage config={yaml} loadTimeoutMs={loadTimeoutMs} />
+                </ThemeProvider>
+            </MemoryRouter>,
         );
     };
 
@@ -111,7 +102,7 @@ describe('MFEBaseConfigurablePage', () => {
         unwrapModuleMock.mockResolvedValue({ mount: mountFn });
 
         await act(async () => {
-            renderWithAppConfig(yaml);
+            renderPage(yaml);
         });
         const container = screen.getByTestId('mfe-configurable-container');
         expect(container).toBeInTheDocument();
@@ -124,7 +115,7 @@ describe('MFEBaseConfigurablePage', () => {
         unwrapModuleMock.mockResolvedValue({ mount: mountFn });
 
         await act(async () => {
-            renderWithAppConfig(yaml);
+            renderPage(yaml);
         });
 
         const container = screen.getByTestId('mfe-configurable-container');
@@ -140,7 +131,7 @@ describe('MFEBaseConfigurablePage', () => {
 
         vi.useFakeTimers();
 
-        renderWithAppConfig(yaml);
+        renderPage(yaml);
 
         // Advance timers to trigger timeout
         act(() => {
@@ -158,7 +149,7 @@ describe('MFEBaseConfigurablePage', () => {
         vi.useRealTimers();
     }, 10000); // Increase test timeout
 
-    it('uses dataHubConfig.mfeLoadTimeoutMs from app config as the remote load timeout', async () => {
+    it('uses the loadTimeoutMs resolved from the MFE config yaml as the remote load timeout', async () => {
         const yaml = validParsedYaml.microFrontends[0];
         // Mock getRemote to never resolve so only the timeout can settle the race
         getRemoteMock.mockImplementation(() => new Promise(() => {}));
@@ -166,7 +157,7 @@ describe('MFEBaseConfigurablePage', () => {
 
         vi.useFakeTimers();
 
-        renderWithAppConfig(yaml, 1000);
+        renderPage(yaml, 1000);
 
         // Just under the configured timeout: no error yet
         await act(async () => {
@@ -188,14 +179,14 @@ describe('MFEBaseConfigurablePage', () => {
         vi.useRealTimers();
     }, 10000);
 
-    it('falls back to a 5000ms load timeout when the server does not provide mfeLoadTimeoutMs', async () => {
+    it('falls back to a 5000ms load timeout when the yaml specifies no loadTimeoutMs', async () => {
         const yaml = validParsedYaml.microFrontends[0];
         getRemoteMock.mockImplementation(() => new Promise(() => {}));
         unwrapModuleMock.mockResolvedValue({});
 
         vi.useFakeTimers();
 
-        renderWithAppConfig(yaml, undefined);
+        renderPage(yaml, undefined);
 
         // Just under the default timeout: no error yet
         await act(async () => {

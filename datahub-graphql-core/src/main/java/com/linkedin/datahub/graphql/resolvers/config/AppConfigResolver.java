@@ -35,7 +35,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final TelemetryConfiguration _telemetryConfiguration;
   private final TestsConfiguration _testsConfiguration;
   private final DataHubConfiguration _datahubConfiguration;
-  private final int _mfeLoadTimeoutMs;
   private final ViewsConfiguration _viewsConfiguration;
   private final SearchBarConfiguration _searchBarConfig;
   private final SearchCardConfiguration _searchCardConfig;
@@ -58,7 +57,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final TelemetryConfiguration telemetryConfiguration,
       final TestsConfiguration testsConfiguration,
       final DataHubConfiguration datahubConfiguration,
-      final int mfeLoadTimeoutMs,
       final ViewsConfiguration viewsConfiguration,
       final SearchBarConfiguration searchBarConfig,
       final SearchCardConfiguration searchCardConfig,
@@ -79,7 +77,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _telemetryConfiguration = telemetryConfiguration;
     _testsConfiguration = testsConfiguration;
     _datahubConfiguration = datahubConfiguration;
-    _mfeLoadTimeoutMs = mfeLoadTimeoutMs;
     _viewsConfiguration = viewsConfiguration;
     _searchBarConfig = searchBarConfig;
     _searchCardConfig = searchCardConfig;
@@ -214,10 +211,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final TestsConfig testsConfig = new TestsConfig();
     testsConfig.setEnabled(_testsConfiguration.isEnabled());
     appConfig.setTestsConfig(testsConfig);
-
-    final DataHubConfig dataHubConfig = new DataHubConfig();
-    dataHubConfig.setMfeLoadTimeoutMs(_mfeLoadTimeoutMs);
-    appConfig.setDataHubConfig(dataHubConfig);
 
     final ViewsConfig viewsConfig = new ViewsConfig();
     viewsConfig.setEnabled(_viewsConfiguration.isEnabled());

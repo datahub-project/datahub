@@ -61,6 +61,8 @@ function mockReactRouter() {
 
 function mockMFEBasePage() {
     vi.doMock('@app/mfeframework/MFEConfigurableContainer', () => ({
+        // The loader imports this constant too, so the mock must provide it.
+        DEFAULT_LOAD_TIMEOUT_MS: 5000,
         MFEBaseConfigurablePage: ({ config }: { config: any }) => <div>MFE: {config.module}</div>,
     }));
 }
@@ -208,6 +210,38 @@ describe('mfeConfigLoader', () => {
         consoleErrorSpy.mockRestore();
     });
 
+    it('loadMFEConfigFromYAML keeps valid loadTimeoutMs at the top level and per MFE', async () => {
+        mockYamlLoad({
+            subNavigationMode: false,
+            loadTimeoutMs: 8000,
+            microFrontends: [{ ...validParsedYaml.microFrontends[0], loadTimeoutMs: 20000 }],
+        });
+        const { loadMFEConfigFromYAML } = await import('../mfeConfigLoader');
+        const result = loadMFEConfigFromYAML('irrelevant');
+        expect(result.loadTimeoutMs).toBe(8000);
+        expect(result.microFrontends[0].loadTimeoutMs).toBe(20000);
+    });
+
+    it('loadMFEConfigFromYAML ignores an invalid loadTimeoutMs without dropping the MFE', async () => {
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        mockYamlLoad({
+            subNavigationMode: false,
+            loadTimeoutMs: 'soon',
+            microFrontends: [{ ...validParsedYaml.microFrontends[0], loadTimeoutMs: -1 }],
+        });
+        const { loadMFEConfigFromYAML } = await import('../mfeConfigLoader');
+        const result = loadMFEConfigFromYAML('irrelevant');
+        // The entry survives so a bad timeout can never take an MFE offline; both fall back.
+        expect(result.microFrontends).toHaveLength(1);
+        expect(result.microFrontends[0].loadTimeoutMs).toBeUndefined();
+        expect(result.loadTimeoutMs).toBeUndefined();
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Ignoring invalid loadTimeoutMs'),
+            expect.anything(),
+        );
+        consoleErrorSpy.mockRestore();
+    });
+
     it('loadMFEConfigFromYAML throws if microFrontends is missing', async () => {
         mockYamlLoad({});
         const { loadMFEConfigFromYAML } = await import('../mfeConfigLoader');
@@ -320,6 +354,37 @@ describe('mfeConfigLoader', () => {
         });
         expect(result.current[0].props.path).toBe('/mfe/example-mfe-item');
         expect(result.current[1].props.path).toBe('/mfe/myapp-mfe');
+    });
+
+    it('useDynamicRoutes resolves loadTimeoutMs per MFE, then top level, then the default', async () => {
+        mockFetchYaml('irrelevant');
+        mockYamlLoad({
+            subNavigationMode: false,
+            loadTimeoutMs: 8000,
+            microFrontends: [
+                { ...validParsedYaml.microFrontends[0], loadTimeoutMs: 20000 },
+                validParsedYaml.microFrontends[1],
+            ],
+        });
+        const { useDynamicRoutes } = await import('../mfeConfigLoader');
+        const { result } = renderHook(() => useDynamicRoutes());
+        await waitFor(() => {
+            expect(result.current).toHaveLength(2);
+        });
+        // First MFE has its own override; the second inherits the top-level default.
+        expect(result.current[0].props.render().props.loadTimeoutMs).toBe(20000);
+        expect(result.current[1].props.render().props.loadTimeoutMs).toBe(8000);
+    });
+
+    it('useDynamicRoutes falls back to the 5000ms default when the yaml sets no timeout', async () => {
+        mockFetchYaml('irrelevant');
+        mockYamlLoad(validParsedYaml);
+        const { useDynamicRoutes } = await import('../mfeConfigLoader');
+        const { result } = renderHook(() => useDynamicRoutes());
+        await waitFor(() => {
+            expect(result.current).toHaveLength(2);
+        });
+        expect(result.current[0].props.render().props.loadTimeoutMs).toBe(5000);
     });
 
     it('MFERoutes renders the dynamic routes', async () => {

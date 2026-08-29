@@ -10,11 +10,10 @@ import {
 
 import { ErrorComponent } from '@app/mfeframework/ErrorComponent';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
-import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
-// Fallback when the server doesn't provide dataHubConfig.mfeLoadTimeoutMs (MFE_LOAD_TIMEOUT_MS on GMS).
-const DEFAULT_LOAD_TIMEOUT_MS = 5000;
+// Used when the MFE config yaml specifies no loadTimeoutMs, at either the top level or per-MFE.
+export const DEFAULT_LOAD_TIMEOUT_MS = 5000;
 
 const MFEConfigurableContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
@@ -165,22 +164,24 @@ async function mountMFE({
     }
 }
 
-export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
+interface MFEBaseConfigurablePageProps {
+    config: MFEConfig;
+    // Already resolved from the yaml by useDynamicRoutes (per-MFE override, then top-level default).
+    loadTimeoutMs?: number;
+}
+
+export const MFEBaseConfigurablePage = ({
+    config,
+    loadTimeoutMs = DEFAULT_LOAD_TIMEOUT_MS,
+}: MFEBaseConfigurablePageProps) => {
     const { t } = useTranslation('misc');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const box = useRef<HTMLDivElement>(null);
     const history = useHistory();
     const [hasError, setHasError] = useState(false);
     const aliveRef = useRef(true);
-    const appConfig = useAppConfig();
-    const appConfigLoaded = appConfig.loaded;
-    const loadTimeoutMs = appConfig.config.dataHubConfig?.mfeLoadTimeoutMs ?? DEFAULT_LOAD_TIMEOUT_MS;
 
     useEffect(() => {
-        // Wait for appConfig before mounting: mounting with the fallback timeout and remounting
-        // when the server value arrives would leave the first mount's stale timeout racing the
-        // second mount (shared aliveRef), flipping the page to the error state spuriously.
-        if (!appConfigLoaded) return undefined;
         aliveRef.current = true;
         let cleanup: (() => void) | undefined;
 
@@ -208,7 +209,7 @@ export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
                 }
             }
         };
-    }, [config, history, loadTimeoutMs, appConfigLoaded]);
+    }, [config, history, loadTimeoutMs]);
 
     if (hasError) {
         return <ErrorComponent message={t('mfeframework.notAvailableError', { label: config.label })} />;
