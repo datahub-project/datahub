@@ -146,9 +146,11 @@ public final class TimeseriesAuthUtil {
   }
 
   /**
-   * Rest.li {@code getTimeseriesStats}: per-URN {@link #canReadAspect} when the filter names URNs;
-   * mapped sensitive aspects without a URN scope are denied; otherwise TIMESERIES READ by entity
-   * type.
+   * Rest.li {@code getTimeseriesStats}. Mapped sensitive aspects require every OR/AND disjunct to
+   * contain a positive {@code urn} EQUAL clause; authorization is then per extracted URN. Unscoped
+   * or partially scoped sensitive aggregations are denied. Unmapped aspects use TIMESERIES READ by
+   * entity type unless the filter is fully URN-scoped, in which case each URN is checked with
+   * {@link #canReadAspect}.
    */
   public static boolean canReadAggregatedStats(
       @Nonnull OperationContext opContext,
@@ -158,14 +160,36 @@ public final class TimeseriesAuthUtil {
     if (opContext.isSystemAuth()) {
       return true;
     }
-    List<Urn> urns = extractUrnsFromFilter(filter);
-    if (!urns.isEmpty()) {
-      return canReadAspects(opContext, urns, entityName, aspectName);
-    }
-    if (isSensitiveMappedAspect(entityName, aspectName)) {
+    boolean fullyUrnScoped = isFilterFullyUrnScoped(filter);
+    if (isSensitiveMappedAspect(entityName, aspectName) && !fullyUrnScoped) {
       return false;
     }
+    if (fullyUrnScoped) {
+      return canReadAspects(opContext, extractUrnsFromFilter(filter), entityName, aspectName);
+    }
     return AuthUtil.isAPIAuthorizedEntityType(opContext, TIMESERIES, READ, entityName);
+  }
+
+  /**
+   * True when every conjunctive group in the filter has a non-negated {@code urn} EQUAL criterion
+   * with at least one value. Mixed OR branches (one URN-scoped, one not) return false.
+   */
+  public static boolean isFilterFullyUrnScoped(@Nullable Filter filter) {
+    if (filter == null) {
+      return false;
+    }
+    if (filter.hasOr()) {
+      if (filter.getOr().isEmpty()) {
+        return false;
+      }
+      for (ConjunctiveCriterion andGroup : filter.getOr()) {
+        if (!hasPositiveUrnEqual(andGroup != null ? andGroup.getAnd() : null)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return hasPositiveUrnEqual(filter.hasCriteria() ? filter.getCriteria() : null);
   }
 
   /**
@@ -199,6 +223,28 @@ public final class TimeseriesAuthUtil {
 
   private static boolean matchesEntity(@Nonnull Urn urn, @Nullable String entityName) {
     return StringUtils.isNotBlank(entityName) && entityName.equals(urn.getEntityType());
+  }
+
+  private static boolean hasPositiveUrnEqual(@Nullable Iterable<Criterion> criteria) {
+    if (criteria == null) {
+      return false;
+    }
+    for (Criterion criterion : criteria) {
+      if (criterion.isNegated()
+          || !URN_FIELD.equals(criterion.getField())
+          || (criterion.hasCondition()
+              && criterion.getCondition() != com.linkedin.metadata.query.filter.Condition.EQUAL)) {
+        continue;
+      }
+      List<String> values =
+          criterion.getValues() != null ? criterion.getValues() : Collections.emptyList();
+      for (String value : values) {
+        if (StringUtils.isNotBlank(value)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private static void collectUrnsFromCriteria(

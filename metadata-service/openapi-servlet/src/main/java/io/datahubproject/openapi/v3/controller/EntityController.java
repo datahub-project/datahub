@@ -723,7 +723,6 @@ public class EntityController
 
                 return GenericEntityV3.builder().build(objectMapper, u, aspectItemMap);
               })
-          .filter(entity -> entity.getAspects() != null && !entity.getAspects().isEmpty())
           .collect(Collectors.toList());
     } else if (!expandEmpty) {
       return requestedUrns.stream()

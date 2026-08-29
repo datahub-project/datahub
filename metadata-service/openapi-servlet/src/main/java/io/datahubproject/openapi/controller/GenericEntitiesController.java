@@ -482,13 +482,11 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (isTimeseriesAspect(urn, aspectName)) {
-      denyUnauthorizedTimeseriesAspect(opContext, authentication, urn, entityName, aspectName);
-    } else if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
-        opContext, EXISTS, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
     }
+    denyUnauthorizedTimeseriesAspect(opContext, authentication, urn, entityName, aspectName);
 
     return lookupAspectSpec(urn, aspectName)
         .filter(aspectSpec -> exists(opContext, urn, aspectSpec.getName(), includeSoftDelete))

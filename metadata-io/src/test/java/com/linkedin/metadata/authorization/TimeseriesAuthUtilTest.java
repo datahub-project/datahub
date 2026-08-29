@@ -262,6 +262,50 @@ public class TimeseriesAuthUtilTest {
   }
 
   @Test
+  public void testCanReadAggregatedStatsMixedOrDenied() {
+    entityAuthMock
+        .when(() -> EntityAuthorizationUtils.canViewEntity(opContext, DATASET_URN))
+        .thenReturn(true);
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    eq(opContext), eq(TIMESERIES), eq(READ), eq(List.of(DATASET_URN))))
+        .thenReturn(true);
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(opContext),
+                    eq(PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE),
+                    any(EntitySpec.class)))
+        .thenReturn(true);
+
+    Criterion urnCriterion = new Criterion();
+    urnCriterion.setField("urn");
+    urnCriterion.setCondition(Condition.EQUAL);
+    urnCriterion.setValues(new com.linkedin.data.template.StringArray(DATASET_URN.toString()));
+    ConjunctiveCriterion urnGroup = new ConjunctiveCriterion();
+    urnGroup.setAnd(new CriterionArray(urnCriterion));
+
+    Criterion otherCriterion = new Criterion();
+    otherCriterion.setField("eventGranularity");
+    otherCriterion.setCondition(Condition.EQUAL);
+    otherCriterion.setValues(new com.linkedin.data.template.StringArray("DAY"));
+    ConjunctiveCriterion otherGroup = new ConjunctiveCriterion();
+    otherGroup.setAnd(new CriterionArray(otherCriterion));
+
+    Filter mixed = new Filter();
+    mixed.setOr(new ConjunctiveCriterionArray(urnGroup, otherGroup));
+
+    assertFalse(TimeseriesAuthUtil.isFilterFullyUrnScoped(mixed));
+    assertEquals(TimeseriesAuthUtil.extractUrnsFromFilter(mixed), List.of(DATASET_URN));
+    assertFalse(
+        TimeseriesAuthUtil.canReadAggregatedStats(
+            opContext, DATASET_ENTITY_NAME, DATASET_PROFILE_ASPECT_NAME, mixed));
+  }
+
+  @Test
   public void testOmitUnauthorizedTimeseriesAspects() {
     entityAuthMock
         .when(() -> EntityAuthorizationUtils.canViewEntity(opContext, DATASET_URN))

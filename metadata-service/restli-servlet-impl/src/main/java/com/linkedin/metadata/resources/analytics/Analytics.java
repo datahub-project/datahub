@@ -3,6 +3,7 @@ package com.linkedin.metadata.resources.analytics;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.analytics.GetTimeseriesAggregatedStatsResponse;
 import com.linkedin.metadata.query.filter.Filter;
@@ -54,6 +55,21 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
     @Inject
     @Named("systemOperationContext")
     private OperationContext systemOperationContext;
+
+  @VisibleForTesting
+  void setTimeseriesAspectService(TimeseriesAspectService timeseriesAspectService) {
+    this.timeseriesAspectService = timeseriesAspectService;
+  }
+
+  @VisibleForTesting
+  void setAuthorizer(Authorizer authorizer) {
+    this.authorizer = authorizer;
+  }
+
+  @VisibleForTesting
+  void setSystemOperationContext(OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+  }
 
   @Action(name = ACTION_GET_TIMESERIES_STATS)
   @Nonnull
