@@ -716,7 +716,9 @@ public class ListQueriesResolverTest {
             invocation -> {
               AuthorizationRequest request = invocation.getArgument(0);
               boolean allowed =
-                  PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE.getType().equals(request.getPrivilege());
+                  PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE
+                      .getType()
+                      .equals(request.getPrivilege());
               return new AuthorizationResult(
                   request,
                   allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,

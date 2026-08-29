@@ -812,8 +812,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
    * rather than rejecting the whole page — the bug this test guards against would have thrown 403
    * for the entire request merely because one of the two queries was denied.
    *
-   * <p>Was flaky under the full module suite (never in isolation): {@code getEntities} first runs
-   * a type-level check ({@code EntityAuthorizationUtils.isAPIAuthorizedSearchEntityTypes}) before
+   * <p>Was flaky under the full module suite (never in isolation): {@code getEntities} first runs a
+   * type-level check ({@code EntityAuthorizationUtils.isAPIAuthorizedSearchEntityTypes}) before
    * ever reaching the per-query filtering this test targets, and that check is gated by {@code
    * AuthUtil.isRestApiAuthorizationEnabled} — a {@code private static} field read directly (not
    * through the mockable getter), set by {@code @PostConstruct} on whichever Spring context most
