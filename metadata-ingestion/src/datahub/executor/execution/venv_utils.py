@@ -8,6 +8,8 @@ performing any actual venv creation or management.
 import hashlib
 from typing import Union
 
+from packaging.requirements import InvalidRequirement, Requirement
+
 # Version constants
 VENV_VERSION_LATEST = "latest"
 VENV_VERSION_BUNDLED = "bundled"
@@ -22,6 +24,36 @@ def is_bundled_version(version: str) -> bool:
 def should_use_bundled_venv(version: str) -> bool:
     """Determine if bundled venv should be used based on version."""
     return is_bundled_version(version)
+
+
+def is_moving_requirement(requirement: str) -> bool:
+    """Whether this requirement can resolve to a different build over time.
+
+    A venv is cached under a hash of the requirement *strings*, so a requirement whose text is
+    stable but whose resolution is not -- ``acryl-datahub-cloud-docs==2.1.*``, ``>=1.2``, or a
+    bare package name -- would keep the first venv forever and never see a newer release. The
+    caller resolves these to concrete versions before naming the venv; everything else is already
+    pinned and needs no lookup.
+
+    Direct references (``pkg @ file:///path``, ``pkg @ https://...``) count as pinned: they name
+    exactly one artifact, and re-resolving them would cost a network round trip to learn nothing.
+    """
+    try:
+        parsed = Requirement(requirement)
+    except InvalidRequirement:
+        # Not something we can reason about (a bare path, an option line). Treat it as pinned
+        # rather than resolving it on every run -- the previous behaviour, unchanged.
+        return False
+
+    if parsed.url:
+        return False
+
+    specs = list(parsed.specifier)
+    if len(specs) != 1:
+        # No specifier at all, or a compound range. Either way the resolution can move.
+        return True
+    only = specs[0]
+    return only.operator not in ("==", "===") or "*" in only.version
 
 
 def get_venv_name(

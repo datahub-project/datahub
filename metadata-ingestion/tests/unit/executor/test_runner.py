@@ -23,6 +23,7 @@ from datahub.executor.execution.runner import (
     _bundled_constraints_path,
     _expand_pip_req,
     _validate_wheel_url,
+    resolve_moving_pins,
     setup_venv,
     validate_dependency_resolution_enabled,
 )
@@ -1405,3 +1406,71 @@ def test_get_stable_venv_name_stable_when_env_var_unchanged(
         ],
     )
     assert config.get_stable_venv_name() == config.get_stable_venv_name()
+
+
+class TestResolvedPinsInVenvCacheKey:
+    """The venv cache key must follow what a requirement resolves to, not how it was written.
+
+    Regression cover for a silent failure: a source pinned to `pkg==2.1.*` kept its first venv
+    forever. Publishing a new release changed nothing -- same requirement string, same hash, same
+    venv, index never re-consulted -- so the source quietly stopped updating while every run
+    reported success.
+    """
+
+    def _config(self):
+        return VenvConfig(
+            version="1.7.0.6",
+            main_plugin="datahub-cloud-docs",
+            extra_pip_requirements=["acryl-datahub-cloud-docs==2.1.*"],
+        )
+
+    def test_a_new_resolution_changes_the_venv_name(self):
+        config = self._config()
+        older = config.get_stable_venv_name(
+            resolved_pins=["acryl-datahub-cloud-docs==2.1.0.1"]
+        )
+        newer = config.get_stable_venv_name(
+            resolved_pins=["acryl-datahub-cloud-docs==2.1.0.2"]
+        )
+        assert older is not None and newer is not None
+        assert older != newer, "a newly published release must force a fresh venv"
+
+    def test_an_unchanged_resolution_reuses_the_venv(self):
+        config = self._config()
+        pins = ["acryl-datahub-cloud-docs==2.1.0.2"]
+        assert config.get_stable_venv_name(
+            resolved_pins=pins
+        ) == config.get_stable_venv_name(resolved_pins=pins)
+
+    def test_no_pins_is_distinguishable_from_pins(self):
+        # Resolution failing (offline index) must not collide with a successful resolution, or an
+        # outage would quietly adopt some other run's venv.
+        config = self._config()
+        assert config.get_stable_venv_name() != config.get_stable_venv_name(
+            resolved_pins=["acryl-datahub-cloud-docs==2.1.0.2"]
+        )
+
+
+class TestResolveMovingPins:
+    @pytest.mark.asyncio
+    async def test_nothing_moving_means_no_resolution(self):
+        # Exact pins, paths and URLs cannot move, so they must not cost a resolve on every run
+        # for every source. An empty result here is what keeps that path free.
+        pins = await resolve_moving_pins(
+            [
+                "acryl-datahub-cloud-docs==2.1.0.2",
+                "acryl-datahub-cloud@/metadata-ingestion-modules/acryl-cloud",
+            ],
+            {},
+        )
+        assert pins == []
+
+    @pytest.mark.asyncio
+    async def test_a_failed_resolution_degrades_to_no_pins(self, monkeypatch):
+        # An unreachable index must leave the venv name unchanged so a warm venv is reused: the
+        # failure mode is "dependencies are stale", never "ingestion is down".
+        async def boom(*args, **kwargs):
+            raise OSError("index unreachable")
+
+        monkeypatch.setattr("datahub.executor.execution.runner.anyio.run_process", boom)
+        assert await resolve_moving_pins(["pkg>=1.0"], {}) == []

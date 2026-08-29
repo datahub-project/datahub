@@ -174,3 +174,42 @@ class TestVenvUtilsIntegration:
         # Get venv path
         venv_path = venv_utils.get_venv_path(venv_name, "/tmp/dynamic")
         assert venv_path == f"/tmp/dynamic/venv-{venv_name}"
+
+
+class TestIsMovingRequirement:
+    """A requirement is "moving" when its text is stable but its resolution is not.
+
+    This is the distinction the venv cache turns on: the cache key is a hash of the requirement
+    strings, so a requirement like `pkg==2.1.*` hashes identically forever. Without resolving it
+    first, the venv built on the first run is reused on every later run, the index is never
+    consulted again, and a newly published release is silently never installed.
+    """
+
+    def test_a_range_can_move(self):
+        assert venv_utils.is_moving_requirement("acryl-datahub-cloud-docs==2.1.*")
+        assert venv_utils.is_moving_requirement("pkg>=1.2")
+        assert venv_utils.is_moving_requirement("pkg~=1.2")
+        assert venv_utils.is_moving_requirement("pkg>=1.0,<2.0")
+
+    def test_an_unpinned_name_can_move(self):
+        assert venv_utils.is_moving_requirement("acryl-datahub-integrations")
+        assert venv_utils.is_moving_requirement("pkg[extra]")
+
+    def test_an_exact_pin_cannot_move(self):
+        assert not venv_utils.is_moving_requirement("acryl-datahub-cloud-docs==2.1.0.2")
+        assert not venv_utils.is_moving_requirement("acryl-datahub[snowflake]==1.7.0.6")
+
+    def test_a_direct_reference_cannot_move(self):
+        # One named artifact. Re-resolving these would cost a round trip to learn nothing.
+        assert not venv_utils.is_moving_requirement(
+            "pkg @ https://example.invalid/pkg.whl"
+        )
+        assert not venv_utils.is_moving_requirement(
+            "acryl-datahub-cloud@/metadata-ingestion-modules/acryl-cloud"
+        )
+
+    def test_an_unparseable_line_is_left_alone(self):
+        # Better to keep the previous behaviour than to resolve something we cannot reason about.
+        assert not venv_utils.is_moving_requirement(
+            "--extra-index-url https://example.invalid"
+        )

@@ -31,6 +31,7 @@ from datahub.executor.common.env_config import (
     get_bundled_venv_path,
     get_dependency_resolution_enabled,
 )
+from datahub.executor.execution.venv_utils import is_moving_requirement
 
 
 def _expand_pip_req(req: str) -> str:
@@ -230,7 +231,9 @@ class VenvConfig(pydantic.BaseModel):
         return [_expand_pip_req(r) for r in self.extra_pip_requirements]
 
     def get_stable_venv_name(
-        self, expanded_pip_reqs: Union[list[str], None] = None
+        self,
+        expanded_pip_reqs: Union[list[str], None] = None,
+        resolved_pins: Union[list[str], None] = None,
     ) -> Union[str, None]:
         if self.requirements_file is not None:
             suffix = hashlib.sha256()
@@ -263,6 +266,11 @@ class VenvConfig(pydantic.BaseModel):
         )
         suffix.update(str(reqs_for_hash).encode("utf-8"))
         suffix.update(str(self.extra_pip_plugins).encode("utf-8"))
+        # Concrete versions for any requirement whose text is stable but whose resolution is not.
+        # Without these, `pkg==2.1.*` hashes identically forever: the first venv is reused on
+        # every subsequent run, the index is never consulted again, and a newly published release
+        # is silently never installed. Nothing looks broken -- the source just stops updating.
+        suffix.update(str(resolved_pins or []).encode("utf-8"))
 
         return f"{self.main_plugin}-{suffix.digest().hex()[:16]}"
 
@@ -441,6 +449,48 @@ class SubprocessRunner:
 
 # I had to change this from the base file because we needed to introduce
 # support for handling bundled venvs.
+async def resolve_moving_pins(
+    expanded_pip_reqs: list[str],
+    extra_env_vars: dict[str, str],
+) -> list[str]:
+    """Resolve requirements that can move to the concrete versions available right now.
+
+    Only the moving ones are resolved, and with ``--no-deps``: this is a fingerprint for the venv
+    cache key, not an install plan. Resolving a superset would cost a full dependency solve on
+    every run for every source, and resolving a subset only risks an extra venv rebuild, which is
+    the harmless direction.
+
+    Best effort by design. If the index is unreachable this returns nothing, the venv keeps the
+    name it had, and a warm venv is reused -- so a registry outage leaves an ingestion source
+    running on slightly stale dependencies rather than failing it outright.
+    """
+    moving = [req for req in expanded_pip_reqs if is_moving_requirement(req)]
+    if not moving:
+        return []
+
+    try:
+        result = await anyio.run_process(
+            [_find_uv(), "pip", "compile", "--no-deps", "--refresh", "--quiet", "-"],
+            input="\n".join(moving).encode("utf-8"),
+            env={**os.environ, **extra_env_vars},
+            check=True,
+        )
+    except Exception as e:
+        logger.warning(
+            f"Could not resolve {len(moving)} moving requirement(s) for the venv cache key; "
+            f"reusing any existing venv. A newer release will not be picked up until this "
+            f"succeeds. Cause: {e}"
+        )
+        return []
+
+    pins = [
+        line.strip()
+        for line in result.stdout.decode("utf-8", errors="replace").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    return sorted(pins)
+
+
 async def setup_venv(
     venv_config: VenvConfig,
     runner: SubprocessRunner,
@@ -506,9 +556,21 @@ async def setup_venv(
     # requirements file see the same os.environ snapshot.
     expanded_pip_reqs = venv_config.resolve_pip_requirements()
 
+    # Resolve before naming, because the name decides whether the venv below is reused. A range
+    # pin resolves to a concrete version here, so publishing a new release changes the name and
+    # forces a rebuild; naming first would answer "does this venv exist?" from a string that can
+    # never change.
+    resolved_pins = await resolve_moving_pins(
+        expanded_pip_reqs, venv_config.extra_env_vars
+    )
+    if resolved_pins:
+        runner._logs.append(
+            f"Resolved moving requirements: {', '.join(resolved_pins)}\n"
+        )
+
     # Versions that are "moving targets" get random names, everything else gets a stable name
     venv_name_candidate = venv_config.get_stable_venv_name(
-        expanded_pip_reqs=expanded_pip_reqs
+        expanded_pip_reqs=expanded_pip_reqs, resolved_pins=resolved_pins
     )
     if venv_name_candidate is None:
         venv_name = f"eph-{hashlib.sha256(os.urandom(32)).hexdigest()[:16]}"
