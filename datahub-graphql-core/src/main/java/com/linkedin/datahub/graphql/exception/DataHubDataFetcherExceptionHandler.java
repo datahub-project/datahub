@@ -20,9 +20,9 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
   private static final String ERROR_SOURCE_VALIDATION = "VALIDATION";
 
   /**
-   * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → {@link
-   * ValidationException} → {@link IllegalArgumentException} → {@link
-   * DatabaseTransactionConflictException} → {@link IllegalStateException} → {@link
+   * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → metadata-io's
+   * {@code ValidationException} → {@link ValidationException} → {@link IllegalArgumentException} →
+   * {@link DatabaseTransactionConflictException} → {@link IllegalStateException} → {@link
    * RuntimeException} → fallback. Conflict must stay above {@code RuntimeException} because {@code
    * DatabaseTransactionConflictException} extends {@code RetryLimitReached} (a RuntimeException).
    */
@@ -44,21 +44,11 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
           sourceLocation);
     }
 
-    ValidationException validationException =
-        findFirstThrowableCauseOfClass(exception, ValidationException.class);
-    if (validationException != null) {
-      log.error("Failed to execute", validationException);
-      // errorSource=VALIDATION tells the client this BAD_REQUEST's message is the real
-      // validator text, safe to surface verbatim (see handleGraphQLError.ts).
-      return completedResult(
-          extractErrorMessage(validationException),
-          DataHubGraphQLErrorCode.BAD_REQUEST,
-          path,
-          sourceLocation,
-          ERROR_SOURCE_VALIDATION);
-    }
-
-    // Distinct from the graphql-layer ValidationException above: this is metadata-io's
+    // Matched BEFORE the graphql-layer ValidationException below: IngestProposalExceptionUtils
+    // wraps this exception inside that one (data-product / logical-parent batch paths), and
+    // that branch's cause walk would otherwise drag this exception's logs/REST message -
+    // FILTER text, or the collection-dump fallback - into a VALIDATION-marked toast.
+    // Distinct from the graphql-layer ValidationException: this is metadata-io's
     // validator-rejection exception (thrown by AspectsBatchImpl/EntityServiceImpl when an
     // AspectPayloadValidator rejects a proposal). It carries the validator text on its
     // collection, so no need to walk the cause chain - just classify it as BAD_REQUEST instead
@@ -107,6 +97,23 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
           path,
           sourceLocation,
           hasValidatorMessage ? ERROR_SOURCE_VALIDATION : null);
+    }
+
+    ValidationException validationException =
+        findFirstThrowableCauseOfClass(exception, ValidationException.class);
+    if (validationException != null) {
+      log.error("Failed to execute", validationException);
+      // errorSource=VALIDATION tells the client this BAD_REQUEST's message is the real
+      // validator text, safe to surface verbatim (see handleGraphQLError.ts). The cause walk
+      // is deliberate here - callers throw a generic wrapper message with the detail on the
+      // cause. A wrapped metadata-io ValidationException never reaches this branch: it is
+      // matched above, so its logs/REST message cannot be walked into this one.
+      return completedResult(
+          extractErrorMessage(validationException),
+          DataHubGraphQLErrorCode.BAD_REQUEST,
+          path,
+          sourceLocation,
+          ERROR_SOURCE_VALIDATION);
     }
 
     IllegalArgumentException illException =

@@ -684,4 +684,34 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertEquals(error.getMessage(), "An unknown error occurred.");
     assertEquals(error.getExtensions().get("errorSource"), null);
   }
+
+  @Test
+  public void testWrappedMetadataValidationExceptionDoesNotLeakLogsMessage()
+      throws ExecutionException, InterruptedException {
+    // IngestProposalExceptionUtils (data-product / logical-parent batch paths) wraps metadata-io's
+    // ValidationException inside the graphql-layer one. The graphql branch walks causes, so if it
+    // matched first it would splice this cause's logs/REST message - FILTER text, or the
+    // collection-dump fallback - into a VALIDATION-marked toast. The metadata branch is ordered
+    // above it precisely so the collection's user-facing text is used instead.
+    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
+        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
+            .newCollection();
+    collection.addException(mockBatchItem(), "At least one rule is required.");
+    collection.addException(
+        com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forFilter(
+            mockBatchItem(), "Dropping write per precondition header If-None-Match: *"));
+    com.linkedin.metadata.entity.validation.ValidationException cause =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    ValidationException wrapper = new ValidationException("Failed to ingest proposal", cause);
+    Mockito.when(mockParameters.getException()).thenReturn(wrapper);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "At least one rule is required.");
+    assertFalse(error.getMessage().contains("If-None-Match"));
+    assertFalse(error.getMessage().contains("ValidationExceptionCollection"));
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), "VALIDATION");
+  }
 }
