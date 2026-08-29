@@ -13,7 +13,7 @@ import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 // Used when the MFE config yaml specifies no loadTimeoutMs, at either the top level or per-MFE.
-export const DEFAULT_LOAD_TIMEOUT_MS = 5000;
+export const DEFAULT_LOAD_TIMEOUT_MS = 10000;
 
 const MFEConfigurableContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};

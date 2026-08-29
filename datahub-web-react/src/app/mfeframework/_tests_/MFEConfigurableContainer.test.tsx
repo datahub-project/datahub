@@ -135,7 +135,7 @@ describe('MFEBaseConfigurablePage', () => {
 
         // Advance timers to trigger timeout
         act(() => {
-            vi.advanceTimersByTime(5000);
+            vi.advanceTimersByTime(10000);
         });
 
         // Wait for the error message to appear with a timeout
@@ -165,7 +165,7 @@ describe('MFEBaseConfigurablePage', () => {
         });
         expect(screen.queryByText(`${yaml.label} is not available at this time`)).toBeNull();
 
-        // Crossing the configured timeout triggers the error state well before the 5000ms default
+        // Crossing the configured timeout triggers the error state well before the 10000ms default
         act(() => {
             vi.advanceTimersByTime(1);
         });
@@ -179,7 +179,7 @@ describe('MFEBaseConfigurablePage', () => {
         vi.useRealTimers();
     }, 10000);
 
-    it('falls back to a 5000ms load timeout when the yaml specifies no loadTimeoutMs', async () => {
+    it('falls back to a 10000ms load timeout when the yaml specifies no loadTimeoutMs', async () => {
         const yaml = validParsedYaml.microFrontends[0];
         getRemoteMock.mockImplementation(() => new Promise(() => {}));
         unwrapModuleMock.mockResolvedValue({});
@@ -190,7 +190,7 @@ describe('MFEBaseConfigurablePage', () => {
 
         // Just under the default timeout: no error yet
         await act(async () => {
-            vi.advanceTimersByTime(4999);
+            vi.advanceTimersByTime(9999);
         });
         expect(screen.queryByText(`${yaml.label} is not available at this time`)).toBeNull();
 

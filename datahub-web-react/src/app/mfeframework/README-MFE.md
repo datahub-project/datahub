@@ -55,7 +55,7 @@ To ensure compatibility between the DataHub MFE configuration above and your act
 ### Tuning the Remote Load Timeout
 
 DataHub waits a fixed amount of time for an MFE's remote module to load before giving up and
-rendering the "not available at this time" error state. The default is **5000 ms**, which can be
+rendering the "not available at this time" error state. The default is **10000 ms**, which can be
 too short for a large bundle or a slow network.
 
 Set `loadTimeoutMs` (in milliseconds) at the top level to change the default for every MFE, and/or
@@ -78,7 +78,7 @@ microFrontends:
       navIcon: HandWaving
 ```
 
-Resolution order is per-MFE `loadTimeoutMs`, then top-level `loadTimeoutMs`, then 5000 ms. Both
+Resolution order is per-MFE `loadTimeoutMs`, then top-level `loadTimeoutMs`, then 10000 ms. Both
 fields are optional, so existing configs keep the previous behavior unchanged. A value that is not
 a positive number is logged and ignored — it falls through to the next level rather than taking the
 MFE offline.

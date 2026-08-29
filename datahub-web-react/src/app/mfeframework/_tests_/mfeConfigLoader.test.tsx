@@ -62,7 +62,7 @@ function mockReactRouter() {
 function mockMFEBasePage() {
     vi.doMock('@app/mfeframework/MFEConfigurableContainer', () => ({
         // The loader imports this constant too, so the mock must provide it.
-        DEFAULT_LOAD_TIMEOUT_MS: 5000,
+        DEFAULT_LOAD_TIMEOUT_MS: 10000,
         MFEBaseConfigurablePage: ({ config }: { config: any }) => <div>MFE: {config.module}</div>,
     }));
 }
@@ -376,7 +376,7 @@ describe('mfeConfigLoader', () => {
         expect(result.current[1].props.render().props.loadTimeoutMs).toBe(8000);
     });
 
-    it('useDynamicRoutes falls back to the 5000ms default when the yaml sets no timeout', async () => {
+    it('useDynamicRoutes falls back to the 10000ms default when the yaml sets no timeout', async () => {
         mockFetchYaml('irrelevant');
         mockYamlLoad(validParsedYaml);
         const { useDynamicRoutes } = await import('../mfeConfigLoader');
@@ -384,7 +384,7 @@ describe('mfeConfigLoader', () => {
         await waitFor(() => {
             expect(result.current).toHaveLength(2);
         });
-        expect(result.current[0].props.render().props.loadTimeoutMs).toBe(5000);
+        expect(result.current[0].props.render().props.loadTimeoutMs).toBe(10000);
     });
 
     it('MFERoutes renders the dynamic routes', async () => {
