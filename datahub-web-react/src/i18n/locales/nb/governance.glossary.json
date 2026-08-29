@@ -1,0 +1,21 @@
+{
+    "card.nodeGroupCountTooltip_one": "Inneholder {{count}} begrepsgruppe",
+    "card.nodeGroupCountTooltip_other": "Inneholder {{count}} begrepsgrupper",
+    "card.termCountTooltip_one": "Inneholder {{count}} begrep",
+    "card.termCountTooltip_other": "Inneholder {{count}} begreper",
+    "empty.addTerm": "Legg til begrep",
+    "empty.addTermGroup": "Legg til begrepsgruppe",
+    "empty.description": "Opprett begreper og begrepsgrupper for å organisere dataressurser med et felles vokabular.",
+    "empty.title": "Tom ordliste",
+    "list.error": "Kunne ikke laste ordlisten! En uventet feil oppsto.",
+    "list.loading": "Laster ordliste...",
+    "page.createGlossary": "Opprett ordliste",
+    "page.subtitle": "Klassifiser dataressursene og kolonnene dine med dataordbøker",
+    "page.title": "Ordliste",
+    "section.glossaryTerms": "Begreper",
+    "section.termGroups": "Begrepsgrupper",
+    "sidebar.collapse": "Fold sammen ordlisten",
+    "sidebar.expand": "Utvid ordlisten",
+    "sidebar.home": "Ordlistens startside",
+    "sidebar.section.allTerms": "Alle begreper"
+}

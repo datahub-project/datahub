@@ -69,6 +69,7 @@ class WorkflowDetails:
     # Optional — explicitly rendered in the Slack message
     duration_seconds: int | None = None
     failed_jobs: list[str] = field(default_factory=list)
+    run_attempt: int | None = None
 
     # Passthrough — any extra keys from the JSON not listed above
     extra: dict[str, Any] = field(default_factory=dict)
@@ -247,6 +248,8 @@ def _post_thread_reply(
         metadata_fields["Commit Message"] = details.display_title
     if details.duration_seconds is not None:
         metadata_fields["Duration"] = _fmt_duration(details.duration_seconds)
+    if details.run_attempt is not None:
+        metadata_fields["Attempt"] = str(details.run_attempt)
 
     reply_blocks: list[dict[str, Any]] = [
         blockkit.section(

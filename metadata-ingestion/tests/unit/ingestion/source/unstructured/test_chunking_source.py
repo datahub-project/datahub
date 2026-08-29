@@ -1095,3 +1095,133 @@ def test_model_key_default_sanitizes_colon_in_titan_model_id(pipeline_context):
     keys = list(_semantic_embeddings(semantic_wu).keys())
     assert all(":" not in k for k in keys)
     assert "amazon_titan_embed_text_v2_0" in _semantic_embeddings(semantic_wu)
+
+
+def test_semantic_content_workunit_is_not_primary_source(pipeline_context):
+    """Workunits from _emit_semantic_content must have is_primary_source=False
+    so AutoStatusAspectProcessor does not inject a Status UPSERT that would
+    overwrite lifecycleStage set by other sources or users."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="bedrock",
+            model="cohere.embed-english-v3",
+            aws_region="us-east-1",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+    source._provider = _mock_provider([[0.1, 0.2, 0.3]])
+
+    workunits = list(
+        source.process_elements_inline(
+            "urn:li:document:(test,doc1,PROD)",
+            [{"type": "NarrativeText", "text": "hello"}],
+        )
+    )
+    semantic_wu = next(wu for wu in workunits if "semanticContent" in wu.id)
+    assert semantic_wu.is_primary_source is False
+
+
+def test_batch_failed_document_not_recorded_in_state(pipeline_context, chunking_config):
+    """A document whose processing fails (chunker crash) must not get its hash
+    recorded in incremental state, or every later run skips it as unchanged."""
+    with patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph"):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=True, graph=None
+        )
+    source.config.incremental_mode = True
+
+    doc = {
+        "urn": "urn:li:document:(test,doc1,PROD)",
+        "custom_properties": {
+            "unstructured_elements": '[{"type": "Title", "text": "Test Title"}]'
+        },
+    }
+    with (
+        patch.object(source, "_fetch_documents", return_value=[doc]),
+        patch.object(source, "_save_state"),
+        patch.object(
+            source, "_chunk_elements", side_effect=RuntimeError("chunker crashed")
+        ),
+    ):
+        list(source._process_batch())
+
+    assert doc["urn"] not in source.document_state
+
+
+def test_batch_embed_failure_not_recorded_in_state(pipeline_context, chunking_config):
+    """An embedding failure means no semanticContent was written — the document
+    must be retried next run, not recorded as done."""
+    with patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph"):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=True, graph=None
+        )
+    source.config.incremental_mode = True
+
+    doc = {
+        "urn": "urn:li:document:(test,doc1,PROD)",
+        "custom_properties": {
+            "unstructured_elements": '[{"type": "Title", "text": "Test Title"}]'
+        },
+    }
+    with (
+        patch.object(source, "_fetch_documents", return_value=[doc]),
+        patch.object(source, "_save_state"),
+        patch.object(
+            source, "_generate_embeddings", side_effect=Exception("provider down")
+        ),
+    ):
+        list(source._process_batch())
+
+    assert doc["urn"] not in source.document_state
+
+
+def test_batch_success_recorded_in_state(pipeline_context, chunking_config):
+    """Successful processing still records incremental state."""
+    with patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph"):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=True, graph=None
+        )
+    source.config.incremental_mode = True
+
+    doc = {
+        "urn": "urn:li:document:(test,doc1,PROD)",
+        "custom_properties": {
+            "unstructured_elements": '[{"type": "Title", "text": "Test Title"}]'
+        },
+    }
+    with (
+        patch.object(source, "_fetch_documents", return_value=[doc]),
+        patch.object(source, "_save_state"),
+        patch.object(source, "_generate_embeddings", return_value=[[0.1] * 4]),
+    ):
+        list(source._process_batch())
+
+    assert doc["urn"] in source.document_state
+
+
+def test_malformed_elements_json_not_recorded_in_state(
+    pipeline_context, chunking_config
+):
+    """Malformed unstructured_elements JSON is a failure, not an empty document —
+    the hash must not be recorded."""
+    with patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph"):
+        source = DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=True, graph=None
+        )
+    source.config.incremental_mode = True
+
+    doc = {
+        "urn": "urn:li:document:(test,doc1,PROD)",
+        "custom_properties": {"unstructured_elements": "{not valid json"},
+    }
+    with (
+        patch.object(source, "_fetch_documents", return_value=[doc]),
+        patch.object(source, "_save_state"),
+    ):
+        list(source._process_batch())
+
+    assert doc["urn"] not in source.document_state

@@ -8,6 +8,7 @@ import pytest
 
 import datahub.ingestion.source.powerbi.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.source.powerbi.config import (
@@ -24,6 +25,13 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     Lineage,
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import NativeQueryLineage
+from datahub.ingestion.source.powerbi.powerbi import Mapper
+from datahub.metadata.schema_classes import NumberTypeClass
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+)
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -66,6 +74,8 @@ M_QUERIES = [
     'let\n    Source = Odbc.DataSource("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name="employees",Kind="Database"]}[Data],\n    employees_Table = employees_Database{[Name="employees",Kind="Table"]}[Data]\nin\n    employees_Table',
     'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", "SELECT transaction_id, account_id, customer_id, transaction_type, transaction_amount FROM bank_demo.transaction")\nin\n    Source',
     'let\n    Source = AmazonAthena.Databases("us-east-1"),\n    awsdatacatalog = Source{[Name="awsdatacatalog"]}[Data],\n    analytics_db = awsdatacatalog{[Name="analytics"]}[Data],\n    sales_table = analytics_db{[Name="sales_data"]}[Data]\nin\n    sales_table',
+    'let\n    Source = Oracle.Database("oracle-tns.example.com", [HierarchicalNavigation=true]),\n    SALES = Source{[Schema="SALES"]}[Data],\n    ORDERS = SALES{[Name="ORDERS"]}[Data]\nin\n    ORDERS',
+    'let\n    Source = Oracle.Database("oracle-tns.example.com", [Query="SELECT * FROM SALES.ORDERS"])\nin\n    Source',
     'let\n    Source = Odbc.DataSource("driver={Cloudera ODBC Driver for Apache Hive};server=hive.example.com;dsn=hive_prod", [HierarchicalNavigation=true]),\n    HIVE_Database = Source{[Name="HIVE",Kind="Database"]}[Data],\n    product_analytics_Schema = HIVE_Database{[Name="product_analytics",Kind="Schema"]}[Data],\n    user_profile_Table = product_analytics_Schema{[Name="vg_a1_user_profile",Kind="Table"]}[Data]\nin\n    user_profile_Table',
 ]
 
@@ -218,6 +228,143 @@ def test_databricks_regular_case():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.sandbox_revenue.public_consumer_price_index,PROD)"
     )
+
+
+# Redundant parentheses around a navigation step. Valid M that Power BI
+# refreshes fine, emitted by hand-edited queries.
+_DATABRICKS_PARENTHESIZED_NAVIGATION_M_QUERY: str = (
+    "let\n"
+    '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", '
+    '"/sql/1.0/endpoints/12345dc91aa25844", [Database=null, Catalog=null]),\n'
+    '    my_catalog_Database = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    "    my_schema_Schema = "
+    'my_catalog_Database{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    "    my_table_Table = "
+    '(my_schema_Schema{[Name="my_table",Kind="Table"]}[Data])\n'
+    "in\n"
+    "    my_table_Table"
+)
+
+# Same redundant parentheses, but wrapping an if-branch -- `then (<nav step>)`.
+_DATABRICKS_PARENTHESIZED_IF_BRANCH_M_QUERY: str = (
+    "let\n"
+    '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", '
+    '"/sql/1.0/endpoints/12345dc91aa25844", [Database=null, Catalog=null]),\n'
+    '    my_catalog_Database = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    "    my_schema_Schema = "
+    'my_catalog_Database{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    "    my_table_Table = if true then "
+    '(my_schema_Schema{[Name="my_table",Kind="Table"]}[Data]) else null\n'
+    "in\n"
+    "    my_table_Table"
+)
+
+_DATABRICKS_EXPECTED_URN: str = (
+    "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.my_table,PROD)"
+)
+
+
+@pytest.mark.integration
+def test_databricks_parenthesized_navigation_step():
+    """Parentheses around a navigation step must not defeat lineage extraction."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_DATABRICKS_PARENTHESIZED_NAVIGATION_M_QUERY,
+        name="my_table",
+        full_name="my_catalog.my_schema.my_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
+
+
+@pytest.mark.integration
+def test_databricks_parenthesized_navigation_step_in_if_branch():
+    """A parenthesized navigation step inside `then (...)` must still resolve."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_DATABRICKS_PARENTHESIZED_IF_BRANCH_M_QUERY,
+        name="my_table",
+        full_name="my_catalog.my_schema.my_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
+
+
+# Leaf navigation step written without Kind="Table". Valid M that Power BI
+# refreshes fine.
+_DATABRICKS_NO_KIND_M_QUERY: str = (
+    "let\n"
+    '    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", '
+    '"/sql/1.0/endpoints/12345dc91aa25844", [Database=null, Catalog=null]),\n'
+    '    my_catalog_Database = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    "    my_schema_Schema = "
+    'my_catalog_Database{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    '    my_table_Table = my_schema_Schema{[Name="my_table"]}[Data]\n'
+    "in\n"
+    "    my_table_Table"
+)
+
+
+@pytest.mark.integration
+def test_databricks_navigation_step_without_kind():
+    """A leaf navigation step lacking Kind="Table" must still yield lineage."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_DATABRICKS_NO_KIND_M_QUERY,
+        name="my_table",
+        full_name="my_catalog.my_schema.my_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
+    assert reporter.m_query_resolver_errors == 0
 
 
 @pytest.mark.integration
@@ -1127,11 +1274,14 @@ def test_sqlglot_parser_2():
     data_platform_tables: List[DataPlatformTable] = lineage[0].upstreams
 
     assert len(data_platform_tables) == 4
+    # M_QUERIES[28]'s source is Snowflake.Databases(...){[Name="ORDERING"]}[Data] --
+    # the "ordering" database segment below now comes from that literal, previously
+    # dropped because get_db_name() had no Snowflake branch at all.
     assert [dpt.urn for dpt in data_platform_tables] == [
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.raw.deals,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.raw.price_modifications,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.raw.products,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.raw.promotions,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.ordering.raw.deals,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.ordering.raw.price_modifications,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.ordering.raw.products,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.ordering.raw.promotions,PROD)",
     ]
 
 
@@ -1208,6 +1358,33 @@ def test_databricks_native_query():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:databricks,sales_db.public.slae_history,PROD)"
     )
+
+
+# Native SQL on the plain Databricks.Catalogs connector. The MultiCloud variant
+# is covered by test_databricks_native_query above.
+_DATABRICKS_CATALOGS_NATIVE_QUERY_M_QUERY: str = (
+    "let\n"
+    "    Source = Value.NativeQuery(Databricks.Catalogs("
+    '"adb-123.azuredatabricks.net", "/sql/1.0/endpoints/12345dc91aa25844", '
+    '[Catalog="my_catalog", Database=null])'
+    '{[Name="my_catalog",Kind="Database"]}[Data], '
+    '"select a, b from my_schema.my_table", null, [EnableFolding=true])\n'
+    "in\n"
+    "    Source"
+)
+
+
+def test_databricks_catalogs_native_query():
+    """Value.NativeQuery against Databricks.Catalogs resolves to a 3-part URN,
+    taking the catalog from the connector's Catalog argument."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_DATABRICKS_CATALOGS_NATIVE_QUERY_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_URN
 
 
 def test_snowflake_multi_function_call():
@@ -1443,7 +1620,7 @@ def test_hive_odbc_regular_case():
     # driver->platform resolution -> expression_lineage path. Hive is a two-tier platform,
     # so the pseudo-catalog "HIVE" Database node must be dropped and the upstream emitted
     # under the `hive` platform (not `hadoop`) as `schema.table`, matching the Hive connector.
-    q: str = M_QUERIES[38]
+    q: str = M_QUERIES[40]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         columns=[],
         measures=[],
@@ -1703,6 +1880,84 @@ def test_athena_with_platform_instance():
     )
 
 
+_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE = {
+    "server_to_platform_instance": {
+        "oracle-tns.example.com": {
+            "platform_instance": "oracle_prod",
+            "env": "PROD",
+        }
+    }
+}
+
+
+@pytest.mark.integration
+def test_oracle_tns_hierarchical_with_platform_instance():
+    q: str = M_QUERIES[38]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config=_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,oracle_prod.sales.orders,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_oracle_native_query_with_platform_instance():
+    q: str = M_QUERIES[39]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    # get_default_instances defaults this flag off, gating the native-query path.
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            **_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE,
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,oracle_prod.sales.orders,PROD)"
+    )
+
+
 @pytest.mark.integration
 def test_if_expression_walks_both_branches():
     """IfExpression should produce lineage from both true and false branches."""
@@ -1728,3 +1983,305 @@ def test_native_query_mssql_and_postgres_supported():
     assert NativeQueryLineage.is_native_parsing_supported("Sql.Database")
     assert NativeQueryLineage.is_native_parsing_supported("PostgreSQL.Database")
     assert not NativeQueryLineage.is_native_parsing_supported("Excel.Workbook")
+
+
+def test_cll_upstream_column_casing_preserved_when_lowercasing_lineage():
+    """convert_lineage_urns_to_lowercase must lowercase the dataset portion of an
+    upstream schemaField URN but preserve the column/field path.
+
+    Sources lowercase dataset URNs via lowercase_dataset_urns, which deliberately
+    leaves schemaField field paths untouched. PowerBI additionally lowercasing the
+    column name produces a schemaField URN that no longer matches the warehouse's
+    field, dropping the column-level edge for any warehouse that stores columns in
+    non-lowercase casing.
+    """
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "convert_lineage_urns_to_lowercase": True,
+            "extract_column_level_lineage": True,
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "extract_lineage": True,
+            "extract_dataset_schema": True,
+        }
+    )
+
+    mapper = Mapper(
+        ctx=ctx,
+        config=config,
+        reporter=PowerBiDashboardSourceReport(),
+        dataplatform_instance_resolver=platform_instance_resolver,
+    )
+
+    upstream_dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,My_Catalog.My_Schema.Rep_Table,PROD)"
+    lineage = Lineage(
+        upstreams=[],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=None, column="pbi_col"),
+                upstreams=[ColumnRef(table=upstream_dataset_urn, column="CustomerId")],
+            )
+        ],
+    )
+
+    downstream_urn = "urn:li:dataset:(urn:li:dataPlatform:powerbi,pbi.dataset,PROD)"
+    fine_grained = mapper.make_fine_grained_lineage_class(lineage, downstream_urn)
+
+    assert len(fine_grained) == 1
+    # Dataset portion lowercased, column/field path preserved.
+    assert fine_grained[0].upstreams == [
+        make_schema_field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.rep_table,PROD)",
+            "CustomerId",
+        )
+    ]
+
+
+def test_direct_table_cll_preserves_upstream_column_casing():
+    """The direct-table 1:1 column lineage path must preserve the source column
+    casing so it can match the warehouse's schemaField URN."""
+    q: str = M_QUERIES[23]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[
+            powerbi_data_classes.Column(
+                name="CustomerId",
+                dataType="Int64",
+                isHidden=False,
+                datahubDataType=NumberTypeClass(),
+            )
+        ],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineage: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert lineage[0].column_lineage[0].upstreams[0].column == "CustomerId"
+
+
+def test_native_query_cll_downstream_column_remapped_to_pbi_field_casing():
+    """NativeQuery CLL must remap the parsed downstream column to the PowerBI
+    field's original casing. sqlglot returns the downstream column in the SQL
+    alias' casing (here lowercase), but PowerBI stores fields in their API
+    casing; without the remap the downstream schemaField URN points at a
+    non-existent field and the column-level edge is dropped in the UI."""
+    # The SELECT aliases the output column in lowercase (`AS customerid`) while
+    # PowerBI's field keeps its mixed-case name (`CustomerId`) — the mismatch that
+    # drops the column edge without the remap.
+    q = (
+        "let\n"
+        '    Source = Value.NativeQuery(Sql.Database("my-server", "my_db"), '
+        '"SELECT t.CustomerId AS customerid FROM my_schema.my_table AS t", null, '
+        "[EnableFolding=true])\n"
+        "in\n"
+        "    Source"
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[
+            powerbi_data_classes.Column(
+                name="CustomerId",
+                dataType="Int64",
+                isHidden=False,
+                datahubDataType=NumberTypeClass(),
+            )
+        ],
+        measures=[],
+        expression=q,
+        name="virtual_table",
+        full_name="MyDataSet.virtual_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "extract_column_level_lineage": True,
+            "extract_lineage": True,
+        }
+    )
+
+    lineage: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert lineage[0].column_lineage
+    assert lineage[0].column_lineage[0].downstream.column == "CustomerId"
+
+
+_DATABRICKS_CONNECTOR: str = (
+    'Databricks.Catalogs("adb-123.azuredatabricks.net",'
+    ' "/sql/1.0/endpoints/12345dc91aa25844", [Database=null, Catalog="my_catalog"])'
+)
+
+# A nested let whose body reaches a step bound by the enclosing let.
+_NESTED_LET_OUTER_SCOPE_M_QUERY: str = (
+    "let\n"
+    f"    Source = {_DATABRICKS_CONNECTOR},\n"
+    '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    '    sch = db{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    '    out = let tbl = sch{[Name="my_table",Kind="Table"]}[Data] in tbl\n'
+    "in\n"
+    "    out"
+)
+
+# A nested let whose own binding initialises from the enclosing binding of the
+# same name. A plain reference in M is exclusive -- the spec evaluates each let
+# variable "with an environment containing each of the variables of the let except
+# the one being initialized" -- so the inner `a` reads the outer `a`.
+_NESTED_SELF_INIT_M_QUERY: str = (
+    "let\n"
+    f"    Source = {_DATABRICKS_CONNECTOR},\n"
+    '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    '    sch = db{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    '    a = sch{[Name="my_table",Kind="Table"]}[Data],\n'
+    "    out = let a = a in a\n"
+    "in\n"
+    "    out"
+)
+
+# The same shape with nothing outside to resolve to, which the spec calls an error.
+_SELF_INIT_UNRESOLVABLE_M_QUERY: str = (
+    f"let\n    Source = {_DATABRICKS_CONNECTOR},\n    out = let a = a in a\nin\n    out"
+)
+
+# A nested let that rebinds a name the enclosing let already uses.
+_NESTED_LET_SHADOWING_M_QUERY: str = (
+    "let\n"
+    f"    Source = {_DATABRICKS_CONNECTOR},\n"
+    '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    '    sch = db{[Name="outer_schema",Kind="Schema"]}[Data],\n'
+    "    out = let\n"
+    '            sch = db{[Name="inner_schema",Kind="Schema"]}[Data],\n'
+    '            tbl = sch{[Name="my_table",Kind="Table"]}[Data]\n'
+    "          in\n"
+    "            tbl\n"
+    "in\n"
+    "    out"
+)
+
+
+@pytest.mark.integration
+def test_nested_let_resolves_outer_scope_name():
+    """A nested let can reach steps bound by the enclosing let, so the walk has
+    to keep the enclosing scopes rather than replacing them."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_NESTED_LET_OUTER_SCOPE_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn == "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "my_catalog.my_schema.my_table,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_nested_let_binding_shadows_outer_name():
+    """The innermost binding of a name wins, so `sch` inside the nested let must
+    resolve to the schema that let defines, not the enclosing one."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_NESTED_LET_SHADOWING_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn == "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "my_catalog.inner_schema.my_table,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_outer_step_cannot_see_a_nested_let_binding():
+    """A step bound by an outer let is evaluated in that let's scope, so it must
+    not resolve names a nested let introduces -- doing so invents an upstream
+    from an expression Power BI itself could not evaluate."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q="let\n"
+        f"    Source = {_DATABRICKS_CONNECTOR},\n"
+        '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+        '    a = sch{[Name="my_table",Kind="Table"]}[Data],\n'
+        '    out = let sch = db{[Name="inner_schema",Kind="Schema"]}[Data] in a\n'
+        "in\n"
+        "    out"
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+def test_cycle_spelled_with_different_casing_is_one_visit():
+    """M variable names are case-insensitive, so `a` and `A` are one variable and
+    a cycle written inconsistently is still a cycle."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=f"let Source = {_DATABRICKS_CONNECTOR}, a = B, b = A, out = a in out"
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+@pytest.mark.xfail(
+    reason="A plain identifier reference in M is exclusive: the spec evaluates each "
+    "let variable with an environment containing every variable of the let except "
+    "the one being initialized, so `a = a` in a nested let reads the enclosing `a`. "
+    "Resolution prefers the innermost binding unconditionally, resolving it to "
+    "itself, and the circular-reference guard then drops the lineage. Left as-is "
+    "here to keep this change to scope-chain resolution; no reported query uses "
+    "the shape.",
+    strict=True,
+)
+def test_nested_self_init_reads_the_enclosing_binding():
+    """`a = a` in a nested let should skip its own binding and read the enclosing
+    `a`. Valid M that Power BI refreshes without complaint."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_NESTED_SELF_INIT_M_QUERY
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn == "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "my_catalog.my_schema.my_table,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_self_init_with_nothing_enclosing_it_yields_nothing():
+    """With no enclosing binding the exclusive reference has nothing to resolve to,
+    which the spec calls an error. Report no lineage rather than guess."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=_SELF_INIT_UNRESOLVABLE_M_QUERY
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+def test_mutually_referencing_steps_do_not_recurse():
+    """Steps defined in terms of each other must stop rather than walk forever."""
+    lineages: List[Lineage] = get_data_platform_tables_with_dummy_table(
+        q=f"let Source = {_DATABRICKS_CONNECTOR}, a = b, b = a, out = a in out"
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []

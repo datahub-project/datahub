@@ -68,7 +68,7 @@ def main(url: str, id: int):
 def worker(index: int):
     try:
         main("http://localhost:8080", index)
-    except RuntimeError as e:
+    except RuntimeError:
         print(f"error with {index}")
 
 

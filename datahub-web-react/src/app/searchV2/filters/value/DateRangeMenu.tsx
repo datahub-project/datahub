@@ -6,7 +6,7 @@ import { FilterField } from '@app/searchV2/filters/types';
 import { useFilterDisplayName } from '@app/searchV2/filters/utils';
 import useDateRangeFilterValues from '@app/searchV2/filters/value/useDateRangeFilterValues';
 import { Text } from '@src/alchemy-components';
-import { Datetime } from '@src/app/lineageV2/LineageTimeSelector';
+import { Datetime } from '@src/app/lineageV3/LineageTimeSelector';
 import { FacetFilterInput, FacetMetadata, FilterOperator } from '@src/types.generated';
 import DatePicker from '@utils/DayjsDatePicker';
 

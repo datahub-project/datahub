@@ -1,10 +1,12 @@
 entities:
   - name: dataPlatform
+    viewUnrestricted: true
     category: core
     keyAspect: dataPlatformKey
     aspects:
       - dataPlatformInfo
   - name: role
+    viewUnrestricted: true
     category: core
     keyAspect: roleKey
     searchGroup: primary
@@ -18,9 +20,12 @@ entities:
     searchGroup: primary
     aspects:
       - viewProperties
+      - semanticModelProperties
       - subTypes
       - datasetProfile
       - datasetUsageStatistics
+      - usageFeatures
+      - storageFeatures
       - operation
       - domains
       - applications
@@ -54,6 +59,7 @@ entities:
       - logicalParent
       - assetSettings
       - documentation
+      - aliases
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -218,6 +224,7 @@ entities:
       - testResults
       - documentation
   - name: corpuser
+    viewUnrestricted: true
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
     searchGroup: primary
@@ -239,6 +246,7 @@ entities:
       - subTypes
       - slackUserInfo
   - name: corpGroup
+    viewUnrestricted: true
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
     searchGroup: primary
@@ -263,6 +271,7 @@ entities:
       - domainProperties
       - institutionalMemory
       - ownership
+      - deprecation
       - structuredProperties
       - forms
       - testResults
@@ -325,6 +334,7 @@ entities:
       - subTypes
       - displayProperties
       - assetSettings
+      - globalTags
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -341,6 +351,8 @@ entities:
       - displayProperties
       - assetSettings
       - domains
+      - applications
+      - globalTags
   - name: document
     category: core
     keyAspect: documentKey
@@ -357,6 +369,7 @@ entities:
       - globalTags
       - glossaryTerms
       - semanticContent
+      - semanticText
       - institutionalMemory
       - documentation
       - documentUsageStatistics
@@ -385,18 +398,22 @@ entities:
     keyAspect: assertionKey
     aspects:
       - assertionInfo
+      - assertionNote
       - dataPlatformInstance
       - assertionRunEvent
+      - assertionRunSummary
       - assertionActions
       - status
       - globalTags
       - ownership
   - name: dataHubRetention
+    viewUnrestricted: true
     category: internal
     keyAspect: dataHubRetentionKey
     aspects:
       - dataHubRetentionConfig
   - name: dataPlatformInstance
+    viewUnrestricted: true
     category: internal
     keyAspect: dataPlatformInstanceKey
     aspects:
@@ -438,6 +455,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - versionProperties
       - subTypes
       - container
@@ -499,6 +517,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - subTypes
       - documentation
   - name: mlFeature
@@ -522,6 +541,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - subTypes
       - documentation
   - name: mlPrimaryKey
@@ -545,6 +565,7 @@ entities:
       - testResults
       - subTypes
   - name: telemetry
+    viewUnrestricted: true
     category: internal
     keyAspect: telemetryKey
     aspects:
@@ -561,6 +582,7 @@ entities:
     aspects:
       - testInfo
   - name: dataHubUpgrade
+    viewUnrestricted: true
     category: internal
     keyAspect: dataHubUpgradeKey
     aspects:
@@ -584,12 +606,18 @@ entities:
       - schemaFieldAliases
       - documentation
       - testResults
+      - incidentsSummary
       - deprecation
       - subTypes
       - logicalParent
       - globalTags
       - glossaryTerms
+      - semanticFieldAnnotation
+      - aiContext
+      - ownership
+      - domains
   - name: globalSettings
+    viewUnrestricted: true
     doc: Global settings for an the platform
     category: internal
     keyAspect: globalSettingsKey
@@ -610,18 +638,21 @@ entities:
       - incidentNotes
       - globalTags
   - name: dataHubRole
+    viewUnrestricted: true
     category: core
     keyAspect: dataHubRoleKey
     searchGroup: primary
     aspects:
       - dataHubRoleInfo
   - name: post
+    viewUnrestricted: true
     category: core
     keyAspect: postKey
     aspects:
       - postInfo
       - subTypes
   - name: dataHubStepState
+    viewUnrestricted: true
     category: internal
     keyAspect: dataHubStepStateKey
     aspects:
@@ -665,6 +696,7 @@ entities:
       - applications
       - dataProductProperties
       - institutionalMemory
+      - deprecation
       - status
       - structuredProperties
       - forms
@@ -677,6 +709,7 @@ entities:
     searchGroup: primary
     aspects:
       - applicationProperties
+      - applicationLineage
       - ownership
       - glossaryTerms
       - globalTags
@@ -687,7 +720,51 @@ entities:
       - forms
       - testResults
       - subTypes
+  - name: semanticModel
+    category: core
+    keyAspect: semanticModelKey
+    searchGroup: primary
+    aspects:
+      - semanticModelInfo
+      - upstreamLineage
+      - ownership
+      - domains
+      - globalTags
+      - glossaryTerms
+      - institutionalMemory
+      - structuredProperties
+      - status
+      - deprecation
+      - dataPlatformInstance
+      - subTypes
+      - documentation
+      - browsePathsV2
+      - applications
+      - aiContext
+  - name: metric
+    category: core
+    keyAspect: metricKey
+    searchGroup: primary
+    aspects:
+      - metricInfo
+      - metricRelationships
+      - metricUpstreams
+      - ownership
+      - domains
+      - globalTags
+      - glossaryTerms
+      - institutionalMemory
+      - structuredProperties
+      - status
+      - deprecation
+      - dataPlatformInstance
+      - subTypes
+      - documentation
+      - browsePathsV2
+      - applications
+      - aiContext
   - name: ownershipType
+    viewUnrestricted: true
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core
     keyAspect: ownershipTypeKey
@@ -695,6 +772,7 @@ entities:
       - ownershipTypeInfo
       - status
   - name: lifecycleStageType
+    viewUnrestricted: true
     doc: Defines a lifecycle stage that entities can be placed in (e.g., Proposed, Certified, Archived). Controls search visibility and transition policies.
     category: core
     keyAspect: lifecycleStageTypeKey
@@ -720,6 +798,7 @@ entities:
       - status
       - structuredProperties
   - name: dataHubPersona
+    viewUnrestricted: true
     category: internal
     keyAspect: dataHubPersonaKey
     aspects:
@@ -729,6 +808,7 @@ entities:
     keyAspect: dataHubActionKey
     aspects: []
   - name: entityType
+    viewUnrestricted: true
     doc: A type of entity in the DataHub Metadata Model.
     category: core
     keyAspect: entityTypeKey
@@ -737,6 +817,7 @@ entities:
       - institutionalMemory
       - status
   - name: dataType
+    viewUnrestricted: true
     doc: A type of data element stored within DataHub.
     category: core
     keyAspect: dataTypeKey
@@ -745,6 +826,7 @@ entities:
       - institutionalMemory
       - status
   - name: structuredProperty
+    viewUnrestricted: true
     doc: Structured Property represents a property meant for extending the core model of a logical entity
     category: core
     keyAspect: structuredPropertyKey
@@ -754,6 +836,7 @@ entities:
       - institutionalMemory
       - status
   - name: form
+    viewUnrestricted: true
     category: core
     keyAspect: formKey
     aspects:
@@ -761,16 +844,19 @@ entities:
       - dynamicFormAssignment
       - ownership
   - name: dataHubPageTemplate
+    viewUnrestricted: true
     category: core
     keyAspect: dataHubPageTemplateKey
     aspects:
       - dataHubPageTemplateProperties
   - name: dataHubPageModule
+    viewUnrestricted: true
     category: core
     keyAspect: dataHubPageModuleKey
     aspects:
       - dataHubPageModuleProperties
   - name: dataHubFile
+    viewUnrestricted: true
     category: core
     keyAspect: dataHubFileKey
     aspects:
@@ -794,11 +880,106 @@ entities:
       - platformResourceInfo
       - status
   - name: dataHubOpenAPISchema
+    viewUnrestricted: true
     doc: Contains aspects which are used in OpenAPI requests/responses which are not otherwise present in the data model.
     category: internal
     keyAspect: dataHubOpenAPISchemaKey
     aspects:
       - systemMetadata
+  - name: service
+    doc: A Service represents an external service that can be integrated with DataHub, such as an MCP server.
+    category: core
+    keyAspect: serviceKey
+    searchGroup: primary
+    aspects:
+      - serviceProperties
+      - mcpServerProperties
+      - serviceDefinition
+      - incidentsSummary
+      - subTypes
+      - ownership
+      - status
+      - globalTags
+      - semanticContent
+      - dataPlatformInstance
+  - name: aiAgent
+    doc: An AI agent with custom instructions, tools, and scoping. Supports native (DataHub-managed), system (bootstrapped), and external (cataloged) agents.
+    category: core
+    keyAspect: aiAgentKey
+    searchGroup: primary
+    aspects:
+      - aiAgentInfo
+      - aiAgentDependencies
+      - dataPlatformInstance
+      - displayProperties
+      - ownership
+      - status
+      - structuredProperties
+      - upstreamLineage
+      - globalTags
+      - glossaryTerms
+      - semanticContent
+      - institutionalMemory
+      - domains
+      - incidentsSummary
+      - versionProperties
+  - name: api
+    doc: A named callable with a typed input and output schema (an MCP tool, REST endpoint, gRPC method, GraphQL operation, function, etc.). Cataloged as a first-class entity for discovery and caller-to-API dependency tracking (services that compose APIs, agents that invoke them).
+    category: core
+    keyAspect: apiKey
+    searchGroup: primary
+    aspects:
+      - apiProperties
+      - apiSignature
+      - restApiProperties
+      - subTypes
+      - dataPlatformInstance
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
+      - semanticContent
+      - institutionalMemory
+      - domains
+      - structuredProperties
+      - versionProperties
+  - name: repository
+    doc: A source-code repository (GitHub, GitLab, internal SCM, etc.). The genesis node of the software-to-data lifecycle (repo -> service -> api -> app -> dataset); produces the services, APIs, and apps cataloged elsewhere. Not tabular (no columns/queries/stats).
+    category: core
+    keyAspect: repositoryKey
+    searchGroup: primary
+    aspects:
+      - repositoryProperties
+      - repositorySource
+      - repositoryLineage
+      - subTypes
+      - dataPlatformInstance
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
+      - semanticContent
+      - domains
+      - institutionalMemory
+      - structuredProperties
+      - browsePathsV2
+  - name: agentSkill
+    doc: A high-level, reusable capability bundle (prompts + tools + domain expertise) that agents adopt. Defined in git and cataloged in DataHub.
+    category: core
+    keyAspect: agentSkillKey
+    searchGroup: primary
+    aspects:
+      - agentSkillInfo
+      - dataPlatformInstance
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
+      - semanticContent
+      - institutionalMemory
+      - domains
+      - structuredProperties
+      - versionProperties
 events:
 plugins:
   aspectPayloadValidators:

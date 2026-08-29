@@ -109,6 +109,16 @@ export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ig
     overflow: 'auto',
     width: '100%',
     maxHeight: ignoreMaxHeight ? undefined : '360px',
+    // Force a persistent scrollbar so overflowing options (e.g. the language list)
+    // are discoverable; WebKit overlay scrollbars otherwise auto-hide on macOS.
+    '&::-webkit-scrollbar': {
+        width: '6px',
+        background: theme?.colors?.scrollbarTrack,
+    },
+    '&::-webkit-scrollbar-thumb': {
+        background: theme?.colors?.scrollbarThumb,
+        borderRadius: radius.lg,
+    },
 }));
 
 // Styled components for SelectValue (Selected value display)
@@ -216,6 +226,10 @@ export const HighlightedLabel = styled.span`
     font-size: ${typography.fontSizes.sm};
     color: ${(props) => props.theme?.colors?.textSecondary};
 `;
+
+export const Required = styled.span(({ theme }) => ({
+    color: theme.colors.textError,
+}));
 
 export const StyledBubbleButton = styled(Button)(({ theme }) => ({
     backgroundColor: theme?.colors?.bgHover,

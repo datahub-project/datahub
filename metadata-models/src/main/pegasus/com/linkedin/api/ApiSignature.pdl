@@ -1,0 +1,38 @@
+namespace com.linkedin.api
+
+import com.linkedin.schema.SchemaField
+
+/**
+ * The input/output signature of an API — the schema that defines what the
+ * callable accepts and returns. Kept separate from apiProperties because the
+ * signature is scraped from the endpoint (an OpenAPI/JSON-Schema doc, an MCP
+ * tool manifest, a function definition) and evolves on its own cadence: when
+ * the endpoint's contract changes, only this aspect is re-ingested, leaving the
+ * catalog identity (name, ownership, docs) on apiProperties untouched.
+ */
+@Aspect = {
+  "name": "apiSignature"
+}
+record ApiSignature {
+  /**
+   * The input/output schema stored as an opaque string (typically JSON Schema).
+   * The source-of-truth representation of the signature; round-trips the full
+   * contract even when it uses constructs the structured fields below cannot
+   * capture. For a structured, typed view use `inputFields` + `outputFields`.
+   */
+  schemaDefinition: optional string
+
+  /**
+   * Typed input parameters of the API's signature (the input schema), reusing
+   * DataHub's schema-field model so nested/struct/array types, nullability, and
+   * field descriptions render with the standard schema components. Each field's
+   * fieldPath is the parameter name; nullable=false means a required argument.
+   */
+  inputFields: optional array[SchemaField]
+
+  /**
+   * The output shape the API returns when invoked, modeled as schema fields
+   * (a scalar return is a single field; an object return is a field per member).
+   */
+  outputFields: optional array[SchemaField]
+}

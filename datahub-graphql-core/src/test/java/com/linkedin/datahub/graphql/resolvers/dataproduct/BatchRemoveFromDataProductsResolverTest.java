@@ -11,8 +11,12 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.BatchSetDataProductsInput;
 import com.linkedin.metadata.service.DataProductService;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -25,13 +29,28 @@ public class BatchRemoveFromDataProductsResolverTest {
   private static final String TEST_DATA_PRODUCT_URN_1 = "urn:li:dataProduct:test-product-1";
   private static final String TEST_DATA_PRODUCT_URN_2 = "urn:li:dataProduct:test-product-2";
 
+  private static void mockExistingUrns(DataProductService mockService, Urn... existingUrns) {
+    final Set<Urn> existing = new HashSet<>(List.of(existingUrns));
+    Mockito.when(mockService.filterExistingUrns(any(), anyCollection()))
+        .thenAnswer(
+            invocation -> {
+              Collection<Urn> requestedUrns = invocation.getArgument(1);
+              return requestedUrns.stream().filter(existing::contains).collect(Collectors.toSet());
+            });
+  }
+
   @Test
   public void testGetSuccessMultipleDataProducts() throws Exception {
     DataProductService mockService = Mockito.mock(DataProductService.class);
     FeatureFlags mockFeatureFlags = Mockito.mock(FeatureFlags.class);
 
     Mockito.when(mockFeatureFlags.isMultipleDataProductsPerAsset()).thenReturn(true);
-    Mockito.when(mockService.verifyEntityExists(any(), any())).thenReturn(true);
+    mockExistingUrns(
+        mockService,
+        UrnUtils.getUrn(TEST_RESOURCE_URN_1),
+        UrnUtils.getUrn(TEST_RESOURCE_URN_2),
+        UrnUtils.getUrn(TEST_DATA_PRODUCT_URN_1),
+        UrnUtils.getUrn(TEST_DATA_PRODUCT_URN_2));
 
     BatchRemoveFromDataProductsResolver resolver =
         new BatchRemoveFromDataProductsResolver(mockService, mockFeatureFlags);
@@ -47,8 +66,8 @@ public class BatchRemoveFromDataProductsResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(4))
-        .verifyEntityExists(any(), any()); // 2 resources + 2 data products
+    Mockito.verify(mockService, Mockito.times(2))
+        .filterExistingUrns(any(), any()); // 1 batched call for resources + 1 for data products
     Mockito.verify(mockService, Mockito.times(2))
         .batchRemoveFromDataProduct(any(), any(Urn.class), anyList()); // 2 data products
   }
@@ -59,7 +78,10 @@ public class BatchRemoveFromDataProductsResolverTest {
     FeatureFlags mockFeatureFlags = Mockito.mock(FeatureFlags.class);
 
     Mockito.when(mockFeatureFlags.isMultipleDataProductsPerAsset()).thenReturn(true);
-    Mockito.when(mockService.verifyEntityExists(any(), any())).thenReturn(true);
+    mockExistingUrns(
+        mockService,
+        UrnUtils.getUrn(TEST_RESOURCE_URN_1),
+        UrnUtils.getUrn(TEST_DATA_PRODUCT_URN_1));
 
     BatchRemoveFromDataProductsResolver resolver =
         new BatchRemoveFromDataProductsResolver(mockService, mockFeatureFlags);
@@ -76,7 +98,7 @@ public class BatchRemoveFromDataProductsResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockService, Mockito.times(2))
-        .verifyEntityExists(any(), any()); // 1 resource + 1 data product
+        .filterExistingUrns(any(), any()); // 1 batched call for resources + 1 for data products
     Mockito.verify(mockService, Mockito.times(1))
         .batchRemoveFromDataProduct(any(), eq(UrnUtils.getUrn(TEST_DATA_PRODUCT_URN_1)), anyList());
   }
@@ -110,8 +132,7 @@ public class BatchRemoveFromDataProductsResolverTest {
     FeatureFlags mockFeatureFlags = Mockito.mock(FeatureFlags.class);
 
     Mockito.when(mockFeatureFlags.isMultipleDataProductsPerAsset()).thenReturn(true);
-    Mockito.when(mockService.verifyEntityExists(any(), eq(UrnUtils.getUrn(TEST_RESOURCE_URN_1))))
-        .thenReturn(false);
+    mockExistingUrns(mockService); // Resource does not exist
 
     BatchRemoveFromDataProductsResolver resolver =
         new BatchRemoveFromDataProductsResolver(mockService, mockFeatureFlags);
@@ -135,11 +156,7 @@ public class BatchRemoveFromDataProductsResolverTest {
     FeatureFlags mockFeatureFlags = Mockito.mock(FeatureFlags.class);
 
     Mockito.when(mockFeatureFlags.isMultipleDataProductsPerAsset()).thenReturn(true);
-    Mockito.when(mockService.verifyEntityExists(any(), eq(UrnUtils.getUrn(TEST_RESOURCE_URN_1))))
-        .thenReturn(true);
-    Mockito.when(
-            mockService.verifyEntityExists(any(), eq(UrnUtils.getUrn(TEST_DATA_PRODUCT_URN_1))))
-        .thenReturn(false);
+    mockExistingUrns(mockService, UrnUtils.getUrn(TEST_RESOURCE_URN_1)); // Data product missing
 
     BatchRemoveFromDataProductsResolver resolver =
         new BatchRemoveFromDataProductsResolver(mockService, mockFeatureFlags);

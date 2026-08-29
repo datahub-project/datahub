@@ -34,7 +34,14 @@ public enum SchemaIdOrdinal {
   METADATA_CHANGE_LOG_TIMESERIES(19),
   METADATA_CHANGE_EVENT(20),
   FAILED_METADATA_CHANGE_EVENT(21),
-  METADATA_AUDIT_EVENT(22);
+  METADATA_AUDIT_EVENT(22),
+
+  /**
+   * Reserved placeholder schema id. Do not assign this id to a new OSS event schema. Kept occupied
+   * so forks / external deployments that already emit wire-format schema id 23 do not collide when
+   * OSS later allocates new ordinals.
+   */
+  RESERVED_23(23);
 
   private final int schemaId;
 
@@ -49,6 +56,11 @@ public enum SchemaIdOrdinal {
    */
   public int getSchemaId() {
     return schemaId;
+  }
+
+  /** Whether this ordinal is a reservation placeholder (no published event schema). */
+  public boolean isReserved() {
+    return this == RESERVED_23;
   }
 
   /**

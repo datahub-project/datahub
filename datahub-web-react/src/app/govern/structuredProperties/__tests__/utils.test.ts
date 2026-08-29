@@ -1,4 +1,8 @@
-import { getNewAllowedPlatforms, matchesAllowedPlatforms } from '@app/govern/structuredProperties/utils';
+import {
+    getFilteredSortedStructuredProperties,
+    getNewAllowedPlatforms,
+    matchesAllowedPlatforms,
+} from '@app/govern/structuredProperties/utils';
 import { StructuredPropertyEntity } from '@src/types.generated';
 
 function makePlatform(urn: string) {
@@ -74,5 +78,41 @@ describe('getNewAllowedPlatforms', () => {
             allowedPlatforms: ['urn:li:dataPlatform:bigquery', 'urn:li:dataPlatform:snowflake'],
         });
         expect(result).toEqual(['urn:li:dataPlatform:bigquery', 'urn:li:dataPlatform:snowflake']);
+    });
+});
+
+function makeSp(opts: { displayName?: string; qualifiedName?: string; time?: number }): StructuredPropertyEntity {
+    return {
+        urn: `urn:li:structuredProperty:${opts.qualifiedName ?? opts.displayName ?? 'x'}`,
+        type: 'STRUCTURED_PROPERTY' as any,
+        definition: {
+            displayName: opts.displayName,
+            qualifiedName: opts.qualifiedName ?? '',
+            created: opts.time !== undefined ? { time: opts.time } : undefined,
+        },
+    } as any;
+}
+
+describe('getFilteredSortedStructuredProperties', () => {
+    it('matches on displayName, case-insensitively', () => {
+        const props = [makeSp({ displayName: 'Data Quality Score' })];
+        expect(getFilteredSortedStructuredProperties(props, 'quality')).toHaveLength(1);
+    });
+
+    it('falls back to qualifiedName when displayName is missing', () => {
+        const props = [makeSp({ qualifiedName: 'io.acryl.privacy.enumProperty14' })];
+        expect(getFilteredSortedStructuredProperties(props, 'enumProperty14')).toHaveLength(1);
+    });
+
+    it('excludes properties whose displayed name does not contain the query', () => {
+        const props = [makeSp({ displayName: 'Certification Status' })];
+        expect(getFilteredSortedStructuredProperties(props, 'quality')).toHaveLength(0);
+    });
+
+    it('sorts matches by creation time, newest first', () => {
+        const older = makeSp({ displayName: 'test one', time: 1 });
+        const newer = makeSp({ displayName: 'test two', time: 2 });
+        const result = getFilteredSortedStructuredProperties([older, newer], 'test');
+        expect(result.map((p) => p.definition.created?.time)).toEqual([2, 1]);
     });
 });

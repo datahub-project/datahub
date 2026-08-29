@@ -34,13 +34,15 @@ export enum PageRoutes {
     EMBED_LOOKUP = '/embed/lookup/:url',
     BUSINESS_ATTRIBUTE = '/business-attribute',
     INTRODUCE = '/introduce',
-    // Temporary route to view all data products
-    DATA_PRODUCTS = '/search?filter__entityType___false___EQUAL___0=DATA_PRODUCT&page=1&query=%2A&unionType=0',
     MANAGE_TAGS = '/tags',
     MANAGE_APPLICATIONS = '/applications',
     CONTEXT = '/context',
     CONTEXT_DOCUMENTS = '/context/documents',
     METRICS = '/metrics',
+    METRIC_ENTITY = '/metric',
+    SEMANTIC_MODEL_ENTITY = '/semanticModel',
+    MARKETPLACE = '/marketplace',
+    DATA_PRODUCT_ENTITY = '/dataProduct',
 }
 
 export enum HelpLinkRoutes {

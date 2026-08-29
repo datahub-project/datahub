@@ -3,7 +3,7 @@
     "external": true,
     "platform_type": "Orchestrator",
     "connection_type": "Push",
-    "support_status": "Certified",
+    "support_status": "GA",
     "description": "Airflow is an open-source data orchestration tool used for scheduling, monitoring, and managing complex data pipelines.",
     "title": "Airflow",
     "doc_path_override": "docs/lineage/airflow",
@@ -66,7 +66,7 @@
     "external": true,
     "platform_type": "Orchestrator",
     "connection_type": "Pull",
-    "support_status": "Certified",
+    "support_status": "GA",
     "description": "Dagster is a next-generation open source orchestration platform for the development, production, and observation of data assets.",
     "title": "Dagster",
     "doc_path_override": "docs/lineage/dagster",
@@ -175,6 +175,7 @@
     "external": true,
     "platform_type": "Data Quality",
     "connection_type": "Push",
+    "support_status": "GA",
     "description": "Great Expectations is an open-source data validation and testing tool that helps data teams maintain data quality and integrity.",
     "title": "Great Expectations",
     "img_path": "img/logos/platforms/great-expectations.png",
@@ -209,6 +210,18 @@
     "description": "Iceberg is a data tool that allows users to manage and query large-scale data sets using a distributed architecture.",
     "img_path": "img/logos/platforms/iceberg.png",
     "extra_features": [
+      "Status Aspect",
+      "UI Ingestion"
+    ]
+  },
+  "informix": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "title": "Informix",
+    "description": "Informix is a relational database management system from IBM/HCL used for transactional and analytical workloads.",
+    "img_path": "img/logos/platforms/informix.png",
+    "extra_features": [
+      "Lower Casing",
       "Status Aspect",
       "UI Ingestion"
     ]
@@ -302,6 +315,13 @@
     "connection_type": "Pull",
     "description": "NiFi is a data integration tool that allows users to automate the flow of data between systems and applications."
   },
+  "odcs": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "title": "Open Data Contract Standard",
+    "description": "Open Data Contract Standard (ODCS), governed by the Linux Foundation's Bitol project, is a YAML specification for data contracts. Ingest ODCS files as logical datasets with schema, ownership, tags, and quality rules modeled as assertions.",
+    "img_path": "img/logos/platforms/odcs.png"
+  },
   "okta": {
     "platform_type": "Identity Provider",
     "connection_type": "Pull",
@@ -344,7 +364,7 @@
     "external": true,
     "platform_type": "Orchestrator",
     "connection_type": "Pull",
-    "support_status": "Certified",
+    "support_status": "GA",
     "description": "Prefect is a modern workflow orchestration for data and ML engineers.",
     "title": "Prefect",
     "doc_path_override": "docs/lineage/prefect",
@@ -373,6 +393,7 @@
     "external": true,
     "platform_type": "Metadata Systems",
     "connection_type": "Pull",
+    "support_status": "GA",
     "description": "Protobuf Schemas is a data tool used for defining and serializing structured data in a compact and efficient manner.",
     "title": "Protobuf Schemas",
     "img_path": "img/logos/platforms/protobuf.png",
@@ -454,6 +475,7 @@
     "external": true,
     "platform_type": "ETL/ELT",
     "connection_type": "Push",
+    "support_status": "GA",
     "description": "Spark is a data processing tool that enables fast and efficient processing of large-scale data sets using distributed computing.",
     "title": "Spark",
     "doc_path_override": "docs/metadata-integration/java/acryl-spark-lineage"
@@ -464,6 +486,19 @@
     "description": "SQLAlchemy is a Python-based data tool that provides a set of high-level API for connecting to relational databases and performing SQL operations.",
     "img_path": "img/logos/platforms/sqlalchemy.png",
     "extra_features": [
+      "Status Aspect"
+    ]
+  },
+  "sqlmesh": {
+    "platform_type": [
+      "ETL/ELT",
+      "Data Quality"
+    ],
+    "connection_type": "Pull",
+    "description": "SQLMesh is an open-source data transformation framework for building and operating versioned, SQL-native model pipelines with built-in data quality audits. DataHub ingests SQLMesh models as datasets with schema, column-level lineage, descriptions, tags, and audit assertions, and stitches each model to its warehouse view as a sibling. Multi-gateway projects are supported, with each model's sibling routed to the correct warehouse platform automatically.",
+    "img_path": "img/logos/platforms/sqlmesh.png",
+    "extra_features": [
+      "Patch Lineage",
       "Status Aspect"
     ]
   },
@@ -594,6 +629,12 @@
     "connection_type": "Pull",
     "description": "SAP Analytics Cloud (SAC) is a cloud-based business intelligence and planning platform that provides analytics and planning capabilities.",
     "title": "SAC"
+  },
+  "sap-datasphere": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "title": "SAP Datasphere",
+    "description": "SAP Datasphere is a cloud data warehouse and data-fabric service for integrating, modeling, and governing data across an organization."
   },
   "cassandra": {
     "platform_type": "Database",
@@ -766,7 +807,7 @@
   },
   "openlineage": {
     "platform_type": "Data Catalog",
-    "support_status": "Certified",
+    "support_status": "GA",
     "title": "OpenLineage",
     "description": "Open standard for data lineage collection and analysis. DataHub supports OpenLineage via a native REST endpoint and Spark event listener plugin.",
     "img_path": "img/logos/platforms/openlineage.svg",
@@ -914,9 +955,10 @@
     "description": "Unified analytics platform from Microsoft that integrates data engineering, data science, warehousing, and real-time analytics.",
     "img_path": "img/logos/platforms/microsoft-fabric.svg"
   },
-  "monte-carlo": {
+  "montecarlo": {
     "api_connector": true,
     "platform_type": "Data Quality",
+    "support_status": "Alpha",
     "title": "Monte Carlo",
     "description": "Data observability platform that detects, resolves, and prevents data quality issues across your data stack.",
     "img_path": "img/logos/platforms/monte-carlo.svg"

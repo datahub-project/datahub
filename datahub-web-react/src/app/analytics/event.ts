@@ -79,6 +79,7 @@ export enum EventType {
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
+    MoveDataProductEvent,
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
     IngestionSourceConfigurationImpressionEvent,
@@ -181,6 +182,10 @@ export enum EventType {
     IngestionExitConfigurationEvent,
     CloseCreateSourceEducationModalEvent,
     ImportDocumentsEvent,
+    GoToLogicalParentEvent,
+    GoToPhysicalChildEvent,
+    GoToLogicalParentColumnEvent,
+    GoToPhysicalChildColumnEvent,
 }
 
 /**
@@ -646,6 +651,12 @@ export interface MoveDomainEvent extends BaseEvent {
     type: EventType.MoveDomainEvent;
     oldParentDomainUrn?: string;
     parentDomainUrn?: string;
+}
+
+export interface MoveDataProductEvent extends BaseEvent {
+    type: EventType.MoveDataProductEvent;
+    oldParentDataProductUrn?: string;
+    parentDataProductUrn?: string;
 }
 
 // Managed Ingestion Events
@@ -1369,6 +1380,30 @@ export interface ImportDocumentsEvent extends BaseEvent {
     failedCount: number;
 }
 
+interface GoToLogicalParentEvent extends BaseEvent {
+    type: EventType.GoToLogicalParentEvent;
+    entityUrn: string;
+    parentUrn?: string;
+}
+
+interface GoToPhysicalChildEvent extends BaseEvent {
+    type: EventType.GoToPhysicalChildEvent;
+    entityUrn: string;
+    childUrn?: string;
+}
+
+interface GoToLogicalParentColumnEvent extends BaseEvent {
+    type: EventType.GoToLogicalParentColumnEvent;
+    entityUrn: string;
+    parentUrn?: string;
+}
+
+interface GoToPhysicalChildColumnEvent extends BaseEvent {
+    type: EventType.GoToPhysicalChildColumnEvent;
+    entityUrn: string;
+    childUrn?: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1427,6 +1462,7 @@ export type Event =
     | CreateGlossaryEntityEvent
     | CreateDomainEvent
     | MoveDomainEvent
+    | MoveDataProductEvent
     | CreateIngestionSourceEvent
     | UpdateIngestionSourceEvent
     | DeleteIngestionSourceEvent
@@ -1528,4 +1564,8 @@ export type Event =
     | IngestionEnterSyncScheduleEvent
     | IngestionExitConfigurationEvent
     | CloseCreateSourceEducationModalEvent
-    | ImportDocumentsEvent;
+    | ImportDocumentsEvent
+    | GoToLogicalParentEvent
+    | GoToPhysicalChildEvent
+    | GoToLogicalParentColumnEvent
+    | GoToPhysicalChildColumnEvent;
