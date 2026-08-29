@@ -59,8 +59,11 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
             throw new AuthorizationException(
                 String.format(
                     "Unauthorized to view query SQL (topSqlQueries) for dataset %s. Requires the"
-                        + " View Entity Queries privilege on the dataset. Re-request without the"
-                        + " topSqlQueries field to read usage statistics.",
+                        + " View Entity Queries privilege on the dataset, or the platform-level"
+                        + " View All Queries privilege. Under strict subject enforcement this"
+                        + " field is denied even with those privileges, since query SQL text"
+                        + " carries no per-statement dataset record to verify against. Re-request"
+                        + " without the topSqlQueries field to read usage statistics.",
                     resourceUrn));
           }
           try {
