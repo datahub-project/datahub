@@ -1,0 +1,13 @@
+{
+    "addAttribute": "Lisää attribuutti",
+    "addError": "Lisääminen epäonnistui: \n {{error}}",
+    "addSuccess": "Liiketoiminta-attribuutti lisätty!",
+    "modal.addTitle": "Lisää {{entityName}}",
+    "modal.removeTitle": "Poista {{entityName}}",
+    "removeAttributeError": "Liiketoiminta-attribuutin poistaminen epäonnistui: \n {{error}}",
+    "removeConfirm.content": "Haluatko varmasti poistaa attribuutin {{attributeName}}?",
+    "removeConfirm.title": "Poistetaanko attribuutti {{attributeName}}?",
+    "removeError": "Poistaminen epäonnistui: \n {{error}}",
+    "removeSuccess": "Liiketoiminta-attribuutti poistettu!",
+    "searchPlaceholder": "Hae {{entityName}}..."
+}

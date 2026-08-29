@@ -74,6 +74,51 @@ source:
       "my_topic_2-value": "io.acryl.Schema3"
 ```
 
+#### Confluent Cloud Stream Catalog
+
+On Confluent Cloud, tags and business metadata curated in Stream Governance are held in the
+Stream Catalog rather than on the topics themselves. Enable the `confluent_catalog` block to
+bring them across onto the corresponding DataHub topic datasets.
+
+The catalog is served from the Schema Registry endpoint and accepts the same API key, so a
+recipe that already reaches Schema Registry needs nothing beyond `enabled: true`:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: "abc-defg.eu-west-1.aws.confluent.cloud:9092"
+      schema_registry_url: "https://abc-defgh.us-east-2.aws.confluent.cloud"
+      schema_registry_config:
+        basic.auth.user.info: "${REGISTRY_API_KEY_ID}:${REGISTRY_API_KEY_SECRET}"
+
+    confluent_catalog:
+      enabled: true
+```
+
+Confluent tags become DataHub tags and business metadata attributes become custom properties on
+the topic. Set `include_tags` or `include_business_metadata` to `false` to take only one of the two.
+
+Requirements and limitations:
+
+- **Confluent Cloud only**, and the environment needs the **Stream Governance Advanced** package.
+  Tags and business metadata are an Advanced feature: on Essentials the catalog API returns
+  `403` even for reads. The catalog does not exist on self-managed Kafka, and the block is
+  ignored elsewhere.
+- The Schema Registry API key needs a role that grants catalog read access — in practice
+  **DataSteward** on the environment. `EnvironmentAdmin` alone is not enough: it administers the
+  environment but does not carry the catalog read permission.
+- If the key cannot read the catalog, ingestion continues without catalog metadata and records a
+  warning rather than failing.
+- The catalog covers a whole **environment**, so if that environment holds more than one Kafka
+  cluster the same topic name can appear twice. Those topics are skipped, with a warning, unless
+  you set `confluent_catalog.cluster_id` to the cluster this recipe ingests (e.g. `lkc-xxxxx`).
+- The catalog carries **no lineage between topics**. The producer/consumer graph shown in
+  Confluent's Stream Lineage UI is not exposed by the API. Connector-to-topic lineage is
+  available through the [`kafka-connect`](/docs/generated/ingestion/sources/kafka-connect)
+  source for environments that use Kafka Connect.
+
 #### Custom Schema Registry
 
 The Kafka Source uses the schema registry to figure out the schema associated with both `key` and `value` for the topic.
@@ -259,6 +304,96 @@ config:
 
 The underlying implementation is similar to [dbt meta mapping](https://docs.datahub.com/docs/generated/ingestion/sources/dbt#dbt-meta-automated-mappings), which has more detailed examples that can be used for reference.
 
+#### Schema Resolution
+
+DataHub provides multi-stage schema resolution for topics whose schemas are not registered in the schema registry, or that use non-default naming strategies. This feature is **independent** of data profiling.
+
+When `schema_resolution.enabled` is true, DataHub attempts to resolve schemas using the following stages in order:
+
+1. **TopicNameStrategy**: Direct lookup using `<topic>-key/value` pattern (most common)
+2. **TopicSubjectMap**: User-defined topic-to-subject mappings via `topic_subject_map` config
+3. **RecordNameStrategy**: Extract record names from message data and lookup `<record_name>-key/value`
+4. **TopicRecordNameStrategy**: Combine topic + record name: `<topic>-<record_name>-key/value`
+5. **Schema Inference**: As final fallback, infer schema from message data analysis
+
+This ensures maximum compatibility with different Confluent Schema Registry [naming strategies](https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#how-the-naming-strategies-work).
+
+```yaml
+source:
+  type: kafka
+  config:
+    schema_resolution:
+      enabled: true # disabled by default
+      sample_timeout_seconds: 2.0
+      offset_reset_strategy: "hybrid" # "earliest", "latest", or "hybrid"
+      max_messages_per_topic: 10
+
+    profiling:
+      max_workers: 20 # controls parallelization for both profiling and schema resolution
+      nested_field_max_depth: 5
+```
+
+**Sampling strategies for schema inference:**
+
+- **`hybrid` (default)**: Tries `latest` first for speed, falls back to `earliest` if no recent messages found.
+- **`latest`**: Only reads recent messages. Fastest but may fail on quiet topics.
+- **`earliest`**: Scans from the beginning of topic history. Most comprehensive but slower on large topics.
+
+**Performance notes:**
+
+- Inferred schemas are cached for 60 minutes to avoid re-sampling.
+- Worker count scales automatically based on CPU cores and topic count.
+- Set `schema_resolution.enabled: false` to receive warnings for missing schemas instead of automatic resolution.
+
+#### Data Profiling
+
+The Kafka source supports data profiling of message content to generate field-level statistics and sample values. Profiling and schema resolution are enabled independently — either can be turned on without the other. Note, however, that both features draw their parallelism from the same `profiling.max_workers` setting.
+
+```yaml
+source:
+  type: "kafka"
+  config:
+    profiling:
+      enabled: true
+      sample_size: 200 # messages to sample per topic
+      max_sample_time_seconds: 60
+      sampling_strategy: "latest" # latest, random, stratified, or full
+      max_workers: 4
+      batch_size: 100
+
+      # Field-level statistics
+      include_field_null_count: true
+      include_field_distinct_count: true
+      include_field_min_value: true
+      include_field_max_value: true
+      include_field_mean_value: true
+      include_field_median_value: true
+      include_field_stddev_value: true
+      include_field_quantiles: false # expensive, disabled by default
+      include_field_distinct_value_frequencies: false # expensive
+      include_field_histogram: false # expensive
+      include_field_sample_values: true
+
+      # Nested field handling
+      profile_nested_fields: true
+      nested_field_max_depth: 10
+
+      # Scheduled profiling (optional)
+      operation_config:
+        lower_freq_profile_enabled: false
+        profile_day_of_week: 1 # Monday=0, Sunday=6
+        profile_date_of_month: 15
+```
+
+**Sampling strategies:**
+
+- **`latest`** (default): Samples the most recent messages from the end of each partition.
+- **`random`**: Samples messages from random offsets across partitions.
+- **`stratified`**: Evenly distributes samples across the topic timeline.
+- **`full`**: Processes the entire topic (respects `sample_size` limit).
+
+The `nested_field_max_depth` setting (default: 10) prevents recursion errors on deeply nested or circular JSON structures. Reduce it for topics with complex nested messages.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
@@ -268,7 +403,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 The current implementation of the support for `PROTOBUF` schema type has the following limitations:
 
 - Recursive types are not supported.
-- If the schemas of different topics define a type in the same package, the source would raise an exception.
+- Protobuf compilation uses a **process-global descriptor pool**. The first topic that compiles a given fully-qualified message type succeeds; any later topic that embeds the same type name hits a `duplicate symbol` error and is left with no schema fields (DataHub logs a warning and continues). On estates where many topics share common proto types, most protobuf topics after the first will therefore have no schema fields. Enable `schema_resolution` so those topics fall back to schema inference from message data.
 
 In addition to this, maps are represented as arrays of messages. The following message,
 
@@ -293,3 +428,76 @@ message MessageWithMap {
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
+#### Schema Parsing Errors
+
+DataHub automatically handles schema parsing errors gracefully and continues processing.
+
+##### Avro Binary Encoding Errors
+
+**Error:** `avro.errors.InvalidAvroBinaryEncoding: Read 0 bytes, expected 1 bytes`
+
+Enable schema resolution to automatically infer schemas:
+
+```yaml
+source:
+  type: kafka
+  config:
+    schema_resolution:
+      enabled: true
+      offset_reset_strategy: "hybrid"
+```
+
+##### Protobuf Duplicate Symbol Errors
+
+**Error:** `Couldn't build proto file into descriptor pool: duplicate symbol`
+
+DataHub logs warnings and continues processing. Topics with schema conflicts will use inferred schemas if schema resolution is enabled.
+
+##### Schema Registry Connection Issues
+
+If schema registry is unavailable, enable schema resolution as a fallback:
+
+```yaml
+source:
+  type: kafka
+  config:
+    connection:
+      schema_registry_url: "http://localhost:8081"
+    schema_resolution:
+      enabled: true
+```
+
+#### Performance Optimization
+
+For large Kafka clusters with many topics:
+
+```yaml
+source:
+  type: kafka
+  config:
+    topic_patterns:
+      allow: ["prod_.*", "analytics_.*"]
+      deny: [".*_temp", ".*_test"]
+
+    profiling:
+      enabled: true
+      max_workers: 20 # controls both profiling and schema resolution parallelization
+      sample_size: 100
+      nested_field_max_depth: 10
+
+    schema_resolution:
+      enabled: true
+      sample_timeout_seconds: 1.0
+```
+
+#### Memory Issues with Large Topics
+
+For topics with large messages or high volume, reduce the sample size and recursion depth:
+
+```yaml
+profiling:
+  enabled: true
+  sample_size: 50
+  nested_field_max_depth: 2
+```

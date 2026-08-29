@@ -17,7 +17,10 @@ from typing import Any, Optional
 import pytest
 import requests
 
+from tests.utilities.domains import Domain
 from tests.utils import run_datahub_cmd, wait_for_healthcheck_util
+
+pytestmark = pytest.mark.domain(Domain.INGESTION, Domain.PLATFORM)
 
 
 class TestGraphQLCLIStandalone:

@@ -18,12 +18,12 @@ import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
@@ -58,7 +58,6 @@ import org.testng.annotations.Test;
   SpringWebConfig.class,
   TracingInterceptor.class,
   RelationshipController.class,
-  LineageController.class,
   RelationshipControllerTest.RelationshipControllerTestConfig.class,
   GlobalControllerExceptionHandler.class,
 })
@@ -1315,101 +1314,16 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
   }
 
   @Test
-  public void testScrollLineageSetsAllowedEdgeTriplets() throws Exception {
-    RelatedEntitiesScrollResult expectedResult =
-        new RelatedEntitiesScrollResult(0, 10, "lineage-scroll", Arrays.asList());
-
-    // Setup lineage registry on the mock graph service
-    LineageRegistry lineageRegistry =
-        TestOperationContexts.systemContextNoSearchAuthorization().getLineageRegistry();
-    when(mockGraphService.getLineageRegistry()).thenReturn(lineageRegistry);
-
-    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
-
-    when(mockGraphService.scrollRelatedEntities(
-            any(),
-            graphFiltersCaptor.capture(),
-            any(),
-            isNull(),
-            anyString(),
-            anyInt(),
-            isNull(),
-            isNull()))
-        .thenReturn(expectedResult);
-
-    mockMvc
-        .perform(
-            MockMvcRequestBuilders.post("/openapi/v3/lineage/scroll")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
-                .accept(MediaType.APPLICATION_JSON))
-        .andExpect(status().is2xxSuccessful())
-        .andExpect(jsonPath("$.scrollId").value("lineage-scroll"));
-
-    GraphFilters captured = graphFiltersCaptor.getValue();
-    // scrollLineage should populate allowedEdgeTriplets from the lineage registry
-    assertNotNull(captured.getAllowedEdgeTriplets());
-    assertFalse(captured.getAllowedEdgeTriplets().isEmpty());
-
-    // Verify a known lineage edge is present (dataset DownstreamOf dataset)
-    boolean hasDownstreamOf =
-        captured.getAllowedEdgeTriplets().stream()
-            .anyMatch(
-                p -> p.getKey().equals("dataset") && p.getValue().getType().equals("DownstreamOf"));
-    assertTrue(hasDownstreamOf, "Expected lineage triplets to include dataset DownstreamOf");
-  }
-
-  @Test
-  public void testScrollLineageWithAdditionalFilters() throws Exception {
-    RelatedEntitiesScrollResult expectedResult =
-        new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
-
-    LineageRegistry lineageRegistry =
-        TestOperationContexts.systemContextNoSearchAuthorization().getLineageRegistry();
-    when(mockGraphService.getLineageRegistry()).thenReturn(lineageRegistry);
-
-    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
-
-    when(mockGraphService.scrollRelatedEntities(
-            any(),
-            graphFiltersCaptor.capture(),
-            any(),
-            isNull(),
-            anyString(),
-            anyInt(),
-            isNull(),
-            isNull()))
-        .thenReturn(expectedResult);
-
-    mockMvc
-        .perform(
-            MockMvcRequestBuilders.post("/openapi/v3/lineage/scroll")
-                .param("sourceTypes", "dataset")
-                .param("destinationTypes", "chart")
-                .param("relationshipTypes", "Consumes")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
-                .accept(MediaType.APPLICATION_JSON))
-        .andExpect(status().is2xxSuccessful());
-
-    GraphFilters captured = graphFiltersCaptor.getValue();
-    // Should have both the request-level filters AND the lineage triplets
-    assertEquals(Set.of("dataset"), captured.getSourceTypes());
-    assertEquals(Set.of("chart"), captured.getDestinationTypes());
-    assertEquals(Set.of("Consumes"), captured.getRelationshipTypes());
-    assertNotNull(captured.getAllowedEdgeTriplets());
-    assertFalse(captured.getAllowedEdgeTriplets().isEmpty());
-  }
-
-  @Test
   public void testScrollEndpointDoesNotSetTriplets() throws Exception {
     RelatedEntitiesScrollResult expectedResult =
         new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
 
     ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
 
     when(mockGraphService.scrollRelatedEntities(
-            any(),
+            opContextCaptor.capture(),
             graphFiltersCaptor.capture(),
             any(),
             isNull(),
@@ -1427,6 +1341,9 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
 
+    assertEquals(
+        UsageOperation.METADATA_READ.key(),
+        opContextCaptor.getValue().getRequestContext().getUsageOperation());
     // Regular scroll should NOT set triplets
     assertNull(graphFiltersCaptor.getValue().getAllowedEdgeTriplets());
   }

@@ -25,12 +25,15 @@ from tests.privileges.utils import (
     clear_polices,
     create_metadata_policy,
     create_user,
+    is_graphql_auth_denied,
     remove_policy,
     remove_user,
     set_base_platform_privileges_policy_status,
     set_view_dataset_sensitive_info_policy_status,
     set_view_entity_profile_privileges_policy_status,
+    wait_until_graphql_auth_denied,
 )
+from tests.utilities.domains import Domain
 from tests.utils import (
     get_frontend_session,
     get_frontend_url,
@@ -40,7 +43,11 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.global_policy_mutator,
+    pytest.mark.domain(Domain.PLATFORM),
+]
 
 _UNIQUE = uuid.uuid4().hex[:8]
 TEST_USER_EMAIL = f"aspect.auth.test.{_UNIQUE}@smoke.datahub.test"
@@ -51,7 +58,7 @@ TARGET_DATASET_URN = (
     f"urn:li:dataset:(urn:li:dataPlatform:kafka,auth-target-{_UNIQUE},PROD)"
 )
 PARENT_DATASET_URN = (
-    f"urn:li:dataset:(urn:li:dataPlatform:kafka,auth-parent-{_UNIQUE},PROD)"
+    f"urn:li:dataset:(urn:li:dataPlatform:logical,auth-parent-{_UNIQUE},PROD)"
 )
 PHYSICAL_SCHEMA_FIELD_URN = f"urn:li:schemaField:({TARGET_DATASET_URN},col1)"
 LOGICAL_SCHEMA_FIELD_URN = f"urn:li:schemaField:({PARENT_DATASET_URN},col1)"
@@ -139,8 +146,15 @@ def _schema_metadata_with_field(field_path: str = "col1") -> SchemaMetadataClass
     )
 
 
+ASPECT_WRITE_POLICY_PREFIXES = ["Test EDIT_ENTITY", "Test MANAGE_DATA_PRODUCTS"]
+
+
 @pytest.fixture(scope="module", autouse=True)
 def auth_test_setup(graph_client, auth_session):
+    yield from _auth_test_setup_impl(graph_client, auth_session)
+
+
+def _auth_test_setup_impl(graph_client, auth_session):
     global DATA_PRODUCT_URN
     graph_client.emit_mcp(
         MetadataChangeProposalWrapper(
@@ -244,7 +258,7 @@ def auth_test_setup(graph_client, auth_session):
             ),
         )
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     create_result = graph_client.execute_graphql(
         CREATE_DATA_PRODUCT_MUTATION,
@@ -255,24 +269,24 @@ def auth_test_setup(graph_client, auth_session):
         },
     )
     DATA_PRODUCT_URN = create_result["createDataProduct"]["urn"]
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     admin_session = get_frontend_session()
-    clear_polices(admin_session)
+    clear_polices(admin_session, name_prefixes=ASPECT_WRITE_POLICY_PREFIXES)
     set_base_platform_privileges_policy_status("INACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("INACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("INACTIVE", admin_session)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     admin_session = create_user(admin_session, TEST_USER_EMAIL, TEST_USER_PASSWORD)
     yield
 
     remove_user(admin_session, TEST_USER_URN)
-    clear_polices(admin_session)
+    clear_polices(admin_session, name_prefixes=ASPECT_WRITE_POLICY_PREFIXES)
     set_base_platform_privileges_policy_status("ACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("ACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("ACTIVE", admin_session)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     for urn in [
         TARGET_DATASET_URN,
@@ -300,9 +314,65 @@ def _post_graphql_as_user(email: str, password: str, payload: dict) -> dict:
 
 
 def _assert_graphql_auth_denied(res: dict) -> None:
-    errors = res.get("errors", [])
-    assert errors, f"Expected authorization failure, got: {res}"
-    assert errors[0].get("extensions", {}).get("code") in (403, 401), errors[0]
+    assert is_graphql_auth_denied(res), f"Expected authorization failure, got: {res}"
+
+
+def _data_product_rename_probe_payload() -> dict:
+    return {
+        "query": UPDATE_NAME_MUTATION,
+        "variables": {
+            "input": {
+                "urn": DATA_PRODUCT_URN,
+                "name": f"Policy cache probe {_UNIQUE}",
+            }
+        },
+    }
+
+
+def _wait_until_data_product_rename_denied() -> None:
+    wait_until_graphql_auth_denied(
+        lambda: _post_graphql_as_user(
+            TEST_USER_EMAIL,
+            TEST_USER_PASSWORD,
+            _data_product_rename_probe_payload(),
+        ),
+        description="data product rename denial for test user",
+    )
+
+
+def _schema_field_logical_parent_payload() -> dict:
+    return {
+        "query": SET_LOGICAL_PARENT_MUTATION,
+        "variables": {
+            "input": {
+                "resourceUrn": PHYSICAL_SCHEMA_FIELD_URN,
+                "parentUrn": LOGICAL_SCHEMA_FIELD_URN,
+            }
+        },
+    }
+
+
+def _wait_until_schema_field_logical_parent_denied() -> None:
+    wait_until_graphql_auth_denied(
+        lambda: _post_graphql_as_user(
+            TEST_USER_EMAIL,
+            TEST_USER_PASSWORD,
+            _schema_field_logical_parent_payload(),
+        ),
+        description="schema field setLogicalParent denial for test user",
+    )
+
+
+def _prepare_denied_data_product_rename_tests(admin_session) -> None:
+    clear_polices(admin_session, name_prefixes=ASPECT_WRITE_POLICY_PREFIXES)
+    wait_for_writes_to_sync(mcp_only=True)
+    _wait_until_data_product_rename_denied()
+
+
+def _prepare_schema_field_denied_tests(admin_session) -> None:
+    clear_polices(admin_session, name_prefixes=ASPECT_WRITE_POLICY_PREFIXES)
+    wait_for_writes_to_sync(mcp_only=True)
+    _wait_until_schema_field_logical_parent_denied()
 
 
 def test_set_logical_parent_denied_without_edit_entity_on_target():
@@ -331,7 +401,7 @@ def test_set_logical_parent_denied_without_edit_entity_on_parent():
         user_urn=TEST_USER_URN,
         resource_urn=TARGET_DATASET_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     payload = {
         "query": SET_LOGICAL_PARENT_MUTATION,
@@ -367,7 +437,7 @@ def test_set_logical_parent_allowed_with_edit_entity_on_target_and_parent(auth_s
         user_urn=TEST_USER_URN,
         resource_urn=PARENT_DATASET_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     payload = {
         "query": SET_LOGICAL_PARENT_MUTATION,
@@ -383,11 +453,13 @@ def test_set_logical_parent_allowed_with_edit_entity_on_target_and_parent(auth_s
 
     remove_policy(target_policy_urn, admin_session)
     remove_policy(parent_policy_urn, admin_session)
+    wait_for_writes_to_sync(mcp_only=True)
 
 
 def test_set_logical_parent_schema_field_denied_without_edit_entity_on_logical_dataset():
     """Schema field logicalParent denied when only the physical dataset is authorized."""
     admin_session = get_frontend_session()
+    _prepare_schema_field_denied_tests(admin_session)
     policy_urn = create_metadata_policy(
         admin_session,
         name=f"Test EDIT_ENTITY physical dataset only {_UNIQUE}",
@@ -396,18 +468,13 @@ def test_set_logical_parent_schema_field_denied_without_edit_entity_on_logical_d
         user_urn=TEST_USER_URN,
         resource_urn=TARGET_DATASET_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
-    payload = {
-        "query": SET_LOGICAL_PARENT_MUTATION,
-        "variables": {
-            "input": {
-                "resourceUrn": PHYSICAL_SCHEMA_FIELD_URN,
-                "parentUrn": LOGICAL_SCHEMA_FIELD_URN,
-            }
-        },
-    }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = _post_graphql_as_user(
+        TEST_USER_EMAIL,
+        TEST_USER_PASSWORD,
+        _schema_field_logical_parent_payload(),
+    )
     _assert_graphql_auth_denied(res)
 
     remove_policy(policy_urn, admin_session)
@@ -416,6 +483,7 @@ def test_set_logical_parent_schema_field_denied_without_edit_entity_on_logical_d
 def test_set_logical_parent_schema_field_denied_without_edit_entity_on_physical_dataset():
     """Schema field logicalParent denied when only the logical dataset is authorized."""
     admin_session = get_frontend_session()
+    _prepare_schema_field_denied_tests(admin_session)
     policy_urn = create_metadata_policy(
         admin_session,
         name=f"Test EDIT_ENTITY logical dataset only {_UNIQUE}",
@@ -424,18 +492,13 @@ def test_set_logical_parent_schema_field_denied_without_edit_entity_on_physical_
         user_urn=TEST_USER_URN,
         resource_urn=PARENT_DATASET_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
-    payload = {
-        "query": SET_LOGICAL_PARENT_MUTATION,
-        "variables": {
-            "input": {
-                "resourceUrn": PHYSICAL_SCHEMA_FIELD_URN,
-                "parentUrn": LOGICAL_SCHEMA_FIELD_URN,
-            }
-        },
-    }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = _post_graphql_as_user(
+        TEST_USER_EMAIL,
+        TEST_USER_PASSWORD,
+        _schema_field_logical_parent_payload(),
+    )
     _assert_graphql_auth_denied(res)
 
     remove_policy(policy_urn, admin_session)
@@ -462,7 +525,7 @@ def test_set_logical_parent_schema_field_allowed_via_dataset_policies_only(
         user_urn=TEST_USER_URN,
         resource_urn=PARENT_DATASET_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     payload = {
         "query": SET_LOGICAL_PARENT_MUTATION,
@@ -501,7 +564,7 @@ def test_set_logical_parent_schema_field_allowed_with_mixed_dataset_and_field_gr
         user_urn=TEST_USER_URN,
         resource_urn=LOGICAL_SCHEMA_FIELD_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     payload = {
         "query": SET_LOGICAL_PARENT_MUTATION,
@@ -530,7 +593,7 @@ def test_batch_set_data_product_denied_with_asset_side_privilege_only(auth_sessi
         user_urn=TEST_USER_URN,
         resource_urn=MEMBER_DATASET_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     payload = {
         "query": BATCH_SET_DATA_PRODUCT_MUTATION,
@@ -558,7 +621,7 @@ def test_batch_set_data_product_allowed_with_manage_data_products_on_domain(
         user_urn=TEST_USER_URN,
         resource_urn=TEST_DOMAIN_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     payload = {
         "query": BATCH_SET_DATA_PRODUCT_MUTATION,
@@ -586,7 +649,7 @@ def test_batch_set_data_product_allowed_cross_domain_with_manage_on_product_doma
         user_urn=TEST_USER_URN,
         resource_urn=TEST_DOMAIN_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     payload = {
         "query": BATCH_SET_DATA_PRODUCT_MUTATION,
@@ -614,7 +677,7 @@ def test_batch_add_to_data_products_allowed_with_asset_side_privilege_only(
         user_urn=TEST_USER_URN,
         resource_urn=ASSET_SIDE_ADD_DATASET_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     payload = {
         "query": BATCH_ADD_TO_DATA_PRODUCTS_MUTATION,
@@ -637,7 +700,7 @@ def _seed_data_product_membership(graph_client, dataset_urn: str) -> None:
             "resourceUrns": [dataset_urn],
         },
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
 
 def test_batch_unset_data_product_allowed_with_asset_side_privilege_only(
@@ -655,7 +718,7 @@ def test_batch_unset_data_product_allowed_with_asset_side_privilege_only(
         user_urn=TEST_USER_URN,
         resource_urn=ASSET_SIDE_REMOVE_DATASET_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     payload = {
         "query": BATCH_UNSET_DATA_PRODUCT_MUTATION,
@@ -682,7 +745,7 @@ def test_batch_remove_from_data_products_allowed_with_asset_side_privilege_only(
         user_urn=TEST_USER_URN,
         resource_urn=ASSET_SIDE_REMOVE_DATASET_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     payload = {
         "query": BATCH_REMOVE_FROM_DATA_PRODUCTS_MUTATION,
@@ -699,6 +762,9 @@ def test_batch_remove_from_data_products_allowed_with_asset_side_privilege_only(
 
 def test_update_data_product_name_denied_without_privilege():
     """UpdateName requires MANAGE_DATA_PRODUCTS on domain or EDIT_ENTITY on product."""
+    admin_session = get_frontend_session()
+    _prepare_denied_data_product_rename_tests(admin_session)
+
     payload = {
         "query": UPDATE_NAME_MUTATION,
         "variables": {
@@ -723,7 +789,7 @@ def test_update_data_product_name_denied_with_asset_side_privilege_only(auth_ses
         user_urn=TEST_USER_URN,
         resource_urn=MEMBER_DATASET_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     payload = {
         "query": UPDATE_NAME_MUTATION,
@@ -753,7 +819,7 @@ def test_update_data_product_name_allowed_with_manage_data_products_on_domain(
         user_urn=TEST_USER_URN,
         resource_urn=TEST_DOMAIN_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     payload = {
         "query": UPDATE_NAME_MUTATION,
@@ -783,7 +849,7 @@ def test_update_data_product_name_allowed_with_edit_entity_on_data_product(
         user_urn=TEST_USER_URN,
         resource_urn=DATA_PRODUCT_URN,
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     payload = {
         "query": UPDATE_NAME_MUTATION,

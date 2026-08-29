@@ -29,6 +29,7 @@ import javax.inject.Named;
 
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
@@ -71,7 +72,7 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
             final Authentication auth = AuthenticationContext.getAuthentication();
             final OperationContext opContext = OperationContext.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            ACTION_GET_TIMESERIES_STATS, entityName), authorizer, auth, true);
+                            ACTION_GET_TIMESERIES_STATS, entityName).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true);
 
             if (!AuthUtil.isAPIAuthorizedEntityType(
                     opContext,

@@ -40,32 +40,35 @@ type StructuredPropertyEntity implements Entity {
   """
   A primary key associated with the structured property
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Definition of this structured property including its name
   """
   definition: StructuredPropertyDefinition!
+    @aspectMapping(aspects: ["propertyDefinition"])
 
   """
   Definition of this structured property including its name
   """
   settings: StructuredPropertySettings
+    @aspectMapping(aspects: ["structuredPropertySettings"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -113,6 +116,12 @@ type StructuredPropertyDefinition {
   Entity types that this structured property can be applied to
   """
   entityTypes: [EntityTypeEntity!]!
+
+  """
+  The optional list of data platforms that this property is restricted to.
+  If empty or null, the property applies to entities on any data platform.
+  """
+  allowedPlatforms: [DataPlatform!]
 
   """
   Whether or not this structured property is immutable
@@ -300,22 +309,23 @@ type DataTypeEntity implements Entity {
   """
   A primary key associated with the Query
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Info about this type including its name
   """
-  info: DataTypeInfo!
+  info: DataTypeInfo! @aspectMapping(aspects: ["dataTypeInfo"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -437,6 +447,13 @@ input CreateStructuredPropertyInput {
   entityTypes: [String!]!
 
   """
+  An optional list of data platform urns that this property is restricted to.
+  If not provided, the property can be applied to entities on any data platform.
+  For example: ["urn:li:dataPlatform:glue", "urn:li:dataPlatform:redshift"]
+  """
+  allowedPlatforms: [String!]
+
+  """
   Settings for this structured property
   """
   settings: StructuredPropertySettingsInput
@@ -520,6 +537,12 @@ input UpdateStructuredPropertyInput {
   For backwards compatibility, this is append only.
   """
   newEntityTypes: [String!]
+
+  """
+  Append to the list of data platform urns that this property is restricted to.
+  For backwards compatibility, this is append only.
+  """
+  newAllowedPlatforms: [String!]
 
   """
   Settings for this structured property

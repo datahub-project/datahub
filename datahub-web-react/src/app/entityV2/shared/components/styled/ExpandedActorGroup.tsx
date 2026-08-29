@@ -1,5 +1,4 @@
-import { Popover } from '@components';
-import { Typography } from 'antd';
+import { Popover, Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -19,7 +18,7 @@ const ActorsContainer = styled.div`
     align-items: center;
 `;
 
-const RemainderText = styled(Typography.Text)`
+const RemainderText = styled(Text)`
     display: flex;
     justify-content: right;
     margin-right: 8px;
@@ -56,7 +55,9 @@ export const ExpandedActorGroup = ({ actors, max = DEFAULT_MAX, onClose, contain
                 ))}
             </ActorsContainer>
             {remainder && (
-                <RemainderText type="secondary">{t('expandedActor.moreCount', { count: remainder })}</RemainderText>
+                <RemainderText type="span" color="textSecondary">
+                    {t('expandedActor.moreCount', { count: remainder })}
+                </RemainderText>
             )}
         </Popover>
     );

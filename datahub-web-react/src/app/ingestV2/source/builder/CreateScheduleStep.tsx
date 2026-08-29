@@ -11,7 +11,7 @@ import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import { lowerFirstLetter } from '@app/shared/textUtil';
-import { Button } from '@src/alchemy-components';
+import { Button, Text } from '@src/alchemy-components';
 import { cronToString } from '@utils/cronstrue';
 
 const Section = styled.div`
@@ -51,6 +51,7 @@ const AdvancedSchedule = styled.div`
 
 const AdvancedCheckBox = styled(Typography.Text)`
     margin-right: 10px;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const CronSuccessCheck = styled(CheckCircleOutlined)`
@@ -151,7 +152,9 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                     label={
                         <Typography.Text strong>
                             {t('schedule.runOnSchedule')}{' '}
-                            <Typography.Text type="secondary">{t('schedule.recommended')}</Typography.Text>
+                            <Text type="span" color="textSecondary">
+                                {t('schedule.recommended')}
+                            </Text>
                         </Typography.Text>
                     }
                 >
@@ -185,7 +188,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                             />
                         )}
                         <AdvancedSchedule>
-                            <AdvancedCheckBox type="secondary">{t('schedule.showAdvanced')}</AdvancedCheckBox>
+                            <AdvancedCheckBox>{t('schedule.showAdvanced')}</AdvancedCheckBox>
                             <Checkbox
                                 checked={advancedCronCheck}
                                 onChange={(event) => setAdvancedCronCheck(event.target.checked)}

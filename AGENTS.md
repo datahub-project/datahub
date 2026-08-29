@@ -20,7 +20,9 @@ See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
 
 ```bash
 ./gradlew build           # Build entire project
-./gradlew check           # Run all tests and linting
+./gradlew check           # Run all tests (Python/JS lint lives in lint-jobs.yml / :module:lint)
+./gradlew lintCheck       # Run all lint checks (Python, JS, GraphQL, markdown, Java)
+./gradlew lintFix         # Auto-fix all lint issues
 ./gradlew format          # Format all code (Java, Markdown, GraphQL, YAML)
 
 # Note that each directory typically has a build.gradle file, but the available tasks follow similar conventions.
@@ -56,6 +58,8 @@ See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
 **Format everything:**
 
 ```bash
+./gradlew lintCheck           # Run all lint checks (Python, JS, GraphQL, markdown, Java)
+./gradlew lintFix             # Auto-fix all lint issues
 ./gradlew format              # Format all code (Java, Markdown, GraphQL, YAML)
 ./gradlew formatChanged       # Format only changed files (faster)
 ```
@@ -89,7 +93,7 @@ If you see CI failures like:
 
 - `markdown_format / markdown_format_check (pull_request)` - Use `./gradlew :datahub-web-react:mdPrettierWrite`
 - `graphql_prettier_check` - Use `./gradlew :datahub-web-react:graphqlPrettierWrite`
-- `spotlessJavaCheck` - Use `./gradlew spotlessApply`
+- `spotless-check` - Use `./gradlew spotlessApply`
 - Python linting failures - Use `./gradlew :metadata-ingestion:lintFix`
 
 **Never do this:**
@@ -165,6 +169,17 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 - **Register as Spring beans** in `SpringStandardPluginConfiguration.java`
 - **Follow existing patterns**: See `SystemPolicyValidator.java` and `PolicyFieldTypeValidator.java` as examples
 
+### Authorization Architecture
+
+When adding an entity or API:
+
+- Enforce authorization across GraphQL, OpenAPI, and Rest.li
+- Keep basic entity CRUD permissions alongside any higher-level, entity-specific permissions
+- Use `AuthorizationUtils` for GraphQL and `AuthUtil.isAPIAuthorized*` for REST APIs
+- Put shared aspect rules in an `AbstractAspectAuthorizationValidator`
+- Apply view-based access controls by default; only set `viewUnrestricted: true` for intentionally public entities
+- Add allowed and denied access tests
+
 ## Development Flow
 
 1. **Schema changes** in `metadata-models/` trigger code generation across all languages
@@ -188,15 +203,8 @@ Or via Gradle directly: `./gradlew :docs-website:yarnStart` (always does a full 
 
 ### How the docs site is assembled
 
-The final site is served from `docs-website/genDocs/` (gitignored). It is assembled at build time
-from multiple hand-authored sources plus several generation steps:
-
-1. **Gradle generation tasks** produce `docs/generated/` (connector docs, entity reference, schemas)
-2. **`generateDocsDir.ts`** discovers all markdown in the repo, applies transformations (frontmatter,
-   link rewriting, `{{ inline }}` directives), and writes the result to `genDocs/`
-3. **Docusaurus** serves from `genDocs/`, additionally generating GraphQL API docs and Python SDK docs
-
-See `docs-website/AGENTS.md` for full pipeline details.
+The final site is assembled at build time into `docs-website/genDocs/` (gitignored) —
+see `docs-website/AGENTS.md` for the full pipeline.
 
 ### Where docs live
 
@@ -249,34 +257,9 @@ Forgetting step 2 means the release note is published but never appears in the s
   - **Code Quality**: Avoid global state, use named arguments, don't re-export in `__init__.py`, refactor repetitive code
   - **Error Handling**: Robust error handling with layers of protection for known failure points
   - **Security**: Never pass credentials to third-party SDKs via `os.environ`. Use the SDK's programmatic injection mechanism (a settings object, client constructor argument, or credential provider). Writing secrets to the process environment exposes them via `/proc/<pid>/environ` and to any code in the same process. See [`looker_lib_wrapper.py`](metadata-ingestion/src/datahub/ingestion/source/looker/looker_lib_wrapper.py) (`_DataHubLookerApiSettings`) for the canonical pattern.
+  - **Connectors**: File layout, lineage, reporting, and PR-scope conventions for ingestion connectors live in `metadata-ingestion/AGENTS.md`
 - **TypeScript**: Use Prettier formatting, strict types (no `any`), React Testing Library
-
-### Frontend Theming (Colors)
-
-**Always use semantic color tokens** from `datahub-web-react/src/conf/theme/colorThemes/types.ts`. Never use hardcoded hex values, `REDESIGN_COLORS`, `ANTD_GRAY`, or direct alchemy `colors.gray[X]` imports.
-
-**In styled-components** (no import needed — `theme` is available via props):
-
-```typescript
-background: ${(props) => props.theme.colors.bg};
-color: ${(props) => props.theme.colors.text};
-border: 1px solid ${(props) => props.theme.colors.border};
-```
-
-**In React component bodies:**
-
-```typescript
-import { useTheme } from 'styled-components';
-const theme = useTheme();
-<Icon color={theme.colors.icon} />
-```
-
-**For alchemy components** (`<Text>`, `<Icon>`, etc.) — do not pass `color`/`colorLevel` props. Let them inherit from themed parent styled-components.
-
-**Do not import from:**
-
-- `datahub-web-react/src/alchemy-components/theme/foundations/colors.ts` (raw palette, only used internally by the theme)
-- `REDESIGN_COLORS` or `ANTD_GRAY` from `entityV2/shared/constants.ts`
+  - **Frontend**: Component conventions, theming/color tokens, file layout, and the frontend CI checklist live in `datahub-web-react/AGENTS.md`
 
 ### Code Comments
 
@@ -430,6 +413,7 @@ This is a mandatory security guardrail - never disable or skip this test.
 
 - Follow Conventional Commits format for commit messages
 - Breaking Changes: Always update `docs/how/updating-datahub.md` for breaking changes. Write entries for non-technical audiences, reference the PR number, and focus on what users need to change rather than internal implementation details
+- **Never bypass git hook failures with `--no-verify`** (or any equivalent skip flag) on commit or push. A failing hook is a signal that something needs attention — stop, report the failure to the user, and confirm how to proceed. Only use `--no-verify` if the user explicitly tells you to for that specific action.
 
 ### Pull Requests
 
@@ -718,6 +702,11 @@ datahub graphql --agent-context
 
 - https://docs.datahub.com/docs/developers - Official developer guide
 - https://demo.datahub.com/ - Live demo environment
+
+## Playwright UI E2E Tests
+
+Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/README.md) —
+including test-data seeding via `test.use({ featureName: ... })`.
 
 ## Python Virtual Environments
 

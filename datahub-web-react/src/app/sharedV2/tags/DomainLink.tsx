@@ -1,7 +1,11 @@
+import { Text } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { FontSizeOptions } from '@components/theme/config';
+
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
@@ -13,11 +17,13 @@ import { Domain as DomainEntity, EntityType, MetadataAttribution } from '@types'
 const DomainLinkContainer = styled(Link)`
     display: inline-block;
     color: ${(props) => props.theme.colors.text};
+    text-decoration: none;
 
     &:hover,
     &:focus,
     &:active {
         color: ${(props) => props.theme.colors.text};
+        text-decoration: none;
     }
 `;
 
@@ -29,14 +35,27 @@ const RemoveIcon = styled(PillRemoveIcon)`
     margin-left: 4px;
 `;
 
-const StyledTag = styled.div<{ fontSize?: number }>`
-    ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
-    font-weight: 500;
+const PillDeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
+`;
+
+const StyledTag = styled.div`
     display: flex;
     align-items: center;
     justify-content: start;
     gap: 4px;
 `;
+
+function domainLinkTextSize(fontSize?: number): FontSizeOptions {
+    if (!fontSize || fontSize >= 14) return 'md';
+    if (fontSize >= 12) return 'sm';
+    return 'xs';
+}
 
 interface DomainContentProps {
     domain: DomainEntity;
@@ -63,9 +82,21 @@ function DomainContent({
     const displayName = name || entityRegistry.getDisplayName(EntityType.Domain, domain);
 
     return (
-        <StyledTag style={tagStyle} fontSize={fontSize} data-testid={`domain-${displayName}`}>
+        <StyledTag style={tagStyle} data-testid={`domain-${displayName}`}>
             <DomainColoredIcon domain={domain} size={iconSize || 24} fontSize={iconFontSize ?? 16} />
-            {displayName}
+            <Text type="span" size={domainLinkTextSize(fontSize)} weight="normal" color="inherit">
+                {displayName}
+            </Text>
+            {domain.deprecation && domain.deprecation.deprecated && (
+                <PillDeprecationSlot>
+                    <DeprecationIcon
+                        urn={domain.urn}
+                        deprecation={domain.deprecation}
+                        showUndeprecate={false}
+                        showText={false}
+                    />
+                </PillDeprecationSlot>
+            )}
             {closable && <RemoveIcon onClick={onClose} />}
         </StyledTag>
     );

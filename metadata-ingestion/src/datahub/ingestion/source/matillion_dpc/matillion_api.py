@@ -344,11 +344,22 @@ class MatillionAPIClient:
         )
 
     def get_pipeline_executions(
-        self, pipeline_name: Optional[str] = None, limit: int = 10
+        self,
+        pipeline_name: Optional[str] = None,
+        project_id: Optional[str] = None,
+        started_after: Optional[str] = None,
+        started_before: Optional[str] = None,
+        limit: int = API_MAX_PAGE_SIZE,
     ) -> List[MatillionPipelineExecution]:
-        additional_params = {}
+        additional_params: Dict[str, Any] = {}
         if pipeline_name:
             additional_params["pipelineName"] = pipeline_name
+        if project_id:
+            additional_params["projectId"] = project_id
+        if started_after:
+            additional_params["startedAfter"] = started_after
+        if started_before:
+            additional_params["startedBefore"] = started_before
 
         return self._fetch_token_paginated_entities(
             API_ENDPOINT_PIPELINE_EXECUTIONS,

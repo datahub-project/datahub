@@ -214,6 +214,8 @@ PYMONGO_TYPE_TO_MONGO_TYPE = {
     bson.dbref.DBRef: "dbref",
     bson.objectid.ObjectId: "oid",
     bson.Decimal128: "numberDecimal",
+    bytes: "binary",
+    bson.datetime_ms.DatetimeMS: "date",
     "mixed": "mixed",
 }
 
@@ -231,6 +233,8 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
     bson.dbref.DBRef: BytesTypeClass,
     bson.objectid.ObjectId: BytesTypeClass,
     bson.Decimal128: NumberTypeClass,
+    bytes: BytesTypeClass,
+    bson.datetime_ms.DatetimeMS: TimeTypeClass,
     dict: RecordTypeClass,
     "mixed": UnionTypeClass,
 }
@@ -295,7 +299,7 @@ def construct_schema_pymongo(
 
 @platform_name("MongoDB")
 @config_class(MongoDBConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
@@ -521,10 +525,11 @@ class MongoDBSource(StatefulIngestionSourceBase):
         assert max_schema_size is not None
         if collection_schema_size > max_schema_size:
             # downsample the schema, using frequency as the sort key
-            self.report.report_warning(
+            self.report.warning(
                 title="Too many schema fields",
-                message=f"Downsampling the collection schema because it has too many schema fields. Configured threshold is {max_schema_size}",
-                context=f"Schema Size: {collection_schema_size}, Collection: {dataset_urn}",
+                message="Downsampling the collection schema because it has too many schema fields",
+                context=f"schema_size={collection_schema_size}, threshold={max_schema_size}, collection={dataset_urn}",
+                log=False,
             )
             # Add this information to the custom properties so user can know they are looking at downsampled schema
             dataset_properties.customProperties["schema.downsampled"] = "True"

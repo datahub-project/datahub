@@ -21,6 +21,9 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
+)
 from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIExternalURLBuilder,
     VertexAINameFormatter,
@@ -87,6 +90,7 @@ class VertexAIExperimentExtractor:
         yield_common_aspects_fn: YieldCommonAspectsProtocol,
         model_usage_tracker: ModelUsageTracker,
         platform: str,
+        report: StaleEntityRemovalSourceReport,
         state_handler: VertexAIStateHandler,
         rate_limiter: Union[RateLimiter, AbstractContextManager[None]] = nullcontext(),
     ):
@@ -99,6 +103,7 @@ class VertexAIExperimentExtractor:
         self._yield_common_aspects = yield_common_aspects_fn
         self.model_usage_tracker = model_usage_tracker
         self.platform = platform
+        self.report = report
         self.state_handler = state_handler
         self.rate_limiter = rate_limiter
 
@@ -117,12 +122,28 @@ class VertexAIExperimentExtractor:
         filter_str = metadata_utils._make_filter_string(
             schema_title=metadata_constants.SYSTEM_EXPERIMENT
         )
-        contexts = rate_limited_gapic_list(
-            MetadataContext,
-            self.rate_limiter,
-            parent=self._metadata_store_parent(),
-            filter_str=filter_str,
-        )
+        try:
+            contexts = rate_limited_gapic_list(
+                MetadataContext,
+                self.rate_limiter,
+                parent=self._metadata_store_parent(),
+                filter_str=filter_str,
+            )
+        except NotFound:
+            # Vertex AI creates the default Metadata Store lazily on first use of
+            # ML Metadata, so a 404 here means the project simply has no experiments
+            # to ingest — not an error. Skip and continue with the rest of the project.
+            self.report.warning(
+                title="Vertex AI Metadata Store not found",
+                message=(
+                    "Skipping experiment extraction because the project has no "
+                    "default Vertex AI ML Metadata Store. This is expected for "
+                    "projects that have never logged an Experiment or run a "
+                    "Vertex AI Pipeline."
+                ),
+                context=f"project={self._get_project_id()}",
+            )
+            return []
         experiments = []
         for ctx in contexts:
             if (

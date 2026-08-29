@@ -4,9 +4,15 @@ from typing import AbstractSet, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
-from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.constants import (
+    SnowflakeObjectDomain,
+    SnowflakeShowKind,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
+)
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
 )
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
@@ -15,11 +21,125 @@ logger = logging.getLogger(__name__)
 SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
 
+# Conservative ceiling for the composed allow/deny filter — the dominant
+# variable-length part of the object-listing queries. Snowflake documents a 1 MB
+# max statement size
+# (https://docs.snowflake.com/en/sql-reference/limits#general-limits), but empirically
+# it accepts far larger text (10 MB+ when tested in 2026-06), so this is not a hard
+# limit we're hugging — it's a deliberately low threshold past which we stop pushing
+# down and filter client-side, which at that scale is typically faster anyway (see
+# get_tables_for_schema). Decimal 1e6 (< 2^20) keeps headroom for the query
+# scaffolding the filter is embedded in.
+SNOWFLAKE_MAX_QUERY_BYTES = 1_000_000
+
+
+def _escape_sql_string_literal(value: str) -> str:
+    """Escape a value for embedding inside a single-quoted SQL string literal.
+
+    Snowflake string literals (default session settings) treat BOTH ``\\`` and
+    ``'`` as escape mechanisms: ``\\'`` is a literal quote and ``\\\\`` a literal
+    backslash, so a lone backslash consumes the following character — including a
+    closing quote. Backslashes must therefore be doubled FIRST, then single
+    quotes, otherwise a trailing backslash (or ``\\'``) in an attacker-controlled
+    object/schema name breaks out of the literal and injects SQL.
+    """
+    return value.replace("\\", "\\\\").replace("'", "''")
+
+
 # Snowflake unquoted-identifier names — single segments (``DB``, ``MY_SHARE``)
 # or dot-qualified (``ORG.PROVIDER.LISTING``).
 SNOWFLAKE_OBJECT_NAME_RE = re.compile(
     r"^[A-Za-z_][A-Za-z0-9_$]*(\.[A-Za-z_][A-Za-z0-9_$]*)*$"
 )
+
+# Allow-patterns containing only Snowflake unquoted-identifier chars (letters,
+# digits, underscores, dollar signs) and FQN-separator dots, terminated by a
+# '$' regex anchor. No other metacharacters. Patterns in this subset are
+# trivially valid capturing groups, so _make_composable can skip the
+# re.compile validation step for them.
+#
+# Note: Snowflake unquoted identifiers are [A-Za-z_][A-Za-z0-9_$]* (no digit
+# start, no dots). This regex is slightly broader — it admits digit-initial
+# patterns and uses '.' as an FQN separator — which is intentional: it
+# characterises patterns that are composable without re.compile validation,
+# not patterns that are syntactically valid Snowflake identifiers.
+_PLAIN_LITERAL_PATTERN_RE = re.compile(r"^[A-Za-z0-9_$.]+\$$")
+
+
+def _make_composable(pattern: str) -> Optional[str]:
+    """Wrap a regex pattern in (...) for use in a single RLIKE alternation.
+
+    Snowflake RLIKE uses POSIX ERE, not PCRE — non-capturing groups (?:...)
+    are invalid and raise "no argument for repetition operator: ?". Plain
+    capturing groups (...) are valid ERE and sufficient for alternation
+    grouping.
+
+    Returns the wrapped form if the result is a valid regex, or None if the
+    pattern has unbalanced parentheses or other syntax that would break the
+    alternation context (e.g., ``TABLE(unclosed``).
+    """
+    wrapped = f"({pattern})"
+    # Fast path: safe-literal-subset patterns are trivially valid capturing
+    # groups — skip re.compile for the common exact-literal case.
+    if _PLAIN_LITERAL_PATTERN_RE.match(pattern):
+        return wrapped
+    try:
+        re.compile(wrapped)
+    except re.error:
+        return None
+    return wrapped
+
+
+def _compose_deny(
+    deny_patterns: List[str],
+    col_expr: str,
+    ignore_case: bool,
+    deny_budget: int,
+) -> Optional[str]:
+    """Compose deny patterns into a single capped ``NOT RLIKE`` alternation.
+
+    Server-side deny is a best-effort row-reduction optimization, not the source of
+    truth — the caller always re-applies the full allow/deny patterns client-side.
+    So this includes only the patterns that are parsable as a Snowflake regex AND
+    fit within ``deny_budget`` bytes; patterns that are unparsable (would break
+    RLIKE) or past the budget (deny can't be paged) are simply left out, and the
+    client-side pass catches them. Returns ``None`` when no pattern qualifies.
+    """
+    kept: List[str] = []
+    skipped = 0
+    # Track the composed clause's byte size incrementally instead of re-joining and
+    # re-escaping the whole list each iteration (which would be O(n^2)). Escaping is
+    # a per-character expansion and '|' never expands, so the escaped alternation's
+    # length is exactly the sum of each pattern's escaped length plus one byte per
+    # '|' separator. clause_bytes starts at the fixed wrapper "<col> NOT RLIKE ''".
+    clause_bytes = len(f"{col_expr} NOT RLIKE ''".encode())
+
+    for p in deny_patterns:
+        wrapped = _make_composable(p.upper() if ignore_case else p)
+        if wrapped is None:
+            skipped += 1  # unparsable — handled client-side
+            continue
+        added_bytes = len(_escape_sql_string_literal(wrapped).encode()) + (
+            1 if kept else 0  # '|' separator before all but the first pattern
+        )
+        if clause_bytes + added_bytes > deny_budget:
+            skipped += 1  # past the byte budget — handled client-side
+            continue
+        kept.append(wrapped)
+        clause_bytes += added_bytes
+
+    if skipped:
+        logger.debug(
+            "%d of %d deny patterns not pushed server-side (unparsable or past the "
+            "%d-byte budget); the client-side deny pass applies them.",
+            skipped,
+            len(deny_patterns),
+            deny_budget,
+        )
+    if not kept:
+        return None
+    alternation = _escape_sql_string_literal("|".join(kept))
+    return f"{col_expr} NOT RLIKE '{alternation}'"
 
 
 def create_deny_regex_sql_filter(
@@ -89,36 +209,52 @@ class SnowflakeQuery:
 
         col_expr = f"UPPER({column_expr})" if pattern.ignoreCase else column_expr
 
-        conditions: List[str] = []
+        # Compose DENY first, capped at half the per-query byte budget (deny can't
+        # be paged, so the other half is reserved for the allow clause). Server-side
+        # deny is best-effort: unparsable or over-budget patterns are left out and
+        # caught by the caller's mandatory client-side deny pass.
+        deny_budget = SNOWFLAKE_MAX_QUERY_BYTES // 2
+        deny_clause = _compose_deny(
+            pattern.deny, col_expr, bool(pattern.ignoreCase), deny_budget
+        )
 
+        # Compose the ALLOW patterns handed to THIS call into one clause. Allow
+        # can't be truncated — a dropped allow pattern silently misses tables, and
+        # unlike deny there's no client-side pass that recovers an under-selection.
+        # So when the full allow list is too large for one query, the CALLER pages
+        # it: it splits the allow patterns into byte-sized chunks (sized against the
+        # budget left after the deny holdback) and calls this once per chunk,
+        # running one query per page and merging the results. Each call here emits
+        # exactly one page's allow clause.
+        allow_clause: Optional[str] = None
         has_allow_all = ".*" in pattern.allow
-
         if not has_allow_all and pattern.allow:
-            allow_conditions: List[str] = []
-
+            composable: List[str] = []
             for p in pattern.allow:
-                # Escape backslashes and single quotes for SQL string literal
-                escaped = transform(p).replace("\\", "\\\\").replace("'", "''")
-                allow_conditions.append(f"{col_expr} RLIKE '{escaped}'")
-
-            if allow_conditions:
-                if len(allow_conditions) == 1:
-                    conditions.append(allow_conditions[0])
+                wrapped = _make_composable(transform(p))
+                if wrapped is None:
+                    logger.warning(
+                        "Skipping allow pattern %r: cannot be safely composed "
+                        "(unbalanced parentheses or invalid regex). "
+                        "This pattern will not be applied as a SQL filter.",
+                        p,
+                    )
                 else:
-                    conditions.append(f"({' OR '.join(allow_conditions)})")
-
-        if pattern.deny:
-            deny_conditions: List[str] = []
-            for p in pattern.deny:
-                # Escape backslashes and single quotes for SQL string literal
-                escaped = transform(p).replace("\\", "\\\\").replace("'", "''")
-                deny_conditions.append(f"{col_expr} NOT RLIKE '{escaped}'")
-
-            if len(deny_conditions) == 1:
-                conditions.append(deny_conditions[0])
+                    composable.append(wrapped)
+            if composable:
+                # Single RLIKE alternation: ~5s for 500 patterns vs OR-chain ~30s.
+                combined = "|".join(composable)
+                sql_escaped = _escape_sql_string_literal(combined)
+                allow_clause = f"{col_expr} RLIKE '{sql_escaped}'"
             else:
-                conditions.append(f"({' AND '.join(deny_conditions)})")
+                # Allow patterns were provided but none could be composed. Fail
+                # CLOSED (match nothing) rather than emitting no condition — an
+                # empty filter would allow everything, silently widening an
+                # allow-list scoped away from sensitive objects.
+                allow_clause = "FALSE"
 
+        # Emit allow before deny (allow AND deny), matching the original order.
+        conditions = [clause for clause in (allow_clause, deny_clause) if clause]
         return " AND ".join(conditions) if conditions else ""
 
     @staticmethod
@@ -425,27 +561,63 @@ class SnowflakeQuery:
         """
 
     @staticmethod
-    def show_views_for_database(
+    def show_objects_for_database(
+        kind: SnowflakeShowKind,
         db_name: str,
         limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
-        view_pagination_marker: Optional[str] = None,
     ) -> str:
-        # While there is an information_schema.views view, that only shows the view definition if the role
-        # is an owner of the view. That doesn't work for us.
-        # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
+        """A single database-wide SHOW. Deliberately NOT paginated.
 
-        # SHOW VIEWS can return a maximum of 10000 rows.
-        # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
+        The output is "ordered lexicographically by database, schema, and name", but the
+        `LIMIT ... FROM '<name>'` cursor matches on the object *name* alone - so the cursor
+        key is not the sort key and the result cannot be continued. Measured against a live
+        account, paging it fails in one of two ways depending on the page's last row:
+          - a real object name: the cursor acts as a global `name > marker` filter, so every
+            object in a LATER schema whose name sorts below the marker is silently dropped,
+            while earlier schemas' higher-sorting objects are returned again;
+          - an INFORMATION_SCHEMA view name: the cursor is ignored outright and the next
+            page comes back identical, so the loop never terminates.
+
+        When this page comes back full the caller must page per schema instead - see
+        show_objects_for_schema. Other sites refer here rather than restating this.
+
+        SHOW returns at most 10000 rows:
+        https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
+        """
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
+        database = SnowflakeIdentifierBuilder.get_quoted_identifier_for_database(
+            db_name
+        )
+        return f"""SHOW {kind} IN DATABASE {database} LIMIT {limit};"""
+
+    @staticmethod
+    def show_objects_for_schema(
+        kind: SnowflakeShowKind,
+        db_name: str,
+        schema_name: str,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
+        marker: Optional[str] = None,
+    ) -> str:
+        """One schema's SHOW, optionally continuing after `marker`.
+
+        Scoped to a single schema the output is ordered by name alone, which is exactly what
+        the `FROM '<name>'` cursor matches on, so the cursor key IS the whole sort key and
+        paging is exact - unlike show_objects_for_database.
+        """
         assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
-        # To work around this, we paginate through the results using the FROM clause.
+        # A quoted Snowflake identifier may contain a quote or a backslash, and the marker
+        # is embedded in a string literal - escape it or the next page is malformed SQL.
         from_clause = (
-            f"""FROM '{view_pagination_marker}'""" if view_pagination_marker else ""
+            f"""FROM '{_escape_sql_string_literal(marker)}'""" if marker else ""
         )
-        return f"""\
-SHOW VIEWS IN DATABASE "{db_name}"
-LIMIT {limit} {from_clause};
-"""
+        # The identifiers need escaping for the same reason, by the other rule: inside a
+        # double-quoted identifier a literal quote is doubled, so a schema named a"b
+        # closes the identifier early without this.
+        schema = SnowflakeIdentifierBuilder.get_quoted_identifier_for_schema(
+            db_name, schema_name
+        )
+        return f"""SHOW {kind} IN SCHEMA {schema} LIMIT {limit} {from_clause};"""
 
     @staticmethod
     def get_views_for_database(db_name: str, view_filter: str = "") -> str:
@@ -696,6 +868,23 @@ SELECT
 FROM "{db_name}".information_schema.semantic_metrics
 WHERE semantic_view_schema = '{schema_name}'
 ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_relationships_for_database(db_name: str) -> str:
+        """Generate query to get all semantic relationships (join definitions) for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  name AS "NAME",
+  table_name AS "TABLE_NAME",
+  foreign_keys AS "FOREIGN_KEYS",
+  ref_table_name AS "REF_TABLE_NAME",
+  ref_keys AS "REF_KEYS"
+FROM "{db_name}".information_schema.semantic_relationships
+ORDER BY semantic_view_schema, semantic_view_name, name
 """
 
     @staticmethod
@@ -1380,45 +1569,21 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         return """SELECT name as "NAME", email as "EMAIL" FROM SNOWFLAKE.ACCOUNT_USAGE.USERS"""
 
     @staticmethod
-    def streams_for_database(
-        db_name: str,
-        limit: int = SHOW_STREAM_MAX_PAGE_SIZE,
-        stream_pagination_marker: Optional[str] = None,
-    ) -> str:
-        # SHOW STREAMS can return a maximum of 10000 rows.
-        # https://docs.snowflake.com/en/sql-reference/sql/show-streams#usage-notes
-        assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
-
-        # To work around this, we paginate through the results using the FROM clause.
-        from_clause = (
-            f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
-        )
-        return f"""SHOW STREAMS IN DATABASE "{db_name}" LIMIT {limit} {from_clause};"""
-
-    @staticmethod
-    def show_dynamic_tables_for_database(
-        db_name: str,
-        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
-        dynamic_table_pagination_marker: Optional[str] = None,
-    ) -> str:
-        """Get dynamic table definitions using SHOW DYNAMIC TABLES."""
-        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
-
-        from_clause = (
-            f"""FROM '{dynamic_table_pagination_marker}'"""
-            if dynamic_table_pagination_marker
-            else ""
-        )
-        return f"""\
-    SHOW DYNAMIC TABLES IN DATABASE "{db_name}"
-    LIMIT {limit} {from_clause};
-    """
-
-    @staticmethod
     def get_dynamic_table_graph_history(db_name: str) -> str:
         """Get dynamic table dependency information from information schema."""
+        # This function is ACCOUNT-scoped, not database-scoped: invoked from one database's
+        # INFORMATION_SCHEMA it returns rows for every database in the account. Measured on a
+        # live account - 12 rows spanning three other databases and none from the one it was
+        # invoked from. So filter on database_name, and select it so callers can key each row
+        # by its own database rather than the one they asked about; a same-named schema.table
+        # elsewhere would otherwise supply this database's lineage.
+        #
+        # valid_to IS NULL keeps the current version of each entry, since the function
+        # reports history and superseded rows would otherwise compete for the same key.
         return f"""
             SELECT
+                database_name,
+                schema_name,
                 name,
                 inputs,
                 target_lag_type,
@@ -1426,6 +1591,8 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 scheduling_state,
                 alter_trigger
             FROM TABLE("{db_name}".INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
+            WHERE valid_to IS NULL
+              AND database_name = '{_escape_sql_string_literal(db_name)}'
             ORDER BY name
         """
 

@@ -13,5 +13,15 @@
     "page.subtitle": "Classify your data assets and columns using data dictionaries",
     "page.title": "Business Glossary",
     "section.glossaryTerms": "Glossary Terms",
-    "section.termGroups": "Term Groups"
+    "section.termGroups": "Term Groups",
+    "sidebar.collapse": "Collapse Glossary",
+    "sidebar.expand": "Expand Glossary",
+    "sidebar.home": "Glossary Home",
+    "sidebar.ownerFilter.label": "Owners",
+    "sidebar.ownerFilter.placeholder": "Filter by owner",
+    "sidebar.domainFilter.label": "Domains",
+    "sidebar.domainFilter.placeholder": "Filter by domain",
+    "sidebar.section.allTerms": "All Glossary Terms",
+    "sidebar.tagFilter.label": "Tags",
+    "sidebar.tagFilter.placeholder": "Filter by tag"
 }

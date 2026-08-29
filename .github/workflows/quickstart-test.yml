@@ -76,20 +76,6 @@ jobs:
           source metadata-ingestion/venv/bin/activate
           datahub docker check
 
-      - name: Smoke test
-        if: false
-        env:
-          RUN_QUICKSTART: false
-          DATAHUB_VERSION: quickstart
-          CLEANUP_DATA: "false"
-          TEST_STRATEGY: cypress
-          BATCH_COUNT: 30
-          BATCH_NUMBER: 2
-        run: |
-          echo "$DATAHUB_VERSION"
-          ./gradlew --stop
-          ./smoke-test/smoke.sh
-
       - name: Run quickstart check
         run: |
           source metadata-ingestion/venv/bin/activate

@@ -1,6 +1,7 @@
 import { grey } from '@ant-design/colors';
 import { PlusOutlined } from '@ant-design/icons';
 import { ApolloError } from '@apollo/client';
+import { Text } from '@components';
 import { Button, Divider, Typography, message } from 'antd';
 import ColorHash from 'color-hash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -16,6 +17,7 @@ import { ExpandedOwner } from '@app/entity/shared/components/styled/ExpandedOwne
 import { GetSearchResultsParams, SearchResultInterface } from '@app/entity/shared/components/styled/search/types';
 import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
 import { EditOwnersModal } from '@app/entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { generateOrFilters } from '@app/search/utils/generateOrFilters';
 import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
@@ -342,6 +344,15 @@ export default function TagStyleEntity({
                         <TitleText>
                             {(data?.tag && entityRegistry.getDisplayName(EntityType.Tag, data?.tag)) || ''}
                         </TitleText>
+                        {data?.tag?.deprecation?.deprecated && (
+                            <DeprecationIcon
+                                urn={urn}
+                                deprecation={data.tag.deprecation}
+                                showUndeprecate
+                                refetch={refetch}
+                                showText={false}
+                            />
+                        )}
                     </TagName>
                 </div>
                 <ActionButtons>
@@ -351,7 +362,7 @@ export default function TagStyleEntity({
                             urn={urn}
                             entityType={EntityType.Tag}
                             entityData={data?.tag}
-                            menuItems={new Set([EntityMenuItems.DELETE])}
+                            menuItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.DELETE])}
                         />
                     )}
                 </ActionButtons>
@@ -427,10 +438,10 @@ export default function TagStyleEntity({
                             <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} hidePopOver />
                         ))}
                         {ownersEmpty && (
-                            <Typography.Paragraph type="secondary">
+                            <Text color="textSecondary">
                                 {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) EMPTY_MESSAGES content from shared constants; only punctuation separator is literal */}
                                 {EMPTY_MESSAGES.owners.title}. {EMPTY_MESSAGES.owners.description}
-                            </Typography.Paragraph>
+                            </Text>
                         )}
                         <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
                             <PlusOutlined />

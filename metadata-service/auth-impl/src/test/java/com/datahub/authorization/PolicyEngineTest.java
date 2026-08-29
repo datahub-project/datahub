@@ -526,6 +526,82 @@ public class PolicyEngineTest {
   }
 
   @Test
+  public void testSharedContextFetchesResourceOwnersOnceAcrossPolicies() throws Exception {
+    // An ownership-based policy: the actor matches ONLY via resource ownership (no user/group/role
+    // match), so each evaluation reaches the ownership lookup.
+    final DataHubPolicyInfo ownerPolicy = new DataHubPolicyInfo();
+    ownerPolicy.setType(METADATA_POLICY_TYPE);
+    ownerPolicy.setState(ACTIVE_POLICY_STATE);
+    ownerPolicy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    ownerPolicy.setDisplayName("Owner policy");
+    ownerPolicy.setDescription("Owner policy");
+    ownerPolicy.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    ownerPolicy.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    ownerPolicy.setResources(resourceFilter);
+
+    final EntityResponse ownershipResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(
+        OWNERSHIP_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
+    ownershipResponse.setAspects(aspectMap);
+    when(_entityClient.getV2(
+            eq(systemOperationContext),
+            eq(resourceUrn.getEntityType()),
+            eq(resourceUrn),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
+        .thenReturn(ownershipResponse);
+
+    final ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    // Shared per-request context: the resource-owner cache lives here.
+    final PolicyEngine.PolicyEvaluationContext sharedContext =
+        _policyEngine.createSeededEvaluationContext(
+            Collections.emptyList(), Collections.emptySet());
+
+    // Evaluate the ownership policy twice against the SAME resource, sharing one context.
+    assertTrue(
+        _policyEngine
+            .evaluatePolicy(
+                systemOperationContext,
+                ownerPolicy,
+                resolvedAuthorizedUserSpec,
+                "EDIT_ENTITY_TAGS",
+                Optional.of(resourceSpec),
+                Collections.emptyList(),
+                sharedContext)
+            .isGranted());
+    assertTrue(
+        _policyEngine
+            .evaluatePolicy(
+                systemOperationContext,
+                ownerPolicy,
+                resolvedAuthorizedUserSpec,
+                "EDIT_ENTITY_TAGS",
+                Optional.of(resourceSpec),
+                Collections.emptyList(),
+                sharedContext)
+            .isGranted());
+
+    // Ownership fetched exactly once across both evaluations, thanks to the per-context cache.
+    verify(_entityClient, times(1))
+        .getV2(
+            eq(systemOperationContext),
+            eq(resourceUrn.getEntityType()),
+            eq(resourceUrn),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)));
+  }
+
+  @Test
   public void testEvaluatePolicyActorFilterRoleMatch() throws Exception {
 
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -81,11 +82,7 @@ public class DataProductMembershipAuthorizationValidatorTest {
         .when(
             () ->
                 EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
-                    any(),
-                    eq(mockAuthSession),
-                    eq(mockAspectRetriever),
-                    any(Map.class),
-                    any(Map.class)))
+                    eq(mockAuthSession), any(Map.class), any(Map.class), any(Map.class)))
         .thenReturn(Set.of(DATA_PRODUCT_URN));
 
     TestMCP item = upsertItem(proposed);
@@ -103,11 +100,7 @@ public class DataProductMembershipAuthorizationValidatorTest {
         .when(
             () ->
                 EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
-                    any(),
-                    eq(mockAuthSession),
-                    eq(mockAspectRetriever),
-                    any(Map.class),
-                    any(Map.class)))
+                    eq(mockAuthSession), any(Map.class), any(Map.class), any(Map.class)))
         .thenReturn(Set.of());
 
     TestMCP item = upsertItem(proposed);
@@ -117,17 +110,48 @@ public class DataProductMembershipAuthorizationValidatorTest {
   }
 
   @Test
-  public void testSkipWhenAssetsUnchanged() {
+  public void testNameChangeTriggersAuthorizationCheck() {
     DataProductProperties current = propertiesWithAssets(MEMBER_DATASET_URN);
-    DataProductProperties proposed = new DataProductProperties(current.data());
+    current.setName("Original name");
+    DataProductProperties proposed = propertiesWithAssets(MEMBER_DATASET_URN);
     proposed.setName("Updated name only");
     mockCurrentProperties(current);
+
+    authUtilsMockedStatic
+        .when(
+            () ->
+                EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+                    eq(mockAuthSession), any(Set.class), any(Map.class), any(Map.class)))
+        .thenReturn(Set.of());
+
+    TestMCP item = upsertItem(proposed);
+    validate(item);
+
+    authUtilsMockedStatic.verify(
+        () ->
+            EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+                eq(mockAuthSession), eq(Set.of(DATA_PRODUCT_URN)), any(Map.class), any(Map.class)));
+  }
+
+  @Test
+  public void testDenyNameChangeWithoutPrivilege() {
+    DataProductProperties current = new DataProductProperties();
+    current.setName("Original name");
+    DataProductProperties proposed = new DataProductProperties();
+    proposed.setName("Updated name");
+    mockCurrentProperties(current);
+
+    authUtilsMockedStatic
+        .when(
+            () ->
+                EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+                    eq(mockAuthSession), any(Set.class), any(Map.class), any(Map.class)))
+        .thenReturn(Set.of(DATA_PRODUCT_URN));
 
     TestMCP item = upsertItem(proposed);
     Stream<AspectValidationException> result = validate(item);
 
-    Assert.assertTrue(result.findAny().isEmpty());
-    authUtilsMockedStatic.verifyNoInteractions();
+    Assert.assertTrue(result.findAny().isPresent());
   }
 
   @Test
@@ -140,7 +164,7 @@ public class DataProductMembershipAuthorizationValidatorTest {
         .when(
             () ->
                 EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
-                    any(), any(), any(), any(Map.class), any(Map.class)))
+                    eq(mockAuthSession), any(Map.class), any(Map.class), any(Map.class)))
         .thenReturn(Set.of());
 
     TestMCP item = upsertItem(proposed);
@@ -149,11 +173,7 @@ public class DataProductMembershipAuthorizationValidatorTest {
     authUtilsMockedStatic.verify(
         () ->
             EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
-                any(),
-                eq(mockAuthSession),
-                eq(mockAspectRetriever),
-                any(Map.class),
-                any(Map.class)));
+                eq(mockAuthSession), any(Map.class), any(Map.class), any(Map.class)));
   }
 
   @Test
@@ -166,11 +186,7 @@ public class DataProductMembershipAuthorizationValidatorTest {
         .when(
             () ->
                 EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
-                    any(),
-                    eq(mockAuthSession),
-                    eq(mockAspectRetriever),
-                    any(Map.class),
-                    any(Map.class)))
+                    eq(mockAuthSession), any(Map.class), any(Map.class), any(Map.class)))
         .thenReturn(Set.of());
 
     TestMCP item = upsertItem(proposed);
@@ -179,11 +195,7 @@ public class DataProductMembershipAuthorizationValidatorTest {
     authUtilsMockedStatic.verify(
         () ->
             EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
-                any(),
-                eq(mockAuthSession),
-                eq(mockAspectRetriever),
-                any(Map.class),
-                any(Map.class)));
+                eq(mockAuthSession), any(Map.class), any(Map.class), any(Map.class)));
   }
 
   private void mockCurrentProperties(DataProductProperties current) {
@@ -191,6 +203,9 @@ public class DataProductMembershipAuthorizationValidatorTest {
     when(mockAspectRetriever.getLatestAspectObjects(
             any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))))
         .thenReturn(Map.of(DATA_PRODUCT_URN, Map.of(DATA_PRODUCT_PROPERTIES_ASPECT_NAME, aspect)));
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
+        .thenReturn(Map.of(DATA_PRODUCT_URN, Map.of()));
   }
 
   private static DataProductProperties propertiesWithAssets(Urn assetUrn) {

@@ -25,6 +25,7 @@ import io.datahubproject.metadata.context.ServicesRegistryContext;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -482,34 +483,44 @@ public class PolicyEngine {
   private Set<String> getOwnersForType(
       @Nonnull OperationContext opContext,
       @Nonnull EntitySpec resourceSpec,
-      @Nonnull List<Urn> ownershipTypes) {
+      @Nonnull List<Urn> ownershipTypes,
+      @Nonnull PolicyEvaluationContext context) {
     if (resourceSpec.getEntity().isEmpty()) {
       return Set.of();
-    } else {
-      Urn entityUrn = UrnUtils.getUrn(resourceSpec.getEntity());
-      EnvelopedAspect ownershipAspect;
-      try {
-        EntityResponse response =
-            _entityClient.getV2(
-                opContext,
-                entityUrn.getEntityType(),
-                entityUrn,
-                Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME));
-        if (response == null
-            || !response.getAspects().containsKey(Constants.OWNERSHIP_ASPECT_NAME)) {
-          return Collections.emptySet();
-        }
-        ownershipAspect = response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME);
-      } catch (Exception e) {
-        log.error("Error while retrieving ownership aspect for urn {}", entityUrn, e);
-        return Collections.emptySet();
+    }
+    // A resource's ownership is actor-independent. Fetch the full owner list once per resource per
+    // authorize() call (multiple ownership policies on the same resource reuse the cached fetch),
+    // then filter by ownership type in memory.
+    final List<Owner> owners =
+        context
+            .getResourceOwnersByUrn()
+            .computeIfAbsent(resourceSpec.getEntity(), urn -> fetchOwners(opContext, urn));
+
+    Stream<Owner> ownersStream = owners.stream();
+    if (ownershipTypes != null) {
+      ownersStream = ownersStream.filter(owner -> ownershipTypes.contains(owner.getTypeUrn()));
+    }
+    return ownersStream.map(owner -> owner.getOwner().toString()).collect(Collectors.toSet());
+  }
+
+  private List<Owner> fetchOwners(
+      @Nonnull OperationContext opContext, @Nonnull String resourceUrn) {
+    Urn entityUrn = UrnUtils.getUrn(resourceUrn);
+    try {
+      EntityResponse response =
+          _entityClient.getV2(
+              opContext,
+              entityUrn.getEntityType(),
+              entityUrn,
+              Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME));
+      if (response == null || !response.getAspects().containsKey(Constants.OWNERSHIP_ASPECT_NAME)) {
+        return Collections.emptyList();
       }
-      Ownership ownership = new Ownership(ownershipAspect.getValue().data());
-      Stream<Owner> ownersStream = ownership.getOwners().stream();
-      if (ownershipTypes != null) {
-        ownersStream = ownersStream.filter(owner -> ownershipTypes.contains(owner.getTypeUrn()));
-      }
-      return ownersStream.map(owner -> owner.getOwner().toString()).collect(Collectors.toSet());
+      EnvelopedAspect ownershipAspect = response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME);
+      return new Ownership(ownershipAspect.getValue().data()).getOwners();
+    } catch (Exception e) {
+      log.error("Error while retrieving ownership aspect for urn {}", entityUrn, e);
+      return Collections.emptyList();
     }
   }
 
@@ -519,7 +530,8 @@ public class PolicyEngine {
       ResolvedEntitySpec resourceSpec,
       List<Urn> ownershipTypes,
       PolicyEvaluationContext context) {
-    Set<String> owners = this.getOwnersForType(opContext, resourceSpec.getSpec(), ownershipTypes);
+    Set<String> owners =
+        this.getOwnersForType(opContext, resourceSpec.getSpec(), ownershipTypes, context);
     if (isUserOwner(resolvedActorSpec, owners)) {
       return true;
     }
@@ -627,6 +639,13 @@ public class PolicyEngine {
     private Set<Urn> roles;
     private SessionActorIdentity sessionActorIdentity;
     private OperationContext opContext;
+    // Resource owners cache, keyed by resource URN. Scoped to a single authorize() call: dedupes
+    // the ownership fetch across all ownership policies evaluated for the same resource.
+    private final Map<String, List<Owner>> resourceOwnersByUrn = new HashMap<>();
+
+    Map<String, List<Owner>> getResourceOwnersByUrn() {
+      return resourceOwnersByUrn;
+    }
 
     public void setGroups(Set<String> groups) {
       this.groups = groups;

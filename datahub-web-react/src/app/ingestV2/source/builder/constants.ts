@@ -2,6 +2,7 @@ import airflowLogo from '@images/airflowlogo.png';
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
+import bigidLogo from '@images/bigidlogo.png';
 import bigqueryLogo from '@images/bigquerylogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
@@ -11,6 +12,8 @@ import csvLogo from '@images/csv-logo.png';
 import dagsterLogo from '@images/dagsterlogo.svg';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
+import dataplexLogo from '@images/dataplexlogo.svg';
+import dataprocMetastoreLogo from '@images/dataprocmetastorelogo.svg';
 import dbtLogo from '@images/dbtlogo.png';
 import dltLogo from '@images/dltlogo.svg';
 import documentdbLogo from '@images/documentdblogo.svg';
@@ -31,11 +34,13 @@ import hexLogo from '@images/hex.png';
 import hiveLogo from '@images/hivelogo.png';
 import icebergLogo from '@images/iceberglogo.png';
 import informaticaLogo from '@images/informaticalogo.png';
+import informixLogo from '@images/informixlogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
 import matillionLogo from '@images/matillionlogo.png';
 import metabaseLogo from '@images/metabaselogo.png';
+import microstrategyLogo from '@images/microstrategylogo.svg';
 import mlflowLogo2 from '@images/mlflowlogo2.png';
 import modeLogo from '@images/modelogo.png';
 import mongodbLogo from '@images/mongodblogo.png';
@@ -43,6 +48,7 @@ import mssqlLogo from '@images/mssqllogo.png';
 import mysqlLogo from '@images/mysqllogo-2.png';
 import neo4j from '@images/neo4j.svg';
 import notionLogo from '@images/notionlogo.png';
+import odcsLogo from '@images/odcslogo.png';
 import oktaLogo from '@images/oktalogo.png';
 import oracleLogo from '@images/oraclelogo.png';
 import postgresLogo from '@images/postgreslogo.png';
@@ -59,6 +65,7 @@ import snaplogicLogo from '@images/snaplogic.svg';
 import snowflakeLogo from '@images/snowflakelogo.png';
 import snowplowLogo from '@images/snowplowlogo.png';
 import sparkLogo from '@images/sparklogo.png';
+import sqlmeshLogo from '@images/sqlmeshlogo.png';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.svg';
@@ -77,6 +84,8 @@ export const AZURE = 'azure-ad';
 const AZURE_URN = `urn:li:dataPlatform:${AZURE}`;
 const AZURE_DATA_FACTORY = 'azure-data-factory';
 const AZURE_DATA_FACTORY_URN = `urn:li:dataPlatform:${AZURE_DATA_FACTORY}`;
+export const BIGID = 'bigid';
+export const BIGID_URN = `urn:li:dataPlatform:${BIGID}`;
 const BIGQUERY = 'bigquery';
 const BIGQUERY_URN = `urn:li:dataPlatform:${BIGQUERY}`;
 const CLICKHOUSE = 'clickhouse';
@@ -113,6 +122,8 @@ const HIVE = 'hive';
 const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
 const ICEBERG = 'iceberg';
 const ICEBERG_URN = `urn:li:dataPlatform:${ICEBERG}`;
+export const INFORMIX = 'informix';
+export const INFORMIX_URN = `urn:li:dataPlatform:${INFORMIX}`;
 const KAFKA = 'kafka';
 const KAFKA_URN = `urn:li:dataPlatform:${KAFKA}`;
 export const LOOKER = 'looker';
@@ -125,6 +136,8 @@ export const MATILLION_DPC = 'matillion-dpc';
 export const MATILLION_URN = `urn:li:dataPlatform:${MATILLION}`;
 const METABASE = 'metabase';
 const METABASE_URN = `urn:li:dataPlatform:${METABASE}`;
+export const MICROSTRATEGY = 'microstrategy';
+const MICROSTRATEGY_URN = `urn:li:dataPlatform:${MICROSTRATEGY}`;
 const MLFLOW = 'mlflow';
 const MLFLOW_URN = `urn:li:dataPlatform:${MLFLOW}`;
 const MODE = 'mode';
@@ -179,8 +192,14 @@ const TRINO_URN = `urn:li:dataPlatform:${TRINO}`;
 export const CUSTOM = 'custom';
 const UNITY_CATALOG = 'unity-catalog';
 const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
+const DATAPLEX = 'dataplex';
+const DATAPLEX_URN = `urn:li:dataPlatform:${DATAPLEX}`;
+const ODCS = 'odcs';
+const ODCS_URN = `urn:li:dataPlatform:${ODCS}`;
 export const DATABRICKS = 'databricks';
 const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
+export const DATAPROC_METASTORE = 'dataproc-metastore';
+const DATAPROC_METASTORE_URN = `urn:li:dataPlatform:${DATAPROC_METASTORE}`;
 export const DBT_CLOUD = 'dbt-cloud';
 export const VERTICA = 'vertica';
 const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
@@ -190,6 +209,8 @@ export const CSV = 'csv-enricher';
 const CSV_URN = `urn:li:dataPlatform:${CSV}`;
 const SPARK = 'spark';
 const SPARK_URN = `urn:li:dataPlatform:${SPARK}`;
+export const SQLMESH = 'sqlmesh';
+export const SQLMESH_URN = `urn:li:dataPlatform:${SQLMESH}`;
 const QLIK_SENSE = 'qlik-sense';
 const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
 const S3 = 's3';
@@ -232,6 +253,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [AZURE_DATA_FACTORY_URN]: azureDataFactoryLogo,
+    [BIGID_URN]: bigidLogo,
     [BIGQUERY_URN]: bigqueryLogo,
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,
@@ -250,11 +272,13 @@ export const PLATFORM_URN_TO_LOGO = {
     [HEX_URN]: hexLogo,
     [HIVE_URN]: hiveLogo,
     [ICEBERG_URN]: icebergLogo,
+    [INFORMIX_URN]: informixLogo,
     [KAFKA_URN]: kafkaLogo,
     [LOOKER_URN]: lookerLogo,
     [MARIA_DB_URN]: mariadbLogo,
     [MATILLION_URN]: matillionLogo,
     [METABASE_URN]: metabaseLogo,
+    [MICROSTRATEGY_URN]: microstrategyLogo,
     [MLFLOW_URN]: mlflowLogo2,
     [MODE_URN]: modeLogo,
     [MONGO_DB_URN]: mongodbLogo,
@@ -276,6 +300,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [SNOWPLOW_URN]: snowplowLogo,
     [STREAMLIT_URN]: streamlitLogo,
     [SPARK_URN]: sparkLogo,
+    [SQLMESH_URN]: sqlmeshLogo,
     [TABLEAU_URN]: tableauLogo,
     [THOUGHTSPOT_URN]: thoughtspotLogo,
     [TIDB_URN]: tidbLogo,
@@ -284,6 +309,9 @@ export const PLATFORM_URN_TO_LOGO = {
     [SUPERSET_URN]: supersetLogo,
     [UNITY_CATALOG_URN]: databricksLogo,
     [DATABRICKS_URN]: databricksLogo,
+    [DATAPLEX_URN]: dataplexLogo,
+    [ODCS_URN]: odcsLogo,
+    [DATAPROC_METASTORE_URN]: dataprocMetastoreLogo,
     [VERTICA_URN]: verticaLogo,
     [FIVETRAN_URN]: fivetranLogo,
     [CSV_URN]: csvLogo,

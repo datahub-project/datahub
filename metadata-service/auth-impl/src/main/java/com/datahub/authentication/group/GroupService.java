@@ -1,6 +1,7 @@
 package com.datahub.authentication.group;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.entity.AspectUtils.buildSynchronousMetadataChangeProposal;
 
 import com.datahub.authorization.SessionActorIdentity;
 import com.google.common.collect.ImmutableSet;
@@ -16,7 +17,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
@@ -27,7 +27,6 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.CorpGroupKey;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.ActorGroupMembershipService;
@@ -122,10 +121,7 @@ public class GroupService implements ActorGroupMembershipService {
         }
       }
 
-      return new SessionActorIdentity(
-          userUrn,
-          SessionActorIdentity.mergeGroupMembership(corpGroups, nativeGroups),
-          directRoles);
+      return new SessionActorIdentity(userUrn, corpGroups, nativeGroups, directRoles);
     } catch (Exception e) {
       log.error("Failed to fetch group membership for urn {}", userUrn, e);
       return SessionActorIdentity.empty(userUrn);
@@ -206,13 +202,9 @@ public class GroupService implements ActorGroupMembershipService {
       nativeGroupMembership.getNativeGroups().remove(groupUrn);
       nativeGroupMembership.getNativeGroups().add(groupUrn);
 
-      // Finally, create the MetadataChangeProposal.
-      final MetadataChangeProposal proposal = new MetadataChangeProposal();
-      proposal.setEntityUrn(userUrn);
-      proposal.setEntityType(CORP_USER_ENTITY_NAME);
-      proposal.setAspectName(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME);
-      proposal.setAspect(GenericRecordUtils.serializeAspect(nativeGroupMembership));
-      proposal.setChangeType(ChangeType.UPSERT);
+      final MetadataChangeProposal proposal =
+          buildSynchronousMetadataChangeProposal(
+              userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, nativeGroupMembership);
       _entityClient.ingestProposal(opContext, proposal);
     } catch (Exception e) {
       throw new RuntimeException("Failed to add member to group", e);
@@ -253,13 +245,9 @@ public class GroupService implements ActorGroupMembershipService {
       final NativeGroupMembership nativeGroupMembership =
           loadNativeGroupMembershipForUpdate(opContext, userUrn);
       if (nativeGroupMembership.getNativeGroups().remove(groupUrn)) {
-        // Finally, create the MetadataChangeProposal.
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
-        proposal.setEntityUrn(userUrn);
-        proposal.setEntityType(CORP_USER_ENTITY_NAME);
-        proposal.setAspectName(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME);
-        proposal.setAspect(GenericRecordUtils.serializeAspect(nativeGroupMembership));
-        proposal.setChangeType(ChangeType.UPSERT);
+        final MetadataChangeProposal proposal =
+            buildSynchronousMetadataChangeProposal(
+                userUrn, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, nativeGroupMembership);
         _entityClient.ingestProposal(opContext, proposal);
       }
     }
@@ -331,13 +319,12 @@ public class GroupService implements ActorGroupMembershipService {
             .setTime(System.currentTimeMillis())
             .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr())));
 
-    // Finally, create the MetadataChangeProposal.
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(corpGroupKey));
-    proposal.setEntityType(Constants.CORP_GROUP_ENTITY_NAME);
-    proposal.setAspectName(Constants.CORP_GROUP_INFO_ASPECT_NAME);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(corpGroupInfo));
-    proposal.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal =
+        buildSynchronousMetadataChangeProposal(
+            Constants.CORP_GROUP_ENTITY_NAME,
+            corpGroupKey,
+            Constants.CORP_GROUP_INFO_ASPECT_NAME,
+            corpGroupInfo);
     return _entityClient.ingestProposal(opContext, proposal);
   }
 
@@ -349,13 +336,8 @@ public class GroupService implements ActorGroupMembershipService {
     final Origin groupOrigin = new Origin();
     groupOrigin.setType(OriginType.NATIVE);
 
-    // Finally, create the MetadataChangeProposal.
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(groupUrn);
-    proposal.setEntityType(Constants.CORP_GROUP_ENTITY_NAME);
-    proposal.setAspectName(ORIGIN_ASPECT_NAME);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(groupOrigin));
-    proposal.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal =
+        buildSynchronousMetadataChangeProposal(groupUrn, ORIGIN_ASPECT_NAME, groupOrigin);
     _entityClient.ingestProposal(opContext, proposal);
   }
 
@@ -387,13 +369,9 @@ public class GroupService implements ActorGroupMembershipService {
     for (Urn userUrn : userUrns) {
       final GroupMembership groupMembership = loadGroupMembershipForUpdate(opContext, userUrn);
       if (groupMembership.getGroups().remove(groupUrn)) {
-        // Finally, create the MetadataChangeProposal.
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
-        proposal.setEntityUrn(userUrn);
-        proposal.setEntityType(CORP_USER_ENTITY_NAME);
-        proposal.setAspectName(GROUP_MEMBERSHIP_ASPECT_NAME);
-        proposal.setAspect(GenericRecordUtils.serializeAspect(groupMembership));
-        proposal.setChangeType(ChangeType.UPSERT);
+        final MetadataChangeProposal proposal =
+            buildSynchronousMetadataChangeProposal(
+                userUrn, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership);
         _entityClient.ingestProposal(opContext, proposal);
       }
     }

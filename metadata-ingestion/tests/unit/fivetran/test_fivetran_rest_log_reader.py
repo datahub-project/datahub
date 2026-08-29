@@ -824,6 +824,74 @@ class TestScalingGuards:
         assert total_cols == 200
         titles = [e.title for e in report.warnings]
         assert "Fivetran connector column lineage truncated" in titles
+        # Exhausting the column budget must NOT drop table-level lineage:
+        # every enabled table (within the table cap) still gets an entry,
+        # the later ones simply carry no column lineage.
+        assert len(connectors[0].lineage) == 10
+        assert sum(1 for t in connectors[0].lineage if not t.column_lineage) == 8
+
+    def test_column_cap_does_not_drop_table_lineage_for_later_tables(self):
+        # A wide table iterated first exhausts the connector-wide column
+        # budget; a table iterated after it must still get table-level
+        # lineage. Previously the extractor broke out of the table loop when
+        # the column cap was hit, silently dropping all lineage for every
+        # subsequent table.
+        api = MagicMock()
+        api.list_connections.return_value = iter(
+            [
+                FivetranListedConnection(
+                    id="c1",
+                    schema_="dest_schema",
+                    service="sql_server",
+                    paused=False,
+                    sync_frequency=60,
+                    group_id="g1",
+                )
+            ]
+        )
+        # `wide_table` is iterated first and alone exhausts the small column
+        # budget; `late_table` comes after it and previously lost all lineage.
+        api.get_connection_schemas.return_value = FivetranConnectionSchemas(
+            schemas={
+                "dbo": FivetranSchema(
+                    name_in_destination="dest_schema",
+                    enabled=True,
+                    tables={
+                        "wide_table": FivetranTable(
+                            name_in_destination="wide_table", enabled=True
+                        ),
+                        "late_table": FivetranTable(
+                            name_in_destination="late_table", enabled=True
+                        ),
+                    },
+                )
+            }
+        )
+        api.get_table_columns.return_value = {
+            f"c_{j}": FivetranColumn(name_in_destination=f"c_{j}", enabled=True)
+            for j in range(5)
+        }
+        api.get_sync_history.return_value = iter([])
+
+        report = FivetranSourceReport()
+        reader = _make_reader(api, report=report)
+        reader._max_column_lineage_per_connector = 5  # exhausted by wide_table
+
+        connectors = reader.get_allowed_connectors_list(
+            connector_patterns=AllowDenyPattern.allow_all(),
+            destination_patterns=AllowDenyPattern.allow_all(),
+            syncs_interval=7,
+        )
+
+        source_tables = {tl.source_table for tl in connectors[0].lineage}
+        assert source_tables == {"dbo.wide_table", "dbo.late_table"}
+        late_tl = next(
+            tl for tl in connectors[0].lineage if tl.source_table == "dbo.late_table"
+        )
+        # Table-level edge present (this is what stitches source -> Fivetran
+        # lineage), even though the column budget was spent on wide_table.
+        assert late_tl.destination_table == "dest_schema.late_table"
+        assert late_tl.column_lineage == []
 
     def test_destination_patterns_skip_list_connections_calls(self):
         # Two groups; destination_patterns disallows g1. We must NOT call

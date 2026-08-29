@@ -32,7 +32,7 @@ public class OpenLineageServletConfig {
         fabricType = FabricType.valueOf(envValue.toUpperCase());
       } catch (IllegalArgumentException e) {
         log.warn(
-            "Invalid env value '{}'. Using default PROD. Valid values: PROD, DEV, TEST, QA, UAT, EI, PRE, STG, NON_PROD, CORP, RVW, PRD, TST, SIT, SBX, SANDBOX",
+            "Invalid env value '{}'. Using default PROD. Valid values: PROD, DEV, TEST, QA, UAT, EI, PRE, STG, NON_PROD, CORP, RVW, PRD, TST, SIT, SBX, SANDBOX, CERT",
             envValue);
       }
     }

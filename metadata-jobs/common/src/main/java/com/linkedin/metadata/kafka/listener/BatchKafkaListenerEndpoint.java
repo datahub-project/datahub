@@ -51,7 +51,7 @@ public class BatchKafkaListenerEndpoint<K, V> implements KafkaListenerEndpoint {
 
   @Override
   public String getGroup() {
-    return null;
+    return groupId;
   }
 
   @Override

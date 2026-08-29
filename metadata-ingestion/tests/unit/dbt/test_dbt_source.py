@@ -42,6 +42,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTest,
     DBTTestResult,
     make_assertion_from_freshness,
+    make_assertion_from_test,
     make_assertion_result_from_freshness,
     make_assertion_result_from_test,
     parse_freshness_criteria,
@@ -51,8 +52,11 @@ from datahub.metadata.schema_classes import (
     AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
+    AssertionStdAggregationClass,
+    AssertionStdOperatorClass,
     AssertionTypeClass,
     CustomAssertionInfoClass,
+    DatasetAssertionScopeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceClass,
@@ -114,6 +118,71 @@ def create_base_dbt_config() -> Dict:
             "enable_meta_mapping": False,
         },
     )
+
+
+def _make_sql_model_node(
+    *,
+    compiled_code: Optional[str] = "select 1 as id",
+) -> DBTNode:
+    return DBTNode(
+        database="test_db",
+        schema="test_schema",
+        name="my_model",
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code="select 1 as id",
+        dbt_adapter="postgres",
+        dbt_name="model.package.my_model",
+        dbt_file_path="models/my_model.sql",
+        dbt_package_name="package",
+        node_type="model",
+        max_loaded_at=None,
+        materialization="table",
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        compiled_code=compiled_code,
+    )
+
+
+def test_create_view_properties_includes_compiled_code() -> None:
+    source = create_mocked_dbt_source()
+    aspect = source._create_view_properties_aspect(_make_sql_model_node())
+
+    assert aspect is not None
+    assert aspect.viewLogic == "select 1 as id"
+    assert aspect.formattedViewLogic is not None
+    assert "select" in aspect.formattedViewLogic.lower()
+    assert aspect.materialized is True
+
+
+def test_create_view_properties_skips_compiled_code_when_missing() -> None:
+    source = create_mocked_dbt_source()
+    aspect = source._create_view_properties_aspect(
+        _make_sql_model_node(compiled_code=None)
+    )
+
+    assert aspect is not None
+    assert aspect.viewLogic == "select 1 as id"
+    assert aspect.formattedViewLogic is None
+
+
+def test_create_view_properties_respects_include_compiled_code_false() -> None:
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        **{
+            **create_base_dbt_config(),
+            "include_compiled_code": False,
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+    aspect = source._create_view_properties_aspect(_make_sql_model_node())
+
+    assert aspect is not None
+    assert aspect.viewLogic == "select 1 as id"
+    assert aspect.formattedViewLogic is None
 
 
 def test_dbt_source_patching_no_new():
@@ -2051,6 +2120,63 @@ def test_make_assertion_from_freshness() -> None:
     assert mcp.aspect.customProperties.get("warn_after_count") == "12"
 
 
+def test_make_assertion_from_test_emits_custom_structured_fields() -> None:
+    node = DBTNode(
+        database="raw_db",
+        schema="raw",
+        name="not_null_id",
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="test.test.not_null_id",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="test",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    node.test_info = DBTTest(
+        qualified_test_name="not_null",
+        column_name="id",
+        kw_args={"column_name": "id"},
+    )
+    upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,raw.users,PROD)"
+    field_urn = f"urn:li:schemaField:({upstream_urn},id)"
+
+    mcp = make_assertion_from_test(
+        {"dbt_unique_id": node.dbt_name},
+        node,
+        "urn:li:assertion:test",
+        upstream_urn,
+    )
+
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionInfoClass)
+    assert mcp.aspect.type == AssertionTypeClass.CUSTOM
+    assert mcp.aspect.datasetAssertion is None
+    assert mcp.aspect.customAssertion is not None
+    assert mcp.aspect.customAssertion.type == "dbt"
+    assert mcp.aspect.customAssertion.entity == upstream_urn
+    assert mcp.aspect.customAssertion.scope == DatasetAssertionScopeClass.DATASET_COLUMN
+    assert mcp.aspect.customAssertion.operator == AssertionStdOperatorClass.NOT_NULL
+    assert (
+        mcp.aspect.customAssertion.aggregation == AssertionStdAggregationClass.IDENTITY
+    )
+    assert mcp.aspect.customAssertion.field == field_urn
+    assert mcp.aspect.customAssertion.fields == [field_urn]
+    assert mcp.aspect.customAssertion.nativeType == "not_null_id"
+    assert mcp.aspect.customAssertion.nativeParameters == {"column_name": "id"}
+    assert mcp.aspect.source is not None
+    assert mcp.aspect.source.created is not None
+    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
+
+
 @pytest.mark.parametrize(
     ("status", "warnings_are_errors", "expected_type", "expected_severity"),
     [
@@ -2576,78 +2702,6 @@ def test_create_exposure_mcps_with_strip_user_ids_from_email():
     assert ownership_mcp.aspect.owners[0].owner == "urn:li:corpuser:analytics"
 
 
-def test_has_glob_characters():
-    from datahub.ingestion.source.dbt.dbt_core import _has_glob_characters
-
-    assert _has_glob_characters("s3://bucket/results/*/run_results.json")
-    assert _has_glob_characters("s3://bucket/results/?/run_results.json")
-    assert _has_glob_characters("/local/path/[abc]/file.json")
-    assert not _has_glob_characters("s3://bucket/results/run_results.json")
-    assert not _has_glob_characters("/simple/path/file.json")
-
-
-def test_expand_s3_glob():
-    s3_objects = [
-        {"Key": "results/model_a/run_results.json"},
-        {"Key": "results/model_b/run_results.json"},
-        {"Key": "results/model_c/run_results.json"},
-        {"Key": "results/model_a/manifest.json"},
-        {"Key": "results/other_file.json"},
-    ]
-
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.return_value = [{"Contents": s3_objects}]
-
-    result = DBTCoreSource._expand_s3_glob(
-        "s3://my-bucket/results/*/run_results.json", mock_aws
-    )
-
-    assert result == [
-        "s3://my-bucket/results/model_a/run_results.json",
-        "s3://my-bucket/results/model_b/run_results.json",
-        "s3://my-bucket/results/model_c/run_results.json",
-    ]
-
-    mock_s3_client.get_paginator.assert_called_once_with("list_objects_v2")
-    mock_paginator.paginate.assert_called_once_with(
-        Bucket="my-bucket", Prefix="results/"
-    )
-
-
-def test_expand_s3_glob_no_matches():
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.return_value = [{"Contents": []}]
-
-    result = DBTCoreSource._expand_s3_glob(
-        "s3://my-bucket/nonexistent/*/run_results.json", mock_aws
-    )
-
-    assert result == []
-
-
-def test_expand_s3_glob_prefix_calculation():
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.return_value = [{"Contents": []}]
-
-    DBTCoreSource._expand_s3_glob("s3://bucket/a/b/c/*/d/*/run_results.json", mock_aws)
-    mock_paginator.paginate.assert_called_with(Bucket="bucket", Prefix="a/b/c/")
-
-
 def test_expand_run_results_paths_plain_paths():
     source = create_mocked_dbt_source()
     source.config.run_results_paths = [
@@ -2769,97 +2823,6 @@ def test_run_results_s3_glob_valid_config():
     assert config.run_results_paths == ["s3://bucket/results/*/run_results.json"]
 
 
-def test_expand_s3_glob_multiple_pages():
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.return_value = [
-        {"Contents": [{"Key": "results/model_a/run_results.json"}]},
-        {"Contents": [{"Key": "results/model_b/run_results.json"}]},
-        {"Contents": [{"Key": "results/model_c/run_results.json"}]},
-    ]
-
-    result = DBTCoreSource._expand_s3_glob(
-        "s3://bucket/results/*/run_results.json", mock_aws
-    )
-    assert result == [
-        "s3://bucket/results/model_a/run_results.json",
-        "s3://bucket/results/model_b/run_results.json",
-        "s3://bucket/results/model_c/run_results.json",
-    ]
-
-
-def test_expand_s3_glob_wildcard_at_root():
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.return_value = [
-        {
-            "Contents": [
-                {"Key": "run_results_a.json"},
-                {"Key": "run_results_b.json"},
-                {"Key": "other.txt"},
-            ]
-        }
-    ]
-
-    result = DBTCoreSource._expand_s3_glob("s3://bucket/run_results_*.json", mock_aws)
-    mock_paginator.paginate.assert_called_with(Bucket="bucket", Prefix="")
-    assert result == [
-        "s3://bucket/run_results_a.json",
-        "s3://bucket/run_results_b.json",
-    ]
-
-
-def test_expand_s3_glob_client_error():
-    from botocore.exceptions import ClientError
-
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.side_effect = ClientError(
-        {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}},
-        "ListObjectsV2",
-    )
-
-    with pytest.raises(ClientError, match="Access Denied"):
-        DBTCoreSource._expand_s3_glob(
-            "s3://bucket/results/*/run_results.json", mock_aws
-        )
-
-
-def test_expand_s3_glob_no_cross_slash_matching():
-    mock_aws = mock.MagicMock()
-    mock_s3_client = mock.MagicMock()
-    mock_aws.get_s3_client.return_value = mock_s3_client
-
-    mock_paginator = mock.MagicMock()
-    mock_s3_client.get_paginator.return_value = mock_paginator
-    mock_paginator.paginate.return_value = [
-        {
-            "Contents": [
-                {"Key": "results/a/run_results.json"},
-                {"Key": "results/a/b/run_results.json"},
-                {"Key": "results/a/b/c/run_results.json"},
-            ]
-        }
-    ]
-
-    result = DBTCoreSource._expand_s3_glob(
-        "s3://bucket/results/*/run_results.json", mock_aws
-    )
-    assert result == ["s3://bucket/results/a/run_results.json"]
-
-
 def test_expand_run_results_paths_s3_error_reports_failure():
     from botocore.exceptions import ClientError
 
@@ -2881,7 +2844,7 @@ def test_expand_run_results_paths_s3_error_reports_failure():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("S3 glob expansion failed" in str(f) for f in source.report.failures)
+    assert any("Cloud glob expansion failed" in str(f) for f in source.report.failures)
 
 
 def test_expand_run_results_paths_missing_aws_connection():
@@ -2893,7 +2856,7 @@ def test_expand_run_results_paths_missing_aws_connection():
 
     result = source._expand_run_results_paths()
     assert result == []
-    assert any("Missing AWS connection" in str(f) for f in source.report.failures)
+    assert any("Missing cloud connection" in str(f) for f in source.report.failures)
 
 
 def _make_dbt_node(dbt_name, node_type="model", **overrides):
@@ -3119,6 +3082,179 @@ def test_load_file_as_json_s3():
     mock_s3_client.get_object.assert_called_once_with(
         Bucket="my-bucket", Key="path/to/manifest.json"
     )
+
+
+def test_dbt_gcs_config():
+    config_dict: dict = {
+        "manifest_path": "gs://my-bucket/manifest.json",
+        "catalog_path": "gs://my-bucket/catalog.json",
+        "target_platform": "bigquery",
+    }
+    with pytest.raises(ValidationError, match="provide gcs_connection"):
+        DBTCoreConfig.model_validate(config_dict)
+
+    config_dict_valid = {
+        **config_dict,
+        "gcs_connection": {
+            "credential": {
+                "hmac_access_id": "test_id",
+                "hmac_access_secret": "test_secret",
+            },
+        },
+    }
+    config = DBTCoreConfig.model_validate(config_dict_valid)
+    assert config.gcs_connection is not None
+
+
+def test_run_results_gcs_glob_requires_gcs_connection():
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "bigquery",
+        "run_results_paths": ["gs://bucket/results/*/run_results.json"],
+    }
+    with pytest.raises(ValidationError, match="provide gcs_connection"):
+        DBTCoreConfig.model_validate(config_dict)
+
+
+def test_load_file_as_json_gcs():
+    from datahub.ingestion.source.common.gcs_connection_config import (
+        GCSConnectionConfig,
+    )
+    from datahub.ingestion.source.gcs.gcs_utils import HMACKey
+
+    gcs_conn = GCSConnectionConfig(
+        credential=HMACKey(hmac_access_id="test_id", hmac_access_secret="test_secret")
+    )
+
+    mock_s3_client = mock.MagicMock()
+    mock_s3_client.get_object.return_value = {
+        "Body": mock.MagicMock(
+            read=mock.MagicMock(return_value=b'{"gcs_key": "gcs_value"}')
+        )
+    }
+
+    with mock.patch.object(
+        type(gcs_conn.s3_compatible_connection),
+        "get_s3_client",
+        return_value=mock_s3_client,
+    ):
+        result = DBTCoreSource.load_file_as_json(
+            "gs://my-gcs-bucket/path/to/manifest.json",
+            None,
+            gcs_conn,
+        )
+    assert result == {"gcs_key": "gcs_value"}
+    mock_s3_client.get_object.assert_called_once_with(
+        Bucket="my-gcs-bucket", Key="path/to/manifest.json"
+    )
+
+
+def test_expand_run_results_paths_gcs_glob():
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "gs://bucket/results/*/run_results.json",
+    ]
+    source.config.gcs_connection = mock.MagicMock()
+
+    mock_s3_compat = mock.MagicMock()
+    source.config.gcs_connection.s3_compatible_connection = mock_s3_compat
+    mock_s3_client = mock.MagicMock()
+    mock_s3_compat.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.return_value = [
+        {
+            "Contents": [
+                {"Key": "results/model_a/run_results.json"},
+                {"Key": "results/model_b/run_results.json"},
+            ]
+        }
+    ]
+
+    result = source._expand_run_results_paths()
+    assert result == [
+        "gs://bucket/results/model_a/run_results.json",
+        "gs://bucket/results/model_b/run_results.json",
+    ]
+
+
+def test_expand_run_results_paths_gcs_error_reports_failure():
+    from botocore.exceptions import ClientError
+
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "gs://bucket/results/*/run_results.json",
+    ]
+    source.config.gcs_connection = mock.MagicMock()
+
+    mock_s3_compat = mock.MagicMock()
+    source.config.gcs_connection.s3_compatible_connection = mock_s3_compat
+    mock_s3_client = mock.MagicMock()
+    mock_s3_compat.get_s3_client.return_value = mock_s3_client
+
+    mock_paginator = mock.MagicMock()
+    mock_s3_client.get_paginator.return_value = mock_paginator
+    mock_paginator.paginate.side_effect = ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}},
+        "ListObjectsV2",
+    )
+
+    result = source._expand_run_results_paths()
+    assert result == []
+    assert any("Cloud glob expansion failed" in str(f) for f in source.report.failures)
+
+
+def test_expand_run_results_paths_missing_gcs_connection():
+    source = create_mocked_dbt_source()
+    source.config.run_results_paths = [
+        "gs://bucket/results/*/run_results.json",
+    ]
+    source.config.gcs_connection = None
+
+    result = source._expand_run_results_paths()
+    assert result == []
+    assert any("Missing cloud connection" in str(f) for f in source.report.failures)
+
+
+def test_gcs_connection_config_builds_s3_compatible():
+    from datahub.ingestion.source.common.gcs_connection_config import (
+        GCSConnectionConfig,
+    )
+    from datahub.ingestion.source.gcs.gcs_utils import GCS_ENDPOINT_URL, HMACKey
+
+    gcs_conn = GCSConnectionConfig(
+        credential=HMACKey(
+            hmac_access_id="my_access_id", hmac_access_secret="my_secret"
+        )
+    )
+    s3_compat = gcs_conn.s3_compatible_connection
+
+    assert s3_compat.aws_endpoint_url == GCS_ENDPOINT_URL
+    assert s3_compat.aws_access_key_id == "my_access_id"
+    assert s3_compat.aws_secret_access_key is not None
+    assert s3_compat.aws_secret_access_key.get_secret_value() == "my_secret"
+    assert s3_compat.aws_region == "auto"
+    assert gcs_conn.s3_compatible_connection is s3_compat
+
+
+def test_gcs_connection_config_endpoint_url_override():
+    from datahub.ingestion.source.common.gcs_connection_config import (
+        GCSConnectionConfig,
+    )
+    from datahub.ingestion.source.gcs.gcs_utils import HMACKey
+
+    gcs_conn = GCSConnectionConfig(
+        credential=HMACKey(
+            hmac_access_id="my_access_id", hmac_access_secret="my_secret"
+        ),
+        endpoint_url="http://localhost:9100",
+    )
+    s3_compat = gcs_conn.s3_compatible_connection
+
+    assert s3_compat.aws_endpoint_url == "http://localhost:9100"
+    assert s3_compat.aws_region == "auto"
 
 
 # =============================================================================
@@ -4421,3 +4557,16 @@ def test_skip_missing_upstreams_filters_cll():
     assert not any(missing_urn in u for u in cll_upstream_urns), (
         "CLL still references the missing upstream — ghost node would still be created"
     )
+
+
+def test_load_file_as_json_handles_utf8_bom():
+    # A manifest served with a UTF-8 BOM used to parse via requests.json(); the
+    # object-store extraction must keep parsing it rather than choking on the BOM.
+    payload = b"\xef\xbb\xbf" + b'{"nodes": {}}'
+    with mock.patch(
+        "datahub.ingestion.source.dbt.dbt_core.read_file_as_bytes",
+        return_value=payload,
+    ):
+        assert DBTCoreSource.load_file_as_json(
+            "https://example.com/manifest.json", None
+        ) == {"nodes": {}}

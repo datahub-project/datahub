@@ -22,7 +22,7 @@ describe('useImportDocumentsModalButtons', () => {
             }),
         );
 
-        expect(result.current).toEqual([{ text: 'Cancel', variant: 'outline', onClick: handlers.onClose }]);
+        expect(result.current).toEqual([{ text: 'Cancel', variant: 'text', color: 'gray', onClick: handlers.onClose }]);
     });
 
     it('returns back and import on configure step', () => {
@@ -36,7 +36,7 @@ describe('useImportDocumentsModalButtons', () => {
         );
 
         expect(result.current).toEqual([
-            { text: 'Back', variant: 'outline', onClick: handlers.onBack },
+            { text: 'Back', variant: 'text', color: 'primary', onClick: handlers.onBack },
             { text: 'Import', variant: 'filled', onClick: handlers.onImportFiles, disabled: false },
         ]);
     });

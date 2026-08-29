@@ -7,10 +7,18 @@ import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static com.linkedin.metadata.Constants.UI_SOURCE;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.context.OperationFingerprint;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
@@ -31,7 +39,6 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
-import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -49,12 +56,15 @@ import com.linkedin.schema.StringType;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestAuthSession;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -68,8 +78,12 @@ public class PrivilegeConstraintsValidatorTest {
   private static final EntityRegistry TEST_REGISTRY = new TestEntityRegistry();
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+  private static final Urn TEST_DATA_FLOW_URN =
+      UrnUtils.getUrn("urn:li:dataFlow:(urn:li:dataPlatform:airflow,my_flow,PROD)");
   private static final TagUrn TEST_TAG_URN = new TagUrn("TestTag");
   private static final TagUrn TEST_TAG_URN_2 = new TagUrn("TestTag2");
+  private static final Authentication TAG_EDITOR_AUTH =
+      new Authentication(new Actor(ActorType.USER, "tagEditor"), "");
 
   private PrivilegeConstraintsValidator validator;
   private SearchRetriever mockSearchRetriever;
@@ -155,6 +169,26 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertTrue(exception.getMessage().contains("No authentication details found"));
   }
 
+  /** Null fingerprint (AspectsBatchImpl.build(null)) must fail closed, not NPE. */
+  @Test
+  public void testValidateGlobalTagsWithNullFingerprintFailsClosed() {
+    GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
+    BatchItem item =
+        TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
+            .findFirst()
+            .get();
+
+    AspectValidationException exception =
+        validator
+            .validateProposedAspectsWithAuth(
+                null, Collections.singletonList(item), retrieverContext, null)
+            .findFirst()
+            .orElse(null);
+
+    Assert.assertNotNull(exception);
+    Assert.assertTrue(exception.getMessage().contains("No authentication details found"));
+  }
+
   @Test
   public void testValidateGlobalTagsAuthorized() {
     GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
@@ -173,11 +207,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -208,11 +239,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(false);
 
     Stream<AspectValidationException> result =
@@ -252,11 +280,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN_2))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -291,11 +316,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN_2))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -330,11 +352,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.emptySet())))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -364,11 +383,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -398,11 +414,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(false);
 
     Stream<AspectValidationException> result =
@@ -443,11 +456,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN_2))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -483,11 +493,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN_2))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -524,11 +531,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.emptySet())))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -559,11 +563,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -594,11 +595,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(false);
 
     Stream<AspectValidationException> result =
@@ -640,11 +638,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN_2))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -681,11 +676,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN_2))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -722,11 +714,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.emptySet())))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -790,10 +779,20 @@ public class PrivilegeConstraintsValidatorTest {
     patchOp.setPath("/tags/urn:li:platformResource:my-source/" + TEST_TAG_URN_2);
     patchOp.setValue(
         objectMapper.convertValue(
-            Map.of("tag", TEST_TAG_URN_2.toString(), "source", "urn:li:platformResource:my-source"),
+            Map.of(
+                "tag",
+                TEST_TAG_URN_2.toString(),
+                "attribution",
+                Map.of(
+                    "source",
+                    "urn:li:platformResource:my-source",
+                    "actor",
+                    "urn:li:corpuser:datahub",
+                    "time",
+                    0)),
             JsonNode.class));
     Map<String, List<String>> arrayPrimaryKeys = new HashMap<>();
-    arrayPrimaryKeys.put("tags", List.of("attribution", "source"));
+    arrayPrimaryKeys.put("tags", List.of("attribution␟source", "tag"));
 
     GenericJsonPatch genericJsonPatch =
         GenericJsonPatch.builder()
@@ -823,11 +822,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN_2))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -856,10 +852,20 @@ public class PrivilegeConstraintsValidatorTest {
     patchOp.setPath("/tags/urn:li:platformResource:my-source/" + TEST_TAG_URN_2);
     patchOp.setValue(
         objectMapper.convertValue(
-            Map.of("tag", TEST_TAG_URN_2.toString(), "source", "urn:li:platformResource:my-source"),
+            Map.of(
+                "tag",
+                TEST_TAG_URN_2.toString(),
+                "attribution",
+                Map.of(
+                    "source",
+                    "urn:li:platformResource:my-source",
+                    "actor",
+                    "urn:li:corpuser:datahub",
+                    "time",
+                    0)),
             JsonNode.class));
     Map<String, List<String>> arrayPrimaryKeys = new HashMap<>();
-    arrayPrimaryKeys.put("tags", List.of("attribution", "source"));
+    arrayPrimaryKeys.put("tags", List.of("attribution␟source", "tag"));
 
     GenericJsonPatch genericJsonPatch =
         GenericJsonPatch.builder()
@@ -885,11 +891,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN_2))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(false);
 
     Stream<AspectValidationException> result =
@@ -950,7 +953,10 @@ public class PrivilegeConstraintsValidatorTest {
     item.setSystemMetadata(systemMetadata);
 
     authUtilMockedStatic
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(any(), any(), any(), any()))
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    any(AuthorizationSession.class), any(Urn.class), any(), any()))
         .thenReturn(false);
 
     Stream<AspectValidationException> result =
@@ -963,9 +969,9 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertTrue(result.findAny().isPresent());
   }
 
-  /** Test that system update source items are skipped during validation. */
+  /** System auth fingerprint skips tag privilege checks (upgrade / system-mediated writes). */
   @Test
-  public void testValidateGlobalTagsWithSystemUpdateSourceSkipped() {
+  public void testValidateGlobalTagsWithSystemAuthSkipped() {
     GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
     TestMCP item =
         TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
@@ -973,17 +979,9 @@ public class PrivilegeConstraintsValidatorTest {
             .findFirst()
             .get();
 
-    // Set system update source in system metadata
-    SystemMetadata systemMetadata = new SystemMetadata();
-    StringMap properties = new StringMap();
-    properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
-    systemMetadata.setProperties(properties);
-    item.setSystemMetadata(systemMetadata);
-
-    // System update source items should be skipped, no authorization check needed
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            OperationFingerprint.EMPTY,
+            systemAuthFingerprint(),
             Collections.singletonList(item),
             retrieverContext,
             mockAuthSession);
@@ -991,9 +989,13 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertTrue(result.findAny().isEmpty());
   }
 
-  /** Test that system update source items are skipped even with null session. */
+  /**
+   * #15960 escape hatch: upgrades historically had a null AuthorizationSession. Trust must come
+   * from {@link OperationFingerprint#isSystemAuth()}, not from client-writable appSource — so a
+   * system fingerprint alone (null session) still skips aspect auth.
+   */
   @Test
-  public void testValidateGlobalTagsWithSystemUpdateSourceAndNullSession() {
+  public void testValidateGlobalTagsWithSystemAuthAndNullSessionSkipped() {
     GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
     TestMCP item =
         TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
@@ -1001,20 +1003,109 @@ public class PrivilegeConstraintsValidatorTest {
             .findFirst()
             .get();
 
-    // Set system update source in system metadata
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            systemAuthFingerprint(), Collections.singletonList(item), retrieverContext, null);
+
+    Assert.assertTrue(result.findAny().isEmpty());
+  }
+
+  /**
+   * Client-supplied appSource=systemUpdate alone must not skip auth (even with null session).
+   * Upgrade paths must pass a system OperationContext as fingerprint/session.
+   */
+  @Test
+  public void testValidateGlobalTagsWithSystemUpdateSourceAndNullSessionFailsClosed() {
+    GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
+    TestMCP item =
+        TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
+            .map(i -> (TestMCP) i)
+            .findFirst()
+            .get();
+
     SystemMetadata systemMetadata = new SystemMetadata();
     StringMap properties = new StringMap();
     properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
     systemMetadata.setProperties(properties);
     item.setSystemMetadata(systemMetadata);
 
-    // System update source items should be skipped even with null session
-    // This ensures upgrade steps can process tags without failing on auth
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
             OperationFingerprint.EMPTY, Collections.singletonList(item), retrieverContext, null);
 
-    Assert.assertTrue(result.findAny().isEmpty());
+    Assert.assertTrue(result.findAny().isPresent());
+  }
+
+  /** Spoof regression: appSource=systemUpdate with a non-system session still validates. */
+  @Test
+  public void testValidateGlobalTagsWithSpoofedSystemUpdateSourceStillValidated() {
+    GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
+    TestMCP item =
+        TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
+            .map(i -> (TestMCP) i)
+            .findFirst()
+            .get();
+
+    SystemMetadata systemMetadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
+    systemMetadata.setProperties(properties);
+    item.setSystemMetadata(systemMetadata);
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    any(AuthorizationSession.class), any(Urn.class), any(), any()))
+        .thenReturn(false);
+
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
+
+    Assert.assertTrue(result.findAny().isPresent());
+  }
+
+  private static OperationFingerprint systemAuthFingerprint() {
+    return new OperationFingerprint() {
+      @Override
+      public Urn getActor() {
+        return OperationFingerprint.EMPTY.getActor();
+      }
+
+      @Override
+      public String getRequestID() {
+        return "system";
+      }
+
+      @Override
+      public AuditStamp getAuditStamp() {
+        return OperationFingerprint.EMPTY.getAuditStamp();
+      }
+
+      @Override
+      public String getGlobalContextId() {
+        return "system";
+      }
+
+      @Override
+      public String getSearchContextId() {
+        return "system";
+      }
+
+      @Override
+      public String getEntityContextId() {
+        return "system";
+      }
+
+      @Override
+      public boolean isSystemAuth() {
+        return true;
+      }
+    };
   }
 
   /** Test that items without system metadata properties still get validated. */
@@ -1041,11 +1132,8 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
-                    Mockito.eq(mockAuthSession),
-                    Mockito.eq(ApiOperation.UPDATE),
-                    Mockito.eq(List.of(TEST_DATASET_URN)),
-                    Mockito.eq(Collections.singleton(TEST_TAG_URN))))
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
     Stream<AspectValidationException> result =
@@ -1056,6 +1144,146 @@ public class PrivilegeConstraintsValidatorTest {
             mockAuthSession);
 
     Assert.assertTrue(result.findAny().isEmpty());
+  }
+
+  @Test
+  public void testEditDatasetColTagsPrivilegeAllowsAddingSchemaFieldTags() throws Exception {
+    closeAuthUtilMock();
+    boolean previousRestApiAuthorizationEnabled = getRestApiAuthorizationEnabled();
+    setRestApiAuthorizationEnabled(true);
+    try {
+      AuthorizationSession session =
+          TestAuthSession.from(
+              TAG_EDITOR_AUTH,
+              mockAuthorizer(
+                  Map.of(
+                      TAG_EDITOR_AUTH.getActor().toUrnStr(),
+                      Map.of("EDIT_DATASET_COL_TAGS", Set.of(TEST_DATASET_URN)))));
+
+      EditableSchemaMetadata editableSchemaMetadata =
+          createEditableSchemaMetadata("field1", TEST_TAG_URN);
+      BatchItem item =
+          TestMCP.ofOneUpsertItem(TEST_DATASET_URN, editableSchemaMetadata, TEST_REGISTRY).stream()
+              .findFirst()
+              .orElseThrow();
+
+      Mockito.doReturn(null)
+          .when(mockAspectRetriever)
+          .getLatestAspectObject(
+              any(OperationFingerprint.class),
+              Mockito.eq(TEST_DATASET_URN),
+              Mockito.eq(EDITABLE_SCHEMA_METADATA_ASPECT_NAME));
+
+      Stream<AspectValidationException> result =
+          validator.validateProposedAspectsWithAuth(
+              OperationFingerprint.EMPTY,
+              Collections.singletonList(item),
+              retrieverContext,
+              session);
+
+      Assert.assertTrue(
+          result.findAny().isEmpty(),
+          "Users granted only EDIT_DATASET_COL_TAGS should be able to add schema field tags");
+    } finally {
+      setRestApiAuthorizationEnabled(previousRestApiAuthorizationEnabled);
+    }
+  }
+
+  @Test
+  public void testEditEntityTagsPrivilegeAllowsAddingGlobalTags() throws Exception {
+    closeAuthUtilMock();
+    boolean previousRestApiAuthorizationEnabled = getRestApiAuthorizationEnabled();
+    setRestApiAuthorizationEnabled(true);
+    try {
+      AuthorizationSession session =
+          TestAuthSession.from(
+              TAG_EDITOR_AUTH,
+              mockAuthorizer(
+                  Map.of(
+                      TAG_EDITOR_AUTH.getActor().toUrnStr(),
+                      Map.of("EDIT_ENTITY_TAGS", Set.of(TEST_DATA_FLOW_URN)))));
+
+      GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
+      BatchItem item =
+          TestMCP.ofOneUpsertItem(TEST_DATA_FLOW_URN, globalTags, TEST_REGISTRY).stream()
+              .findFirst()
+              .orElseThrow();
+
+      Mockito.doReturn(null)
+          .when(mockAspectRetriever)
+          .getLatestAspectObject(
+              any(OperationFingerprint.class),
+              Mockito.eq(TEST_DATA_FLOW_URN),
+              Mockito.eq(GLOBAL_TAGS_ASPECT_NAME));
+
+      Stream<AspectValidationException> result =
+          validator.validateProposedAspectsWithAuth(
+              OperationFingerprint.EMPTY,
+              Collections.singletonList(item),
+              retrieverContext,
+              session);
+
+      Assert.assertTrue(
+          result.findAny().isEmpty(),
+          "Users granted only EDIT_ENTITY_TAGS should be able to add tags to an asset");
+    } finally {
+      setRestApiAuthorizationEnabled(previousRestApiAuthorizationEnabled);
+    }
+  }
+
+  private void closeAuthUtilMock() {
+    if (authUtilMockedStatic != null) {
+      authUtilMockedStatic.close();
+      authUtilMockedStatic = null;
+    }
+  }
+
+  private static boolean getRestApiAuthorizationEnabled() throws Exception {
+    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    field.setAccessible(true);
+    return field.getBoolean(null);
+  }
+
+  private static void setRestApiAuthorizationEnabled(boolean enabled) throws Exception {
+    Field field = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    field.setAccessible(true);
+    field.setBoolean(null, enabled);
+  }
+
+  private Authorizer mockAuthorizer(Map<String, Map<String, Set<Urn>>> allowActorPrivUrn) {
+    Authorizer authorizer = mock(Authorizer.class);
+    when(authorizer.authorize(any()))
+        .thenAnswer(
+            args -> {
+              AuthorizationRequest req = args.getArgument(0);
+              String actorUrn = req.getActorUrn();
+              String priv = req.getPrivilege();
+
+              if (!allowActorPrivUrn.containsKey(actorUrn)) {
+                return new AuthorizationResult(
+                    req, AuthorizationResult.Type.DENY, String.format("Actor %s denied", actorUrn));
+              }
+
+              Map<String, Set<Urn>> privMap = allowActorPrivUrn.get(actorUrn);
+              if (!privMap.containsKey(priv)) {
+                return new AuthorizationResult(
+                    req, AuthorizationResult.Type.DENY, String.format("Privilege %s denied", priv));
+              }
+
+              if (req.getResourceSpec().isPresent()) {
+                Urn entityUrn = UrnUtils.getUrn(req.getResourceSpec().get().getEntity());
+                Set<Urn> resources = privMap.get(priv);
+                if (!resources.contains(entityUrn)) {
+                  return new AuthorizationResult(
+                      req,
+                      AuthorizationResult.Type.DENY,
+                      String.format("Entity %s denied", entityUrn));
+                }
+              }
+
+              return new AuthorizationResult(req, AuthorizationResult.Type.ALLOW, "Allowed");
+            });
+    return authorizer;
   }
 
   private GlobalTags createGlobalTags(TagUrn... tagUrns) {
