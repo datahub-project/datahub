@@ -460,6 +460,26 @@ class BigQueryV2Config(
         description="This flag enables the data lineage extraction from Data Lineage API exposed by Google Data Catalog. NOTE: This extractor can't build views lineage. It's recommended to enable the view's DDL parsing. Read the docs to have more information about: https://cloud.google.com/data-catalog/docs/concepts/about-data-lineage",
     )
 
+    include_linked_datasets: bool = Field(
+        default=False,
+        description=(
+            "Detect BigQuery Sharing linked datasets in subscriber projects and emit them with subtype "
+            "'Linked Dataset' plus BigQuery Sharing governance metadata in custom properties. Requires "
+            "additional Analytics Hub IAM permissions on each subscriber project. See the connector "
+            "prerequisites for details."
+        ),
+    )
+
+    include_linked_dataset_lineage: bool = Field(
+        default=True,
+        description=(
+            "When `include_linked_datasets` is enabled, also emit `Siblings` and column-level "
+            "`UpstreamLineage` (type `COPY`) from each linked dataset's tables and views to the "
+            "publisher's source dataset. Requires `resourcemanager.projects.get` permission on each "
+            "publisher project. Only supported with the queries-v2 extraction path."
+        ),
+    )
+
     extract_policy_tags_from_catalog: bool = Field(
         default=False,
         description=(
@@ -723,6 +743,25 @@ class BigQueryV2Config(
                     "`max_query_duration` is only supported with the legacy extraction path "
                     "(`use_queries_v2: False`) and is ignored under queries-v2."
                 )
+        return self
+
+    @model_validator(mode="after")
+    def disable_linked_dataset_lineage_on_legacy_path(self) -> "BigQueryV2Config":
+        # `upstreamLineage` is single-valued, so the COPY edge only holds if nothing
+        # else writes one for the same entity. Under queries-v2 nothing can: an entity
+        # gains lineage only as a query destination, and a linked dataset is read-only.
+        if (
+            self.include_linked_datasets
+            and self.include_linked_dataset_lineage
+            and not self.use_queries_v2
+        ):
+            logger.warning(
+                "`include_linked_dataset_lineage` is only supported with the queries-v2 "
+                "extraction path and is disabled under `use_queries_v2: False`. Linked "
+                "datasets are still detected and enriched, but no Siblings or COPY "
+                "UpstreamLineage are emitted. Set `use_queries_v2: True` to enable them."
+            )
+            self.include_linked_dataset_lineage = False
         return self
 
     @field_validator(

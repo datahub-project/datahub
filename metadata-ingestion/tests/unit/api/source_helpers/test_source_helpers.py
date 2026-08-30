@@ -143,6 +143,65 @@ def test_auto_status_aspect_patch_mode():
     assert processor.report.status_patch_mode is True
 
 
+_PRIMARY_URN = make_dataset_urn("bigquery", "proj.ds.table")
+_NON_PRIMARY_URN = make_dataset_urn("bigquery", "other-proj.ds.table")
+
+
+def _sibling_wu(urn: str, target: str, *, is_primary_source: bool) -> MetadataWorkUnit:
+    return MetadataChangeProposalWrapper(
+        entityUrn=urn,
+        aspect=models.SiblingsClass(primary=True, siblings=[target]),
+    ).as_workunit(is_primary_source=is_primary_source)
+
+
+def test_auto_status_aspect_non_primary_does_not_suppress_primary():
+    """An entity with both primary and non-primary workunits still gets a status
+    aspect; one seen only via non-primary workunits does not."""
+    initial_wu = [
+        MetadataChangeProposalWrapper(
+            entityUrn=_PRIMARY_URN,
+            aspect=models.SubTypesClass(typeNames=["Table"]),
+        ).as_workunit(),
+        _sibling_wu(_PRIMARY_URN, _NON_PRIMARY_URN, is_primary_source=False),
+        _sibling_wu(_NON_PRIMARY_URN, _PRIMARY_URN, is_primary_source=False),
+    ]
+
+    processor = AutoStatusAspectProcessor.create(mock.MagicMock())
+    with mock.patch(
+        "datahub.ingestion.workunit_processors.auto_status_aspect._gms_supports_status_patch",
+        return_value=False,
+    ):
+        result = list(processor.process(initial_wu))
+
+    assert [wu.get_urn() for wu in result[len(initial_wu) :]] == [_PRIMARY_URN]
+    assert processor.report.num_status_aspects_emitted == 1
+
+
+def test_auto_status_aspect_explicit_status_on_non_primary_suppresses():
+    """An explicit status aspect counts however it was emitted, so the processor
+    does not overwrite it with removed=false."""
+    initial_wu = [
+        MetadataChangeProposalWrapper(
+            entityUrn=_PRIMARY_URN,
+            aspect=models.SubTypesClass(typeNames=["Table"]),
+        ).as_workunit(),
+        MetadataChangeProposalWrapper(
+            entityUrn=_PRIMARY_URN,
+            aspect=models.StatusClass(removed=True),
+        ).as_workunit(is_primary_source=False),
+    ]
+
+    processor = AutoStatusAspectProcessor.create(mock.MagicMock())
+    with mock.patch(
+        "datahub.ingestion.workunit_processors.auto_status_aspect._gms_supports_status_patch",
+        return_value=False,
+    ):
+        result = list(processor.process(initial_wu))
+
+    assert result == initial_wu
+    assert processor.report.num_status_aspects_emitted == 0
+
+
 def test_auto_status_aspect_upsert_fallback():
     """When GMS does not support status PATCH, fall back to UPSERT."""
     initial_wu = list(auto_workunit(_base_metadata))

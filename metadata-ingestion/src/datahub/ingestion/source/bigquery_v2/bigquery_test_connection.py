@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Union
 
+from google.api_core.exceptions import PermissionDenied
 from google.cloud import bigquery
 
 from datahub.ingestion.api.source import (
@@ -10,6 +11,9 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_linked_datasets import (
+    create_analyticshub_client,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigQuerySchemaApi
 from datahub.ingestion.source.bigquery_v2.common import (
@@ -18,9 +22,15 @@ from datahub.ingestion.source.bigquery_v2.common import (
 )
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.ingestion.source.common.gcp_errors import (
+    is_iam_permission_denied,
+    is_service_disabled,
+)
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+_CAPABILITY_TEST_TIMEOUT = 60.0
 
 
 class BigQueryTestConnection:
@@ -70,6 +80,14 @@ class BigQueryTestConnection:
                 )
                 if SourceCapability.USAGE_STATS not in _report:
                     _report[SourceCapability.USAGE_STATS] = usage_capability
+
+            if connection_conf.include_linked_datasets:
+                linked_datasets_capability = (
+                    BigQueryTestConnection.linked_datasets_capability_test(
+                        connection_conf, project_ids
+                    )
+                )
+                _report["LINKED_DATASETS"] = linked_datasets_capability
 
             test_report.capability_report = _report
             return test_report
@@ -157,6 +175,58 @@ class BigQueryTestConnection:
                     failure_reason=f"Lineage capability test failed with: {e}",
                 )
 
+        return CapabilityReport(capable=True)
+
+    @staticmethod
+    def linked_datasets_capability_test(
+        connection_conf: BigQueryV2Config,
+        project_ids: List[str],
+    ) -> CapabilityReport:
+        """Verify `analyticshub.subscriptions.list` is granted on the subscriber projects."""
+        try:
+            ah_client = create_analyticshub_client(connection_conf)
+        except Exception as e:
+            return CapabilityReport(
+                capable=False,
+                failure_reason=f"Could not initialise the Analytics Hub client: {e}",
+            )
+
+        for project_id in project_ids:
+            try:
+                logger.info(f"Linked datasets capability test for project {project_id}")
+                # API enablement and IAM are project-scoped and evaluated before location scoping
+                iterator = ah_client.list_subscriptions(
+                    parent=f"projects/{project_id}/locations/us",
+                    # The Analytics Hub RPC client applies no default deadline
+                    timeout=_CAPABILITY_TEST_TIMEOUT,
+                )
+                next(iter(iterator), None)
+            except PermissionDenied as e:
+                if is_service_disabled(e):
+                    reason = (
+                        f"Analytics Hub API is not enabled on project {project_id}. "
+                        "Enable it to ingest BigQuery Sharing metadata, or unset "
+                        f"`include_linked_datasets`. Error: {e}"
+                    )
+                elif is_iam_permission_denied(e):
+                    reason = (
+                        "Analytics Hub `subscriptions.list` permission missing on "
+                        f"project {project_id}. Grant `analyticshub.subscriptions.list` "
+                        "and `analyticshub.subscriptions.get` (e.g. via "
+                        f"`roles/analyticshub.subscriptionOwner`). Error: {e}"
+                    )
+                else:
+                    reason = (
+                        f"Analytics Hub permission denied on project {project_id}: {e}"
+                    )
+                return CapabilityReport(capable=False, failure_reason=reason)
+            except Exception as e:
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason=(
+                        f"Linked datasets capability test failed with: {e}"
+                    ),
+                )
         return CapabilityReport(capable=True)
 
     @staticmethod

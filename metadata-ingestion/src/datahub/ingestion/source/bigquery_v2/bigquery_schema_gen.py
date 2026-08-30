@@ -33,6 +33,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDa
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
     unquote_and_decode_unicode_escape_seq,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_linked_datasets import (
+    BigQueryLinkedDatasetsHandler,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper import (
     BigQueryLabel,
     BigQueryLabelInfo,
@@ -223,6 +226,7 @@ class BigQuerySchemaGenerator:
         filters: BigQueryFilter,
         shard_matcher: BigQueryShardPatternMatcher,
         graph: Optional[DataHubGraph] = None,
+        linked_datasets_handler: Optional[BigQueryLinkedDatasetsHandler] = None,
     ):
         self.config = config
         self.report = report
@@ -234,6 +238,7 @@ class BigQuerySchemaGenerator:
         self.filters = filters
         self.shard_matcher = shard_matcher
         self.graph = graph
+        self.linked_datasets_handler = linked_datasets_handler
 
         self.classification_handler = ClassificationHandler(self.config, self.report)
         self.data_reader: Optional[BigQueryDataReader] = None
@@ -355,6 +360,7 @@ class BigQuerySchemaGenerator:
         extra_properties: Optional[Dict[str, str]] = None,
         created: Optional[int] = None,
         last_modified: Optional[int] = None,
+        is_linked_dataset: bool = False,
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(project_id, dataset)
 
@@ -385,11 +391,17 @@ class BigQuerySchemaGenerator:
 
         database_container_key = self.gen_project_id_key(database=project_id)
 
+        sub_type = (
+            DatasetContainerSubTypes.BIGQUERY_LINKED_DATASET
+            if is_linked_dataset
+            else DatasetContainerSubTypes.BIGQUERY_DATASET
+        )
+
         yield from gen_schema_container(
             database=project_id,
             schema=dataset,
             qualified_name=f"{project_id}.{dataset}",
-            sub_types=[DatasetContainerSubTypes.BIGQUERY_DATASET],
+            sub_types=[sub_type],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             schema_container_key=schema_container_key,
@@ -465,6 +477,28 @@ class BigQuerySchemaGenerator:
 
         if self.config.include_schema_metadata:
             yield from self.gen_project_id_containers(project_id)
+
+        # Populate before the parallel dataset workers start; they read the
+        # lookup concurrently in `_process_schema`.
+        if self.linked_datasets_handler is not None:
+            try:
+                self.linked_datasets_handler.populate_for_project(
+                    project_id, bigquery_project.datasets
+                )
+            except Exception as e:
+                # Backstop only: Analytics Hub errors are handled per location
+                # inside the handler. Reaching here must not abort the run, which
+                # has no other guard around project processing.
+                self.report.failure(
+                    title="Unable to detect BigQuery Sharing linked datasets",
+                    message=(
+                        "Linked dataset detection may be incomplete for this "
+                        "project; affected datasets are still ingested without "
+                        "BigQuery Sharing enrichment."
+                    ),
+                    context=project_id,
+                    exc=e,
+                )
 
         self.report.num_project_datasets_to_scan[project_id] = len(
             bigquery_project.datasets
@@ -553,6 +587,40 @@ class BigQuerySchemaGenerator:
         except Exception as e:
             logger.warning(f"Could not create table ref for {table_item.path}: {e}")
 
+    def _gen_dataset_container_workunits(
+        self, project_id: str, bigquery_dataset: BigqueryDataset
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self.config.include_schema_metadata:
+            return
+
+        dataset_name = bigquery_dataset.name
+        linked_dataset_info = (
+            self.linked_datasets_handler.get_info(project_id, dataset_name)
+            if self.linked_datasets_handler is not None
+            else None
+        )
+
+        extra_properties: Dict[str, str] = {}
+        if bigquery_dataset.location:
+            extra_properties["location"] = bigquery_dataset.location
+        if linked_dataset_info is not None:
+            extra_properties.update(linked_dataset_info.to_extra_properties())
+
+        yield from self.gen_dataset_containers(
+            dataset=dataset_name,
+            project_id=project_id,
+            tags=bigquery_dataset.labels,
+            extra_properties=extra_properties or None,
+            description=bigquery_dataset.comment,
+            created=make_ts_millis(bigquery_dataset.created)
+            if bigquery_dataset.created
+            else None,
+            last_modified=make_ts_millis(bigquery_dataset.last_altered)
+            if bigquery_dataset.last_altered
+            else None,
+            is_linked_dataset=linked_dataset_info is not None,
+        )
+
     def _process_schema(
         self,
         project_id: str,
@@ -571,24 +639,7 @@ class BigQuerySchemaGenerator:
             else:
                 self.discovered_locations.add(bigquery_dataset.location)
 
-        if self.config.include_schema_metadata:
-            yield from self.gen_dataset_containers(
-                dataset=dataset_name,
-                project_id=project_id,
-                tags=bigquery_dataset.labels,
-                extra_properties=(
-                    {"location": bigquery_dataset.location}
-                    if bigquery_dataset.location
-                    else None
-                ),
-                description=bigquery_dataset.comment,
-                created=make_ts_millis(bigquery_dataset.created)
-                if bigquery_dataset.created
-                else None,
-                last_modified=make_ts_millis(bigquery_dataset.last_altered)
-                if bigquery_dataset.last_altered
-                else None,
-            )
+        yield from self._gen_dataset_container_workunits(project_id, bigquery_dataset)
 
         columns = None
         constraints: Optional[Dict[str, List[BigqueryTableConstraint]]] = None
@@ -794,6 +845,13 @@ class BigQuerySchemaGenerator:
             table, columns, project_id, dataset_name
         )
 
+        yield from self._emit_linked_dataset_lineage(
+            project_id=project_id,
+            dataset_name=dataset_name,
+            entity_name=table.name,
+            columns=columns,
+        )
+
     def _process_view(
         self,
         view: BigqueryView,
@@ -818,7 +876,12 @@ class BigQuerySchemaGenerator:
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         self.table_refs.add(table_ref)
         logger.debug(f"Full schema processing - Added VIEW to table_refs: {table_ref}")
-        if view.view_definition:
+        # A linked-dataset view gets its COPY lineage inline, so skip view-def
+        # parsing and keep one writer of the single-valued upstreamLineage.
+        # Nothing is lost: BigQuery hides a linked view's DDL from subscribers.
+        if view.view_definition and not self._emits_linked_dataset_copy_lineage(
+            project_id, dataset_name
+        ):
             self.view_refs_by_project[project_id].add(table_ref)
             self.view_definitions[table_ref] = view.view_definition
 
@@ -834,6 +897,58 @@ class BigQuerySchemaGenerator:
             project_id=project_id,
             dataset_name=dataset_name,
         )
+
+        yield from self._emit_linked_dataset_lineage(
+            project_id=project_id,
+            dataset_name=dataset_name,
+            entity_name=view.name,
+            columns=columns,
+        )
+
+    def _emits_linked_dataset_copy_lineage(
+        self, project_id: str, dataset_name: str
+    ) -> bool:
+        return (
+            self.linked_datasets_handler is not None
+            and self.linked_datasets_handler.emits_copy_lineage(
+                project_id, dataset_name
+            )
+        )
+
+    def _emit_linked_dataset_lineage(
+        self,
+        project_id: str,
+        dataset_name: str,
+        entity_name: str,
+        columns: List[BigqueryColumn],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit Siblings + UpstreamLineage for one entity in a linked dataset."""
+        handler = self.linked_datasets_handler
+        if handler is None or not handler.emits_copy_lineage(project_id, dataset_name):
+            return
+
+        try:
+            yield from handler.gen_lineage_workunits(
+                consumer_project_id=project_id,
+                consumer_dataset=dataset_name,
+                entity_name=entity_name,
+                columns=columns,
+            )
+        except Exception as e:
+            # Linked-dataset lineage is best-effort enrichment, so any failure
+            # building it is isolated to this entity rather than aborting the
+            # rest of the dataset's tables and views.
+            entity_fqn = f"{project_id}.{dataset_name}.{entity_name}"
+            self.report.linked_dataset_lineage_emission_errors.append(entity_fqn)
+            self.report.warning(
+                title="Failed to emit linked dataset lineage",
+                message=(
+                    "Could not build BigQuery Sharing lineage for this entity; it "
+                    "is ingested without linked-dataset lineage."
+                ),
+                context=entity_fqn,
+                exc=e,
+            )
 
     def _process_snapshot(
         self,
