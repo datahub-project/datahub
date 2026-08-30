@@ -34,3 +34,19 @@ def test_report_without_secrets_written_verbatim(tmp_path):
 
     assert json.loads(content) == report
     SecretRegistry.reset_instance()
+
+
+def test_secret_with_quotes_masked_despite_json_escaping(tmp_path):
+    SecretRegistry.reset_instance()
+    secret = 'pä"ssword123'
+    SecretRegistry.get_instance().register_secret("DB_PASS", secret)
+
+    content = _write_report(tmp_path, {"failures": [f"auth failed for {secret}"]})
+
+    assert secret not in content
+    assert json.dumps(secret)[1:-1] not in content
+    assert "***REDACTED:DB_PASS***" in content
+    assert json.loads(content) == {
+        "failures": ["auth failed for ***REDACTED:DB_PASS***"]
+    }
+    SecretRegistry.reset_instance()

@@ -53,9 +53,9 @@ class FileReporter(PipelineRunListener):
     ) -> None:
         try:
             masking_filter = SecretMaskingFilter(SecretRegistry.get_instance())
-            masked_report = masking_filter.mask_text(json.dumps(report))
+            masked_report = masking_filter.mask_structure(report)
             with open(self.config.filename, "w") as report_out:
-                report_out.write(masked_report)
+                json.dump(masked_report, report_out)
             logger.info(f"Wrote {status} report successfully to {self.config.filename}")
         except Exception as e:
             logger.error(f"Failed to write structured report due to {e}")
