@@ -447,64 +447,83 @@ def _update_existing_handlers() -> None:
         logger.debug(f"Updated {updated_count} logging handlers to use wrapped streams")
 
 
+_installed_filter: Optional[SecretMaskingFilter] = None
+_install_lock = threading.Lock()
+
+
+def _filterable_handlers() -> "list[logging.Handler]":
+    handlers = []
+    loggers = [logging.getLogger()] + [
+        logging.getLogger(name)
+        for name in logging.root.manager.loggerDict
+        if not name.startswith("datahub.masking")
+    ]
+    for candidate in loggers:
+        if isinstance(candidate, logging.Logger):
+            handlers.extend(candidate.handlers)
+    return handlers
+
+
 def install_masking_filter(
     secret_registry: Optional[SecretRegistry] = None,
     max_message_size: int = 5000,
     install_stdout_wrapper: bool = True,
 ) -> SecretMaskingFilter:
-    """Install secret masking filter on root logger and optionally wrap stdout/stderr."""
-    # Create filter
-    masking_filter = SecretMaskingFilter(
-        secret_registry=secret_registry, max_message_size=max_message_size
-    )
+    """Attach the masking filter to every logging handler and wrap stdout/stderr.
 
-    # Install on root logger (affects all loggers)
-    root_logger = logging.getLogger()
+    Filters attach to handlers, not loggers: a filter on a logger only applies
+    to records emitted directly on it, while propagated records from child
+    loggers only pass through ancestor HANDLERS. Safe to call repeatedly -
+    each call covers handlers created since the previous one.
+    """
+    global _installed_filter
+    with _install_lock:
+        if _installed_filter is None:
+            _installed_filter = SecretMaskingFilter(
+                secret_registry=secret_registry, max_message_size=max_message_size
+            )
+            logger.info("Created process-wide SecretMaskingFilter")
+        masking_filter = _installed_filter
 
-    # Check if already installed (avoid duplicates)
-    existing_filters = [
-        f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)
-    ]
+    attached_count = 0
+    for handler in _filterable_handlers():
+        if not any(isinstance(f, SecretMaskingFilter) for f in handler.filters):
+            handler.addFilter(masking_filter)
+            attached_count += 1
+    if attached_count:
+        logger.debug(f"Attached masking filter to {attached_count} handler(s)")
 
-    if existing_filters:
-        logger.debug("SecretMaskingFilter already installed on root logger")
-        return existing_filters[0]
-
-    root_logger.addFilter(masking_filter)
-    logger.info("Installed SecretMaskingFilter on root logger")
-
-    # Optionally install stdout/stderr wrapper as backup
     if install_stdout_wrapper:
         if not isinstance(sys.stdout, StreamMaskingWrapper):
             sys.stdout = StreamMaskingWrapper(sys.stdout, masking_filter)
-            logger.debug("Wrapped sys.stdout with StreamMaskingWrapper")
-
         if not isinstance(sys.stderr, StreamMaskingWrapper):
             sys.stderr = StreamMaskingWrapper(sys.stderr, masking_filter)
-            logger.debug("Wrapped sys.stderr with StreamMaskingWrapper")
-
-        # Update all existing logging handlers to use wrapped streams
-        # Handlers created before masking was initialized will have cached
-        # references to the original unwrapped stderr/stdout
         _update_existing_handlers()
 
     return masking_filter
 
 
 def uninstall_masking_filter() -> None:
-    """Remove secret masking filter from root logger."""
-    root_logger = logging.getLogger()
+    """Detach masking everywhere. Production never tears masking down; this
+    exists so tests can isolate the process-global state they exercise."""
+    global _installed_filter
 
-    # Remove filters
+    root_logger = logging.getLogger()
     root_logger.filters = [
         f for f in root_logger.filters if not isinstance(f, SecretMaskingFilter)
     ]
+    for handler in _filterable_handlers():
+        for existing in list(handler.filters):
+            if isinstance(existing, SecretMaskingFilter):
+                handler.removeFilter(existing)
 
-    # Unwrap stdout/stderr
     if isinstance(sys.stdout, StreamMaskingWrapper):
         sys.stdout = sys.stdout._original
 
     if isinstance(sys.stderr, StreamMaskingWrapper):
         sys.stderr = sys.stderr._original
+
+    with _install_lock:
+        _installed_filter = None
 
     logger.info("Uninstalled SecretMaskingFilter")

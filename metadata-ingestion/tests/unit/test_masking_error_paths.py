@@ -127,7 +127,7 @@ class TestBootstrapConfiguration:
             http.client.HTTPConnection.debuglevel = 1
 
             # Initialize masking
-            initialize_secret_masking(force=True)
+            initialize_secret_masking()
 
             # Debug level should be set to 0
             assert http.client.HTTPConnection.debuglevel == 0
@@ -141,7 +141,7 @@ class TestBootstrapConfiguration:
         """Test that warnings are captured to logging."""
         import warnings
 
-        initialize_secret_masking(force=True)
+        initialize_secret_masking()
 
         try:
             # Check that warnings are being captured

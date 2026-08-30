@@ -139,7 +139,7 @@ class TestBootstrapEdgeCases:
         assert is_bootstrapped()
 
         # Force re-init
-        initialize_secret_masking(force=True)
+        initialize_secret_masking()
         assert is_bootstrapped()
 
     def test_bootstrap_error_cleared_on_success(self):

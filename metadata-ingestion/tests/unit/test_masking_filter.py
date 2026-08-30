@@ -557,25 +557,24 @@ class TestInstallation:
         uninstall_masking_filter()
 
     def test_install_uninstall(self):
-        """Test filter installation and removal."""
+        """Install attaches the filter to handlers; uninstall detaches it."""
         registry = SecretRegistry()
-        registry.clear()
         registry.register_secret("TEST", "test_value")
 
-        # Install
-        install_masking_filter(registry)
+        probe_handler = logging.NullHandler()
+        logging.getLogger().addHandler(probe_handler)
+        try:
+            install_masking_filter(registry)
+            assert any(
+                isinstance(f, SecretMaskingFilter) for f in probe_handler.filters
+            )
 
-        # Verify installed
-        root_logger = logging.getLogger()
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-        assert len(filters) > 0
-
-        # Uninstall
-        uninstall_masking_filter()
-
-        # Verify removed
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-        assert len(filters) == 0
+            uninstall_masking_filter()
+            assert not any(
+                isinstance(f, SecretMaskingFilter) for f in probe_handler.filters
+            )
+        finally:
+            logging.getLogger().removeHandler(probe_handler)
 
     def test_double_install(self):
         """Test that double installation is handled gracefully."""
