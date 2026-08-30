@@ -50,6 +50,10 @@ from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+# Rate limit and per-call timeout for materialized view stats fetched via tables.get.
+_MV_STATS_RATE_LIMITER = RateLimiter(max_calls=50, period=1)
+_MV_STATS_TIMEOUT_SEC = 30
+
 
 @dataclass
 class ExternalTableOptions:
@@ -589,6 +593,40 @@ class BigQuerySchemaApi:
                     )
             self.report.num_get_views_for_dataset_api_requests += 1
             self.report.get_views_for_dataset_sec += current_timer.elapsed_seconds()
+
+    def get_table_metadata(
+        self,
+        project_id: str,
+        dataset_name: str,
+        table_name: str,
+        report: BigQueryV2Report,
+    ) -> Optional[bigquery.Table]:
+        """Fetch a single table's metadata via the BigQuery `tables.get` API.
+
+        This is a metadata-only call (no data scan, no `getData`), used to source
+        row count / size / last-modified time for materialized views, which are not
+        covered by `INFORMATION_SCHEMA.PARTITIONS`. Returns None on failure (a
+        warning is recorded and the caller should proceed without stats).
+        """
+        table_ref = f"{project_id}.{dataset_name}.{table_name}"
+        with PerfTimer() as current_timer:
+            with _MV_STATS_RATE_LIMITER:
+                try:
+                    table = self.bq_client.get_table(
+                        table_ref, timeout=_MV_STATS_TIMEOUT_SEC
+                    )
+                except Exception as e:
+                    report.warning(
+                        title="Failed to fetch materialized view stats",
+                        message="Error fetching materialized view metadata via tables.get",
+                        context=table_ref,
+                        exc=e,
+                    )
+                    report.num_mv_stats_failed += 1
+                    return None
+        self.report.num_get_table_metadata_api_requests += 1
+        self.report.get_table_metadata_sec += current_timer.elapsed_seconds()
+        return table
 
     @staticmethod
     def _make_bigquery_view(view: bigquery.Row) -> BigqueryView:
