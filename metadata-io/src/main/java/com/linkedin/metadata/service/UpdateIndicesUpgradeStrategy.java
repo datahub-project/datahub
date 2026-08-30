@@ -90,7 +90,14 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
       long pollIntervalSeconds) {
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
-    this.oldIndexTargets = new ConcurrentHashMap<>(oldIndexTargets);
+    // Keys are normalised because the two sides disagree on case: the map is built from
+    // IndexConvention.getEntityName(), which derives names from the lowercased index
+    // ("aiagentindex_v2" -> "aiagent"), while lookups use EntitySpec.getName(), which is the
+    // entity-registry name ("aiAgent"). Without this every entity whose registered name is not
+    // all-lowercase silently never dual-writes.
+    this.oldIndexTargets = new ConcurrentHashMap<>();
+    oldIndexTargets.forEach(
+        (entityName, index) -> this.oldIndexTargets.put(key(entityName), index));
     this.dualWriteStartTimeRecorded = new ConcurrentHashMap<>();
     this.dualWriteStartTimeCallback = dualWriteStartTimeCallback;
 
@@ -153,7 +160,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   private void processUpdateEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     String entityName = event.getEntitySpec().getName();
-    String oldIndex = oldIndexTargets.get(entityName);
+    String oldIndex = oldIndexTargets.get(key(entityName));
     if (oldIndex == null) {
       return;
     }
@@ -198,7 +205,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   private void processDeleteEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     String entityName = event.getEntitySpec().getName();
-    String oldIndex = oldIndexTargets.get(entityName);
+    String oldIndex = oldIndexTargets.get(key(entityName));
     if (oldIndex == null) {
       return;
     }
@@ -255,7 +262,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
    * remain.
    */
   public void removeTarget(String entityName) {
-    String removed = oldIndexTargets.remove(entityName);
+    String removed = oldIndexTargets.remove(key(entityName));
     if (removed != null) {
       log.info(
           "Removed rollback dual-write target for entity '{}' (was '{}')", entityName, removed);
@@ -293,7 +300,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
       Set<String> toRemove =
           oldIndexTargets.keySet().stream()
-              .filter(swappedEntities::contains)
+              .filter(e -> swappedEntities.stream().anyMatch(sw -> key(sw).equals(e)))
               .collect(Collectors.toSet());
 
       for (String entityName : toRemove) {
@@ -354,5 +361,10 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
       @Nonnull Object newValue,
       @Nullable Object oldValue) {
     // No-op: next indices were created with target mappings during Phase 1
+  }
+
+  /** Entity-name key normaliser — see the constructor for why this is needed. */
+  private static String key(String entityName) {
+    return entityName == null ? null : entityName.toLowerCase(java.util.Locale.ROOT);
   }
 }
