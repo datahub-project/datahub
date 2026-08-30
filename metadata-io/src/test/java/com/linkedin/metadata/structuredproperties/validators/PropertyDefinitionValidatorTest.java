@@ -591,12 +591,15 @@ public class PropertyDefinitionValidatorTest {
     when(mockStructuredPropertyMappingLookup.fieldExists(any(), eq("certification_status")))
         .thenReturn(true);
 
+    // The collision is still rejected; the message must surface both causes (live '.'/'_'
+    // collision vs residual mapping from a hard-deleted property) plus the reindex recovery path.
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
                 operationContext,
                 TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
                 mockRetrieverContext,
                 mockStructuredPropertyMappingLookup)
+            .filter(e -> e.getMessage().contains("residual") && e.getMessage().contains("reindex"))
             .count(),
         1);
   }

@@ -1000,13 +1000,13 @@ elasticsearch:
     # Default entity types when callers omit types. No code baseline — configure via YAML/env.
     # Example: SEARCH_DEFAULT_ENTITY_TYPES_REMOVE=schemaField,document
     defaultEntityTypes:
-      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document}
+      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document,metric,semanticModel}
       add: ${SEARCH_DEFAULT_ENTITY_TYPES_ADD:}
       remove: ${SEARCH_DEFAULT_ENTITY_TYPES_REMOVE:}
 
     # Default entity types for autocomplete-across-entities when callers omit types.
     autocompleteEntityTypes:
-      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty}
+      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty,metric,semanticModel}
       add: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_ADD:}
       remove: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_REMOVE:}
 
