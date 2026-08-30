@@ -247,3 +247,34 @@ def test_tables_get_failure_still_records_api_timing(schema_gen):
         )
     assert schema_gen.report.num_mv_stats_failed == 1
     assert api.report.num_get_table_metadata_api_requests == 1
+
+
+def test_process_views_enriches_only_materialized_views(schema_gen):
+    # The other tests call _enrich_materialized_view_stats directly, which
+    # leaves the routing that decides *which* views reach it untested.
+    mv = _make_mv(name="mv1")
+    plain = _make_plain_view(name="v1")
+    with patch.object(schema_gen, "_enrich_materialized_view_stats") as enrich:
+        list(
+            schema_gen._process_views_for_dataset(
+                project_id=PROJECT_ID,
+                dataset_name=DATASET_NAME,
+                views=[mv, plain],
+                columns=None,
+            )
+        )
+    assert [c.kwargs["view"].name for c in enrich.call_args_list] == ["mv1"]
+
+
+def test_process_views_skips_enrichment_when_flag_disabled(schema_gen):
+    schema_gen.config.include_materialized_view_stats = False
+    with patch.object(schema_gen, "_enrich_materialized_view_stats") as enrich:
+        list(
+            schema_gen._process_views_for_dataset(
+                project_id=PROJECT_ID,
+                dataset_name=DATASET_NAME,
+                views=[_make_mv()],
+                columns=None,
+            )
+        )
+    enrich.assert_not_called()
