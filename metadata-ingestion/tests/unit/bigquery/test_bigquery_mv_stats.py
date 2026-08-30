@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Iterable, List, Optional
@@ -14,6 +15,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Confi
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryView
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
 from datahub.metadata.schema_classes import DatasetProfileClass
+from datahub.utilities.ratelimiter import RateLimiter
 
 PROJECT_ID = "test-project"
 DATASET_NAME = "test-dataset"
@@ -278,3 +280,48 @@ def test_process_views_skips_enrichment_when_flag_disabled(schema_gen):
             )
         )
     enrich.assert_not_called()
+
+
+def test_no_rate_limiter_unless_configured(schema_gen):
+    # A hardcoded limiter here throttled the default path to a fraction of its
+    # own target, because RateLimiter sleeps holding a lock shared by every
+    # dataset worker thread. Throttling is opt-in, like every other path here.
+    assert schema_gen._mv_stats_rate_limiter is None
+
+
+def test_rate_limiter_honours_requests_per_min():
+    with (
+        patch.object(BigQueryV2Config, "get_bigquery_client"),
+        patch.object(BigQueryV2Config, "get_projects_client"),
+    ):
+        config = BigQueryV2Config.model_validate(
+            {"project_id": PROJECT_ID, "rate_limit": True, "requests_per_min": 60}
+        )
+        source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    limiter = source.bq_schema_extractor._mv_stats_rate_limiter
+    assert limiter is not None
+    assert (limiter.max_calls, limiter.period) == (60, 60)
+
+
+def test_throttle_wait_is_not_reported_as_api_time(schema_gen):
+    # Timing the throttle wait as BigQuery latency reported hundreds of seconds
+    # of "API time" for instantaneous calls, pointing a reader at BigQuery when
+    # the cost was entirely local.
+    api = schema_gen.schema_api
+    limiter = RateLimiter(max_calls=1, period=0.2)
+    with patch.object(api, "bq_client") as client:
+        client.get_table.return_value = SimpleNamespace(
+            num_rows=1, num_bytes=1, modified=None
+        )
+        start = time.monotonic()
+        for i in range(3):
+            api.get_table_metadata(
+                PROJECT_ID,
+                DATASET_NAME,
+                f"mv{i}",
+                schema_gen.report,
+                rate_limiter=limiter,
+            )
+        wall = time.monotonic() - start
+    assert wall > 0.2, "limiter should actually have throttled"
+    assert api.report.get_table_metadata_sec < wall / 2

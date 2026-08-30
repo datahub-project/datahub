@@ -257,6 +257,16 @@ class BigQuerySchemaGenerator:
 
         # Per-(project, dataset) count of materialized-view stats fetches, used to
         # bound the serial tables.get calls on the schema critical path.
+        # Throttling for the MV stats tables.get calls, built the same way as
+        # every other rate-limited path in this source: opt-in via `rate_limit`,
+        # sized by `requests_per_min`. A hardcoded limiter here would silently
+        # override a user who asked for a lower rate.
+        self._mv_stats_rate_limiter: Optional[RateLimiter] = (
+            RateLimiter(max_calls=self.config.requests_per_min, period=60)
+            if self.config.rate_limit
+            else None
+        )
+
         self._mv_stats_fetch_count: Dict[str, int] = defaultdict(int)
         self._mv_stats_cap_warned: Set[str] = set()
 
@@ -865,7 +875,11 @@ class BigQuerySchemaGenerator:
         self._mv_stats_fetch_count[cap_key] += 1
 
         table = self.schema_api.get_table_metadata(
-            project_id, dataset_name, view.name, self.report
+            project_id,
+            dataset_name,
+            view.name,
+            self.report,
+            rate_limiter=self._mv_stats_rate_limiter,
         )
         if table is None:
             return
