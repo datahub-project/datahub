@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -220,3 +221,29 @@ def test_cap_skips_fetch_after_limit_and_warns_once(schema_gen):
     assert schema_gen.report.num_mv_stats_skipped_cap == 1
     # The warning is recorded exactly once per dataset.
     assert len(schema_gen.report.warnings) == 1
+
+
+def test_profile_pattern_excluded_mv_skips_the_fetch(schema_gen):
+    # profile_pattern gates the emit side; it must gate the fetch too, or an
+    # excluded view still costs a tables.get whose result is thrown away.
+    schema_gen.config.profile_pattern = AllowDenyPattern(deny=[".*"])
+    view = _make_mv()
+    with patch.object(schema_gen.schema_api, "get_table_metadata") as gt_mock:
+        schema_gen._enrich_materialized_view_stats(view, PROJECT_ID, DATASET_NAME)
+    gt_mock.assert_not_called()
+    assert schema_gen.report.num_mv_stats_fetched == 0
+    assert view.rows_count is None
+
+
+def test_tables_get_failure_still_records_api_timing(schema_gen):
+    # Perf accounting must survive the failure path: a permissions error should
+    # not report zero API requests while burning the full timeout per view.
+    api = schema_gen.schema_api
+    with patch.object(api, "bq_client") as client:
+        client.get_table.side_effect = Exception("permission denied")
+        assert (
+            api.get_table_metadata(PROJECT_ID, DATASET_NAME, "mv1", schema_gen.report)
+            is None
+        )
+    assert schema_gen.report.num_mv_stats_failed == 1
+    assert api.report.num_get_table_metadata_api_requests == 1

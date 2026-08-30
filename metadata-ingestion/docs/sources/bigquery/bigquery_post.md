@@ -151,7 +151,7 @@ You can set partition explicitly with `partition.partition_datetime` property if
 #### Caveats
 
 - For materialized views, lineage is dependent on logs being retained. If your GCP logging is retained for 30 days (default) and 30 days have passed since the creation of the materialized view we won't be able to get lineage for them.
-- For materialized views, DataHub reports the number of rows **currently materialized** (and the materialized size) as dataset statistics. This is sourced from BigQuery catalog metadata (`tables.get`) and does not require `profiling.enabled`; it can differ from `SELECT COUNT(*)` on the underlying base tables. Set `include_materialized_view_stats: false` to skip these per-view metadata calls.
+- For materialized views, DataHub reports the number of rows **currently materialized** (and the materialized size) as dataset statistics. This is sourced from BigQuery catalog metadata (`tables.get`) and does not require `profiling.enabled`; it can differ from `SELECT COUNT(*)` on the underlying base tables. The same call also populates the view's last-modified time, so enabling this affects `lastModified` in dataset properties as well as the stats panel. Views excluded by `profile_pattern` are skipped entirely — no metadata call is made for them. Set `include_materialized_view_stats: false` to skip these per-view metadata calls altogether.
 
 ### Limitations
 

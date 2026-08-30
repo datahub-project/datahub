@@ -255,10 +255,6 @@ class BigQuerySchemaGenerator:
                 self.config.get_bigquery_client()
             )
 
-        # Single timestamp stamped once per run and reused for every datasetProfile
-        # aspect emitted for materialized views (the report exposes no run start time).
-        self.run_timestamp_millis: int = get_sys_time()
-
         # Per-(project, dataset) count of materialized-view stats fetches, used to
         # bound the serial tables.get calls on the schema critical path.
         self._mv_stats_fetch_count: Dict[str, int] = defaultdict(int)
@@ -813,6 +809,19 @@ class BigQuerySchemaGenerator:
             table, columns, project_id, dataset_name
         )
 
+    def _mv_stats_in_profile_pattern(
+        self, project_id: str, dataset_name: str, table_name: str
+    ) -> bool:
+        """Single predicate for both the fetch and the emit side.
+
+        These two must agree: gating only the emit side means an excluded view
+        still costs a tables.get whose result is then discarded.
+        """
+        return check_table_with_profile_pattern(
+            self.config.profile_pattern,
+            f"{project_id}.{dataset_name}.{table_name}",
+        )
+
     def _enrich_materialized_view_stats(
         self,
         view: BigqueryView,
@@ -824,8 +833,14 @@ class BigQuerySchemaGenerator:
         No-op when the legacy `__TABLES__` path already supplied stats (so the two
         configs never duplicate work). Bounded per (project, dataset) to avoid a
         serial fetch dominating the schema critical path on estates with many MVs.
+
+        Note this also fills `last_altered`, which flows into
+        `DatasetProperties.lastModified` — so enabling MV stats changes that field
+        too, not just the emitted `datasetProfile`.
         """
         if not self.config.include_materialized_view_stats:
+            return
+        if not self._mv_stats_in_profile_pattern(project_id, dataset_name, view.name):
             return
         if view.rows_count is not None:
             self.report.num_mv_stats_skipped_legacy += 1
@@ -1185,17 +1200,16 @@ class BigQuerySchemaGenerator:
             view.materialized
             and self.config.include_materialized_view_stats
             and view.rows_count is not None
-            and check_table_with_profile_pattern(
-                self.config.profile_pattern,
-                f"{project_id}.{dataset_name}.{table.name}",
-            )
+            and self._mv_stats_in_profile_pattern(project_id, dataset_name, table.name)
         ):
             yield MetadataChangeProposalWrapper(
                 entityUrn=self.identifiers.gen_dataset_urn(
                     project_id, dataset_name, table.name
                 ),
                 aspect=DatasetProfileClass(
-                    timestampMillis=self.run_timestamp_millis,
+                    # Stamped at emission, matching every other source that emits
+                    # datasetProfile (sql_generic_profiler, unity, salesforce, …).
+                    timestampMillis=get_sys_time(),
                     rowCount=view.rows_count,
                     sizeInBytes=view.size_in_bytes,
                     # partitionSpec must stay set: the UI's latestFullTableProfile
