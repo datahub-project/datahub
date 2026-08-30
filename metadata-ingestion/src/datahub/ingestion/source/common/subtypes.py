@@ -108,6 +108,8 @@ class DatasetContainerSubTypes(StrEnum):
     PINECONE_NAMESPACE = "Pinecone Namespace"
     # Cube
     CUBE_DEPLOYMENT = "Cube Deployment"
+    # Convex
+    CONVEX_DEPLOYMENT = "Convex Deployment"
 
 
 class BIContainerSubTypes(StrEnum):

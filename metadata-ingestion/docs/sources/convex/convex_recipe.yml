@@ -1,0 +1,25 @@
+source:
+  type: convex
+  config:
+    # Required: one entry per Convex deployment to ingest
+    deployments:
+      - name: "my-app-prod"
+        url: "https://happy-animal-123.convex.cloud"
+        deploy_key: "${CONVEX_DEPLOY_KEY}"
+
+    # Optional: DataHub environment for the emitted URNs
+    # env: "PROD"
+
+    # Optional: filter tables by "<deployment name>.<table name>"
+    # table_pattern:
+    #   allow:
+    #     - "my-app-prod\\..*"
+    #   deny:
+    #     - ".*\\.scratch_.*"
+
+    # Optional: row counts, emitted as dataset profiles
+    # include_row_counts: true
+    # max_count_pages: 200
+
+sink:
+  # config sinks
