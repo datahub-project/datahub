@@ -456,6 +456,7 @@ def test_populate_for_project_missing_link_state_still_emits_lineage() -> None:
         handler, CONSUMER_PROJECT, LINKED_DATASET, "plain_table", [_make_column("id")]
     )
     assert _upstream_lineage(workunits) is not None
+    assert handler.report.num_linked_datasets_missing_link_state == 1
 
 
 # ---------------------------------------------------------------------------
@@ -481,6 +482,7 @@ def test_populate_for_project_dead_link_state_suppresses_lineage() -> None:
         handler, CONSUMER_PROJECT, LINKED_DATASET, "plain_table", [_make_column("id")]
     )
     assert workunits == []
+    assert handler.report.num_linked_datasets_not_linked == 1
 
 
 # ---------------------------------------------------------------------------
@@ -644,7 +646,9 @@ def _make_subscription(
             else ah.SharedResourceType.BIGQUERY_DATASET
         ),
         destination_dataset=SimpleNamespace(
-            dataset_reference=SimpleNamespace(dataset_id=consumer_dataset)
+            dataset_reference=SimpleNamespace(
+                project_id=CONSUMER_PROJECT, dataset_id=consumer_dataset
+            )
         ),
         # Present on the real object and carrying project NUMBERS, so
         # matching on this instead of destination_dataset finds nothing.
@@ -782,7 +786,9 @@ def test_sharing_permission_denied_warns_and_keeps_lineage() -> None:
         [BigqueryDataset(name=LINKED_DATASET, type="LINKED", location="US")],
     )
 
-    assert len(report.warnings) > 0
+    assert [w.title for w in report.warnings] == [
+        "Missing permission to list BigQuery Sharing subscriptions"
+    ]
     assert len(report.failures) == 0
     workunits = _lineage_workunits(
         handler, CONSUMER_PROJECT, LINKED_DATASET, "plain_table", [_make_column("id")]
@@ -924,6 +930,80 @@ def test_project_number_map_is_built_once_per_run() -> None:
     assert client.list_projects.call_count == 1
 
 
+def test_malformed_linked_dataset_payload_warns_rather_than_aborting() -> None:
+    # A truthy non-mapping in the linked payload must warn, not raise: this parse runs
+    # before the per-dataset fan-out, so an uncaught error would abort every project.
+    client = MagicMock()
+    malformed = MagicMock()
+    malformed._properties = {"linkedDatasetSource": "not-a-mapping"}
+    client.get_dataset.return_value = malformed
+
+    handler = _make_handler(client=client)
+    handler.populate_for_project(
+        CONSUMER_PROJECT,
+        [BigqueryDataset(name="linked_a", type="LINKED", location="US")],
+    )
+
+    assert handler.get_info(CONSUMER_PROJECT, "linked_a") is None
+    assert handler.report.warnings
+
+
+def test_subscription_keys_on_the_destination_project_not_the_loop() -> None:
+    # A subscription's destination dataset can sit in a different project, so the listing
+    # must land on that dataset, not a same-named one in the project being scanned.
+    from google.cloud import bigquery_analyticshub_v1 as ah
+
+    handler = _make_handler()
+    handler._lookup[("proj-a", "shared")] = LinkedDatasetInfo()
+    handler._lookup[("proj-b", "shared")] = LinkedDatasetInfo()
+
+    subscription = SimpleNamespace(
+        listing="projects/p/locations/us/dataExchanges/e/listings/L",
+        state=SimpleNamespace(name="STATE_ACTIVE"),
+        resource_type=ah.SharedResourceType.BIGQUERY_DATASET,
+        destination_dataset=SimpleNamespace(
+            dataset_reference=SimpleNamespace(project_id="proj-b", dataset_id="shared")
+        ),
+        linked_resources=[],
+    )
+    handler._apply_subscription("proj-a", subscription)  # type: ignore[arg-type]
+
+    dest = handler.get_info("proj-b", "shared")
+    scanned = handler.get_info("proj-a", "shared")
+    assert dest is not None and dest.listing == "L"
+    assert dest.subscription_state == "ACTIVE"
+    assert scanned is not None and scanned.listing is None
+
+
+def test_transient_resource_manager_failure_is_not_cached() -> None:
+    # A non-permission error may be transient, so it must not be cached as a permanent
+    # None; a rerun retries. Tier 2 is hit once, not once per dataset.
+    from google.api_core.exceptions import DeadlineExceeded
+
+    client = MagicMock()
+    client.get_dataset.return_value = _make_get_dataset_response()
+    client.list_projects.return_value = []  # tier 1 empty, so tier 2 is used
+    projects_client = MagicMock()
+    projects_client.get_project.side_effect = DeadlineExceeded("deadline")
+
+    handler = _make_handler(client=client, projects_client=projects_client)
+    handler.populate_for_project(
+        CONSUMER_PROJECT,
+        [
+            BigqueryDataset(name="ds1", type="LINKED", location="US"),
+            BigqueryDataset(name="ds2", type="LINKED", location="US"),
+        ],
+    )
+
+    assert projects_client.get_project.call_count == 1  # not re-hit per dataset
+    assert PUBLISHER_PROJECT_NUMBER not in handler._resolved_publisher_ids  # not cached
+    ds1 = handler.get_info(CONSUMER_PROJECT, "ds1")
+    assert ds1 is not None and ds1.publisher is None
+    assert [w.title for w in handler.report.warnings] == [
+        "Publisher project resolution failed, possibly transiently"
+    ]
+
+
 def test_two_consumers_of_one_publisher_each_carry_their_own_copy_edge() -> None:
     # Two datasets in the same project can link the same published dataset. Each
     # consumer carries its own COPY edge and nothing is written onto the publisher, so
@@ -987,6 +1067,14 @@ def test_sharing_denied_classified_by_reason_then_by_message() -> None:
     assert _titles(PermissionDenied("caller lacks permission")) == [
         "Missing permission to list BigQuery Sharing subscriptions"
     ]
+
+    # The real disabled-API text: without grpcio-status there is no ErrorInfo, and the bare
+    # SERVICE_DISABLED token is not in the message, so the phrase match is the only signal.
+    assert _titles(
+        PermissionDenied(
+            "Analytics Hub API has not been used in project 1234 before or it is disabled"
+        )
+    ) == ["BigQuery Sharing API not enabled"]
 
     # ErrorInfo present -> it decides, even against a misleading message
     disabled = PermissionDenied("caller lacks permission")
@@ -1067,7 +1155,9 @@ def test_malformed_subscription_does_not_abort_the_project() -> None:
             state=5,  # unknown enum value comes back as a raw int -> `.name` raises
             resource_type=ah.SharedResourceType.BIGQUERY_DATASET,
             destination_dataset=SimpleNamespace(
-                dataset_reference=SimpleNamespace(dataset_id=LINKED_DATASET)
+                dataset_reference=SimpleNamespace(
+                    project_id=CONSUMER_PROJECT, dataset_id=LINKED_DATASET
+                )
             ),
             linked_resources=[],
         )
@@ -1103,7 +1193,9 @@ def test_one_location_failing_does_not_drop_the_others() -> None:
                 state=SimpleNamespace(name="STATE_ACTIVE"),
                 resource_type=ah.SharedResourceType.BIGQUERY_DATASET,
                 destination_dataset=SimpleNamespace(
-                    dataset_reference=SimpleNamespace(dataset_id="us_linked")
+                    dataset_reference=SimpleNamespace(
+                        project_id=CONSUMER_PROJECT, dataset_id="us_linked"
+                    )
                 ),
                 linked_resources=[],
             )
@@ -1242,12 +1334,8 @@ def test_tier1_non_api_error_still_falls_through_to_resource_manager() -> None:
 
 
 def test_tier2_non_api_error_warns_rather_than_ending_the_run() -> None:
-    # Resource Manager shares tier 1's credentials and transport, so it raises the same
-    # non-GoogleAPIError types. Nothing between here and get_workunits_internal
-    # catches: _resolve_publisher_project_id runs outside _resolve_from_dataset's try,
-    # populate_for_project is called un-guarded from the schema generator, and the
-    # per-project loop has no guard either. A narrow except would discard every
-    # remaining project over one publisher lookup.
+    # A credential refresh in tier 2 raises a non-GoogleAPIError (here a ValueError), not a
+    # permission denial, so _from_resource_manager treats it as transient: warns, not raises.
     client = MagicMock()
     client.get_dataset.return_value = _make_get_dataset_response()
     client.list_projects.return_value = []  # publisher invisible in BigQuery
@@ -1262,7 +1350,9 @@ def test_tier2_non_api_error_warns_rather_than_ending_the_run() -> None:
         CONSUMER_PROJECT, [BigqueryDataset(name=LINKED_DATASET, type="LINKED")]
     )
 
-    assert [w.title for w in report.warnings] == ["Cannot resolve publisher project"]
+    assert [w.title for w in report.warnings] == [
+        "Publisher project resolution failed, possibly transiently"
+    ]
     assert _info(handler).publisher is None
 
 
@@ -1309,7 +1399,7 @@ def test_project_list_failure_is_reported_and_not_cached_as_partial() -> None:
     # Both datasets still resolve, via tier 2.
     assert _info(handler, "linked_a").publisher is not None
     assert _info(handler, "linked_b").publisher is not None
-    # One tier-2 lookup, not two: _publisher_project_ids caches per project number and
+    # One tier-2 lookup, not two: _resolved_publisher_ids caches per project number and
     # bounds how often the failed enumeration is retried.
     assert report.num_publisher_lookups_from_resource_manager == 1
     assert client.list_projects.call_count == 1

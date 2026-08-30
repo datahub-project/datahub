@@ -1174,6 +1174,83 @@ def test_bigquery_linked_dataset_no_copy_edge_without_table_lineage(
 @patch("google.cloud.bigquery.Client")
 @patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
 @patch("google.cloud.resourcemanager_v3.ProjectsClient")
+def test_bigquery_linked_dataset_not_reclassified_when_flag_off(
+    projects_client,
+    policy_tag_manager_client,
+    client,
+    get_sample_data_for_table,
+    get_columns_for_dataset,
+    get_datasets_for_project_id,
+    get_core_table_details,
+    get_tables_for_dataset,
+    get_views_for_dataset,
+    get_snapshots_for_dataset,
+    pytestconfig,
+    tmp_path,
+):
+    # With the feature off (the default), a linked dataset must stay an ordinary Dataset;
+    # reclassifying it would silently flip existing users' containers on upgrade.
+    mcp_output_path = f"{tmp_path}/linked_flag_off_output.json"
+
+    columns = [
+        BigqueryColumn(
+            name="age",
+            ordinal_position=1,
+            is_nullable=False,
+            field_path="age",
+            data_type="INT",
+            comment="comment",
+            is_partition_column=False,
+            cluster_column_position=None,
+            policy_tags=[],
+        ),
+    ]
+    _configure_linked_dataset_mocks(
+        client,
+        get_datasets_for_project_id,
+        get_core_table_details,
+        get_columns_for_dataset,
+        get_sample_data_for_table,
+        get_tables_for_dataset,
+        get_views_for_dataset,
+        get_snapshots_for_dataset,
+        columns=columns,
+    )
+
+    # No include_linked_dataset_lineage override, so the feature is off. The parser is off
+    # too, so the schema-registration gate runs and takes its no-sharing-handler branch.
+    pipeline_config_dict: Dict[str, Any] = recipe(
+        mcp_output_path=mcp_output_path,
+        source_config_override={"lineage_use_sql_parser": False},
+    )
+    run_and_get_pipeline(pipeline_config_dict)
+
+    with open(mcp_output_path) as f:
+        mcps = json.load(f)
+
+    subtypes = [
+        m["aspect"]["json"].get("typeNames", [])
+        for m in mcps
+        if m.get("aspectName") == "subTypes"
+    ]
+    assert ["Dataset"] in subtypes, "the linked dataset should stay an ordinary Dataset"
+    assert not any("Linked Dataset" in tn for tn in subtypes)
+    assert not any(
+        "source_project_id" in json.dumps(m["aspect"]["json"]) for m in mcps
+    ), "no source reference should be emitted with the feature off"
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_views_for_dataset")
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQuerySchemaGenerator, "get_core_table_details")
+@patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
+@patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
+@patch.object(BigQueryDataReader, "get_sample_data_for_table")
+@patch("google.cloud.bigquery.Client")
+@patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
+@patch("google.cloud.resourcemanager_v3.ProjectsClient")
 def test_bigquery_linked_dataset_column_lineage_survives_parser_off(
     projects_client,
     policy_tag_manager_client,

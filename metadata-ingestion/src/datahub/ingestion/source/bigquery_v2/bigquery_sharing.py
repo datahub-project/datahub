@@ -1,7 +1,7 @@
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
-from google.api_core.exceptions import PermissionDenied
+from google.api_core.exceptions import InvalidArgument, NotFound, PermissionDenied
 from google.cloud import bigquery, resourcemanager_v3
 
 if TYPE_CHECKING:
@@ -68,16 +68,19 @@ class LinkedDatasetInfo:
     subscription_state: Optional[str] = None
 
     @property
-    def is_live_link(self) -> bool:
-        """Whether to emit relationship metadata for this link.
+    def live_publisher(self) -> Optional[PublisherRef]:
+        """The publisher to emit relationship metadata for, or None if the link is not live.
 
         Suppress on evidence, not absence: `type == LINKED` already established this
         is a link, so a missing `linkState` is not grounds to treat it as dead.
         """
-        return self.publisher is not None and self.link_state in (
-            None,
-            LINK_STATE_LINKED,
-        )
+        if self.link_state not in (None, LINK_STATE_LINKED):
+            return None
+        return self.publisher
+
+    @property
+    def is_live_link(self) -> bool:
+        return self.live_publisher is not None
 
     def to_extra_properties(self) -> Dict[str, str]:
         props: Dict[str, str] = {}
@@ -115,7 +118,11 @@ class BigQuerySharingHandler:
         self.projects_client = projects_client
 
         self._lookup: Dict[Tuple[str, str], LinkedDatasetInfo] = {}
-        self._publisher_project_ids: Dict[str, Optional[str]] = {}
+        # Positive resolutions only, from either tier; number -> project ID.
+        self._resolved_publisher_ids: Dict[str, str] = {}
+        # Numbers whose tier-2 lookup failed this run, terminal or transient (the two differ
+        # only in the warning). Not re-hit this run; a rerun starts clean and retries.
+        self._unresolvable_project_numbers: Set[str] = set()
         self._project_number_map: Optional[Dict[str, str]] = None
         self._sharing_client: Optional["AnalyticsHubServiceClient"] = None
         # Warn once per run, not once per project, when Dataset.type is wholesale absent.
@@ -195,9 +202,46 @@ class BigQuerySharingHandler:
     ) -> Optional[LinkedDatasetInfo]:
         try:
             dataset = self.client.get_dataset(f"{project_id}.{dataset_name}")
+
+            # linkedDatasetSource is absent from the datasets.list field subset, so it is
+            # only reachable through the full resource fetched above.
+            properties = getattr(dataset, "_properties", None) or {}
+            link_state = (properties.get("linkedDatasetMetadata") or {}).get(
+                "linkState"
+            ) or None
+            source = (properties.get("linkedDatasetSource") or {}).get(
+                "sourceDataset"
+            ) or {}
+            publisher_project_number = source.get("projectId")
+            publisher_dataset = source.get("datasetId")
+
+            publisher: Optional[PublisherRef] = None
+            if publisher_project_number and publisher_dataset:
+                publisher_project_id = self._resolve_publisher_project_id(
+                    str(publisher_project_number)
+                )
+                if publisher_project_id is not None:
+                    publisher = PublisherRef(
+                        dataset=publisher_dataset, project_id=publisher_project_id
+                    )
+            else:
+                self.report.warning(
+                    title="Linked dataset source not resolved",
+                    message=(
+                        "A dataset reported itself as linked but exposed no source "
+                        "dataset, so no lineage is emitted for it."
+                    ),
+                    context=f"{project_id}.{dataset_name}",
+                )
+
+            return LinkedDatasetInfo(
+                publisher=publisher,
+                link_state=link_state,
+            )
         except Exception as e:
-            # The client raises more than GoogleAPIError here. Catching broadly keeps
-            # one unreadable dataset from ending the project or the run.
+            # Broad on purpose: the client raises more than GoogleAPIError, and a malformed
+            # _properties payload raises AttributeError here. This parse runs before the
+            # fan-out, so an uncaught error aborts every remaining project, not just this one.
             self.report.warning(
                 title="Cannot read linked dataset metadata",
                 message=(
@@ -208,42 +252,6 @@ class BigQuerySharingHandler:
                 exc=e,
             )
             return None
-
-        # linkedDatasetSource is absent from the datasets.list field subset, so it is
-        # only reachable through the full resource fetched above.
-        properties = getattr(dataset, "_properties", None) or {}
-        link_state = (properties.get("linkedDatasetMetadata") or {}).get(
-            "linkState"
-        ) or None
-        source = (properties.get("linkedDatasetSource") or {}).get(
-            "sourceDataset"
-        ) or {}
-        publisher_project_number = source.get("projectId")
-        publisher_dataset = source.get("datasetId")
-
-        publisher: Optional[PublisherRef] = None
-        if publisher_project_number and publisher_dataset:
-            publisher_project_id = self._resolve_publisher_project_id(
-                str(publisher_project_number)
-            )
-            if publisher_project_id is not None:
-                publisher = PublisherRef(
-                    dataset=publisher_dataset, project_id=publisher_project_id
-                )
-        else:
-            self.report.warning(
-                title="Linked dataset source not resolved",
-                message=(
-                    "A dataset reported itself as linked but exposed no source "
-                    "dataset, so no lineage is emitted for it."
-                ),
-                context=f"{project_id}.{dataset_name}",
-            )
-
-        return LinkedDatasetInfo(
-            publisher=publisher,
-            link_state=link_state,
-        )
 
     # ---- optional enrichment from the BigQuery Sharing API ----------------
 
@@ -382,22 +390,21 @@ class BigQuerySharingHandler:
             self.report.num_sharing_subscriptions_unmatched += 1
             return
 
-        existing = self._lookup.get((project_id, consumer_dataset))
+        # The destination dataset can live in a different project than the subscription, so
+        # key on its own project_id, not the loop's, or a same-named dataset gets mis-stamped.
+        key = (reference.project_id or project_id, consumer_dataset)
+
+        existing = self._lookup.get(key)
         if existing is None:
             # Detection and the sharing API disagree about this dataset: one reports
             # it as linked, the other does not. Counted rather than dropped silently.
             self.report.num_sharing_subscriptions_unmatched += 1
             return
 
-        state_name = subscription.state.name
-        self._lookup[(project_id, consumer_dataset)] = replace(
+        self._lookup[key] = replace(
             existing,
             listing=_last_segment(subscription.listing),
-            subscription_state=(
-                state_name[len(_STATE_PREFIX) :]
-                if state_name and state_name.startswith(_STATE_PREFIX)
-                else state_name
-            ),
+            subscription_state=subscription.state.name.removeprefix(_STATE_PREFIX),
         )
 
     # ---- publisher project resolution, two tiers --------------------------
@@ -408,20 +415,27 @@ class BigQuerySharingHandler:
         The share reports its source as a project *number*; DataHub URNs use project
         IDs, and a URN built from a number matches nothing.
         """
-        if project_number in self._publisher_project_ids:
-            return self._publisher_project_ids[project_number]
+        cached = self._resolved_publisher_ids.get(project_number)
+        if cached is not None:
+            return cached
 
+        # Tier 1 is read first every time, so a late-built map beats an earlier tier-2
+        # failure without a reconciliation pass. Tier 2 is attempted once per number.
         resolved = self._from_project_list(project_number)
-        if resolved is None:
+        if (
+            resolved is None
+            and project_number not in self._unresolvable_project_numbers
+        ):
             resolved = self._from_resource_manager(project_number)
 
-        self._publisher_project_ids[project_number] = resolved
+        if resolved is not None:
+            self._resolved_publisher_ids[project_number] = resolved
         return resolved
 
     def _ensure_project_number_map(self) -> None:
         """Build the number->id map once per run, up front, so no dataset resolves before
         tier 1 is ready. A failed build leaves the map None (never a partial ``{}``) and
-        retries next project; a successful build drops cached negatives it can now resolve."""
+        retries on the next project."""
         if self._project_number_map is not None:
             return
         mapping: Dict[str, str] = {}
@@ -449,12 +463,6 @@ class BigQuerySharingHandler:
                 )
             return
         self._project_number_map = mapping
-        for number in [
-            n
-            for n, pid in self._publisher_project_ids.items()
-            if pid is None and n in mapping
-        ]:
-            del self._publisher_project_ids[number]
 
     def _from_project_list(self, project_number: str) -> Optional[str]:
         """Tier 1: read the number->id map built by _ensure_project_number_map."""
@@ -474,9 +482,9 @@ class BigQuerySharingHandler:
             )
             self.report.num_publisher_lookups_from_resource_manager += 1
             return project.project_id
-        except Exception as e:
-            # Broad on purpose: a credential refresh raises GoogleAuthError, not
-            # GoogleAPIError, and a narrow except here would end the whole run.
+        except (PermissionDenied, NotFound, InvalidArgument) as e:
+            # Terminal: this account cannot resolve the number and a rerun will not help.
+            self._unresolvable_project_numbers.add(project_number)
             self.report.warning(
                 title="Cannot resolve publisher project",
                 message=(
@@ -490,6 +498,22 @@ class BigQuerySharingHandler:
                 exc=e,
             )
             return None
+        except Exception as e:
+            # Not a permission denial (a credential refresh raises GoogleAuthError, a slow
+            # call DeadlineExceeded), so possibly transient. Not re-hit this run; a rerun retries.
+            self._unresolvable_project_numbers.add(project_number)
+            self.report.warning(
+                title="Publisher project resolution failed, possibly transiently",
+                message=(
+                    "Resolving this publisher failed with an error that is not a "
+                    "permission denial, so no lineage is emitted for datasets shared "
+                    "from it in this run. Rerun to retry; if it recurs, check "
+                    "`resourcemanager.projects.get` on the publisher."
+                ),
+                context=f"publisher project number {project_number}",
+                exc=e,
+            )
+            return None
 
     # ---- lookup -----------------------------------------------------------
 
@@ -497,6 +521,18 @@ class BigQuerySharingHandler:
         self, project_id: str, dataset_name: str
     ) -> Optional[LinkedDatasetInfo]:
         return self._lookup.get((project_id, dataset_name))
+
+    def needs_schema_for_copy_lineage(self, project_id: str, dataset_name: str) -> bool:
+        """Whether this dataset's COPY edge will need its resolved schema.
+
+        The edge builds identity column lineage from the consumer schema, so the schema
+        must be registered even with the SQL parser off, but only when a COPY edge is
+        actually emitted: table lineage on, and a live link with a resolved publisher.
+        """
+        if not self.config.include_table_lineage:
+            return False
+        info = self.get_info(project_id, dataset_name)
+        return info is not None and info.live_publisher is not None
 
     # ---- lineage registration ---------------------------------------------
 
@@ -515,13 +551,14 @@ class BigQuerySharingHandler:
         for ref in table_refs:
             entity = BigQueryTableRef.from_string_name(ref).table_identifier
             info = self._lookup.get((entity.project_id, entity.dataset))
-            if info is None or not info.is_live_link or info.publisher is None:
+            publisher = info.live_publisher if info is not None else None
+            if publisher is None:
                 continue
             consumer_urn = self.identifiers.gen_dataset_urn(
                 entity.project_id, entity.dataset, entity.table
             )
             publisher_urn = self.identifiers.gen_dataset_urn(
-                info.publisher.project_id, info.publisher.dataset, entity.table
+                publisher.project_id, publisher.dataset, entity.table
             )
             aggregator.add_known_lineage_mapping(
                 upstream_urn=publisher_urn, downstream_urn=consumer_urn
