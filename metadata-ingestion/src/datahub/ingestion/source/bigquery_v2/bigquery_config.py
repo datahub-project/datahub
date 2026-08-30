@@ -390,6 +390,15 @@ class BigQueryV2Config(
         "dataset-scoped but covers base tables only.",
     )
 
+    include_materialized_view_stats: bool = Field(
+        default=True,
+        description="Emit row count and size statistics for materialized views. Materialized view "
+        "stats are fetched from the BigQuery `tables.get` API (a metadata-only call that does not "
+        "scan data and does not require `profiling.enabled`). The stats are emitted as a "
+        "`datasetProfile` aspect so they appear in the DataHub UI Stats panel. Set to `False` to "
+        "skip materialized view stats entirely (no per-view API calls).",
+    )
+
     debug_include_full_payloads: bool = Field(
         default=False,
         description="Include full payload into events. It is only for debugging and internal use.",
