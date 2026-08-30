@@ -57,8 +57,9 @@ def _make_bq_table(num_rows=42, num_bytes=4096, modified=None):
 
 @pytest.fixture
 def schema_gen():
-    with patch.object(BigQueryV2Config, "get_bigquery_client"), patch.object(
-        BigQueryV2Config, "get_projects_client"
+    with (
+        patch.object(BigQueryV2Config, "get_bigquery_client"),
+        patch.object(BigQueryV2Config, "get_projects_client"),
     ):
         config = BigQueryV2Config.model_validate({"project_id": PROJECT_ID})
         source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
@@ -134,9 +135,7 @@ def test_mv_zero_rows_still_emits_profile(schema_gen):
 
 def test_plain_view_no_fetch_no_profile(schema_gen):
     view = _make_plain_view()
-    with patch.object(
-        schema_gen.schema_api, "get_table_metadata"
-    ) as gt_mock:
+    with patch.object(schema_gen.schema_api, "get_table_metadata") as gt_mock:
         # Plain views are never enriched (the call site gates on materialized);
         # confirm gen_view_dataset_workunits emits no profile for them either.
         aspects = _aspects(
@@ -150,9 +149,7 @@ def test_plain_view_no_fetch_no_profile(schema_gen):
 def test_legacy_stats_skips_fetch_but_emits_profile(schema_gen):
     # use_legacy_table_stats path already populated rows_count; no tables.get needed.
     view = _make_mv(rows_count=7, size_in_bytes=128)
-    with patch.object(
-        schema_gen.schema_api, "get_table_metadata"
-    ) as gt_mock:
+    with patch.object(schema_gen.schema_api, "get_table_metadata") as gt_mock:
         schema_gen._enrich_materialized_view_stats(view, PROJECT_ID, DATASET_NAME)
         aspects = _aspects(
             schema_gen.gen_view_dataset_workunits(view, [], PROJECT_ID, DATASET_NAME)
@@ -168,9 +165,7 @@ def test_legacy_stats_skips_fetch_but_emits_profile(schema_gen):
 def test_flag_disabled_no_fetch_no_profile(schema_gen):
     schema_gen.config.include_materialized_view_stats = False
     view = _make_mv()
-    with patch.object(
-        schema_gen.schema_api, "get_table_metadata"
-    ) as gt_mock:
+    with patch.object(schema_gen.schema_api, "get_table_metadata") as gt_mock:
         schema_gen._enrich_materialized_view_stats(view, PROJECT_ID, DATASET_NAME)
         aspects = _aspects(
             schema_gen.gen_view_dataset_workunits(view, [], PROJECT_ID, DATASET_NAME)
@@ -214,9 +209,7 @@ def test_cap_skips_fetch_after_limit_and_warns_once(schema_gen):
         _MAX_MV_STATS_PER_DATASET
     )
     view = _make_mv()
-    with patch.object(
-        schema_gen.schema_api, "get_table_metadata"
-    ) as gt_mock:
+    with patch.object(schema_gen.schema_api, "get_table_metadata") as gt_mock:
         schema_gen._enrich_materialized_view_stats(view, PROJECT_ID, DATASET_NAME)
     gt_mock.assert_not_called()
     assert schema_gen.report.num_mv_stats_skipped_cap == 1
