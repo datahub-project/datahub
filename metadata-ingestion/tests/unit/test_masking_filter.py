@@ -15,9 +15,11 @@ import sys
 import threading
 import time
 from io import StringIO
+from unittest.mock import Mock, patch
 
 import pytest
 
+from datahub.masking.constants import MASKING_ERROR_MESSAGE
 from datahub.masking.masking_filter import (
     SecretMaskingFilter,
     StreamMaskingWrapper,
@@ -1177,3 +1179,150 @@ class TestThreadSafetyConcurrent:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestIdempotency:
+    def test_masking_masked_text_is_identity(self, registry, masking_filter):
+        registry.register_secret("DB_PASS", "hunter2secret")
+        once = masking_filter.mask_text("login with hunter2secret please")
+        twice = masking_filter.mask_text(once)
+        assert once == twice
+        assert "hunter2secret" not in once
+
+    def test_value_colliding_with_marker_text_does_not_corrupt_markers(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("A", "REDACTED")
+        once = masking_filter.mask_text("the word REDACTED is a secret here")
+        assert once == "the word ***REDACTED:A*** is a secret here"
+        assert masking_filter.mask_text(once) == once
+
+    def test_value_matching_part_of_marker_name_does_not_corrupt_markers(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("DB_PASSWORD", "trustno1secret")
+        registry.register_secret("OTHER", "B_PASS")
+        once = masking_filter.mask_text("pw=trustno1secret")
+        assert once == "pw=***REDACTED:DB_PASSWORD***"
+        assert masking_filter.mask_text(once) == once
+
+    def test_multiline_secret_idempotent_across_layered_masking(
+        self, registry, masking_filter
+    ):
+        key = (
+            "multiline-secret-header-line\n"
+            "bXVsdGlsaW5lLXNlY3JldC1ib2R5LWxpbmU\n"
+            "multiline-secret-footer-line"
+        )
+        registry.register_secret("KEY", key)
+        line_masked = "\n".join(
+            masking_filter.mask_text(line) for line in f"dump:\n{key}".splitlines()
+        )
+        assert "bXVsdGlsaW5lLXNlY3JldC1ib2R5LWxpbmU" not in line_masked
+        assert masking_filter.mask_text(line_masked) == line_masked
+
+
+class TestMultiLineFragmentMasking:
+    def test_each_line_of_multiline_secret_masked_in_line_stream(
+        self, registry, masking_filter
+    ):
+        key = (
+            "multiline-secret-header-line\n"
+            "bXVsdGlsaW5lLXNlY3JldC1ib2R5LWxpbmU\n"
+            "multiline-secret-footer-line"
+        )
+        registry.register_secret("GCP_KEY", key)
+        for line in key.splitlines():
+            masked = masking_filter.mask_text(f"stream: {line}")
+            assert line not in masked
+            assert "***REDACTED:GCP_KEY***" in masked
+
+
+class TestFailClosed:
+    def test_pattern_build_failure_withholds_output(self, registry):
+        registry.register_secret("S", "somesecret123")
+        masking_filter = SecretMaskingFilter(registry)
+        with patch(
+            "datahub.masking.masking_filter.re.compile",
+            side_effect=RuntimeError("boom"),
+        ):
+            assert (
+                masking_filter.mask_text("text with somesecret123")
+                == MASKING_ERROR_MESSAGE
+            )
+
+    def test_masking_error_withholds_output(self, registry, masking_filter):
+        registry.register_secret("S", "somesecret123")
+        with patch.object(
+            masking_filter, "_check_and_rebuild_pattern", side_effect=KeyError("boom")
+        ):
+            assert (
+                masking_filter.mask_text("text with somesecret123")
+                == MASKING_ERROR_MESSAGE
+            )
+
+    def test_empty_registry_masking_is_identity_not_error(self, masking_filter):
+        assert masking_filter.mask_text("no secrets registered") == (
+            "no secrets registered"
+        )
+
+    def test_filter_failure_replaces_record_instead_of_passing_raw(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("S", "somesecret123")
+        record = logging.LogRecord(
+            "test", logging.INFO, "f.py", 1, "leaking somesecret123", None, None
+        )
+        with patch.object(
+            masking_filter, "mask_text", side_effect=RuntimeError("boom")
+        ):
+            assert masking_filter.filter(record) is True
+        assert record.msg == MASKING_ERROR_MESSAGE
+        assert record.args is None
+
+
+class TestMaskBeforeTruncate:
+    def test_secret_at_truncation_boundary_leaves_no_partial_secret(self, registry):
+        secret = "supersecretvalue1234"
+        registry.register_secret("S", secret)
+        masking_filter = SecretMaskingFilter(registry, max_message_size=50)
+        record = logging.LogRecord(
+            "test",
+            logging.INFO,
+            "f.py",
+            1,
+            "x" * 45 + secret + "y" * 100,
+            None,
+            None,
+        )
+        masking_filter.filter(record)
+        for length in range(4, len(secret) + 1):
+            assert secret[:length] not in record.msg
+
+    def test_marker_survives_when_secret_is_within_truncation_window(self, registry):
+        secret = "supersecretvalue1234"
+        registry.register_secret("S", secret)
+        masking_filter = SecretMaskingFilter(registry, max_message_size=50)
+        record = logging.LogRecord(
+            "test",
+            logging.INFO,
+            "f.py",
+            1,
+            "x" * 20 + secret + "y" * 100,
+            None,
+            None,
+        )
+        masking_filter.filter(record)
+        assert secret not in record.msg
+        assert "***REDACTED:S***" in record.msg
+
+
+class TestStreamWrapperFailClosed:
+    def test_write_failure_emits_marker_not_original(self, registry):
+        broken_filter = Mock()
+        broken_filter.mask_text.side_effect = RuntimeError("boom")
+        sink = StringIO()
+        wrapper = StreamMaskingWrapper(sink, broken_filter)
+        wrapper.write("raw somesecret123 text")
+        assert "somesecret123" not in sink.getvalue()
+        assert MASKING_ERROR_MESSAGE in sink.getvalue()

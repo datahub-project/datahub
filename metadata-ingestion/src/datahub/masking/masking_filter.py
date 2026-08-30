@@ -5,18 +5,11 @@ This module provides a Python logging.Filter that automatically masks
 registered secrets in all log output. Secrets are replaced with
 ***REDACTED:VARIABLE_NAME*** for debugging while preventing leaks.
 
-Key Features:
-- Automatic masking of messages, arguments, and exceptions
-- Deferred pattern rebuild (only during masking, not registration)
-- Circuit breaker for graceful degradation
-- Message truncation (5KB default) for performance
-- Stream wrappers for stdout/stderr coverage
-
-Performance:
-- Pattern rebuilt only when needed during masking operations
-- Lock-free masking with COW snapshots
-- Truncation before masking avoids regex on huge strings
-- Performance warnings at 100/500 secrets
+Guarantees:
+- Masking a secret-free or already-masked text is the identity:
+  mask_text(mask_text(x)) == mask_text(x)
+- Fail-closed: when masking cannot be performed while secrets are
+  registered, output is replaced with a fixed marker, never leaked
 """
 
 import logging
@@ -25,15 +18,19 @@ import sys
 import threading
 from typing import Any, Dict, Optional, TextIO, Tuple
 
+from datahub.masking.constants import (
+    CIRCUIT_OPEN_MESSAGE,
+    MASKING_ERROR_MESSAGE,
+    REDACTED_FORMAT,
+    REDACTED_PREFIX,
+    REDACTED_SUFFIX,
+)
 from datahub.masking.logging_utils import get_masking_safe_logger
 from datahub.masking.secret_registry import SecretRegistry
 
 logger = get_masking_safe_logger(__name__)
 
-# Constants
-REDACTED_FORMAT = "***REDACTED:{name}***"
-MASKING_ERROR_MESSAGE = "[MASKING_ERROR - OUTPUT_SUPPRESSED_FOR_SECURITY]"
-CIRCUIT_OPEN_MESSAGE = "[REDACTED: Masking Circuit Open]"
+_MARKER_REGEX = re.escape(REDACTED_PREFIX) + r"[^\n]*?" + re.escape(REDACTED_SUFFIX)
 
 
 class SecretMaskingFilter(logging.Filter):
@@ -97,9 +94,12 @@ class SecretMaskingFilter(logging.Filter):
 
             # Build pattern - NOT under lock
             # CRITICAL: re.escape() ensures secrets with regex metacharacters
-            # (e.g., ".*", "a+b", "test|prod") are matched literally, not as regex
+            # (e.g., ".*", "a+b", "test|prod") are matched literally, not as regex.
+            # The marker alternative comes first so that already-masked spans are
+            # consumed whole and never re-matched — this is what makes masking
+            # idempotent even when a secret value collides with marker text.
             escaped_values = [re.escape(value) for value, _ in sorted_secrets]
-            pattern_str = "|".join(escaped_values)
+            pattern_str = "|".join([_MARKER_REGEX, *escaped_values])
 
             # Compile regex - NOT under lock (this is the expensive part!)
             try:
@@ -195,94 +195,49 @@ class SecretMaskingFilter(logging.Filter):
         if not isinstance(text, str) or not text:
             return text
 
-        # Get pattern snapshot (no lock during masking!)
-        with self._pattern_lock:
-            self._check_and_rebuild_pattern()
-            pattern = self._pattern
-            replacements = self._replacements  # No .copy() needed!
-
-        # Pattern might be None if no secrets registered
-        if pattern is None:
-            return text
-
-        # Circuit breaker - if too many failures, stop trying
-        if self._circuit_open:
-            return CIRCUIT_OPEN_MESSAGE
-
-        # Mask secrets (outside lock - safe because immutable references)
         try:
-            # Use callback to include variable name in masked output
-            def replace_with_variable_name(match):
-                """Replace matched secret with variable name."""
-                secret_value = match.group(0)
-                # Look up variable name (O(1) dict access)
-                variable_name = replacements.get(secret_value, "UNKNOWN")
-                # Return formatted mask
-                return REDACTED_FORMAT.format(name=variable_name)
+            with self._pattern_lock:
+                self._check_and_rebuild_pattern()
+                pattern = self._pattern
+                replacements = self._replacements
 
-            masked = pattern.sub(replace_with_variable_name, text)
+            if pattern is None:
+                if self._registry.get_count() == 0:
+                    return text
+                return self._masking_failed("no pattern despite registered secrets")
 
-            # Success - reset failure count
+            if self._circuit_open:
+                return CIRCUIT_OPEN_MESSAGE
+
+            def replace_match(match: "re.Match[str]") -> str:
+                matched = match.group(0)
+                if matched.startswith(REDACTED_PREFIX):
+                    return matched
+                return REDACTED_FORMAT.format(name=replacements.get(matched, "UNKNOWN"))
+
+            masked = pattern.sub(replace_match, text)
+
             if self._failure_count > 0:
                 self._failure_count = 0
 
             return masked
 
-        except KeyError as e:
-            self._failure_count += 1
-            logger.error(
-                f"CRITICAL: Secret masking failed due to replacement error "
-                f"(failure {self._failure_count}/{self._max_failures}). "
-                f"Message redacted for safety. Error: {e}"
-            )
-            if self._failure_count >= self._max_failures:
-                self._circuit_open = True
-                logger.critical(
-                    "CRITICAL: Masking circuit breaker OPEN. All messages will be redacted."
-                )
-            return "[REDACTED: Masking Replacement Error]"
-
-        except re.error as e:
-            self._failure_count += 1
-            logger.error(
-                f"CRITICAL: Secret masking failed due to regex error "
-                f"(failure {self._failure_count}/{self._max_failures}). "
-                f"Message redacted for safety. Error: {e}"
-            )
-            if self._failure_count >= self._max_failures:
-                self._circuit_open = True
-                logger.critical(
-                    "CRITICAL: Masking circuit breaker OPEN. All messages will be redacted."
-                )
-            return "[REDACTED: Masking Regex Error]"
-
-        except MemoryError:
-            self._failure_count += 1
-            logger.error(
-                f"CRITICAL: Secret masking failed due to memory error "
-                f"(failure {self._failure_count}/{self._max_failures}). "
-                f"Message redacted for safety."
-            )
-            if self._failure_count >= self._max_failures:
-                self._circuit_open = True
-                logger.critical(
-                    "CRITICAL: Masking circuit breaker OPEN. All messages will be redacted."
-                )
-            return "[REDACTED: Masking Memory Error]"
-
         except Exception as e:
-            self._failure_count += 1
-            logger.error(
-                f"CRITICAL: Secret masking failed with unexpected error "
-                f"(failure {self._failure_count}/{self._max_failures}). "
-                f"Message redacted for safety. Error type: {type(e).__name__}"
+            return self._masking_failed(f"{type(e).__name__}: {e}")
+
+    def _masking_failed(self, cause: str) -> str:
+        self._failure_count += 1
+        logger.error(
+            f"CRITICAL: Secret masking failed "
+            f"(failure {self._failure_count}/{self._max_failures}); "
+            f"output withheld. Cause: {cause}"
+        )
+        if self._failure_count >= self._max_failures and not self._circuit_open:
+            self._circuit_open = True
+            logger.critical(
+                "CRITICAL: Masking circuit breaker OPEN. All messages will be redacted."
             )
-            if self._failure_count >= self._max_failures:
-                self._circuit_open = True
-                logger.critical(
-                    "CRITICAL: Masking circuit breaker OPEN. All messages will be redacted."
-                )
-            return "[REDACTED: Masking Error]"
+        return MASKING_ERROR_MESSAGE
 
     def mask_structure(self, obj: Any) -> Any:
         """Mask every string in a nested structure of dicts/lists/tuples.
@@ -363,14 +318,12 @@ class SecretMaskingFilter(logging.Filter):
             )
 
     def _truncate_message(self, message: str) -> str:
-        """Truncate large messages before masking."""
         if not isinstance(message, str):
             return message
 
         if len(message) <= self._max_message_size:
             return message
 
-        # Truncate with informative suffix
         truncated_bytes = len(message) - self._max_message_size
         return (
             f"{message[: self._max_message_size]}\n"
@@ -378,54 +331,47 @@ class SecretMaskingFilter(logging.Filter):
         )
 
     def filter(self, record: logging.LogRecord) -> bool:
-        """Filter and mask a log record."""
-        # Check if masking is disabled for debugging
+        """Mask every text field of a log record; the record always passes through.
+
+        Masking runs before truncation: truncation can cut through a secret,
+        leaving a prefix that no longer matches any registered value.
+        """
         from datahub.masking.secret_registry import is_masking_enabled
 
         if not is_masking_enabled():
-            return True  # Skip all masking and truncation for debugging
+            return True
 
         try:
-            # 1. Truncate large messages BEFORE masking (performance optimization)
-            #    This is intentional: truncating first avoids regex on huge strings
-            #    Security: Truncation removes end of message, so secrets at end
-            #    are removed entirely (not just masked), which is acceptable
             if isinstance(record.msg, str):
-                record.msg = self._truncate_message(record.msg)
+                record.msg = self._truncate_message(self.mask_text(record.msg))
 
-            # 2. Mask the log message (after truncation for performance)
-            if isinstance(record.msg, str):
-                record.msg = self.mask_text(record.msg)
-
-            # 3. Mask arguments (for formatting)
             if record.args:
                 record.args = self._mask_args(record.args)
 
-            # 4. Mask pre-formatted message if it exists
             if hasattr(record, "message") and record.message:
                 record.message = self.mask_text(record.message)
 
-            # 5. Mask exception information
             if record.exc_info:
                 record.exc_info = self._mask_exception(record.exc_info)
 
-            # 6. Mask formatted exception text if it exists
             if record.exc_text:
                 record.exc_text = self.mask_text(record.exc_text)
 
-            # 7. Mask stack_info if present (Python 3.2+)
             if hasattr(record, "stack_info") and record.stack_info:
                 record.stack_info = self.mask_text(record.stack_info)
 
         except Exception as e:
-            # NEVER let masking break logging
+            record.msg = MASKING_ERROR_MESSAGE
+            record.args = None
+            record.exc_info = None
+            record.exc_text = None
             try:
                 sys.stderr.write(f"WARNING: Secret masking filter failed: {e}\n")
                 sys.stderr.flush()
             except Exception:
-                pass  # Even error reporting failed, continue silently
+                pass
 
-        return True  # Always let record through
+        return True
 
 
 class StreamMaskingWrapper:
@@ -453,13 +399,11 @@ class StreamMaskingWrapper:
             return len(masked)
 
         except TypeError:
-            # Re-raise type errors
             raise
 
         except Exception:
-            # Graceful degradation for masking failures
             try:
-                self._original.write(text)
+                self._original.write(MASKING_ERROR_MESSAGE + "\n")
                 return len(text)
             except Exception:
                 return 0

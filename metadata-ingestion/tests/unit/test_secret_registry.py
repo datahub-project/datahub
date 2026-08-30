@@ -1,7 +1,10 @@
 """Test SecretRegistry singleton and is_masking_enabled function."""
 
+from unittest.mock import patch
+
 import pytest
 
+from datahub.masking import secret_registry as registry_module
 from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
 
 
@@ -318,6 +321,104 @@ class TestClearRegistry:
         version_after = registry.get_version()
 
         assert version_after > version_before
+
+
+class TestUnprotectableValues:
+    def test_trivial_literals_are_not_registered(self):
+        registry = SecretRegistry()
+        for value in ("True", "false", "YES", "no", "None", "null"):
+            registry.register_secret("FLAG", value)
+        assert registry.get_count() == 0
+        assert not registry.has_secret("FLAG")
+
+    def test_trivial_literal_rejection_is_logged(self):
+        registry = SecretRegistry()
+        with patch.object(registry_module.logger, "warning") as mock_warning:
+            registry.register_secret("MY_FLAG", "true")
+        logged = " ".join(str(c) for c in mock_warning.call_args_list)
+        assert "MY_FLAG" in logged
+        assert "NOT be masked" in logged
+
+    def test_marker_shaped_value_is_not_registered(self):
+        registry = SecretRegistry()
+        registry.register_secret("EVIL", "***REDACTED:OTHER*** trailer")
+        assert registry.get_count() == 0
+
+
+class TestMultiLineFragments:
+    def test_each_substantial_line_is_registered(self):
+        key = (
+            "multiline-secret-header-line\n"
+            "bXVsdGlsaW5lLXNlY3JldC1ib2R5LWxpbmU\n"
+            "multiline-secret-footer-line"
+        )
+        registry = SecretRegistry()
+        registry.register_secret("GCP_KEY", key)
+        secrets = registry.get_all_secrets()
+        for line in key.splitlines():
+            assert secrets[line] == "GCP_KEY"
+
+    def test_structural_short_lines_are_skipped(self):
+        value = '{\n  "k": "longsecretbody123"\n}'
+        registry = SecretRegistry()
+        registry.register_secret("SA_JSON", value)
+        secrets = registry.get_all_secrets()
+        assert "{" not in secrets
+        assert "}" not in secrets
+        assert '"k": "longsecretbody123"' in secrets
+
+    def test_fragments_get_variant_renderings(self):
+        value = "first line filler text\ncol1\tabcdef123456"
+        registry = SecretRegistry()
+        registry.register_secret("CONF", value)
+        secrets = registry.get_all_secrets()
+        assert "col1\\tabcdef123456" in secrets
+
+
+class TestRotationAndAccessors:
+    def test_rotated_value_keeps_both_values_maskable(self):
+        registry = SecretRegistry()
+        registry.register_secret("TOKEN", "old-token-value")
+        registry.register_secret("TOKEN", "new-token-value")
+        secrets = registry.get_all_secrets()
+        assert secrets["old-token-value"] == "TOKEN"
+        assert secrets["new-token-value"] == "TOKEN"
+        assert registry.get_secret_value("TOKEN") == "new-token-value"
+
+    def test_get_registered_secrets_returns_name_to_value_copy(self):
+        registry = SecretRegistry()
+        registry.register_secret("A", "value-of-a")
+        snapshot = registry.get_registered_secrets()
+        assert snapshot == {"A": "value-of-a"}
+        snapshot["B"] = "tamper"
+        assert registry.get_registered_secrets() == {"A": "value-of-a"}
+
+    def test_duplicate_value_under_new_name_updates_name_map_without_version_bump(
+        self,
+    ):
+        registry = SecretRegistry()
+        registry.register_secret("FIRST", "shared-value-123")
+        version = registry.get_version()
+        registry.register_secret("SECOND", "shared-value-123")
+        assert registry.get_version() == version
+        assert registry.get_all_secrets()["shared-value-123"] == "FIRST"
+        assert registry.get_secret_value("SECOND") == "shared-value-123"
+
+
+class TestSingleAndBatchEquivalence:
+    def test_single_and_batch_registration_produce_identical_state(self):
+        values = {
+            "TOKEN": "tok-abc-123",
+            "KEY": "line-one-long-enough\nline-two-long-enough",
+            "URL_PASS": "p@ss:w/ord",
+        }
+        one_by_one = SecretRegistry()
+        for name, value in values.items():
+            one_by_one.register_secret(name, value)
+        batched = SecretRegistry()
+        batched.register_secrets_batch(values)
+        assert one_by_one.get_all_secrets() == batched.get_all_secrets()
+        assert one_by_one.get_registered_secrets() == batched.get_registered_secrets()
 
 
 class TestMaskingDisabledGate:
