@@ -122,7 +122,13 @@ def test_mv_profile_emitted_with_profiling_disabled(schema_gen):
     assert schema_gen.report.num_mv_stats_emitted == 1
 
 
-def test_mv_profile_has_full_table_snapshot_partition_spec(schema_gen):
+def test_mv_profile_is_visible_to_latest_full_table_profile(schema_gen):
+    # Contract test, not a test of our assignment: DatasetProfileClass defaults
+    # partitionSpec to exactly this, so removing our explicit value would not
+    # fail here. What it pins is the value the UI depends on — the
+    # latestFullTableProfile alias filters on partitionSpec.partition
+    # START_WITH ["FULL_TABLE_SNAPSHOT", "SAMPLE"], so a profile outside that
+    # set is emitted but never shown in the Stats panel.
     view = _make_mv()
     aspects, _ = _enrich_and_emit(schema_gen, view, _make_bq_table())
     profiles = _profiles(aspects)
@@ -208,21 +214,34 @@ def test_mv_last_modified_populated_from_tables_get(schema_gen):
     assert view.last_altered == modified
 
 
-def test_cap_skips_fetch_after_limit_and_warns_once(schema_gen):
-    from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
-        _MAX_MV_STATS_PER_DATASET,
-    )
+def test_cap_bounds_fetches_and_warns_once_per_dataset(schema_gen):
+    # Drive the real constant rather than pre-seeding the counter: seeding it
+    # means raising _MAX_MV_STATS_PER_DATASET to a billion changes nothing here.
+    # Patch it small so the test stays fast but still exercises the boundary.
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_schema_gen._MAX_MV_STATS_PER_DATASET",
+        3,
+    ):
+        with patch.object(
+            schema_gen.schema_api,
+            "get_table_metadata",
+            return_value=_make_bq_table(),
+        ) as gt_mock:
+            for i in range(5):
+                schema_gen._enrich_materialized_view_stats(
+                    _make_mv(name=f"mv{i}"), PROJECT_ID, DATASET_NAME
+                )
 
-    schema_gen._mv_stats_fetch_count[f"{PROJECT_ID}.{DATASET_NAME}"] = (
-        _MAX_MV_STATS_PER_DATASET
-    )
-    view = _make_mv()
-    with patch.object(schema_gen.schema_api, "get_table_metadata") as gt_mock:
-        schema_gen._enrich_materialized_view_stats(view, PROJECT_ID, DATASET_NAME)
-    gt_mock.assert_not_called()
-    assert schema_gen.report.num_mv_stats_skipped_cap == 1
-    # The warning is recorded exactly once per dataset.
-    assert len(schema_gen.report.warnings) == 1
+    assert gt_mock.call_count == 3, "cap must bound the number of fetches"
+    assert schema_gen.report.num_mv_stats_skipped_cap == 2
+
+    # Assert on contexts, not on len(warnings): StructuredLogs.report_log keys
+    # entries by title-message, so N identical warnings collapse into ONE entry
+    # regardless of the warn-once guard. len(warnings) == 1 therefore passes
+    # even with the guard deleted, which is what the previous test asserted.
+    entries = list(schema_gen.report.warnings)
+    assert len(entries) == 1
+    assert len(entries[0].context) == 1, "warned more than once for one dataset"
 
 
 def test_profile_pattern_excluded_mv_skips_the_fetch(schema_gen):
@@ -325,3 +344,39 @@ def test_throttle_wait_is_not_reported_as_api_time(schema_gen):
         wall = time.monotonic() - start
     assert wall > 0.2, "limiter should actually have throttled"
     assert api.report.get_table_metadata_sec < wall / 2
+
+
+def test_fetch_returning_no_stats_is_counted_separately(schema_gen):
+    # A table resource with no numRows/numBytes used to count as "fetched",
+    # so a dataset could report 1000 fetched / 0 emitted with num_mv_stats_failed
+    # at 0 and nothing explaining the gap.
+    empty = SimpleNamespace(num_rows=None, num_bytes=None, modified=None)
+    with patch.object(schema_gen.schema_api, "get_table_metadata", return_value=empty):
+        schema_gen._enrich_materialized_view_stats(_make_mv(), PROJECT_ID, DATASET_NAME)
+    assert schema_gen.report.num_mv_stats_fetched == 0
+    assert schema_gen.report.num_mv_stats_no_data == 1
+
+
+def test_cap_warning_points_at_failures_when_they_caused_it(schema_gen):
+    # The cap counts attempts, and a failed call still costs the request timeout,
+    # so failures consuming budget is intended. What is not acceptable is telling
+    # the operator they hit a cap when the real problem is that every call failed.
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_schema_gen._MAX_MV_STATS_PER_DATASET",
+        2,
+    ):
+        with patch.object(
+            schema_gen.schema_api, "get_table_metadata", return_value=None
+        ):
+            for i in range(2):
+                schema_gen._enrich_materialized_view_stats(
+                    _make_mv(name=f"mv{i}"), PROJECT_ID, DATASET_NAME
+                )
+        schema_gen.report.num_mv_stats_failed = 2
+        schema_gen._enrich_materialized_view_stats(
+            _make_mv(name="mv2"), PROJECT_ID, DATASET_NAME
+        )
+
+    entries = list(schema_gen.report.warnings)
+    assert len(entries) == 1
+    assert "failed" in entries[0].message

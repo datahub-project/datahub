@@ -174,6 +174,7 @@ class BigQueryV2Report(
 
     # Materialized view statistics
     num_mv_stats_fetched: int = 0
+    num_mv_stats_no_data: int = 0
     num_mv_stats_skipped_legacy: int = 0
     num_mv_stats_skipped_cap: int = 0
     num_mv_stats_failed: int = 0

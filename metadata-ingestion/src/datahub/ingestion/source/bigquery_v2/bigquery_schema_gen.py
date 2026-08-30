@@ -861,12 +861,25 @@ class BigQuerySchemaGenerator:
             self.report.num_mv_stats_skipped_cap += 1
             if cap_key not in self._mv_stats_cap_warned:
                 self._mv_stats_cap_warned.add(cap_key)
+                # The cap counts attempts, not successes — a failed call still
+                # costs up to the request timeout, so it is work the cap exists
+                # to bound. But an operator who hits the cap purely because every
+                # call failed needs pointing at the failure, not at the cap, so
+                # say which it was.
+                failed = self.report.num_mv_stats_failed
                 self.report.warning(
                     title="Materialized view stats skipped",
                     message=(
                         "Reached the per-dataset materialized view stats cap; "
                         "remaining materialized views in this dataset will be "
                         "ingested without row count / size stats."
+                        + (
+                            f" Note {failed} fetch(es) failed — if that accounts "
+                            "for most of the cap, fix the failure rather than "
+                            "raising the cap."
+                            if failed
+                            else ""
+                        )
                     ),
                     context=cap_key,
                 )
@@ -884,12 +897,18 @@ class BigQuerySchemaGenerator:
         if table is None:
             return
 
-        self.report.num_mv_stats_fetched += 1
         # Use is-not-None checks so a zero-row / zero-byte MV still records 0.
         if view.rows_count is None and table.num_rows is not None:
             view.rows_count = table.num_rows
         if view.size_in_bytes is None and table.num_bytes is not None:
             view.size_in_bytes = table.num_bytes
+        # Count the fetch only if it actually yielded stats. Counting every
+        # non-None table resource reported "1000 fetched, 0 emitted" with no
+        # counter explaining the gap and num_mv_stats_failed sitting at 0.
+        if view.rows_count is not None or view.size_in_bytes is not None:
+            self.report.num_mv_stats_fetched += 1
+        else:
+            self.report.num_mv_stats_no_data += 1
         # `Table.modified` is the table-resource last-modified time (same clock the
         # legacy __TABLES__ path reports); keep parity, do not use lastRefreshTime.
         if view.last_altered is None and table.modified is not None:
@@ -1226,9 +1245,12 @@ class BigQuerySchemaGenerator:
                     timestampMillis=get_sys_time(),
                     rowCount=view.rows_count,
                     sizeInBytes=view.size_in_bytes,
-                    # partitionSpec must stay set: the UI's latestFullTableProfile
-                    # alias filters on partitionSpec.partition START_WITH
-                    # ["FULL_TABLE_SNAPSHOT","SAMPLE"].
+                    # Set explicitly for readability; DatasetProfileClass
+                    # already defaults to exactly this. It matters because the
+                    # UI's latestFullTableProfile alias filters on
+                    # partitionSpec.partition START_WITH
+                    # ["FULL_TABLE_SNAPSHOT","SAMPLE"] — so the value is load
+                    # bearing even though setting it here is redundant.
                     partitionSpec=PartitionSpecClass(
                         partition="FULL_TABLE_SNAPSHOT",
                         type=PartitionTypeClass.FULL_TABLE,
