@@ -19,8 +19,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -35,18 +36,34 @@ public class UpdateIndicesUpgradeStrategyFactory {
 
   private static final String UPGRADE_ID_PREFIX = "BuildIndicesIncremental";
 
+  /**
+   * Returns {@code null} when this context has no {@link EntityService} — dual-write needs one to
+   * read its old-index targets and persist {@code dualWriteStartTime}. {@code UpdateIndicesService}
+   * already treats this strategy as optional, so a null simply omits it.
+   *
+   * <p>{@link ObjectProvider} keeps that case a warning instead of a startup failure. As a required
+   * parameter it crashlooped the standalone MAE consumer, which has no EntityService.
+   */
   @Bean("updateIndicesUpgradeStrategy")
   @ConditionalOnProperty(
       name = "elasticsearch.buildIndices.rollbackDualWriteEnabled",
       havingValue = "true")
-  @Nonnull
+  @Nullable
   protected UpdateIndicesStrategy createUpdateIndicesUpgradeStrategy(
       ElasticSearchService elasticSearchService,
       SearchDocumentTransformer searchDocumentTransformer,
-      EntityService<?> entityService,
+      ObjectProvider<EntityService<?>> entityServiceProvider,
       @Qualifier("systemOperationContext") OperationContext systemOpContext,
       GitVersion gitVersion,
       @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}") String revision) {
+
+    final EntityService<?> entityService = entityServiceProvider.getIfAvailable();
+    if (entityService == null) {
+      log.warn(
+          "rollbackDualWriteEnabled=true but no EntityService in this context - dual-write is "
+              + "DISABLED here. The old backing index will not be kept current and may be deleted by CleanIndices.");
+      return null;
+    }
 
     String upgradeVersion = String.format("%s-%s", gitVersion.getVersion(), revision);
     Urn upgradeIdUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID_PREFIX + "_" + upgradeVersion);
