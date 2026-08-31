@@ -6,7 +6,7 @@
 import functools
 import logging
 from datetime import datetime
-from typing import Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
 
@@ -26,6 +26,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
     convert_dashboard_info_to_patch,
+    get_fine_grained_lineage_key,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -134,6 +135,10 @@ class Mapper:
         self.__config = config
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
+        # M-Query parse results per dataset id. The referenced queries a table
+        # walks are dataset state, so parsing them once per table repeats work --
+        # and repeats the full parse timeout when one of them times out.
+        self.__parse_caches: Dict[str, Dict[str, Optional[Dict[int, dict]]]] = {}
         self.workspace_key: Optional[ContainerKey] = None
 
     @staticmethod
@@ -372,21 +377,17 @@ class Mapper:
             config=self.__config,
             parameters=parameters,
             expressions=expressions,
+            parse_cache=self.__parse_caches.setdefault(
+                table.dataset.id if table.dataset else "", {}
+            ),
         )
 
         logger.debug(
             f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_lineage}"
         )
 
-        # One table can reach the same upstream by more than one route -- two
-        # queries filtering a common source, or both branches of a conditional --
-        # and the aspect should name it once. The column edges each route carries
-        # need the same treatment, keyed on the fields they join so that a route
-        # contributing a mapping the others did not still reaches the aspect.
-        emitted_upstream_urns: Set[str] = set()
-        emitted_column_edges: Set[Tuple[Tuple[str, ...], Tuple[str, ...]]] = set()
-
         for lineage in upstream_lineage:
+            matched_any = False
             for upstream_dpt in lineage.upstreams:
                 platform_name = (
                     upstream_dpt.data_platform_pair.powerbi_data_platform_name
@@ -397,29 +398,33 @@ class Mapper:
                     )
                     continue
 
-                upstream_urn = self.lineage_urn_to_lowercase(upstream_dpt.urn)
-                if upstream_urn not in emitted_upstream_urns:
-                    emitted_upstream_urns.add(upstream_urn)
-                    upstream.append(
-                        UpstreamClass(
-                            upstream_urn,
-                            DatasetLineageTypeClass.TRANSFORMED,
-                        )
+                matched_any = True
+                upstream.append(
+                    UpstreamClass(
+                        self.lineage_urn_to_lowercase(upstream_dpt.urn),
+                        DatasetLineageTypeClass.TRANSFORMED,
                     )
+                )
 
-                # Add column level lineage if any
-                for column_edge in self.make_fine_grained_lineage_class(
-                    lineage=lineage,
-                    dataset_urn=ds_urn,
-                ):
-                    edge_key = (
-                        tuple(column_edge.downstreams or ()),
-                        tuple(column_edge.upstreams or ()),
+            # Column edges belong to the lineage, not to each of its upstreams --
+            # building them per upstream produced one identical copy per upstream.
+            # Still gated on an upstream surviving dataset_type_mapping, so a
+            # lineage filtered out entirely contributes no column edges.
+            if matched_any:
+                cll_lineage.extend(
+                    self.make_fine_grained_lineage_class(
+                        lineage=lineage,
+                        dataset_urn=ds_urn,
                     )
-                    if edge_key in emitted_column_edges:
-                        continue
-                    emitted_column_edges.add(edge_key)
-                    cll_lineage.append(column_edge)
+                )
+
+        # One table can reach the same upstream by more than one route -- two
+        # queries filtering a common source, or both branches of a conditional --
+        # and the aspect should name it once. Column edges are keyed the way the
+        # patch builder keys them, so the two paths agree on what "the same edge"
+        # means, and a route contributing a mapping the others did not survives.
+        upstream = deduplicate_list(upstream, key=lambda u: u.dataset)
+        cll_lineage = deduplicate_list(cll_lineage, key=get_fine_grained_lineage_key)
 
         if len(upstream) > 0:
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(

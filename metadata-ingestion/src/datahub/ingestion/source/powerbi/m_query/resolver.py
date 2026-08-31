@@ -33,8 +33,8 @@ Scopes = Tuple[Tuple[int, dict], ...]
 
 def resolve_to_data_access_functions(
     node_map: NodeIdMap,
+    shared: SharedExpressions,
     parameters: Optional[Dict[str, str]] = None,
-    shared: Optional[SharedExpressions] = None,
 ) -> List[DataAccessFunctionDetail]:
     """
     Entry point: walk the NodeIdMap and return all DataAccessFunctionDetail entries
@@ -86,8 +86,8 @@ def _walk(
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
-    parameters: Optional[Dict[str, str]] = None,
-    shared: Optional[SharedExpressions] = None,
+    parameters: Optional[Dict[str, str]],
+    shared: SharedExpressions,
 ) -> None:
     if node is None:
         return
@@ -248,8 +248,8 @@ def _walk_recursive_primary(
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
-    parameters: Optional[Dict[str, str]] = None,
-    shared: Optional[SharedExpressions] = None,
+    parameters: Optional[Dict[str, str]],
+    shared: SharedExpressions,
 ) -> None:
     head = node.get("head")  # embedded IdentifierExpression
     rec_exprs = node.get("recursiveExpressions", {})
@@ -330,8 +330,8 @@ def _walk_invoke(
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
-    parameters: Optional[Dict[str, str]] = None,
-    shared: Optional[SharedExpressions] = None,
+    parameters: Optional[Dict[str, str]],
+    shared: SharedExpressions,
 ) -> None:
     callee = None
     if isinstance(head, dict) and head.get("kind") == "IdentifierExpression":
@@ -383,13 +383,9 @@ def _walk_shared_expression(
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     parameters: Optional[Dict[str, str]],
-    shared: Optional[SharedExpressions],
+    shared: SharedExpressions,
 ) -> None:
     """Continue the walk into another of the dataset's queries."""
-    if shared is None:
-        logger.debug("No enclosing let binds '%s', stopping this branch", name)
-        return
-
     if shared.would_repeat(name):
         shared.stopped(name, StopReason.CYCLE, " -> ".join(shared.chain + (name,)))
         return
@@ -467,8 +463,8 @@ def _walk_identifier_name(
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
-    parameters: Optional[Dict[str, str]] = None,
-    shared: Optional[SharedExpressions] = None,
+    parameters: Optional[Dict[str, str]],
+    shared: SharedExpressions,
 ) -> None:
     """Resolve a variable name against the enclosing scopes and keep walking."""
     if not name:

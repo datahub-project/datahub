@@ -102,7 +102,10 @@ class SharedExpressions:
     # deterministic, so a query reached by several routes should be sent to the
     # bridge once, and a query that failed should not be retried per route --
     # with a timeout, each retry costs the full timeout again.
-    _parsed: Dict[str, Optional[NodeIdMap]] = field(default_factory=dict)
+    # Supplied by the caller so one dataset's tables share it: `texts` is dataset
+    # state, so parsing a referenced query once per table wastes a bridge call per
+    # table -- and a full m_query_parse_timeout per table when it times out.
+    parse_cache: Dict[str, Optional[NodeIdMap]] = field(default_factory=dict)
     # name -> (why we stopped, detail for the operator). Structured rather than
     # free text so the caller can report each reason under its own title and
     # counter instead of calling every one of them a parse failure.
@@ -127,22 +130,22 @@ class SharedExpressions:
         than bad input, and is left to propagate.
         """
         key = name.casefold()
-        if key in self._parsed:
-            return self._parsed[key]
+        if key in self.parse_cache:
+            return self.parse_cache[key]
 
         try:
-            self._parsed[key] = self.parse(text)
+            self.parse_cache[key] = self.parse(text)
         except MQueryParseError as e:
-            self._parsed[key] = None
+            self.parse_cache[key] = None
             self.stopped(name, StopReason.PARSE_ERROR, str(e))
         except MQueryBridgeError as e:
-            self._parsed[key] = None
+            self.parse_cache[key] = None
             self.stopped(name, StopReason.BRIDGE_ERROR, str(e))
         except TimeoutException as e:
-            self._parsed[key] = None
+            self.parse_cache[key] = None
             self.stopped(name, StopReason.TIMEOUT, str(e))
 
-        return self._parsed[key]
+        return self.parse_cache[key]
 
     def stopped(
         self, name: str, reason: "StopReason", detail: Optional[str] = None

@@ -230,6 +230,37 @@ combine_result
 
 `Pattern-1` is supported as it first assigns the table from schema to variable and then variable is used in M-Query Table function i.e. Table.Combine
 
+#### Queries with "Enable load" switched off
+
+A Power BI dataset can hold queries that are not loaded as tables — the "Enable load"
+switch is off, so they act as staging steps for other queries rather than appearing in
+the report. It is common for the connection to the warehouse to live in one of these.
+
+A table built on such a query still gets its lineage. Because the query is not a table
+in the model, DataHub has no entity to point an edge at, so the chain is followed and
+the data source it ends at is attributed to the loaded table directly:
+
+```shell
+Combined Actions          -- loaded, the only table in the model
+  = Table.Combine({#"Filtered A", #"Filtered B"})
+        |                     both "Enable load" off
+        +-----------------> #"Base Query"      "Enable load" off
+                              holds the warehouse connection
+```
+
+Here `Combined Actions` is reported as having the warehouse table upstream; the two
+intermediate queries do not appear.
+
+A few limits apply. Queries that reference each other in a loop are stopped, as are
+chains longer than ten hops. A query that holds a parameter value rather than a query
+is not followed. If a referenced query cannot be parsed, or is a bare expression with
+no `let` binding, the connector reports which query it was rather than leaving the
+table quietly short of lineage — look for warnings naming a "referenced query".
+
+Native queries reached this way honour `native_query_parsing`: with it disabled, a
+referenced query containing `Value.NativeQuery` is not followed, the same as a table's
+own expression.
+
 #### Extract endorsements to tags
 
 By default, extracting endorsement information to tags is disabled. The feature may be useful if organization uses [endorsements](https://learn.microsoft.com/en-us/power-bi/collaborate-share/service-endorse-content) to identify content quality.

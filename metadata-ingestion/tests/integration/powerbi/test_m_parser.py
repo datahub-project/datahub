@@ -2630,3 +2630,44 @@ def test_a_query_reached_by_two_routes_is_parsed_once():
     assert seen.count(_HIDDEN_BASE_EXPRESSION) == 1, (
         f"the shared base was parsed {seen.count(_HIDDEN_BASE_EXPRESSION)} times"
     )
+
+
+@pytest.mark.integration
+def test_referenced_query_is_parsed_once_per_dataset_not_once_per_table():
+    """The referenced queries are dataset state, so the tables of one dataset share
+    a parse cache. Without it a hidden query is re-parsed per table -- and a hidden
+    query that times out costs the full m_query_parse_timeout per table."""
+    seen: List[str] = []
+    real = parser._parse_with_bridge
+
+    def counting(expression: str, timeout: int) -> Dict[int, dict]:
+        seen.append(expression)
+        return real(expression, timeout)
+
+    shared_cache: Dict[str, Optional[Dict[int, dict]]] = {}
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    with patch.object(parser, "_parse_with_bridge", side_effect=counting):
+        for i in range(3):
+            parser.get_upstream_tables(
+                powerbi_data_classes.Table(
+                    columns=[],
+                    measures=[],
+                    expression='let Source = #"Base Query" in Source',
+                    name=f"loaded_table_{i}",
+                    full_name=f"MyDataSet.loaded_table_{i}",
+                ),
+                PowerBiDashboardSourceReport(),
+                ctx=ctx,
+                config=config,
+                platform_instance_resolver=platform_instance_resolver,
+                expressions={"Base Query": _HIDDEN_BASE_EXPRESSION},
+                parse_cache=shared_cache,
+            )
+
+    assert seen.count(_HIDDEN_BASE_EXPRESSION) == 1, (
+        f"the shared base was parsed {seen.count(_HIDDEN_BASE_EXPRESSION)} times "
+        "across 3 tables of one dataset"
+    )

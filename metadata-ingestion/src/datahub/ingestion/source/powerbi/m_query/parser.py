@@ -69,6 +69,7 @@ def get_upstream_tables(
     config: PowerBiDashboardSourceConfig,
     parameters: Optional[Dict[str, str]] = None,
     expressions: Optional[Dict[str, str]] = None,
+    parse_cache: Optional[Dict[str, Optional[Dict[int, dict]]]] = None,
 ) -> List[Lineage]:
     """Parse the M-Query expression on *table* and return upstream lineage.
 
@@ -102,6 +103,9 @@ def get_upstream_tables(
     shared = SharedExpressions(
         texts=shared_texts,
         parse=lambda text: _parse_with_bridge(text, config.m_query_parse_timeout),
+        # Shared across the dataset's tables when the caller supplies one, so a
+        # referenced query is parsed once per dataset rather than once per table.
+        parse_cache=parse_cache if parse_cache is not None else {},
     )
 
     if table.expression is None:
