@@ -136,7 +136,7 @@ describe('SelectColumnReplacementModal', () => {
     });
 
     it('drops the chosen column when the parent changes', () => {
-        const { onSave } = renderModal();
+        renderModal();
 
         openColumns();
         fireEvent.click(screen.getByTestId('option-amount'));
@@ -148,8 +148,19 @@ describe('SelectColumnReplacementModal', () => {
         expect(screen.getByTestId('option-user_id')).toBeInTheDocument();
         expect(screen.queryByTestId('option-amount')).not.toBeInTheDocument();
 
-        fireEvent.click(screen.getByTestId('select-replacement-save'));
-        expect(onSave).toHaveBeenCalledWith(null);
+        // Nothing left to save: the parent alone is not a replacement.
+        expect(screen.getByTestId('select-replacement-save')).toBeDisabled();
+    });
+
+    it('cannot be saved until a column is chosen', () => {
+        renderModal();
+
+        expect(screen.getByTestId('select-replacement-save')).toBeDisabled();
+
+        openColumns();
+        fireEvent.click(screen.getByTestId('option-amount'));
+
+        expect(screen.getByTestId('select-replacement-save')).toBeEnabled();
     });
 
     it('keeps the chosen column when the same parent is picked again', () => {

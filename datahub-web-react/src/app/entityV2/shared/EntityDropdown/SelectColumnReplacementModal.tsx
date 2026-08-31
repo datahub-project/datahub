@@ -150,6 +150,9 @@ export default function SelectColumnReplacementModal({
                 },
                 {
                     text: tc('save'),
+                    // No column selected means there is nothing to save: the parent alone does not
+                    // make a replacement, and a parent change clears the column, so this covers both.
+                    disabled: !fieldPath,
                     onClick: () =>
                         onSave(
                             generateSchemaFieldUrn(
