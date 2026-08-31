@@ -69,7 +69,12 @@ def schema_gen():
         patch.object(BigQueryV2Config, "get_bigquery_client"),
         patch.object(BigQueryV2Config, "get_projects_client"),
     ):
-        config = BigQueryV2Config.model_validate({"project_id": PROJECT_ID})
+        # The flag is opt-in (default False). Most tests here exercise the
+        # feature, so enable it in the fixture; tests that check the off path
+        # reset it to False themselves.
+        config = BigQueryV2Config.model_validate(
+            {"project_id": PROJECT_ID, "include_materialized_view_stats": True}
+        )
         source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
         # gen_dataset_workunits needs identifiers/containers we don't want to mock here;
         # isolate view-level workunits (ViewProperties + DatasetProfile).
@@ -189,6 +194,17 @@ def test_flag_disabled_no_fetch_no_profile(schema_gen):
     assert schema_gen.report.num_mv_stats_emitted == 0
 
 
+def test_mv_stats_flag_defaults_to_off():
+    # Opt-in: existing recipes must not start making per-view tables.get calls
+    # or emitting datasetProfile for MVs until the flag is set.
+    with (
+        patch.object(BigQueryV2Config, "get_bigquery_client"),
+        patch.object(BigQueryV2Config, "get_projects_client"),
+    ):
+        config = BigQueryV2Config.model_validate({"project_id": PROJECT_ID})
+    assert config.include_materialized_view_stats is False
+
+
 def test_tables_get_failure_warns_and_view_still_emitted(schema_gen):
     view = _make_mv()
     # Let the real get_table_metadata run so its try/except handles the error,
@@ -254,6 +270,47 @@ def test_profile_pattern_excluded_mv_skips_the_fetch(schema_gen):
     gt_mock.assert_not_called()
     assert schema_gen.report.num_mv_stats_fetched == 0
     assert view.rows_count is None
+
+
+def test_view_pattern_excluded_mv_skips_the_fetch(schema_gen):
+    # view_pattern is applied in _process_view, which runs *after* enrichment,
+    # so it must also gate the fetch — otherwise an excluded MV still costs a
+    # tables.get and counts toward the per-dataset cap before being dropped.
+    schema_gen.config.view_pattern = AllowDenyPattern(deny=[".*"])
+    view = _make_mv()
+    with patch.object(schema_gen.schema_api, "get_table_metadata") as gt_mock:
+        schema_gen._enrich_materialized_view_stats(view, PROJECT_ID, DATASET_NAME)
+    gt_mock.assert_not_called()
+    assert schema_gen.report.num_mv_stats_fetched == 0
+    assert view.rows_count is None
+    assert view.size_in_bytes is None
+
+
+def test_view_pattern_excluded_mv_emits_no_profile(schema_gen):
+    # The emit side shares the same predicate, so a view_pattern-excluded MV
+    # must not emit a datasetProfile even if stats were somehow populated.
+    schema_gen.config.view_pattern = AllowDenyPattern(deny=[".*"])
+    view = _make_mv(rows_count=7, size_in_bytes=128)
+    aspects = _aspects(
+        schema_gen.gen_view_dataset_workunits(view, [], PROJECT_ID, DATASET_NAME)
+    )
+    assert _profiles(aspects) == []
+    assert schema_gen.report.num_mv_stats_emitted == 0
+
+
+def test_mv_size_only_still_emits_profile(schema_gen):
+    # tables.get may return num_bytes without num_rows (e.g. certain MV shapes).
+    # Enrichment records the size; the emit gate must fire on either field, or
+    # the size is recorded but the datasetProfile the UI reads is suppressed.
+    view = _make_mv()
+    aspects, _ = _enrich_and_emit(
+        schema_gen, view, _make_bq_table(num_rows=None, num_bytes=8192)
+    )
+    profiles = _profiles(aspects)
+    assert len(profiles) == 1
+    assert profiles[0].sizeInBytes == 8192
+    assert schema_gen.report.num_mv_stats_fetched == 1
+    assert schema_gen.report.num_mv_stats_emitted == 1
 
 
 def test_tables_get_failure_still_records_api_timing(schema_gen):

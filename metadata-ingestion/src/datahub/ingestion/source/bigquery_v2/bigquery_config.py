@@ -391,12 +391,16 @@ class BigQueryV2Config(
     )
 
     include_materialized_view_stats: bool = Field(
-        default=True,
+        default=False,
         description="Emit row count and size statistics for materialized views. Materialized view "
         "stats are fetched from the BigQuery `tables.get` API (a metadata-only call that does not "
         "scan data and does not require `profiling.enabled`). The stats are emitted as a "
-        "`datasetProfile` aspect so they appear in the DataHub UI Stats panel. Set to `False` to "
-        "skip materialized view stats entirely (no per-view API calls).",
+        "`datasetProfile` aspect so they appear in the DataHub UI Stats panel. Defaults to `False` "
+        "(opt-in): set to `True` to make one `tables.get` call per materialized view (capped at "
+        "1000 per dataset, after which remaining MVs in that dataset are ingested without stats) "
+        "and emit `datasetProfile` for them. The same call also populates the view's `lastModified` "
+        "in dataset properties. Both the fetch and the emit respect `view_pattern` and "
+        "`profile_pattern`, so excluded MVs make no API call.",
     )
 
     debug_include_full_payloads: bool = Field(

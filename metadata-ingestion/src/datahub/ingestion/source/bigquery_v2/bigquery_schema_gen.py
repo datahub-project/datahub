@@ -825,11 +825,18 @@ class BigQuerySchemaGenerator:
         """Single predicate for both the fetch and the emit side.
 
         These two must agree: gating only the emit side means an excluded view
-        still costs a tables.get whose result is then discarded.
+        still costs a tables.get whose result is then discarded. `view_pattern`
+        is checked here (not just in `_process_view`) because the fetch runs
+        before `_process_view` applies it, so an excluded materialized view
+        would otherwise consume a tables.get call and count toward the
+        per-dataset cap before being dropped.
         """
-        return check_table_with_profile_pattern(
-            self.config.profile_pattern,
-            f"{project_id}.{dataset_name}.{table_name}",
+        table_name_fqn = f"{project_id}.{dataset_name}.{table_name}"
+        return self.config.view_pattern.allowed(table_name_fqn) and (
+            check_table_with_profile_pattern(
+                self.config.profile_pattern,
+                table_name_fqn,
+            )
         )
 
     def _enrich_materialized_view_stats(
@@ -1232,7 +1239,7 @@ class BigQuerySchemaGenerator:
         if (
             view.materialized
             and self.config.include_materialized_view_stats
-            and view.rows_count is not None
+            and (view.rows_count is not None or view.size_in_bytes is not None)
             and self._mv_stats_in_profile_pattern(project_id, dataset_name, table.name)
         ):
             yield MetadataChangeProposalWrapper(
