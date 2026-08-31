@@ -276,13 +276,17 @@ class DocumentChunkingSource(Source):
         """
         if not elements:
             logger.warning(f"No elements provided for document {document_urn}")
+            yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
             return
 
         # Chunk the elements. A chunking failure raises so the calling source
         # does not record the document as successfully processed.
         chunks = self._chunk_elements(elements)
         if not chunks:
+            # Deterministic for this text: emit a skip marker (rather than silently nothing)
+            # so the document is classified as never-embeddable instead of missing.
             logger.warning(f"No chunks created for document {document_urn}")
+            yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
             return
 
         # Generate embeddings (only if configured).
@@ -303,6 +307,15 @@ class DocumentChunkingSource(Source):
         else:
             logger.debug(
                 f"Skipping embedding generation for {document_urn} - no embedding provider configured"
+            )
+
+        # A configured provider returning zero vectors for non-empty chunks is an anomaly,
+        # not a legitimate skip: raise so the caller treats the document as failed and
+        # retries it next run instead of checkpointing it with no semanticContent.
+        if self.embedding_model and not embeddings:
+            raise RuntimeError(
+                f"Embedding provider returned no vectors for {document_urn} "
+                f"({len(chunks)} chunks)"
             )
 
         # Emit SemanticContent aspect (only if embeddings were generated)
@@ -823,6 +836,32 @@ class DocumentChunkingSource(Source):
         except Exception as e:
             logger.error(f"Failed to generate embeddings: {e}", exc_info=True)
             raise
+
+    def build_skip_marker_workunit(
+        self, document_urn: str, reason: str
+    ) -> MetadataWorkUnit:
+        """Build a semanticContent skip marker for a deliberately-skipped document.
+
+        An empty embeddings map plus skipReason lets downstream consumers (e.g. coverage
+        reporting) tell never-embeddable documents apart from indexing lag or failures.
+        The marker is overwritten with real embeddings if the document later becomes
+        embeddable and is processed.
+        """
+        from datahub.metadata.schema_classes import SemanticContentClass
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=document_urn,
+            aspect=SemanticContentClass(
+                embeddings={},
+                skipReason=reason,
+                skippedAt=int(datetime.utcnow().timestamp() * 1000),
+            ),
+        )
+        # Non-primary so AutoStatusAspectProcessor does not emit a Status UPSERT for the
+        # document URN (mirrors _emit_semantic_content).
+        return MetadataWorkUnit(
+            id=f"{document_urn}-semanticContent-skip", mcp=mcp, is_primary_source=False
+        )
 
     def _emit_semantic_content(
         self,

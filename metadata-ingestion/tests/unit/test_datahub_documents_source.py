@@ -2590,6 +2590,42 @@ class TestSkipMarkersAndProvenance:
             == hashlib.sha256(text.encode("utf-8")).hexdigest()
         )
 
+    def test_threshold_change_reevaluates_skipped_documents(self, ctx, mock_graph):
+        """Recorded state for a skipped document must become invalid when
+        min_text_length changes, so the document is re-evaluated (and embedded once
+        eligible) instead of staying 'unchanged' forever. Embedded documents' hashes
+        must NOT change with the threshold (no re-embed wave)."""
+
+        def make_source(min_len):
+            cfg = DataHubDocumentsSourceConfig(
+                platform_filter=None,
+                datahub={"server": "http://test-server:8080"},
+                embedding={
+                    "provider": "bedrock",
+                    "model": "cohere.embed-english-v3",
+                    "aws_region": "us-west-2",
+                    "allow_local_embedding_config": True,
+                },
+                min_text_length=min_len,
+                stateful_ingestion={"enabled": False},
+            )
+            return DataHubDocumentsSource(ctx, cfg)
+
+        with mock_graph:
+            at_50 = make_source(50)
+            at_0 = make_source(0)
+
+        short_text = "tiny"
+        long_text = "x" * 100
+        # Skipped-at-50 doc: hash differs once threshold changes -> re-evaluated.
+        assert at_50._calculate_text_hash(short_text) != at_0._calculate_text_hash(
+            short_text
+        )
+        # Embedded doc (above both thresholds): hash identical -> no re-embed wave.
+        assert at_50._calculate_text_hash(long_text) == at_0._calculate_text_hash(
+            long_text
+        )
+
     def test_source_text_sha256_cross_language_vector(self):
         """Pinned vector shared with the Java projection test (UpdateIndicesV2Strategy):
         both sides must produce identical digests for identical unicode text."""

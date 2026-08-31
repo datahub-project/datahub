@@ -495,7 +495,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
 
     // Dual-write to semantic index if enabled for this entity
     if (shouldWrite) {
-      writeToSemanticIndex(opContext, urn, entityName, finalDocumentNode, docId);
+      writeToSemanticIndex(
+          opContext, urn, entityName, aspectSpec.getName(), finalDocumentNode, docId);
     }
 
     // Append runId to search document so rollback/list runs can find touched URNs (MAE path)
@@ -775,9 +776,10 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull String entityName,
+      @Nonnull String aspectName,
       @Nonnull ObjectNode documentNode,
       @Nonnull String docId) {
-    withResolvedTextSha256(opContext, urn, entityName, documentNode);
+    withResolvedTextSha256(opContext, urn, entityName, aspectName, documentNode);
     String document = documentNode.toString();
     String semanticIndexName = indexConvention.getEntityIndexNameSemantic(opContext, entityName);
     log.info(
@@ -801,22 +803,29 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
    * documentInfo} body) that project on separate MCLs, so the side not carried by the current
    * document is fetched via the aspect retriever rather than derived from the partial document --
    * deriving per-aspect would permanently mis-stamp documents whose override is written once and
-   * never re-projected. Non-embed-source aspects (neither field present) are left untouched: {@code
-   * doc_as_upsert} merging preserves the existing stamp. Stamping is best-effort: on any retrieval
-   * failure the field is left absent (consumers treat absent as unknown, never as stale).
+   * never re-projected. {@code semanticContent} projections also stamp (fetching both sides), so
+   * re-embedding refreshes pre-existing index documents. Other aspects (neither field present) are
+   * left untouched: {@code doc_as_upsert} merging preserves the existing stamp. On a retrieval
+   * failure the field is set to an explicit null, overwriting any previous stamp -- a stale stamp
+   * could misreport a changed document as current, while null reads as unknown.
    */
   @VisibleForTesting
   void withResolvedTextSha256(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull String entityName,
+      @Nonnull String aspectName,
       @Nonnull ObjectNode document) {
     if (!Constants.DOCUMENT_ENTITY_NAME.equals(entityName)) {
       return;
     }
     boolean hasOverrideField = document.has(SEMANTIC_TEXT_FIELD);
     boolean hasBodyField = document.has(BODY_TEXT_FIELD);
-    if (!hasOverrideField && !hasBodyField) {
+    // semanticContent projections (the embedding pipeline's own writes) also stamp, so a re-embed
+    // or force_reprocess run refreshes the field for documents indexed before this change.
+    boolean isSemanticContentAspect =
+        SearchDocumentTransformer.SEMANTIC_DATA_ASPECTS.contains(aspectName);
+    if (!hasOverrideField && !hasBodyField && !isSemanticContentAspect) {
       return;
     }
     try {
@@ -836,11 +845,17 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       }
       document.put(RESOLVED_TEXT_SHA256_FIELD, sha256Hex(resolved));
     } catch (Exception e) {
+      // Explicit null (not absent): index updates merge via doc_as_upsert, so leaving the field
+      // out would preserve a previously stamped value -- a stale stamp could misreport a changed
+      // document as current, while null reads as unknown.
       log.warn(
-          "Failed to resolve embed text for {}; leaving {} unstamped",
+          "Failed to resolve embed text for {}; clearing {} (reads as unknown, never stale)",
           urn,
           RESOLVED_TEXT_SHA256_FIELD,
           e);
+      document.set(
+          RESOLVED_TEXT_SHA256_FIELD,
+          com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.nullNode());
     }
   }
 

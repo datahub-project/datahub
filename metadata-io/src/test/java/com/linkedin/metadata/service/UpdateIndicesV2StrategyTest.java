@@ -1505,7 +1505,8 @@ public class UpdateIndicesV2StrategyTest {
 
     ObjectNode doc = objectNode();
     doc.put("text", "hello world");
-    strategy.withResolvedTextSha256(ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, doc);
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.DOCUMENT_INFO_ASPECT_NAME, doc);
 
     org.testng.Assert.assertEquals(
         doc.get("resolvedTextSha256").asText(), UpdateIndicesV2Strategy.sha256Hex("hello world"));
@@ -1524,7 +1525,8 @@ public class UpdateIndicesV2StrategyTest {
 
     ObjectNode doc = objectNode();
     doc.put("text", "churning body");
-    strategy.withResolvedTextSha256(ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, doc);
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.DOCUMENT_INFO_ASPECT_NAME, doc);
 
     org.testng.Assert.assertEquals(
         doc.get("resolvedTextSha256").asText(),
@@ -1539,7 +1541,8 @@ public class UpdateIndicesV2StrategyTest {
 
     ObjectNode doc = objectNode();
     doc.put("semanticText", "curated override");
-    strategy.withResolvedTextSha256(ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, doc);
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.SEMANTIC_TEXT_ASPECT_NAME, doc);
 
     org.testng.Assert.assertEquals(
         doc.get("resolvedTextSha256").asText(),
@@ -1560,7 +1563,8 @@ public class UpdateIndicesV2StrategyTest {
 
     ObjectNode doc = objectNode();
     doc.put("semanticText", "");
-    strategy.withResolvedTextSha256(ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, doc);
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.SEMANTIC_TEXT_ASPECT_NAME, doc);
 
     org.testng.Assert.assertEquals(
         doc.get("resolvedTextSha256").asText(), UpdateIndicesV2Strategy.sha256Hex("the body"));
@@ -1574,7 +1578,8 @@ public class UpdateIndicesV2StrategyTest {
 
     ObjectNode doc = objectNode();
     doc.put("removed", false);
-    strategy.withResolvedTextSha256(ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, doc);
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.STATUS_ASPECT_NAME, doc);
 
     // doc_as_upsert merging preserves any existing stamp; nothing derived, nothing fetched.
     org.testng.Assert.assertNull(doc.get("resolvedTextSha256"));
@@ -1587,12 +1592,12 @@ public class UpdateIndicesV2StrategyTest {
     OperationContext ctx = mock(OperationContext.class);
     ObjectNode doc = objectNode();
     doc.put("text", "dataset description");
-    strategy.withResolvedTextSha256(ctx, testUrn, "dataset", doc);
+    strategy.withResolvedTextSha256(ctx, testUrn, "dataset", "datasetProperties", doc);
     org.testng.Assert.assertNull(doc.get("resolvedTextSha256"));
   }
 
   @Test
-  public void testResolvedTextSha256_RetrieverFailureLeavesUnstamped() {
+  public void testResolvedTextSha256_RetrieverFailureClearsStamp() {
     com.linkedin.metadata.aspect.AspectRetriever retriever =
         mock(com.linkedin.metadata.aspect.AspectRetriever.class);
     when(retriever.getLatestAspectObject(any(OperationContext.class), any(Urn.class), anyString()))
@@ -1601,10 +1606,34 @@ public class UpdateIndicesV2StrategyTest {
 
     ObjectNode doc = objectNode();
     doc.put("text", "hello world");
-    strategy.withResolvedTextSha256(ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, doc);
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.DOCUMENT_INFO_ASPECT_NAME, doc);
 
-    // Best-effort: absent stamp reads as unknown downstream, never as stale.
-    org.testng.Assert.assertNull(doc.get("resolvedTextSha256"));
+    // Explicit null (not absent): doc_as_upsert would otherwise preserve a stale stamp.
+    assertTrue(doc.get("resolvedTextSha256").isNull());
+  }
+
+  @Test
+  public void testResolvedTextSha256_SemanticContentProjectionStamps() {
+    // The embedding pipeline's own semanticContent write carries neither text field, but must
+    // still stamp (via fetches) so re-embedding refreshes pre-existing index documents.
+    com.linkedin.metadata.aspect.AspectRetriever retriever =
+        mock(com.linkedin.metadata.aspect.AspectRetriever.class);
+    when(retriever.getLatestAspectObject(
+            any(OperationContext.class), any(Urn.class), eq(Constants.SEMANTIC_TEXT_ASPECT_NAME)))
+        .thenReturn(null);
+    when(retriever.getLatestAspectObject(
+            any(OperationContext.class), any(Urn.class), eq(Constants.DOCUMENT_INFO_ASPECT_NAME)))
+        .thenReturn(aspectOf(Map.of("contents", new DataMap(Map.of("text", "the body")))));
+    OperationContext ctx = contextWithRetriever(retriever);
+
+    ObjectNode doc = objectNode();
+    doc.set("embeddings", objectNode());
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, "semanticContent", doc);
+
+    org.testng.Assert.assertEquals(
+        doc.get("resolvedTextSha256").asText(), UpdateIndicesV2Strategy.sha256Hex("the body"));
   }
 
   @Test

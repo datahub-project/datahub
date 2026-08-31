@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import Any, Dict, Generator, Iterable, Optional, cast
 
 from datahub.configuration.common import GraphError, OperationalError
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -1413,13 +1412,29 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         Returns:
             SHA256 hash hex string
         """
-        hash_input = {
+        hash_input: Dict[str, Any] = {
             "content": text,
             "config": self._get_processing_config_fingerprint(),
         }
+        # The deliberate-skip decision is part of what recorded state means, so its inputs
+        # join the hash -- but only for documents that WOULD be skipped. Raising or lowering
+        # min_text_length then re-evaluates exactly the affected population (skip markers
+        # re-stamped or documents finally embedded) without invalidating the hash of every
+        # already-embedded document, which would trigger a full re-embed wave on upgrade.
+        if self._is_below_embed_minimum(text):
+            hash_input["skip_threshold"] = self.config.min_text_length
         # Deterministic JSON serialization
         hash_str = json.dumps(hash_input, sort_keys=True)
         return hashlib.sha256(hash_str.encode("utf-8")).hexdigest()
+
+    def _is_below_embed_minimum(self, text: str) -> bool:
+        """Single decider for the deliberate length skip.
+
+        Used both by _process_single_document (to emit the skip marker) and by
+        _calculate_text_hash (to make recorded state threshold-aware) -- keep them in
+        lockstep through this helper.
+        """
+        return not text or len(text) < self.config.min_text_length
 
     def _update_document_state(self, document_urn: str, text: str) -> None:
         """Update state after processing document."""
@@ -1501,28 +1516,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
     def _build_skip_marker_workunit(
         self, document_urn: str, reason: str
     ) -> MetadataWorkUnit:
-        """Build a semanticContent skip marker for a deliberately-skipped document.
-
-        An empty embeddings map plus skipReason lets downstream consumers (e.g. the
-        coverage dashboard) tell never-embeddable documents apart from indexing lag or
-        failures. The marker is overwritten with real embeddings if the document later
-        becomes embeddable and is processed.
-        """
-        from datahub.metadata.schema_classes import SemanticContentClass
-
-        mcp = MetadataChangeProposalWrapper(
-            entityUrn=document_urn,
-            aspect=SemanticContentClass(
-                embeddings={},
-                skipReason=reason,
-                skippedAt=int(datetime.utcnow().timestamp() * 1000),
-            ),
-        )
-        # Non-primary so AutoStatusAspectProcessor does not emit a Status UPSERT for the
-        # document URN (mirrors _emit_semantic_content in chunking_source).
-        return MetadataWorkUnit(
-            id=f"{document_urn}-semanticContent-skip", mcp=mcp, is_primary_source=False
-        )
+        """See DocumentChunkingSource.build_skip_marker_workunit (single implementation)."""
+        return self.chunking_source.build_skip_marker_workunit(document_urn, reason)
 
     def _throttle_after_indexing(self) -> None:
         """Pause after indexing a document to smooth write load to GMS."""
@@ -1576,7 +1571,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # never-embeddable documents apart from indexing lag or failures. Returning True
             # records incremental state -- the decision is deterministic for this text, so
             # retrying without a content change is pointless.
-            if not text or len(text) < self.config.min_text_length:
+            if self._is_below_embed_minimum(text):
                 logger.debug(
                     f"Skipping document {document_urn} (text too short: {len(text)} chars)"
                 )

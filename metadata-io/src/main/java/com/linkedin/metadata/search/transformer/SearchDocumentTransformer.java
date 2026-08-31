@@ -599,11 +599,13 @@ public class SearchDocumentTransformer {
             });
   }
 
-  /** Sets semantic content (embeddings) in the search document for vector search. */
+  /** Sets semantic content (embeddings + skip marker) in the search document for vector search. */
   private void setSemanticContentSearchValue(
       final RecordTemplate aspect, final ObjectNode searchDocument, final Boolean forDelete) {
     if (forDelete || aspect == null) {
       searchDocument.set("embeddings", JsonNodeFactory.instance.nullNode());
+      searchDocument.set("skipReason", JsonNodeFactory.instance.nullNode());
+      searchDocument.set("skippedAt", JsonNodeFactory.instance.nullNode());
       return;
     }
     try {
@@ -611,6 +613,21 @@ public class SearchDocumentTransformer {
       ObjectMapper mapper = new ObjectMapper();
       JsonNode embeddingsNode = mapper.valueToTree(aspect.data().get("embeddings"));
       searchDocument.set("embeddings", embeddingsNode);
+      // Skip marker fields are ALWAYS set (value or explicit null): index updates merge via
+      // doc_as_upsert, so omitting them after a real embed would leave a previous skip marker
+      // in place and misclassify an embedded document as deliberately skipped.
+      Object skipReason = aspect.data().get("skipReason");
+      searchDocument.set(
+          "skipReason",
+          skipReason != null
+              ? JsonNodeFactory.instance.textNode(skipReason.toString())
+              : JsonNodeFactory.instance.nullNode());
+      Object skippedAt = aspect.data().get("skippedAt");
+      searchDocument.set(
+          "skippedAt",
+          skippedAt instanceof Number
+              ? JsonNodeFactory.instance.numberNode(((Number) skippedAt).longValue())
+              : JsonNodeFactory.instance.nullNode());
       log.debug("Set semantic content embeddings in search document");
     } catch (Exception e) {
       log.error("Error transforming SemanticContent aspect to search document", e);
