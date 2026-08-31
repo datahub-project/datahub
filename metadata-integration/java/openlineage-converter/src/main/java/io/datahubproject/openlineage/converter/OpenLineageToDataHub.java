@@ -373,6 +373,8 @@ public class OpenLineageToDataHub {
     return globalTags;
   }
 
+  private static final String DOMAIN_ENTITY_TYPE = "domain";
+
   public static Domains generateDomains(List<String> domains) {
     // Copy before sorting: the caller's list may be an immutable config value.
     List<String> sortedDomains = new ArrayList<>(domains);
@@ -381,7 +383,15 @@ public class OpenLineageToDataHub {
     UrnArray domainArray = new UrnArray();
     for (String domain : sortedDomains) {
       try {
-        domainArray.add(Urn.createFromString(domain));
+        Urn domainUrn = Urn.createFromString(domain);
+        if (!DOMAIN_ENTITY_TYPE.equals(domainUrn.getEntityType())) {
+          log.warn(
+              "Skipping '{}': expected a domain URN (urn:li:domain:<id>) but got entity type '{}'.",
+              domain,
+              domainUrn.getEntityType());
+          continue;
+        }
+        domainArray.add(domainUrn);
       } catch (URISyntaxException e) {
         log.warn(
             "Skipping domain '{}': a full domain URN is required (urn:li:domain:<id>), "

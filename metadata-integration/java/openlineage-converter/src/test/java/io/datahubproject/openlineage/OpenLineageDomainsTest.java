@@ -54,7 +54,7 @@ public class OpenLineageDomainsTest {
 
     assertEquals(byEntity.keySet().size(), 2, "expected a domains aspect on both flow and job");
     assertTrue(
-        byEntity.containsKey(DatahubJob.DATAFLOW_ENTITY_TYPE),
+        byEntity.containsKey(DatahubJob.DATA_FLOW_ENTITY_TYPE),
         "missing DataFlow domains aspect: " + byEntity);
     assertTrue(
         byEntity.containsKey(DatahubJob.DATAJOB_ENTITY_TYPE),
@@ -73,6 +73,19 @@ public class OpenLineageDomainsTest {
   @Test
   public void testUnparseableDomainEmitsNothing() throws Exception {
     assertTrue(domainUrnsByEntity(List.of("finance")).isEmpty());
+  }
+
+  /** A syntactically valid URN for some other entity is not a domain and must not be emitted. */
+  @Test
+  public void testNonDomainUrnIsRejected() throws Exception {
+    assertTrue(domainUrnsByEntity(List.of("urn:li:corpuser:jdoe")).isEmpty());
+  }
+
+  @Test
+  public void testValidDomainsSurviveAlongsideRejectedOnes() throws Exception {
+    Map<String, List<String>> byEntity =
+        domainUrnsByEntity(List.of("urn:li:corpuser:jdoe", "urn:li:domain:finance", "finance"));
+    assertEquals(byEntity.keySet().size(), 2);
   }
 
   @Test

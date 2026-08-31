@@ -73,7 +73,6 @@ public class DatahubJob {
   public static final String DATASET_ENTITY_TYPE = "dataset";
   public static final String DATA_FLOW_ENTITY_TYPE = "dataFlow";
   public static final String DATA_PROCESS_INSTANCE_ENTITY_TYPE = "dataProcessInstance";
-  public static final String DATAFLOW_ENTITY_TYPE = "dataflow";
   public static final String DATAJOB_ENTITY_TYPE = "dataJob";
   DataFlowUrn flowUrn;
   DataFlowInfo dataFlowInfo;
@@ -151,7 +150,7 @@ public class DatahubJob {
     generateFlowGlobalTagsAspect(flowUrn, flowGlobalTags, config, mcps);
 
     // Generate and add domain Aspect
-    generateDomainsAspect(flowUrn, DATAFLOW_ENTITY_TYPE, flowDomains, mcps);
+    generateDomainsAspect(flowUrn, DATA_FLOW_ENTITY_TYPE, flowDomains, mcps);
     generateDomainsAspect(jobUrn, DATAJOB_ENTITY_TYPE, jobDomains, mcps);
 
     log.info(
