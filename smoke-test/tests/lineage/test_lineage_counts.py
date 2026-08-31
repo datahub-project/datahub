@@ -122,9 +122,7 @@ def _wait_for_upstream_column_count(
                 lineage_flags=lineage_flags,
             )
         except GraphError as exc:
-            logger.warning(
-                "Lineage counts query failed during wait; retrying: %s", exc
-            )
+            logger.warning("Lineage counts query failed during wait; retrying: %s", exc)
             last_count = 0
         if last_count >= min_count:
             return
