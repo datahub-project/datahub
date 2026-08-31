@@ -46,6 +46,7 @@ def test_workflow_metrics_base_branch_from_pull_request():
                     "base": {"ref": "main"},
                 }
             ],
+            "head_repository": {"full_name": "org/repo"},
             "head_branch": "feature/foo",
             "head_sha": "abc123",
             "conclusion": "success",
@@ -56,9 +57,11 @@ def test_workflow_metrics_base_branch_from_pull_request():
         run_id=99,
         attempt=1,
         rerun_type="initial",
+        repository="org/repo",
     )
     assert metrics.base_branch == "main"
     assert metrics.pull_request_number == 42
+    assert metrics.is_community_contribution is False
 
 
 def test_workflow_metrics_base_branch_from_pull_request_target():
@@ -76,6 +79,7 @@ def test_workflow_metrics_base_branch_from_pull_request_target():
                     "base": {"ref": "main"},
                 }
             ],
+            "head_repository": {"full_name": "org/repo"},
             "head_branch": "feature/foo",
             "head_sha": "abc123",
             "conclusion": "success",
@@ -86,8 +90,10 @@ def test_workflow_metrics_base_branch_from_pull_request_target():
         run_id=99,
         attempt=1,
         rerun_type="initial",
+        repository="org/repo",
     )
     assert metrics.base_branch == "main"
+    assert metrics.is_community_contribution is False
 
 
 def test_workflow_metrics_base_branch_absent_without_pull_request():
@@ -99,6 +105,7 @@ def test_workflow_metrics_base_branch_absent_without_pull_request():
             "actor": {"login": "alice"},
             "triggering_actor": {"login": "alice"},
             "pull_requests": [],
+            "head_repository": {"full_name": "org/repo"},
             "head_branch": "main",
             "head_sha": "abc123",
             "conclusion": "success",
@@ -109,9 +116,11 @@ def test_workflow_metrics_base_branch_absent_without_pull_request():
         run_id=99,
         attempt=1,
         rerun_type="initial",
+        repository="org/repo",
     )
     assert metrics.base_branch is None
     assert metrics.pull_request_number is None
+    assert metrics.is_community_contribution is False
 
 
 def test_workflow_metrics_base_branch_ignored_for_non_pull_request_event():
@@ -130,6 +139,7 @@ def test_workflow_metrics_base_branch_ignored_for_non_pull_request_event():
                     "base": {"ref": "main"},
                 }
             ],
+            "head_repository": {"full_name": "contributor/repo"},
             "head_branch": "feature/foo",
             "head_sha": "abc123",
             "conclusion": "success",
@@ -140,6 +150,70 @@ def test_workflow_metrics_base_branch_ignored_for_non_pull_request_event():
         run_id=99,
         attempt=1,
         rerun_type="initial",
+        repository="org/repo",
     )
     assert metrics.base_branch is None
     assert metrics.pull_request_number == 42
+    assert metrics.is_community_contribution is False
+
+
+def test_workflow_metrics_community_contribution_from_fork_pr():
+    metrics = WorkflowMetrics.from_api(
+        {
+            "workflow_id": 1,
+            "name": "lint",
+            "event": "pull_request",
+            "actor": {"login": "contributor"},
+            "triggering_actor": {"login": "contributor"},
+            "pull_requests": [
+                {
+                    "number": 99,
+                    "url": "https://api.github.com/repos/org/repo/pulls/99",
+                    "base": {"ref": "main"},
+                }
+            ],
+            "head_repository": {"full_name": "contributor/repo"},
+            "head_branch": "fix-typo",
+            "head_sha": "def456",
+            "conclusion": "success",
+            "created_at": "2026-01-01T00:00:00Z",
+            "run_started_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:01:00Z",
+        },
+        run_id=100,
+        attempt=1,
+        rerun_type="initial",
+        repository="org/repo",
+    )
+    assert metrics.is_community_contribution is True
+
+
+def test_workflow_metrics_community_contribution_from_fork_pr_target():
+    metrics = WorkflowMetrics.from_api(
+        {
+            "workflow_id": 1,
+            "name": "lint",
+            "event": "pull_request_target",
+            "actor": {"login": "contributor"},
+            "triggering_actor": {"login": "contributor"},
+            "pull_requests": [
+                {
+                    "number": 99,
+                    "url": "https://api.github.com/repos/org/repo/pulls/99",
+                    "base": {"ref": "main"},
+                }
+            ],
+            "head_repository": {"full_name": "contributor/repo"},
+            "head_branch": "fix-typo",
+            "head_sha": "def456",
+            "conclusion": "success",
+            "created_at": "2026-01-01T00:00:00Z",
+            "run_started_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:01:00Z",
+        },
+        run_id=100,
+        attempt=1,
+        rerun_type="initial",
+        repository="org/repo",
+    )
+    assert metrics.is_community_contribution is True
