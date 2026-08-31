@@ -1,4 +1,9 @@
-import { formatAttributionOrigin, getAttributionOrigin, isExternal, isPropagated } from '@app/entity/shared/propagation/utils';
+import {
+    formatAttributionOrigin,
+    getAttributionOrigin,
+    isExternal,
+    isPropagated,
+} from '@app/entity/shared/propagation/utils';
 
 describe('propagation utils', () => {
     describe('isPropagated', () => {
