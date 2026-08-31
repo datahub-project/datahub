@@ -20,6 +20,12 @@ export function detectBrowserLanguage(): SupportedLanguage | undefined {
         if (!tag) return undefined;
         const lower = tag.toLowerCase();
         const base = lower.split('-')[0];
+        // Traditional Chinese tags → zh-TW when that locale is registered.
+        if (base === 'zh' && 'zh-TW' in LOCALE_MAP) {
+            if (lower.includes('hant') || lower === 'zh-tw' || lower === 'zh-hk' || lower === 'zh-mo') {
+                return 'zh-TW';
+            }
+        }
         // Exact (case-insensitive) match first, then fold region variants to their base language.
         return (
             supported.find((locale) => locale.toLowerCase() === lower) ??

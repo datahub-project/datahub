@@ -1,0 +1,22 @@
+{
+    "logOut": "登出",
+    "nav.access": "存取",
+    "nav.accessTokens": "存取權杖",
+    "nav.appearance": "外觀",
+    "nav.developer": "開發者",
+    "nav.features": "功能",
+    "nav.homePage": "首頁",
+    "nav.manage": "管理",
+    "nav.myNotifications": "我的通知",
+    "nav.mySubscriptions": "我的訂閱",
+    "nav.ownershipTypes": "Ownership Type",
+    "nav.permissions": "權限",
+    "nav.personal": "個人",
+    "nav.preferences": "偏好設定",
+    "nav.usersGroups": "使用者與群組",
+    "nav.views": "檢視",
+    "nav.collapseSidebar": "收合設定側邊欄",
+    "nav.expandSidebar": "展開設定側邊欄",
+    "subTitle": "管理你的設定",
+    "title": "設定"
+}

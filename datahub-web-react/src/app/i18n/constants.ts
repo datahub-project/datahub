@@ -7,6 +7,7 @@ import frFR from 'antd/lib/locale/fr_FR';
 import huHU from 'antd/lib/locale/hu_HU';
 import itIT from 'antd/lib/locale/it_IT';
 import jaJP from 'antd/lib/locale/ja_JP';
+import zhTW from 'antd/lib/locale/zh_TW';
 import nbNO from 'antd/lib/locale/nb_NO';
 import ptBR from 'antd/lib/locale/pt_BR';
 import svSE from 'antd/lib/locale/sv_SE';
@@ -90,6 +91,14 @@ export const JA_LOCALE_CONFIG: LocaleConfig = {
     label: '日本語 (Beta)',
 };
 
+export const ZH_TW_LOCALE_CONFIG: LocaleConfig = {
+    lang: 'zh-TW',
+    antd: zhTW,
+    dayjs: 'zh-tw',
+    label: '繁體中文 (Beta)',
+};
+
+
 export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {
     en: EN_LOCALE_CONFIG,
     de: DE_LOCALE_CONFIG,
@@ -102,6 +111,7 @@ export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {
     hu: HU_LOCALE_CONFIG,
     fi: FI_LOCALE_CONFIG,
     ja: JA_LOCALE_CONFIG,
+    'zh-TW': ZH_TW_LOCALE_CONFIG,
 };
 
 export const LANGUAGE_OPTIONS: SelectOption[] = [
@@ -116,6 +126,7 @@ export const LANGUAGE_OPTIONS: SelectOption[] = [
     HU_LOCALE_CONFIG,
     FI_LOCALE_CONFIG,
     JA_LOCALE_CONFIG,
+    ZH_TW_LOCALE_CONFIG,
 ].map((localeConfig) => ({
     value: localeConfig.lang,
     label: localeConfig.label,

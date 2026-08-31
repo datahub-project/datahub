@@ -1,0 +1,10 @@
+{
+    "defaultTemplateBar.editingWarning": "正在編輯組織預設首頁",
+    "header.discoverLabel": "探索",
+    "error.failedToAddSummaryElement": "無法新增摘要元素",
+    "error.failedToRemoveSummaryElement": "無法移除摘要元素",
+    "error.failedToReplaceSummaryElement": "無法取代摘要元素",
+    "error.noTemplateAvailable": "沒有可更新的範本",
+    "toast.editedDescription": "若要重設首頁，請點選「重設為組織預設」",
+    "toast.editedTitle": "你已編輯首頁"
+}

@@ -57,6 +57,15 @@ describe('detectBrowserLanguage', () => {
         expect(detectBrowserLanguage()).toBe('ja');
     });
 
+    it('maps Traditional Chinese tags to zh-TW', () => {
+        stubLanguages(['zh-TW']);
+        expect(detectBrowserLanguage()).toBe('zh-TW');
+        stubLanguages(['zh-Hant']);
+        expect(detectBrowserLanguage()).toBe('zh-TW');
+        stubLanguages(['zh-HK']);
+        expect(detectBrowserLanguage()).toBe('zh-TW');
+    });
+
     it('returns undefined when no preferred language is supported', () => {
         stubLanguages(['ko-KR', 'zh-CN']);
         expect(detectBrowserLanguage()).toBeUndefined();
