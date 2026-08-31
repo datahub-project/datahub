@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 import urllib.parse
 from typing import Dict, List, Optional
 
@@ -454,14 +455,18 @@ def warm_up_actor_class_cache(
     gms_url: str,
     expected_tags: Dict[str, str],
 ) -> None:
-    """Generate traffic until metrics appear with the expected actor_class tags.
+    """Generate traffic until metrics with the expected actor_class tags are stable.
 
-    The GMS entity client caches corpUserInfo for ~20s. When a user is freshly
-    created and then its flags are changed (e.g. isSupportUser set to true),
-    requests arriving before the cache expires are tagged with the stale
-    actor_class. This helper sends repeated GraphQL traffic and polls Prometheus
-    until the flush exports at least one input_bytes sample proving the cache
-    has refreshed and actor_class resolves correctly.
+    The GMS entity client caches corpUserInfo for ~20s (configured in
+    application.yaml). When a user is freshly created and then its flags are
+    changed (e.g. isSupportUser set to true), requests arriving before the
+    cache expires are tagged with the stale actor_class.
+
+    This helper has two phases:
+    1. Send repeated GraphQL traffic until input_bytes samples with the expected
+       tags appear in Prometheus, proving the cache refreshed.
+    2. Stop generating traffic and wait for output_bytes to stabilize so the
+       caller's baseline isn't contaminated by unflushed warm-up data.
     """
 
     @tenacity.retry(
@@ -469,7 +474,7 @@ def warm_up_actor_class_cache(
         wait=tenacity.wait_fixed(3),
         reraise=True,
     )
-    def _poll() -> None:
+    def _generate_until_visible() -> None:
         generate_graphql_read_traffic(traffic_session, repeat=2)
         content = get_prometheus_metrics(scrape_session, gms_url)
         samples = find_metric_samples(content, INPUT_BYTES_METRIC, expected_tags)
@@ -478,10 +483,33 @@ def warm_up_actor_class_cache(
             f"samples yet with tags {expected_tags}"
         )
 
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(15),
+        wait=tenacity.wait_fixed(5),
+        reraise=True,
+    )
+    def _wait_output_stable() -> None:
+        first = fetch_metric_total(
+            scrape_session, gms_url, OUTPUT_BYTES_METRIC, expected_tags
+        )
+        assert first > 0, (
+            f"Warm-up {OUTPUT_BYTES_METRIC} not yet flushed (tags={expected_tags})"
+        )
+        time.sleep(5)
+        second = fetch_metric_total(
+            scrape_session, gms_url, OUTPUT_BYTES_METRIC, expected_tags
+        )
+        assert first == second, (
+            f"Warm-up {OUTPUT_BYTES_METRIC} still being flushed: "
+            f"{first} -> {second} (tags={expected_tags})"
+        )
+
     logger.info(
         "Warming up actor_class cache — sending traffic until %s appears with %s",
         INPUT_BYTES_METRIC,
         expected_tags,
     )
-    _poll()
+    _generate_until_visible()
+    logger.info("Cache refreshed, waiting for warm-up output_bytes to stabilize")
+    _wait_output_stable()
     logger.info("Actor class cache warm-up complete")
