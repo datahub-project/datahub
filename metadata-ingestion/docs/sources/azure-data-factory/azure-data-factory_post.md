@@ -56,6 +56,7 @@ The connector automatically maps ADF linked service types to DataHub platforms. 
 | AzureSynapseAnalytics    | `mssql`          |
 | AzureSqlMI               | `mssql`          |
 | SqlServer                | `mssql`          |
+| AmazonRdsForSqlServer    | `mssql`          |
 | AzureDatabricks          | `databricks`     |
 | AzureDatabricksDeltaLake | `databricks`     |
 | AmazonS3                 | `s3`             |
@@ -63,22 +64,40 @@ The connector automatically maps ADF linked service types to DataHub platforms. 
 | AmazonRedshift           | `redshift`       |
 | GoogleCloudStorage       | `gcs`            |
 | GoogleBigQuery           | `bigquery`       |
+| GoogleBigQueryV2         | `bigquery`       |
+| GoogleSheets             | `google_sheets`  |
 | Snowflake                | `snowflake`      |
+| SnowflakeV2              | `snowflake`      |
 | PostgreSql               | `postgres`       |
+| PostgreSqlV2             | `postgres`       |
 | AzurePostgreSql          | `postgres`       |
 | MySql                    | `mysql`          |
 | AzureMySql               | `mysql`          |
+| MariaDB                  | `mariadb`        |
+| AzureMariaDB             | `mariadb`        |
 | Oracle                   | `oracle`         |
 | OracleServiceCloud       | `oracle`         |
+| AmazonRdsForOracle       | `oracle`         |
 | Db2                      | `db2`            |
 | Teradata                 | `teradata`       |
 | Vertica                  | `vertica`        |
+| Informix                 | `informix`       |
+| Presto                   | `presto`         |
+| Cassandra                | `cassandra`      |
+| Couchbase                | `couchbase`      |
+| SapHana                  | `hana`           |
+| MongoDb                  | `mongodb`        |
+| MongoDbV2                | `mongodb`        |
+| MongoDbAtlas             | `mongodb`        |
+| CosmosDbMongoDbApi       | `mongodb`        |
 | Hive                     | `hive`           |
 | Spark                    | `spark`          |
 | Hdfs                     | `hdfs`           |
 | Salesforce               | `salesforce`     |
 | SalesforceServiceCloud   | `salesforce`     |
+| SalesforceServiceCloudV2 | `salesforce`     |
 | SalesforceMarketingCloud | `salesforce`     |
+| SalesforceV2             | `salesforce`     |
 
 Unsupported linked service types log a warning and skip lineage for that dataset.
 
@@ -112,6 +131,30 @@ source:
 
 Without matching `platform_instance` values, lineage will create separate dataset entities instead of connecting to your existing ingested datasets.
 
+**Step 3: Databricks Catalog and Metastore**
+
+ADF's own API never exposes a Databricks table's catalog or Unity Catalog metastore — only its schema and table name. To fill this gap:
+
+- **`platform_instance`** for a Databricks linked service is derived automatically from its workspace URL (e.g. `adb-1234567890123456`), matching how DataHub's own Unity Catalog source derives it. You only need `platform_instance_map` if your Databricks recipe sets an explicit `platform_instance` of its own.
+- **`databricks_default_catalog`** fully qualifies every Databricks reference with a single catalog name, for tenants with one workspace/catalog.
+- **`databricks_catalog_map`** maps individual linked service names to their own catalog (and optionally Unity Catalog metastore name), for tenants with multiple Databricks workspaces that don't share a catalog:
+
+```yaml
+source:
+  type: azure-data-factory
+  config:
+    subscription_id: ${AZURE_SUBSCRIPTION_ID}
+    databricks_catalog_map:
+      # Key: Your ADF linked service name (exact match required)
+      "MyDatabricksLS":
+        catalog: "prod_catalog"
+        # Only set metastore if your Unity Catalog source was ingested
+        # with include_metastore enabled.
+        metastore: "prod_metastore"
+```
+
+Without one of these set, Databricks references are left as `schema.table` rather than guessing a catalog that may not match reality.
+
 ##### Data Flow Transformation Scripts
 
 For Data Flow activities, the connector extracts the transformation script and stores it in the `dataTransformLogic` aspect, visible in the DataHub UI under activity details.
@@ -128,10 +171,14 @@ The connector extracts **column-level lineage** from Copy activities, enabled by
 | **List Format**       | Current format with structured source/sink objects                          | `translator.mappings: [{source: {name}, sink: {name}}]` |
 | **Auto-mapping**      | Inferred 1:1 mappings when no explicit mappings and source schema available | TabularTranslator with no columnMappings or mappings    |
 
+**Column Lineage for Dynamic (ForEach-Looped) Copy Activities**
+
+The mapping formats above rely on a static ADF dataset schema, which a fully dynamic Copy activity (e.g. a `ForEach` loop that copies whichever table `@item()` resolves to) never has - the same reason table-level lineage for these needs execution history (see [How Lineage Resolution Works](#how-lineage-resolution-works) above). When `include_execution_history` is enabled, the connector additionally parses the resolved query text recorded on each `ActivityRun` (the only place a per-iteration value is ever exposed) to recover column-level lineage for that specific run's real source and destination table, assuming a same-name column copy - the same default ADF itself uses when no explicit translator is configured. This is skipped (not guessed) when the query uses `SELECT *` (no live schema access to expand it) or when the activity has its own explicit translator (which takes precedence).
+
 **Limitations**
 
 - **Copy Activity Only**: Column lineage is currently extracted only from Copy activities. Other activity types (Data Flow, Lookup, etc.) produce table-level lineage only.
-- **Schema Availability**: Auto-mapping inference requires source dataset schema information (defined in ADF dataset's `schema` or `structure` property). If schema is unavailable, only explicit mappings are extracted.
+- **Schema Availability**: Auto-mapping inference requires source dataset schema information (defined in ADF dataset's `schema` or `structure` property). If schema is unavailable, only explicit mappings are extracted, unless the dynamic per-iteration recovery above applies.
 
 #### Execution History
 

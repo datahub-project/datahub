@@ -251,6 +251,7 @@ azure-auth = [
 azure-data-factory = [
     { name = "azure-identity" },
     { name = "azure-mgmt-datafactory" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 bigid = [
     { name = "requests" },
@@ -2591,6 +2592,7 @@ requires-dist = [
     { name = "sqlalchemy2-stubs", marker = "extra == 'docs'", specifier = "<0.1.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'all'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'athena'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'azure-data-factory'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'bigquery'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'bigquery-queries'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'clickhouse'", specifier = "==30.12.0" },

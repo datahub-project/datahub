@@ -13,22 +13,39 @@ We do NOT test:
 - Pydantic validation (covered by test_adf_config.py)
 """
 
-from typing import Callable, Optional
+from types import SimpleNamespace
+from typing import Any, Callable, Optional
+from unittest.mock import MagicMock
 
 import pytest
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
 from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
     CopyActivityColumnLineageExtractor,
     DatasetSchemaInfo,
+    get_activity_translator_config,
+)
+from datahub.ingestion.source.azure_data_factory.adf_config import (
+    AzureDataFactoryConfig,
+    DatabricksCatalogMapping,
+)
+from datahub.ingestion.source.azure_data_factory.adf_report import (
+    AzureDataFactorySourceReport,
 )
 from datahub.ingestion.source.azure_data_factory.adf_source import (
     ACTIVITY_SUBTYPE_MAP,
+    AzureDataFactorySource,
 )
 from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    OtherSchemaClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
 )
 
 
@@ -97,6 +114,107 @@ class TestLinkedServicePlatformMapping:
         """Unknown service types should return None (not raise)."""
         assert ADF_LINKED_SERVICE_PLATFORM_MAP.get("UnknownServiceType") is None
         assert ADF_LINKED_SERVICE_PLATFORM_MAP.get("CustomConnector") is None
+
+    def test_v2_and_rds_variants_map_to_the_same_platform_as_their_base(self) -> None:
+        """Regression test: several ADF linked service types were missing
+        from the map even though a real DataHub platform for them exists -
+        "V2" (newer connector version) and Amazon RDS variants speak the
+        same wire protocol as their already-mapped counterparts, and
+        should map identically."""
+        variants = {
+            "PostgreSqlV2": "postgres",
+            "SnowflakeV2": "snowflake",
+            "GoogleBigQueryV2": "bigquery",
+            "SalesforceV2": "salesforce",
+            "SalesforceServiceCloudV2": "salesforce",
+            "AmazonRdsForOracle": "oracle",
+            "AmazonRdsForSqlServer": "mssql",
+        }
+        for service_type, expected_platform in variants.items():
+            assert (
+                ADF_LINKED_SERVICE_PLATFORM_MAP.get(service_type) == expected_platform
+            ), f"{service_type} should map to '{expected_platform}'"
+
+    def test_additional_database_platforms_covered(self) -> None:
+        """Regression test: these ADF-supported database linked service
+        types have a real, existing DataHub platform but were previously
+        missing from the map entirely, silently skipping lineage for any
+        activity using them."""
+        additional_databases = {
+            "MariaDB": "mariadb",
+            "AzureMariaDB": "mariadb",
+            "Cassandra": "cassandra",
+            "Couchbase": "couchbase",
+            "Informix": "informix",
+            "Presto": "presto",
+            "SapHana": "hana",
+            "MongoDb": "mongodb",
+            "MongoDbV2": "mongodb",
+            "MongoDbAtlas": "mongodb",
+            "CosmosDbMongoDbApi": "mongodb",
+            "GoogleSheets": "google_sheets",
+        }
+        for service_type, expected_platform in additional_databases.items():
+            assert (
+                ADF_LINKED_SERVICE_PLATFORM_MAP.get(service_type) == expected_platform
+            ), f"{service_type} should map to '{expected_platform}'"
+
+
+class TestNestedActivityTraversal:
+    """Tests for BFS traversal over nested container activities
+    (ForEach/Until/IfCondition/Switch), used by both pipeline processing
+    and _find_activity_by_name.
+    """
+
+    def _make_source(self) -> AzureDataFactorySource:
+        return object.__new__(AzureDataFactorySource)
+
+    @pytest.mark.timeout(5)
+    def test_find_activity_by_name_terminates_on_self_referencing_container(
+        self,
+    ) -> None:
+        """Regression test: a malformed pipeline where a ForEach
+        container's own activity list includes itself must not hang the
+        BFS traversal forever - the visited-set guard should let it
+        terminate and correctly report the activity as not found."""
+        source = self._make_source()
+        cyclic_foreach = SimpleNamespace(name="LoopForever", type="ForEach")
+        cyclic_foreach.activities = [cyclic_foreach]  # self-reference
+        pipeline = SimpleNamespace(activities=[cyclic_foreach])
+
+        result = source._find_activity_by_name(pipeline, "DoesNotExist")
+
+        assert result is None
+
+    @pytest.mark.timeout(5)
+    def test_find_activity_by_name_terminates_on_mutually_referencing_containers(
+        self,
+    ) -> None:
+        """Same as above, but for a two-container cycle (A contains B,
+        B contains A) rather than direct self-reference."""
+        source = self._make_source()
+        container_a = SimpleNamespace(name="ContainerA", type="ForEach")
+        container_b = SimpleNamespace(name="ContainerB", type="ForEach")
+        container_a.activities = [container_b]
+        container_b.activities = [container_a]
+        pipeline = SimpleNamespace(activities=[container_a])
+
+        result = source._find_activity_by_name(pipeline, "DoesNotExist")
+
+        assert result is None
+
+    def test_find_activity_by_name_finds_nested_activity(self) -> None:
+        """Sanity check alongside the cycle tests: a genuinely nested
+        (non-cyclic) activity must still be found."""
+        source = self._make_source()
+        inner_copy = SimpleNamespace(name="InnerCopy", type="Copy")
+        foreach = SimpleNamespace(name="OuterLoop", type="ForEach")
+        foreach.activities = [inner_copy]
+        pipeline = SimpleNamespace(activities=[foreach])
+
+        result = source._find_activity_by_name(pipeline, "InnerCopy")
+
+        assert result is inner_copy
 
 
 class TestActivitySubtypeMapping:
@@ -177,6 +295,877 @@ class TestTableNameExtractionLogic:
         table = type_props.get("table", "")
         result = f"{schema}.{table}" if schema and table else table or schema
         assert result == "orders"
+
+
+class TestExpressionParameterResolution:
+    """Tests for resolving ADF dynamic-content dataset typeProperties
+    (e.g. "@dataset().table_name") via activity/dataset parameters.
+
+    Unlike TestTableNameExtractionLogic above, these call the real
+    _extract_table_name/_resolve_dataset_urn methods directly instead of
+    re-implementing the logic inline - a hand-copied "logic pattern" test is
+    exactly how the schema+table dead-code bug and the Expression-dict
+    garbage-URN bug both shipped undetected.
+    """
+
+    def _make_source(self) -> AzureDataFactorySource:
+        config = AzureDataFactoryConfig(subscription_id="test-sub")
+        source = object.__new__(AzureDataFactorySource)
+        source.config = config
+        source.report = AzureDataFactorySourceReport()
+        source._datasets_cache = {}
+        source._linked_services_cache = {}
+        source._global_parameters_cache = {}
+        return source
+
+    def _make_dataset(
+        self,
+        table_name: Any = None,
+        table: Any = None,
+        schema: Any = None,
+        dataset_parameters: Optional[dict] = None,
+    ) -> SimpleNamespace:
+        return SimpleNamespace(
+            properties=SimpleNamespace(
+                table_name=table_name,
+                table=table,
+                schema_type_properties_schema=schema,
+                file_name=None,
+                folder_path=None,
+                location=None,
+                parameters=dataset_parameters or {},
+            )
+        )
+
+    def test_schema_and_table_combine_when_both_literal(self) -> None:
+        """Regression test for a dead-code bug: schema+table previously
+        never combined because `table` short-circuited before `schema` was
+        checked."""
+        source = self._make_source()
+        dataset = self._make_dataset(table="Customers", schema="dbo")
+        result = source._extract_table_name(
+            dataset, linked_service=None, dataset_name="MyDataset"
+        )
+        assert result == "dbo.Customers"
+
+    def test_expression_resolved_via_activity_parameter_override(self) -> None:
+        """ "@dataset().table_name" resolves using the activity's literal
+        DatasetReference.parameters override."""
+        source = self._make_source()
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+            schema="dbo",
+        )
+        result = source._extract_table_name(
+            dataset,
+            linked_service=None,
+            dataset_name="MyDataset",
+            activity_dataset_parameters={"table_name": "Orders"},
+        )
+        assert result == "dbo.Orders"
+
+    def test_expression_resolved_via_expression_wrapped_activity_override(
+        self,
+    ) -> None:
+        """Regression test: in real ADF data, an activity's
+        DatasetReference.parameters value can itself be an
+        Expression-wrapped dict ({"value": "Orders", "type": "Expression"})
+        rather than a plain string - ADF's "Add dynamic content" UI wraps
+        even literal values this way. This must resolve exactly like a
+        bare string override."""
+        source = self._make_source()
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+            schema="dbo",
+        )
+        result = source._extract_table_name(
+            dataset,
+            linked_service=None,
+            dataset_name="MyDataset",
+            activity_dataset_parameters={
+                "table_name": {"value": "Orders", "type": "Expression"}
+            },
+        )
+        assert result == "dbo.Orders"
+
+    def test_expression_resolved_via_dataset_parameter_default(self) -> None:
+        """Falls back to the dataset's own declared parameter default when
+        the activity doesn't override it."""
+        source = self._make_source()
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+            dataset_parameters={
+                "table_name": SimpleNamespace(default_value="DefaultOrders")
+            },
+        )
+        result = source._extract_table_name(
+            dataset, linked_service=None, dataset_name="MyDataset"
+        )
+        assert result == "DefaultOrders"
+
+    def test_expression_unresolvable_falls_back_and_warns(self) -> None:
+        """A value driven by a ForEach loop variable (@item()) has no
+        run-history field that can resolve it either - should warn and
+        return None (never the raw dict repr) so the caller falls back to
+        the ADF dataset name."""
+        source = self._make_source()
+        source.config.include_execution_history = True
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+        )
+        result = source._extract_table_name(
+            dataset,
+            linked_service=None,
+            dataset_name="MyDataset",
+            activity_dataset_parameters={"table_name": "@item().TableName"},
+        )
+        assert result is None
+        assert source.report.unresolved_dynamic_properties == 1
+
+    def test_unresolvable_override_does_not_mask_with_dataset_default(self) -> None:
+        """Regression test: when the activity supplies an override that is
+        itself an unresolvable dynamic expression (e.g. "@item().TableName"
+        from a ForEach loop), the dataset's own static declared default must
+        NOT be silently substituted in its place - that would misrepresent
+        a genuinely per-iteration dynamic value as a fixed placeholder."""
+        source = self._make_source()
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+            dataset_parameters={
+                "table_name": SimpleNamespace(default_value="NA"),
+            },
+        )
+        result = source._extract_table_name(
+            dataset,
+            linked_service=None,
+            dataset_name="MyDataset",
+            activity_dataset_parameters={"table_name": "@item().TableName"},
+        )
+        assert result is None
+        assert result != "NA"
+        assert source.report.unresolved_dynamic_properties == 1
+
+    def test_pipeline_parameter_reference_deferred_without_warning(self) -> None:
+        """When execution history is enabled, a pipeline-parameter-driven
+        override defers to Layer 2 (run-history resolution) silently -
+        it isn't an error at static-resolution time."""
+        source = self._make_source()
+        source.config.include_execution_history = True
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+        )
+        result = source._extract_table_name(
+            dataset,
+            linked_service=None,
+            dataset_name="MyDataset",
+            activity_dataset_parameters={
+                "table_name": "@pipeline().parameters.TargetTable"
+            },
+        )
+        assert result is None
+        assert source.report.unresolved_dynamic_properties == 0
+
+    def test_pipeline_parameter_reference_warns_when_history_disabled(self) -> None:
+        """The same deferred case should warn when execution history is
+        disabled, since Layer 2 will never run to resolve it."""
+        source = self._make_source()
+        source.config.include_execution_history = False
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+        )
+        result = source._extract_table_name(
+            dataset,
+            linked_service=None,
+            dataset_name="MyDataset",
+            activity_dataset_parameters={
+                "table_name": "@pipeline().parameters.TargetTable"
+            },
+        )
+        assert result is None
+        assert source.report.unresolved_dynamic_properties == 1
+
+    def test_never_produces_dict_repr_garbage(self) -> None:
+        """Regression test for the reported bug: an Expression value must
+        never be blindly stringified into the URN."""
+        source = self._make_source()
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+        )
+        result = source._extract_table_name(
+            dataset, linked_service=None, dataset_name="MyDataset"
+        )
+        assert result is None
+        assert source.report.unresolved_dynamic_properties == 1
+
+    def test_resolve_dataset_urn_end_to_end_never_garbage(self) -> None:
+        """Full _resolve_dataset_urn path (dataset cache + linked service
+        cache + platform mapping) with a literal activity override
+        produces a clean URN, never dict-repr garbage."""
+        source = self._make_source()
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+            schema="dbo",
+        )
+        dataset.properties.linked_service_name = SimpleNamespace(
+            reference_name="MySqlLS"
+        )
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(type="AzureSqlDatabase")
+        )
+        source._datasets_cache = {"rg/factory": {"MyDataset": dataset}}
+        source._linked_services_cache = {"rg/factory": {"MySqlLS": linked_service}}
+        source.config.platform_instance_map = {}
+
+        urn = source._resolve_dataset_urn(
+            "MyDataset",
+            "rg/factory",
+            activity_dataset_parameters={"table_name": "Orders"},
+        )
+
+        assert urn is not None
+        assert "dbo.Orders" in str(urn)
+        assert "{'value'" not in str(urn)
+        assert "Expression" not in str(urn)
+
+    def test_resolve_dataset_urn_applies_default_database_qualification(
+        self,
+    ) -> None:
+        """Regression test: the static (no-execution-history) path must
+        fully qualify a 2-part schema.table reference using the linked
+        service's own connection-string database, the same qualification
+        already applied on the per-run query-based path. Without this,
+        static lineage - what most pipelines actually go through - stays
+        disconnected from fully-qualified dataset entities even when the
+        linked service declares a database."""
+        source = self._make_source()
+        dataset = self._make_dataset(table="Customers", schema="dbo")
+        dataset.properties.linked_service_name = SimpleNamespace(
+            reference_name="MySqlLS"
+        )
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                type="AzureSqlDatabase",
+                connection_string="Server=tcp:myserver;Initial Catalog=SourceDB;",
+            )
+        )
+        source._datasets_cache = {"rg/factory": {"MyDataset": dataset}}
+        source._linked_services_cache = {"rg/factory": {"MySqlLS": linked_service}}
+        source.config.platform_instance_map = {}
+
+        urn = source._resolve_dataset_urn("MyDataset", "rg/factory")
+
+        assert urn is not None
+        assert "SourceDB.dbo.Customers" in str(urn)
+
+    def test_resolve_dataset_urn_never_double_qualifies(self) -> None:
+        """A table reference that's already 3-part must not get a second
+        database prefix jammed onto the front of it."""
+        source = self._make_source()
+        dataset = self._make_dataset(table="SourceDB.dbo.Customers")
+        dataset.properties.linked_service_name = SimpleNamespace(
+            reference_name="MySqlLS"
+        )
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                type="AzureSqlDatabase",
+                connection_string="Server=tcp:myserver;Initial Catalog=SourceDB;",
+            )
+        )
+        source._datasets_cache = {"rg/factory": {"MyDataset": dataset}}
+        source._linked_services_cache = {"rg/factory": {"MySqlLS": linked_service}}
+        source.config.platform_instance_map = {}
+
+        urn = source._resolve_dataset_urn("MyDataset", "rg/factory")
+
+        assert urn is not None
+        assert "SourceDB.SourceDB.dbo.Customers" not in str(urn)
+        assert "SourceDB.dbo.Customers" in str(urn)
+
+    def test_extract_table_name_reads_mongodb_collection(self) -> None:
+        """MongoDB-family datasets identify their target via "collection",
+        not table/table_name - without this, MongoDB/CosmosDB Mongo API
+        lineage falls back to the generic ADF dataset name and never
+        joins to DataHub's actual MongoDB source."""
+        source = self._make_source()
+        dataset = SimpleNamespace(
+            properties=SimpleNamespace(
+                table_name=None,
+                table=None,
+                collection="orders",
+                schema_type_properties_schema=None,
+                file_name=None,
+                folder_path=None,
+                location=None,
+                parameters={},
+            )
+        )
+        result = source._extract_table_name(
+            dataset, linked_service=None, dataset_name="MyDataset"
+        )
+        assert result == "orders"
+
+    def test_data_flow_source_forwards_activity_dataset_parameters(self) -> None:
+        """Regression test: Copy/Lookup activities already forward their
+        DatasetReference.parameters into dataset resolution, but Data Flow
+        sources/sinks didn't - parameterized Data Flow lineage stayed on
+        the dataset's unresolved/default name."""
+        source = self._make_source()
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+            schema="dbo",
+        )
+        dataset.properties.linked_service_name = SimpleNamespace(
+            reference_name="MySqlLS"
+        )
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(type="AzureSqlDatabase")
+        )
+        source._datasets_cache = {"rg/factory": {"MyDataset": dataset}}
+        source._linked_services_cache = {"rg/factory": {"MySqlLS": linked_service}}
+        source._data_flows_cache = {
+            "rg/factory": {
+                "MyDataFlow": SimpleNamespace(
+                    properties=SimpleNamespace(
+                        sources=[
+                            SimpleNamespace(
+                                name="src1",
+                                dataset=SimpleNamespace(
+                                    reference_name="MyDataset",
+                                    parameters={"table_name": "Orders"},
+                                ),
+                            )
+                        ]
+                    )
+                )
+            }
+        }
+        source.config.platform_instance_map = {}
+        activity = SimpleNamespace(
+            name="RunFlow",
+            data_flow=SimpleNamespace(reference_name="MyDataFlow"),
+        )
+
+        urns = source._extract_data_flow_sources(activity, "rg/factory")
+
+        assert len(urns) == 1
+        assert "dbo.Orders" in urns[0]
+
+    def test_resolve_default_database_reads_mongodb_database(self) -> None:
+        """MongoDB v2/Atlas/CosmosDB Mongo API linked services expose the
+        database directly as "database" (already covered generically),
+        but the legacy MongoDB linked service names the same field
+        "database_name" instead."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(database_name="analytics")
+        )
+        result = source._resolve_default_database(
+            linked_service, "mongodb", "rg/factory"
+        )
+        assert result == "analytics"
+
+    def test_substitute_pipeline_run_parameters_rejects_unresolved_expression(
+        self,
+    ) -> None:
+        """Regression test: Azure sometimes records a pipeline run's
+        parameter value as literal, still-unevaluated ADF templating text
+        (e.g. "@{linkedService().someField}", observed on a live tenant)
+        rather than a resolved string - the same quirk seen on
+        preCopyScript. Substituting it blindly would reproduce the exact
+        class of garbage-URN bug this whole feature exists to fix."""
+        source = self._make_source()
+        static_params = {"table_name": "@pipeline().parameters.TargetDb"}
+        pipeline_run_parameters = {
+            "TargetDb": "@{linkedService().target_database_param}"
+        }
+
+        result = source._substitute_pipeline_run_parameters(
+            static_params, pipeline_run_parameters
+        )
+
+        assert result is None
+        assert source.report.unresolved_dynamic_properties == 1
+
+    def test_resolve_default_database_rejects_parameterized_linked_service_without_default(
+        self,
+    ) -> None:
+        """A "parameterized" linked service references its own parameter
+        directly inside the connection string (e.g. "Initial
+        Catalog=@{linkedService().someParam}", observed on a live
+        tenant), to be substituted by the integration runtime at actual
+        connection time. When that parameter has no declared default
+        value to fall back on, the literal unevaluated text must never
+        be used as a real database name."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                connection_string="Server=tcp:my-server;Initial Catalog=@{linkedService().target_database_param};"
+            )
+        )
+        result = source._resolve_default_database(linked_service, "mssql", "rg/factory")
+        assert result is None
+
+    def test_resolve_default_database_uses_linked_service_parameter_default(
+        self,
+    ) -> None:
+        """Regression test: when a "parameterized" linked service's
+        referenced parameter DOES declare a default value, that's a real
+        value from the API (mirroring how dataset parameter defaults are
+        already resolved) - it should be used to fully qualify the table
+        name, with no config-file setting required."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                connection_string="Server=tcp:my-server;Initial Catalog=@{linkedService().target_database_param};",
+                parameters={
+                    "target_database_param": SimpleNamespace(
+                        default_value="WarehouseDB"
+                    )
+                },
+            )
+        )
+        result = source._resolve_default_database(linked_service, "mssql", "rg/factory")
+        assert result == "WarehouseDB"
+
+    def test_resolve_default_database_accepts_literal_connection_string(
+        self,
+    ) -> None:
+        """Sanity check alongside the rejection test above: a genuinely
+        literal "Initial Catalog=" value must still resolve normally."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                connection_string="Server=tcp:my-server;Initial Catalog=MyRealDatabase;"
+            )
+        )
+        result = source._resolve_default_database(linked_service, "mssql", "rg/factory")
+        assert result == "MyRealDatabase"
+
+    def test_resolve_default_database_databricks_unset_by_default(self) -> None:
+        """ADF exposes no catalog field anywhere for Databricks datasets
+        or linked services, and there's no way to tell a legacy
+        hive_metastore workspace from a Unity Catalog workspace with an
+        arbitrary catalog name - guessing "hive_metastore" would often be
+        wrong, so without explicit config nothing should be assumed."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                domain="https://my-workspace.azuredatabricks.net"
+            )
+        )
+        result = source._resolve_default_database(
+            linked_service, "databricks", "rg/factory"
+        )
+        assert result is None
+
+    def test_resolve_default_database_databricks_uses_configured_catalog(self) -> None:
+        """When the operator knows their workspace's catalog, the
+        explicit config override should still be honored."""
+        source = self._make_source()
+        source.config.databricks_default_catalog = "hive_metastore"
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                domain="https://my-workspace.azuredatabricks.net"
+            )
+        )
+        result = source._resolve_default_database(
+            linked_service, "databricks", "rg/factory"
+        )
+        assert result == "hive_metastore"
+
+    def test_resolve_default_database_databricks_catalog_map_by_linked_service(
+        self,
+    ) -> None:
+        """A tenant with multiple Databricks workspaces that don't share
+        a catalog can map each linked service to its own catalog."""
+        source = self._make_source()
+        source.config.databricks_catalog_map = {
+            "MyDatabricksLS": DatabricksCatalogMapping(catalog="prod_catalog")
+        }
+        linked_service = SimpleNamespace(properties=SimpleNamespace(domain=None))
+        result = source._resolve_default_database(
+            linked_service, "databricks", "rg/factory", ls_ref_name="MyDatabricksLS"
+        )
+        assert result == "prod_catalog"
+
+    def test_resolve_default_database_databricks_catalog_map_with_metastore(
+        self,
+    ) -> None:
+        """When a metastore is also configured for the mapping, it's
+        folded ahead of the catalog as "metastore.catalog" - a single
+        opaque segment that DataHub's own URN join treats no differently
+        than a plain catalog, producing
+        metastore.catalog.schema.table overall (matching the shape
+        DataHub's own Unity Catalog source uses with
+        include_metastore enabled)."""
+        source = self._make_source()
+        source.config.databricks_catalog_map = {
+            "MyDatabricksLS": DatabricksCatalogMapping(
+                catalog="prod_catalog", metastore="prod_metastore"
+            )
+        }
+        linked_service = SimpleNamespace(properties=SimpleNamespace(domain=None))
+        result = source._resolve_default_database(
+            linked_service, "databricks", "rg/factory", ls_ref_name="MyDatabricksLS"
+        )
+        assert result == "prod_metastore.prod_catalog"
+
+    def test_resolve_default_database_databricks_catalog_map_falls_back_to_default(
+        self,
+    ) -> None:
+        """A linked service not present in the map still falls back to
+        the simpler global databricks_default_catalog, if set."""
+        source = self._make_source()
+        source.config.databricks_default_catalog = "hive_metastore"
+        source.config.databricks_catalog_map = {
+            "SomeOtherLS": DatabricksCatalogMapping(catalog="prod_catalog")
+        }
+        linked_service = SimpleNamespace(properties=SimpleNamespace(domain=None))
+        result = source._resolve_default_database(
+            linked_service, "databricks", "rg/factory", ls_ref_name="MyDatabricksLS"
+        )
+        assert result == "hive_metastore"
+
+    def test_resolve_default_database_activity_override_wins_over_linked_service_default(
+        self,
+    ) -> None:
+        """Regression test: a dataset shared across many pipelines can
+        forward its own "database_name" parameter to the linked
+        service's parameterized connection string. When the calling
+        activity supplies a literal override for that dataset parameter,
+        it must win over the linked service's own (unrelated, generic)
+        declared default - observed on a live tenant where the same
+        dataset/linked-service pair is reused with a different literal
+        database name per pipeline."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                connection_string="Initial Catalog=@{linkedService().db_param};",
+                parameters={
+                    "db_param": SimpleNamespace(default_value="GenericDefaultDb")
+                },
+            )
+        )
+        dataset = SimpleNamespace(
+            properties=SimpleNamespace(
+                linked_service_name=SimpleNamespace(
+                    parameters={
+                        "db_param": {
+                            "value": "@dataset().database_name",
+                            "type": "Expression",
+                        }
+                    }
+                ),
+                parameters={"database_name": SimpleNamespace(default_value=None)},
+            )
+        )
+        result = source._resolve_default_database(
+            linked_service,
+            "mssql",
+            "rg/factory",
+            dataset=dataset,
+            activity_dataset_parameters={"database_name": "RealTargetDb"},
+        )
+        assert result == "RealTargetDb"
+
+    def test_resolve_default_database_dataset_default_wins_when_no_activity_override(
+        self,
+    ) -> None:
+        """When the calling activity doesn't override the forwarded
+        parameter, the dataset's own declared default applies - not the
+        unrelated linked service default."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                connection_string="Initial Catalog=@{linkedService().db_param};",
+                parameters={
+                    "db_param": SimpleNamespace(default_value="GenericDefaultDb")
+                },
+            )
+        )
+        dataset = SimpleNamespace(
+            properties=SimpleNamespace(
+                linked_service_name=SimpleNamespace(
+                    parameters={
+                        "db_param": {
+                            "value": "@dataset().database_name",
+                            "type": "Expression",
+                        }
+                    }
+                ),
+                parameters={
+                    "database_name": SimpleNamespace(
+                        default_value="DatasetOwnDefaultDb"
+                    )
+                },
+            )
+        )
+        result = source._resolve_default_database(
+            linked_service,
+            "mssql",
+            "rg/factory",
+            dataset=dataset,
+            activity_dataset_parameters=None,
+        )
+        assert result == "DatasetOwnDefaultDb"
+
+    def test_resolve_default_database_falls_back_to_linked_service_default_when_dataset_does_not_forward(
+        self,
+    ) -> None:
+        """When the dataset doesn't override the linked service's
+        parameter at all, the linked service's own default is what
+        actually applies at connection time - the pre-existing
+        behavior."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                connection_string="Initial Catalog=@{linkedService().db_param};",
+                parameters={
+                    "db_param": SimpleNamespace(default_value="GenericDefaultDb")
+                },
+            )
+        )
+        dataset = SimpleNamespace(
+            properties=SimpleNamespace(
+                linked_service_name=SimpleNamespace(parameters={}),
+                parameters={},
+            )
+        )
+        result = source._resolve_default_database(
+            linked_service, "mssql", "rg/factory", dataset=dataset
+        )
+        assert result == "GenericDefaultDb"
+
+    def test_resolve_default_database_unresolved_does_not_fall_back_once_dataset_overrides(
+        self,
+    ) -> None:
+        """When the dataset DOES forward the parameter but neither the
+        activity nor the dataset's own default resolves it, the linked
+        service's separate default must not be used as a guess - it may
+        not even apply once the dataset explicitly overrides it."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                connection_string="Initial Catalog=@{linkedService().db_param};",
+                parameters={
+                    "db_param": SimpleNamespace(default_value="GenericDefaultDb")
+                },
+            )
+        )
+        dataset = SimpleNamespace(
+            properties=SimpleNamespace(
+                linked_service_name=SimpleNamespace(
+                    parameters={
+                        "db_param": {
+                            "value": "@dataset().database_name",
+                            "type": "Expression",
+                        }
+                    }
+                ),
+                parameters={"database_name": SimpleNamespace(default_value=None)},
+            )
+        )
+        result = source._resolve_default_database(
+            linked_service,
+            "mssql",
+            "rg/factory",
+            dataset=dataset,
+            activity_dataset_parameters=None,
+        )
+        assert result is None
+
+    def test_resolve_default_database_standalone_database_field(self) -> None:
+        """MySQL/PostgreSQL expose a standalone "database" typeProperty
+        rather than embedding it in a connection string - a literal
+        value there should resolve directly."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(connection_string=None, database="MyRealDb")
+        )
+        result = source._resolve_default_database(linked_service, "mysql", "rg/factory")
+        assert result == "MyRealDb"
+
+    def test_resolve_default_database_oracle_service_name_heuristic(self) -> None:
+        """Oracle exposes no database/catalog field at all - its identity
+        is baked into a free-form "server" connect string, conventionally
+        built from a linked service parameter with "service" in its
+        name."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                connection_string=None,
+                database=None,
+                server="@{concat(linkedService().host_name,':',linkedService().port,'/',linkedService().service_name)}",
+                parameters={
+                    "service_name": SimpleNamespace(default_value="MyOracleService")
+                },
+            )
+        )
+        result = source._resolve_default_database(
+            linked_service, "oracle", "rg/factory"
+        )
+        assert result == "MyOracleService"
+
+    def test_resolve_literal_or_global_parameter_resolves_global_reference(
+        self,
+    ) -> None:
+        """A factory-level global parameter (e.g.
+        "@pipeline().globalParameters.databricks_workspace_url") is a
+        tenant-wide literal constant - always resolvable without any
+        pipeline run history, unlike a pipeline parameter."""
+        source = self._make_source()
+        source._global_parameters_cache["rg/factory"] = {
+            "workspace_url": "https://adb-1234567890123456.4.azuredatabricks.net/"
+        }
+        result = source._resolve_literal_or_global_parameter(
+            "@pipeline().globalParameters.workspace_url", "rg/factory"
+        )
+        assert result == "https://adb-1234567890123456.4.azuredatabricks.net/"
+
+    def test_resolve_literal_or_global_parameter_unknown_global_returns_none(
+        self,
+    ) -> None:
+        """A global parameter reference to a name the factory doesn't
+        actually declare must not be treated as resolved."""
+        source = self._make_source()
+        source._global_parameters_cache["rg/factory"] = {}
+        result = source._resolve_literal_or_global_parameter(
+            "@pipeline().globalParameters.unknown_param", "rg/factory"
+        )
+        assert result is None
+
+    def test_derive_databricks_platform_instance_from_literal_domain(self) -> None:
+        """The workspace instance ID (e.g. "adb-1234567890123456") is the
+        first dot-separated label of the workspace URL's host - matching
+        exactly how DataHub's own Unity Catalog source derives its
+        platform_instance from workspace_url."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                domain="https://adb-1234567890123456.4.azuredatabricks.net/"
+            )
+        )
+        result = source._derive_databricks_platform_instance(
+            linked_service, "rg/factory"
+        )
+        assert result == "adb-1234567890123456"
+
+    def test_derive_databricks_platform_instance_via_linked_service_default(
+        self,
+    ) -> None:
+        """A "parameterized" linked service's domain
+        ("@{linkedService().dbx_domain}") resolves via its own declared
+        parameter default, the same chain used for database names."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                domain="@{linkedService().dbx_domain}",
+                parameters={
+                    "dbx_domain": SimpleNamespace(
+                        default_value="https://adb-1234567890123456.4.azuredatabricks.net/"
+                    )
+                },
+            )
+        )
+        result = source._derive_databricks_platform_instance(
+            linked_service, "rg/factory"
+        )
+        assert result == "adb-1234567890123456"
+
+    def test_derive_databricks_platform_instance_via_activity_global_parameter(
+        self,
+    ) -> None:
+        """Regression test: an activity commonly overrides a dataset's
+        domain-forwarding parameter with a reference to a factory-level
+        global parameter (e.g.
+        "@pipeline().globalParameters.databricks_workspace_url") rather
+        than a literal - this must resolve just as well as a literal
+        override, since global parameters are tenant-wide constants
+        available without any run history."""
+        source = self._make_source()
+        source._global_parameters_cache["rg/factory"] = {
+            "databricks_workspace_url": "https://adb-1234567890123456.4.azuredatabricks.net/"
+        }
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                domain="@{linkedService().dbx_domain}",
+                parameters={
+                    "dbx_domain": SimpleNamespace(
+                        default_value="https://adb-9999999999999999.18.azuredatabricks.net/"
+                    )
+                },
+            )
+        )
+        dataset = SimpleNamespace(
+            properties=SimpleNamespace(
+                linked_service_name=SimpleNamespace(
+                    parameters={
+                        "dbx_domain": {
+                            "value": "@dataset().workspace_url",
+                            "type": "Expression",
+                        }
+                    }
+                ),
+                parameters={"workspace_url": SimpleNamespace(default_value=None)},
+            )
+        )
+        result = source._derive_databricks_platform_instance(
+            linked_service,
+            "rg/factory",
+            dataset=dataset,
+            activity_dataset_parameters={
+                "workspace_url": {
+                    "value": "@pipeline().globalParameters.databricks_workspace_url",
+                    "type": "Expression",
+                }
+            },
+        )
+        assert result == "adb-1234567890123456"
+
+    def test_derive_databricks_platform_instance_unresolvable_returns_none(
+        self,
+    ) -> None:
+        """No default anywhere and no global parameter match - must not
+        guess, just leave platform_instance unset."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                domain="@{linkedService().dbx_domain}",
+                parameters={"dbx_domain": SimpleNamespace(default_value=None)},
+            )
+        )
+        result = source._derive_databricks_platform_instance(
+            linked_service, "rg/factory"
+        )
+        assert result is None
+
+    def test_substitute_pipeline_run_parameters_accepts_resolved_value(
+        self,
+    ) -> None:
+        """Sanity check alongside the rejection test above: a genuinely
+        resolved pipeline parameter value must still substitute normally."""
+        source = self._make_source()
+        static_params = {"table_name": "@pipeline().parameters.TargetDb"}
+        pipeline_run_parameters = {"TargetDb": "Orders"}
+
+        result = source._substitute_pipeline_run_parameters(
+            static_params, pipeline_run_parameters
+        )
+
+        assert result == {"table_name": "Orders"}
+
+    def test_get_activity_translator_config_from_sdk_object_attribute(self) -> None:
+        """An SDK-typed translator object (exposing as_dict(), rather
+        than already being a plain dict) counts as present too - the
+        shape adf_source.py's column-lineage skip-check needs to
+        recognize, on top of the dict/typeProperties shapes already
+        covered by TestCopyActivityColumnLineageExtractor."""
+        translator_obj = SimpleNamespace(
+            as_dict=lambda: {"type": "TabularTranslator", "columnMappings": {}}
+        )
+        activity = SimpleNamespace(translator=translator_obj, type_properties={})
+        result = get_activity_translator_config(activity)
+        assert result == {"type": "TabularTranslator", "columnMappings": {}}
 
 
 class TestFilePathExtractionLogic:
@@ -923,3 +1912,144 @@ class TestFineGrainedLineageOutput:
 
         assert len(lineages) == 1
         assert lineages[0].downstreamType == FineGrainedLineageDownstreamTypeClass.FIELD
+
+
+class TestSimpleSelectStarDetection:
+    """Tests for _is_simple_select_star - the gate that decides whether
+    a query is unambiguously "copy this whole table", the one shape
+    where falling back to a DataHub-graph schema lookup is safe."""
+
+    def _make_source(self) -> AzureDataFactorySource:
+        source = object.__new__(AzureDataFactorySource)
+        source.report = AzureDataFactorySourceReport()
+        return source
+
+    def test_simple_select_star_detected(self) -> None:
+        source = self._make_source()
+        assert source._is_simple_select_star("SELECT * FROM my_table", "mssql")
+
+    def test_select_star_with_join_rejected(self) -> None:
+        """A join means the result set isn't just "all of one table's
+        columns" - must not be treated as a safe whole-table copy."""
+        source = self._make_source()
+        query = "SELECT * FROM a JOIN b ON a.id = b.id"
+        assert not source._is_simple_select_star(query, "mssql")
+
+    def test_explicit_column_list_rejected(self) -> None:
+        source = self._make_source()
+        assert not source._is_simple_select_star(
+            "SELECT id, name FROM my_table", "mssql"
+        )
+
+    def test_malformed_sql_rejected(self) -> None:
+        source = self._make_source()
+        assert not source._is_simple_select_star("NOT VALID SQL {{{", "mssql")
+
+
+class TestGraphSchemaColumnLineageFallback:
+    """Tests for resolving column lineage from DataHub's own knowledge of
+    a source table's schema, when a dynamic "SELECT *" query gives the
+    connector no column list of its own to work from."""
+
+    def _make_source(self, graph: Optional[Any]) -> AzureDataFactorySource:
+        source = object.__new__(AzureDataFactorySource)
+        source.report = AzureDataFactorySourceReport()
+        source.ctx = PipelineContext(run_id="test", graph=graph)
+        source._graph_schema_cache = {}
+        return source
+
+    def _schema_metadata(self, columns: list) -> SchemaMetadataClass:
+        return SchemaMetadataClass(
+            schemaName="test",
+            platform="urn:li:dataPlatform:mssql",
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=[
+                SchemaFieldClass(
+                    fieldPath=col,
+                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                    nativeDataType="varchar",
+                )
+                for col in columns
+            ],
+        )
+
+    def test_resolves_schema_and_builds_same_name_mappings(self) -> None:
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.orders,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)"
+
+        mock_graph = MagicMock()
+        mock_graph.get_schema_metadata.return_value = self._schema_metadata(
+            ["id", "customer_name"]
+        )
+        source = self._make_source(graph=mock_graph)
+
+        mappings = source._infer_column_lineage_from_graph_schema(source_urn, sink_urn)
+
+        assert set(mappings) == {
+            (
+                (f"urn:li:schemaField:({source_urn},id)",),
+                f"urn:li:schemaField:({sink_urn},id)",
+            ),
+            (
+                (f"urn:li:schemaField:({source_urn},customer_name)",),
+                f"urn:li:schemaField:({sink_urn},customer_name)",
+            ),
+        }
+        mock_graph.get_schema_metadata.assert_called_once_with(source_urn)
+
+    def test_caches_schema_lookup_across_calls(self) -> None:
+        """The same source table is often referenced by many activity
+        runs - the graph should only be queried once for it."""
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.orders,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)"
+
+        mock_graph = MagicMock()
+        mock_graph.get_schema_metadata.return_value = self._schema_metadata(["id"])
+        source = self._make_source(graph=mock_graph)
+
+        source._infer_column_lineage_from_graph_schema(source_urn, sink_urn)
+        source._infer_column_lineage_from_graph_schema(source_urn, sink_urn)
+
+        mock_graph.get_schema_metadata.assert_called_once_with(source_urn)
+
+    def test_no_graph_configured_returns_empty_without_error(self) -> None:
+        """A file sink (or any recipe without datahub_api/datahub-rest)
+        leaves ctx.graph unset - the fallback must degrade gracefully,
+        not crash."""
+        source = self._make_source(graph=None)
+
+        mappings = source._infer_column_lineage_from_graph_schema(
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,t,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,t,PROD)",
+        )
+
+        assert mappings == []
+
+    def test_graph_lookup_failure_returns_empty_without_error(self) -> None:
+        """The table might genuinely not exist in DataHub yet, or GMS
+        might be transiently unavailable - either way, this is an
+        optional enrichment, not a hard dependency."""
+        mock_graph = MagicMock()
+        mock_graph.get_schema_metadata.side_effect = Exception("GMS unavailable")
+        source = self._make_source(graph=mock_graph)
+
+        mappings = source._infer_column_lineage_from_graph_schema(
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,t,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,t,PROD)",
+        )
+
+        assert mappings == []
+
+    def test_schema_with_no_fields_returns_empty(self) -> None:
+        mock_graph = MagicMock()
+        mock_graph.get_schema_metadata.return_value = self._schema_metadata([])
+        source = self._make_source(graph=mock_graph)
+
+        mappings = source._infer_column_lineage_from_graph_schema(
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,t,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,t,PROD)",
+        )
+
+        assert mappings == []

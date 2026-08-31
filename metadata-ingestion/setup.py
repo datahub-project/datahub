@@ -418,6 +418,7 @@ abs_base = {
 azure_data_factory = {
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
+    *sqlglot_lib,
 }
 
 file_profiling = {
