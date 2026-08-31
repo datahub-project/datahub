@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.dashboard;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.isViewDatasetUsageAuthorized;
 import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsUtils.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DashboardUsageAggregation;
@@ -51,6 +53,9 @@ public class DashboardUsageStatsResolver
       throws Exception {
     final QueryContext context = environment.getContext();
     final String dashboardUrn = ((Entity) environment.getSource()).getUrn();
+    if (!isViewDatasetUsageAuthorized(context, UrnUtils.getUrn(dashboardUrn))) {
+      return CompletableFuture.completedFuture(new DashboardUsageQueryResult());
+    }
     final Long maybeStartTimeMillis = environment.getArgumentOrDefault("startTimeMillis", null);
     final Long maybeEndTimeMillis = environment.getArgumentOrDefault("endTimeMillis", null);
     // Max number of aspects to return for absolute dashboard usage.

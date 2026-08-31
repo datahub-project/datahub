@@ -41,6 +41,7 @@ import io.datahubproject.metadata.context.ActorContext;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -437,10 +438,14 @@ public class EntityRelationshipsResultResolver
     if (relatedEntityTypes == null || relatedEntityTypes.isEmpty()) {
       return relationships;
     }
+    Set<String> normalizedTypes =
+        relatedEntityTypes.stream()
+            .map(type -> type.toLowerCase(Locale.ROOT))
+            .collect(Collectors.toSet());
     return relationships.stream()
         .filter(
             rel ->
-                relatedEntityTypes.contains(
+                normalizedTypes.contains(
                     rel.getEntity().getEntityType().toLowerCase(Locale.ROOT)))
         .collect(Collectors.toList());
   }
@@ -624,7 +629,10 @@ public class EntityRelationshipsResultResolver
                 rel ->
                     (existentUrns == null || existentUrns.contains(rel.getEntity()))
                         && (relatedEntityTypes == null
-                            || relatedEntityTypes.contains(rel.getEntity().getEntityType()))
+                            || relatedEntityTypes.stream()
+                                .anyMatch(
+                                    type ->
+                                        type.equalsIgnoreCase(rel.getEntity().getEntityType())))
                         && (context == null
                             || canView(context.getOperationContext(), rel.getEntity())))
             .collect(Collectors.toList());
