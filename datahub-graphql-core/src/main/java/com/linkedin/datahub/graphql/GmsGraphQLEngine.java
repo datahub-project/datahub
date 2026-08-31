@@ -1463,7 +1463,8 @@ public class GmsGraphQLEngine {
               .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(this.groupService))
               .dataFetcher("createGroup", new CreateGroupResolver(this.groupService))
               .dataFetcher("removeUser", new RemoveUserResolver(this.entityClient))
-              .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
+              .dataFetcher(
+                  "removeGroup", new RemoveGroupResolver(this.entityClient, this.groupService))
               .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
               .dataFetcher(
                   "createDomain", new CreateDomainResolver(this.entityClient, this.entityService))
