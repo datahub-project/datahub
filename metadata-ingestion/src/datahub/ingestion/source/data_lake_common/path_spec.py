@@ -20,7 +20,14 @@ from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
-SUPPORTED_FILE_TYPES: List[str] = ["csv", "tsv", "json", "parquet", "avro"]
+SUPPORTED_FILE_TYPES: List[str] = [
+    "csv",
+    "tsv",
+    "json",
+    "jsonl",
+    "parquet",
+    "avro",
+]
 
 # These come from the smart_open library.
 SUPPORTED_COMPRESSIONS: List[str] = [
