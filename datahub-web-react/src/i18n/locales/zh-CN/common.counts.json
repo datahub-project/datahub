@@ -1,0 +1,9 @@
+{
+    "columnCount_other": "{{count}} 列",
+    "matchCount_other": "{{count}} 个匹配项",
+    "ownerCount_other": "{{count}} 位 Owner",
+    "queryCount_other": "{{count}} 条查询",
+    "rowCount_other": "{{count}} 行",
+    "tagCount_other": "{{count}} 个 Tag",
+    "termCount_other": "{{count}} 个术语"
+}

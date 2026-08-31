@@ -1,0 +1,15 @@
+{
+    "failAssertions": "查看失败的 Assertion →",
+    "failChecks": "查看失败的检查 →",
+    "failIncidents": "查看活跃的 Incident →",
+    "passAssertions": "所有 Assertion 均已通过",
+    "passChecks": "所有检查均已通过",
+    "passIncidents": "无活跃的 Incident",
+    "summaryHealthy": "此资产状态良好",
+    "summaryUnhealthy": "此资产可能存在异常",
+    "typeAssertions": "Assertion",
+    "typeIncidents": "Incident",
+    "typeTests": "测试",
+    "warnAssertions": "部分 Assertion 存在问题。",
+    "warnChecks": "部分检查存在问题。"
+}
