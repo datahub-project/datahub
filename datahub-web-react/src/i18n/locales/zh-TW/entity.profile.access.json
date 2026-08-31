@@ -1,0 +1,11 @@
+{
+    "accessManagement.accessAlreadyGranted": "已授予存取權",
+    "accessManagement.accessGrantedTooltip": "您已擁有此角色的存取權",
+    "accessManagement.columnAccess": "存取",
+    "accessManagement.columnAccessType": "存取類型",
+    "accessManagement.columnRoleName": "角色名稱",
+    "accessManagement.granted": "已授予",
+    "accessManagement.request": "申請",
+    "accessManagement.requestAccess": "申請存取權",
+    "accessManagement.tableAriaLabel": "存取管理角色表格"
+}

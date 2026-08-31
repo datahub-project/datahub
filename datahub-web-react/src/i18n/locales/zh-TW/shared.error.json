@@ -1,0 +1,11 @@
+{
+    "boundary.onPremActionMessage": "請將瀏覽器顯示的錯誤訊息回報給您的 DataHub 管理員",
+    "bulkEditUnauthorized": "您的批次編輯選取範圍包含您無權更新的實體，此次批次編輯將不會儲存。",
+    "fallback.defaultMessage": "我們的團隊已收到此非預期錯誤的通知，正在著手處理。",
+    "fallback.subtitle": "發生了一些非預期的狀況。",
+    "fallback.title": "糟糕！",
+    "section.description": "發生非預期的錯誤。請稍後再試，或與您的管理員聯絡",
+    "section.needSupport": "<bold>需要協助嗎？</bold>請參考以下資源：",
+    "section.title": "發生錯誤。",
+    "unauthorized": "未獲授權。請聯絡您的 DataHub 管理員。"
+}
