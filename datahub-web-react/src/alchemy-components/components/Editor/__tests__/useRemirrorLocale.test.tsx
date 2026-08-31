@@ -1,4 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
+import { i18n as remirrorI18n } from '@remirror/i18n';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
@@ -71,5 +72,16 @@ describe('Remirror editor localization', () => {
         await renderEditor('zh-CN');
 
         expect(await tooltipFor('command-toggleBold-btn')).toBe('加粗');
+    });
+
+    // Lingui keys plural rules by language only (`pt`, `zh`), so a region-tagged locale has to
+    // fall back to its primary subtag. Without that, every plural resolves to the `other` branch
+    // and the table row counter reads "1 linhas".
+    it('applies primary-subtag plural rules to a region-tagged locale', async () => {
+        await renderEditor('pt-BR');
+
+        await waitFor(() => expect(remirrorI18n.locale).toBe('pt-BR'));
+        expect(remirrorI18n._({ id: 'extension.table.row_count', values: { count: 1 } })).toBe('1 linha');
+        expect(remirrorI18n._({ id: 'extension.table.row_count', values: { count: 3 } })).toBe('3 linhas');
     });
 });
