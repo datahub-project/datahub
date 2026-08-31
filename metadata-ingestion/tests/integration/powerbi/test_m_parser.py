@@ -2957,3 +2957,47 @@ def test_one_query_referenced_in_two_casings_is_reported_once():
     assert combine_upstreams_from_lineage(lineages) == []
     assert _warning_titles(reporter) == [shared_expressions.StopReason.NO_LET.title]
     assert reporter.m_query_referenced_query_not_followed == 1
+
+
+@pytest.mark.integration
+def test_an_unexpected_error_parsing_a_referenced_query_is_reported_not_raised():
+    """`parsed()` catches only parse, bridge and timeout failures, so anything else
+    is a defect and propagates out of it. It does not leave get_upstream_tables:
+    the pre-existing broad handler there catches it, so one bad table does not end
+    the ingestion. Pinned because the title it reports under is a diagnosis
+    ("Unknown M-Query Pattern") that is wrong for a defect -- narrowing that
+    handler is a change worth making deliberately, and this test will say so."""
+    referenced = (
+        'let S = Sql.Database("s","d"), t = S{[Schema="a",Item="b"]}[Data] in t'
+    )
+    real = parser._parse_with_bridge
+
+    def boom(expression: str, timeout: int) -> Dict[int, dict]:
+        if expression == referenced:
+            raise ValueError("a defect, not bad input")
+        return real(expression, timeout)
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    with patch.object(parser, "_parse_with_bridge", side_effect=boom):
+        lineages = parser.get_upstream_tables(
+            powerbi_data_classes.Table(
+                columns=[],
+                measures=[],
+                expression='let Source = #"Slow" in Source',
+                name="loaded",
+                full_name="MyDataSet.loaded",
+            ),
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+            expressions={"Slow": referenced},
+        )
+
+    assert lineages == []
+    assert reporter.m_query_resolver_errors == 1
+    assert "Unknown M-Query Pattern" in _warning_titles(reporter)
