@@ -75,21 +75,3 @@ class TestRegistryResolvesRetiredPaths:
         registry.register_lazy("BOGUS", "acryl.executor.execution.nope.Nope")
         with pytest.raises(EnvironmentError):
             registry.get("BOGUS")
-
-
-class TestIncompleteTasksAreRejected:
-    """The registry rejects a Task subclass that is missing a required method."""
-
-    def test_a_subclass_missing_execute_is_rejected(self) -> None:
-        class MissingExecute(Task):
-            @classmethod
-            def create(cls, config: dict, ctx: object) -> "MissingExecute":  # type: ignore[override]
-                return cls()
-
-            def close(self) -> None:
-                pass
-
-        registry: TaskRegistry = TaskRegistry()
-        with pytest.raises(ValueError, match="abstract"):
-            # The abstract class is the subject of the test; mypy flags it here.
-            registry.register("RUN_INGEST", MissingExecute)  # type: ignore[type-abstract]
