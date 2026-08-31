@@ -2870,7 +2870,7 @@
       "classname": "datahub.ingestion.source.montecarlo.source.MonteCarloSource",
       "platform_id": "montecarlo",
       "platform_name": "Monte Carlo",
-      "support_status": "TESTING"
+      "support_status": "ALPHA"
     },
     "mssql": {
       "capabilities": [
