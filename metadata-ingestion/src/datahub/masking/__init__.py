@@ -10,10 +10,14 @@ __all__ = [
     "SecretRegistry",
     "is_masking_enabled",
     "initialize_secret_masking",
+    "shutdown_secret_masking",
     "get_masking_safe_logger",
 ]
 
-from datahub.masking.bootstrap import initialize_secret_masking
+from datahub.masking.bootstrap import (
+    initialize_secret_masking,
+    shutdown_secret_masking,
+)
 from datahub.masking.logging_utils import get_masking_safe_logger
 from datahub.masking.masking_filter import (
     SecretMaskingFilter,

@@ -1,39 +1,100 @@
-"""
-Logging filter for masking secrets in log messages and streams.
+"""Logging filter that masks registered secrets in log records and streams."""
 
-This module provides a Python logging.Filter that automatically masks
-registered secrets in all log output. Secrets are replaced with
-***REDACTED:VARIABLE_NAME*** for debugging while preventing leaks.
-
-Key Features:
-- Automatic masking of messages, arguments, and exceptions
-- Deferred pattern rebuild (only during masking, not registration)
-- Circuit breaker for graceful degradation
-- Message truncation (5KB default) for performance
-- Stream wrappers for stdout/stderr coverage
-
-Performance:
-- Pattern rebuilt only when needed during masking operations
-- Lock-free masking with COW snapshots
-- Truncation before masking avoids regex on huge strings
-- Performance warnings at 100/500 secrets
-"""
-
+import io
 import logging
 import re
 import sys
 import threading
-from typing import Any, Dict, Optional, TextIO, Tuple
+import uuid
+from typing import Any, Dict, Iterable, List, Optional, TextIO, Tuple
 
+from datahub.masking.constants import REDACTED_FORMAT
 from datahub.masking.logging_utils import get_masking_safe_logger
 from datahub.masking.secret_registry import SecretRegistry
 
 logger = get_masking_safe_logger(__name__)
 
-# Constants
-REDACTED_FORMAT = "***REDACTED:{name}***"
+REDACTED_MASKING_NAMESPACE = "datahub.masking."
 MASKING_ERROR_MESSAGE = "[MASKING_ERROR - OUTPUT_SUPPRESSED_FOR_SECURITY]"
-CIRCUIT_OPEN_MESSAGE = "[REDACTED: Masking Circuit Open]"
+
+# Derive the marker prefix/suffix from REDACTED_FORMAT so the generic
+# fallback regex tracks the constant, not a hardcoded copy.
+_MARKER_PREFIX = REDACTED_FORMAT.split("{", 1)[0]
+_MARKER_SUFFIX = REDACTED_FORMAT.rsplit("}", 1)[1]
+_GENERIC_MARKER_RE = (
+    re.escape(_MARKER_PREFIX) + r"[^*]{0,256}?" + re.escape(_MARKER_SUFFIX)
+)
+
+# Idempotency token stamped onto records after masking. A random string
+# (not object()) so structured formatters that serialize record.__dict__ emit
+# a valid line; compared by value so the guard survives cross-thread
+# QueueHandler/QueueListener within a process. Randomness prevents forging
+# extra={'_datahub_masked': ...} to disable masking for a record.
+_MASKED = f"_datahub_masked_{uuid.uuid4().hex}"
+
+# LogRecord standard attributes. Extras (extra={...}) are everything not in
+# this set; we mask those recursively. _datahub_masked is included so the
+# extras loop skips the idempotency token.
+_STANDARD_RECORD_ATTRS = frozenset(
+    {
+        "name",
+        "msg",
+        "args",
+        "levelname",
+        "levelno",
+        "pathname",
+        "filename",
+        "module",
+        "exc_info",
+        "exc_text",
+        "stack_info",
+        "lineno",
+        "funcName",
+        "created",
+        "msecs",
+        "relativeCreated",
+        "thread",
+        "threadName",
+        "process",
+        "processName",
+        "taskName",
+        "message",
+        "asctime",
+        "_datahub_masked",
+    }
+)
+
+# The single installed filter instance. The addHandler wrap reads this; when
+# None (disarmed) the wrap is inert.
+_installed_filter: Optional["SecretMaskingFilter"] = None
+
+# Whether the addHandler wrap has been installed. Installed once at first
+# install_masking_filter call and never removed.
+_addhandler_wrap_installed = False
+_original_add_handler = logging.Logger.addHandler
+
+
+def _is_masking_namespace_name(name: str) -> bool:
+    """True for loggers in the masking framework's own namespace."""
+    return name == "datahub.masking" or name.startswith(REDACTED_MASKING_NAMESPACE)
+
+
+def _patched_add_handler(self: logging.Logger, hdlr: logging.Handler) -> None:
+    # Call the original first so the handler is attached even if masking
+    # is not armed; then attach the shared filter if it is.
+    _original_add_handler(self, hdlr)
+    f = _installed_filter
+    if f is not None and f not in hdlr.filters:
+        hdlr.addFilter(f)
+
+
+def _install_addhandler_wrap() -> None:
+    """Install the Logger.addHandler wrap once. Idempotent."""
+    global _addhandler_wrap_installed
+    if _addhandler_wrap_installed:
+        return
+    logging.Logger.addHandler = _patched_add_handler  # type: ignore[assignment]
+    _addhandler_wrap_installed = True
 
 
 class SecretMaskingFilter(logging.Filter):
@@ -43,453 +104,460 @@ class SecretMaskingFilter(logging.Filter):
         self,
         secret_registry: Optional[SecretRegistry] = None,
         max_message_size: int = 5000,
-    ):
-        """Initialize the masking filter."""
+    ) -> None:
         super().__init__()
-
         self._registry = secret_registry or SecretRegistry.get_instance()
         self._max_message_size = max_message_size
-
-        # Thread safety: RLock for pattern access
-        self._pattern_lock = threading.RLock()
-
-        # Pattern state (immutable references - copy-on-write)
+        self._pattern_lock = threading.Lock()
         self._pattern: Optional[re.Pattern] = None
         self._replacements: Dict[str, str] = {}
         self._last_version: int = 0
+        # max(longest expanded value, longest exact marker). The marker term
+        # stays even after markers are deduped per name; dropping it would
+        # narrow the pre-cut and let a cut land inside a marker.
+        self._longest_pattern_length: int = 0
+        self._rebuild_warned = False
+        self._build_failure_warned = False
 
-        # Circuit breaker to prevent cascading failures
-        self._failure_count = 0
-        self._max_failures = 10
-        self._circuit_open = False
+    # --- Pattern cache ----------------------------------------------------
 
-    def _check_and_rebuild_pattern(self) -> None:
-        """Check if pattern needs rebuilding and rebuild if necessary."""
-        MAX_REBUILD_ATTEMPTS = 10  # Prevent infinite loops
+    def _build_pattern(
+        self, expanded: Dict[str, str]
+    ) -> Tuple[re.Pattern, Dict[str, str], int]:
+        """Compile the masking pattern from expanded keys -> names.
 
-        # Track last successfully built pattern for emergency fallback
-        last_built_pattern: Optional[re.Pattern] = None
-        last_built_replacements: Dict[str, str] = {}
-        last_built_version: int = 0
+        Ordering is load-bearing: marker alternatives first, then values
+        longest-first, then the generic marker fallback. With first-match
+        alternation, a short secret that is a prefix of a longer one would
+        win at the same position if listed first, leaking the longer secret's
+        tail. Markers first makes mask_text idempotent on already-masked text
+        (the marker alternative wins and passes through untouched). The
+        generic fallback protects dropped-execution markers whose names are
+        gone from the registry.
+        """
+        # Per-name markers (deduplicated): expanded keys share a name, so
+        # per-key markers would multiply the alternation ~4x for nothing.
+        names = list(dict.fromkeys(expanded.values()))
+        marker_alts = [
+            f"(?P<m{i}>{re.escape(REDACTED_FORMAT.format(name=n))})"
+            for i, n in enumerate(names)
+        ]
+        # Value alternatives longest-first; re.escape ensures metacharacters
+        # are matched literally.
+        sorted_items = sorted(expanded.items(), key=lambda x: len(x[0]), reverse=True)
+        value_alts = [
+            f"(?P<v{i}>{re.escape(v)})" for i, (v, _) in enumerate(sorted_items)
+        ]
+        generic = [rf"(?P<g>{_GENERIC_MARKER_RE})"]
+        pattern_str = "|".join(marker_alts + value_alts + generic)
+        new_pattern = re.compile(pattern_str)
+        new_replacements = {v: n for v, n in sorted_items}
+        longest_value = len(sorted_items[0][0]) if sorted_items else 0
+        longest_marker = max(
+            (len(REDACTED_FORMAT.format(name=n)) for n in names),
+            default=0,
+        )
+        new_longest = max(longest_value, longest_marker)
+        return new_pattern, new_replacements, new_longest
 
-        for attempt in range(MAX_REBUILD_ATTEMPTS):
-            # Quick check WITHOUT lock (fast path)
-            current_version = self._registry.get_version()
+    def _replace_match(self, match: re.Match, replacements: Dict[str, str]) -> str:
+        # Dispatch on which alternative won (lastgroup), not the matched
+        # text: a marker-shaped value is the same string as its marker, so
+        # text-based dispatch would oscillate.
+        last = match.lastgroup
+        if last is not None and not last.startswith("v"):
+            return match.group(0)
+        return REDACTED_FORMAT.format(name=replacements.get(match.group(0), "UNKNOWN"))
 
-            with self._pattern_lock:
-                if current_version == self._last_version:
-                    return  # Pattern is up to date
+    def _get_pattern(
+        self,
+    ) -> Tuple[Optional[re.Pattern], Dict[str, str], int, bool]:
+        """Return (pattern, replacements, longest, ok).
 
-            # Build pattern OUTSIDE lock (expensive operations)
-            secrets = self._registry.get_all_secrets()
-
-            if not secrets:
-                with self._pattern_lock:
-                    self._pattern = None
-                    self._replacements = {}
-                    self._last_version = current_version
-                return
-
-            # Sort by length (longest first) - NOT under lock
-            sorted_secrets = sorted(
-                secrets.items(), key=lambda x: len(x[0]), reverse=True
-            )
-
-            # Build pattern - NOT under lock
-            # CRITICAL: re.escape() ensures secrets with regex metacharacters
-            # (e.g., ".*", "a+b", "test|prod") are matched literally, not as regex
-            escaped_values = [re.escape(value) for value, _ in sorted_secrets]
-            pattern_str = "|".join(escaped_values)
-
-            # Compile regex - NOT under lock (this is the expensive part!)
-            try:
-                new_pattern = re.compile(pattern_str)
-                new_replacements = {value: name for value, name in sorted_secrets}
-
-                # Save this for emergency fallback
-                last_built_pattern = new_pattern
-                last_built_replacements = new_replacements
-                last_built_version = current_version
-            except Exception as e:
-                logger.error(f"Failed to compile masking pattern: {e}")
-                return  # Keep using old pattern
-
-            # Warn about performance impact with large secret counts
-            secret_count = len(secrets)
-            if secret_count > 500:
-                logger.warning(
-                    f"Very large secret count ({secret_count})! "
-                    f"This may impact masking performance. "
-                    f"Consider using Aho-Corasick algorithm for better performance."
-                )
-            elif secret_count >= 100:
-                logger.warning(
-                    f"Large number of secrets registered ({secret_count}). "
-                    f"This may impact masking performance."
-                )
-
-            # Atomic swap under lock (fast!)
-            with self._pattern_lock:
-                # Check version again - secrets might have changed while building
-                registry_version = self._registry.get_version()
-
-                if registry_version == current_version:
-                    # Version is stable, safe to swap in the new pattern
-                    self._pattern = new_pattern
-                    self._replacements = new_replacements
-                    self._last_version = current_version
-
-                    if attempt > 0:
-                        logger.debug(
-                            f"Rebuilt masking pattern with {secret_count} secrets "
-                            f"(version {current_version}) after {attempt + 1} attempts"
-                        )
-                    else:
-                        logger.debug(
-                            f"Rebuilt masking pattern with {secret_count} secrets "
-                            f"(version {current_version})"
-                        )
-                    return  # Success!
-
-                # Version changed during build, loop will retry
-                logger.debug(
-                    f"Pattern version changed during build "
-                    f"(expected {current_version}, got {registry_version}). "
-                    f"Retrying... (attempt {attempt + 1}/{MAX_REBUILD_ATTEMPTS})"
-                )
-                # Continue to next iteration of the loop
-
-        # If we get here, we failed after MAX_REBUILD_ATTEMPTS
-        # Emergency fallback: Use the last pattern we built if we have no pattern at all
-        # Better to have a slightly stale pattern than no masking at all
+        ``ok`` is False only when secrets exist but no pattern was ever built
+        and the latest rebuild attempt failed — the caller must return
+        MASKING_ERROR_MESSAGE in that case. When the registry is empty,
+        ``pattern`` is None and ``ok`` is True (return text unchanged).
+        """
+        version = self._registry.get_version()
         with self._pattern_lock:
-            if self._pattern is None and last_built_pattern is not None:
-                self._pattern = last_built_pattern
-                self._replacements = last_built_replacements
-                self._last_version = last_built_version
-                logger.warning(
-                    f"Emergency fallback: Using potentially stale pattern (version {last_built_version}) "
-                    f"because no pattern was previously available and registry is changing too rapidly."
+            if version == self._last_version:
+                return (
+                    self._pattern,
+                    self._replacements,
+                    self._longest_pattern_length,
+                    True,
                 )
-            else:
-                logger.error(
-                    f"CRITICAL: Failed to rebuild masking pattern after {MAX_REBUILD_ATTEMPTS} attempts. "
-                    f"Secrets are being modified too rapidly. "
-                    f"Continuing with potentially stale pattern (version {self._last_version}). "
-                    f"Some newly added secrets may not be masked until rate of changes decreases."
-                )
-        # Keep using the old pattern rather than crashing - graceful degradation
+        # Stale: snapshot and rebuild outside the lock.
+        snap_version, expanded = self._registry.snapshot()
+        if not expanded:
+            with self._pattern_lock:
+                self._pattern = None
+                self._replacements = {}
+                self._longest_pattern_length = 0
+                self._last_version = snap_version
+                self._rebuild_warned = False
+                self._build_failure_warned = False
+            return None, {}, 0, True
+        try:
+            new_pattern, new_replacements, new_longest = self._build_pattern(expanded)
+        except Exception as e:
+            # Keep previous pattern if we have one; log once.
+            with self._pattern_lock:
+                if self._pattern is not None:
+                    if not self._rebuild_warned:
+                        logger.warning(
+                            "Masking pattern rebuild failed; keeping previous "
+                            "pattern: %r",
+                            e,
+                        )
+                        self._rebuild_warned = True
+                    return (
+                        self._pattern,
+                        self._replacements,
+                        self._longest_pattern_length,
+                        True,
+                    )
+                # No previous pattern while secrets exist: fail closed.
+                if not self._build_failure_warned:
+                    logger.critical(
+                        "Masking pattern rebuild failed with no previous "
+                        "pattern while secrets exist; returning "
+                        "MASKING_ERROR_MESSAGE: %r",
+                        e,
+                    )
+                    self._build_failure_warned = True
+                return None, {}, 0, False
+        with self._pattern_lock:
+            self._pattern = new_pattern
+            self._replacements = new_replacements
+            self._longest_pattern_length = new_longest
+            self._last_version = snap_version
+            self._rebuild_warned = False
+            self._build_failure_warned = False
+        return new_pattern, new_replacements, new_longest, True
+
+    # --- Masking ----------------------------------------------------------
 
     def mask_text(self, text: str) -> str:
-        """Mask secrets in text string.
+        """Mask secrets in ``text``. Idempotent on already-masked text.
 
-        Public API for masking arbitrary text content. Thread-safe and includes
-        automatic pattern rebuilding, circuit breaker protection, and error handling.
-
-        Args:
-            text: Text content to mask
-
-        Returns:
-            Text with secrets replaced by ***REDACTED:VARIABLE_NAME***
+        Returns the text unchanged when the registry is empty; returns
+        MASKING_ERROR_MESSAGE when secrets exist but no pattern was ever
+        built and the rebuild failed. Public API — never truncates.
         """
         if not isinstance(text, str) or not text:
             return text
-
-        # Get pattern snapshot (no lock during masking!)
-        with self._pattern_lock:
-            self._check_and_rebuild_pattern()
-            pattern = self._pattern
-            replacements = self._replacements  # No .copy() needed!
-
-        # Pattern might be None if no secrets registered
+        pattern, replacements, longest, ok = self._get_pattern()
+        if not ok:
+            return MASKING_ERROR_MESSAGE
         if pattern is None:
             return text
-
-        # Circuit breaker - if too many failures, stop trying
-        if self._circuit_open:
-            return CIRCUIT_OPEN_MESSAGE
-
-        # Mask secrets (outside lock - safe because immutable references)
         try:
-            # Use callback to include variable name in masked output
-            def replace_with_variable_name(match):
-                """Replace matched secret with variable name."""
-                secret_value = match.group(0)
-                # Look up variable name (O(1) dict access)
-                variable_name = replacements.get(secret_value, "UNKNOWN")
-                # Return formatted mask
-                return REDACTED_FORMAT.format(name=variable_name)
+            return pattern.sub(lambda m: self._replace_match(m, replacements), text)
+        except Exception:
+            return MASKING_ERROR_MESSAGE
 
-            masked = pattern.sub(replace_with_variable_name, text)
+    _MAX_EXTRA_DEPTH = 10
 
-            # Success - reset failure count
-            if self._failure_count > 0:
-                self._failure_count = 0
+    def _mask_value_recursive(
+        self, value: Any, _depth: int = 0, _seen: Optional[set] = None
+    ) -> Any:
+        """Recursively mask string leaves in a container value.
 
-            return masked
-
-        except KeyError as e:
-            self._failure_count += 1
-            logger.error(
-                f"CRITICAL: Secret masking failed due to replacement error "
-                f"(failure {self._failure_count}/{self._max_failures}). "
-                f"Message redacted for safety. Error: {e}"
-            )
-            if self._failure_count >= self._max_failures:
-                self._circuit_open = True
-                logger.critical(
-                    "CRITICAL: Masking circuit breaker OPEN. All messages will be redacted."
-                )
-            return "[REDACTED: Masking Replacement Error]"
-
-        except re.error as e:
-            self._failure_count += 1
-            logger.error(
-                f"CRITICAL: Secret masking failed due to regex error "
-                f"(failure {self._failure_count}/{self._max_failures}). "
-                f"Message redacted for safety. Error: {e}"
-            )
-            if self._failure_count >= self._max_failures:
-                self._circuit_open = True
-                logger.critical(
-                    "CRITICAL: Masking circuit breaker OPEN. All messages will be redacted."
-                )
-            return "[REDACTED: Masking Regex Error]"
-
-        except MemoryError:
-            self._failure_count += 1
-            logger.error(
-                f"CRITICAL: Secret masking failed due to memory error "
-                f"(failure {self._failure_count}/{self._max_failures}). "
-                f"Message redacted for safety."
-            )
-            if self._failure_count >= self._max_failures:
-                self._circuit_open = True
-                logger.critical(
-                    "CRITICAL: Masking circuit breaker OPEN. All messages will be redacted."
-                )
-            return "[REDACTED: Masking Memory Error]"
-
-        except Exception as e:
-            self._failure_count += 1
-            logger.error(
-                f"CRITICAL: Secret masking failed with unexpected error "
-                f"(failure {self._failure_count}/{self._max_failures}). "
-                f"Message redacted for safety. Error type: {type(e).__name__}"
-            )
-            if self._failure_count >= self._max_failures:
-                self._circuit_open = True
-                logger.critical(
-                    "CRITICAL: Masking circuit breaker OPEN. All messages will be redacted."
-                )
-            return "[REDACTED: Masking Error]"
+        Containers are copied, not mutated in place. A depth cap and cycle
+        guard bound the recursion; beyond them a placeholder is returned
+        (never the raw subtree). Containers rebuild with their own type; if
+        reconstruction raises, the container becomes MASKING_ERROR_MESSAGE.
+        """
+        if _depth >= self._MAX_EXTRA_DEPTH:
+            return "<not masked: depth limit>"
+        if isinstance(value, str):
+            return self.mask_text(value)
+        if isinstance(value, dict):
+            if _seen is None:
+                _seen = set()
+            if id(value) in _seen:
+                return "<not masked: cycle>"
+            _seen.add(id(value))
+            try:
+                return {
+                    k: self._mask_value_recursive(v, _depth + 1, _seen)
+                    for k, v in value.items()
+                }
+            finally:
+                _seen.discard(id(value))
+        if isinstance(value, (list, tuple, set, frozenset)):
+            if _seen is None:
+                _seen = set()
+            if id(value) in _seen:
+                return "<not masked: cycle>"
+            _seen.add(id(value))
+            try:
+                masked = [
+                    self._mask_value_recursive(v, _depth + 1, _seen) for v in value
+                ]
+            finally:
+                _seen.discard(id(value))
+            try:
+                if hasattr(value, "_fields"):
+                    return type(value)(*masked)
+                return type(value)(masked)
+            except Exception:
+                return MASKING_ERROR_MESSAGE
+        return value
 
     def _mask_args(self, args: Any) -> Any:
-        """Mask secrets in log arguments."""
         if not args:
             return args
+        return self._mask_value_recursive(args)
 
-        try:
-            if isinstance(args, dict):
-                return {
-                    k: self.mask_text(v) if isinstance(v, str) else v
-                    for k, v in args.items()
-                }
-            elif isinstance(args, tuple):
-                return tuple(
-                    self.mask_text(arg) if isinstance(arg, str) else arg for arg in args
-                )
-            else:
-                return args
-        except Exception as e:
-            # Fail-secure: never return unmasked args on error
-            logger.error(f"CRITICAL: Secret masking failed in args: {e}", exc_info=True)
-            return (MASKING_ERROR_MESSAGE,)
-
-    def _mask_exception(self, exc_info: Optional[Tuple]) -> Optional[Tuple]:
-        """Mask secrets in exception information."""
+    def _materialize_exc_text(self, exc_info: Tuple) -> Optional[str]:
+        # exc_info is left untouched so handler-based error reporters keep
+        # the real exception; we only materialize text for masking.
         if not exc_info:
-            return exc_info
+            return None
+        return logging.Formatter().formatException(exc_info)
 
-        try:
-            exc_type, exc_value, exc_traceback = exc_info
+    def _strip_severed_tail(self, kept: str, keys: Any, longest: int) -> str:
+        # Runs on MASKED text: every complete occurrence is already a marker,
+        # so a tail matching a key prefix is a severed fragment. Remove the
+        # longest such suffix (len >= 3, < key) that is a proper prefix of any
+        # expanded key.
+        for L in range(min(longest, len(kept)), 2, -1):
+            for key in keys:
+                if len(key) > L and kept.endswith(key[:L]):
+                    return kept[:-L]
+        return kept
 
-            # Mask exception message/args
-            if exc_value and hasattr(exc_value, "args") and exc_value.args:
-                masked_args = tuple(
-                    self.mask_text(arg) if isinstance(arg, str) else arg
-                    for arg in exc_value.args
+    def _mask_bounded(
+        self, text: str, budget: int, original_len: Optional[int] = None
+    ) -> str:
+        # Pre-cut to budget + longest under one snapshot, mask, then strip any
+        # severed fragment from the masked tail, then final-cut to budget.
+        # Stripping after masking is load-bearing: a secret prefix with a
+        # self-overlapping border can match a coincidental overlap longer than
+        # the real fragment before masking, severing a complete occurrence.
+        pattern, replacements, longest, ok = self._get_pattern()
+        if not ok:
+            return MASKING_ERROR_MESSAGE
+        pre_cut = False
+        if len(text) > budget + longest:
+            kept = text[: budget + longest]
+            pre_cut = True
+        else:
+            kept = text
+        if pattern is None:
+            masked = kept
+        else:
+            try:
+                masked = pattern.sub(
+                    lambda m: self._replace_match(m, replacements), kept
                 )
-                # Create new exception instance with masked args
-                exc_value = type(exc_value)(*masked_args)
-
-            return (exc_type, exc_value, exc_traceback)
-
-        except Exception as e:
-            # Fail-secure: never return unmasked exception on error
-            logger.error(
-                f"CRITICAL: Secret masking failed in exception: {e}", exc_info=True
+            except Exception:
+                return MASKING_ERROR_MESSAGE
+        if pre_cut and pattern is not None:
+            masked = self._strip_severed_tail(masked, replacements.keys(), longest)
+        if pre_cut or len(masked) > budget:
+            base = original_len if original_len is not None else len(text)
+            truncated_bytes = max(0, base - budget)
+            masked = (
+                f"{masked[:budget]}\n"
+                f"... [{truncated_bytes} bytes truncated for performance]"
             )
-            # Return a sanitized exception
-            return (
-                RuntimeError,
-                RuntimeError(MASKING_ERROR_MESSAGE),
-                None,
-            )
+        return masked
 
-    def _truncate_message(self, message: str) -> str:
-        """Truncate large messages before masking."""
-        if not isinstance(message, str):
-            return message
+    def _mask_record_msg(self, record: logging.LogRecord) -> None:
+        if isinstance(record.msg, str):
+            if record.args:
+                # Format string: mask but skip truncation — truncating a
+                # format string can sever a %s placeholder.
+                record.msg = self.mask_text(record.msg)
+            else:
+                original_len = len(record.msg)
+                record.msg = self._mask_bounded(
+                    record.msg, self._max_message_size, original_len
+                )
+        elif isinstance(record.msg, (dict, list, tuple, set, frozenset)):
+            record.msg = self._mask_value_recursive(record.msg)
+        elif record.msg is not None:
+            plain = str(record.msg)
+            masked = self.mask_text(plain)
+            if masked != plain:
+                record.msg = masked
 
-        if len(message) <= self._max_message_size:
-            return message
+    def _mask_extras(self, record: logging.LogRecord) -> None:
+        """Mask non-standard record attributes (extra={...}) per field.
 
-        # Truncate with informative suffix
-        truncated_bytes = len(message) - self._max_message_size
-        return (
-            f"{message[: self._max_message_size]}\n"
-            f"... [{truncated_bytes} bytes truncated for performance]"
-        )
+        One field that raises becomes MASKING_ERROR_MESSAGE while the rest
+        are still masked. The caller's containers are not mutated in place —
+        masked copies are assigned.
+        """
+        for key, value in list(record.__dict__.items()):
+            if key in _STANDARD_RECORD_ATTRS:
+                continue
+            if isinstance(value, (str, dict, list, tuple, set, frozenset)):
+                try:
+                    record.__dict__[key] = self._mask_value_recursive(value)
+                except Exception:
+                    record.__dict__[key] = MASKING_ERROR_MESSAGE
 
     def filter(self, record: logging.LogRecord) -> bool:
-        """Filter and mask a log record."""
-        # Check if masking is disabled for debugging
-        from datahub.masking.secret_registry import is_masking_enabled
+        """Mask secrets in a log record. Always returns True.
 
-        if not is_masking_enabled():
-            return True  # Skip all masking and truncation for debugging
-
+        Fail-closed per field: each step runs in its own try; a field that
+        raises is substituted with MASKING_ERROR_MESSAGE and the next step
+        still runs. The idempotency sentinel is set in finally so it guards
+        the failure path. An outer boundary catches anything that escapes the
+        per-step tries and substitutes MASKING_ERROR_MESSAGE for the whole
+        record.
+        """
+        if _is_masking_namespace_name(record.name):
+            return True
+        if getattr(record, "_datahub_masked", None) == _MASKED:
+            return True
         try:
-            # 1. Truncate large messages BEFORE masking (performance optimization)
-            #    This is intentional: truncating first avoids regex on huge strings
-            #    Security: Truncation removes end of message, so secrets at end
-            #    are removed entirely (not just masked), which is acceptable
-            if isinstance(record.msg, str):
-                record.msg = self._truncate_message(record.msg)
-
-            # 2. Mask the log message (after truncation for performance)
-            if isinstance(record.msg, str):
-                record.msg = self.mask_text(record.msg)
-
-            # 3. Mask arguments (for formatting)
-            if record.args:
-                record.args = self._mask_args(record.args)
-
-            # 4. Mask pre-formatted message if it exists
-            if hasattr(record, "message") and record.message:
-                record.message = self.mask_text(record.message)
-
-            # 5. Mask exception information
-            if record.exc_info:
-                record.exc_info = self._mask_exception(record.exc_info)
-
-            # 6. Mask formatted exception text if it exists
-            if record.exc_text:
-                record.exc_text = self.mask_text(record.exc_text)
-
-            # 7. Mask stack_info if present (Python 3.2+)
-            if hasattr(record, "stack_info") and record.stack_info:
-                record.stack_info = self.mask_text(record.stack_info)
-
-        except Exception as e:
-            # NEVER let masking break logging
             try:
-                sys.stderr.write(f"WARNING: Secret masking filter failed: {e}\n")
-                sys.stderr.flush()
+                self._mask_record_msg(record)
             except Exception:
-                pass  # Even error reporting failed, continue silently
-
-        return True  # Always let record through
+                record.msg = MASKING_ERROR_MESSAGE
+            try:
+                if record.args:
+                    record.args = self._mask_args(record.args)
+            except Exception:
+                record.args = (MASKING_ERROR_MESSAGE,)
+            try:
+                if hasattr(record, "message") and record.message:
+                    record.message = self.mask_text(record.message)
+            except Exception:
+                record.message = MASKING_ERROR_MESSAGE
+            try:
+                if record.exc_info and not record.exc_text:
+                    record.exc_text = self._materialize_exc_text(record.exc_info)
+            except Exception:
+                record.exc_text = MASKING_ERROR_MESSAGE
+            try:
+                if record.exc_text:
+                    record.exc_text = self._mask_bounded(
+                        record.exc_text,
+                        2 * self._max_message_size,
+                        len(record.exc_text),
+                    )
+            except Exception:
+                record.exc_text = MASKING_ERROR_MESSAGE
+            try:
+                if hasattr(record, "stack_info") and record.stack_info:
+                    record.stack_info = self.mask_text(record.stack_info)
+            except Exception:
+                record.stack_info = MASKING_ERROR_MESSAGE
+            try:
+                self._mask_extras(record)
+            except Exception:
+                # _mask_extras already masks per-field; reaching here means
+                # the whole loop raised. Substitute a marker key to fail
+                # closed without leaving extras unmasked.
+                record.__dict__["_masking_error"] = MASKING_ERROR_MESSAGE
+        except Exception:
+            # Outer boundary: never let masking break logging. Clearing
+            # exc_info here is deliberate — on the failure path nothing
+            # guarantees it was masked.
+            record.msg = MASKING_ERROR_MESSAGE
+            record.args = ()
+            record.exc_info = None
+            record.exc_text = None
+        finally:
+            record._datahub_masked = _MASKED
+        return True
 
 
 class StreamMaskingWrapper:
-    """Lightweight wrapper for stdout/stderr that masks secrets."""
+    """Wraps stdout/stderr to mask secrets in raw writes."""
 
-    def __init__(self, original_stream: TextIO, masking_filter: SecretMaskingFilter):
-        """Initialize stream wrapper."""
+    def __init__(
+        self, original_stream: TextIO, masking_filter: "SecretMaskingFilter"
+    ) -> None:
         self._original = original_stream
         self._filter = masking_filter
 
     def write(self, text: str) -> int:
-        """Write text to stream with secrets masked."""
-        # Type validation - text streams require strings
         if not isinstance(text, str):
             raise TypeError(f"write() argument must be str, not {type(text).__name__}")
-
         try:
-            # Mask text (filter handles locking internally)
             masked = self._filter.mask_text(text)
-
-            # Write WITHOUT holding any locks (prevents deadlock)
             self._original.write(masked)
-
-            # Return length of MASKED text (contract compliance)
             return len(masked)
-
-        except TypeError:
-            # Re-raise type errors
-            raise
-
         except Exception:
-            # Graceful degradation for masking failures
             try:
-                self._original.write(text)
-                return len(text)
+                self._original.write(MASKING_ERROR_MESSAGE + "\n")
+                return len(MASKING_ERROR_MESSAGE) + 1
             except Exception:
                 return 0
 
-    def flush(self):
-        """Flush the underlying stream."""
+    def flush(self) -> None:
         try:
             if hasattr(self._original, "flush"):
                 self._original.flush()
-        except Exception:
+        except (ValueError, OSError):
             pass
 
-    def __getattr__(self, name):
-        """Delegate all other attributes to original stream."""
+    def writelines(self, lines: Iterable[str]) -> None:
+        for line in lines:
+            self.write(line)
+
+    def __getattr__(self, name: str) -> Any:
         return getattr(self._original, name)
 
 
-def _update_existing_handlers() -> None:
-    """Update all existing logging handlers to use wrapped streams."""
-    updated_count = 0
+def _is_real_stream(stream: object) -> bool:
+    # Refuse to wrap proxies (e.g. Celery's LoggingProxy) — wrapping one
+    # re-enters logging and silently drops writes; under a proxy, raw
+    # writes already flow through masked handlers.
+    try:
+        stream.fileno()  # type: ignore[attr-defined]
+        return True
+    except (io.UnsupportedOperation, OSError, ValueError, AttributeError):
+        return False
 
-    # Get all loggers (including root and all named loggers)
-    all_loggers = [logging.getLogger()] + [
-        logging.getLogger(name) for name in logging.root.manager.loggerDict
+
+def _all_logger_handler_pairs() -> List[Tuple[logging.Logger, logging.Handler]]:
+    """Snapshot (logger, handler) pairs for the root logger and every
+    named logger. PlaceHolder entries in loggerDict are skipped."""
+    root = logging.getLogger()
+    pairs: List[Tuple[logging.Logger, logging.Handler]] = [
+        (root, h) for h in list(root.handlers)
     ]
+    for _name, obj in list(logging.root.manager.loggerDict.items()):
+        if isinstance(obj, logging.Logger):
+            for h in list(obj.handlers):
+                pairs.append((obj, h))
+    return pairs
 
-    for log in all_loggers:
-        if not isinstance(log, logging.Logger):
-            # Skip PlaceHolder objects in logger dict
+
+def _attach_filter_to_handlers(masking_filter: "SecretMaskingFilter") -> None:
+    """Attach the shared filter to every handler on every logger, skipping
+    handlers in the masking namespace and handlers that already carry this
+    filter instance (identity check, not isinstance)."""
+    added = 0
+    for log, handler in _all_logger_handler_pairs():
+        if _is_masking_namespace_name(log.name):
             continue
+        if masking_filter in handler.filters:
+            continue
+        handler.addFilter(masking_filter)
+        added += 1
+    if added:
+        logger.debug("Attached SecretMaskingFilter to %d handler(s)", added)
 
-        for handler in log.handlers:
-            if isinstance(handler, logging.StreamHandler):
-                # Check if handler is using an unwrapped stream
-                if hasattr(handler, "stream"):
-                    stream = handler.stream
 
-                    # If handler's stream is the original unwrapped stdout/stderr,
-                    # update it to use our wrapped version
-                    if not isinstance(stream, StreamMaskingWrapper):
-                        # Check if this is stdout or stderr by comparing the underlying file
-                        try:
-                            if hasattr(stream, "name"):
-                                if stream.name == "<stderr>":
-                                    handler.setStream(sys.stderr)
-                                    updated_count += 1
-                                elif stream.name == "<stdout>":
-                                    handler.setStream(sys.stdout)
-                                    updated_count += 1
-                        except Exception:
-                            # If we can't determine the stream, skip it
-                            pass
-
-    if updated_count > 0:
-        logger.debug(f"Updated {updated_count} logging handlers to use wrapped streams")
+def _wrap_std_streams(masking_filter: "SecretMaskingFilter") -> None:
+    """Wrap sys.stdout/stderr with StreamMaskingWrapper if they are real
+    OS-backed streams and not already wrapped. Idempotent."""
+    if not isinstance(sys.stdout, StreamMaskingWrapper) and _is_real_stream(sys.stdout):
+        sys.stdout = StreamMaskingWrapper(sys.stdout, masking_filter)
+        logger.debug("Wrapped sys.stdout with StreamMaskingWrapper")
+    if not isinstance(sys.stderr, StreamMaskingWrapper) and _is_real_stream(sys.stderr):
+        sys.stderr = StreamMaskingWrapper(sys.stderr, masking_filter)
+        logger.debug("Wrapped sys.stderr with StreamMaskingWrapper")
 
 
 def install_masking_filter(
@@ -497,59 +565,65 @@ def install_masking_filter(
     max_message_size: int = 5000,
     install_stdout_wrapper: bool = True,
 ) -> SecretMaskingFilter:
-    """Install secret masking filter on root logger and optionally wrap stdout/stderr."""
-    # Create filter
+    # Install the shared filter on all logger handlers, install the
+    # addHandler wrap so later handlers are covered, and optionally wrap
+    # stdout/stderr. Re-invocation re-scans handlers (closes the interval
+    # where the wrap was inert); max_message_size is ignored on re-invocation
+    # (first install wins); install_stdout_wrapper=True on refresh does wrap.
+    global _installed_filter
+    if _installed_filter is not None:
+        # Already installed: re-scan handlers, rebind registry if a different
+        # one was passed, honour install_stdout_wrapper on refresh.
+        _attach_filter_to_handlers(_installed_filter)
+        if (
+            secret_registry is not None
+            and secret_registry is not _installed_filter._registry
+        ):
+            logger.debug("Rebinding SecretMaskingFilter registry on repeat install")
+            _installed_filter._registry = secret_registry  # type: ignore[attr-defined]
+            with _installed_filter._pattern_lock:  # type: ignore[attr-defined]
+                _installed_filter._last_version = -1  # type: ignore[attr-defined]
+                _installed_filter._pattern = None  # type: ignore[attr-defined]
+                _installed_filter._replacements = {}  # type: ignore[attr-defined]
+        if install_stdout_wrapper:
+            _wrap_std_streams(_installed_filter)
+        return _installed_filter
+
     masking_filter = SecretMaskingFilter(
         secret_registry=secret_registry, max_message_size=max_message_size
     )
-
-    # Install on root logger (affects all loggers)
-    root_logger = logging.getLogger()
-
-    # Check if already installed (avoid duplicates)
-    existing_filters = [
-        f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)
-    ]
-
-    if existing_filters:
-        logger.debug("SecretMaskingFilter already installed on root logger")
-        return existing_filters[0]
-
-    root_logger.addFilter(masking_filter)
-    logger.info("Installed SecretMaskingFilter on root logger")
-
-    # Optionally install stdout/stderr wrapper as backup
+    _installed_filter = masking_filter
+    _install_addhandler_wrap()
+    _attach_filter_to_handlers(masking_filter)
+    logger.info("Installed SecretMaskingFilter on logger handlers")
     if install_stdout_wrapper:
-        if not isinstance(sys.stdout, StreamMaskingWrapper):
-            sys.stdout = StreamMaskingWrapper(sys.stdout, masking_filter)
-            logger.debug("Wrapped sys.stdout with StreamMaskingWrapper")
-
-        if not isinstance(sys.stderr, StreamMaskingWrapper):
-            sys.stderr = StreamMaskingWrapper(sys.stderr, masking_filter)
-            logger.debug("Wrapped sys.stderr with StreamMaskingWrapper")
-
-        # Update all existing logging handlers to use wrapped streams
-        # Handlers created before masking was initialized will have cached
-        # references to the original unwrapped stderr/stdout
-        _update_existing_handlers()
-
+        _wrap_std_streams(masking_filter)
     return masking_filter
 
 
 def uninstall_masking_filter() -> None:
-    """Remove secret masking filter from root logger."""
-    root_logger = logging.getLogger()
-
-    # Remove filters
-    root_logger.filters = [
-        f for f in root_logger.filters if not isinstance(f, SecretMaskingFilter)
-    ]
-
-    # Unwrap stdout/stderr
+    # Test-only teardown; production never uninstalls. Raises off the main
+    # thread or while live execution scopes exist.
+    global _installed_filter
+    if threading.current_thread() is not threading.main_thread():
+        raise RuntimeError(
+            "uninstall_masking_filter() must be called on the main thread"
+        )
+    registry = SecretRegistry.get_instance()
+    if registry.has_active_executions():
+        raise RuntimeError(
+            "uninstall_masking_filter() called while execution scopes are "
+            "still active; ending one execution can never unmask another"
+        )
+    if _installed_filter is None:
+        return
+    f = _installed_filter
+    _installed_filter = None
+    for _log, handler in _all_logger_handler_pairs():
+        while f in handler.filters:
+            handler.removeFilter(f)
     if isinstance(sys.stdout, StreamMaskingWrapper):
         sys.stdout = sys.stdout._original
-
     if isinstance(sys.stderr, StreamMaskingWrapper):
         sys.stderr = sys.stderr._original
-
     logger.info("Uninstalled SecretMaskingFilter")

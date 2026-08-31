@@ -385,3 +385,24 @@ def pytest_collection_modifyitems(
         if target_batch is None or batch_index == target_batch:
             kept.append(item)
     items[:] = kept
+
+
+@pytest.fixture(autouse=True)
+def _reset_secret_masking():
+    yield
+    from datahub.masking.bootstrap import is_bootstrapped, reset_bootstrap_state
+    from datahub.masking.secret_registry import SecretRegistry
+
+    registry = SecretRegistry.get_instance()
+    if (
+        not is_bootstrapped()
+        and registry.get_count() == 0
+        and not registry.has_active_executions()
+    ):
+        return
+    leaked = registry.has_active_executions()
+    SecretRegistry.reset_instance()
+    reset_bootstrap_state()
+    assert not leaked, (
+        "test leaked a live masking execution scope (missing shutdown_secret_masking)"
+    )

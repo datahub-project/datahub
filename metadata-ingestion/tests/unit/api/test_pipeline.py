@@ -28,6 +28,8 @@ from datahub.ingestion.run.pipeline import (
 )
 from datahub.ingestion.sink.datahub_kafka import DatahubKafkaSink
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
+from datahub.masking import shutdown_secret_masking
+from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
@@ -793,6 +795,87 @@ sink:
             # Verify the graph has been stored in the pipeline context
             assert pipeline.ctx.graph is mock_graph
 
+    def test_cli_success_path_masks_registered_secret(self, tmp_path):
+        # Success path: a source registers a secret and logs the raw value
+        # through a FileHandler; the log file carries the marker, not the
+        # raw value, and no live scope remains after the command returns.
+        log_file: pathlib.Path = tmp_path / "mask.log"
+        config_file: pathlib.Path = tmp_path / "test.yml"
+        config_file.write_text(
+            f"""
+---
+run_id: pipeline_test
+source:
+    type: tests.unit.api.test_pipeline.FakeSourceWithSecret
+    config: {{log_path: {log_file}}}
+sink:
+    type: console
+"""
+        )
+        run_datahub_cmd(
+            ["ingest", "-c", f"{config_file}"],
+            tmp_path=tmp_path,
+            check_result=False,
+        )
+        logged = log_file.read_text()
+        assert "***REDACTED:TOK***" in logged, logged
+        assert "tok-secret-value-12345" not in logged, logged
+        assert not SecretRegistry.get_instance().has_active_executions()
+
+    def test_cli_error_path_keeps_scope_for_masked_traceback(self, tmp_path):
+        # Error path: a source registers a secret then raises in create()
+        # so the exception escapes run() to entrypoints. The scope is
+        # deliberately NOT dropped on that path so the top-level handler
+        # formats the traceback masked; the registry still holds the
+        # secret after the command returns.
+        config_file: pathlib.Path = tmp_path / "test.yml"
+        config_file.write_text(
+            """
+---
+run_id: pipeline_test
+source:
+    type: tests.unit.api.test_pipeline.FakeSourceRaisesAfterSecret
+    config: {}
+sink:
+    type: console
+"""
+        )
+        try:
+            res = run_datahub_cmd(
+                ["ingest", "-c", f"{config_file}"],
+                tmp_path=tmp_path,
+                check_result=False,
+            )
+            # Scope kept on error so the traceback is formatted masked.
+            assert SecretRegistry.get_instance().has_secret("TOK")
+            assert SecretRegistry.get_instance().has_active_executions()
+            # The raw secret must not appear in the captured output.
+            assert "tok-secret-value-12345" not in (res.output or "")
+        finally:
+            shutdown_secret_masking()
+
+    def test_cli_test_source_connection_drops_scope(self, tmp_path):
+        # The other non-exception exit (--test-source-connection) must drop
+        # the scope before exiting.
+        config_file: pathlib.Path = tmp_path / "test.yml"
+        config_file.write_text(
+            f"""
+---
+run_id: pipeline_test
+source:
+    type: tests.unit.api.test_pipeline.FakeSourceWithSecret
+    config: {{log_path: {tmp_path / "mask.log"}}}
+sink:
+    type: console
+"""
+        )
+        run_datahub_cmd(
+            ["ingest", "-c", f"{config_file}", "--test-source-connection"],
+            tmp_path=tmp_path,
+            check_result=False,
+        )
+        assert not SecretRegistry.get_instance().has_active_executions()
+
 
 class AddStatusRemovedTransformer(Transformer):
     @classmethod
@@ -855,6 +938,51 @@ class FakeSourceWithFailures(FakeSource):
 
     def get_report(self) -> SourceReport:
         return self.source_report
+
+
+@platform_name("fake")
+class FakeSourceWithSecret(FakeSource):
+    SECRET_VALUE = "tok-secret-value-12345"
+
+    def __init__(self, ctx: PipelineContext, log_path: str):
+        super().__init__(ctx)
+        self._log_path = log_path
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "FakeSourceWithSecret":
+        return cls(ctx, log_path=config_dict["log_path"])
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        SecretRegistry.get_instance().register_secret("TOK", self.SECRET_VALUE)
+        # Log the raw value through a FileHandler so the masking filter
+        # (attached by the addHandler wrap) proves end-to-end masking.
+        logger = logging.getLogger("test.pipeline.secret")
+        handler = logging.FileHandler(self._log_path)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        logger.addHandler(handler)
+        logger.warning("using token=%s", self.SECRET_VALUE)
+        logger.removeHandler(handler)
+        handler.close()
+        return self.work_units
+
+    def test_connection(self) -> None:
+        SecretRegistry.get_instance().register_secret("TOK", self.SECRET_VALUE)
+
+
+@platform_name("fake")
+class FakeSourceRaisesAfterSecret(FakeSource):
+    SECRET_VALUE = "tok-secret-value-12345"
+
+    @classmethod
+    def create(
+        cls, config_dict: dict, ctx: PipelineContext
+    ) -> "FakeSourceRaisesAfterSecret":
+        # Register then raise in create() so the exception propagates past
+        # run() to entrypoints (the pipeline swallows source exceptions in
+        # get_workunits, so the scope-keeping error path needs an exception
+        # that escapes run()).
+        SecretRegistry.get_instance().register_secret("TOK", cls.SECRET_VALUE)
+        raise RuntimeError(f"boom with {cls.SECRET_VALUE}")
 
 
 def get_initial_mce() -> MetadataChangeEventClass:
