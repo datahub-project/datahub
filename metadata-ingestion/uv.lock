@@ -2312,6 +2312,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.4.0,<3.0.0" },
     { name = "pydantic", marker = "extra == 'dev'", specifier = ">=2.4.0,<3.0.0" },
     { name = "pydantic", marker = "extra == 'docs'", specifier = ">=2.4.0,<3.0.0" },
+    { name = "pydeequ", marker = "extra == 'all'", specifier = ">=1.1.0,<2.0.0" },
     { name = "pydruid", marker = "extra == 'all'", specifier = ">=0.6.2,<=0.6.9" },
     { name = "pydruid", marker = "extra == 'dev'", specifier = ">=0.6.2,<=0.6.9" },
     { name = "pydruid", marker = "extra == 'docs'", specifier = ">=0.6.2,<=0.6.9" },
@@ -4969,7 +4970,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -8807,6 +8808,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pydeequ"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/16/d9/3f17fec33f05be0c8b82dc9d113dde02d9cfa3966426ece28e0f68bca341/pydeequ-1.6.0.tar.gz", hash = "sha256:059773f2e3b7329f0a23e58548b24fbb7ca2f6b5c73b1032abb0f21129f72148", size = 36037, upload-time = "2026-07-08T16:57:42.889Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fd/ca/d1903266a6c218ddcfbfb81a8066628d46fdf89cd3c84400078cdb6a569e/pydeequ-1.6.0-py3-none-any.whl", hash = "sha256:45e2405357c321994d4163d96f05e2f81f15699efab3595139111970790ee273", size = 38022, upload-time = "2026-07-08T16:57:41.894Z" },
+]
+
+[[package]]
 name = "pydruid"
 version = "0.6.9"
 source = { registry = "https://pypi.org/simple" }
@@ -10297,8 +10311,8 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography" },
-    { name = "jeepney" },
+    { name = "cryptography", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
+    { name = "jeepney", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
@@ -10639,8 +10653,8 @@ name = "sqlalchemy-hana"
 version = "3.0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "hdbcli" },
-    { name = "sqlalchemy" },
+    { name = "hdbcli", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
+    { name = "sqlalchemy", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c0/df/02733e868ea8908c921aabd0004c4483cec6985e73e9fa8f6d12434dfe6d/sqlalchemy_hana-3.0.3.tar.gz", hash = "sha256:37ea5033628e1682037dd13dc5b9e4c585dfa28bc2bdbc02f816059147262bae", size = 44273, upload-time = "2025-06-02T10:34:23.183Z" }
 wheels = [

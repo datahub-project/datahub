@@ -6,17 +6,15 @@ import Query from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
 
 type Props = {
     logic: string;
-    title?: string;
-    description?: string;
     visible: boolean;
     onClose: () => void;
 };
 
-export const DatasetAssertionLogicModal = ({ logic, title, description, visible, onClose }: Props) => {
+export const DatasetAssertionLogicModal = ({ logic, visible, onClose }: Props) => {
     const { t: tc } = useTranslation('common.actions');
     return (
         <Modal visible={visible} onCancel={onClose} footer={<Button onClick={onClose}>{tc('close')}</Button>}>
-            <Query query={logic} title={title} description={description} />
+            <Query query={logic} />
         </Modal>
     );
 };
