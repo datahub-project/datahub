@@ -866,7 +866,14 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         resource_type = node["resourceType"]
 
         name = node["name"]
-        if self.config.use_identifiers and node.get("identifier"):
+        # A dbt source's physical table name is carried in `identifier` (sources have
+        # no `alias`), so always resolve to it; otherwise a renamed source builds its
+        # URN from the logical name and lineage/siblings never link to the real table.
+        # The legacy `use_identifiers` flag additionally applies `identifier` to
+        # models. Mirrors dbt_core.extract_dbt_entities.
+        if node.get("identifier") and (
+            self.config.use_identifiers or resource_type == "source"
+        ):
             name = node["identifier"]
         if resource_type != "test" and node.get("alias"):
             name = node["alias"]
