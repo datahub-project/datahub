@@ -2954,7 +2954,7 @@ class GlueSource(StatefulIngestionSourceBase):
             "external": "true",
         }
         return self._tag_attribution(
-            source_detail, source=f"urn:li:dataPlatform:{self.platform}"
+            source_detail, source=make_data_platform_urn(self.platform)
         )
 
     def _build_lf_global_tags(
