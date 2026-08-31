@@ -27,7 +27,6 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
 from datahub.ingestion.source.powerbi.m_query.shared_expressions import (
     ExpressionCache,
     SharedExpressions,
-    StopReason,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
@@ -254,46 +253,32 @@ def get_upstream_tables(
         _report_referenced_query_stops(reporter, table, shared)
 
 
-# Failures get the report's failure counter; the rest are queries we understood
-# and chose not to walk, which is a different thing to tell an operator.
-_STOP_IS_FAILURE = {
-    StopReason.PARSE_ERROR,
-    StopReason.BRIDGE_ERROR,
-    StopReason.TIMEOUT,
-}
-
-
 def _report_referenced_query_stops(
     reporter: PowerBiDashboardSourceReport,
     table: Table,
     shared: SharedExpressions,
 ) -> None:
-    """Report each reason a referenced query yielded nothing under its own title.
+    """Tell the operator which referenced queries yielded nothing, and why.
 
-    One warning per reason rather than per query, so a dataset whose queries all
-    hit the same wall produces one entry naming them rather than dozens.
+    One warning per stop: the report already groups entries on title and message
+    and collects a context for each occurrence, so a dataset whose queries all
+    hit the same wall lands as one entry listing them.
 
-    The counters carry table impact, not distinct failures: a referenced query is
-    parsed once per dataset but every table that depends on it is short of
-    lineage, and that is the number worth acting on.
+    The counters carry table impact, not distinct failures -- a referenced query
+    is parsed once per dataset, but every table depending on it is short of
+    lineage, and that is the number worth acting on. Deliberately not
+    m_query_parse_timeouts, even for a timeout: that counter sizes
+    m_query_parse_timeout and must stay a count of timeouts actually paid.
     """
-    by_reason: Dict[StopReason, Dict[str, Optional[str]]] = {}
     for name, (reason, detail) in shared.stops.items():
-        by_reason.setdefault(reason, {})[name] = detail
-
-    for reason, queries in by_reason.items():
-        # Deliberately not m_query_parse_timeouts, even for a timeout. A
-        # referenced query is parsed once per dataset but reported once per
-        # table that reaches it, so adding to that counter would report one
-        # timeout as many and mislead anyone sizing m_query_parse_timeout.
-        # The reused warning title is what keeps its description true here.
-        if reason in _STOP_IS_FAILURE:
-            reporter.m_query_referenced_query_failures += len(queries)
+        if reason.is_failure:
+            reporter.m_query_referenced_query_failures += 1
         else:
-            reporter.m_query_referenced_query_not_followed += len(queries)
+            reporter.m_query_referenced_query_not_followed += 1
 
+        context = f"table-full-name={table.full_name}, query={name}"
         reporter.warning(
             title=reason.title,
             message=reason.message,
-            context=f"table-full-name={table.full_name}, queries={queries}",
+            context=f"{context}, {detail}" if detail else context,
         )

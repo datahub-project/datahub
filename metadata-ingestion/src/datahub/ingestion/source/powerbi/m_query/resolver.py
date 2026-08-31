@@ -388,11 +388,15 @@ def _walk_shared_expression(
 ) -> None:
     """Continue the walk into another of the dataset's queries."""
     if shared.would_repeat(name):
-        shared.stopped(name, StopReason.CYCLE, " -> ".join(shared.chain + (name,)))
+        shared.stopped(
+            name, StopReason.CYCLE, " -> ".join(shared.chain + (name.casefold(),))
+        )
         return
 
     if shared.exhausted():
-        shared.stopped(name, StopReason.TOO_DEEP, " -> ".join(shared.chain + (name,)))
+        shared.stopped(
+            name, StopReason.TOO_DEEP, " -> ".join(shared.chain + (name.casefold(),))
+        )
         return
 
     text = shared.lookup(name)

@@ -2566,7 +2566,7 @@ def test_reference_cycle_is_reported_as_a_loop_not_a_depth_limit():
     )
 
     assert combine_upstreams_from_lineage(lineages) == []
-    assert "Referenced queries form a loop" in _warning_titles(reporter)
+    assert shared_expressions.StopReason.CYCLE.title in _warning_titles(reporter)
     assert reporter.m_query_referenced_query_not_followed == 1
 
 
@@ -2581,7 +2581,7 @@ def test_reference_chain_past_the_cap_is_reported_as_too_long():
     lineages, reporter = _lineage_and_report('let Source = #"q0" in Source', chain)
 
     assert combine_upstreams_from_lineage(lineages) == []
-    assert "Reference chain is too long to be a real model" in _warning_titles(reporter)
+    assert shared_expressions.StopReason.TOO_DEEP.title in _warning_titles(reporter)
 
 
 @pytest.mark.integration
@@ -2784,9 +2784,9 @@ def test_every_table_hitting_a_cached_failure_is_still_warned():
             )
         )
 
-    assert warned[0] == (["Unable to parse a referenced query"], 1)
+    assert warned[0] == ([shared_expressions.StopReason.PARSE_ERROR.title], 1)
     # The second table hits the cache, so this is the one that regresses quietly.
-    assert warned[1] == (["Unable to parse a referenced query"], 1)
+    assert warned[1] == ([shared_expressions.StopReason.PARSE_ERROR.title], 1)
 
 
 @pytest.mark.integration
@@ -2918,3 +2918,42 @@ def test_a_referenced_query_timeout_does_not_inflate_the_parse_timeout_counter()
     ]
     assert len(timed_out) == 1
     assert len(list(timed_out[0].context)) == 3
+
+
+@pytest.mark.integration
+def test_a_real_failure_outranks_a_route_dependent_stop():
+    """Hitting a query at the depth cap down one branch says nothing about the
+    query itself, so it must not mask a parse error found on a shorter route.
+    Reasons that are properties of the query text keep first-wins."""
+    SR = shared_expressions.StopReason
+    shared = shared_expressions.SharedExpressions(texts={}, parse=lambda text: {})
+
+    # route-dependent first, then the truth about the query
+    shared.stopped("Base", SR.TOO_DEEP, "q0 -> ... -> base")
+    shared.stopped("Base", SR.PARSE_ERROR, "boom")
+    assert shared.stops["base"][0] is SR.PARSE_ERROR
+
+    # and not the other way round
+    shared.stopped("Other", SR.PARSE_ERROR, "boom")
+    shared.stopped("Other", SR.CYCLE, "a -> other")
+    assert shared.stops["other"][0] is SR.PARSE_ERROR
+
+    # two reasons about the query text: the first stands
+    shared.stopped("Third", SR.NO_LET)
+    shared.stopped("Third", SR.PARSE_ERROR, "boom")
+    assert shared.stops["third"][0] is SR.NO_LET
+
+
+@pytest.mark.integration
+def test_one_query_referenced_in_two_casings_is_reported_once():
+    """M identifiers are case-insensitive and every other lookup here casefolds,
+    so `#"A"` and `#"a"` are one query. Keying the stop record on the raw name
+    reported it twice and counted it twice."""
+    lineages, reporter = _lineage_and_report(
+        'let Source = Table.Combine({#"A", #"a"}) in Source',
+        {"A": 'Sql.Database("server", "db")'},
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert _warning_titles(reporter) == [shared_expressions.StopReason.NO_LET.title]
+    assert reporter.m_query_referenced_query_not_followed == 1

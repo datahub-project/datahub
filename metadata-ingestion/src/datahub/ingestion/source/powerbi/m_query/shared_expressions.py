@@ -25,61 +25,75 @@ MAX_REFERENCE_DEPTH = 10
 PARAMETER_QUERY_MARKER = "IsParameterQuery=true"
 
 
+_REFERENCED = 'Queries with "Enable load" switched off are reached this way.'
+
+
 class StopReason(Enum):
     """Why following a reference into another query produced no lineage.
 
-    Only the first three are failures. The rest are queries we understood and
-    declined to walk, which the operator has to be told apart from bad M --
-    reporting them all as "could not be parsed" sends people looking for a
-    malformed query that does not exist.
+    Each member carries its own operator-facing copy and whether it counts as a
+    failure, so a member cannot be declared without them -- the lookup tables
+    this replaced could not say that, and a missing entry raised from inside the
+    reporter's `finally`, where it would have replaced the real exception.
+
+    `route_dependent` separates "this query is broken" -- true on every route
+    that reaches it -- from "this particular route stopped", which another route
+    may still walk to a data source.
     """
 
-    PARSE_ERROR = "parse_error"
-    BRIDGE_ERROR = "bridge_error"
-    TIMEOUT = "timeout"
-    NO_LET = "no_let"
-    CYCLE = "cycle"
-    TOO_DEEP = "too_deep"
+    def __init__(
+        self, title: str, message: str, is_failure: bool, route_dependent: bool = False
+    ) -> None:
+        self.title = title
+        self.message = message
+        self.is_failure = is_failure
+        self.route_dependent = route_dependent
 
-    @property
-    def title(self) -> str:
-        return _STOP_TITLES[self]
-
-    @property
-    def message(self) -> str:
-        return _STOP_MESSAGES[self]
-
-
-_REFERENCED = 'Queries with "Enable load" switched off are reached this way.'
-
-# TIMEOUT deliberately reuses the title the m_query_parse_timeout description
-# points operators at, so that instruction stays true on this path too.
-_STOP_TITLES: Dict["StopReason", str] = {
-    StopReason.PARSE_ERROR: "Unable to parse a referenced query",
-    StopReason.BRIDGE_ERROR: "Unable to parse a referenced query",
-    StopReason.TIMEOUT: "M-Query Parsing Timeout",
-    StopReason.NO_LET: "Referenced query is a bare expression",
-    StopReason.CYCLE: "Referenced queries form a loop",
-    StopReason.TOO_DEEP: "Reference chain is too long to be a real model",
-}
-
-_STOP_MESSAGES: Dict["StopReason", str] = {
-    StopReason.PARSE_ERROR: "A query this table is built on could not be parsed, so "
-    f"the lineage it holds is missing. {_REFERENCED}",
-    StopReason.BRIDGE_ERROR: "The M-Query parser failed on a query this table is "
-    f"built on, so the lineage it holds is missing. {_REFERENCED}",
-    StopReason.TIMEOUT: "Parsing a query this table is built on timed out, so the "
-    "lineage it holds is missing. Increase m_query_parse_timeout if this recurs. "
-    f"{_REFERENCED}",
-    StopReason.NO_LET: "A query this table is built on parsed cleanly but is a bare "
-    "expression with no `let` binding to walk, which is not followed -- the same as "
-    f"a table's own expression of that shape. {_REFERENCED}",
-    StopReason.CYCLE: "Queries this table is built on reference each other in a "
-    f"loop, so the chain was stopped and its lineage is missing. {_REFERENCED}",
-    StopReason.TOO_DEEP: "A chain of referenced queries ran past "
-    f"{MAX_REFERENCE_DEPTH} hops and was stopped, so its lineage is missing. "
-    f"{_REFERENCED}",
-}
+    PARSE_ERROR = (
+        "Unable to parse a referenced query",
+        "A query this table is built on could not be parsed, so the lineage it "
+        f"holds is missing. {_REFERENCED}",
+        True,
+    )
+    BRIDGE_ERROR = (
+        "Unable to parse a referenced query",
+        "The M-Query parser failed on a query this table is built on, so the "
+        f"lineage it holds is missing. {_REFERENCED}",
+        True,
+    )
+    # Reuses the title m_query_parse_timeout's description points operators at,
+    # so that instruction stays true here. It deliberately does not touch
+    # m_query_parse_timeouts -- see _report_referenced_query_stops.
+    TIMEOUT = (
+        "M-Query Parsing Timeout",
+        "Parsing a query this table is built on timed out, so the lineage it "
+        "holds is missing. Increase m_query_parse_timeout if this recurs. "
+        f"{_REFERENCED}",
+        True,
+    )
+    NO_LET = (
+        "Referenced query is a bare expression",
+        "A query this table is built on parsed cleanly but is a bare expression "
+        "with no `let` binding to walk, which is not followed -- the same as a "
+        f"table's own expression of that shape. {_REFERENCED}",
+        False,
+    )
+    # Route-dependent: the message says the branch stopped, not that the table
+    # has no lineage, because another route may have reached a data source.
+    CYCLE = (
+        "Referenced queries form a loop",
+        "Queries this table is built on reference each other in a loop, so that "
+        f"branch of the chain was stopped. {_REFERENCED}",
+        False,
+        True,
+    )
+    TOO_DEEP = (
+        "Reference chain is too long to be a real model",
+        f"A chain of referenced queries ran past {MAX_REFERENCE_DEPTH} hops, so "
+        f"that branch was stopped. {_REFERENCED}",
+        False,
+        True,
+    )
 
 
 @dataclass
@@ -170,8 +184,24 @@ class SharedExpressions:
     def stopped(
         self, name: str, reason: "StopReason", detail: Optional[str] = None
     ) -> None:
-        """Record why a referenced query yielded nothing, for the caller to report."""
-        self.stops.setdefault(name, (reason, detail))
+        """Record why a referenced query yielded nothing, for the caller to report.
+
+        Keyed the way every other lookup here is, so one query referenced as
+        `#"Base"` and `#"base"` is one entry rather than two.
+
+        A route-dependent reason yields to a real failure: reaching a query at
+        the depth cap down one branch says nothing about the query, so it must
+        not mask a parse error found on a shorter route. Otherwise the first
+        reason stands -- the rest are properties of the query text, identical
+        however the walk arrives.
+        """
+        key = name.casefold()
+        existing = self.stops.get(key)
+        if existing is not None and not existing[0].route_dependent:
+            return
+        if existing is not None and reason.route_dependent:
+            return
+        self.stops[key] = (reason, detail)
 
     def would_repeat(self, name: str) -> bool:
         return name.casefold() in self.chain
