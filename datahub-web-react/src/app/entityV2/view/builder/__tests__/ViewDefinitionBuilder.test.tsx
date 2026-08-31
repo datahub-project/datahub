@@ -130,7 +130,10 @@ describe('ViewDefinitionBuilder entity-type scope', () => {
     it('keeps the scope when the pinned assets change', () => {
         const updateState = renderBuilder(URN_SCOPED_VIEW);
 
-        act(() => captured.onChangeSelectedUrns?.(['urn:li:dataset:(urn:li:dataPlatform:hive,other,PROD)']));
+        // Pin an asset whose type is outside the scope: a scope recomputed from the
+        // selection could not come back as [Dataset], so this fails if the scope is
+        // rebuilt rather than carried through.
+        act(() => captured.onChangeSelectedUrns?.(['urn:li:container:8f2b3a']));
 
         expect(lastDefinition(updateState)?.entityTypes).toEqual([EntityType.Dataset]);
     });
