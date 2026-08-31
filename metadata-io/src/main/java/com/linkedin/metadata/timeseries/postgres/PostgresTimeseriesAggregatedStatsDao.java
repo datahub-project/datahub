@@ -20,6 +20,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -323,12 +324,15 @@ public final class PostgresTimeseriesAggregatedStatsDao {
     return next.toInstant().toEpochMilli();
   }
 
-  private static String formatGroupCell(@Nullable Object o) {
+  static String formatGroupCell(@Nullable Object o) {
     if (o == null) {
       return ES_NULL_VALUE;
     }
     if (o instanceof Timestamp) {
       return String.valueOf(((Timestamp) o).getTime());
+    }
+    if (o instanceof OffsetDateTime) {
+      return String.valueOf(((OffsetDateTime) o).toInstant().toEpochMilli());
     }
     return String.valueOf(o);
   }

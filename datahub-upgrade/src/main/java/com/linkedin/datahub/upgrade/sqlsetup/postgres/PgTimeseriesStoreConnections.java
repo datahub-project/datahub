@@ -9,6 +9,8 @@ import io.ebean.datasource.DataSourceBuilder;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Map;
 import java.util.Properties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -66,10 +68,8 @@ public final class PgTimeseriesStoreConnections {
             : "org.postgresql.Driver";
 
     Iam iam = props.getPgCron() != null ? props.getPgCron().getIam() : null;
-    boolean shouldUseIam = iam != null && (iam.isUseIamAuth() || iam.isPostgresUseIamAuth());
+    boolean shouldUseIam = shouldUseIam(iam, ebeanDataSourceConfig);
     if (!shouldUseIam) {
-      // Prefer ebean IAM toggles when pgCron IAM block is unset — match runtime pool behavior via
-      // DriverManager for non-IAM deployments.
       return DriverManager.getConnection(url.trim(), user, pass);
     }
 
@@ -78,14 +78,14 @@ public final class PgTimeseriesStoreConnections {
             url.trim(),
             defaultDriver,
             true,
-            emptyToNull(iam.getCloudProvider()),
-            emptyToNull(iam.getAwsRegion()),
-            emptyToNull(iam.getAwsAccessKeyId()),
-            emptyToNull(iam.getAwsSecretAccessKey()),
-            emptyToNull(iam.getAwsSessionToken()),
-            emptyToNull(iam.getGoogleApplicationCredentials()),
-            emptyToNull(iam.getGcpProject()),
-            emptyToNull(iam.getInstanceConnectionName()));
+            iam == null ? null : emptyToNull(iam.getCloudProvider()),
+            iam == null ? null : emptyToNull(iam.getAwsRegion()),
+            iam == null ? null : emptyToNull(iam.getAwsAccessKeyId()),
+            iam == null ? null : emptyToNull(iam.getAwsSecretAccessKey()),
+            iam == null ? null : emptyToNull(iam.getAwsSessionToken()),
+            iam == null ? null : emptyToNull(iam.getGoogleApplicationCredentials()),
+            iam == null ? null : emptyToNull(iam.getGcpProject()),
+            iam == null ? null : emptyToNull(iam.getInstanceConnectionName()));
 
     try {
       Class.forName(cfg.driver);
@@ -104,6 +104,43 @@ public final class PgTimeseriesStoreConnections {
       cfg.customProperties.forEach(connProps::setProperty);
     }
     return DriverManager.getConnection(cfg.url, connProps);
+  }
+
+  /**
+   * Match runtime pools: IAM is on when pgCron IAM flags are set, or the GMS ebean datasource is
+   * already IAM-configured ({@code ebean.useIamAuth} / {@code ebean.postgresUseIamAuth}).
+   */
+  static boolean shouldUseIam(
+      @Nullable Iam iam, @Nullable DataSourceBuilder.Settings ebeanDataSourceConfig) {
+    if (iam != null && (iam.isUseIamAuth() || iam.isPostgresUseIamAuth())) {
+      return true;
+    }
+    return ebeanPoolUsesIam(ebeanDataSourceConfig);
+  }
+
+  private static boolean ebeanPoolUsesIam(@Nullable DataSourceBuilder.Settings cfg) {
+    if (cfg == null) {
+      return false;
+    }
+    Map<String, String> custom = cfg.getCustomProperties();
+    if (custom != null) {
+      String wrapperPlugins = custom.get("wrapperPlugins");
+      if (wrapperPlugins != null
+          && Arrays.stream(wrapperPlugins.split(","))
+              .map(String::trim)
+              .anyMatch("iam"::equalsIgnoreCase)) {
+        return true;
+      }
+      if ("true".equalsIgnoreCase(custom.get("enableIamAuth"))) {
+        return true;
+      }
+    }
+    String driver = cfg.getDriver();
+    if (driver != null && driver.contains("cloud.sql")) {
+      return true;
+    }
+    String dsUrl = cfg.getUrl();
+    return dsUrl != null && dsUrl.contains("wrapperPlugins=iam");
   }
 
   @Nullable
