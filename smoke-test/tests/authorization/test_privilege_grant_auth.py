@@ -309,7 +309,7 @@ def test_invite_accept_still_assigns_role(graph_client):
     )
     assert invite_token, token_res
 
-    create_user(admin_session, invited_email, USER_PASSWORD)
+    admin_session = create_user(admin_session, invited_email, USER_PASSWORD)
     try:
         res = _post_graphql_as_user(
             invited_email,
