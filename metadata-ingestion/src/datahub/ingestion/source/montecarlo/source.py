@@ -1,3 +1,4 @@
+import itertools
 import logging
 from typing import Callable, Iterable, Protocol, TypeVar
 
@@ -126,18 +127,45 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.include_assertions:
-            yield from self._emit(
+            monitor_wus = self._emit(
                 "monitor",
                 self.client.get_monitors,
                 self.report.report_monitor_scanned,
                 self.builder.build_assertion,
             )
-            yield from self._emit(
+            custom_rule_wus = self._emit(
                 "custom rule",
                 self.client.get_custom_rules,
                 self.report.report_custom_rule_scanned,
                 self.builder.build_assertion,
             )
+            # Materialize through a single chain so the per-item build runs and
+            # the report counters (scanned / emitted) advance before the guard
+            # below inspects them.
+            yield from itertools.chain(monitor_wus, custom_rule_wus)
+
+            # Guard: if we scanned monitors/rules but emitted zero assertions,
+            # every build was skipped — most likely a misconfigured
+            # connection_to_platform_map or uniformly unresolved MCONs. Surface
+            # it as a distinct failure rather than a misleading 'successful'
+            # empty run. Not a hard abort: alerts (if enabled) still run, since
+            # they may attach to assertions from a prior stateful run.
+            scanned = self.report.monitors_scanned + self.report.custom_rules_scanned
+            if scanned > 0 and self.report.assertions_emitted == 0:
+                self.report.failure(
+                    title="No assertions emitted despite scanned monitors/rules",
+                    message=(
+                        "All monitors/custom rules were skipped during build "
+                        "(unresolved MCONs, bad connection_to_platform_map, or "
+                        "uniform per-item errors). Check the warnings above and "
+                        "your connection_to_platform_map / platform mapping."
+                    ),
+                    context=(
+                        f"monitors_scanned={self.report.monitors_scanned}, "
+                        f"custom_rules_scanned={self.report.custom_rules_scanned}, "
+                        f"assertions_emitted=0"
+                    ),
+                )
 
         # Alerts are emitted after definitions so run events can attach to the
         # assertions ingested above.

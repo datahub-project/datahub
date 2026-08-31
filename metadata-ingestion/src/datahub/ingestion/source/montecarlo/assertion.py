@@ -224,6 +224,20 @@ def _make_custom_assertion_info(
         native_parameters["metric"] = first.metric
     if first.custom_metric:
         native_parameters["custom_metric"] = first.custom_metric
+    # _std_parameters only populates the structured slots for the standard
+    # operators (BETWEEN / scalar). For unmapped / _NATIVE_ operators it
+    # returns None when there's no scalar threshold — but a range-style
+    # native operator (e.g. OUTSIDE_RANGE) sets lower_threshold / upper_threshold
+    # instead of threshold, so those would be silently dropped. Surface them on
+    # nativeParameters so native range comparisons keep their bounds. The
+    # scalar threshold case is already handled by _std_parameters' fallthrough
+    # (parameters.value), so it is not duplicated here.
+    # Coerced to str since nativeParameters is map[str, str].
+    if operator is _NATIVE_OPERATOR:
+        if first.lower_threshold is not None:
+            native_parameters["lower_threshold"] = str(first.lower_threshold)
+        if first.upper_threshold is not None:
+            native_parameters["upper_threshold"] = str(first.upper_threshold)
 
     return CustomAssertionInfoClass(
         type=native_type,

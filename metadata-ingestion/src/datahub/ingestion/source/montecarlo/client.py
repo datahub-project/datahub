@@ -24,12 +24,22 @@ from datahub.utilities.ratelimiter import (
 logger = logging.getLogger(__name__)
 
 
-def _is_rate_limited(exception: BaseException) -> bool:
-    """pycarlo only auto-retries GqlError when its `retryable` flag is set,
-    which defaults to status_code >= 500 (see pycarlo.common.errors.GqlError)
-    — a 429 (rate limited) is raised immediately with no retry. This predicate
-    drives a retry loop applied on top of pycarlo, specifically for 429s."""
-    return getattr(exception, "status_code", None) == 429
+def _is_retryable(exception: BaseException) -> bool:
+    """Predicate driving a retry loop applied on top of pycarlo.
+
+    pycarlo only auto-retries its own ``GqlError`` when the `retryable` flag is set,
+    which defaults to status_code >= 500 (see pycarlo.common.errors.GqlError) — a
+    429 (rate limited) is raised immediately with no retry. We additionally retry
+    transient transport-level failures (``ConnectionError`` / ``ReadTimeout`` from
+    the underlying requests client, surfaced by gql as ``TransportQueryError``) so
+    a brief blip during pagination backs off instead of aborting the whole phase.
+    """
+    if getattr(exception, "status_code", None) == 429:
+        return True
+    if isinstance(exception, _TRANSIENT_NETWORK_ERRORS):
+        return True
+    cause = exception.__cause__
+    return isinstance(cause, _TRANSIENT_NETWORK_ERRORS) if cause else False
 
 
 # 401/403 mean the API credentials are rejected/insufficient — a fatal, run-level
@@ -42,11 +52,50 @@ def _is_auth_error(exception: BaseException) -> bool:
     return getattr(exception, "status_code", None) in _AUTH_STATUS_CODES
 
 
+def _import_transient_network_errors() -> tuple:
+    """Lazily resolve the transient transport/network exception types.
+
+    Imported lazily so the connector still loads if gql/requests is missing or
+    their exception hierarchy moves; a missing type is simply not matched.
+    Returns a tuple suitable for ``isinstance`` against an empty tuple (which
+    matches nothing) when an import fails.
+    """
+    types: list = []
+    try:
+        from gql.transport.exceptions import (
+            TransportQueryError,  # type: ignore[import-not-found]
+        )
+
+        types.append(TransportQueryError)
+    except ImportError:
+        pass
+    try:
+        from requests.exceptions import (
+            ConnectionError as RequestsConnectionError,
+            ReadTimeout as RequestsReadTimeout,
+        )
+
+        types.extend([RequestsConnectionError, RequestsReadTimeout])
+    except ImportError:
+        pass
+    return tuple(types)
+
+
+_TRANSIENT_NETWORK_ERRORS = _import_transient_network_errors()
+
+
 class MonteCarloAuthError(RuntimeError):
     """Raised when Monte Carlo rejects the API credentials (401/403). A distinct,
     fatal type — propagated unwrapped (like DailyCallBudgetExceeded) so a bad
     token aborts the run with a clear auth error, rather than being demoted to a
     per-asset warning that yields a misleading 'successful' empty run."""
+
+
+# Run-level failures that must abort the whole run, not be demoted to a per-item
+# warning or per-phase failure: an exhausted daily budget or rejected credentials
+# is fatal regardless of where in the pipeline it surfaces. Kept in sync with
+# source._FATAL_RUN_ERRORS.
+_FATAL_RUN_ERRORS: tuple = (DailyCallBudgetExceeded, MonteCarloAuthError)
 
 
 # 1 initial attempt + 5 retries, matching this source's prior hand-rolled loop.
@@ -257,23 +306,30 @@ class MonteCarloClient:
             self._token_bucket.acquire()
         return self._client(query, variables=variables)
 
-    def _log_rate_limit_retry(self, retry_state: "tenacity.RetryCallState") -> None:
+    def _log_retryable_retry(self, retry_state: "tenacity.RetryCallState") -> None:
         # retrying(self._attempt_call, query, variables) — args[0] is query,
         # since self._attempt_call is already bound (no separate self arg here).
         query = retry_state.args[0] if retry_state.args else ""
+        outcome = retry_state.outcome
+        exc = outcome.exception() if outcome is not None else None
+        reason = (
+            "rate limited (429)"
+            if (exc is not None and getattr(exc, "status_code", None) == 429)
+            else "transient network error"
+        )
         self._warn(
-            title="Monte Carlo API rate limited",
-            message="Rate limited (429); retrying with backoff.",
+            title="Monte Carlo API call failed; retrying",
+            message=f"{reason}; retrying with backoff.",
             context=f"attempt={retry_state.attempt_number}/{_RATE_LIMIT_MAX_ATTEMPTS}, "
             f"query={str(query)[:60]!r}",
         )
 
     def _call(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
         retrying = tenacity.Retrying(
-            retry=tenacity.retry_if_exception(_is_rate_limited),
+            retry=tenacity.retry_if_exception(_is_retryable),
             wait=tenacity.wait_exponential_jitter(initial=1.0, max=60.0),
             stop=tenacity.stop_after_attempt(_RATE_LIMIT_MAX_ATTEMPTS),
-            before_sleep=self._log_rate_limit_retry,
+            before_sleep=self._log_retryable_retry,
             reraise=True,
         )
         try:
@@ -351,17 +407,29 @@ class MonteCarloClient:
                 entity_mcons = self._resolve_table_monitor_entity_mcons(
                     uuid, resource_id
                 )
-            yield MonteCarloAssertionDef(
-                uuid=uuid,
-                name=raw.get("name"),
-                description=raw.get("description"),
-                monitor_type=monitor_type,
-                entity_mcons=entity_mcons,
-                resource_id=resource_id,
-                severity=raw.get("severity"),
-                data_quality_dimension=raw.get("data_quality_dimension"),
-                comparisons=_parse_comparisons(raw.get("comparisons")),
-            )
+            try:
+                yield MonteCarloAssertionDef(
+                    uuid=uuid,
+                    name=raw.get("name"),
+                    description=raw.get("description"),
+                    monitor_type=monitor_type,
+                    entity_mcons=entity_mcons,
+                    resource_id=resource_id,
+                    severity=raw.get("severity"),
+                    data_quality_dimension=raw.get("data_quality_dimension"),
+                    comparisons=_parse_comparisons(raw.get("comparisons")),
+                )
+            except _FATAL_RUN_ERRORS:
+                raise
+            except Exception as e:
+                self._warn(
+                    title="Skipped malformed monitor",
+                    message=(
+                        "Could not parse a monitor row from Monte Carlo; skipping it."
+                    ),
+                    context=f"monitor_uuid={uuid}, raw={raw!r}",
+                    exc=e,
+                )
 
     def _resolve_table_monitor_entity_mcons(
         self, monitor_uuid: str, resource_id: str
@@ -423,15 +491,28 @@ class MonteCarloClient:
             if not uuid:
                 self._report_missing_id("custom rule", raw)
                 continue
-            yield MonteCarloAssertionDef(
-                uuid=uuid,
-                description=raw.get("description"),
-                rule_type=raw.get("rule_type"),
-                custom_sql=raw.get("custom_sql"),
-                entity_mcons=raw.get("entity_mcons") or [],
-                severity=raw.get("severity"),
-                comparisons=_parse_comparisons(raw.get("comparisons")),
-            )
+            try:
+                yield MonteCarloAssertionDef(
+                    uuid=uuid,
+                    description=raw.get("description"),
+                    rule_type=raw.get("rule_type"),
+                    custom_sql=raw.get("custom_sql"),
+                    entity_mcons=raw.get("entity_mcons") or [],
+                    severity=raw.get("severity"),
+                    comparisons=_parse_comparisons(raw.get("comparisons")),
+                )
+            except _FATAL_RUN_ERRORS:
+                raise
+            except Exception as e:
+                self._warn(
+                    title="Skipped malformed custom rule",
+                    message=(
+                        "Could not parse a custom rule row from Monte Carlo; "
+                        "skipping it."
+                    ),
+                    context=f"rule_uuid={uuid}, raw={raw!r}",
+                    exc=e,
+                )
 
     def get_alerts(self) -> Iterable[MonteCarloAlert]:
         now = datetime.now(tz=timezone.utc)
@@ -444,19 +525,33 @@ class MonteCarloClient:
             if not alert_id:
                 self._report_missing_id("alert", raw)
                 continue
-            yield MonteCarloAlert(
-                uuid=alert_id,
-                alert_type=raw.get("type"),
-                sub_types=raw.get("sub_types") or [],
-                severity=raw.get("severity"),
-                priority=raw.get("priority"),
-                status=raw.get("status"),
-                created_time=raw.get("created_time"),
-                monitor_uuid=(raw.get("monitor_uuids") or [None])[0],
-                asset_mcons=[
-                    a.get("mcon") for a in (raw.get("assets") or []) if a.get("mcon")
-                ],
-            )
+            try:
+                yield MonteCarloAlert(
+                    uuid=alert_id,
+                    alert_type=raw.get("type"),
+                    sub_types=raw.get("sub_types") or [],
+                    severity=raw.get("severity"),
+                    priority=raw.get("priority"),
+                    status=raw.get("status"),
+                    created_time=raw.get("created_time"),
+                    monitor_uuid=(raw.get("monitor_uuids") or [None])[0],
+                    asset_mcons=[
+                        a.get("mcon")
+                        for a in (raw.get("assets") or [])
+                        if a.get("mcon")
+                    ],
+                )
+            except _FATAL_RUN_ERRORS:
+                raise
+            except Exception as e:
+                self._warn(
+                    title="Skipped malformed alert",
+                    message=(
+                        "Could not parse an alert row from Monte Carlo; skipping it."
+                    ),
+                    context=f"alert_id={alert_id}, raw={raw!r}",
+                    exc=e,
+                )
 
     def get_table(self, mcon: str) -> Optional[ResolvedTable]:
         table = self._call(GET_TABLE_QUERY, {"mcon": mcon}).get("get_table")

@@ -637,6 +637,88 @@ def test_unmapped_operator_falls_back_to_native() -> None:
     assert info.operator == AssertionStdOperatorClass._NATIVE_
 
 
+def test_native_operator_preserves_threshold_on_native_parameters() -> None:
+    """A native (unmapped) operator with a scalar threshold keeps it on the
+    structured parameters.value slot (via _std_parameters' fallthrough). The
+    scalar case is NOT duplicated onto nativeParameters — only range bounds
+    are surfaced there (see the range test)."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    definition = MonteCarloAssertionDef(
+        uuid="mon-native-thresh",
+        monitor_type="ANOMALY",
+        entity_mcons=[mcon],
+        comparisons=[
+            MonteCarloComparison(operator="AUTO", metric="row_count", threshold=42),
+        ],
+    )
+    info = _custom_assertion(builder, definition)
+    assert info.operator == AssertionStdOperatorClass._NATIVE_
+    # Scalar threshold is preserved on the structured parameters slot.
+    assert info.parameters is not None
+    assert info.parameters.value is not None
+    assert info.parameters.value.value == "42.0"
+    assert info.nativeParameters is not None
+    # Scalar threshold is not duplicated onto nativeParameters.
+    assert "threshold" not in info.nativeParameters
+
+
+def test_native_operator_preserves_range_thresholds_on_native_parameters() -> None:
+    """A native range operator (e.g. OUTSIDE_RANGE) sets lower/upper thresholds
+    instead of a scalar threshold; _std_parameters only handles the standard
+    BETWEEN operator, so without surfacing them on nativeParameters the bounds
+    would be silently dropped. This is the core fix for the dropped-thresholds
+    bug."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    definition = MonteCarloAssertionDef(
+        uuid="mon-outside-range",
+        monitor_type="METRIC",
+        entity_mcons=[mcon],
+        comparisons=[
+            MonteCarloComparison(
+                operator="OUTSIDE_RANGE",
+                metric="row_count",
+                lower_threshold=10,
+                upper_threshold=100,
+            ),
+        ],
+    )
+    info = _custom_assertion(builder, definition)
+    assert info.operator == AssertionStdOperatorClass._NATIVE_
+    # No scalar threshold → parameters is None; bounds live on nativeParameters.
+    assert info.parameters is None
+    assert info.nativeParameters is not None
+    assert info.nativeParameters["lower_threshold"] == "10.0"
+    assert info.nativeParameters["upper_threshold"] == "100.0"
+
+
+def test_standard_operator_does_not_duplicate_threshold_on_native_parameters() -> None:
+    """A standard operator (GT) puts the threshold on parameters.value; it must
+    NOT also be duplicated onto nativeParameters (only _NATIVE_ operators
+    surface range bounds there)."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    definition = MonteCarloAssertionDef(
+        uuid="mon-gt",
+        monitor_type="VOLUME",
+        entity_mcons=[mcon],
+        comparisons=[
+            MonteCarloComparison(operator="GT", metric="row_count", threshold=1000),
+        ],
+    )
+    info = _custom_assertion(builder, definition)
+    assert info.operator == AssertionStdOperatorClass.GREATER_THAN
+    assert info.parameters is not None and info.parameters.value is not None
+    assert info.nativeParameters is not None
+    assert "threshold" not in info.nativeParameters
+    assert "lower_threshold" not in info.nativeParameters
+    assert "upper_threshold" not in info.nativeParameters
+
+
 def test_unmapped_metric_falls_back_to_native_aggregation() -> None:
     """An unknown metric string → _NATIVE_ aggregation (gaps are safe)."""
     report = MonteCarloSourceReport()
@@ -1135,7 +1217,8 @@ def test_call_retries_on_429_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> N
     # share one title+message, so they aggregate into a single entry with
     # one context string per retry (see SourceReport.report_log's log_key).
     assert len(report.warnings) == 1
-    assert report.warnings[0].title == "Monte Carlo API rate limited"
+    assert report.warnings[0].title == "Monte Carlo API call failed; retrying"
+    assert report.warnings[0].message.startswith("rate limited (429)")
     assert len(report.warnings[0].context) == 2
 
 
@@ -1335,6 +1418,110 @@ def test_emit_propagates_fatal_run_error_from_build() -> None:
     assert len(source.report.warnings) == 0
 
 
+def test_get_workunits_warns_when_all_assertions_skipped() -> None:
+    """If monitors/rules are scanned but zero assertions are emitted (e.g. a
+    misconfigured connection_to_platform_map), the run must surface a distinct
+    failure rather than a misleading 'successful' empty run."""
+    source = MonteCarloSource.__new__(MonteCarloSource)
+    source.config = make_config(include_assertions=True, include_alerts=False)
+    source.report = MonteCarloSourceReport()
+
+    # A client whose get_monitors / get_custom_rules return items that all fail
+    # to resolve to a dataset URN (empty entity_mcons → build_assertion warns
+    # and yields nothing).
+    class StubClient:
+        def get_monitors(self):
+            yield MonteCarloAssertionDef(uuid="m1", entity_mcons=[])
+            yield MonteCarloAssertionDef(uuid="m2", entity_mcons=[])
+
+        def get_custom_rules(self):
+            return iter(())
+
+    source.client = StubClient()  # type: ignore[assignment]
+
+    class StubResolver:
+        def dataset_urn_for_mcon(self, mcon: str) -> Optional[str]:
+            return None
+
+    source.builder = MonteCarloAssertionBuilder(  # type: ignore[arg-type]
+        source.config,
+        source.report,
+        StubResolver(),  # type: ignore[arg-type]
+    )
+
+    wus = list(source.get_workunits_internal())
+    assert wus == []
+    # Scanned 2 monitors, emitted 0 assertions → guard fires a failure.
+    assert source.report.monitors_scanned == 2
+    assert source.report.assertions_emitted == 0
+    assert any(
+        f.title is not None and "No assertions emitted" in f.title
+        for f in source.report.failures
+    )
+
+
+def test_get_workunits_no_guard_when_assertions_emitted() -> None:
+    """The all-failed guard must NOT fire when at least one assertion is emitted."""
+    source = MonteCarloSource.__new__(MonteCarloSource)
+    source.config = make_config(include_assertions=True, include_alerts=False)
+    source.report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+
+    class StubClient:
+        def get_monitors(self):
+            yield MonteCarloAssertionDef(uuid="m1", entity_mcons=[mcon])
+
+        def get_custom_rules(self):
+            return iter(())
+
+    source.client = StubClient()  # type: ignore[assignment]
+    resolver = MconResolver(
+        source.config,
+        FakeResolverClient(
+            {
+                mcon: ResolvedTable(
+                    mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+                )
+            }
+        ),
+        source.report,
+    )
+    source.builder = MonteCarloAssertionBuilder(source.config, source.report, resolver)
+
+    wus = list(source.get_workunits_internal())
+    assert len(wus) > 0
+    assert source.report.assertions_emitted == 1
+    assert len(source.report.failures) == 0
+
+
+def test_get_workunits_no_guard_when_nothing_scanned() -> None:
+    """The guard must not fire when nothing was scanned at all (e.g. an empty
+    Monte Carlo account) — that's a legitimate empty run, not a misconfiguration."""
+    source = MonteCarloSource.__new__(MonteCarloSource)
+    source.config = make_config(include_assertions=True, include_alerts=False)
+    source.report = MonteCarloSourceReport()
+
+    class EmptyClient:
+        def get_monitors(self):
+            return iter(())
+
+        def get_custom_rules(self):
+            return iter(())
+
+    source.client = EmptyClient()  # type: ignore[assignment]
+    # A real builder is required (its bound method is captured when _emit is
+    # called), but it is never invoked since no items are scanned.
+    source.builder = MonteCarloAssertionBuilder(  # type: ignore[arg-type]
+        source.config,
+        source.report,
+        MconResolver(source.config, FakeResolverClient({}), source.report),
+    )
+    wus = list(source.get_workunits_internal())
+    assert wus == []
+    assert source.report.monitors_scanned == 0
+    assert len(source.report.failures) == 0
+
+
 @pytest.mark.parametrize(
     "fatal", [DailyCallBudgetExceeded("x"), MonteCarloAuthError("x")]
 )
@@ -1402,3 +1589,166 @@ def test_get_table_missing_full_table_id_warns_and_returns_none() -> None:
     client.report = report
     assert client.get_table("MCON++a++b++table++c") is None
     assert len(report.warnings) == 1
+
+
+def test_get_monitors_skips_malformed_row_and_continues() -> None:
+    """A single malformed monitor row (one that raises during MonteCarloAssertionDef
+    construction) must be skipped with a warning, not abort the whole phase."""
+    report = MonteCarloSourceReport()
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = make_config()
+    client.page_size = 100
+    client.report = report
+
+    client._call = lambda query, variables: {  # type: ignore[method-assign]
+        "get_monitors": [
+            {"uuid": "good-1", "monitor_type": "FRESHNESS"},
+            {"uuid": "bad-1", "monitor_type": "FRESHNESS"},
+            {"uuid": "good-2", "monitor_type": "VOLUME"},
+        ]
+    }
+    real_init = MonteCarloAssertionDef.__init__
+    call_count = {"n": 0}
+
+    def flaky_init(self, **kwargs):  # type: ignore[no-untyped-def]
+        call_count["n"] += 1
+        if call_count["n"] == 2:
+            raise ValueError("malformed row")
+        real_init(self, **kwargs)
+
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(MonteCarloAssertionDef, "__init__", flaky_init)
+    try:
+        uuids = [m.uuid for m in client.get_monitors()]
+    finally:
+        monkey.undo()
+
+    assert uuids == ["good-1", "good-2"]
+    # The malformed row surfaces as a warning, not a phase failure.
+    assert any(
+        w.title is not None and "malformed monitor" in w.title
+        for w in report.warnings
+    )
+    assert len(report.failures) == 0
+
+
+def test_get_alerts_skips_malformed_row_and_continues() -> None:
+    """A malformed alert row is skipped with a warning, not aborting the phase."""
+    report = MonteCarloSourceReport()
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = make_config()
+    client.page_size = 100
+    client.report = report
+    client._call = lambda query, variables: {  # type: ignore[method-assign]
+        "get_alerts": {
+            "edges": [
+                {"node": {"id": "good-1", "monitor_uuids": ["m1"]}},
+                {"node": {"id": "bad-1", "monitor_uuids": ["m1"]}},
+                {"node": {"id": "good-2", "monitor_uuids": ["m2"]}},
+            ],
+            "page_info": {"has_next_page": False},
+        }
+    }
+    real_init = MonteCarloAlert.__init__
+    call_count = {"n": 0}
+
+    def flaky_init(self, **kwargs):  # type: ignore[no-untyped-def]
+        call_count["n"] += 1
+        if call_count["n"] == 2:
+            raise ValueError("malformed alert")
+        real_init(self, **kwargs)
+
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(MonteCarloAlert, "__init__", flaky_init)
+    try:
+        ids = [a.uuid for a in client.get_alerts()]
+    finally:
+        monkey.undo()
+
+    assert ids == ["good-1", "good-2"]
+    assert any(
+        w.title is not None and "malformed alert" in w.title
+        for w in report.warnings
+    )
+    assert len(report.failures) == 0
+
+
+def test_get_monitors_propagates_fatal_from_row_construction() -> None:
+    """A run-level fatal (DailyCallBudgetExceeded) raised during row construction
+    must propagate, not be demoted to a per-row warning."""
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = make_config()
+    client.page_size = 100
+    client.report = MonteCarloSourceReport()
+    client._call = lambda query, variables: {  # type: ignore[method-assign]
+        "get_monitors": [{"uuid": "m1", "monitor_type": "FRESHNESS"}]
+    }
+
+    def fatal_init(self, **kwargs):  # type: ignore[no-untyped-def]
+        raise DailyCallBudgetExceeded("budget exhausted")
+
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(MonteCarloAssertionDef, "__init__", fatal_init)
+    try:
+        with pytest.raises(DailyCallBudgetExceeded):
+            list(client.get_monitors())
+    finally:
+        monkey.undo()
+
+
+def test_call_retries_on_transient_network_error_then_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A transient requests ConnectionError (surfaced via __cause__) must retry,
+    not abort the phase — the predicate inspects both the exception and its cause."""
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+    from requests.exceptions import ConnectionError as RequestsConnectionError
+
+    report = MonteCarloSourceReport()
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.report = report
+    client.page_size = 100
+    client._token_bucket = None
+    client._daily_budget = None
+    attempts = {"n": 0}
+
+    def flaky(query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        attempts["n"] += 1
+        if attempts["n"] < 2:
+            raise RequestsConnectionError("connection reset")
+        return {"ok": True}
+
+    client._client = flaky  # type: ignore[assignment]
+    result = client._call("query {ok}", {})
+    assert result == {"ok": True}
+    assert attempts["n"] == 2
+    # The retry surfaces as a warning with the transient-network reason.
+    assert any("transient network error" in w.message for w in report.warnings)
+
+
+def test_call_retries_on_transport_query_error_directly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A gql TransportQueryError raised directly (not wrapped with a cause) is
+    also retried — the predicate matches the exception type itself."""
+    pytest.importorskip("gql")
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
+    from gql.transport.exceptions import TransportQueryError
+
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.report = None
+    client.page_size = 100
+    client._token_bucket = None
+    client._daily_budget = None
+    attempts = {"n": 0}
+
+    def flaky(query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        attempts["n"] += 1
+        if attempts["n"] < 2:
+            raise TransportQueryError("read timeout", None)
+        return {"ok": True}
+
+    client._client = flaky  # type: ignore[assignment]
+    result = client._call("query {ok}", {})
+    assert result == {"ok": True}
+    assert attempts["n"] == 2
