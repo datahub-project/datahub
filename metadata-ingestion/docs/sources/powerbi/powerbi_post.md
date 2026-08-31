@@ -241,14 +241,14 @@ in the model, DataHub has no entity to point an edge at, so the chain is followe
 the data source it ends at is attributed to the loaded table directly:
 
 ```shell
-Combined Actions          -- loaded, the only table in the model
+Merged Rows               -- loaded, the only table in the model
   = Table.Combine({#"Filtered A", #"Filtered B"})
         |                     both "Enable load" off
         +-----------------> #"Base Query"      "Enable load" off
                               holds the warehouse connection
 ```
 
-Here `Combined Actions` is reported as having the warehouse table upstream; the two
+Here `Merged Rows` is reported as having the warehouse table upstream; the two
 intermediate queries do not appear.
 
 A few limits apply. Queries that reference each other in a loop are stopped, as are
