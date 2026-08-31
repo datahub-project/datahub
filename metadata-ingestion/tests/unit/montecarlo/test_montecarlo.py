@@ -1626,8 +1626,7 @@ def test_get_monitors_skips_malformed_row_and_continues() -> None:
     assert uuids == ["good-1", "good-2"]
     # The malformed row surfaces as a warning, not a phase failure.
     assert any(
-        w.title is not None and "malformed monitor" in w.title
-        for w in report.warnings
+        w.title is not None and "malformed monitor" in w.title for w in report.warnings
     )
     assert len(report.failures) == 0
 
@@ -1667,8 +1666,7 @@ def test_get_alerts_skips_malformed_row_and_continues() -> None:
 
     assert ids == ["good-1", "good-2"]
     assert any(
-        w.title is not None and "malformed alert" in w.title
-        for w in report.warnings
+        w.title is not None and "malformed alert" in w.title for w in report.warnings
     )
     assert len(report.failures) == 0
 
