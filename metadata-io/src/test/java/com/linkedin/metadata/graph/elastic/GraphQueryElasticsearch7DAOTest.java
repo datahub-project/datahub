@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
+import static com.linkedin.metadata.graph.elastic.TestUtils.assertMatchesNothing;
 import static com.linkedin.metadata.graph.elastic.TestUtils.createEmptySearchResponse;
 import static com.linkedin.metadata.graph.elastic.TestUtils.createFakeLineageHits;
 import static com.linkedin.metadata.graph.elastic.TestUtils.createFakeSearchResponse;
@@ -65,7 +66,6 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
@@ -383,14 +383,7 @@ public class GraphQueryElasticsearch7DAOTest {
     QueryBuilder result =
         dao.getLineageQuery(operationContext, urnsPerEntityType, lineageGraphFilters);
 
-    Assert.assertNotNull(result);
-    Assert.assertTrue(result instanceof BoolQueryBuilder);
-    BoolQueryBuilder boolQuery = (BoolQueryBuilder) result;
-    Assert.assertTrue(
-        boolQuery.filter().isEmpty() && boolQuery.must().isEmpty() && boolQuery.should().isEmpty(),
-        "match-none query should carry no positive clauses");
-    Assert.assertEquals(boolQuery.mustNot().size(), 1);
-    Assert.assertTrue(boolQuery.mustNot().get(0) instanceof MatchAllQueryBuilder);
+    assertMatchesNothing(result);
   }
 
   @Test

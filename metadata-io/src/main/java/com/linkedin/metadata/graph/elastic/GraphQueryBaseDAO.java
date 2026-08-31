@@ -67,6 +67,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
@@ -516,7 +517,10 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     // clause-less bool would degrade to match_all -- dropping the source-urn filter and
     // scanning the whole graph index. Such an entity genuinely has no lineage: match none.
     if (entityTypeQueries.should().isEmpty()) {
-      return QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery());
+      log.debug(
+          "No registered lineage edges for entity types {}; matching none",
+          urnsPerEntityType.keySet());
+      return new MatchNoneQueryBuilder();
     }
     entityTypeQueries.minimumShouldMatch(1);
 

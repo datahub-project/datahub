@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
+import static com.linkedin.metadata.graph.elastic.TestUtils.assertMatchesNothing;
 import static com.linkedin.metadata.graph.elastic.TestUtils.createEmptySearchResponse;
 import static com.linkedin.metadata.graph.elastic.TestUtils.createFakeLineageHits;
 import static com.linkedin.metadata.graph.elastic.TestUtils.createFakeSearchResponse;
@@ -74,7 +75,6 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
@@ -561,18 +561,9 @@ public class GraphQueryPITDAOTest {
     Assert.assertEquals(entityTypeQueries.minimumShouldMatch(), "1");
     // Only the dataset contributes a should clause; the glossaryTerm has no lineage edges.
     Assert.assertEquals(entityTypeQueries.should().size(), 1);
-  }
-
-  /** Asserts the query is a bool that explicitly matches nothing, not an empty (match_all) bool. */
-  private static void assertMatchesNothing(QueryBuilder result) {
-    Assert.assertNotNull(result);
-    Assert.assertTrue(result instanceof BoolQueryBuilder);
-    BoolQueryBuilder boolQuery = (BoolQueryBuilder) result;
     Assert.assertTrue(
-        boolQuery.filter().isEmpty() && boolQuery.must().isEmpty() && boolQuery.should().isEmpty(),
-        "match-none query should carry no positive clauses");
-    Assert.assertEquals(boolQuery.mustNot().size(), 1);
-    Assert.assertTrue(boolQuery.mustNot().get(0) instanceof MatchAllQueryBuilder);
+        entityTypeQueries.should().get(0).toString().contains("test-dataset"),
+        "the surviving should clause must be the dataset's");
   }
 
   @Test
