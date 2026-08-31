@@ -272,16 +272,21 @@ def _report_referenced_query_stops(
 
     One warning per reason rather than per query, so a dataset whose queries all
     hit the same wall produces one entry naming them rather than dozens.
+
+    The counters carry table impact, not distinct failures: a referenced query is
+    parsed once per dataset but every table that depends on it is short of
+    lineage, and that is the number worth acting on.
     """
     by_reason: Dict[StopReason, Dict[str, Optional[str]]] = {}
     for name, (reason, detail) in shared.stops.items():
         by_reason.setdefault(reason, {})[name] = detail
 
     for reason, queries in by_reason.items():
-        if reason is StopReason.TIMEOUT:
-            # Same counter the table's own expression uses, so the total stays
-            # the number of timeouts rather than the number of tables.
-            reporter.m_query_parse_timeouts += len(queries)
+        # Deliberately not m_query_parse_timeouts, even for a timeout. A
+        # referenced query is parsed once per dataset but reported once per
+        # table that reaches it, so adding to that counter would report one
+        # timeout as many and mislead anyone sizing m_query_parse_timeout.
+        # The reused warning title is what keeps its description true here.
         if reason in _STOP_IS_FAILURE:
             reporter.m_query_referenced_query_failures += len(queries)
         else:

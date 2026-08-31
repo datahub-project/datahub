@@ -141,6 +141,10 @@ class Mapper:
         # M-Query parse results per dataset id. The referenced queries a table
         # walks are dataset state, so parsing them once per table repeats work --
         # and repeats the full parse timeout when one of them times out.
+        # Parsed referenced queries per dataset id. Dropped when the owning
+        # workspace is, alongside its scan_result -- these hold whole M-Query
+        # parse trees, which this package keeps out of `repr` precisely because
+        # retaining them is expensive.
         self.__expression_caches: Dict[str, ExpressionCache] = {}
         self.workspace_key: Optional[ContainerKey] = None
 
@@ -150,6 +154,24 @@ class Mapper:
             return lowercase_dataset_urn(value)
 
         return value
+
+    def expression_cache_for(
+        self, dataset: Optional[powerbi_data_classes.PowerBIDataset]
+    ) -> ExpressionCache:
+        """One cache per dataset, so its tables parse a referenced query once.
+
+        A dataset-less table gets a throwaway cache rather than sharing one: its
+        referenced queries would be another dataset's, and the cache keys on
+        query name alone.
+        """
+        if dataset is None:
+            return ExpressionCache()
+        return self.__expression_caches.setdefault(dataset.id, ExpressionCache())
+
+    def drop_expression_caches(self, workspace: powerbi_data_classes.Workspace) -> None:
+        """Release a fully-emitted workspace's parse trees."""
+        for dataset_id in (*workspace.datasets, *workspace.independent_datasets):
+            self.__expression_caches.pop(dataset_id, None)
 
     def lineage_urn_to_lowercase(self, value):
         return Mapper.urn_to_lowercase(
@@ -380,9 +402,7 @@ class Mapper:
             config=self.__config,
             parameters=parameters,
             expressions=expressions,
-            cache=self.__expression_caches.setdefault(
-                table.dataset.id if table.dataset else "", ExpressionCache()
-            ),
+            cache=self.expression_cache_for(table.dataset),
         )
 
         logger.debug(
@@ -2167,6 +2187,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
                 # Fully emitted and never revisited; drop it to free its
                 # scan_result and parsed children.
+                self.mapper.drop_expression_caches(workspace)
                 del workspaces[workspace_id]
 
     def get_report(self) -> SourceReport:

@@ -33,6 +33,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
 )
+from datahub.utilities.threading_timeout import TimeoutException
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -2633,6 +2634,52 @@ def test_a_query_reached_by_two_routes_is_parsed_once():
     )
 
 
+def _dataset(dataset_id: str, expressions: dict) -> powerbi_data_classes.PowerBIDataset:
+    return powerbi_data_classes.PowerBIDataset(
+        id=dataset_id,
+        name=dataset_id,
+        description="",
+        webUrl=None,
+        workspace_id="w",
+        workspace_name="w",
+        parameters={},
+        tables=[],
+        tags=[],
+        configuredBy=None,
+        expressions=expressions,
+    )
+
+
+def _workspace(datasets: dict) -> powerbi_data_classes.Workspace:
+    return powerbi_data_classes.Workspace(
+        id="w",
+        name="w",
+        type="Workspace",
+        datasets=datasets,
+        dashboards={},
+        reports={},
+        report_endorsements={},
+        dashboard_endorsements={},
+        scan_result={},
+        independent_datasets={},
+        app=None,
+    )
+
+
+def _table_of(
+    dataset: powerbi_data_classes.PowerBIDataset, name: str, q: str
+) -> powerbi_data_classes.Table:
+    table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name=name,
+        full_name=f"{dataset.id}.{name}",
+    )
+    table.dataset = dataset
+    return table
+
+
 @pytest.mark.integration
 def test_the_mapper_shares_one_parse_cache_across_a_datasets_tables():
     """Exercises the wiring, not just the contract: two tables of one dataset go
@@ -2740,3 +2787,134 @@ def test_every_table_hitting_a_cached_failure_is_still_warned():
     assert warned[0] == (["Unable to parse a referenced query"], 1)
     # The second table hits the cache, so this is the one that regresses quietly.
     assert warned[1] == (["Unable to parse a referenced query"], 1)
+
+
+@pytest.mark.integration
+def test_two_datasets_do_not_share_a_referenced_query_cache():
+    """The cache keys on query name alone, and referenced-query names are scoped to
+    a dataset -- two datasets each defining `Base Query` differently is ordinary in
+    Power BI. Sharing one cache between them would hand the second dataset the
+    first's parse tree, which is wrong lineage with no warning at all."""
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+    mapper = powerbi.Mapper(
+        ctx, config, PowerBiDashboardSourceReport(), platform_instance_resolver
+    )
+
+    def base_for(table_name: str) -> str:
+        return (
+            "let\n"
+            f"    Source = {_DATABRICKS_CONNECTOR},\n"
+            '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+            '    sch = db{[Name="my_schema",Kind="Schema"]}[Data],\n'
+            f'    tbl = sch{{[Name="{table_name}",Kind="Table"]}}[Data]\n'
+            "in\n    tbl"
+        )
+
+    # Same query name in both datasets, different M behind it.
+    ds_a = _dataset("dataset-a", {"Base Query": base_for("table_a")})
+    ds_b = _dataset("dataset-b", {"Base Query": base_for("table_b")})
+    workspace = _workspace({"dataset-a": ds_a, "dataset-b": ds_b})
+
+    resolved = {}
+    for ds, expected in ((ds_a, "table_a"), (ds_b, "table_b")):
+        mcps = mapper.extract_lineage(
+            _table_of(ds, "loaded", 'let Source = #"Base Query" in Source'),
+            f"urn:li:dataset:(urn:li:dataPlatform:powerbi,{ds.id}.loaded,PROD)",
+            workspace,
+        )
+        upstreams = [
+            u.dataset for mcp in mcps for u in getattr(mcp.aspect, "upstreams", [])
+        ]
+        resolved[ds.id] = (upstreams, expected)
+
+    for dataset_id, (upstreams, expected) in resolved.items():
+        assert len(upstreams) == 1, f"{dataset_id}: {upstreams}"
+        assert expected in upstreams[0], (
+            f"{dataset_id} resolved to {upstreams[0]}, expected {expected} -- "
+            "the referenced-query cache leaked across datasets"
+        )
+
+
+@pytest.mark.integration
+def test_a_finished_workspaces_caches_are_released():
+    """These caches hold whole M-Query parse trees. The workspace loop drops a
+    workspace once emitted; the caches have to go with it or they accumulate for
+    every dataset in the tenant for the life of the run."""
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+    mapper = powerbi.Mapper(
+        ctx, config, PowerBiDashboardSourceReport(), platform_instance_resolver
+    )
+    ds = _dataset("dataset-a", {"Base Query": _HIDDEN_BASE_EXPRESSION})
+    workspace = _workspace({"dataset-a": ds})
+
+    mapper.extract_lineage(
+        _table_of(ds, "loaded", 'let Source = #"Base Query" in Source'),
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,dataset-a.loaded,PROD)",
+        workspace,
+    )
+    populated = mapper.expression_cache_for(ds)
+    assert populated.parsed, "expected the walk to have cached a parse"
+
+    mapper.drop_expression_caches(workspace)
+
+    assert not mapper.expression_cache_for(ds).parsed, (
+        "the workspace's caches should be released once it is fully emitted"
+    )
+
+
+@pytest.mark.integration
+def test_a_referenced_query_timeout_does_not_inflate_the_parse_timeout_counter():
+    """m_query_parse_timeouts sizes m_query_parse_timeout, so it has to count
+    timeouts. A referenced query is parsed once per dataset but reported once per
+    table that reaches it, so charging that counter would report one timeout as
+    many. The warning still fires per table under the documented title."""
+    referenced = (
+        'let S = Sql.Database("s","d"), t = S{[Schema="a",Item="b"]}[Data] in t'
+    )
+    real = parser._parse_with_bridge
+
+    def timing_out(expression: str, timeout: int) -> Dict[int, dict]:
+        if expression == referenced:
+            raise TimeoutException("simulated")
+        return real(expression, timeout)
+
+    cache = shared_expressions.ExpressionCache()
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    with patch.object(parser, "_parse_with_bridge", side_effect=timing_out):
+        for i in range(3):
+            parser.get_upstream_tables(
+                powerbi_data_classes.Table(
+                    columns=[],
+                    measures=[],
+                    expression='let Source = #"Slow" in Source',
+                    name=f"loaded_{i}",
+                    full_name=f"MyDataSet.loaded_{i}",
+                ),
+                reporter,
+                ctx=ctx,
+                config=config,
+                platform_instance_resolver=platform_instance_resolver,
+                expressions={"Slow": referenced},
+                cache=cache,
+            )
+
+    assert reporter.m_query_parse_timeouts == 0
+    assert reporter.m_query_referenced_query_failures == 3
+
+    # The report groups on title+message and collects one context per occurrence,
+    # so all three tables appear under the single documented title.
+    timed_out = [
+        w
+        for w in reporter.warnings
+        if w.title == shared_expressions.StopReason.TIMEOUT.title
+    ]
+    assert len(timed_out) == 1
+    assert len(list(timed_out[0].context)) == 3
