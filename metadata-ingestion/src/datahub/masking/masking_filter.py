@@ -295,10 +295,16 @@ class SecretMaskingFilter(logging.Filter):
         if isinstance(obj, str):
             return self.mask_text(obj)
         if isinstance(obj, dict):
-            return {
-                self.mask_structure(key): self.mask_structure(value)
-                for key, value in obj.items()
-            }
+            masked_items: Dict[Any, Any] = {}
+            for key, value in obj.items():
+                masked_key = self.mask_structure(key)
+                if masked_key in masked_items:
+                    suffix = 2
+                    while f"{masked_key} (duplicate {suffix})" in masked_items:
+                        suffix += 1
+                    masked_key = f"{masked_key} (duplicate {suffix})"
+                masked_items[masked_key] = self.mask_structure(value)
+            return masked_items
         if isinstance(obj, (list, tuple)):
             return [self.mask_structure(item) for item in obj]
         return obj
