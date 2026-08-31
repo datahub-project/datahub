@@ -286,7 +286,7 @@ class UnityCatalogUsageExtractor:
         # path — it's the QUERY-dim key that lets UsageAggregator increment
         # totalSqlQueries; blanking it to "" would silently drop those events
         # from the per-table count. We still suppress Query-entity emission
-        # via query_count_only below so DataHub isn't polluted with
+        # via redacted_query_text below so DataHub isn't polluted with
         # placeholder Query entities that carry no useful SQL.
         redacted = query.is_query_text_redacted
 
@@ -302,7 +302,7 @@ class UnityCatalogUsageExtractor:
                     user=user,
                     timestamp=ts,
                     query_type=query_type,
-                    query_count_only=redacted,
+                    redacted_query_text=redacted,
                 )
             ]
 
@@ -320,7 +320,7 @@ class UnityCatalogUsageExtractor:
                     user=user,
                     timestamp=ts,
                     query_type=query_type,
-                    query_count_only=redacted,
+                    redacted_query_text=redacted,
                 )
             )
         return preparsed

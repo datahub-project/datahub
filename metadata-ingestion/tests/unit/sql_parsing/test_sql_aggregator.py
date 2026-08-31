@@ -1004,13 +1004,13 @@ def test_basic_usage() -> None:
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_preparsed_query_count_only_emits_usage_but_no_query_entity() -> None:
+def test_preparsed_redacted_query_text_emits_usage_but_no_query_entity() -> None:
     # Sources like Databricks Unity Catalog can lose SQL text to masking
     # (statement_text = "<REDACTED>") while still knowing lineage from
     # system.access.table_lineage. In that case we want table-level usage
     # stats to survive — dropping the query would silently zero out
     # totalSqlQueries — but we don't want a placeholder Query entity for
-    # every masked statement. query_count_only=True is that opt-in.
+    # every masked statement. redacted_query_text=True is that opt-in.
     frozen_timestamp = parse_user_datetime(FROZEN_TIME)
     upstream_urn = DatasetUrn("redshift", "dev.public.foo").urn()
 
@@ -1034,7 +1034,7 @@ def test_preparsed_query_count_only_emits_usage_but_no_query_entity() -> None:
             upstreams=[upstream_urn],
             timestamp=frozen_timestamp,
             user=CorpUserUrn("user1"),
-            query_count_only=True,
+            redacted_query_text=True,
         )
     )
 
@@ -1058,7 +1058,7 @@ def test_preparsed_query_count_only_emits_usage_but_no_query_entity() -> None:
         if mcp.entityUrn and mcp.entityUrn.startswith("urn:li:query:")
     ]
     assert query_mcps == [], (
-        "query_count_only must suppress Query-entity emission to avoid "
+        "redacted_query_text must suppress Query-entity emission to avoid "
         "polluting the catalog with placeholder queries"
     )
 
@@ -1066,13 +1066,13 @@ def test_preparsed_query_count_only_emits_usage_but_no_query_entity() -> None:
         mcp for mcp in mcps if isinstance(mcp.aspect, QueryUsageStatisticsClass)
     ]
     assert query_usage_mcps == [], (
-        "query_count_only must skip per-Query URN usage counters — those "
+        "redacted_query_text must skip per-Query URN usage counters — those "
         "would reference a Query that was never emitted"
     )
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_preparsed_query_count_only_still_emits_operation_and_lineage() -> None:
+def test_preparsed_redacted_query_text_still_emits_operation_and_lineage() -> None:
     # Redacted DML queries (INSERT/CREATE TABLE AS/...) must still populate the
     # downstream table's UpstreamLineage and Operation aspects — the lineage/
     # timestamp/actor come from system.access.table_lineage, not the SQL text.
@@ -1100,7 +1100,7 @@ def test_preparsed_query_count_only_still_emits_operation_and_lineage() -> None:
             timestamp=frozen_timestamp,
             user=CorpUserUrn("user1"),
             query_type=QueryType.INSERT,
-            query_count_only=True,
+            redacted_query_text=True,
         )
     )
 
@@ -1138,7 +1138,7 @@ def test_preparsed_query_count_only_still_emits_operation_and_lineage() -> None:
         mcp for mcp in mcps if isinstance(mcp.aspect, QueryPropertiesClass)
     ]
     assert query_entity_mcps == [], (
-        "Query entity must not be emitted for count_only queries"
+        "Query entity must not be emitted for redacted_query_text queries"
     )
 
 

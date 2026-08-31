@@ -1588,7 +1588,7 @@ def test_redacted_query_with_lineage_emits_usage_and_counts_redacted() -> None:
       1. keep the "<REDACTED>" placeholder in query_text so UsageAggregator's
          QUERY-dim increments — otherwise totalSqlQueries silently drops to
          zero for buckets whose queries are fully masked;
-      2. set query_count_only=True so the shared aggregator suppresses Query-
+      2. set redacted_query_text=True so the shared aggregator suppresses Query-
          entity creation and per-Query URN usage counters (they'd point at a
          Query that was never emitted).
     Redacted counter must fire so the warning surfaces."""
@@ -1612,7 +1612,7 @@ def test_redacted_query_with_lineage_emits_usage_and_counts_redacted() -> None:
     assert ex.report.num_queries_with_redacted_text == 1
     emitted = aggregator.add_preparsed_query.call_args.args[0]
     assert emitted.query_text == "<REDACTED>"
-    assert emitted.query_count_only is True
+    assert emitted.redacted_query_text is True
     assert emitted.upstreams, "preparsed query must carry upstream urns"
 
 

@@ -182,7 +182,7 @@ class QueryMetadata:
     # queries whose SQL text isn't meaningful (e.g. Databricks masks it to
     # "<REDACTED>" for non-account-admins) to avoid polluting the catalog with
     # placeholder Query entities while preserving lineage and operation signals.
-    count_only: bool = False
+    redacted_query_text: bool = False
 
     @property
     def usage_query_id(self) -> QueryId:
@@ -338,7 +338,7 @@ class PreparsedQuery:
     # but can't provide meaningful SQL text (e.g. Databricks masks query text to
     # "<REDACTED>" for non-account-admins outside databricks_pii_access), to
     # avoid polluting the catalog with placeholder Query entities.
-    query_count_only: bool = False
+    redacted_query_text: bool = False
 
 
 @dataclasses.dataclass
@@ -1051,14 +1051,14 @@ class SqlParsingAggregator(Closeable):
                     count=parsed.query_count,
                 )
 
-        # For query_count_only entries, skip per-Query URN usage counters (those
+        # For redacted_query_text entries, skip per-Query URN usage counters (those
         # would reference a Query entity we won't emit) but still register the
         # query in _query_map and _lineage_map below so lineage aspects and
         # operation MCPs can be generated for the downstream table. Query-entity
         # emission and dangling Query URN references are suppressed downstream
-        # via QueryMetadata.count_only.
+        # via QueryMetadata.redacted_query_text.
         if (
-            not parsed.query_count_only
+            not parsed.redacted_query_text
             and self._query_usage_counts is not None
             and parsed.timestamp is not None
         ):
@@ -1086,7 +1086,7 @@ class SqlParsingAggregator(Closeable):
                 used_temp_tables=session_has_temp_tables,
                 extra_info=parsed.extra_info,
                 origin=parsed.origin,
-                count_only=parsed.query_count_only,
+                redacted_query_text=parsed.redacted_query_text,
             )
         )
 
@@ -1713,7 +1713,7 @@ class SqlParsingAggregator(Closeable):
         - :meth:`can_generate_query` is false — the aggregator has
           Query-entity generation disabled, or ``query.query_id`` is a
           known-lineage sentinel; or
-        - ``query.count_only`` is true — the query is tracked purely for
+        - ``query.redacted_query_text`` is true — the query is tracked purely for
           table-level lineage/usage but its SQL text isn't meaningful
           (e.g. Databricks masks it to ``"<REDACTED>"`` for
           non-account-admins outside ``databricks_pii_access``), so
@@ -1737,7 +1737,7 @@ class SqlParsingAggregator(Closeable):
         """
         if not self.can_generate_query(query.query_id):
             return None
-        if query.count_only:
+        if query.redacted_query_text:
             return None
         return self._query_urn(query.query_id)
 
