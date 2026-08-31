@@ -20,6 +20,15 @@ export function detectBrowserLanguage(): SupportedLanguage | undefined {
         if (!tag) return undefined;
         const lower = tag.toLowerCase();
         const base = lower.split('-')[0];
+        // Map Chinese script/region tags before the generic base-language fold so
+        // `zh-Hans` / bare `zh` do not land on Traditional Chinese.
+        if (base === 'zh') {
+            if (lower.includes('hant') || lower === 'zh-tw' || lower === 'zh-hk' || lower === 'zh-mo') {
+                return 'zh-TW';
+            }
+            // zh-Hans, zh-CN, zh-SG, and bare `zh` → Simplified
+            return 'zh-CN';
+        }
         // Exact (case-insensitive) match first, then fold region variants to their base language.
         return (
             supported.find((locale) => locale.toLowerCase() === lower) ??

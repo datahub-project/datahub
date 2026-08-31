@@ -39,8 +39,15 @@ type Props = {
  */
 export default function RemirrorLocaleProvider({ children }: Props) {
     const { i18n: appI18n } = useTranslation();
-    const appLanguage = (appI18n.resolvedLanguage || appI18n.language || 'en').split('-')[0];
-    const locale = REMIRROR_SUPPORTED_LOCALES.includes(appLanguage) ? appLanguage : 'en';
+    // Prefer the full BCP-47 tag (e.g. zh-TW, pt-BR) before falling back to the primary
+    // subtag so region-specific Remirror bundles are not skipped.
+    const rawLanguage = appI18n.resolvedLanguage || appI18n.language || 'en';
+    const primaryLanguage = rawLanguage.split('-')[0];
+    const locale = REMIRROR_SUPPORTED_LOCALES.includes(rawLanguage)
+        ? rawLanguage
+        : REMIRROR_SUPPORTED_LOCALES.includes(primaryLanguage)
+          ? primaryLanguage
+          : 'en';
     // Only activate once the bundle is loaded, so labels never flash raw message ids. Until then
     // the provider stays on English (Remirror's built-in).
     const [activeLocale, setActiveLocale] = useState('en');
