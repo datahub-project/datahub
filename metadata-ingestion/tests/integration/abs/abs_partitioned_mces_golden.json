@@ -547,7 +547,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1788140742000
+            "lastUpdatedTimestamp": 1784906525000
         }
     },
     "systemMetadata": {
@@ -708,7 +708,7 @@
                 "op": "add",
                 "path": "/lastModified",
                 "value": {
-                    "time": 1788140742000
+                    "time": 1784906525000
                 }
             }
         ]
