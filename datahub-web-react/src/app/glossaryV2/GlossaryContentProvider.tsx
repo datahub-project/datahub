@@ -1,5 +1,7 @@
 import { Button } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import EmptyGlossarySection from '@app/glossaryV2/EmptyGlossarySection';
@@ -17,7 +19,7 @@ const MainContentWrapper = styled.div`
     flex-direction: column;
 `;
 
-export const HeaderWrapper = styled.div`
+const HeaderWrapper = styled.div`
     padding: 16px 20px 12px 20px;
     display: flex;
     align-items: center;
@@ -30,7 +32,7 @@ const ButtonContainer = styled.div`
 `;
 
 const ListWrapper = styled.div`
-    padding: 4px 12px 12px 12px;
+    padding: 4px 20px 12px 20px;
     overflow: auto;
 `;
 
@@ -45,6 +47,7 @@ interface Props {
 }
 
 const GlossaryContentProvider = (props: Props) => {
+    const { t } = useTranslation('governance.glossary');
     const {
         setIsCreateNodeModalVisible,
         setIsCreateTermModalVisible,
@@ -58,20 +61,17 @@ const GlossaryContentProvider = (props: Props) => {
     return (
         <MainContentWrapper data-testid="glossary-entities-list">
             <HeaderWrapper data-testid="glossaryPageV2">
-                <PageTitle
-                    title="Business Glossary"
-                    subTitle="Classify your data assets and columns using data dictionaries"
-                />
+                <PageTitle title={t('page.title')} subTitle={t('page.subtitle')} />
                 <ButtonContainer>
                     <Button
                         data-testid="add-term-group-button-v2"
                         id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
                         size="md"
-                        icon={{ icon: 'Add', source: 'material' }}
+                        icon={{ icon: Plus }}
                         // can not be disabled on acryl-main due to ability to propose
                         onClick={() => setIsCreateNodeModalVisible(true)}
                     >
-                        Create Glossary
+                        {t('page.createGlossary')}
                     </Button>
                 </ButtonContainer>
             </HeaderWrapper>
@@ -80,8 +80,8 @@ const GlossaryContentProvider = (props: Props) => {
             </ListWrapper>
             {!(termsLoading || nodesLoading) && !hasTermsOrNodes && (
                 <EmptyGlossarySection
-                    title="Empty Glossary"
-                    description="Create Terms and Term Groups to organize data assets using a shared vocabulary."
+                    title={t('empty.title')}
+                    description={t('empty.description')}
                     onAddTerm={() => setIsCreateTermModalVisible(true)}
                     onAddtermGroup={() => setIsCreateNodeModalVisible(true)}
                 />

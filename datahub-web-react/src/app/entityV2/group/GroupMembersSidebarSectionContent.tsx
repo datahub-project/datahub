@@ -1,8 +1,10 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import { useRouteMatch } from 'react-router-dom';
 
+import { AddGroupMembersModal } from '@app/entityV2/group/AddGroupMembersModal';
 import { GroupMemberLink } from '@app/entityV2/group/GroupMemberLink';
 import { TabType } from '@app/entityV2/group/types';
 import { ShowMoreButton, TagsSection } from '@app/entityV2/shared/SidebarStyledComponents';
@@ -12,11 +14,22 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { CorpUser, EntityRelationshipsResult } from '@types';
 
 type Props = {
-    groupMemberRelationships: EntityRelationshipsResult;
+    groupMemberRelationships?: EntityRelationshipsResult;
+    showAddMemberModal: boolean;
+    setShowAddMemberModal: (show: boolean) => void;
+    urn: string;
+    refetch: () => void;
 };
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
-export default function GroupMembersSidebarSectionContent({ groupMemberRelationships }: Props) {
+export default function GroupMembersSidebarSectionContent({
+    groupMemberRelationships,
+    showAddMemberModal,
+    setShowAddMemberModal,
+    urn,
+    refetch,
+}: Props) {
+    const { t } = useTranslation('entity.types');
     const history = useHistory();
     const { url } = useRouteMatch();
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
@@ -32,9 +45,7 @@ export default function GroupMembersSidebarSectionContent({ groupMemberRelations
     return (
         <>
             <TagsSection>
-                {relationshipsTotal === 0 && (
-                    <Typography.Paragraph type="secondary">No members yet.</Typography.Paragraph>
-                )}
+                {relationshipsTotal === 0 && <Text color="textSecondary">{t('group.noMembersYetEmpty')}</Text>}
                 {relationshipsTotal > 0 &&
                     groupMemberRelationships?.relationships?.map((item, index) => {
                         const user = item.entity as CorpUser;
@@ -51,8 +62,16 @@ export default function GroupMembersSidebarSectionContent({ groupMemberRelations
             )}
             {showAndMoreText && (
                 <ShowMoreButton onClick={() => history.replace(`${url}/${TabType.Members.toLocaleLowerCase()}`)}>
-                    View all members
+                    {t('group.viewAllMembers')}
                 </ShowMoreButton>
+            )}
+            {showAddMemberModal && (
+                <AddGroupMembersModal
+                    urn={urn}
+                    visible={showAddMemberModal}
+                    onSubmit={refetch}
+                    onCloseModal={() => setShowAddMemberModal(false)}
+                />
             )}
         </>
     );

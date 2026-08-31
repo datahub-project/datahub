@@ -30,20 +30,20 @@ public interface GraphService {
   /**
    * Adds an edge to the graph. This creates the source and destination nodes, if they do not exist.
    */
-  void addEdge(final Edge edge);
+  void addEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge);
 
   /**
    * Adds or updates an edge to the graph. This creates the source and destination nodes, if they do
    * not exist.
    */
-  void upsertEdge(final Edge edge);
+  void upsertEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge);
 
   /**
    * Remove an edge from the graph.
    *
    * @param edge the edge to delete
    */
-  void removeEdge(final Edge edge);
+  void removeEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge);
 
   /**
    * Find related entities (nodes) connected to a source entity via edges of given relationship
@@ -168,6 +168,22 @@ public interface GraphService {
       int maxHops);
 
   /**
+   * Returns lineage information for impact analysis with configurable limits and timeout.
+   *
+   * @param opContext operation context
+   * @param entityUrn the source entity URN
+   * @param graphFilters lineage graph filters
+   * @param maxHops maximum number of hops to traverse
+   * @return lineage result with relationships up to configured limits
+   */
+  @Nonnull
+  EntityLineageResult getImpactLineage(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull LineageGraphFilters graphFilters,
+      int maxHops);
+
+  /**
    * Removes the given node (if it exists) as well as all edges (incoming and outgoing) of the node.
    */
   void removeNode(@Nonnull final OperationContext opContext, @Nonnull final Urn urn);
@@ -191,7 +207,7 @@ public interface GraphService {
   default void configure() {}
 
   /** Removes all edges and nodes from the graph. */
-  void clear();
+  void clear(@Nonnull OperationContext opContext);
 
   /** Whether or not this graph service supports multi-hop */
   default boolean supportsMultiHop() {
@@ -206,7 +222,10 @@ public interface GraphService {
    * @param edgeUrnTypes which URNs to update (source, destination, lifecycleOwner, etc)
    */
   default void setEdgeStatus(
-      @Nonnull Urn urn, boolean removed, @Nonnull EdgeUrnType... edgeUrnTypes) {}
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      boolean removed,
+      @Nonnull EdgeUrnType... edgeUrnTypes) {}
 
   /**
    * Access graph edges
@@ -219,6 +238,7 @@ public interface GraphService {
    * @param relationshipFilter
    * @param sortCriteria
    * @param scrollId
+   * @param keepAlive
    * @param count
    * @param startTimeMillis
    * @param endTimeMillis
@@ -235,6 +255,7 @@ public interface GraphService {
       @Nonnull RelationshipFilter relationshipFilter,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
@@ -249,6 +270,7 @@ public interface GraphService {
             relationshipFilter),
         sortCriteria,
         scrollId,
+        keepAlive,
         count,
         startTimeMillis,
         endTimeMillis);
@@ -260,6 +282,7 @@ public interface GraphService {
       @Nonnull GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis);

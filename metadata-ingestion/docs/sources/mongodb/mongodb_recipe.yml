@@ -5,8 +5,10 @@ source:
     connect_uri: "mongodb://localhost"
 
     # Credentials
-    username: admin
-    password: password
+    # See the connector docs for all supported authMechanism values,
+    # including MONGODB-AWS for IAM authentication.
+    username: "${MONGODB_USER}"
+    password: "${MONGODB_PASSWORD}"
     authMechanism: "DEFAULT"
 
     # Options

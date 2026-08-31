@@ -6,4 +6,5 @@ export type DrawerProps = {
     width?: number | string;
     closable?: boolean;
     maskTransparent?: boolean;
+    dataTestId?: string;
 };

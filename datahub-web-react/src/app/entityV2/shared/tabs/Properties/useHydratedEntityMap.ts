@@ -11,7 +11,7 @@ export function useHydratedEntityMap(urns?: (string | undefined | null)[]) {
     );
 
     // Fetch entities
-    const hydratedEntities = useGetEntities(uniqueEntityUrns);
+    const { entities: hydratedEntities } = useGetEntities(uniqueEntityUrns);
 
     // Create entity map
     const hydratedEntityMap = useMemo(

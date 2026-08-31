@@ -14,7 +14,9 @@ public interface EventHook<E> {
    * @return suffix
    */
   @Nonnull
-  String getConsumerGroupSuffix();
+  default String getConsumerGroupSuffix() {
+    return "";
+  }
 
   /**
    * Return whether the hook is enabled or not. If not enabled, the below invoke method is not
@@ -22,8 +24,8 @@ public interface EventHook<E> {
    */
   boolean isEnabled();
 
-  /** Invoke the hook when a MetadataChangeLog is received */
-  void invoke(@Nonnull E event) throws Exception;
+  /** Invoke the hook when an event is received. */
+  void invoke(@Nonnull OperationContext operationContext, @Nonnull E event) throws Exception;
 
   /**
    * Controls hook execution ordering

@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -41,7 +42,9 @@ public class DomainType
           Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.FORMS_ASPECT_NAME,
-          Constants.DISPLAY_PROPERTIES_ASPECT_NAME);
+          Constants.DISPLAY_PROPERTIES_ASPECT_NAME,
+          Constants.DEPRECATION_ASPECT_NAME,
+          Constants.ASSET_SETTINGS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   public DomainType(final EntityClient entityClient) {
@@ -69,12 +72,16 @@ public class DomainType
     final List<Urn> domainUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, Constants.DOMAIN_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.DOMAIN_ENTITY_NAME,
               new HashSet<>(domainUrns),
-              ASPECTS_TO_FETCH);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : domainUrns) {

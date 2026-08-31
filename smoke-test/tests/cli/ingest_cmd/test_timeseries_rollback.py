@@ -1,14 +1,15 @@
 import json
 from typing import Dict, List, Optional
 
+import pytest
+
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import DatasetProfileClass
-from tests.utils import ingest_file_via_rest, run_datahub_cmd, wait_for_writes_to_sync
+from tests.utilities.domains import Domain
+from tests.utils import ingest_file_via_rest, run_datahub_cmd, sync_elastic
 
-
-def sync_elastic() -> None:
-    wait_for_writes_to_sync()
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 
 def datahub_rollback(auth_session, run_id: str) -> None:

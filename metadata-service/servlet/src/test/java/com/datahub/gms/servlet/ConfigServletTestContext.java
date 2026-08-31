@@ -16,7 +16,8 @@ import org.springframework.context.annotation.Primary;
       "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.entityregistry",
-      "com.linkedin.gms.factory.plugins"
+      "com.linkedin.gms.factory.plugins",
+      "com.linkedin.gms.factory.system_telemetry"
     })
 public class ConfigServletTestContext {
 

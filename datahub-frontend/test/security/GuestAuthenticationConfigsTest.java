@@ -12,7 +12,9 @@ import org.junitpioneer.jupiter.ClearEnvironmentVariable;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 @TestInstance(TestInstance.Lifecycle.PER_METHOD)
-@SetEnvironmentVariable(key = "DATAHUB_SECRET", value = "test")
+@SetEnvironmentVariable(
+    key = "DATAHUB_SECRET",
+    value = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 @SetEnvironmentVariable(key = "KAFKA_BOOTSTRAP_SERVER", value = "")
 @SetEnvironmentVariable(key = "DATAHUB_ANALYTICS_ENABLED", value = "false")
 @SetEnvironmentVariable(key = "AUTH_OIDC_ENABLED", value = "true")

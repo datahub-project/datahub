@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.utils.UrnValidationUtil;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
@@ -37,7 +38,8 @@ public class EntityHydrator {
     Urn urnObj;
     try {
       urnObj = Urn.createFromString(urn);
-    } catch (URISyntaxException e) {
+      UrnValidationUtil.validateUrn(systemOperationContext.getEntityRegistry(), urnObj, true);
+    } catch (URISyntaxException | IllegalArgumentException e) {
       log.info("Invalid URN: {}", urn);
       return Optional.empty();
     }

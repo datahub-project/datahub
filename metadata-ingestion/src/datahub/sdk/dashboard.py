@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Sequence, Type, Union
 
+from deprecated.sphinx import deprecated
 from typing_extensions import Self
 
 import datahub.metadata.schema_classes as models
 from datahub.metadata.urns import ChartUrn, DashboardUrn, DatasetUrn, Urn
 from datahub.sdk._shared import (
+    ActorUrnOrStr,
+    ChangeAuditStampsMixin,
     ChartUrnOrStr,
     DashboardUrnOrStr,
     DataPlatformInstanceUrnOrStr,
@@ -24,15 +27,18 @@ from datahub.sdk._shared import (
     HasTerms,
     LinksInputType,
     OwnersInputType,
+    ParentContainerInputType,
     TagsInputType,
     TermsInputType,
 )
 from datahub.sdk.chart import Chart
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity, ExtraAspectsType
+from datahub.utilities.sentinels import Unset, unset
 
 
 class Dashboard(
+    ChangeAuditStampsMixin,
     HasPlatformInstance,
     HasSubtype,
     HasOwnership,
@@ -64,16 +70,22 @@ class Dashboard(
         display_name: Optional[str] = None,
         platform_instance: Optional[DataPlatformInstanceUrnOrStr] = None,
         # Dashboard properties.
-        description: str = "",
+        description: Optional[str] = None,
         external_url: Optional[str] = None,
         dashboard_url: Optional[str] = None,
         custom_properties: Optional[Dict[str, str]] = None,
         last_modified: Optional[datetime] = None,
+        last_modified_by: Optional[ActorUrnOrStr] = None,
+        created_at: Optional[datetime] = None,
+        created_by: Optional[ActorUrnOrStr] = None,
+        deleted_on: Optional[datetime] = None,
+        deleted_by: Optional[ActorUrnOrStr] = None,
         last_refreshed: Optional[datetime] = None,
-        input_datasets: Optional[List[Union[DatasetUrnOrStr, Dataset]]] = None,
-        charts: Optional[List[Union[ChartUrnOrStr, Chart]]] = None,
-        dashboards: Optional[List[Union[DashboardUrnOrStr, Dashboard]]] = None,
+        input_datasets: Optional[Sequence[Union[DatasetUrnOrStr, Dataset]]] = None,
+        charts: Optional[Sequence[Union[ChartUrnOrStr, Chart]]] = None,
+        dashboards: Optional[Sequence[Union[DashboardUrnOrStr, Dashboard]]] = None,
         # Standard aspects.
+        parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
         owners: Optional[OwnersInputType] = None,
         links: Optional[LinksInputType] = None,
@@ -92,29 +104,48 @@ class Dashboard(
         self._set_extra_aspects(extra_aspects)
 
         self._set_platform_instance(platform, platform_instance)
+        self._ensure_dashboard_props(display_name=display_name)
 
-        # Initialize DashboardInfoClass with default values
-        dashboard_info = models.DashboardInfoClass(
-            title=display_name or name,
-            description=description or "",
-            lastModified=models.ChangeAuditStampsClass(
-                lastModified=None,
-            ),
-            customProperties={},
-            chartEdges=[],
-            datasetEdges=[],
-            dashboards=[],
+        self._init_dashboard_properties(
+            description,
+            display_name,
+            external_url,
+            dashboard_url,
+            custom_properties,
+            last_modified,
+            last_modified_by,
+            created_at,
+            created_by,
+            last_refreshed,
+            deleted_on,
+            deleted_by,
+            input_datasets,
+            charts,
+            dashboards,
+        )
+        self._init_standard_aspects(
+            parent_container, subtype, owners, links, tags, terms, domain
         )
 
-        if last_modified:
-            dashboard_info.lastModified = models.ChangeAuditStampsClass(
-                lastModified=models.AuditStampClass(
-                    time=int(last_modified.timestamp()),
-                    actor="urn:li:corpuser:datahub",
-                ),
-            )
-
-        # Set additional properties
+    def _init_dashboard_properties(
+        self,
+        description: Optional[str],
+        display_name: Optional[str],
+        external_url: Optional[str],
+        dashboard_url: Optional[str],
+        custom_properties: Optional[Dict[str, str]],
+        last_modified: Optional[datetime],
+        last_modified_by: Optional[ActorUrnOrStr],
+        created_at: Optional[datetime],
+        created_by: Optional[ActorUrnOrStr],
+        last_refreshed: Optional[datetime],
+        deleted_on: Optional[datetime],
+        deleted_by: Optional[ActorUrnOrStr],
+        input_datasets: Optional[Sequence[Union[DatasetUrnOrStr, Dataset]]],
+        charts: Optional[Sequence[Union[ChartUrnOrStr, Chart]]],
+        dashboards: Optional[Sequence[Union[DashboardUrnOrStr, Dashboard]]],
+    ) -> None:
+        """Initialize dashboard-specific properties."""
         if description is not None:
             self.set_description(description)
         if display_name is not None:
@@ -127,8 +158,38 @@ class Dashboard(
             self.set_custom_properties(custom_properties)
         if last_modified is not None:
             self.set_last_modified(last_modified)
+        if last_modified_by is not None:
+            self.set_last_modified_by(last_modified_by)
+        if created_at is not None:
+            self.set_created_at(created_at)
+        if created_by is not None:
+            self.set_created_by(created_by)
+        if deleted_on is not None:
+            self.set_deleted_on(deleted_on)
+        if deleted_by is not None:
+            self.set_deleted_by(deleted_by)
         if last_refreshed is not None:
             self.set_last_refreshed(last_refreshed)
+        if input_datasets is not None:
+            self.set_input_datasets(input_datasets)
+        if charts is not None:
+            self.set_charts(charts)
+        if dashboards is not None:
+            self.set_dashboards(dashboards)
+
+    def _init_standard_aspects(
+        self,
+        parent_container: ParentContainerInputType | Unset,
+        subtype: Optional[str],
+        owners: Optional[OwnersInputType],
+        links: Optional[LinksInputType],
+        tags: Optional[TagsInputType],
+        terms: Optional[TermsInputType],
+        domain: Optional[DomainInputType],
+    ) -> None:
+        """Initialize standard aspects."""
+        if parent_container is not unset:
+            self._set_container(parent_container)
         if subtype is not None:
             self.set_subtype(subtype)
         if owners is not None:
@@ -141,12 +202,6 @@ class Dashboard(
             self.set_terms(terms)
         if domain is not None:
             self.set_domain(domain)
-        if input_datasets is not None:
-            self.set_input_datasets(input_datasets)
-        if charts is not None:
-            self.set_charts(charts)
-        if dashboards is not None:
-            self.set_dashboards(dashboards)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
@@ -162,23 +217,27 @@ class Dashboard(
         assert isinstance(self._urn, DashboardUrn)
         return self._urn
 
-    def _ensure_dashboard_props(self) -> models.DashboardInfoClass:
+    def _ensure_dashboard_props(
+        self, display_name: Optional[str] = None
+    ) -> models.DashboardInfoClass:
         """Get the dashboard properties safely."""
         return self._setdefault_aspect(
             models.DashboardInfoClass(
-                title=self.urn.dashboard_id,
+                title=display_name or self.urn.dashboard_id,
                 description="",
-                lastModified=models.ChangeAuditStampsClass(
-                    lastModified=models.AuditStampClass(
-                        time=0, actor="urn:li:corpuser:unknown"
-                    )
-                ),
+                lastModified=models.ChangeAuditStampsClass(),
                 customProperties={},
-                chartEdges=[],
-                datasetEdges=[],
                 dashboards=[],
             )
         )
+
+    def _get_audit_stamps(self) -> models.ChangeAuditStampsClass:
+        """Get the audit stamps from the dashboard properties."""
+        return self._ensure_dashboard_props().lastModified
+
+    def _set_audit_stamps(self, audit_stamps: models.ChangeAuditStampsClass) -> None:
+        """Set the audit stamps on the dashboard properties."""
+        self._ensure_dashboard_props().lastModified = audit_stamps
 
     @property
     def name(self) -> str:
@@ -186,60 +245,52 @@ class Dashboard(
         return self.urn.dashboard_id
 
     @property
+    @deprecated("Use display_name instead", version="1.2.0.7")
     def title(self) -> str:
-        """Get the title of the dashboard."""
-        return self._ensure_dashboard_props().title
+        """Get the display name of the dashboard."""
+        return self.display_name
 
+    @deprecated("Use set_display_name instead", version="1.2.0.7")
     def set_title(self, title: str) -> None:
-        """Set the title of the dashboard."""
-        props = self._ensure_dashboard_props()
-        props.title = title
-        self._set_aspect(props)
+        """Set the display name of the dashboard."""
+        self.set_display_name(title)
 
     @property
     def description(self) -> Optional[str]:
         """Get the description of the dashboard."""
-        props = self._ensure_dashboard_props()
-        return props.description
+        # Because description is a required field, we treat "" as None.
+        return self._ensure_dashboard_props().description or None
 
     def set_description(self, description: str) -> None:
         """Set the description of the dashboard."""
-        props = self._ensure_dashboard_props()
-        props.description = description
-        self._set_aspect(props)
+        self._ensure_dashboard_props().description = description
 
     @property
-    def display_name(self) -> Optional[str]:
+    def display_name(self) -> str:
         """Get the display name of the dashboard."""
-        return self.title
+        return self._ensure_dashboard_props().title
 
     def set_display_name(self, display_name: str) -> None:
         """Set the display name of the dashboard."""
-        self.set_title(display_name)
+        self._ensure_dashboard_props().title = display_name
 
     @property
     def external_url(self) -> Optional[str]:
         """Get the external URL of the dashboard."""
-        props = self._ensure_dashboard_props()
-        return props.externalUrl
+        return self._ensure_dashboard_props().externalUrl
 
     def set_external_url(self, external_url: str) -> None:
         """Set the external URL of the dashboard."""
-        props = self._ensure_dashboard_props()
-        props.externalUrl = external_url
-        self._set_aspect(props)
+        self._ensure_dashboard_props().externalUrl = external_url
 
     @property
     def dashboard_url(self) -> Optional[str]:
         """Get the dashboard URL."""
-        props = self._ensure_dashboard_props()
-        return props.dashboardUrl
+        return self._ensure_dashboard_props().dashboardUrl
 
     def set_dashboard_url(self, dashboard_url: str) -> None:
         """Set the dashboard URL."""
-        props = self._ensure_dashboard_props()
-        props.dashboardUrl = dashboard_url
-        self._set_aspect(props)
+        self._ensure_dashboard_props().dashboardUrl = dashboard_url
 
     @property
     def custom_properties(self) -> Dict[str, str]:
@@ -249,28 +300,7 @@ class Dashboard(
 
     def set_custom_properties(self, custom_properties: Dict[str, str]) -> None:
         """Set the custom properties of the dashboard."""
-        props = self._ensure_dashboard_props()
-        props.customProperties = custom_properties
-        self._set_aspect(props)
-
-    @property
-    def last_modified(self) -> Optional[datetime]:
-        """Get the last modification timestamp of the dashboard."""
-        props = self._ensure_dashboard_props()
-        if props.lastModified.lastModified.time == 0:
-            return None
-        return datetime.fromtimestamp(props.lastModified.lastModified.time)
-
-    def set_last_modified(self, last_modified: datetime) -> None:
-        """Set the last modification timestamp of the dashboard."""
-        props = self._ensure_dashboard_props()
-        props.lastModified = models.ChangeAuditStampsClass(
-            lastModified=models.AuditStampClass(
-                time=int(last_modified.timestamp()),
-                actor="urn:li:corpuser:datahub",
-            ),
-        )
-        self._set_aspect(props)
+        self._ensure_dashboard_props().customProperties = custom_properties
 
     @property
     def last_refreshed(self) -> Optional[datetime]:
@@ -284,9 +314,7 @@ class Dashboard(
 
     def set_last_refreshed(self, last_refreshed: datetime) -> None:
         """Set the last refresh timestamp of the dashboard."""
-        props = self._ensure_dashboard_props()
-        props.lastRefreshed = int(last_refreshed.timestamp())
-        self._set_aspect(props)
+        self._ensure_dashboard_props().lastRefreshed = int(last_refreshed.timestamp())
 
     @property
     def input_datasets(self) -> List[DatasetUrn]:
@@ -298,7 +326,7 @@ class Dashboard(
         ]
 
     def set_input_datasets(
-        self, input_datasets: List[Union[DatasetUrnOrStr, Dataset]]
+        self, input_datasets: Sequence[Union[DatasetUrnOrStr, Dataset]]
     ) -> None:
         """Set the input datasets of the dashboard."""
         props = self._ensure_dashboard_props()
@@ -310,7 +338,6 @@ class Dashboard(
                 dataset_urn = DatasetUrn.from_string(dataset)
             dataset_edges.append(models.EdgeClass(destinationUrn=str(dataset_urn)))
         props.datasetEdges = dataset_edges
-        self._set_aspect(props)
 
     def add_input_dataset(self, input_dataset: Union[DatasetUrnOrStr, Dataset]) -> None:
         """Add an input dataset to the dashboard."""
@@ -326,7 +353,6 @@ class Dashboard(
                 models.EdgeClass(destinationUrn=str(input_dataset_urn))
             )
         props.datasetEdges = dataset_edges
-        self._set_aspect(props)
 
     def remove_input_dataset(
         self, input_dataset: Union[DatasetUrnOrStr, Dataset]
@@ -342,7 +368,6 @@ class Dashboard(
             for edge in (props.datasetEdges or [])
             if edge.destinationUrn != str(input_dataset_urn)
         ]
-        self._set_aspect(props)
 
     @property
     def charts(self) -> List[ChartUrn]:
@@ -352,7 +377,7 @@ class Dashboard(
             return []
         return [ChartUrn.from_string(edge.destinationUrn) for edge in chart_edges]
 
-    def set_charts(self, charts: List[Union[ChartUrnOrStr, Chart]]) -> None:
+    def set_charts(self, charts: Sequence[Union[ChartUrnOrStr, Chart]]) -> None:
         """Set the charts of the dashboard."""
         props = self._ensure_dashboard_props()
         chart_edges = props.chartEdges or []
@@ -363,7 +388,6 @@ class Dashboard(
                 chart_urn = ChartUrn.from_string(chart)
             chart_edges.append(models.EdgeClass(destinationUrn=str(chart_urn)))
         props.chartEdges = chart_edges
-        self._set_aspect(props)
 
     def add_chart(self, chart: Union[ChartUrnOrStr, Chart]) -> None:
         """Add a chart to the dashboard."""
@@ -381,7 +405,6 @@ class Dashboard(
         if str(chart_urn) not in existing_urns:
             chart_edges.append(models.EdgeClass(destinationUrn=str(chart_urn)))
         props.chartEdges = chart_edges
-        self._set_aspect(props)
 
     def remove_chart(self, chart: Union[ChartUrnOrStr, Chart]) -> None:
         """Remove a chart from the dashboard."""
@@ -395,7 +418,6 @@ class Dashboard(
             for edge in (props.chartEdges or [])
             if edge.destinationUrn != str(chart_urn)
         ]
-        self._set_aspect(props)
 
     @property
     def dashboards(self) -> List[DashboardUrn]:
@@ -407,7 +429,7 @@ class Dashboard(
         ]
 
     def set_dashboards(
-        self, dashboards: List[Union[DashboardUrnOrStr, Dashboard]]
+        self, dashboards: Sequence[Union[DashboardUrnOrStr, Dashboard]]
     ) -> None:
         """Set the dashboards of the dashboard."""
         props = self._ensure_dashboard_props()
@@ -417,7 +439,6 @@ class Dashboard(
             else:
                 dashboard_urn = DashboardUrn.from_string(dashboard)
             props.dashboards.append(models.EdgeClass(destinationUrn=str(dashboard_urn)))
-        self._set_aspect(props)
 
     def add_dashboard(self, dashboard: Union[DashboardUrnOrStr, Dashboard]) -> None:
         """Add a dashboard to the dashboard."""

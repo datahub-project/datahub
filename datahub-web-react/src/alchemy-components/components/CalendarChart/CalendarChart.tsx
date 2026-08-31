@@ -47,6 +47,7 @@ export function CalendarChart<ValueType = any>({
     maxHeight = calendarChartDefault.maxHeight,
     selectedDay,
     onDayClick,
+    dataTestId,
 }: CalendarChartProps<ValueType>) {
     const preparedData = useMemo(
         () => prepareCalendarData<ValueType>(data, startDate, endDate),
@@ -54,7 +55,7 @@ export function CalendarChart<ValueType = any>({
     );
 
     return (
-        <ChartWrapper>
+        <ChartWrapper data-testid={dataTestId}>
             <ParentSize>
                 {({ width, height }) => {
                     return (

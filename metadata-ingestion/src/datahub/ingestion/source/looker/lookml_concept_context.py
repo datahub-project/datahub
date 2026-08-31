@@ -12,12 +12,12 @@ from datahub.ingestion.source.looker.looker_constant import (
     DIMENSION_GROUPS,
     DIMENSIONS,
     MEASURES,
+    NAME,
 )
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.lookml_config import (
     DERIVED_VIEW_SUFFIX,
-    NAME,
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver

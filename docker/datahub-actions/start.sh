@@ -14,6 +14,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Copy existing AWS SSO tokens from read-only mount to writable cache
+if [ -d "/home/datahub/.aws-ro/sso/cache" ]; then
+    echo "Copying existing AWS SSO tokens to writable cache..."
+    mkdir -p /home/datahub/.aws/sso/cache
+    cp -r /home/datahub/.aws-ro/sso/cache/* /home/datahub/.aws/sso/cache/ 2>/dev/null || true
+    chmod 700 /home/datahub/.aws/sso/cache
+    chmod 600 /home/datahub/.aws/sso/cache/* 2>/dev/null || true
+    echo "AWS SSO token copy complete."
+fi
+
+# Wait for GMS health (replaces dockerize, which is not always present or on PATH in Wolfi images)
+wait_for_gms_ready() {
+  local protocol="${DATAHUB_GMS_PROTOCOL:-http}"
+  local host="${DATAHUB_GMS_HOST:-datahub-gms}"
+  local port="${DATAHUB_GMS_PORT:-8080}"
+  local url="${protocol}://${host}:${port}/health"
+  local timeout_sec="${DATAHUB_GMS_STARTUP_TIMEOUT_SEC:-240}"
+  local start
+  start=$(date +%s)
+  echo "Waiting for GMS at ${url} (timeout ${timeout_sec}s)..."
+  while true; do
+    if curl -sf --connect-timeout 2 --max-time 10 "$url" >/dev/null; then
+      echo "GMS is ready."
+      return 0
+    fi
+    if [ $(($(date +%s) - start)) -ge "$timeout_sec" ]; then
+      echo "Timeout waiting for GMS at $url" >&2
+      return 1
+    fi
+    sleep 2
+  done
+}
+wait_for_gms_ready || exit 1
+
 SYS_CONFIGS_PATH="${DATAHUB_ACTIONS_SYSTEM_CONFIGS_PATH:-/etc/datahub/actions/system/conf}"
 USER_CONFIGS_PATH="${DATAHUB_ACTIONS_USER_CONFIGS_PATH:-/etc/datahub/actions/conf}"
 MONITORING_ENABLED="${DATAHUB_ACTIONS_MONITORING_ENABLED:-false}"

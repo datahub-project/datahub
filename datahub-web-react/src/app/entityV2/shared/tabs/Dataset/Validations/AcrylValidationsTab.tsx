@@ -1,9 +1,11 @@
 import { Tooltip } from '@components';
 import React, { useEffect } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { getQualityTabName } from '@app/entityV2/dataset/constants';
 import { AcrylAssertionList } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList';
 import { AcrylAssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummaryTab';
 import { DataContractTab } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractTab';
@@ -12,36 +14,29 @@ import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/ent
 import { useAppConfig } from '@app/useAppConfig';
 
 const TabTitle = styled.span`
-    margin-left: 4px;
+    margin: 4px;
 `;
 
 const TabButton = styled.div<{ selected: boolean; disabled: boolean }>`
     display: flex;
-    background-color: ${(props) => (props.selected && '#f1f3fd') || 'none'};
-    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : 'none')};
+    background-color: ${(props) => (props.selected && props.theme.colors.bgSurface) || 'none'};
+    color: ${(props) => (props.selected ? props.theme.colors.textBrand : 'none')};
     align-items: center;
     justify-content: center;
     cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
-    border-radius: 5px;
-    padding: 0px 12px 0px 12px;
+    border-radius: 8px;
+    padding: 0px 4px 0px 4px;
     font-size: 14px;
-    height: 40px;
-    color: ${(props) => (props.disabled && '#00000040') || 'none'};
+    height: 36px;
+    color: ${(props) => (props.disabled && props.theme.colors.textDisabled) || 'none'};
 `;
 const TabToolbar = styled.div`
     display: flex;
     position: relative;
     z-index: 1;
     height: 46px;
-    padding: 7px 12px;
+    padding: 8px 8px;
     flex: 0 0 auto;
-`;
-
-const TabContentWrapper = styled.div`
-    @media screen and (max-height: 800px) {
-        display: contents;
-        overflow: auto;
-    }
 `;
 
 enum TabPaths {
@@ -56,6 +51,7 @@ const DEFAULT_TAB = TabPaths.SUMMARY;
  * Acryl-specific component used for rendering the Entity Validations Tab.
  */
 export const AcrylValidationsTab = () => {
+    const { t } = useTranslation('entity.profile.validations');
     const history = useHistory();
     const { pathname } = useLocation();
     const { entityData } = useEntityData();
@@ -67,7 +63,7 @@ export const AcrylValidationsTab = () => {
 
     // If no tab was selected, select a default tab.
     useEffect(() => {
-        if (!selectedTab) {
+        if (!selectedTab && basePath.endsWith(getQualityTabName())) {
             // Route to the default tab.
             history.replace(`${basePath}/${DEFAULT_TAB}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`);
         }
@@ -80,7 +76,7 @@ export const AcrylValidationsTab = () => {
         {
             title: (
                 <>
-                    <TabTitle>Summary</TabTitle>
+                    <TabTitle>{t('tabs.summary')}</TabTitle>
                 </>
             ),
             path: TabPaths.SUMMARY,
@@ -91,7 +87,7 @@ export const AcrylValidationsTab = () => {
         {
             title: (
                 <>
-                    <TabTitle>Assertions</TabTitle>
+                    <TabTitle>{t('tabs.assertions')}</TabTitle>
                 </>
             ),
             path: TabPaths.ASSERTIONS,
@@ -106,7 +102,7 @@ export const AcrylValidationsTab = () => {
         tabs.push({
             title: (
                 <>
-                    <TabTitle>Data Contract</TabTitle>
+                    <TabTitle>{t('tabs.dataContract')}</TabTitle>
                 </>
             ),
             path: TabPaths.DATA_CONTRACT,
@@ -114,10 +110,9 @@ export const AcrylValidationsTab = () => {
             disabled: isRenderingSiblings,
             tip: isRenderingSiblings ? (
                 <>
-                    You cannot view a data contract for a group of assets. <br />
+                    {t('summary.groupAssetsTooltip')} <br />
                     <br />
-                    To view the data contract for a specific asset in this group, navigate to them using the{' '}
-                    <b>Composed Of</b> sidebar section on the right.
+                    <Trans t={t} i18nKey="summary.navigateViaSection" components={{ bold: <b /> }} />
                 </>
             ) : null,
             id: 'data-contract',
@@ -147,9 +142,7 @@ export const AcrylValidationsTab = () => {
                     </Tooltip>
                 ))}
             </TabToolbar>
-            <TabContentWrapper>
-                {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
-            </TabContentWrapper>
+            {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
         </>
     );
 };

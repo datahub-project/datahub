@@ -11,6 +11,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
@@ -39,6 +40,36 @@ public class EntityClientCache {
       @Nonnull final Urn urn,
       @Nonnull final Set<String> aspectNames) {
     return batchGetV2(opContext, Set.of(urn), aspectNames).get(urn);
+  }
+
+  /**
+   * Invalidates cache entries for specific aspect(s) of an entity across all context IDs.
+   *
+   * <p>This is necessary because cache keys include contextId (which varies by session/request),
+   * but when we need to invalidate after a mutation, we want to invalidate for ALL contexts.
+   *
+   * @param urn the entity URN
+   * @param aspectNames the aspect names to invalidate
+   */
+  public void invalidate(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
+    if (!config.isEnabled()) {
+      return;
+    }
+
+    // Get all cache keys and filter for matching URN + aspectNames
+    Set<Key> keysToInvalidate =
+        cache.keySet().stream()
+            .filter(key -> key.getUrn().equals(urn) && aspectNames.contains(key.getAspectName()))
+            .collect(Collectors.toSet());
+
+    if (!keysToInvalidate.isEmpty()) {
+      cache.invalidateAll(keysToInvalidate);
+      log.debug(
+          "Invalidated {} cache entries for urn {} aspects {}",
+          keysToInvalidate.size(),
+          urn,
+          aspectNames);
+    }
   }
 
   public Map<Urn, EntityResponse> batchGetV2(
@@ -137,6 +168,7 @@ public class EntityClientCache {
 
     public EntityClientCache build(
         @Nonnull final Function<CollectionKey, Map<Urn, EntityResponse>> fetchFunction,
+        MetricUtils metricUtils,
         Class<?> metricClazz) {
 
       // estimate size
@@ -176,7 +208,7 @@ public class EntityClientCache {
               .config(this.config)
               .loadFunction(loader)
               .ttlSecondsFunction(ttlSeconds)
-              .build(metricClazz);
+              .build(metricUtils, metricClazz);
 
       return new EntityClientCache(this.config, this.cache, fetchFunction);
     }

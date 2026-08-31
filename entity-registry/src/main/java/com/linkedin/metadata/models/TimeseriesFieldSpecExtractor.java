@@ -109,7 +109,10 @@ public class TimeseriesFieldSpecExtractor implements SchemaVisitor {
             .findFirst();
     TimeseriesFieldAnnotation annotation =
         TimeseriesFieldAnnotation.fromPegasusAnnotationObject(
-            annotationObj, FieldSpecUtils.getSchemaFieldName(path), path.toString());
+            annotationObj,
+            FieldSpecUtils.getSchemaFieldName(path),
+            currentSchema.getDereferencedType(),
+            path.toString());
     if (fieldCollectionSpec.isPresent()) {
       fieldCollectionSpec
           .get()

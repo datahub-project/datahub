@@ -24,17 +24,18 @@ public class KafkaHealthChecker {
 
   private final Set<MessageLog> messagesInProgress = ConcurrentHashMap.newKeySet();
 
-  public Callback getKafkaCallBack(String eventType, String entityDesc) {
+  public Callback getKafkaCallBack(MetricUtils metricUtils, String eventType, String entityDesc) {
     final MessageLog tracking = MessageLog.track(entityDesc, kafkaProducerDeliveryTimeout);
     sendMessageStarted(tracking);
     return (metadata, e) -> {
       sendMessageEnded(tracking);
       if (e != null) {
         log.error(String.format("Failed to emit %s for entity %s", eventType, entityDesc), e);
-        MetricUtils.counter(
-                this.getClass(),
-                MetricRegistry.name("producer_failed_count", eventType.replaceAll(" ", "_")))
-            .inc();
+        if (metricUtils != null)
+          metricUtils.increment(
+              this.getClass(),
+              MetricRegistry.name("producer_failed_count", eventType.replaceAll(" ", "_")),
+              1);
       } else {
         log.debug(
             String.format(

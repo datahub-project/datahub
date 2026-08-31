@@ -1,3 +1,7 @@
+---
+description: "Sync DataHub tags, terms, owners, and descriptions to Databricks Unity Catalog using DataHub Cloud's Databricks metadata sync automation."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Databricks Metadata Sync Automation
@@ -6,7 +10,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 :::info
 
-This feature is currently in **Public Beta** in DataHub Cloud. Reach out to your DataHub Cloud representative if you face any issues configuring or validating the capabilities outlined below.
+This feature is currently in Public Beta in DataHub Cloud. Reach out to your DataHub Cloud representative if you face any issues configuring or validating the capabilities outlined below.
 
 :::
 
@@ -57,7 +61,8 @@ _Note: If using governed tags, you may also need ASSIGN permission on the tag po
 
 #### Permissions for Description Synchronization
 
-- **MODIFY**: Required to update comments/descriptions on Unity Catalog objects (catalogs, schemas, tables, columns)
+- **MODIFY**: Required to update comments/descriptions on Unity Catalog objects (tables, columns, catalogs, schemas)
+- **SELECT**: Required alongside MODIFY for table and column description operations
 
 ### Example Permission Configuration
 
@@ -83,10 +88,9 @@ GRANT APPLY TAG ON ALL TABLES IN SCHEMA your_catalog.your_schema TO `datahub-aut
 GRANT USE CATALOG ON CATALOG your_catalog TO `datahub-automation@your-domain.com`;
 GRANT USE SCHEMA ON SCHEMA your_catalog.your_schema TO `datahub-automation@your-domain.com`;
 
--- Description modification permissions
-GRANT MODIFY ON CATALOG your_catalog TO `datahub-automation@your-domain.com`;
+-- Description modification permissions (both MODIFY and SELECT are required)
 GRANT MODIFY ON SCHEMA your_catalog.your_schema TO `datahub-automation@your-domain.com`;
-GRANT MODIFY ON ALL TABLES IN SCHEMA your_catalog.your_schema TO `datahub-automation@your-domain.com`;
+GRANT SELECT ON SCHEMA your_catalog.your_schema TO `datahub-automation@your-domain.com`;
 ```
 
 #### For Both Tags and Descriptions
@@ -101,10 +105,9 @@ GRANT APPLY TAG ON CATALOG your_catalog TO `datahub-automation@your-domain.com`;
 GRANT APPLY TAG ON SCHEMA your_catalog.your_schema TO `datahub-automation@your-domain.com`;
 GRANT APPLY TAG ON ALL TABLES IN SCHEMA your_catalog.your_schema TO `datahub-automation@your-domain.com`;
 
--- Description modification permissions
-GRANT MODIFY ON CATALOG your_catalog TO `datahub-automation@your-domain.com`;
+-- Description modification permissions (both MODIFY and SELECT are required)
 GRANT MODIFY ON SCHEMA your_catalog.your_schema TO `datahub-automation@your-domain.com`;
-GRANT MODIFY ON ALL TABLES IN SCHEMA your_catalog.your_schema TO `datahub-automation@your-domain.com`;
+GRANT SELECT ON SCHEMA your_catalog.your_schema TO `datahub-automation@your-domain.com`;
 ```
 
 ### Connection Requirements
@@ -178,6 +181,8 @@ Complete the Databricks connection configuration:
 #### Test Connection
 
 Click **Test Connection** to verify your configuration before proceeding.
+
+> **Note:** If you use a **remote executor** for your automation (can be selected under "Advanced"), the connection test may fail with _"Unauthorized network access to workspace"_. This may be expected, since the test runs directly from DataHub Cloud and not from your remote executor. The actual metadata sync will still work correctly via the remote executor.
 
 ### Step 5: Configure Automation Details
 
@@ -257,7 +262,7 @@ For additional assistance with Databricks Metadata Sync, contact your DataHub Cl
 
 1. **Where should I manage Tags & Descriptions?**
 
-In general, we recommend centrally authoring Tags and Descriptions within DataHub. This allows you to maintain a clear and consistent governance posture across _all_ of your data sources and data products - there is always data outside of Databricks! Authoring this critical information in DataHub also improves the experience for your data practicioners trying to find the right data.
+In general, we recommend centrally authoring Tags and Descriptions within DataHub. This allows you to maintain a clear and consistent governance posture across _all_ of your data sources and data products - there is always data outside of Databricks! Authoring this critical information in DataHub also improves the experience for your data practitioners trying to find the right data.
 
 This automation is intended to enable this style of management, allowing you to "push down" metadata from the central catalog into Databricks, where your data is stored and queried.
 

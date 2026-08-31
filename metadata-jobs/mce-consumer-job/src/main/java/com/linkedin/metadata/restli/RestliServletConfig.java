@@ -1,6 +1,7 @@
 package com.linkedin.metadata.restli;
 
-import com.datahub.auth.authentication.filter.AuthenticationFilter;
+import com.datahub.auth.authentication.filter.AuthenticationEnforcementFilter;
+import com.datahub.auth.authentication.filter.AuthenticationExtractionFilter;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -9,6 +10,7 @@ import com.linkedin.restli.server.RestliHandlerServlet;
 import java.util.Collections;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -44,24 +46,49 @@ public class RestliServletConfig {
   }
 
   @Bean
-  public FilterRegistrationBean<AuthenticationFilter> authenticationFilterRegistrationBean(
-      @Qualifier("restliServletRegistration") ServletRegistrationBean<RestliHandlerServlet> servlet,
-      AuthenticationFilter authenticationFilter) {
-    FilterRegistrationBean<AuthenticationFilter> registrationBean = new FilterRegistrationBean<>();
+  public FilterRegistrationBean<AuthenticationEnforcementFilter>
+      authenticationEnforcementFilterRegistrationBean(
+          @Qualifier("restliServletRegistration")
+              ServletRegistrationBean<RestliHandlerServlet> servlet,
+          AuthenticationEnforcementFilter authenticationEnforcementFilter) {
+    FilterRegistrationBean<AuthenticationEnforcementFilter> registrationBean =
+        new FilterRegistrationBean<>();
     registrationBean.setServletRegistrationBeans(Collections.singletonList(servlet));
     registrationBean.setUrlPatterns(Collections.singletonList("/gms/*"));
     registrationBean.setServletNames(Collections.singletonList(servlet.getServletName()));
     registrationBean.setOrder(1);
-    registrationBean.setFilter(authenticationFilter);
+    registrationBean.setFilter(authenticationEnforcementFilter);
     return registrationBean;
   }
 
   @Bean
-  public AuthenticationFilter authenticationFilter() {
-    return new AuthenticationFilter();
+  public AuthenticationEnforcementFilter authenticationEnforcementFilter() {
+    return new AuthenticationEnforcementFilter();
   }
 
   @Bean
+  public AuthenticationExtractionFilter authenticationExtractionFilter() {
+    return new AuthenticationExtractionFilter();
+  }
+
+  @Bean
+  public FilterRegistrationBean<AuthenticationExtractionFilter>
+      authenticationExtractionFilterRegistrationBean(
+          @Qualifier("restliServletRegistration")
+              ServletRegistrationBean<RestliHandlerServlet> servlet,
+          AuthenticationExtractionFilter authenticationExtractionFilter) {
+    FilterRegistrationBean<AuthenticationExtractionFilter> registrationBean =
+        new FilterRegistrationBean<>();
+    registrationBean.setServletRegistrationBeans(Collections.singletonList(servlet));
+    registrationBean.setUrlPatterns(Collections.singletonList("/gms/*"));
+    registrationBean.setServletNames(Collections.singletonList(servlet.getServletName()));
+    registrationBean.setOrder(0); // Run before AuthenticationEnforcementFilter (order 1)
+    registrationBean.setFilter(authenticationExtractionFilter);
+    return registrationBean;
+  }
+
+  @Bean
+  @ConditionalOnBean
   public ElasticSearchConfiguration elasticSearchConfiguration(
       final ConfigurationProvider configurationProvider) {
     return configurationProvider.getElasticSearch();

@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for managing DataFlow and DataJob pipeline entities in DataHub via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -17,7 +21,7 @@ This guide will show you how to
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed steps, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 ## Create DataFlow
 
@@ -25,7 +29,7 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 <TabItem value="python" label="Python" default>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_dataflow.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataflow_create.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -36,23 +40,26 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 DataJob must be associated with a DataFlow. You can create a DataJob by providing the DataFlow object or the DataFlow URN and its platform instance.
 
 <Tabs>
-<TabItem value="python" label="Create DataJob with a DataFlow Object" default>
+<TabItem value="create-datajob" label="Create DataJob with a DataFlow Object" default>
+
 ```python
-{{ inline /metadata-ingestion/examples/library/create_datajob.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/datajob_create_full.py show_path_as_comment }}
 ```
 
 </TabItem>
-<TabItem value="python" label="Create DataJob with DataFlow URN">
+<TabItem value="create-datajob-urn" label="Create DataJob with DataFlow URN">
+
 ```python
-{{ inline /metadata-ingestion/examples/library/create_datajob_with_flow_urn.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/datajob_create_with_flow_urn.py show_path_as_comment }}
 ```
+
 </TabItem>
 </Tabs>
 
 ## Read DataFlow
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_dataflow.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataflow_read.py show_path_as_comment }}
 ```
 
 #### Example Output
@@ -66,7 +73,7 @@ DataJob must be associated with a DataFlow. You can create a DataJob by providin
 ## Read DataJob
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_datajob.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/datajob_read.py show_path_as_comment }}
 ```
 
 #### Example Output

@@ -33,4 +33,6 @@ public enum EntityFieldType {
   TAG,
   /** Container of the entity */
   CONTAINER,
+  /** Glossary terms/nodes associated with the entity */
+  GLOSSARY,
 }

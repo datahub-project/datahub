@@ -6,6 +6,12 @@ query getDomain($urn: String!) {
         properties {
             name
             description
+            createdOn {
+                time
+            }
+            customProperties {
+                ...customPropertiesFields
+            }
         }
         parentDomains {
             ...parentDomainsFields
@@ -17,17 +23,7 @@ query getDomain($urn: String!) {
             ...entityPrivileges
         }
         institutionalMemory {
-            elements {
-                url
-                actor {
-                    ...resolvedActorFields
-                }
-                description
-                created {
-                    actor
-                    time
-                }
-            }
+            ...institutionalMemoryFields
         }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
@@ -37,14 +33,49 @@ query getDomain($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         displayProperties {
             ...displayPropertiesFields
         }
+        deprecation {
+            ...deprecationFields
+        }
         ...domainEntitiesFields
         ...notes
+        settings {
+            ...AssetSettingsFields
+        }
+    }
+}
+
+fragment ListDomain on Domain {
+    urn
+    id
+    type
+    properties {
+        name
+        description
+        customProperties {
+            ...customPropertiesFields
+        }
+    }
+    parentDomains {
+        ...parentDomainsFields
+    }
+    ownership {
+        ...ownershipFields
+    }
+    privileges {
+        ...entityPrivileges
+    }
+    displayProperties {
+        ...displayPropertiesFields
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    ...domainEntitiesFields
+    institutionalMemory {
+        ...institutionalMemoryFields
     }
 }
 
@@ -54,23 +85,22 @@ query listDomains($input: ListDomainsInput!) {
         count
         total
         domains {
-            urn
-            id
-            type
-            properties {
-                name
-                description
+            ...ListDomain
+        }
+    }
+}
+
+query scrollAcrossDomains($input: ScrollAcrossEntitiesInput!) {
+    scrollAcrossEntities(input: $input) {
+        nextScrollId
+        count
+        total
+        searchResults {
+            entity {
+                ... on Domain {
+                    ...ListDomain
+                }
             }
-            parentDomains {
-                ...parentDomainsFields
-            }
-            ownership {
-                ...ownershipFields
-            }
-            displayProperties {
-                ...displayPropertiesFields
-            }
-            ...domainEntitiesFields
         }
     }
 }
@@ -107,8 +137,8 @@ query getDomainEntitySummary($urn: String!) {
             orFilters: [
                 {
                     and: [
-                        { field: "_entityType", values: ["DATA_PRODUCT"], value: "DATA_PRODUCT", negated: true }
-                        { field: "domains", values: [$urn], value: $urn }
+                        { field: "_entityType", values: ["DATA_PRODUCT"], negated: true }
+                        { field: "domains", values: [$urn] }
                     ]
                 }
             ]

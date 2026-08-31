@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 import click
+from tabulate import tabulate
 
 from datahub._version import __package_name__
 from datahub.cli.json_file import check_mce_file
@@ -21,7 +22,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
-from datahub.telemetry import telemetry
+from datahub.upgrade import upgrade
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -47,7 +48,6 @@ def check() -> None:
 @click.option(
     "--unpack-mces", default=False, is_flag=True, help="Converts MCEs into MCPs"
 )
-@telemetry.with_telemetry()
 def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
     """Check the schema of a metadata (MCE or MCP) JSON file."""
 
@@ -105,7 +105,6 @@ def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
     default=(),
     help="[Advanced] Paths in the deepdiff object to ignore",
 )
-@telemetry.with_telemetry()
 def metadata_diff(
     actual_file: str, expected_file: str, verbose: bool, ignore_path: List[str]
 ) -> None:
@@ -142,7 +141,6 @@ def metadata_diff(
     type=str,
     default=None,
 )
-@telemetry.with_telemetry()
 def plugins(source: Optional[str], verbose: bool) -> None:
     """List the enabled ingestion plugins."""
 
@@ -234,7 +232,7 @@ def sql_format(sql: str, platform: str) -> None:
     default=True,
     help="Run in offline mode and disable schema-aware parsing.",
 )
-@telemetry.with_telemetry()
+@upgrade.check_upgrade
 def sql_lineage(
     sql: Optional[str],
     sql_file: Optional[str],
@@ -297,7 +295,6 @@ def sql_lineage(
     type=str,
     help="the input to validate",
 )
-@telemetry.with_telemetry()
 def test_allow_deny(config: str, input: str, pattern_key: str) -> None:
     """Test input string against AllowDeny pattern in a DataHub recipe.
 
@@ -319,7 +316,7 @@ def test_allow_deny(config: str, input: str, pattern_key: str) -> None:
             click.secho(f"{pattern_key} is not defined in the config", fg="red")
             exit(1)
 
-        allow_deny_pattern = AllowDenyPattern.parse_obj(pattern_dict)
+        allow_deny_pattern = AllowDenyPattern.model_validate(pattern_dict)
         if allow_deny_pattern.allowed(input):
             click.secho(f"✅ {input} is allowed by {pattern_key}", fg="green")
             exit(0)
@@ -346,7 +343,6 @@ def test_allow_deny(config: str, input: str, pattern_key: str) -> None:
     type=str,
     help="The input to validate",
 )
-@telemetry.with_telemetry()
 def test_path_spec(config: str, input: str, path_spec_key: str) -> None:
     """Test input path string against PathSpec patterns in a DataHub recipe.
 
@@ -376,7 +372,7 @@ def test_path_spec(config: str, input: str, path_spec_key: str) -> None:
             pattern_dicts = [pattern_dicts]
 
         for pattern_dict in pattern_dicts:
-            path_spec_pattern = PathSpec.parse_obj(pattern_dict)
+            path_spec_pattern = PathSpec.model_validate(pattern_dict)
             if path_spec_pattern.allowed(input):
                 click.echo(f"{input} is allowed by {path_spec_pattern}")
             else:
@@ -471,6 +467,7 @@ WHERE
 
 
 @check.command()
+@upgrade.check_upgrade
 def server_config() -> None:
     """Print the server config."""
     graph = get_default_graph(ClientMode.CLI)
@@ -495,6 +492,7 @@ def server_config() -> None:
     type=click.Path(exists=True, dir_okay=True, readable=True),
     help="File absolute path containing URNs (one per line) to restore indices",
 )
+@upgrade.check_upgrade
 def restore_indices(
     urn: Optional[str],
     aspect: Optional[str],
@@ -517,8 +515,77 @@ def restore_indices(
 
 
 @check.command()
-def get_kafka_consumer_offsets() -> None:
+@click.option(
+    "-o",
+    "--output",
+    "output_format",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format.",
+)
+@upgrade.check_upgrade
+def get_kafka_consumer_offsets(output_format: str) -> None:
     """Get Kafka consumer offsets from the DataHub API."""
     graph = get_default_graph(ClientMode.CLI)
     result = graph.get_kafka_consumer_offsets()
-    pprint.pprint(result)
+
+    rows = []
+    for consumer_type, payload in result.items():
+        if not isinstance(payload, dict):
+            continue
+        if "consumerGroups" in payload:
+            # /openapi/operations/messaging envelope: {"transport": ..., "consumerGroups": {group: {topic: ...}}}
+            consumers = payload["consumerGroups"]
+        elif "consumerGroupId" in payload:
+            # /openapi/operations/kafka object format: {"consumerGroupId": ..., "topics": {topic: ...}}
+            consumers = {payload["consumerGroupId"]: payload.get("topics", {})}
+        else:
+            # /openapi/operations/kafka map format: {group: {topic: ...}}
+            consumers = payload
+        for consumer_group, topics in consumers.items():
+            if not isinstance(topics, dict):
+                continue
+            for topic, data in topics.items():
+                if not isinstance(data, dict):
+                    continue
+                # The API serializes metrics/partitions as null when unavailable.
+                metrics = data.get("metrics") or {}
+                partitions = data.get("partitions") or {}
+
+                for partition, partition_data in partitions.items():
+                    rows.append(
+                        {
+                            "consumerType": consumer_type,
+                            "consumerGroup": consumer_group,
+                            "topic": topic,
+                            "partition": partition,
+                            "offset": partition_data.get("offset"),
+                            "lag": partition_data.get("lag"),
+                            "avgLag": metrics.get("avgLag"),
+                            "maxLag": metrics.get("maxLag"),
+                            "totalLag": metrics.get("totalLag"),
+                        }
+                    )
+
+    if output_format == "json":
+        click.echo(json.dumps(rows, indent=2))
+    elif rows:
+        headers = {
+            "consumerType": "Consumer Type",
+            "consumerGroup": "Consumer Group",
+            "topic": "Topic",
+            "partition": "Partition",
+            "offset": "Offset",
+            "lag": "Lag",
+            "avgLag": "Avg Lag",
+            "maxLag": "Max Lag",
+            "totalLag": "Total Lag",
+        }
+        table_data = [
+            ["N/A" if row[key] is None else row[key] for key in headers] for row in rows
+        ]
+        click.echo(
+            tabulate(table_data, headers=list(headers.values()), tablefmt="grid")
+        )
+    else:
+        click.echo("No Kafka consumer offset data found.")

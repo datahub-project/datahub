@@ -14,6 +14,8 @@ export type LineChartProps = {
     xScale?: ScaleConfig<AxisScaleOutput, any, any>;
     yScale?: ScaleConfig<AxisScaleOutput, any, any>;
     maxYDomainForZeroData?: number;
+    shouldAdjustYZeroPoint?: boolean;
+    yZeroPointThreshold?: number;
 
     lineColor?: string;
     areaColor?: string;
@@ -31,6 +33,8 @@ export type LineChartProps = {
     renderTooltipGlyph?: (props: GlyphProps) => React.ReactElement | null;
     showGlyphOnSingleDataPoint?: boolean;
     renderGlyphOnSingleDataPoint?: React.FC<GlyphProps>;
+
+    dataTestId?: string;
 };
 
 export type GlyphProps = VisxGlyphProps<Datum>;

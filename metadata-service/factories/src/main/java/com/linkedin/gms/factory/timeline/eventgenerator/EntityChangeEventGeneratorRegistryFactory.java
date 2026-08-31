@@ -10,6 +10,7 @@ import com.linkedin.metadata.timeline.eventgenerator.BusinessAttributesChangeEve
 import com.linkedin.metadata.timeline.eventgenerator.DataProcessInstanceRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.DocumentationChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerat
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.StatusChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.StructuredPropertyChangeEventGenerator;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,7 +51,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(OWNERSHIP_ASPECT_NAME, new OwnershipChangeEventGenerator());
     registry.register(
         INSTITUTIONAL_MEMORY_ASPECT_NAME, new InstitutionalMemoryChangeEventGenerator());
-    registry.register(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesChangeEventGenerator());
+    registry.register(DOCUMENTATION_ASPECT_NAME, new DocumentationChangeEventGenerator());
     registry.register(GLOSSARY_TERM_INFO_ASPECT_NAME, new GlossaryTermInfoChangeEventGenerator());
     registry.register(DOMAINS_ASPECT_NAME, new SingleDomainChangeEventGenerator());
     registry.register(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesChangeEventGenerator());
@@ -62,7 +64,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
         BUSINESS_ATTRIBUTE_ASSOCIATION, new BusinessAttributeAssociationChangeEventGenerator());
     registry.register(BUSINESS_ATTRIBUTE_ASPECT, new BusinessAttributesChangeEventGenerator());
 
-    // Entity Lifecycle Differs
+    // Entity Lifecycle change event generators
     registry.register(DATASET_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
     registry.register(CONTAINER_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
     registry.register(CHART_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
@@ -72,15 +74,17 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(DOMAIN_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
     registry.register(TAG_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
     registry.register(GLOSSARY_TERM_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
+    registry.register(
+        STRUCTURED_PROPERTIES_ASPECT_NAME, new StructuredPropertyChangeEventGenerator());
     registry.register(CORP_GROUP_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
     registry.register(STATUS_ASPECT_NAME, new StatusChangeEventGenerator());
     registry.register(DEPRECATION_ASPECT_NAME, new DeprecationChangeEventGenerator());
     registry.register(BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
 
-    // Assertion differs
+    // Assertion change event generators
     registry.register(ASSERTION_RUN_EVENT_ASPECT_NAME, new AssertionRunEventChangeEventGenerator());
 
-    // Data Process Instance differs
+    // Data Process Instance change event generators
     registry.register(
         DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
         new DataProcessInstanceRunEventChangeEventGenerator(

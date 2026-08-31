@@ -1,0 +1,75 @@
+# DataHub Documents Source - Event-Driven Mode
+#
+# This recipe processes Document entities from DataHub in event-driven mode.
+# It subscribes to Kafka MCL events, processes documents as they change,
+# and generates embeddings in real-time.
+#
+# When to use Event Mode:
+# - Real-time processing as documents change
+# - Continuous pipelines that react immediately to updates
+# - When you want to minimize processing overhead by only handling changes
+# - When you need embeddings updated as soon as documents are modified
+#
+# When to use Batch Mode instead:
+# - Initial processing of all documents
+# - Scheduled/periodic runs (e.g., daily, weekly)
+# - Processing specific document sets on demand
+# - When you need to process all documents regardless of recent changes
+
+source:
+  type: datahub-documents
+  config:
+    # DataHub connection
+    datahub:
+      server: "http://localhost:8080"
+      token: "${DATAHUB_TOKEN}"
+
+    # Mode selection - Event-driven mode (explicit)
+    event_mode:
+      enabled: true  # Set to false to use batch mode instead
+      consumer_id: "datahub-documents-processor"
+      topics:
+        - MetadataChangeLog_Versioned_v1
+      lookback_days: 7  # Process events from last 7 days on first run
+      reset_offsets: false  # Set to true to reprocess all events
+      idle_timeout_seconds: 60  # Exit after 60 seconds with no new events
+      poll_timeout_seconds: 2
+      poll_limit: 100
+
+    # Platform filtering - process documents from these platforms
+    platform_filter:
+      - notion
+
+    # Incremental processing - track content hashes
+    # In event mode, MCL events fire whenever a document aspect changes, but the text content
+    # might not have actually changed. Incremental processing prevents reprocessing documents
+    # where events fired but the text content hash is unchanged. This is especially useful
+    # when document metadata (e.g., tags, ownership) changes but content stays the same.
+    incremental:
+      enabled: true
+      force_reprocess: false
+      state_file_path: "/path/to/state.json"  # Optional: defaults to ~/.datahub/document_chunking_state/{pipeline_name}.json
+
+    # Chunking strategy
+    chunking:
+      strategy: by_title
+      max_characters: 500
+      combine_text_under_n_chars: 100
+
+    # Embedding configuration - Cohere example
+    embedding:
+      provider: cohere
+      model: embed-english-v3.0
+      api_key: "${COHERE_API_KEY}"
+      batch_size: 25
+      input_type: search_document
+
+    # Processing options
+    skip_empty_text: true
+    min_text_length: 50
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    token: "${DATAHUB_TOKEN}"

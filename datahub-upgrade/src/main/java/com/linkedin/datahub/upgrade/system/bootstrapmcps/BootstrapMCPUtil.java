@@ -122,19 +122,15 @@ public class BootstrapMCPUtil {
           MUSTACHE_FACTORY.compile(new StringReader(template), mcpTemplate.getName());
       mustache.execute(writer, scopeValues);
     } catch (Exception e) {
-      log.error(
-          "Failed to apply mustache template. Template: {} Values: {}",
-          template,
-          resolveEnv(mcpTemplate));
-      throw e;
+      throw new RuntimeException("Failed to apply mustache template: " + e.getMessage(), e);
     }
 
     final String yaml = writer.toString();
     try {
       return opContext.getYamlMapper().readValue(yaml, new TypeReference<>() {});
     } catch (Exception e) {
-      log.error("Failed to parse rendered MCP bootstrap yaml: {}", yaml);
-      throw e;
+      throw new RuntimeException(
+          "Failed to parse rendered MCP bootstrap yaml: " + e.getMessage(), e);
     }
   }
 

@@ -2,7 +2,6 @@ import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 
 import { MatchedFieldName } from '@app/search/matches/constants';
 import {
-    getMatchedFieldLabel,
     getMatchedFieldNames,
     getMatchedFieldsByNames,
     getMatchedFieldsByUrn,
@@ -45,7 +44,7 @@ export const useEntityType = () => {
     return useSearchResultContext()?.searchResult?.entity?.type;
 };
 
-export const useMatchedFields = () => {
+const useMatchedFields = () => {
     return useSearchResult()?.matchedFields ?? [];
 };
 
@@ -71,9 +70,4 @@ export const useMatchedFieldsByGroup = (fieldName: MatchedFieldName) => {
 export const useHasMatchedFieldByUrn = (urn: string, fieldName: MatchedFieldName) => {
     const matchedFields = useMatchedFieldsByGroup(fieldName);
     return getMatchedFieldsByUrn(matchedFields, urn).length > 0;
-};
-
-export const useMatchedFieldLabel = (fieldName: string) => {
-    const entityType = useEntityType();
-    return getMatchedFieldLabel(entityType, fieldName);
 };

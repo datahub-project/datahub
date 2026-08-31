@@ -4,11 +4,12 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
-import pydantic
+from pydantic import field_validator, model_validator
 from ruamel.yaml import YAML
+from typing_extensions import assert_never
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, LaxStr
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
@@ -32,8 +33,14 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.specific.dataproduct import DataProductPatchBuilder
+from datahub.utilities.registries.data_product_registry import DataProductRegistry
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.urns.urn import Urn
+
+_PARENT_CHAIN_MAX_DEPTH = 20
+_NESTING_CYCLE_ERROR = (
+    "Cannot nest a data product under itself or one of its own descendants."
+)
 
 
 def patch_list(
@@ -66,11 +73,57 @@ def patch_list(
     return update_needed
 
 
+def patch_resolved_urn_field(
+    original_value: Optional[str],
+    new_value: Optional[str],
+    resolved_original: Optional[str],
+    mutable_dictionary: dict,
+    field_name: str,
+) -> bool:
+    """Update a YAML field that may be a bare name or URN, skipping if only the form differs."""
+    if original_value == new_value:
+        return False
+    if resolved_original == new_value:
+        return False
+    mutable_dictionary[field_name] = new_value
+    return True
+
+
+def walk_parent_chain(graph: DataHubGraph, seed_urn: str) -> List[str]:
+    chain: List[str] = []
+    visited = {seed_urn}
+    current = _resolve_parent_urn(graph, seed_urn)
+    while (
+        current is not None
+        and current not in visited
+        and len(chain) < _PARENT_CHAIN_MAX_DEPTH
+    ):
+        chain.append(current)
+        visited.add(current)
+        current = _resolve_parent_urn(graph, current)
+    return chain
+
+
+def _resolve_parent_urn(graph: DataHubGraph, urn: str) -> Optional[str]:
+    props = graph.get_aspect(urn, DataProductPropertiesClass)
+    if props is None or not props.parentDataProduct:
+        return None
+    return props.parentDataProduct
+
+
+def assert_parent_is_not_descendant(
+    graph: DataHubGraph, child_urn: str, parent_urn: str
+) -> None:
+    if parent_urn == child_urn or child_urn in walk_parent_chain(graph, parent_urn):
+        raise ValueError(_NESTING_CYCLE_ERROR)
+
+
 class Ownership(ConfigModel):
     id: str
     type: str
 
-    @pydantic.validator("type")
+    @field_validator("type", mode="after")
+    @classmethod
     def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
         _, _ = builder.validate_ownership_type(v)
         return v
@@ -98,6 +151,7 @@ class DataProduct(ConfigModel):
         tags (Optional[List[str]]): An array of tags (either bare ids or urns) for the Data Product
         terms (Optional[List[str]]): An array of terms (either bare ids or urns) for the Data Product
         assets (List[str]): An array of entity urns that are part of the Data Product
+        parent_data_product (Optional[str]): Parent Data Product as a name or fully-qualified urn.
     """
 
     id: str
@@ -110,18 +164,56 @@ class DataProduct(ConfigModel):
     description: Optional[str] = None
     tags: Optional[List[str]] = None
     terms: Optional[List[str]] = None
-    properties: Optional[Dict[str, str]] = None
+    properties: Optional[Dict[str, LaxStr]] = None
     external_url: Optional[str] = None
+    output_ports: Optional[List[str]] = None
+    parent_data_product: Optional[str] = None
+    _resolved_parent_data_product_urn: Optional[str] = None
     _original_yaml_dict: Optional[dict] = None
 
-    @pydantic.validator("assets", each_item=True)
-    def assets_must_be_urns(cls, v: str) -> str:
-        try:
-            Urn.from_string(v)
-        except Exception as e:
-            raise ValueError(f"asset {v} is not an urn: {e}") from e
+    @field_validator("assets", mode="before")
+    @classmethod
+    def assets_must_be_urns(cls, v: Any) -> Any:
+        if isinstance(v, list):
+            for item in v:
+                try:
+                    Urn.from_string(item)
+                except Exception as e:
+                    raise ValueError(f"asset {item} is not an urn: {e}") from e
+            return v
+        else:
+            try:
+                Urn.from_string(v)
+            except Exception as e:
+                raise ValueError(f"asset {v} is not an urn: {e}") from e
+            return v
 
+    @field_validator("output_ports", mode="before")
+    @classmethod
+    def output_ports_must_be_urns(cls, v: Any) -> Any:
+        if v is not None:
+            if isinstance(v, list):
+                for item in v:
+                    try:
+                        Urn.create_from_string(item)
+                    except Exception as e:
+                        raise ValueError(
+                            f"Output port {item} is not an urn: {e}"
+                        ) from e
+            else:
+                try:
+                    Urn.create_from_string(v)
+                except Exception as e:
+                    raise ValueError(f"Output port {v} is not an urn: {e}") from e
         return v
+
+    @model_validator(mode="after")
+    def output_ports_must_be_from_asset_list(self) -> "DataProduct":
+        if self.output_ports and self.assets:
+            for port in self.output_ports:
+                if port not in self.assets:
+                    raise ValueError(f"Output port {port} is not in asset list")
+        return self
 
     @property
     def urn(self) -> str:
@@ -130,14 +222,21 @@ class DataProduct(ConfigModel):
         else:
             return f"urn:li:dataProduct:{self.id}"
 
-    # If domain is an urn, we cache it in the private _resolved_domain_urn field
-    # Otherwise, we expect the caller to populate this by using an external DomainRegistry
+    # If domain / parent_data_product is an urn, we cache it in the private resolved field.
+    # Otherwise, we expect the caller to populate this via DomainRegistry / DataProductRegistry.
     def __init__(self, **data):
         super().__init__(**data)
         if self.domain.startswith("urn:li:domain:"):
             self._resolved_domain_urn = self.domain
         else:
             self._resolved_domain_urn = None
+
+        if self.parent_data_product and self.parent_data_product.startswith(
+            "urn:li:dataProduct:"
+        ):
+            self._resolved_parent_data_product_urn = self.parent_data_product
+        else:
+            self._resolved_parent_data_product_urn = None
 
     def _mint_auditstamp(self, message: str) -> AuditStampClass:
         return AuditStampClass(
@@ -180,6 +279,7 @@ class DataProduct(ConfigModel):
                         DataProductAssociationClass(
                             destinationUrn=asset,
                             created=self._mint_auditstamp("yaml"),
+                            outputPort=asset in (self.output_ports or []),
                         )
                         for asset in self.assets
                     ]
@@ -190,6 +290,11 @@ class DataProduct(ConfigModel):
             if self.external_url is not None:
                 dataproduct_patch_builder.set_external_url(
                     external_url=self.external_url
+                )
+
+            if self._resolved_parent_data_product_urn is not None:
+                dataproduct_patch_builder.set_parent_data_product(
+                    parent_urn=self._resolved_parent_data_product_urn
                 )
 
             yield from dataproduct_patch_builder.build()
@@ -203,11 +308,13 @@ class DataProduct(ConfigModel):
                         DataProductAssociationClass(
                             destinationUrn=asset,
                             created=self._mint_auditstamp("yaml"),
+                            outputPort=asset in (self.output_ports or []),
                         )
                         for asset in self.assets or []
                     ],
                     customProperties=self.properties if self.properties else None,
                     externalUrl=self.external_url if self.external_url else None,
+                    parentDataProduct=self._resolved_parent_data_product_urn,
                 ),
             )
             yield mcp
@@ -219,6 +326,18 @@ class DataProduct(ConfigModel):
             raise Exception(
                 f"Unable to generate MCP-s because we were unable to resolve the domain {self.domain} to an urn."
             )
+
+        if (
+            self.parent_data_product is not None
+            and self._resolved_parent_data_product_urn is None
+        ):
+            raise Exception(
+                f"Unable to generate MCP-s because we were unable to resolve the parent "
+                f"data product {self.parent_data_product} to an urn."
+            )
+
+        if self._resolved_parent_data_product_urn == self.urn:
+            raise ValueError(_NESTING_CYCLE_ERROR)
 
         yield from self._generate_properties_mcp(upsert_mode=upsert)
 
@@ -316,6 +435,24 @@ class DataProduct(ConfigModel):
             )
             domain_urn = domain_registry.get_domain_urn(parsed_data_product.domain)
             parsed_data_product._resolved_domain_urn = domain_urn
+
+            if parsed_data_product.parent_data_product:
+                data_product_registry = DataProductRegistry(
+                    cached_data_products=[parsed_data_product.parent_data_product],
+                    graph=graph,
+                )
+                parent_identifier = data_product_registry.get_data_product_urn(
+                    parsed_data_product.parent_data_product
+                )
+                parsed_data_product._resolved_parent_data_product_urn = (
+                    builder.make_data_product_urn(parent_identifier)
+                )
+                assert_parent_is_not_descendant(
+                    graph,
+                    parsed_data_product.urn,
+                    parsed_data_product._resolved_parent_data_product_urn,
+                )
+
             parsed_data_product._original_yaml_dict = orig_dictionary
             return parsed_data_product
 
@@ -368,6 +505,18 @@ class DataProduct(ConfigModel):
             external_url=(
                 data_product_properties.externalUrl if data_product_properties else None
             ),
+            output_ports=[
+                e.destinationUrn
+                for e in (data_product_properties.assets or [])
+                if e.outputPort
+            ]
+            if data_product_properties
+            else None,
+            parent_data_product=(
+                data_product_properties.parentDataProduct
+                if data_product_properties
+                else None
+            ),
         )
 
     def _patch_ownership(
@@ -414,7 +563,9 @@ class DataProduct(ConfigModel):
                                 "type": new_owner_type_map[owner_urn],
                             }
                     else:
-                        patches_drop[i] = o
+                        patches_drop[i] = o.model_dump()
+                else:
+                    assert_never(o)
 
         # Figure out what if any are new owners to add
         new_owners_to_add = {o for o in new_owner_type_map} - set(owners_matched)
@@ -425,7 +576,7 @@ class DataProduct(ConfigModel):
                     patches_add.append(new_owner)
                 else:
                     patches_add.append(
-                        Ownership(id=new_owner, type=new_owner_type).dict()
+                        Ownership(id=new_owner, type=new_owner_type).model_dump()
                     )
 
         mutation_needed = bool(patches_replace or patches_drop or patches_add)
@@ -456,8 +607,8 @@ class DataProduct(ConfigModel):
             raise Exception("Original Data Product was not loaded from yaml")
 
         orig_dictionary = original_dataproduct._original_yaml_dict
-        original_dataproduct_dict = original_dataproduct.dict()
-        this_dataproduct_dict = self.dict()
+        original_dataproduct_dict = original_dataproduct.model_dump()
+        this_dataproduct_dict = self.model_dump()
         for simple_field in ["display_name", "description", "external_url"]:
             if original_dataproduct_dict.get(simple_field) != this_dataproduct_dict.get(
                 simple_field
@@ -465,11 +616,26 @@ class DataProduct(ConfigModel):
                 update_needed = True
                 orig_dictionary[simple_field] = this_dataproduct_dict.get(simple_field)
 
-        if original_dataproduct.domain != self.domain:
-            # we check if the resolved domain urn is the same
-            if original_dataproduct._resolved_domain_urn != self.domain:
-                update_needed = True
-                orig_dictionary["domain"] = self.domain
+        update_needed = (
+            patch_resolved_urn_field(
+                original_dataproduct.domain,
+                self.domain,
+                original_dataproduct._resolved_domain_urn,
+                orig_dictionary,
+                "domain",
+            )
+            or update_needed
+        )
+        update_needed = (
+            patch_resolved_urn_field(
+                original_dataproduct.parent_data_product,
+                self.parent_data_product,
+                original_dataproduct._resolved_parent_data_product_urn,
+                orig_dictionary,
+                "parent_data_product",
+            )
+            or update_needed
+        )
 
         if set(original_dataproduct.assets or []) != set(self.assets or []):
             update_needed = True
@@ -537,7 +703,7 @@ class DataProduct(ConfigModel):
             yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
             yaml.indent(mapping=2, sequence=4, offset=2)
             yaml.default_flow_style = False
-            yaml.dump(self.dict(), fp)
+            yaml.dump(self.model_dump(), fp)
 
     @staticmethod
     def get_patch_builder(

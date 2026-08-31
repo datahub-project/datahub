@@ -54,7 +54,71 @@
       "unique_id": "dbt.__overview__"
     }
   },
-  "exposures": {},
+  "exposures": {
+    "exposure.sample_dbt.customer_dashboard": {
+      "name": "customer_dashboard",
+      "type": "dashboard",
+      "owner": {
+        "name": "Analytics Team",
+        "email": "analytics@example.com"
+      },
+      "description": "Dashboard showing customer details and billing",
+      "url": "https://bi.example.com/dashboards/customer",
+      "maturity": "high",
+      "depends_on": {
+        "nodes": [
+          "model.sample_dbt.customer_details",
+          "model.sample_dbt.monthly_billing_with_cust"
+        ],
+        "macros": []
+      },
+      "tags": [
+        "executive",
+        "customer"
+      ],
+      "meta": {
+        "team": "analytics"
+      },
+      "package_name": "sample_dbt",
+      "original_file_path": "models/exposures.yml",
+      "unique_id": "exposure.sample_dbt.customer_dashboard",
+      "fqn": [
+        "sample_dbt",
+        "customer_dashboard"
+      ],
+      "resource_type": "exposure"
+    },
+    "exposure.sample_dbt.payments_ml_model": {
+      "name": "payments_ml_model",
+      "type": "ml",
+      "owner": {
+        "name": "Data Science",
+        "email": "ds@example.com"
+      },
+      "description": "ML model for payment predictions",
+      "url": "https://mlflow.example.com/models/payments",
+      "maturity": "medium",
+      "depends_on": {
+        "nodes": [
+          "model.sample_dbt.payments_by_customer_by_month"
+        ],
+        "macros": []
+      },
+      "tags": [
+        "ml",
+        "payments"
+      ],
+      "meta": {},
+      "package_name": "sample_dbt",
+      "original_file_path": "models/exposures.yml",
+      "unique_id": "exposure.sample_dbt.payments_ml_model",
+      "fqn": [
+        "sample_dbt",
+        "payments_ml_model"
+      ],
+      "resource_type": "exposure"
+    }
+  },
   "macros": {
     "macro.dbt.after_commit": {
       "arguments": [],

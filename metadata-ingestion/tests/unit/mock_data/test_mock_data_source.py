@@ -10,6 +10,8 @@ from datahub.ingestion.source.mock_data.datahub_mock_data import (
 )
 from datahub.ingestion.source.mock_data.table_naming_helper import TableNamingHelper
 from datahub.metadata.schema_classes import (
+    DatasetProfileClass,
+    DatasetUsageStatisticsClass,
     StatusClass,
     SubTypesClass,
     UpstreamLineageClass,
@@ -105,14 +107,14 @@ def test_lineage_config_gen1_custom_values():
         # - Level 0: 1 table (2^0)
         # - Level 1: 2 tables (2^1)
         # Total tables: 3
-        # Each table gets a status aspect + SubTypes aspect
+        # Each table gets a status aspect + SubTypes aspect + profile aspect + usage aspect
         # Level 0 table connects to 2 level 1 tables = 2 lineage aspects
-        (2, 1, 8),  # 3 status + 3 SubTypes + 2 lineage
+        (2, 1, 14),  # 3 status + 3 SubTypes + 3 profile + 3 usage + 2 lineage
         # Large fan out: fan_out=4, hops=1
         # - Level 0: 1 table
         # - Level 1: 4 tables
-        # Total: 5 status aspects + 5 SubTypes aspects + 4 lineage aspects = 14 workunits
-        (4, 1, 14),
+        # Total: 5 status aspects + 5 SubTypes aspects + 5 profile aspects + 5 usage aspects + 4 lineage aspects = 24 workunits
+        (4, 1, 24),
     ],
 )
 def test_generate_lineage_data_gen1_workunit_counts_parametrized(
@@ -142,8 +144,8 @@ def test_generate_lineage_data_gen1_no_hops():
     workunits = list(source._data_gen_1())
 
     # With hops=0, we expect only 1 table with no lineage
-    # But it still gets both status and SubTypes aspects
-    assert len(workunits) == 2
+    # But it still gets status, SubTypes, profile, and usage aspects
+    assert len(workunits) == 4
 
     # Verify it's a status aspect
     workunit = workunits[0]
@@ -337,10 +339,11 @@ def test_subtypes_config_custom_values():
 
 
 @pytest.mark.parametrize(
-    "subtype_pattern,level_subtypes,test_cases",
+    "subtype_pattern,level_subtypes,subtype_types,test_cases",
     [
         (
             SubTypePattern.ALTERNATING,
+            None,
             None,
             [
                 ("table1", 0, 0, "Table"),  # index 0
@@ -351,7 +354,31 @@ def test_subtypes_config_custom_values():
             ],
         ),
         (
+            SubTypePattern.ALTERNATING,
+            None,
+            ["Topic", "Schema", "Table"],
+            [
+                ("table1", 0, 0, "Topic"),  # index 0
+                ("table2", 0, 1, "Schema"),  # index 1
+                ("table3", 0, 2, "Table"),  # index 2
+                ("table4", 0, 3, "Topic"),  # index 3 (cycles back)
+                ("table5", 1, 0, "Topic"),  # index 0
+                ("table6", 1, 1, "Schema"),  # index 1
+            ],
+        ),
+        (
+            SubTypePattern.ALTERNATING,
+            None,
+            ["External Table"],
+            [
+                ("table1", 0, 0, "External Table"),  # index 0
+                ("table2", 0, 1, "External Table"),  # index 1
+                ("table3", 1, 0, "External Table"),  # index 0
+            ],
+        ),
+        (
             SubTypePattern.ALL_TABLE,
+            None,
             None,
             [
                 ("table1", 0, 0, "Table"),
@@ -363,6 +390,7 @@ def test_subtypes_config_custom_values():
         (
             SubTypePattern.ALL_VIEW,
             None,
+            None,
             [
                 ("table1", 0, 0, "View"),
                 ("table2", 0, 1, "View"),
@@ -373,6 +401,7 @@ def test_subtypes_config_custom_values():
         (
             SubTypePattern.LEVEL_BASED,
             {0: "Table", 1: "View", 2: "Table"},
+            None,
             [
                 ("table1", 0, 0, "Table"),  # level 0
                 ("table2", 0, 1, "Table"),  # level 0
@@ -384,18 +413,28 @@ def test_subtypes_config_custom_values():
         ),
     ],
 )
-def test_determine_subtype_patterns(subtype_pattern, level_subtypes, test_cases):
+def test_determine_subtype_patterns(
+    subtype_pattern, level_subtypes, subtype_types, test_cases
+):
     """Test _determine_subtype with various subtype patterns."""
     config_kwargs = {"subtype_pattern": subtype_pattern}
     if level_subtypes is not None:
         config_kwargs["level_subtypes"] = level_subtypes
+    if subtype_types is not None:
+        config_kwargs["subtype_types"] = subtype_types
 
     config = DataHubMockDataConfig(gen_1=LineageConfigGen1(**config_kwargs))
     ctx = PipelineContext(run_id="test")
     source = DataHubMockDataSource(ctx, config)
 
     for table_name, level, index, expected_subtype in test_cases:
-        actual_subtype = source._determine_subtype(table_name, level, index)
+        actual_subtype = source._determine_subtype(
+            level,
+            index,
+            config.gen_1.subtype_pattern,
+            config.gen_1.subtype_types,
+            config.gen_1.level_subtypes,
+        )
         assert actual_subtype == expected_subtype, (
             f"Expected {expected_subtype} for {table_name} (level={level}, index={index})"
         )
@@ -410,7 +449,137 @@ def test_determine_subtype_invalid_pattern():
     source = DataHubMockDataSource(ctx, config)
 
     # Should default to Table for any valid pattern
-    assert source._determine_subtype("table1", 0, 0) == "Table"
+    assert (
+        source._determine_subtype(
+            0,
+            0,
+            config.gen_1.subtype_pattern,
+            config.gen_1.subtype_types,
+            config.gen_1.level_subtypes,
+        )
+        == "Table"
+    )
+
+
+def test_determine_subtype_empty_subtype_types():
+    """Test that empty subtype_types defaults to Table."""
+    config = DataHubMockDataConfig(
+        gen_1=LineageConfigGen1(
+            subtype_pattern=SubTypePattern.ALTERNATING
+            # Don't override subtype_types, use defaults
+        )
+    )
+    ctx = PipelineContext(run_id="test")
+    source = DataHubMockDataSource(ctx, config)
+
+    # Should use default subtype_types when not specified
+    assert (
+        source._determine_subtype(
+            0,
+            0,
+            config.gen_1.subtype_pattern,
+            config.gen_1.subtype_types,
+            config.gen_1.level_subtypes,
+        )
+        == "Table"
+    )
+    assert (
+        source._determine_subtype(
+            0,
+            1,
+            config.gen_1.subtype_pattern,
+            config.gen_1.subtype_types,
+            config.gen_1.level_subtypes,
+        )
+        == "View"
+    )
+    assert (
+        source._determine_subtype(
+            1,
+            0,
+            config.gen_1.subtype_pattern,
+            config.gen_1.subtype_types,
+            config.gen_1.level_subtypes,
+        )
+        == "Table"
+    )
+
+
+def test_subtype_types_with_three_types_and_two_hops():
+    """Test subtype_types with 3 types and 2 hops configuration."""
+    config = DataHubMockDataConfig(
+        gen_1=LineageConfigGen1(
+            emit_lineage=True,
+            lineage_fan_out=2,
+            lineage_hops=2,
+            subtype_pattern=SubTypePattern.ALTERNATING,
+            subtype_types=["Table", "View", "External Table"],
+        )
+    )
+    ctx = PipelineContext(run_id="test")
+    source = DataHubMockDataSource(ctx, config)
+
+    # With fan_out=2, hops=2:
+    # - Level 0: 1 table (2^0)
+    # - Level 1: 2 tables (2^1)
+    # - Level 2: 4 tables (2^2)
+    # Total tables: 7
+
+    # Test the alternating pattern with 3 types
+    test_cases = [
+        # Level 0: 1 table
+        ("hops_2_f_2_h0_t0", 0, 0, "Table"),  # index 0 % 3 = 0 -> "Table"
+        # Level 1: 2 tables
+        ("hops_2_f_2_h1_t0", 1, 0, "Table"),  # index 0 % 3 = 0 -> "Table"
+        ("hops_2_f_2_h1_t1", 1, 1, "View"),  # index 1 % 3 = 1 -> "View"
+        # Level 2: 4 tables
+        ("hops_2_f_2_h2_t0", 2, 0, "Table"),  # index 0 % 3 = 0 -> "Table"
+        ("hops_2_f_2_h2_t1", 2, 1, "View"),  # index 1 % 3 = 1 -> "View"
+        (
+            "hops_2_f_2_h2_t2",
+            2,
+            2,
+            "External Table",
+        ),  # index 2 % 3 = 2 -> "External Table"
+        ("hops_2_f_2_h2_t3", 2, 3, "Table"),  # index 3 % 3 = 0 -> "Table" (cycles back)
+    ]
+
+    for table_name, level, index, expected_subtype in test_cases:
+        actual_subtype = source._determine_subtype(
+            level,
+            index,
+            config.gen_1.subtype_pattern,
+            config.gen_1.subtype_types,
+            config.gen_1.level_subtypes,
+        )
+        assert actual_subtype == expected_subtype, (
+            f"Expected {expected_subtype} for {table_name} (level={level}, index={index})"
+        )
+
+    # Generate actual workunits to verify the pattern is applied
+    workunits = list(source._data_gen_1())
+
+    # Extract subtypes from generated workunits
+    table_subtypes = {}
+    for workunit in workunits:
+        metadata = get_workunit_metadata_safely(workunit)
+        if metadata.aspect and isinstance(metadata.aspect, SubTypesClass):
+            urn = metadata.entityUrn
+            if urn is not None:
+                dataset_urn = DatasetUrn.from_string(urn)
+                table_name = dataset_urn.name
+                subtypes = metadata.aspect
+                if subtypes is not None and isinstance(subtypes, SubTypesClass):
+                    table_subtypes[table_name] = subtypes.typeNames[0]
+
+    # Verify the pattern is correctly applied in the generated data
+    for table_name, _, _, expected_subtype in test_cases:
+        assert table_name in table_subtypes, (
+            f"Table {table_name} not found in generated workunits"
+        )
+        assert table_subtypes[table_name] == expected_subtype, (
+            f"Expected {expected_subtype} for {table_name}, got {table_subtypes[table_name]}"
+        )
 
 
 def test_get_subtypes_aspect():
@@ -422,7 +591,14 @@ def test_get_subtypes_aspect():
     source = DataHubMockDataSource(ctx, config)
 
     # Test SubTypes aspect generation
-    subtypes_workunit = source._get_subtypes_aspect("test_table", 0, 1)
+    subtypes_workunit = source._get_subtypes_aspect(
+        "test_table",
+        0,
+        1,
+        config.gen_1.subtype_pattern,
+        config.gen_1.subtype_types,
+        config.gen_1.level_subtypes,
+    )
     metadata = get_workunit_metadata_safely(subtypes_workunit)
     dataset_urn = DatasetUrn.from_string(metadata.entityUrn)
     assert dataset_urn.name == "test_table"
@@ -456,11 +632,11 @@ def test_generate_lineage_data_with_subtypes():
     # - Level 0: 1 table (2^0)
     # - Level 1: 2 tables (2^1)
     # Total tables: 3
-    # Each table gets a status aspect + SubTypes aspect
+    # Each table gets a status aspect + SubTypes aspect + profile aspect + usage aspect
     # Level 0 table connects to 2 level 1 tables = 2 lineage aspects
     expected_workunits = (
-        3 + 3 + 2
-    )  # status aspects + SubTypes aspects + lineage aspects
+        3 + 3 + 3 + 3 + 2
+    )  # status aspects + SubTypes aspects + profile aspects + usage aspects + lineage aspects
     assert len(workunits) == expected_workunits
 
     # Check that we have SubTypes aspects
@@ -470,6 +646,22 @@ def test_generate_lineage_data_with_subtypes():
         if metadata.aspect and isinstance(metadata.aspect, SubTypesClass):
             subtypes_workunits.append(w)
     assert len(subtypes_workunits) == 3
+
+    # Check that we have DatasetProfile aspects
+    profile_workunits = []
+    for w in workunits:
+        metadata = get_workunit_metadata_safely(w)
+        if metadata.aspect and isinstance(metadata.aspect, DatasetProfileClass):
+            profile_workunits.append(w)
+    assert len(profile_workunits) == 3
+
+    # Check that we have DatasetUsageStatistics aspects
+    usage_workunits = []
+    for w in workunits:
+        metadata = get_workunit_metadata_safely(w)
+        if metadata.aspect and isinstance(metadata.aspect, DatasetUsageStatisticsClass):
+            usage_workunits.append(w)
+    assert len(usage_workunits) == 3
 
     # Check that alternating pattern is applied
     table_subtypes = {}
@@ -512,6 +704,22 @@ def test_generate_lineage_data_subtypes_disabled():
         if metadata.aspect and isinstance(metadata.aspect, SubTypesClass):
             subtypes_workunits.append(w)
     assert len(subtypes_workunits) == 3
+
+    # Profile workunits are generated by default
+    profile_workunits = []
+    for w in workunits:
+        metadata = get_workunit_metadata_safely(w)
+        if metadata.aspect and isinstance(metadata.aspect, DatasetProfileClass):
+            profile_workunits.append(w)
+    assert len(profile_workunits) == 3
+
+    # Usage workunits are generated by default
+    usage_workunits = []
+    for w in workunits:
+        metadata = get_workunit_metadata_safely(w)
+        if metadata.aspect and isinstance(metadata.aspect, DatasetUsageStatisticsClass):
+            usage_workunits.append(w)
+    assert len(usage_workunits) == 3
 
     # Should still generate status and lineage workunits
     status_workunits = []

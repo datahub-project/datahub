@@ -1,0 +1,1569 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "fabric",
+                "env": "PROD",
+                "workspace_id": "ws-11111111-1111-1111-1111-111111111111"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/groups/ws-11111111-1111-1111-1111-111111111111/list",
+            "name": "prod-analytics",
+            "qualifiedName": "ws-11111111-1111-1111-1111-111111111111",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fabric"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Fabric Workspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fabric-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "pipeline_id": "pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                "workspace_id": "ws-11111111-1111-1111-1111-111111111111"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/groups/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "name": "etl-daily",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+                    "urn": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CopySnowflakeToLakehouse)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.customers,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-11111111-1111-1111-1111-111111111111.lh-artifact-0000-0000-0000-000000000001.dbo.customers,PROD)"
+            ],
+            "inputDatajobEdges": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CopySnowflakeToLakehouse)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fabric-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CopySnowflakeToLakehouse)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_type": "Copy",
+                "state": "Active"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/groups/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "name": "CopySnowflakeToLakehouse",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CopySnowflakeToLakehouse)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Copy Activity"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CopySnowflakeToLakehouse)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CopySnowflakeToLakehouse)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+                    "urn": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),LookupConfig)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobEdges": [
+                {
+                    "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CopySnowflakeToLakehouse)",
+                    "properties": {
+                        "dependencyConditions": "Succeeded"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),LookupConfig)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fabric-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),LookupConfig)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_type": "Lookup",
+                "state": "Active"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/groups/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "name": "LookupConfig",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),LookupConfig)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Lookup Activity"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),LookupConfig)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),LookupConfig)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+                    "urn": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CallChildPipeline)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobEdges": [
+                {
+                    "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),LookupConfig)",
+                    "properties": {
+                        "dependencyConditions": "Succeeded"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CallChildPipeline)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fabric-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CallChildPipeline)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_type": "InvokePipeline",
+                "state": "Active",
+                "calls_pipeline_id": "pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                "calls_workspace_id": "ws-11111111-1111-1111-1111-111111111111",
+                "child_pipeline_urn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD)",
+                "operation_type": "InvokeFabricPipeline",
+                "child_root_activity": "ChildStep1"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/groups/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "name": "CallChildPipeline",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CallChildPipeline)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Execute Pipeline"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CallChildPipeline)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CallChildPipeline)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+                    "urn": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:b0d58d50ebb3a28480f2f8e894ab9e5f",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "run_id": "run-11111111-1111-1111-1111-111111111111",
+                "workspace_id": "ws-11111111-1111-1111-1111-111111111111",
+                "pipeline_id": "pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                "invoke_type": "Manual"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/workloads/data-pipeline/monitoring/workspaces/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/run-11111111-1111-1111-1111-111111111111",
+            "name": "run-11111111-1111-1111-1111-111111111111",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1705312800000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:b0d58d50ebb3a28480f2f8e894ab9e5f",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:b0d58d50ebb3a28480f2f8e894ab9e5f",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705312800000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:b0d58d50ebb3a28480f2f8e894ab9e5f",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705313700000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "fabric-data-factory"
+            },
+            "durationMillis": 900000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:11b5e9676e85058d323fe1724c5258dc",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_run_id": "ar-11111111-1111-1111-1111-111111111111",
+                "pipeline_run_id": "run-11111111-1111-1111-1111-111111111111",
+                "activity_type": "Copy",
+                "duration_in_ms": "600000"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/workloads/data-pipeline/monitoring/workspaces/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/run-11111111-1111-1111-1111-111111111111",
+            "name": "run-11111111-1111-1111-1111-111111111111.ar-11111111-1111-1111-1111-111111111111",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1705312800000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:11b5e9676e85058d323fe1724c5258dc",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CopySnowflakeToLakehouse)",
+            "parentInstance": "urn:li:dataProcessInstance:b0d58d50ebb3a28480f2f8e894ab9e5f",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:11b5e9676e85058d323fe1724c5258dc",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705312800000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:11b5e9676e85058d323fe1724c5258dc",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705313400000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "fabric-data-factory"
+            },
+            "durationMillis": 600000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:63cd44fbc3525bdd06f396ef19066bc4",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_run_id": "ar-22222222-2222-2222-2222-222222222222",
+                "pipeline_run_id": "run-11111111-1111-1111-1111-111111111111",
+                "activity_type": "Lookup",
+                "duration_in_ms": "300000",
+                "error_message": "Table not found"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/workloads/data-pipeline/monitoring/workspaces/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/run-11111111-1111-1111-1111-111111111111",
+            "name": "run-11111111-1111-1111-1111-111111111111.ar-22222222-2222-2222-2222-222222222222",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1705313400000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:63cd44fbc3525bdd06f396ef19066bc4",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),LookupConfig)",
+            "parentInstance": "urn:li:dataProcessInstance:b0d58d50ebb3a28480f2f8e894ab9e5f",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:63cd44fbc3525bdd06f396ef19066bc4",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705313400000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:63cd44fbc3525bdd06f396ef19066bc4",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705313700000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResultType": "fabric-data-factory"
+            },
+            "durationMillis": 300000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fabric-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "pipeline_id": "pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                "workspace_id": "ws-11111111-1111-1111-1111-111111111111"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/groups/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            "name": "etl-child",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+                    "urn": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobEdges": [
+                {
+                    "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CallChildPipeline)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fabric-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_type": "Lookup",
+                "state": "Active"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/groups/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            "name": "ChildStep1",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Lookup Activity"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep1)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+                    "urn": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobEdges": [
+                {
+                    "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep1)",
+                    "properties": {
+                        "dependencyConditions": "Succeeded"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fabric-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_type": "SetVariable",
+                "state": "Active"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/groups/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            "name": "ChildStep2",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep2)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Set Variable"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep2)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+                    "urn": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:b0d58d50ebb3a28480f2f8e894ab9e5f",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "run_id": "run-11111111-1111-1111-1111-111111111111",
+                "workspace_id": "ws-11111111-1111-1111-1111-111111111111",
+                "pipeline_id": "pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                "invoke_type": "Manual"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/workloads/data-pipeline/monitoring/workspaces/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/run-11111111-1111-1111-1111-111111111111",
+            "name": "run-11111111-1111-1111-1111-111111111111",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1705312800000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:b0d58d50ebb3a28480f2f8e894ab9e5f",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:b0d58d50ebb3a28480f2f8e894ab9e5f",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705312800000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:b0d58d50ebb3a28480f2f8e894ab9e5f",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705313700000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "fabric-data-factory"
+            },
+            "durationMillis": 900000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:11b5e9676e85058d323fe1724c5258dc",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_run_id": "ar-11111111-1111-1111-1111-111111111111",
+                "pipeline_run_id": "run-11111111-1111-1111-1111-111111111111",
+                "activity_type": "Copy",
+                "duration_in_ms": "600000"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/workloads/data-pipeline/monitoring/workspaces/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/run-11111111-1111-1111-1111-111111111111",
+            "name": "run-11111111-1111-1111-1111-111111111111.ar-11111111-1111-1111-1111-111111111111",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1705312800000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:11b5e9676e85058d323fe1724c5258dc",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),CopySnowflakeToLakehouse)",
+            "parentInstance": "urn:li:dataProcessInstance:b0d58d50ebb3a28480f2f8e894ab9e5f",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:11b5e9676e85058d323fe1724c5258dc",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705312800000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:11b5e9676e85058d323fe1724c5258dc",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705313400000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "fabric-data-factory"
+            },
+            "durationMillis": 600000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:63cd44fbc3525bdd06f396ef19066bc4",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_run_id": "ar-22222222-2222-2222-2222-222222222222",
+                "pipeline_run_id": "run-11111111-1111-1111-1111-111111111111",
+                "activity_type": "Lookup",
+                "duration_in_ms": "300000",
+                "error_message": "Table not found"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/workloads/data-pipeline/monitoring/workspaces/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/run-11111111-1111-1111-1111-111111111111",
+            "name": "run-11111111-1111-1111-1111-111111111111.ar-22222222-2222-2222-2222-222222222222",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1705313400000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:63cd44fbc3525bdd06f396ef19066bc4",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),LookupConfig)",
+            "parentInstance": "urn:li:dataProcessInstance:b0d58d50ebb3a28480f2f8e894ab9e5f",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:63cd44fbc3525bdd06f396ef19066bc4",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705313400000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:63cd44fbc3525bdd06f396ef19066bc4",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1705313700000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResultType": "fabric-data-factory"
+            },
+            "durationMillis": 300000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CallChildPipeline)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),CopySnowflakeToLakehouse)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),LookupConfig)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb,PROD),ChildStep2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:11b5e9676e85058d323fe1724c5258dc",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:63cd44fbc3525bdd06f396ef19066bc4",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:b0d58d50ebb3a28480f2f8e894ab9e5f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "full-ingestion-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

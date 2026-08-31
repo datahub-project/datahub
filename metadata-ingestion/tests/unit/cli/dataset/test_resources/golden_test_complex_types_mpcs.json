@@ -1,0 +1,77 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,user.complex,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/customProperties",
+                "value": {}
+            },
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "user.complex"
+            }
+        ]
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,user.complex,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "user.complex",
+            "platform": "urn:li:dataPlatform:hive",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "fields:\n- description: The IP address\n  id: ip\n  type: array\n- description: The user ID\n  id: user_id\n  type: time\n"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "ip",
+                    "nullable": false,
+                    "description": "The IP address",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "array",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "user_id",
+                    "nullable": false,
+                    "description": "The user ID",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "time",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    }
+}
+]

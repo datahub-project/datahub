@@ -1,19 +1,26 @@
+---
+description: "Compare DataHub's APIs (GraphQL, OpenAPI, Python SDK, Java SDK, CLI) to choose the right interface for managing metadata in your use case."
+---
+
 # DataHub APIs and SDKs Overview
 
 DataHub has several APIs to manipulate metadata on the platform. Here's the list of APIs and their pros and cons to help you choose the right one for your use case.
 
-| API                                                        | Definition                         | Pros                                     | Cons                                                                    |
-| ---------------------------------------------------------- | ---------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------- |
-| **[Python SDK](/metadata-ingestion/as-a-library.md)**      | SDK                                | Highly flexible, Good for bulk execution | Requires an understanding of the metadata change event                  |
-| **[Java SDK](/metadata-integration/java/as-a-library.md)** | SDK                                | Highly flexible, Good for bulk execution | Requires an understanding of the metadata change event                  |
-| **[GraphQL API](docs/api/graphql/getting-started.md)**     | GraphQL interface                  | Intuitive; mirrors UI capabilities       | Less flexible than SDKs; requires knowledge of GraphQL syntax           |
-| **[OpenAPI](docs/api/openapi/openapi-usage-guide.md)**     | Lower-level API for advanced users | Most powerful and flexible               | Can be hard to use for straightforward use cases; no corresponding SDKs |
+| API                                                        | Definition                         | Pros                                     | Cons                                                                                                                      |
+| ---------------------------------------------------------- | ---------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **[Python SDK](/metadata-ingestion/as-a-library.md)**      | SDK                                | Highly flexible, Good for bulk execution | Requires an understanding of the metadata change event                                                                    |
+| **[Java SDK](/metadata-integration/java/as-a-library.md)** | SDK                                | Highly flexible, Good for bulk execution | Requires an understanding of the metadata change event                                                                    |
+| **[GraphQL API](docs/api/graphql/getting-started.md)**     | GraphQL interface                  | Intuitive; mirrors UI capabilities       | Less flexible than SDKs; requires knowledge of GraphQL syntax                                                             |
+| **[OpenAPI](docs/api/openapi/openapi-usage-guide.md)**     | Lower-level API for advanced users | Most powerful and flexible               | Can be hard to use for straightforward use cases; no corresponding SDKs, but OpenAPI spec is generated within the product |
 
-In general, **Python and Java SDKs** are our most recommended tools for extending and customizing the behavior of your DataHub instance.
-We don't recommend using the **OpenAPI** directly, as it's more complex and less user-friendly than the other APIs.
+In general, **Python and Java SDKs** are our most recommended tools for extending and customizing the behavior of your DataHub instance, especially for programmatic use cases.
 
 :::warning
-About async usage of APIs - DataHub's asynchronous APIs perform only basic schema validation when receiving MCP requests, similar to direct production to MCP Kafka topics. While requests must conform to the MCP schema to be accepted, actual processing happens later in the pipeline. Any processing failures that occur after the initial acceptance are captured in the Failed MCP topic, but these failures are not immediately surfaced to the API caller since they happen asynchronously.
+About async MCP ingest — When you submit MCPs through GMS APIs with `async=true` (Rest.li `ingestProposal`, OpenAPI entity writes, and SDK clients that target those endpoints), GMS runs the full proposal validation pipeline **before** accepting the request. That includes schema checks, entity-level authorization (`isAPIAuthorized`), and registered aspect payload validators (for example tag privilege constraints and aspect-specific authorization such as `logicalParent`). Unauthorized or invalid proposals are rejected synchronously with 403/422 and are **not** published to Kafka.
+
+Async only means GMS does not commit the write to primary storage at accept time. Instead it publishes the MCP to the MetadataChangeProposal topic; the MCE consumer applies it later with `async=false`. Failures that occur during that later processing (for example pre-commit validation or storage errors) are captured on the Failed MCP topic and are not surfaced to the original API caller.
+
+**Do not confuse async GMS ingest with direct Kafka produce.** Writing MCPs directly to the MetadataChangeProposal topic bypasses GMS accept-time authorization and validation. The MCE consumer processes those messages under system context and is not a second user-authorization gate. Restrict Kafka access accordingly.
 :::
 
 ## Python and Java SDK
@@ -31,12 +38,12 @@ Learn more about the SDKs:
 
 ## GraphQL API
 
-The `graphql` API serves as the primary public API for the platform. It can be used to fetch and update metadata programatically in the language of your choice. Intended as a higher-level API that simplifies the most common operations.
+The `graphql` API serves as the primary API used by the DataHub frontend. It is generally assumed that accesses to the GraphQL API are coming in from the frontend so it often comes along with default caching, synchronous operations, and other UI targeted expectations. Care should be taken when used programmatically to fetch and update due to this since operations are intentionally limited in scope. Intended as a higher-level API that simplifies the most common operations.
 
-We recommend using the GraphQL API if you're getting started with DataHub since it's more user-friendly and straighfowrad. Here are some examples of how to use the GraphQL API:
+The GraphQL API can be useful if you're getting started with DataHub since it's more user-friendly and straightforward, especially when using GraphiQL. Here are some examples of how to use the GraphQL API:
 
 - Search for datasets with conditions
-- Update a certain field of a dataset
+- Query for relationships between entities
 
 Learn more about the GraphQL API:
 
@@ -50,7 +57,7 @@ Here's an overview of what each API can do.
 > Last Updated : Feb 16 2024
 
 | Feature                                                  | GraphQL                                                                       | Python SDK                                                                                                                                     | OpenAPI |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------- | --- | --- |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
 | Create a Dataset                                         | 🚫                                                                            | ✅ [[Guide]](/docs/api/tutorials/datasets.md)                                                                                                  | ✅      |
 | Delete a Dataset (Soft Delete)                           | ✅ [[Guide]](/docs/api/tutorials/datasets.md#delete-dataset)                  | ✅ [[Guide]](/docs/api/tutorials/datasets.md#delete-dataset)                                                                                   | ✅      |
 | Delete a Dataset (Hard Delete)                           | 🚫                                                                            | ✅ [[Guide]](/docs/api/tutorials/datasets.md#delete-dataset)                                                                                   | ✅      |
@@ -94,11 +101,11 @@ Here's an overview of what each API can do.
 | Read MLModel                                             | ✅ [[Guide]](/docs/api/tutorials/ml.md#read-mlmodel)                          | ✅ [[Guide]](/docs/api/tutorials/ml.md#read-mlmodel)                                                                                           | ✅      |
 | Read MLModelGroup                                        | ✅ [[Guide]](/docs/api/tutorials/ml.md#read-mlmodelgroup)                     | ✅ [[Guide]](/docs/api/tutorials/ml.md#read-mlmodelgroup)                                                                                      | ✅      |
 | Read MLPrimaryKey                                        | ✅ [[Guide]](/docs/api/tutorials/ml.md#read-mlprimarykey)                     | ✅ [[Guide]](/docs/api/tutorials/ml.md#read-mlprimarykey)                                                                                      | ✅      |
-| Create Data Product                                      | 🚫                                                                            | ✅ [[Code]](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/create_dataproduct.py)                  | ✅      |
+| Create Data Product                                      | 🚫                                                                            | ✅ [[Code]](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataproduct_create.py)                  | ✅      |
 | Create Lineage Between Chart and Dashboard               | 🚫                                                                            | ✅ [[Code]](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_chart_dashboard.py)             | ✅      |
 | Create Lineage Between Dataset and Chart                 | 🚫                                                                            | ✅ [[Code]](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_dataset_chart.py)               | ✅      |
 | Create Lineage Between Dataset and DataJob               | 🚫                                                                            | ✅ [[Code]](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_dataset_job_dataset.py)         | ✅      |
 | Create Finegrained Lineage as DataJob for Dataset        | 🚫                                                                            | ✅ [[Code]](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_emitter_datajob_finegrained.py) | ✅      |
-| Create Finegrained Lineage for Dataset                   | 🚫                                                                            | ✅ [[Code]](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py) | ✅      |     | ✅  |
+| Create Finegrained Lineage for Dataset                   | 🚫                                                                            | ✅ [[Code]](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py) | ✅      |
 | Create DataJob with Dataflow                             | 🚫                                                                            | ✅ [[Code]](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/lineage_job_dataflow.py)                | ✅      |
 | Create Programmatic Pipeline                             | 🚫                                                                            | ✅ [[Code]](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/programatic_pipeline.py)                | ✅      |

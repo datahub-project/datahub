@@ -1,27 +1,19 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.testng.Assert.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
-import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.GlossaryNodeChildrenCount;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.AggregationMetadata;
-import com.linkedin.metadata.search.AggregationMetadataArray;
-import com.linkedin.metadata.search.FilterValue;
-import com.linkedin.metadata.search.FilterValueArray;
-import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.datahub.graphql.resolvers.load.GlossaryNodeChildrenCountBatchLoader;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
-import java.util.Collections;
-import java.util.concurrent.CompletionException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import org.dataloader.DataLoader;
+import org.dataloader.DataLoaderRegistry;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -29,143 +21,58 @@ import org.testng.annotations.Test;
 public class GlossaryNodeChildrenCountResolverTest {
   private static final String TEST_GLOSSARY_NODE_URN = "urn:li:glossaryNode:test-id";
 
-  private EntityClient _entityClient;
   private DataFetchingEnvironment _dataFetchingEnvironment;
   private GlossaryNodeChildrenCountResolver _resolver;
   private Entity _entity;
+  private DataLoaderRegistry _registry;
+  private List<List<String>> _observedBatches;
 
   @BeforeMethod
   public void setupTest() {
-    _entityClient = Mockito.mock(EntityClient.class);
     _dataFetchingEnvironment = Mockito.mock(DataFetchingEnvironment.class);
     _entity = Mockito.mock(Entity.class);
     Mockito.when(_entity.getUrn()).thenReturn(TEST_GLOSSARY_NODE_URN);
     Mockito.when(_dataFetchingEnvironment.getSource()).thenReturn(_entity);
 
-    _resolver = new GlossaryNodeChildrenCountResolver(_entityClient);
+    _observedBatches = new ArrayList<>();
+    final DataLoader<String, GlossaryNodeChildrenCount> loader =
+        DataLoader.newDataLoader(
+            keys -> {
+              _observedBatches.add(new ArrayList<>(keys));
+              return CompletableFuture.completedFuture(
+                  keys.stream()
+                      .map(
+                          key -> {
+                            final GlossaryNodeChildrenCount count = new GlossaryNodeChildrenCount();
+                            count.setTermsCount(5);
+                            count.setNodesCount(3);
+                            return count;
+                          })
+                      .collect(Collectors.toList()));
+            });
+    _registry = new DataLoaderRegistry();
+    _registry.register(GlossaryNodeChildrenCountBatchLoader.LOADER_NAME, loader);
+    Mockito.when(_dataFetchingEnvironment.getDataLoaderRegistry()).thenReturn(_registry);
+
+    _resolver = new GlossaryNodeChildrenCountResolver();
   }
 
   @Test
-  public void testGetSuccess() throws Exception {
-    // Setup mock search result with both terms and nodes
-    SearchResult mockResult = new SearchResult();
-    AggregationMetadata entityTypeAgg = new AggregationMetadata();
-    entityTypeAgg.setName("_entityType");
-    FilterValueArray filterValues = new FilterValueArray();
-    filterValues.add(new FilterValue().setValue("glossaryterm").setFacetCount(5L));
-    filterValues.add(new FilterValue().setValue("glossarynode").setFacetCount(3L));
-    entityTypeAgg.setFilterValues(filterValues);
+  public void testGetLoadsTheSourceUrnThroughTheBatchLoader() throws Exception {
+    final CompletableFuture<GlossaryNodeChildrenCount> future =
+        _resolver.get(_dataFetchingEnvironment);
+    _registry.dispatchAll();
 
-    AggregationMetadataArray aggregations = new AggregationMetadataArray();
-    aggregations.add(entityTypeAgg);
-    mockResult.setMetadata(
-        new com.linkedin.metadata.search.SearchResultMetadata().setAggregations(aggregations));
-
-    Mockito.when(
-            _entityClient.searchAcrossEntities(
-                any(),
-                eq(
-                    ImmutableList.of(
-                        Constants.GLOSSARY_TERM_ENTITY_NAME, Constants.GLOSSARY_NODE_ENTITY_NAME)),
-                eq("*"),
-                any(Filter.class),
-                eq(0),
-                eq(0),
-                eq(Collections.emptyList()),
-                eq(ImmutableList.of("_entityType"))))
-        .thenReturn(mockResult);
-
-    // Execute resolver
-    QueryContext mockContext = getMockAllowContext();
-    Mockito.when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
-
-    GlossaryNodeChildrenCount result = _resolver.get(_dataFetchingEnvironment).get();
-
-    // Verify results
+    final GlossaryNodeChildrenCount result = future.get();
     assertEquals(result.getTermsCount(), 5);
     assertEquals(result.getNodesCount(), 3);
+    assertEquals(_observedBatches, List.of(List.of(TEST_GLOSSARY_NODE_URN)));
   }
 
   @Test
-  public void testGetNoChildren() throws Exception {
-    // Setup mock search result with no children
-    SearchResult mockResult = new SearchResult();
-    AggregationMetadata entityTypeAgg = new AggregationMetadata();
-    entityTypeAgg.setName("_entityType");
-    entityTypeAgg.setFilterValues(new FilterValueArray());
-
-    AggregationMetadataArray aggregations = new AggregationMetadataArray();
-    aggregations.add(entityTypeAgg);
-    mockResult.setMetadata(
-        new com.linkedin.metadata.search.SearchResultMetadata().setAggregations(aggregations));
-
-    Mockito.when(
-            _entityClient.searchAcrossEntities(
-                any(),
-                eq(
-                    ImmutableList.of(
-                        Constants.GLOSSARY_TERM_ENTITY_NAME, Constants.GLOSSARY_NODE_ENTITY_NAME)),
-                eq("*"),
-                any(Filter.class),
-                eq(0),
-                eq(0),
-                eq(Collections.emptyList()),
-                eq(ImmutableList.of("_entityType"))))
-        .thenReturn(mockResult);
-
-    // Execute resolver
-    QueryContext mockContext = getMockAllowContext();
-    Mockito.when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
-
-    GlossaryNodeChildrenCount result = _resolver.get(_dataFetchingEnvironment).get();
-
-    // Verify results
-    assertEquals(result.getTermsCount(), 0);
-    assertEquals(result.getNodesCount(), 0);
-  }
-
-  @Test
-  public void testGetUnauthorized() throws Exception {
-    // Execute resolver with unauthorized context
-    QueryContext mockContext = getMockDenyContext();
-    Mockito.when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
-
-    assertThrows(CompletionException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
-  }
-
-  @Test
-  public void testGetEntityClientException() throws Exception {
-    // Setup mock to throw exception
-    Mockito.when(
-            _entityClient.searchAcrossEntities(
-                any(),
-                eq(
-                    ImmutableList.of(
-                        Constants.GLOSSARY_TERM_ENTITY_NAME, Constants.GLOSSARY_NODE_ENTITY_NAME)),
-                eq("*"),
-                any(Filter.class),
-                eq(0),
-                eq(0),
-                eq(Collections.emptyList()),
-                eq(ImmutableList.of("_entityType"))))
-        .thenThrow(new RemoteInvocationException("Failed to search"));
-
-    // Execute resolver
-    QueryContext mockContext = getMockAllowContext();
-    Mockito.when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
-
-    assertThrows(CompletionException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
-  }
-
-  @Test
-  public void testGetInvalidUrn() throws Exception {
-    // Setup entity with invalid URN
+  public void testGetInvalidUrn() {
     Mockito.when(_entity.getUrn()).thenReturn("invalid-urn");
 
-    // Execute resolver
-    QueryContext mockContext = getMockAllowContext();
-    Mockito.when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
-
-    assertThrows(URISyntaxException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
+    assertThrows(URISyntaxException.class, () -> _resolver.get(_dataFetchingEnvironment));
   }
 }

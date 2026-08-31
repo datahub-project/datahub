@@ -1,0 +1,245 @@
+name: chess_pipeline
+version: 3
+version_hash: "abc123testfixture"
+tables:
+  players_games:
+    write_disposition: append
+    resource: players_games
+    columns:
+      url:
+        name: url
+        data_type: text
+        nullable: true
+      time_class:
+        name: time_class
+        data_type: text
+        nullable: true
+      time_control:
+        name: time_control
+        data_type: text
+        nullable: true
+      end_time:
+        name: end_time
+        data_type: timestamp
+        nullable: true
+      rated:
+        name: rated
+        data_type: bool
+        nullable: true
+      white__rating:
+        name: white__rating
+        data_type: bigint
+        nullable: true
+      white__result:
+        name: white__result
+        data_type: text
+        nullable: true
+      white__username:
+        name: white__username
+        data_type: text
+        nullable: true
+      black__rating:
+        name: black__rating
+        data_type: bigint
+        nullable: true
+      black__result:
+        name: black__result
+        data_type: text
+        nullable: true
+      black__username:
+        name: black__username
+        data_type: text
+        nullable: true
+      _dlt_load_id:
+        name: _dlt_load_id
+        data_type: text
+        nullable: false
+      _dlt_id:
+        name: _dlt_id
+        data_type: text
+        nullable: false
+  players_games__opening:
+    write_disposition: append
+    parent: players_games
+    columns:
+      eco:
+        name: eco
+        data_type: text
+        nullable: true
+      name:
+        name: name
+        data_type: text
+        nullable: true
+      url:
+        name: url
+        data_type: text
+        nullable: true
+      _dlt_id:
+        name: _dlt_id
+        data_type: text
+        nullable: false
+      _dlt_parent_id:
+        name: _dlt_parent_id
+        data_type: text
+        nullable: false
+      _dlt_list_idx:
+        name: _dlt_list_idx
+        data_type: bigint
+        nullable: false
+      _dlt_root_id:
+        name: _dlt_root_id
+        data_type: text
+        nullable: false
+  players_profiles:
+    write_disposition: replace
+    resource: players_profiles
+    columns:
+      username:
+        name: username
+        data_type: text
+        nullable: true
+      player_id:
+        name: player_id
+        data_type: bigint
+        nullable: true
+      title:
+        name: title
+        data_type: text
+        nullable: true
+      followers:
+        name: followers
+        data_type: bigint
+        nullable: true
+      country:
+        name: country
+        data_type: text
+        nullable: true
+      last_online:
+        name: last_online
+        data_type: bigint
+        nullable: true
+      joined:
+        name: joined
+        data_type: bigint
+        nullable: true
+      is_streamer:
+        name: is_streamer
+        data_type: bool
+        nullable: true
+      _dlt_load_id:
+        name: _dlt_load_id
+        data_type: text
+        nullable: false
+      _dlt_id:
+        name: _dlt_id
+        data_type: text
+        nullable: false
+  players_archives:
+    write_disposition: replace
+    resource: players_archives
+    columns:
+      url:
+        name: url
+        data_type: text
+        nullable: true
+      _dlt_load_id:
+        name: _dlt_load_id
+        data_type: text
+        nullable: false
+      _dlt_id:
+        name: _dlt_id
+        data_type: text
+        nullable: false
+  players_online_status:
+    write_disposition: append
+    resource: players_online_status
+    columns:
+      online_status:
+        name: online_status
+        data_type: text
+        nullable: true
+      username:
+        name: username
+        data_type: text
+        nullable: true
+      checked_at:
+        name: checked_at
+        data_type: timestamp
+        nullable: true
+      _dlt_load_id:
+        name: _dlt_load_id
+        data_type: text
+        nullable: false
+      _dlt_id:
+        name: _dlt_id
+        data_type: text
+        nullable: false
+  _dlt_loads:
+    write_disposition: skip
+    columns:
+      load_id:
+        name: load_id
+        data_type: text
+        nullable: false
+      schema_name:
+        name: schema_name
+        data_type: text
+        nullable: true
+      status:
+        name: status
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        name: inserted_at
+        data_type: timestamp
+        nullable: false
+  _dlt_version:
+    write_disposition: skip
+    columns:
+      version:
+        name: version
+        data_type: bigint
+        nullable: false
+      engine_version:
+        name: engine_version
+        data_type: bigint
+        nullable: false
+      inserted_at:
+        name: inserted_at
+        data_type: timestamp
+        nullable: false
+      schema_name:
+        name: schema_name
+        data_type: text
+        nullable: false
+      version_hash:
+        name: version_hash
+        data_type: text
+        nullable: false
+      schema:
+        name: schema
+        data_type: text
+        nullable: false
+  _dlt_pipeline_state:
+    write_disposition: skip
+    columns:
+      version:
+        name: version
+        data_type: bigint
+        nullable: false
+      engine_version:
+        name: engine_version
+        data_type: bigint
+        nullable: false
+      pipeline_name:
+        name: pipeline_name
+        data_type: text
+        nullable: false
+      state:
+        name: state
+        data_type: text
+        nullable: false
+      created_at:
+        name: created_at
+        data_type: timestamp
+        nullable: false

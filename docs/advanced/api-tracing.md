@@ -1,3 +1,7 @@
+---
+description: "Use DataHub's API tracing and request ID system to track asynchronous write operations end-to-end across the multi-stage write pipeline."
+---
+
 # API Tracing
 
 ## Introduction
@@ -233,9 +237,32 @@ Ingestion can be used with tracing enabled however it does require using a `ASYN
 can be enabled by setting a couple environment variables shown below.
 
 ```shell
-  DATAHUB_REST_SINK_DEFAULT_ENDPOINT=OPENAPI \
-  DATAHUB_EMIT_MODE=ASYNC_WAIT \
-  datahub ingest ...
+DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT=OPENAPI \
+DATAHUB_EMIT_MODE=ASYNC_WAIT \
+datahub ingest ...
+```
+
+### Client-Side Trace Logging
+
+For debugging purposes, you can enable client-side trace ID logging in the Python REST emitter by setting the
+`DATAHUB_EMITTER_TRACE` environment variable. When enabled, the emitter will log trace IDs, timestamps, URNs, and
+aspect names for each MCP emission.
+
+```shell
+DATAHUB_EMITTER_TRACE=true \
+datahub ingest ...
+```
+
+Example log output:
+
+```text
+INFO - MCP trace_id=00062c53a468cbd8077e7dd079846870 timestamp=1737587612508 urn=urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD) aspect=status
+```
+
+For batch emissions, the log will show all URNs in the batch:
+
+```text
+INFO - MCP batch trace_id=00062c53a468cbd8077e7dd079846870 timestamp=1737587612508 urns=['urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_orders,PROD)']
 ```
 
 ## Trace Performance
@@ -408,3 +435,36 @@ the system metadata index is used as a proxy to determine a successful write to 
 The tracing feature will additionally fetch messages from the kafka topics (including the failed MCP topic) for
 more detailed error information. Pending states are derived from offsets of the message vs the current offsets of the
 consumer groups.
+
+## Trace Performance Configuration
+
+Kafka-backed trace reads borrow long-lived consumers from a per-reader pool instead of creating ephemeral consumers
+on every request. This reduces consumer-group rebalance churn under sustained trace traffic.
+
+| Property                                         | Environment variable                                | Default                       | Description                                                                        |
+| ------------------------------------------------ | --------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------- |
+| `trace.kafka.consumerPool.enabled`               | `TRACE_KAFKA_CONSUMER_POOL_ENABLED`                 | `true`                        | Master switch; set `false` to restore ephemeral consumers for emergency rollback   |
+| `trace.kafka.consumerPool.initialSize`           | `TRACE_KAFKA_CONSUMER_POOL_INITIAL_SIZE`            | `4`                           | Consumers created at pool startup, per reader type                                 |
+| `trace.kafka.consumerPool.maxSize`               | `TRACE_KAFKA_CONSUMER_POOL_MAX_SIZE`                | `16`                          | Hard cap on live consumers per pool per pod                                        |
+| `trace.kafka.consumerPool.borrowTimeoutMs`       | `TRACE_KAFKA_CONSUMER_POOL_BORROW_TIMEOUT_MS`       | `5000`                        | Max wait when borrowing from an exhausted pool                                     |
+| `trace.kafka.consumerPool.groupId.mcp`           | `TRACE_KAFKA_CONSUMER_POOL_GROUP_ID_MCP`            | `trace-reader-mcp`            | Stable consumer group for MCP trace reads                                          |
+| `trace.kafka.consumerPool.groupId.mcpFailed`     | `TRACE_KAFKA_CONSUMER_POOL_GROUP_ID_MCP_FAILED`     | `trace-reader-mcp-failed`     | Stable consumer group for failed MCP trace reads                                   |
+| `trace.kafka.consumerPool.groupId.mclVersioned`  | `TRACE_KAFKA_CONSUMER_POOL_GROUP_ID_MCL_VERSIONED`  | `trace-reader-mcl-versioned`  | Stable consumer group for versioned MCL trace reads                                |
+| `trace.kafka.consumerPool.groupId.mclTimeseries` | `TRACE_KAFKA_CONSUMER_POOL_GROUP_ID_MCL_TIMESERIES` | `trace-reader-mcl-timeseries` | Stable consumer group for timeseries MCL trace reads                               |
+| `trace.executor.thread-pool-size`                | `TRACE_EXECUTOR_THREAD_POOL_SIZE`                   | `10`                          | Worker threads for parallel per-URN trace scans                                    |
+| `trace.executor.queue-size`                      | `TRACE_EXECUTOR_QUEUE_SIZE`                         | same as `thread-pool-size`    | Max queued per-URN tasks; overflow runs on the servlet thread (`CallerRunsPolicy`) |
+| `trace.executor.keep-alive-seconds`              | `TRACE_EXECUTOR_KEEP_ALIVE_SECONDS`                 | `60`                          | Idle worker threads are reclaimed after this interval                              |
+| `trace.timeout-seconds`                          | `TRACE_TIMEOUT_SECONDS`                             | `30`                          | Deadline for parallel trace batch waits                                            |
+| `trace.futures.cancel-on-timeout`                | `TRACE_FUTURES_CANCEL_ON_TIMEOUT`                   | `true`                        | Cancel outstanding per-URN work when the batch deadline elapses                    |
+
+Micrometer metrics:
+
+- `trace_kafka_consumer_pool_active` — consumers currently borrowed (tag: `type`)
+- `trace_kafka_consumer_pool_available` — idle live consumers ready to borrow (tag: `type`)
+- `trace_kafka_consumer_pool_total_created` — live consumers in the pool (tag: `type`)
+- Executor metrics registered under `api-trace` (queue depth, active threads)
+
+When the consumer pool is exhausted, trace requests fail fast with an error rather than
+blocking indefinitely or returning empty partial results. Increase
+`trace.kafka.consumerPool.maxSize` or reduce parallel demand via
+`trace.executor.thread-pool-size` / `trace.executor.queue-size` if borrow timeouts occur.

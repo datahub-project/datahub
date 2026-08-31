@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "packs": {
+    "bootstrap": {
+      "name": "bootstrap",
+      "description": "Default DataHub bootstrap data with datasets, dashboards, users, and tags",
+      "url": "https://raw.githubusercontent.com/datahub-project/datahub/master/metadata-ingestion/examples/mce_files/bootstrap_mce.json",
+      "size_hint": "~100 KB",
+      "tags": ["demo", "bootstrap"],
+      "trust": "verified",
+      "reference_timestamp": 1758537741905,
+      "min_server_version": "0.14.0",
+      "pack_format_version": "1"
+    },
+    "showcase-ecommerce": {
+      "name": "showcase-ecommerce",
+      "description": "Rich e-commerce demo with 1049 entities across Snowflake, Looker, PowerBI, Tableau, including lineage, governance, glossary, domains, and data products",
+      "url": "https://raw.githubusercontent.com/datahub-project/static-assets/main/datapacks/showcase-ecommerce/index.json",
+      "size_hint": "~2.7 MB",
+      "tags": ["demo", "showcase", "ecommerce", "snowflake", "looker", "powerbi", "tableau", "lineage", "governance"],
+      "trust": "verified",
+      "reference_timestamp": 1769615173327,
+      "min_server_version": "0.14.0",
+      "pack_format_version": "1"
+    }
+  }
+}

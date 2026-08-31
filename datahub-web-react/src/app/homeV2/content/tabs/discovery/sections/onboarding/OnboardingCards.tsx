@@ -1,7 +1,11 @@
-import { Button, Card, colors } from '@components';
-import { Globe, Plugs, UserPlus } from '@phosphor-icons/react';
+import { Button, Card } from '@components';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { UserPlus } from '@phosphor-icons/react/dist/csr/UserPlus';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import ViewInviteTokenModal from '@app/identity/user/ViewInviteTokenModal';
@@ -11,8 +15,11 @@ import { PageRoutes } from '@conf/Global';
 import { useGetPlatforms } from '@src/app/homeV2/content/tabs/discovery/sections/platform/useGetPlatforms';
 
 export const OnboardingCards = () => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
     const { user, platformPrivileges } = useUserContext();
-    const { platforms, loading } = useGetPlatforms(user);
+    const { platforms, loading } = useGetPlatforms();
     const { isUserInitializing } = useContext(OnboardingContext);
     const [isViewingInviteToken, setIsViewingInviteToken] = useState(false);
 
@@ -32,27 +39,27 @@ export const OnboardingCards = () => {
         <div style={{ display: 'flex', gap: '16px' }} id={HOME_PAGE_ONBOARDING_CARDS_ID}>
             <Link to={`${PageRoutes.INGESTION}`}>
                 <Card
-                    icon={<Plugs color={colors.gray[1800]} size={32} />}
-                    title="Add Data Sources"
-                    subTitle="Connect your data platforms"
-                    button={<Button variant="text">Add</Button>}
+                    icon={<Plugs color={theme.colors.icon} size={32} />}
+                    title={t('onboarding.addDataSourcesTitle')}
+                    subTitle={t('onboarding.addDataSourcesSubtitle')}
+                    button={<Button variant="text">{tc('add')}</Button>}
                 />
             </Link>
             {canManageUsers ? (
                 <Card
-                    icon={<UserPlus color={colors.gray[1800]} size={32} />}
-                    title="Invite Users"
-                    subTitle="Invite users to DataHub"
+                    icon={<UserPlus color={theme.colors.icon} size={32} />}
+                    title={t('onboarding.inviteUsersTitle')}
+                    subTitle={t('onboarding.inviteUsersSubtitle')}
                     onClick={openInviteUsers}
-                    button={<Button variant="text">Invite</Button>}
+                    button={<Button variant="text">{tc('invite')}</Button>}
                 />
             ) : null}
             <Link to={`${PageRoutes.DOMAINS}?create=true`}>
                 <Card
-                    icon={<Globe color={colors.gray[1800]} size={32} />}
-                    title="Add Domains"
-                    subTitle="Configure your data domains"
-                    button={<Button variant="text">Add</Button>}
+                    icon={<Globe color={theme.colors.icon} size={32} />}
+                    title={t('onboarding.addDomainsTitle')}
+                    subTitle={t('onboarding.addDomainsSubtitle')}
+                    button={<Button variant="text">{tc('add')}</Button>}
                 />
             </Link>
             <ViewInviteTokenModal open={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />

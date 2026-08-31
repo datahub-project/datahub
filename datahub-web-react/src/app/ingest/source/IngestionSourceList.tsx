@@ -1,6 +1,6 @@
 import { Button, SearchBar, SimpleSelect } from '@components';
+import { ArrowClockwise } from '@phosphor-icons/react/dist/csr/ArrowClockwise';
 import { Modal, Pagination, message } from 'antd';
-import { ArrowClockwise } from 'phosphor-react';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
@@ -8,6 +8,7 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import { INGESTION_TAB_QUERY_PARAMS } from '@app/ingest/constants';
 import IngestionSourceTable from '@app/ingest/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingest/source/RecipeViewerModal';
@@ -25,7 +26,6 @@ import {
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
-import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import { OnboardingTour } from '@src/app/onboarding/OnboardingTour';
 
 import {
@@ -104,6 +104,17 @@ enum IngestionSourceType {
 }
 
 const DEFAULT_PAGE_SIZE = 25;
+
+const mapSourceTypeAliases = <T extends { type: string }>(source?: T): T | undefined => {
+    if (source) {
+        let { type } = source;
+        if (type === 'unity-catalog') {
+            type = 'databricks';
+        }
+        return { ...source, type };
+    }
+    return undefined;
+};
 
 const removeExecutionsFromIngestionSource = (source) => {
     if (source) {
@@ -256,6 +267,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
             .then(() => {
                 analytics.event({
                     type: EventType.ExecuteIngestionSourceEvent,
+                    sourceType: focusSource?.type,
+                    sourceUrn: focusSource?.urn,
                 });
                 message.success({
                     content: `Successfully submitted ingestion execution request!`,
@@ -289,17 +302,17 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
         input: UpdateIngestionSourceInput,
         resetState: () => void,
         shouldRun?: boolean,
-        owners?: PendingOwner[],
+        ownerUrns?: string[],
     ) => {
         if (focusSourceUrn) {
             // Update:
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
-                    if (owners && owners.length > 0) {
+                    if (ownerUrns && ownerUrns.length > 0) {
                         batchAddOwnersMutation({
                             variables: {
                                 input: {
-                                    owners: owners || [],
+                                    owners: createOwnerInputs(ownerUrns),
                                     resources: [{ resourceUrn: focusSourceUrn }],
                                 },
                             },
@@ -308,6 +321,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,
                         sourceType: input.type,
+                        sourceUrn: focusSourceUrn,
                         interval: input.schedule?.interval,
                     });
                     message.success({
@@ -343,11 +357,11 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         executions: null,
                         ownership: null,
                     };
-                    if (owners && owners.length > 0) {
+                    if (ownerUrns && ownerUrns.length > 0) {
                         batchAddOwnersMutation({
                             variables: {
                                 input: {
-                                    owners,
+                                    owners: createOwnerInputs(ownerUrns),
                                     resources: [{ resourceUrn: newSource.urn }],
                                 },
                             },
@@ -359,6 +373,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         analytics.event({
                             type: EventType.CreateIngestionSourceEvent,
                             sourceType: input.type,
+                            sourceUrn: newSource.urn,
                             interval: input.schedule?.interval,
                         });
                         message.success({
@@ -557,7 +572,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                 </PaginationContainer>
             </SourceContainer>
             <IngestionSourceBuilderModal
-                initialState={removeExecutionsFromIngestionSource(focusSource)}
+                initialState={mapSourceTypeAliases(removeExecutionsFromIngestionSource(focusSource))}
                 open={isBuildingSource}
                 onSubmit={onSubmit}
                 onCancel={onCancel}

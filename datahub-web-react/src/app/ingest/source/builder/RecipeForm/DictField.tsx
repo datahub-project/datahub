@@ -13,7 +13,7 @@ export const Label = styled.div`
     padding-bottom: 8px;
 `;
 
-export const StyledButton = styled(Button)`
+const StyledButton = styled(Button)`
     color: ${ANTD_GRAY[7]};
     margin: 10px 0 0 30px;
     width: calc(100% - 72px);

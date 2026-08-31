@@ -12,7 +12,7 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,11 +27,12 @@ public class MCLTraceReaderTest extends BaseKafkaTraceReaderTest<MetadataChangeL
   KafkaTraceReader<MetadataChangeLog> buildTraceReader() {
     return MCLTraceReader.builder()
         .adminClient(adminClient)
-        .consumerSupplier(() -> consumer)
+        .consumerPool(TraceConsumerPools.singleConsumer(consumer))
         .pollDurationMs(100)
         .pollMaxAttempts(3)
         .executorService(executorService)
         .timeoutSeconds(5)
+        .cancelFuturesOnTimeout(true)
         .topicName(TOPIC_NAME)
         .consumerGroupId(CONSUMER_GROUP)
         .build();
@@ -75,7 +76,7 @@ public class MCLTraceReaderTest extends BaseKafkaTraceReaderTest<MetadataChangeL
 
     SystemMetadata systemMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TRACE_ID);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TRACE_ID);
     systemMetadata.setProperties(new StringMap(properties));
 
     MetadataChangeLog mcl = buildMessage(systemMetadata);

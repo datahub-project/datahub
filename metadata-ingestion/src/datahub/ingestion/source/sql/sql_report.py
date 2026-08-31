@@ -8,7 +8,11 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
-from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
+from datahub.utilities.stats_collections import (
+    TopKDict,
+    float_top_k_dict,
+    int_top_k_dict,
+)
 
 
 @dataclass
@@ -34,6 +38,15 @@ class DetailedProfilerReportMixin:
         default_factory=int_top_k_dict
     )
 
+    # Per-table profiling elapsed time (seconds), keyed by pretty_name. Survives a
+    # run that dies early (islice in run/pipeline.py, or an OOM) — exactly when an
+    # operator most needs to know which table cost the most. TopKDict bounds the
+    # rendered top-N, not memory (every entry is retained); the top-N is global across
+    # the whole run, not per-database.
+    profiling_time_taken_per_table_secs: TopKDict[str, float] = field(
+        default_factory=float_top_k_dict
+    )
+
 
 @dataclass
 class SQLSourceReport(
@@ -54,6 +67,22 @@ class SQLSourceReport(
     num_view_definitions_failed_column_parsing: int = 0
     view_definitions_parsing_failures: LossyList[str] = field(default_factory=LossyList)
     sql_aggregator: Optional[SqlAggregatorReport] = None
+
+    # Query-based lineage (e.g., Postgres pg_stat_statements)
+    num_queries_extracted: int = 0
+    num_queries_parsed: int = 0
+    num_queries_parse_failures: int = 0
+
+    # Query-history references the aggregator resolved lineage through but did
+    # not emit, because the table is absent from discovered_datasets. This is
+    # broader than genuine temp tables: it also covers references filtered by
+    # database_pattern/table_pattern and real tables whose schema fetch failed
+    # (separately reported). Read it as "not among ingested tables", not "temp
+    # tables only", when triaging missing lineage.
+    num_usage_references_suppressed_as_temp: int = 0
+    usage_references_suppressed_as_temp_sample: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """

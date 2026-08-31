@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for integrating ML systems with DataHub by emitting features, models, runs, and feature tables via API."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -59,7 +63,7 @@ For platform-specific details, see our integration guides for [MLflow](/docs/gen
 ## Basic Setup
 
 To follow this tutorial, you'll need DataHub Quickstart deployed locally.
-For detailed steps, see the [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed steps, see the [DataHub Quickstart Guide](/docs/quickstart.md).
 
 Next, set up the Python client for DataHub using `DatahubAIClient`defined in [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/ai/dh_ai_client.py).
 

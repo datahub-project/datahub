@@ -1,14 +1,16 @@
 import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import i18next from 'i18next';
 import * as React from 'react';
 
-import DomainIcon from '@app/domain/DomainIcon';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import DataProductsTab from '@app/entityV2/domain/DataProductsTab/DataProductsTab';
 import { DomainEntitiesTab } from '@app/entityV2/domain/DomainEntitiesTab';
 import { Preview } from '@app/entityV2/domain/preview/Preview';
 import { DomainSummaryTab } from '@app/entityV2/domain/summary/DomainSummaryTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfileTab } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
@@ -22,15 +24,19 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 
 import { useGetDomainQuery } from '@graphql/domain.generated';
 import { Domain, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
+    EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.DELETE,
     EntityMenuItems.ANNOUNCE,
 ]);
@@ -42,14 +48,6 @@ export class DomainEntity implements Entity<Domain> {
     type: EntityType = EntityType.Domain;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <DomainIcon />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DomainIcon style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
         if (styleType === IconStyleType.SVG) {
             return (
                 <path
@@ -62,11 +60,11 @@ export class DomainEntity implements Entity<Domain> {
         }
 
         return (
-            <DomainIcon
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+            <Globe
+                className={TYPE_ICON_CLASS_NAME}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -83,9 +81,9 @@ export class DomainEntity implements Entity<Domain> {
 
     getPathName = () => this.getGraphName();
 
-    getEntityName = () => 'Domain';
+    getEntityName = () => i18next.t('entity.types:domain.name');
 
-    getCollectionName = () => 'Domains';
+    getCollectionName = () => i18next.t('entity.types:domain.namePlural');
 
     useEntityQuery = useGetDomainQuery;
 
@@ -101,45 +99,7 @@ export class DomainEntity implements Entity<Domain> {
             isNameEditable
             isIconEditable
             isColorEditable
-            tabs={[
-                {
-                    id: EntityProfileTab.SUMMARY_TAB,
-                    name: 'Summary',
-                    component: DomainSummaryTab,
-                    icon: SUMMARY_TAB_ICON,
-                },
-                {
-                    id: EntityProfileTab.DOMAIN_ENTITIES_TAB,
-                    name: 'Assets',
-                    getDynamicName: (entityData, _, loading) => {
-                        const assetCount = entityData?.entities?.total;
-                        return <TabNameWithCount name="Assets" count={assetCount} loading={loading} />;
-                    },
-                    component: DomainEntitiesTab,
-                    icon: AppstoreOutlined,
-                },
-                {
-                    id: EntityProfileTab.DOCUMENTATION_TAB,
-                    name: 'Documentation',
-                    component: DocumentationTab,
-                    icon: FileOutlined,
-                },
-                {
-                    id: EntityProfileTab.DATA_PRODUCTS_TAB,
-                    name: 'Data Products',
-                    getDynamicName: (entityData, _, loading) => {
-                        const dataProductsCount = entityData?.dataProducts?.total;
-                        return <TabNameWithCount name="Data Products" count={dataProductsCount} loading={loading} />;
-                    },
-                    component: DataProductsTab,
-                    icon: FileDoneOutlined,
-                },
-                {
-                    name: 'Properties',
-                    component: PropertiesTab,
-                    icon: UnorderedListOutlined,
-                },
-            ]}
+            tabs={this.getProfileTabs()}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
@@ -171,12 +131,57 @@ export class DomainEntity implements Entity<Domain> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
+
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+        return [
+            {
+                id: EntityProfileTab.SUMMARY_TAB,
+                name: i18next.t('entity.types:tab.summary'),
+                component: showSummaryTab ? SummaryTab : DomainSummaryTab,
+                icon: SUMMARY_TAB_ICON,
+            },
+            {
+                id: EntityProfileTab.DOMAIN_ENTITIES_TAB,
+                name: i18next.t('entity.types:tab.assets'),
+                getCount: (entityData, _) => {
+                    return entityData?.entities?.total;
+                },
+                component: DomainEntitiesTab,
+                icon: AppstoreOutlined,
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          id: EntityProfileTab.DOCUMENTATION_TAB,
+                          name: i18next.t('entity.types:tab.documentation'),
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
+                : []),
+            {
+                id: EntityProfileTab.DATA_PRODUCTS_TAB,
+                name: i18next.t('entity.types:dataProduct.namePlural'),
+                getCount: (entityData, _) => {
+                    return entityData?.dataProducts?.total;
+                },
+                component: DataProductsTab,
+                icon: FileDoneOutlined,
+            },
+            {
+                name: i18next.t('entity.types:tab.properties'),
+                component: PropertiesTab,
+                icon: UnorderedListOutlined,
+            },
+        ];
+    };
 
     renderPreview = (previewType: PreviewType, data: Domain) => {
         const genericProperties = this.getGenericEntityProperties(data);
@@ -190,6 +195,7 @@ export class DomainEntity implements Entity<Domain> {
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
             />
@@ -209,7 +215,9 @@ export class DomainEntity implements Entity<Domain> {
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -234,6 +242,11 @@ export class DomainEntity implements Entity<Domain> {
 
     supportedCapabilities = () => {
         // TODO.. Determine whether SOFT_DELETE should go into here.
-        return new Set([EntityCapabilityType.OWNERS]);
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
+        ]);
     };
 }

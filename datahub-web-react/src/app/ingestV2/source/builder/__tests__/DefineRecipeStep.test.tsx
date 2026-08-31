@@ -5,12 +5,12 @@ import { ThemeProvider } from 'styled-components';
 
 import { DefineRecipeStep } from '@app/ingestV2/source/builder/DefineRecipeStep';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
-import defaultThemeConfig from '@conf/theme/theme_light.config.json';
+import themeV2 from '@conf/theme/themeV2';
 
 describe('DefineRecipeStep', () => {
-    it('should render the RecipeBuilder if the type is in CONNECTORS_WITH_FORM', () => {
+    it('should render the RecipeBuilder if the type is in CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS', () => {
         const { getByText, queryByText } = render(
-            <ThemeProvider theme={defaultThemeConfig}>
+            <ThemeProvider theme={themeV2}>
                 <MockedProvider>
                     <DefineRecipeStep
                         state={{ type: 'snowflake' }}
@@ -29,9 +29,9 @@ describe('DefineRecipeStep', () => {
         expect(queryByText('For more information about how to configure a recipe')).toBeNull();
     });
 
-    it('should not render the RecipeBuilder if the type is not in CONNECTORS_WITH_FORM', () => {
+    it('should not render the RecipeBuilder if the type is not in CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS', () => {
         const { getByText, queryByText } = render(
-            <ThemeProvider theme={defaultThemeConfig}>
+            <ThemeProvider theme={themeV2}>
                 <MockedProvider>
                     <DefineRecipeStep
                         state={{ type: 'glue' }}

@@ -1,13 +1,16 @@
 import datetime
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 import pydantic
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source_config.operation_config import OperationConfig
+from datahub.utilities.str_enum import StrEnum
 
 _PROFILING_FLAGS_TO_REPORT = {
     "turn_off_expensive_profiling_metrics",
@@ -19,7 +22,21 @@ _PROFILING_FLAGS_TO_REPORT = {
 logger = logging.getLogger(__name__)
 
 
-class GEProfilingBaseConfig(ConfigModel):
+class ProfilingIsolationLevel(StrEnum):
+    AUTOCOMMIT = "AUTOCOMMIT"
+    READ_COMMITTED = "READ COMMITTED"
+    REPEATABLE_READ = "REPEATABLE READ"
+    SERIALIZABLE = "SERIALIZABLE"
+
+
+class ProfilingMethodConfig(ConfigModel):
+    # `method` used to select between the SQLAlchemy and the (now removed) Great
+    # Expectations profiler. SQLAlchemy is the only SQL profiler, so the field is
+    # gone; recipes that still set it are ignored with a deprecation warning.
+    _method_removed = pydantic_removed_field("method", month="August", year=2026)
+
+
+class GEProfilingBaseConfig(ProfilingMethodConfig):
     enabled: bool = Field(
         default=False, description="Whether profiling should be done."
     )
@@ -120,37 +137,47 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         "number of columns to profile goes up.",
     )
 
-    profile_if_updated_since_days: Optional[pydantic.PositiveFloat] = Field(
+    profile_if_updated_since_days: Annotated[
+        Optional[pydantic.PositiveFloat],
+        SupportedSources(["snowflake", "bigquery", "dremio"]),
+    ] = Field(
         default=None,
         description="Profile table only if it has been updated since these many number of days. "
         "If set to `null`, no constraint of last modified time for tables to profile. "
-        "Supported only in `snowflake` and `BigQuery`.",
-        schema_extra={"supported_sources": ["snowflake", "bigquery"]},
+        "Supported in `Snowflake`, `BigQuery`, and `Dremio`. "
+        "Note: for Dremio this compares against DataHub's last-profiled timestamp "
+        "(Dremio exposes no table modification time), so it controls profile frequency "
+        "rather than reacting to upstream change.",
     )
 
-    profile_table_size_limit: Optional[int] = Field(
+    profile_table_size_limit: Annotated[
+        Optional[int],
+        SupportedSources(
+            ["snowflake", "bigquery", "unity-catalog", "oracle", "teradata"]
+        ),
+    ] = Field(
         default=5,
         description="Profile tables only if their size is less than specified GBs. If set to `null`, "
-        "no limit on the size of tables to profile. Supported only in `Snowflake`, `BigQuery` and "
-        "`Databricks`. Supported for `Oracle` based on calculated size from gathered stats.",
-        schema_extra={
-            "supported_sources": ["snowflake", "bigquery", "unity-catalog", "oracle"]
-        },
+        "no limit on the size of tables to profile. Supported in `Snowflake`, `BigQuery`, "
+        "`Databricks`, `Oracle`, and `Teradata`. `Oracle` uses calculated size from gathered stats. "
+        "`Teradata` uses DBC space accounting.",
     )
 
-    profile_table_row_limit: Optional[int] = Field(
+    profile_table_row_limit: Annotated[
+        Optional[int], SupportedSources(["snowflake", "bigquery", "oracle"])
+    ] = Field(
         default=5000000,
         description="Profile tables only if their row count is less than specified count. "
         "If set to `null`, no limit on the row count of tables to profile. Supported only in "
         "`Snowflake`, `BigQuery`. Supported for `Oracle` based on gathered stats.",
-        schema_extra={"supported_sources": ["snowflake", "bigquery", "oracle"]},
     )
 
-    profile_table_row_count_estimate_only: bool = Field(
+    profile_table_row_count_estimate_only: Annotated[
+        bool, SupportedSources(["postgres", "mysql"])
+    ] = Field(
         default=False,
         description="Use an approximate query for row count. This will be much faster but slightly "
         "less accurate. Only supported for Postgres and MySQL. ",
-        schema_extra={"supported_sources": ["postgres", "mysql"]},
     )
 
     # The query combiner enables us to combine multiple queries into a single query,
@@ -163,42 +190,80 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = Field(default=True, description="")
 
-    partition_profiling_enabled: bool = Field(
+    # Isolation level applied to the profiling connection. None (the default)
+    # sets nothing, so the connection keeps the driver default and the whole
+    # table profile runs under one transaction. AUTOCOMMIT makes each profiling
+    # SELECT self-contained, at the cost of cross-statement snapshot consistency.
+    profiling_isolation_level: Annotated[
+        Optional[ProfilingIsolationLevel], SupportedSources(["mysql", "postgres"])
+    ] = Field(
+        default=None,
+        description=(
+            "Isolation level for the profiling connection. Defaults to unset, so "
+            "the connection keeps the driver default and one transaction spans the "
+            "whole table profile. Set AUTOCOMMIT if profiling is holding Postgres "
+            "idle-in-transaction (blocking VACUUM) or pinning an InnoDB read view "
+            "and growing the undo log on MySQL; each profiling SELECT then runs on "
+            "its own. Under AUTOCOMMIT or READ_COMMITTED, metrics come from "
+            "different snapshots, so a profile can be internally inconsistent on a "
+            "concurrently-written table (e.g. uniqueCount > rowCount). On MySQL "
+            "InnoDB, REPEATABLE_READ keeps a consistent snapshot; on Postgres, "
+            "READ COMMITTED already takes a fresh snapshot per statement, so "
+            "AUTOCOMMIT loses no consistency there."
+        ),
+    )
+
+    @field_validator("profiling_isolation_level", mode="before")
+    @classmethod
+    def _normalize_profiling_isolation_level(cls, value: Any) -> Any:
+        # Accept case/underscore variants (read_committed → READ COMMITTED) so the
+        # enum rejects typos at config-parse time while still matching the SQL
+        # standard names with spaces. Empty/whitespace → None (leave unset).
+        if value is None or isinstance(value, ProfilingIsolationLevel):
+            return value
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip().upper().replace("_", " ")
+        return normalized or None
+
+    partition_profiling_enabled: Annotated[
+        bool, SupportedSources(["athena", "bigquery"])
+    ] = Field(
         default=True,
         description="Whether to profile partitioned tables. Only BigQuery and Aws Athena supports this. "
         "If enabled, latest partition data is used for profiling.",
-        schema_extra={"supported_sources": ["athena", "bigquery"]},
     )
-    partition_datetime: Optional[datetime.datetime] = Field(
+    partition_datetime: Annotated[
+        Optional[datetime.datetime], SupportedSources(["bigquery"])
+    ] = Field(
         default=None,
         description="If specified, profile only the partition which matches this datetime. "
         "If not specified, profile the latest partition. Only Bigquery supports this.",
-        schema_extra={"supported_sources": ["bigquery"]},
     )
-    use_sampling: bool = Field(
+    use_sampling: Annotated[bool, SupportedSources(["bigquery", "snowflake"])] = Field(
         default=True,
         description="Whether to profile column level stats on sample of table. Only BigQuery and Snowflake support this. "
         "If enabled, profiling is done on rows sampled from table. Sampling is not done for smaller tables. ",
-        schema_extra={"supported_sources": ["bigquery", "snowflake"]},
     )
 
-    sample_size: int = Field(
+    sample_size: Annotated[int, SupportedSources(["bigquery", "snowflake"])] = Field(
         default=10000,
         description="Number of rows to be sampled from table for column level profiling."
         "Applicable only if `use_sampling` is set to True.",
-        schema_extra={"supported_sources": ["bigquery", "snowflake"]},
     )
 
-    profile_external_tables: bool = Field(
+    profile_external_tables: Annotated[
+        bool, SupportedSources(["redshift", "snowflake"])
+    ] = Field(
         default=False,
         description="Whether to profile external tables. Only Snowflake and Redshift supports this.",
-        schema_extra={"supported_sources": ["redshift", "snowflake"]},
     )
 
     tags_to_ignore_sampling: Optional[List[str]] = pydantic.Field(
         default=None,
         description=(
-            "Fixed list of tags to ignore sampling."
+            "Fixed list of tags to ignore sampling. Each entry may be a full tag URN"
+            " (e.g. `urn:li:tag:my_tag`) or just the tag name (e.g. `my_tag`)."
             " If not specified, tables will be sampled based on `use_sampling`."
         ),
     )
@@ -208,7 +273,15 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="Whether to profile complex types like structs, arrays and maps. ",
     )
 
-    @pydantic.root_validator(pre=True)
+    nested_field_max_depth: pydantic.PositiveInt = Field(
+        default=10,
+        description="Maximum recursion depth when flattening nested JSON structures during profiling. "
+        "Lower values prevent recursion errors but may truncate deeply nested data. "
+        "Applies to connectors that process dynamic JSON content (e.g., Kafka, MongoDB, Elasticsearch).",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
     def deprecate_bigquery_temp_table_schema(cls, values):
         # TODO: Update docs to remove mention of this field.
         if "bigquery_temp_table_schema" in values:
@@ -218,16 +291,17 @@ class GEProfilingConfig(GEProfilingBaseConfig):
             del values["bigquery_temp_table_schema"]
         return values
 
-    @pydantic.root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def ensure_field_level_settings_are_normalized(
-        cls: "GEProfilingConfig", values: Dict[str, Any]
+        cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
         max_num_fields_to_profile_key = "max_number_of_fields_to_profile"
         max_num_fields_to_profile = values.get(max_num_fields_to_profile_key)
 
         # Disable all field-level metrics.
         if values.get("profile_table_level_only"):
-            for field_level_metric in cls.__fields__:
+            for field_level_metric in cls.model_fields:
                 if field_level_metric.startswith("include_field_"):
                     if values.get(field_level_metric):
                         raise ValueError(
@@ -258,15 +332,29 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     def any_field_level_metrics_enabled(self) -> bool:
         return any(
             getattr(self, field_name)
-            for field_name in self.__fields__
+            for field_name in self.__class__.model_fields
             if field_name.startswith("include_field_")
         )
 
     def config_for_telemetry(self) -> Dict[str, Any]:
-        config_dict = self.dict()
+        config_dict = self.model_dump()
 
         return {
             flag: config_dict[flag]
             for flag in config_dict
             if flag in _PROFILING_FLAGS_TO_REPORT or flag.startswith("include_field_")
         }
+
+
+# Alias for clearer naming in new code
+# GEProfilingConfig is misleadingly named - it's actually a generic profiling config
+# used by both GE and SQLAlchemy profilers. This alias allows new code to use a
+# more appropriate name without breaking existing code.
+#
+# Migration strategy:
+# 1. New code should use ProfilingConfig instead of GEProfilingConfig
+# 2. Once GE profiler is removed, deprecate GEProfilingConfig with a warning
+# 3. Eventually rename the class itself to ProfilingConfig
+# 4. Consider moving to datahub.ingestion.source.profiling.common since it's
+#    generic profiling infrastructure, not source-specific
+ProfilingConfig = GEProfilingConfig

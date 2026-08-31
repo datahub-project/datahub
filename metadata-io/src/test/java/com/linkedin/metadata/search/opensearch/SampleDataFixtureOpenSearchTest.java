@@ -6,11 +6,11 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.fixtures.SampleDataFixtureTestBase;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.fixtures.search.SampleDataFixtureConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import lombok.Getter;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
@@ -24,7 +24,7 @@ import org.testng.annotations.Test;
   SearchTestContainerConfiguration.class
 })
 public class SampleDataFixtureOpenSearchTest extends SampleDataFixtureTestBase {
-  @Autowired private RestHighLevelClient searchClient;
+  @Autowired private SearchClientShim<?> searchClient;
 
   @Autowired
   @Qualifier("sampleDataSearchService")

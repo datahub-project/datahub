@@ -25,6 +25,6 @@ export const StyledBar = styled(Bar)<{ $addTransparency?: boolean }>`
     ${(props) => props.$addTransparency && 'filter: opacity(0.3);'}
 
     :hover {
-        filter: drop-shadow(0px 0px 4px rgba(0 0 0 / 0.25)) brightness(90%);
+        filter: drop-shadow(0px 0px 4px ${({ theme }) => theme.colors.overlayDropShadow}) brightness(90%);
     }
 `;

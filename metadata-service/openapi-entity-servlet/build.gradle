@@ -40,6 +40,8 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
   testImplementation externalDependency.springBootTest
+  // Spring Boot 4.0: WebMvc test slice moved to separate module
+  testImplementation externalDependency.springBootWebMvcTest
 
   swaggerCodegen externalDependency.swaggerCli
   swaggerCodegen project(':metadata-service:openapi-entity-servlet:generators')

@@ -20,7 +20,7 @@ import com.linkedin.metadata.trace.MCLTraceReader;
 import com.linkedin.metadata.trace.MCPTraceReader;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collection;
@@ -31,16 +31,16 @@ import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -60,19 +60,19 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
   private static final String TOPIC_2 = "MetadataChangeLog_v1";
   private static final String TOPIC_3 = "MetadataChangeLog_Timeseries_v1";
 
-  @Autowired private KafkaController kafkaController;
+  @MockitoBean private MCPTraceReader mockMcpTraceReader;
 
-  @Autowired private MockMvc mockMvc;
-
-  @Autowired private MCPTraceReader mockMcpTraceReader;
-
-  @Autowired
+  @MockitoBean
   @Qualifier("mclVersionedTraceReader")
   private MCLTraceReader mockMclTraceReader;
 
-  @Autowired
+  @MockitoBean
   @Qualifier("mclTimeseriesTraceReader")
   private MCLTraceReader mockMclTimeseriesTraceReader;
+
+  @Autowired private KafkaController kafkaController;
+
+  @Autowired private MockMvc mockMvc;
 
   @Autowired private AuthorizerChain authorizerChain;
 
@@ -385,15 +385,6 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
 
   @TestConfiguration
   public static class KafkaControllerTestConfig {
-    @MockBean public MCPTraceReader mcpTraceReader;
-
-    @MockBean
-    @Qualifier("mclVersionedTraceReader")
-    public MCLTraceReader mclTraceReader;
-
-    @MockBean
-    @Qualifier("mclTimeseriesTraceReader")
-    public MCLTraceReader mclTimeseriesTraceReader;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -402,10 +393,10 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean(name = "systemOperationContext")
     public OperationContext systemOperationContext(ObjectMapper objectMapper) {
-      TraceContext traceContext = mock(TraceContext.class);
+      SystemTelemetryContext systemTelemetryContext = mock(SystemTelemetryContext.class);
       return TestOperationContexts.systemContextTraceNoSearchAuthorization(
           () -> ObjectMapperContext.builder().objectMapper(objectMapper).build(),
-          () -> traceContext);
+          () -> systemTelemetryContext);
     }
 
     @Bean
@@ -416,9 +407,9 @@ public class KafkaControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean
     @Primary
-    public TraceContext traceContext(
+    public SystemTelemetryContext traceContext(
         @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
-      return systemOperationContext.getTraceContext();
+      return systemOperationContext.getSystemTelemetryContext();
     }
 
     @Bean

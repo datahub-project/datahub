@@ -1,4 +1,5 @@
-import { DatabaseOutlined } from '@ant-design/icons';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -17,14 +18,13 @@ const getDisplayName = (data?: DataPlatform): string => {
 export class DataPlatformEntity implements Entity<DataPlatform> {
     type: EntityType = EntityType.DataPlatform;
 
-    icon = (fontSize?: number, _styleType?: IconStyleType, color?: string) => {
+    icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         return (
-            <DatabaseOutlined
+            <Database
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -42,10 +42,10 @@ export class DataPlatformEntity implements Entity<DataPlatform> {
     getPathName = () => 'platform';
 
     // Currently unused.
-    getEntityName = () => 'Data Platform';
+    getEntityName = () => i18next.t('entity.types:dataPlatform.name');
 
     // Currently unused.
-    getCollectionName = () => 'Data Platforms';
+    getCollectionName = () => i18next.t('entity.types:dataPlatform.namePlural');
 
     // Currently unused.
     renderProfile = (_: string) => <></>;

@@ -189,7 +189,12 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
       @Nonnull MLFeatureTable mlFeatureTable,
       @Nonnull DataMap dataMap) {
     final Applications applications = new Applications(dataMap);
-    mlFeatureTable.setApplication(
-        ApplicationAssociationMapper.map(context, applications, mlFeatureTable.getUrn()));
+    final java.util.List<com.linkedin.datahub.graphql.generated.ApplicationAssociation>
+        applicationAssociations =
+            ApplicationAssociationMapper.mapList(context, applications, mlFeatureTable.getUrn());
+    mlFeatureTable.setApplications(applicationAssociations);
+    if (applicationAssociations != null && !applicationAssociations.isEmpty()) {
+      mlFeatureTable.setApplication(applicationAssociations.get(0));
+    }
   }
 }

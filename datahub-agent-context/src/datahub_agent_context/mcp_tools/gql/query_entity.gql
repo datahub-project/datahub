@@ -1,0 +1,40 @@
+query GetQueryEntity($urn: String!) {
+  entity(urn: $urn) {
+    urn
+    type
+    ... on QueryEntity {
+      urn
+      properties {
+        name
+        description
+        source
+        statement {
+          value
+          language
+        }
+        lastModified {
+          actor
+        }
+      }
+      platform {
+        urn
+        name
+      }
+      subjects {
+        dataset {
+          urn
+          type
+          ... on Dataset {
+            name
+          }
+        }
+        schemaField {
+          urn
+          type
+          fieldPath
+        }
+      }
+    }
+  }
+}
+

@@ -40,32 +40,35 @@ type StructuredPropertyEntity implements Entity {
   """
   A primary key associated with the structured property
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Definition of this structured property including its name
   """
   definition: StructuredPropertyDefinition!
+    @aspectMapping(aspects: ["propertyDefinition"])
 
   """
   Definition of this structured property including its name
   """
   settings: StructuredPropertySettings
+    @aspectMapping(aspects: ["structuredPropertySettings"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -115,6 +118,12 @@ type StructuredPropertyDefinition {
   entityTypes: [EntityTypeEntity!]!
 
   """
+  The optional list of data platforms that this property is restricted to.
+  If empty or null, the property applies to entities on any data platform.
+  """
+  allowedPlatforms: [DataPlatform!]
+
+  """
   Whether or not this structured property is immutable
   """
   immutable: Boolean!
@@ -148,6 +157,12 @@ type StructuredPropertySettings {
   Whether or not this asset should be displayed in the asset sidebar
   """
   showInAssetSummary: Boolean!
+
+  """
+  Whether or not this asset should be hidden in the asset sidebar (showInAssetSummary should be enabled)
+  when its value is empty
+  """
+  hideInAssetSummaryWhenEmpty: Boolean!
 
   """
   Whether or not this asset should be displayed as an asset badge on other asset's headers
@@ -250,6 +265,11 @@ type StructuredPropertiesEntry {
   The urn of the entity this property came from for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
@@ -289,22 +309,23 @@ type DataTypeEntity implements Entity {
   """
   A primary key associated with the Query
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Info about this type including its name
   """
-  info: DataTypeInfo!
+  info: DataTypeInfo! @aspectMapping(aspects: ["dataTypeInfo"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -426,6 +447,13 @@ input CreateStructuredPropertyInput {
   entityTypes: [String!]!
 
   """
+  An optional list of data platform urns that this property is restricted to.
+  If not provided, the property can be applied to entities on any data platform.
+  For example: ["urn:li:dataPlatform:glue", "urn:li:dataPlatform:redshift"]
+  """
+  allowedPlatforms: [String!]
+
+  """
   Settings for this structured property
   """
   settings: StructuredPropertySettingsInput
@@ -511,6 +539,12 @@ input UpdateStructuredPropertyInput {
   newEntityTypes: [String!]
 
   """
+  Append to the list of data platform urns that this property is restricted to.
+  For backwards compatibility, this is append only.
+  """
+  newAllowedPlatforms: [String!]
+
+  """
   Settings for this structured property
   """
   settings: StructuredPropertySettingsInput
@@ -555,6 +589,12 @@ input StructuredPropertySettingsInput {
   Whether or not this asset should be displayed in the asset sidebar
   """
   showInAssetSummary: Boolean
+
+  """
+  Whether or not this asset should be hidden in the asset sidebar (showInAssetSummary should be enabled)
+  when its value is empty
+  """
+  hideInAssetSummaryWhenEmpty: Boolean
 
   """
   Whether or not this asset should be displayed as an asset badge on other asset's headers

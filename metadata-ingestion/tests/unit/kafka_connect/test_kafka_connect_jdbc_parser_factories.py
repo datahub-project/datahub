@@ -1,0 +1,1028 @@
+"""Tests for JDBC parser factories (source and sink)."""
+
+from unittest.mock import Mock
+
+import pytest
+
+from datahub.ingestion.source.kafka_connect.common import (
+    ConnectorManifest,
+    KafkaConnectSourceConfig,
+    KafkaConnectSourceReport,
+    normalize_jdbc_url,
+    validate_jdbc_url,
+)
+from datahub.ingestion.source.kafka_connect.sink_connectors import (
+    JdbcSinkConnector,
+    JdbcSinkParserFactory,
+)
+from datahub.ingestion.source.kafka_connect.source_connectors import (
+    JdbcParserFactory,
+)
+
+
+@pytest.mark.parametrize(
+    "url,expected",
+    [
+        ("jdbc:postgresql://host:5432/db", "postgresql://host:5432/db"),
+        ("jdbc:mysql://host:3306/db", "mysql://host:3306/db"),
+        ("jdbc:oracle:thin:@//host:1521/svc", "oracle://host:1521/svc"),
+        (
+            "oracle:thin:@host:1521/svc.corp.example.com",
+            "oracle://host:1521/svc.corp.example.com",
+        ),
+        ("jdbc:oracle:thin:@host:1521:ORCL", "oracle://host:1521/ORCL"),
+        ("jdbc:oracle:oci:@//host:1521/svc", "oracle://host:1521/svc"),
+        (
+            "jdbc:sqlserver://host:1433;databaseName=mydb;integratedSecurity=false",
+            "mssql://host:1433/mydb",
+        ),
+        ("jdbc:sqlserver://host;databaseName=mydb", "mssql://host:1433/mydb"),
+        ("jdbc:sqlserver://host:1433", "mssql://host:1433/"),
+        (
+            "jdbc:sqlserver://host:1433;databaseName=db;password=p@ss",
+            "mssql://host:1433/db",
+        ),
+        (
+            "jdbc:sqlserver://host:1433;databaseName=db;user=svc@tenant",
+            "mssql://host:1433/db",
+        ),
+        ("jdbc:oracle:thin:@host:1521/svc;foo=bar", "oracle://host:1521/svc"),
+        ("jdbc:jtds:sqlserver://host:1433/mydb", "mssql://host:1433/mydb"),
+        ("jdbc:jtds:sqlserver://host:1433", "mssql://host:1433/"),
+    ],
+)
+def test_normalize_jdbc_url(url: str, expected: str) -> None:
+    assert normalize_jdbc_url(url) == expected
+
+
+@pytest.mark.parametrize(
+    "url,valid",
+    [
+        ("jdbc:postgresql://host:5432/db", True),
+        ("oracle:thin:@host:1521/svc", True),
+        ("jdbc:oracle:thin:@//host:1521/svc", True),
+        ("jdbc:sqlserver://host:1433;databaseName=db", True),
+        ("jdbc:sqlserver://host:1433;databaseName=db;password=p@ss", True),
+        ("jdbc:jtds:sqlserver://host:1433/db", True),
+        ("", False),
+        ("not-a-url", False),
+        ("http://host:8080/path", False),
+    ],
+)
+def test_validate_jdbc_url(url: str, valid: bool) -> None:
+    assert validate_jdbc_url(url) is valid
+
+
+class TestJdbcParserFactorySource:
+    """Test JdbcParserFactory for source connectors."""
+
+    def test_create_parser_with_connection_url(self) -> None:
+        """Test creating parser from connection.url configuration."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+                "connection.url": "jdbc:postgresql://localhost:5432/testdb",
+                "topic.prefix": "my-prefix-",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory.create_parser(manifest)
+
+        assert parser.source_platform == "postgres"
+        assert parser.database_name == "testdb"
+        assert parser.topic_prefix == "my-prefix-"
+        assert "postgresql://localhost:5432/testdb" in parser.db_connection_url
+
+    def test_create_parser_with_fields(self) -> None:
+        """Test creating parser from individual field configuration."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSource",
+                "database.hostname": "db.example.com",
+                "database.port": "5432",
+                "database.dbname": "mydb",
+                "database.server.name": "my-server",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory.create_parser(manifest)
+
+        assert parser.source_platform == "postgres"
+        assert parser.database_name == "mydb"
+        assert parser.topic_prefix == "my-server"
+        assert parser.db_connection_url == "postgresql://db.example.com:5432/mydb"
+
+    def test_create_url_parser_postgres(self) -> None:
+        """Test URL parser for PostgreSQL."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connection.url": "jdbc:postgresql://localhost:5432/testdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_url_parser(manifest)
+
+        assert parser.source_platform == "postgres"
+        assert parser.database_name == "testdb"
+
+    def test_create_url_parser_mysql(self) -> None:
+        """Test URL parser for MySQL."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connection.url": "jdbc:mysql://localhost:3306/mydb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_url_parser(manifest)
+
+        assert parser.source_platform == "mysql"
+        assert parser.database_name == "mydb"
+
+    def test_create_url_parser_missing_database(self) -> None:
+        """Test URL parser raises error when database name is missing."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connection.url": "jdbc:postgresql://localhost:5432/",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+
+        with pytest.raises(ValueError, match="Missing database name"):
+            factory._create_url_parser(manifest)
+
+    def test_create_url_parser_no_database(self) -> None:
+        """Test URL parser raises error when database name is completely missing."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connection.url": "jdbc:postgresql://localhost:5432",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+
+        with pytest.raises(ValueError, match="Missing database name"):
+            factory._create_url_parser(manifest)
+
+    def test_create_url_parser_with_topic_prefix(self) -> None:
+        """Test URL parser extracts topic.prefix."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connection.url": "jdbc:postgresql://localhost:5432/testdb",
+                "topic.prefix": "my-prefix-",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_url_parser(manifest)
+
+        assert parser.topic_prefix == "my-prefix-"
+
+    def test_create_fields_parser_postgres_cdc(self) -> None:
+        """Test fields parser for PostgresCdcSource."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSource",
+                "database.hostname": "localhost",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+                "database.server.name": "my-server",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_fields_parser(manifest)
+
+        assert parser.source_platform == "postgres"
+        assert parser.database_name == "testdb"
+        assert parser.topic_prefix == "my-server"
+        assert parser.db_connection_url == "postgresql://localhost:5432/testdb"
+
+    def test_create_fields_parser_mysql_cdc(self) -> None:
+        """Test fields parser for MySqlCdcSource."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "MySqlCdcSource",
+                "database.hostname": "mysql.example.com",
+                "database.port": "3306",
+                "database.dbname": "mydb",
+                "database.server.name": "mysql-server",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_fields_parser(manifest)
+
+        assert parser.source_platform == "mysql"
+        assert parser.database_name == "mydb"
+        assert parser.topic_prefix == "mysql-server"
+        assert parser.db_connection_url == "mysql://mysql.example.com:3306/mydb"
+
+    def test_create_fields_parser_postgres_cdc_v2_uses_topic_prefix(self) -> None:
+        """Test PostgresCdcSourceV2 uses topic.prefix instead of database.server.name."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSourceV2",
+                "database.hostname": "localhost",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+                "topic.prefix": "my-postgres-prefix",
+                "database.server.name": "should-be-ignored",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_fields_parser(manifest)
+
+        assert parser.source_platform == "postgres"
+        assert parser.database_name == "testdb"
+        assert parser.topic_prefix == "my-postgres-prefix"
+        assert parser.db_connection_url == "postgresql://localhost:5432/testdb"
+
+    def test_create_fields_parser_mysql_cdc_v2_uses_topic_prefix(self) -> None:
+        """Test MySqlCdcSourceV2 uses topic.prefix instead of database.server.name."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "MySqlCdcSourceV2",
+                "database.hostname": "mysql.example.com",
+                "database.port": "3306",
+                "database.dbname": "mydb",
+                "topic.prefix": "my-mysql-prefix",
+                "database.server.name": "should-be-ignored",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_fields_parser(manifest)
+
+        assert parser.source_platform == "mysql"
+        assert parser.database_name == "mydb"
+        assert parser.topic_prefix == "my-mysql-prefix"
+        assert parser.db_connection_url == "mysql://mysql.example.com:3306/mydb"
+
+    def test_create_fields_parser_postgres_cdc_v2_only_topic_prefix(self) -> None:
+        """Test PostgresCdcSourceV2 works with only topic.prefix (no database.server.name)."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSourceV2",
+                "database.hostname": "localhost",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+                "topic.prefix": "postgres",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_fields_parser(manifest)
+
+        assert parser.source_platform == "postgres"
+        assert parser.topic_prefix == "postgres"
+
+    def test_create_fields_parser_mysql_cdc_v2_only_topic_prefix(self) -> None:
+        """Test MySqlCdcSourceV2 works with only topic.prefix (no database.server.name)."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "MySqlCdcSourceV2",
+                "database.hostname": "mysql.example.com",
+                "database.port": "3306",
+                "database.dbname": "mydb",
+                "topic.prefix": "mysql",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_fields_parser(manifest)
+
+        assert parser.source_platform == "mysql"
+        assert parser.topic_prefix == "mysql"
+
+    def test_create_fields_parser_postgres_lowercase(self) -> None:
+        """Test fields parser recognizes lowercase postgres."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "database.hostname": "localhost",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_fields_parser(manifest)
+
+        assert parser.source_platform == "postgres"
+
+    def test_create_fields_parser_missing_hostname(self) -> None:
+        """Test fields parser raises error when hostname is missing."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSource",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+
+        with pytest.raises(ValueError, match="Missing required Cloud connector config"):
+            factory._create_fields_parser(manifest)
+
+    def test_create_fields_parser_missing_port(self) -> None:
+        """Test fields parser raises error when port is missing."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSource",
+                "database.hostname": "localhost",
+                "database.dbname": "testdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+
+        with pytest.raises(ValueError, match="Missing required Cloud connector config"):
+            factory._create_fields_parser(manifest)
+
+    def test_create_fields_parser_missing_database_name(self) -> None:
+        """Test fields parser raises error when database name is missing."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSource",
+                "database.hostname": "localhost",
+                "database.port": "5432",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+
+        with pytest.raises(ValueError, match="Missing required Cloud connector config"):
+            factory._create_fields_parser(manifest)
+
+    def test_create_fields_parser_unknown_connector(self) -> None:
+        """Test fields parser handles unknown connector class."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connector.class": "com.example.UnknownConnector",
+                "database.hostname": "localhost",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory._create_fields_parser(manifest)
+
+        assert parser.source_platform == "unknown"
+
+    def test_build_parser_with_query(self) -> None:
+        """Test parser includes query configuration."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connection.url": "jdbc:postgresql://localhost:5432/testdb",
+                "query": "SELECT * FROM users WHERE active = true",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory.create_parser(manifest)
+
+        assert parser.query == "SELECT * FROM users WHERE active = true"
+
+    def test_build_parser_with_transforms(self) -> None:
+        """Test parser includes transform configuration."""
+        manifest = ConnectorManifest(
+            name="test-connector",
+            type="source",
+            config={
+                "connection.url": "jdbc:postgresql://localhost:5432/testdb",
+                "transforms": "Router,Other",
+                "transforms.Router.type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "transforms.Router.regex": ".*",
+                "transforms.Router.replacement": "new-topic",
+                "transforms.Other.type": "org.apache.kafka.connect.transforms.InsertField",
+                "transforms.Other.field": "timestamp",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcParserFactory()
+        parser = factory.create_parser(manifest)
+
+        assert len(parser.transforms) == 2
+        assert parser.transforms[0]["name"] == "Router"
+        assert (
+            parser.transforms[0]["type"]
+            == "org.apache.kafka.connect.transforms.RegexRouter"
+        )
+        assert parser.transforms[1]["name"] == "Other"
+
+
+class TestJdbcSinkParserFactory:
+    """Test JdbcSinkParserFactory for sink connectors."""
+
+    def test_create_parser_with_connection_url(self) -> None:
+        """Test creating sink parser from connection.url configuration."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:postgresql://localhost:5432/targetdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory.create_parser(manifest, "postgres")
+
+        assert parser.target_platform == "postgres"
+        assert parser.database_name == "targetdb"
+        assert "postgresql://localhost:5432/targetdb" in parser.db_connection_url
+
+    def test_create_parser_with_fields(self) -> None:
+        """Test creating sink parser from individual field configuration."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connector.class": "PostgresSink",
+                "connection.host": "db.example.com",
+                "connection.port": "5432",
+                "db.name": "targetdb",
+                "db.schema": "public",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory.create_parser(manifest, "postgres")
+
+        assert parser.target_platform == "postgres"
+        assert parser.database_name == "targetdb"
+        assert parser.schema_name == "public"
+        assert parser.db_connection_url == "postgres://db.example.com:5432/targetdb"
+
+    def test_create_parser_from_url_postgres(self) -> None:
+        """Test URL parser for PostgreSQL sink."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:postgresql://localhost:5432/targetdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory._create_parser_from_url(
+            manifest, "postgres", "jdbc:postgresql://localhost:5432/targetdb"
+        )
+
+        assert parser.target_platform == "postgres"
+        assert parser.database_name == "targetdb"
+
+    def test_create_parser_from_url_mysql(self) -> None:
+        """Test URL parser for MySQL sink."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:mysql://localhost:3306/targetdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory._create_parser_from_url(
+            manifest, "mysql", "jdbc:mysql://localhost:3306/targetdb"
+        )
+
+        assert parser.target_platform == "mysql"
+        assert parser.database_name == "targetdb"
+
+    def test_create_parser_from_url_missing_database(self) -> None:
+        """Test URL parser raises error when database name is missing."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:postgresql://localhost:5432/",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+
+        with pytest.raises(ValueError, match="Missing database name"):
+            factory._create_parser_from_url(
+                manifest, "postgres", "jdbc:postgresql://localhost:5432/"
+            )
+
+    def test_create_parser_from_url_with_schema_in_query(self) -> None:
+        """Test URL parser extracts schema from query parameters."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:postgresql://localhost:5432/targetdb?currentSchema=myschema",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory._create_parser_from_url(
+            manifest,
+            "postgres",
+            "jdbc:postgresql://localhost:5432/targetdb?currentSchema=myschema",
+        )
+
+        assert parser.schema_name == "myschema"
+
+    def test_create_parser_from_url_with_table_name_format(self) -> None:
+        """Test URL parser extracts table name format."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:postgresql://localhost:5432/targetdb",
+                "table.name.format": "kafka_${topic}",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory._create_parser_from_url(
+            manifest, "postgres", "jdbc:postgresql://localhost:5432/targetdb"
+        )
+
+        assert parser.table_name_format == "kafka_${topic}"
+
+    def test_create_parser_from_fields_postgres(self) -> None:
+        """Test fields parser for PostgreSQL sink."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connection.host": "localhost",
+                "connection.port": "5432",
+                "db.name": "targetdb",
+                "db.schema": "myschema",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory._create_parser_from_fields(manifest, "postgres")
+
+        assert parser.target_platform == "postgres"
+        assert parser.database_name == "targetdb"
+        assert parser.schema_name == "myschema"
+        assert parser.db_connection_url == "postgres://localhost:5432/targetdb"
+
+    def test_create_parser_from_fields_mysql(self) -> None:
+        """Test fields parser for MySQL sink."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connection.host": "mysql.example.com",
+                "connection.port": "3306",
+                "db.name": "targetdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory._create_parser_from_fields(manifest, "mysql")
+
+        assert parser.target_platform == "mysql"
+        assert parser.database_name == "targetdb"
+
+    def test_create_parser_from_fields_postgres_default_schema(self) -> None:
+        """Test fields parser uses default 'public' schema for Postgres."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connection.host": "localhost",
+                "connection.port": "5432",
+                "db.name": "targetdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory._create_parser_from_fields(manifest, "postgres")
+
+        assert parser.schema_name == "public"
+
+    def test_create_parser_from_fields_schema_name_field(self) -> None:
+        """Test fields parser extracts schema from schema.name field."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connection.host": "localhost",
+                "connection.port": "5432",
+                "db.name": "targetdb",
+                "schema.name": "myschema",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory._create_parser_from_fields(manifest, "postgres")
+
+        assert parser.schema_name == "myschema"
+
+    def test_create_parser_from_fields_missing_host(self) -> None:
+        """Test fields parser raises error when host is missing."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connection.port": "5432",
+                "db.name": "targetdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+
+        with pytest.raises(ValueError, match="Missing 'connection.host'"):
+            factory._create_parser_from_fields(manifest, "postgres")
+
+    def test_create_parser_from_fields_missing_db_name(self) -> None:
+        """Test fields parser raises error when db.name is missing."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connection.host": "localhost",
+                "connection.port": "5432",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+
+        with pytest.raises(ValueError, match="Missing 'db.name'"):
+            factory._create_parser_from_fields(manifest, "postgres")
+
+    def test_create_parser_from_fields_default_port(self) -> None:
+        """Test fields parser uses default port when not specified."""
+        manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink",
+            config={
+                "connection.host": "localhost",
+                "db.name": "targetdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory._create_parser_from_fields(manifest, "postgres")
+
+        # Default port is 5432
+        assert "localhost:5432" in parser.db_connection_url
+
+    def test_extract_schema_from_url_current_schema(self) -> None:
+        """Test extracting schema from URL currentSchema parameter."""
+        from sqlalchemy.engine.url import make_url
+
+        factory = JdbcSinkParserFactory()
+        url_instance = make_url(
+            "postgresql://localhost:5432/testdb?currentSchema=myschema"
+        )
+
+        schema = factory._extract_schema_from_url(url_instance, "postgres", {})
+
+        assert schema == "myschema"
+
+    def test_extract_schema_from_url_schema_parameter(self) -> None:
+        """Test extracting schema from URL schema parameter."""
+        from sqlalchemy.engine.url import make_url
+
+        factory = JdbcSinkParserFactory()
+        url_instance = make_url("postgresql://localhost:5432/testdb?schema=myschema")
+
+        schema = factory._extract_schema_from_url(url_instance, "postgres", {})
+
+        assert schema == "myschema"
+
+    def test_extract_schema_from_url_config_fallback(self) -> None:
+        """Test extracting schema from config when not in URL."""
+        from sqlalchemy.engine.url import make_url
+
+        factory = JdbcSinkParserFactory()
+        url_instance = make_url("postgresql://localhost:5432/testdb")
+        config = {"schema.name": "myschema"}
+
+        schema = factory._extract_schema_from_url(url_instance, "postgres", config)
+
+        assert schema == "myschema"
+
+    def test_extract_schema_from_url_postgres_default(self) -> None:
+        """Test extracting schema uses default for Postgres."""
+        from sqlalchemy.engine.url import make_url
+
+        factory = JdbcSinkParserFactory()
+        url_instance = make_url("postgresql://localhost:5432/testdb")
+
+        schema = factory._extract_schema_from_url(url_instance, "postgres", {})
+
+        assert schema == "public"
+
+    def test_extract_schema_from_url_mysql_no_default(self) -> None:
+        """Test extracting schema returns None for MySQL (no schema concept)."""
+        from sqlalchemy.engine.url import make_url
+
+        factory = JdbcSinkParserFactory()
+        url_instance = make_url("mysql://localhost:3306/testdb")
+
+        schema = factory._extract_schema_from_url(url_instance, "mysql", {})
+
+        # MySQL doesn't have schemas (database == schema)
+        assert schema is None
+
+    def test_extract_schema_from_url_oracle_user_lowercased(self) -> None:
+        from sqlalchemy.engine.url import make_url
+
+        factory = JdbcSinkParserFactory()
+        url_instance = make_url("oracle://host:1521/svc")
+
+        schema = factory._extract_schema_from_url(
+            url_instance, "oracle", {"connection.user": "Mps"}
+        )
+
+        assert schema == "mps"
+
+    def test_extract_schema_from_url_oracle_schema_name_lowercased(self) -> None:
+        from sqlalchemy.engine.url import make_url
+
+        factory = JdbcSinkParserFactory()
+        url_instance = make_url("oracle://host:1521/svc")
+
+        schema = factory._extract_schema_from_url(
+            url_instance, "oracle", {"schema.name": "MPS"}
+        )
+
+        assert schema == "mps"
+
+    def test_extract_schema_from_url_oracle_mixed_case_schema_preserved(self) -> None:
+        from sqlalchemy.engine.url import make_url
+
+        factory = JdbcSinkParserFactory()
+        url_instance = make_url("oracle://host:1521/svc")
+
+        schema = factory._extract_schema_from_url(
+            url_instance, "oracle", {"schema.name": "MySchema"}
+        )
+
+        assert schema == "MySchema"
+
+    def test_create_parser_from_fields_mssql_defaults_to_dbo(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-mssql-sink",
+            type="sink",
+            config={
+                "connection.host": "localhost",
+                "connection.port": "1433",
+                "db.name": "targetdb",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory._create_parser_from_fields(manifest, "mssql")
+
+        assert parser.schema_name == "dbo"
+        assert parser.database_name == "targetdb"
+
+    def test_create_parser_from_url_oracle_missing_schema_raises(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-oracle-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:oracle:thin:@host:1521/svc",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        with pytest.raises(ValueError, match="Could not resolve Oracle schema"):
+            factory._create_parser_from_url(
+                manifest, "oracle", "jdbc:oracle:thin:@host:1521/svc"
+            )
+
+
+def _sink_config() -> Mock:
+    config = Mock(spec=KafkaConnectSourceConfig)
+    config.use_schema_resolver = False
+    config.schema_resolver_finegrained_lineage = False
+    config.env = "PROD"
+    config.connect_to_platform_map = None
+    config.platform_instance_map = None
+    config.convert_lineage_urns_to_lowercase = False
+    return config
+
+
+class TestJdbcSinkExtractLineages:
+    def test_oracle_emits_schema_table(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-oracle-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:oracle:thin:@host:1521/svc",
+                "connection.user": "MPS",
+                "topics": "my_table",
+            },
+            tasks=[],
+            topic_names=["my_table"],
+        )
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = JdbcSinkConnector(manifest, _sink_config(), report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].target_platform == "oracle"
+        assert lineages[0].target_dataset == "mps.my_table"
+        assert lineages[0].source_dataset == "my_table"
+
+    def test_oracle_schema_name_is_lowercased(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-oracle-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:oracle:thin:@host:1521/svc",
+                "schema.name": "MPS",
+                "topics": "my_table",
+            },
+            tasks=[],
+            topic_names=["my_table"],
+        )
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = JdbcSinkConnector(manifest, _sink_config(), report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].target_dataset == "mps.my_table"
+
+    def test_oracle_without_schema_warns_and_emits_nothing(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-oracle-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:oracle:thin:@host:1521/svc",
+                "topics": "my_table",
+            },
+            tasks=[],
+            topic_names=["my_table"],
+        )
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = JdbcSinkConnector(manifest, _sink_config(), report)
+        lineages = connector.extract_lineages()
+
+        assert lineages == []
+        report.warning.assert_called()
+
+    def test_mssql_defaults_to_dbo(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-mssql-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:sqlserver://host:1433;databaseName=mydb",
+                "topics": "my_table",
+            },
+            tasks=[],
+            topic_names=["my_table"],
+        )
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = JdbcSinkConnector(manifest, _sink_config(), report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].target_platform == "mssql"
+        assert lineages[0].target_dataset == "mydb.dbo.my_table"
+
+    def test_mysql_schema_name_does_not_replace_database(self) -> None:
+        manifest = ConnectorManifest(
+            name="test-mysql-sink",
+            type="sink",
+            config={
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "connection.url": "jdbc:mysql://host:3306/mydb",
+                "schema.name": "ignored",
+                "topics": "my_table",
+            },
+            tasks=[],
+            topic_names=["my_table"],
+        )
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = JdbcSinkConnector(manifest, _sink_config(), report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].target_platform == "mysql"
+        assert lineages[0].target_dataset == "mydb.my_table"

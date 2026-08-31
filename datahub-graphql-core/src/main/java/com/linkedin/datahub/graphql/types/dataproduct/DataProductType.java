@@ -1,8 +1,11 @@
 package com.linkedin.datahub.graphql.types.dataproduct;
 
 import static com.linkedin.metadata.Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ASSET_SETTINGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
@@ -24,6 +27,7 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.dataproduct.mappers.DataProductMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -47,6 +51,7 @@ public class DataProductType
         com.linkedin.datahub.graphql.types.EntityType<DataProduct, String> {
   public static final Set<String> ASPECTS_TO_FETCH =
       ImmutableSet.of(
+          DATA_PRODUCT_KEY_ASPECT_NAME,
           DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
           OWNERSHIP_ASPECT_NAME,
           GLOBAL_TAGS_ASPECT_NAME,
@@ -55,7 +60,9 @@ public class DataProductType
           INSTITUTIONAL_MEMORY_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
-          APPLICATION_MEMBERSHIP_ASPECT_NAME);
+          APPLICATION_MEMBERSHIP_ASPECT_NAME,
+          DEPRECATION_ASPECT_NAME,
+          ASSET_SETTINGS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override
@@ -80,12 +87,16 @@ public class DataProductType
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, DATA_PRODUCT_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               DATA_PRODUCT_ENTITY_NAME,
               new HashSet<>(dataProductUrns),
-              ASPECTS_TO_FETCH);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : dataProductUrns) {

@@ -24,9 +24,9 @@ const SelectedOperatorText = styled.div`
     border: 1.5px solid transparent;
     padding: 2px;
     :hover {
-        border: 1.5px solid ${(p) => p.theme.styles['primary-color']};
-        background-color: ${(p) => p.theme.styles['primary-color']};
-        color: #fff;
+        border: 1.5px solid ${(p) => p.theme.colors.borderBrand};
+        background-color: ${(p) => p.theme.colors.buttonFillBrand};
+        color: ${(p) => p.theme.colors.textOnFillBrand};
     }
 `;
 
@@ -64,7 +64,7 @@ export default function OperatorSelector({ predicate, onChangeOperator }: Props)
 
     return (
         <Dropdown trigger={['click']} menu={{ items }}>
-            <SelectedOperatorText>{selectedOperatorText}</SelectedOperatorText>
+            <SelectedOperatorText data-testid="active-filter-operator">{selectedOperatorText}</SelectedOperatorText>
         </Dropdown>
     );
 }

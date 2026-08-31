@@ -19,7 +19,9 @@ record DomainProperties includes CustomProperties {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   name: string
 
@@ -28,7 +30,8 @@ record DomainProperties includes CustomProperties {
    */
    @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription"
+    "hasValuesFieldName": "hasDescription",
+    "searchTier": 2
   }
   description: optional string
 
@@ -38,7 +41,8 @@ record DomainProperties includes CustomProperties {
    @Searchable = {
      "/time": {
       "fieldName": "createdTime",
-      "fieldType": "DATETIME"
+      "fieldType": "DATETIME",
+      "searchLabel": "createdAt"
      }
    }
    created: optional AuditStamp

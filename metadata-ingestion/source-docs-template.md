@@ -1,3 +1,7 @@
+---
+description: "Template documentation file used as a starting point for new DataHub ingestion source connector docs."
+---
+
 # Source Name
 
 <!-- Set Support Status -->

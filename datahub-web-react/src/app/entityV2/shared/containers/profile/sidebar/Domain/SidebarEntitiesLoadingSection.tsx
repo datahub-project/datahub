@@ -1,11 +1,11 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Spin } from 'antd';
 import React from 'react';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { useTheme } from 'styled-components';
 
 const SidebarEntitiesLoadingSection = () => {
-    return <Spin indicator={<LoadingOutlined style={{ color: ANTD_GRAY[7] }} />} />;
+    const theme = useTheme();
+    return <Spin indicator={<LoadingOutlined style={{ color: theme.colors.textTertiary }} />} />;
 };
 
 export default SidebarEntitiesLoadingSection;

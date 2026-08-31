@@ -5,7 +5,10 @@ import pytest
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import (
+    EMIT_MODE_MARKER_KEY,
     OpenApiRequest,
+    has_sync_emit_marker,
+    is_sync_marker_value,
 )
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
@@ -15,6 +18,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
     GenericAspectClass,
+    StatusClass,
     SystemMetadataClass,
 )
 from datahub.specific.chart import ChartPatchBuilder
@@ -32,7 +36,6 @@ CHART_INFO = ChartInfoClass(
 def test_from_mcp_none_no_aspect():
     """Test that from_mcp returns None when aspect is missing"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
         aspectName="chartInfo",
         changeType=ChangeTypeClass.UPSERT,
@@ -45,11 +48,8 @@ def test_from_mcp_none_no_aspect():
 def test_from_mcp_upsert():
     """Test creating an OpenApiRequest from an UPSERT MCP"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
         aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
     )
 
     request = OpenApiRequest.from_mcp(mcp, GMS_SERVER)
@@ -68,11 +68,8 @@ def test_from_mcp_upsert():
 def test_from_mcp_upsert_with_system_metadata():
     """Test creating an OpenApiRequest from an UPSERT MCP with system metadata"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
         aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
         systemMetadata=SystemMetadataClass(runId="test-run-id"),
     )
 
@@ -114,7 +111,6 @@ def test_from_mcp_upsert_without_wrapper():
 def test_from_mcp_delete():
     """Test creating an OpenApiRequest from a DELETE MCP"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
         aspectName="chartInfo",
         changeType=ChangeTypeClass.DELETE,
@@ -193,11 +189,8 @@ def test_upsert_incompatible_content_type():
 def test_from_mcp_async_flag():
     """Test creating an OpenApiRequest with async/sync"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
         aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
     )
 
     request = OpenApiRequest.from_mcp(mcp, GMS_SERVER, async_flag=True)
@@ -211,14 +204,25 @@ def test_from_mcp_async_flag():
     assert "async=false" in request.url
 
 
+def test_from_mcp_forwards_mcp_headers():
+    """MCP-level headers (e.g. If-None-Match) are forwarded into the OpenAPI payload."""
+    mcp = MetadataChangeProposalWrapper(
+        entityUrn="urn:li:chart:(test,test)",
+        aspect=CHART_INFO,
+        headers={"If-None-Match": "*"},
+    )
+
+    request = OpenApiRequest.from_mcp(mcp, GMS_SERVER)
+
+    assert request is not None
+    assert request.payload[0]["chartInfo"]["headers"] == {"If-None-Match": "*"}
+
+
 def test_from_mcp_search_sync_flag():
     """Test that search_sync_flag adds the appropriate header to the request only when async_flag is False"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
         aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
     )
 
     # Test with default values (async_flag=False, search_sync_flag=False)
@@ -290,7 +294,6 @@ def test_from_mcp_search_sync_flag():
 
     # Test with delete operation (headers don't apply)
     delete_mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
         aspectName="chartInfo",
         changeType=ChangeTypeClass.DELETE,
@@ -305,3 +308,45 @@ def test_from_mcp_search_sync_flag():
     assert request.method == "delete"
     # For DELETE, there's no payload so no headers
     assert len(request.payload) == 0
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("sync", True),
+        ("Sync", True),
+        ("  SYNC  ", True),
+        ("async", False),
+        ("true", False),
+        ("", False),
+        (None, False),
+        (True, False),
+        (1, False),
+    ],
+)
+def test_is_sync_marker_value(value, expected):
+    assert is_sync_marker_value(value) is expected
+
+
+def _status_mcp(system_metadata=None):
+    return MetadataChangeProposalWrapper(
+        entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
+        aspect=StatusClass(removed=False),
+        systemMetadata=system_metadata,
+    )
+
+
+def test_has_sync_emit_marker_present():
+    mcp = _status_mcp(SystemMetadataClass(properties={EMIT_MODE_MARKER_KEY: "sync"}))
+    assert has_sync_emit_marker(mcp) is True
+
+
+def test_has_sync_emit_marker_absent():
+    assert has_sync_emit_marker(_status_mcp()) is False
+    assert has_sync_emit_marker(_status_mcp(SystemMetadataClass())) is False
+    assert (
+        has_sync_emit_marker(
+            _status_mcp(SystemMetadataClass(properties={"other": "x"}))
+        )
+        is False
+    )

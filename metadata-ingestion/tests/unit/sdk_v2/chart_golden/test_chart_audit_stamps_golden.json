@@ -1,0 +1,92 @@
+[
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,audit_golden_chart)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker"
+        }
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,audit_golden_chart)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "audit_test": "true",
+                "chart_type": "line"
+            },
+            "title": "Audit Golden Chart",
+            "description": "Testing chart audit stamps with golden files",
+            "lastModified": {
+                "created": {
+                    "time": 1672596000000,
+                    "actor": "urn:li:corpuser:creator@example.com"
+                },
+                "lastModified": {
+                    "time": 1672698600000,
+                    "actor": "urn:li:corpuser:modifier@example.com"
+                },
+                "deleted": {
+                    "time": 1672793100000,
+                    "actor": "urn:li:corpuser:deleter@example.com"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_data,PROD)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,user_data,PROD)"
+                }
+            ],
+            "type": "LINE",
+            "access": "PRIVATE"
+        }
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,audit_golden_chart)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:owner@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,audit_golden_chart)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:audit"
+                },
+                {
+                    "tag": "urn:li:tag:chart"
+                }
+            ]
+        }
+    }
+}
+]

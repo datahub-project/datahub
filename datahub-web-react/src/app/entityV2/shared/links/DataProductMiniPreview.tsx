@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import EntityCount from '@app/entityV2/shared/containers/profile/header/EntityCount';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -18,7 +17,7 @@ const DomainInfoContainer = styled.div`
 const DataProductDescription = styled.div`
     font-size: 14px;
     font-weight: 400;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -28,7 +27,7 @@ const DataProductDescription = styled.div`
 const DataProductTitle = styled.div`
     font-size: 16px;
     font-weight: 400;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -38,7 +37,7 @@ const DataProductTitle = styled.div`
 const DomainContents = styled.div`
     font-size: 12px;
     font-weight: 400;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -46,8 +45,8 @@ const DomainContents = styled.div`
 
 const Card = styled(Link)`
     align-items: center;
-    background-color: ${ANTD_GRAY[1]};
-    border: 1.5px solid ${ANTD_GRAY_V2[5]};
+    background-color: ${(props) => props.theme.colors.bg};
+    border: 1.5px solid ${(props) => props.theme.colors.border};
     border-radius: 10px;
     display: flex;
     justify-content: start;
@@ -56,7 +55,7 @@ const Card = styled(Link)`
     padding: 8px 16px 8px 16px;
 
     :hover {
-        border: 1.5px solid ${REDESIGN_COLORS.BLUE};
+        border: 1.5px solid ${(props) => props.theme.colors.borderInformation};
         cursor: pointer;
     }
 `;

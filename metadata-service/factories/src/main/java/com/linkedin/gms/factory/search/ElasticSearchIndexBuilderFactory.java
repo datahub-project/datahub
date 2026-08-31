@@ -2,14 +2,15 @@ package com.linkedin.gms.factory.search;
 
 import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVENTION_BEAN;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
-import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
@@ -17,7 +18,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,12 +26,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, GitVersionFactory.class})
+@Import({IndexConventionFactory.class, GitVersionFactory.class})
 public class ElasticSearchIndexBuilderFactory {
 
   @Autowired
-  @Qualifier("elasticSearchRestHighLevelClient")
-  private RestHighLevelClient searchClient;
+  @Qualifier("searchClientShim")
+  private SearchClientShim<?> searchClient;
 
   @Value("${elasticsearch.index.numShards}")
   private Integer numShards;
@@ -68,11 +68,21 @@ public class ElasticSearchIndexBuilderFactory {
   protected Map<String, Map<String, String>> getIndexSettingsOverrides(
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention) {
 
+    // Bootstrap-time Spring wiring — no per-request OperationContext is obtainable here.
     return Stream.concat(
             parseIndexSettingsMap(indexSettingOverrides).entrySet().stream()
-                .map(e -> Map.entry(indexConvention.getIndexName(e.getKey()), e.getValue())),
+                .map(
+                    e ->
+                        Map.entry(
+                            indexConvention.getIndexName(OperationFingerprint.EMPTY, e.getKey()),
+                            e.getValue())),
             parseIndexSettingsMap(entityIndexSettingOverrides).entrySet().stream()
-                .map(e -> Map.entry(indexConvention.getEntityIndexName(e.getKey()), e.getValue())))
+                .map(
+                    e ->
+                        Map.entry(
+                            indexConvention.getEntityIndexName(
+                                OperationFingerprint.EMPTY, e.getKey()),
+                            e.getValue())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
@@ -84,17 +94,10 @@ public class ElasticSearchIndexBuilderFactory {
       final GitVersion gitVersion) {
     return new ESIndexBuilder(
         searchClient,
-        numShards,
-        numReplicas,
-        numRetries,
-        refreshIntervalSeconds,
-        overrides,
-        enableSettingsReindex,
-        enableMappingsReindex,
-        enableStructuredPropertiesReindex,
         configurationProvider.getElasticSearch(),
-        gitVersion,
-        maxReindexHours);
+        configurationProvider.getStructuredProperties(),
+        overrides,
+        gitVersion);
   }
 
   @Nonnull

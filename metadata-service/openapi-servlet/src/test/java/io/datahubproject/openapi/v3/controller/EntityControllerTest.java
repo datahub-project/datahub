@@ -2,15 +2,12 @@ package io.datahubproject.openapi.v3.controller;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
 import static com.linkedin.metadata.utils.GenericRecordUtils.JSON;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
@@ -18,8 +15,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 import static org.testng.AssertJUnit.assertEquals;
 import static org.testng.AssertJUnit.assertNull;
 
@@ -27,6 +23,8 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -38,12 +36,15 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipSource;
 import com.linkedin.common.OwnershipSourceType;
 import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.dataset.DatasetProfile;
@@ -52,66 +53,89 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.versioning.EntityVersioningServiceFactory;
+import com.linkedin.knowledge.DocumentInfo;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.AggregationMetadata;
+import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.exception.InvalidUrnException;
+import io.datahubproject.openapi.test.AuthorizerChainTestSupport;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.http.HttpStatus;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
-@ComponentScan(basePackages = {"io.datahubproject.openapi.v3.controller"})
+@ComponentScan(basePackages = {"io.datahubproject.openapi.v3.controller.EntityController"})
 @Import({
   SpringWebConfig.class,
   TracingInterceptor.class,
+  EntityController.class,
   EntityControllerTest.EntityControllerTestConfig.class,
   EntityVersioningServiceFactory.class,
   GlobalControllerExceptionHandler.class, // ensure error responses
@@ -121,18 +145,33 @@ import org.testng.annotations.Test;
 public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   @Autowired private EntityController entityController;
   @Autowired private MockMvc mockMvc;
-  @Autowired private SearchService mockSearchService;
-  @Autowired private EntityService<?> mockEntityService;
-  @Autowired private TimeseriesAspectService mockTimeseriesAspectService;
+  @Autowired private AuthorizerChain authorizerChain;
   @Autowired private EntityRegistry entityRegistry;
   @Autowired private OperationContext opContext;
-  @MockBean private ConfigurationProvider configurationProvider;
+
+  @Autowired
+  @Qualifier("testAspectRetriever")
+  private AspectRetriever testAspectRetriever;
+
+  @MockitoBean private ConfigurationProvider configurationProvider;
+  @MockitoBean private EntityServiceImpl mockEntityService;
+  @MockitoBean private SearchService mockSearchService;
+  @MockitoBean private TimeseriesAspectService mockTimeseriesAspectService;
+  @MockitoBean private SystemTelemetryContext systemTelemetryContext;
 
   @Captor private ArgumentCaptor<AspectsBatch> batchCaptor;
 
   @BeforeMethod
   public void setup() {
     org.mockito.MockitoAnnotations.openMocks(this);
+    reset(
+        mockEntityService,
+        mockSearchService,
+        mockTimeseriesAspectService,
+        testAspectRetriever,
+        authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOneArgOnly(authorizerChain);
+    when(testAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
   }
 
   @Test
@@ -151,12 +190,23 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     // Mock scroll ascending/descending results
     ScrollResult expectedResultAscending =
         new ScrollResult()
+            .setNumEntities(3)
             .setEntities(
                 new SearchEntityArray(
                     List.of(
-                        new SearchEntity().setEntity(TEST_URNS.get(0)),
-                        new SearchEntity().setEntity(TEST_URNS.get(1)),
-                        new SearchEntity().setEntity(TEST_URNS.get(2)))));
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-0"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(1))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-1"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(2))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-id-2"))))));
     when(mockSearchService.scrollAcrossEntities(
             any(OperationContext.class),
             eq(List.of("dataset")),
@@ -169,12 +219,23 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         .thenReturn(expectedResultAscending);
     ScrollResult expectedResultDescending =
         new ScrollResult()
+            .setNumEntities(3)
             .setEntities(
                 new SearchEntityArray(
                     List.of(
-                        new SearchEntity().setEntity(TEST_URNS.get(2)),
-                        new SearchEntity().setEntity(TEST_URNS.get(1)),
-                        new SearchEntity().setEntity(TEST_URNS.get(0)))));
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(2))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-2"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(1))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-1"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-id-0"))))));
     when(mockSearchService.scrollAcrossEntities(
             any(OperationContext.class),
             eq(List.of("dataset")),
@@ -239,6 +300,9 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testDeleteEntity() throws Exception {
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+
     Urn TEST_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,4,PROD)");
 
     // test delete entity
@@ -428,19 +492,24 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
   @TestConfiguration
   public static class EntityControllerTestConfig {
-    @MockBean public EntityServiceImpl entityService;
-    @MockBean public SearchService searchService;
-    @MockBean public TimeseriesAspectService timeseriesAspectService;
-    @MockBean public TraceContext traceContext;
 
     @Bean
     public ObjectMapper objectMapper() {
       return new ObjectMapper();
     }
 
+    @Bean("testAspectRetriever")
+    public AspectRetriever testAspectRetriever() {
+      AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+      when(aspectRetriever.getEntityRegistry())
+          .thenReturn(TestOperationContexts.defaultEntityRegistry());
+      return aspectRetriever;
+    }
+
     @Bean(name = "systemOperationContext")
-    public OperationContext systemOperationContext() {
-      return TestOperationContexts.systemContextNoSearchAuthorization();
+    public OperationContext systemOperationContext(
+        @Qualifier("testAspectRetriever") AspectRetriever aspectRetriever) {
+      return TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever);
     }
 
     @Bean("entityRegistry")
@@ -462,16 +531,10 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-      when(authorizerChain.authorize(any()))
-          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+      AuthorizerChainTestSupport.stubAllowViaOneArgOnly(authorizerChain);
       AuthenticationContext.setAuthentication(authentication);
 
       return authorizerChain;
-    }
-
-    @Bean
-    public TimeseriesAspectService timeseriesAspectService() {
-      return timeseriesAspectService;
     }
   }
 
@@ -514,6 +577,53 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         .andExpect(MockMvcResultMatchers.jsonPath("$[1].urn").value(TEST_URNS.get(1).toString()));
   }
 
+  @DataProvider
+  public Object[][] bridgeDocumentAuthorizationCases() {
+    return new Object[][] {{true, false, true}, {false, true, true}, {false, false, false}};
+  }
+
+  @Test(dataProvider = "bridgeDocumentAuthorizationCases")
+  public void testGetBridgeDocumentAuthorization(
+      boolean canViewDocument, boolean canViewSource, boolean expectedAllowed) throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-dataset-api-test");
+    Urn sourceUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,bridge-source,PROD)");
+    when(testAspectRetriever.getLatestAspectObjects(
+            any(),
+            eq(Set.of(documentUrn)),
+            eq(Set.of(DOCUMENT_INFO_ASPECT_NAME, SUB_TYPES_ASPECT_NAME))))
+        .thenReturn(Map.of(documentUrn, bridgeDocumentAspects(sourceUrn)));
+    stubViewAuthorization(documentUrn, sourceUrn, canViewDocument, canViewSource);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                documentUrn,
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    try (MockedStatic<AuthUtil> authUtil =
+        org.mockito.Mockito.mockStatic(AuthUtil.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      org.springframework.test.web.servlet.ResultActions result =
+          mockMvc.perform(
+              MockMvcRequestBuilders.post("/openapi/v3/entity/document/batchGet")
+                  .content(String.format("[{\"urn\": \"%s\"}]", documentUrn))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .accept(MediaType.APPLICATION_JSON));
+
+      if (expectedAllowed) {
+        result
+            .andExpect(status().is2xxSuccessful())
+            .andExpect(MockMvcResultMatchers.jsonPath("$[0].urn").value(documentUrn.toString()));
+      } else {
+        result.andExpect(status().isForbidden());
+      }
+    }
+  }
+
   @Test
   public void testGetEntityBatchWithInvalidUrn() throws Exception {
     String requestBody = "[{\"urn\": \"invalid:urn\"}]";
@@ -533,6 +643,65 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testScrollFilterToRecordTemplate() {
+    // Construct expected filter.
+    ConjunctiveCriterionArray criteria = new ConjunctiveCriterionArray();
+    ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
+    Criterion criterion1 =
+        new Criterion()
+            .setField("name")
+            .setValues(new StringArray("foo"))
+            .setCondition(Condition.EQUAL);
+    Criterion criterion2 =
+        new Criterion()
+            .setField("anotherName")
+            .setValues(new StringArray("bar"))
+            .setCondition(Condition.EQUAL);
+    conjunctiveCriterion.setAnd(new CriterionArray(criterion1, criterion2));
+    criteria.add(conjunctiveCriterion);
+    Filter expectedFilter = new Filter().setOr(criteria);
+
+    // Construct tested filter.
+    io.datahubproject.openapi.v3.models.ConjunctiveCriterion openapiConjunctiveCriterion =
+        io.datahubproject.openapi.v3.models.ConjunctiveCriterion.builder()
+            .criteria(
+                List.of(
+                    io.datahubproject.openapi.v3.models.Criterion.builder()
+                        .field("name")
+                        .values(List.of("foo"))
+                        .build(),
+                    io.datahubproject.openapi.v3.models.Criterion.builder()
+                        .field("anotherName")
+                        .values(List.of("bar"))
+                        .build()))
+            .build();
+
+    io.datahubproject.openapi.v3.models.Filter openapiFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(List.of(openapiConjunctiveCriterion))
+            .build();
+
+    // Assert they are equal.
+    assertEquals(expectedFilter, openapiFilter.toRecordTemplate());
+  }
+
+  @Test
+  public void testScrollSortCriteriaToRecordTemplate() {
+    // Expected sort criteria.
+    SortCriterion sortCriterion = new SortCriterion();
+    sortCriterion.setField("name").setOrder(SortOrder.ASCENDING);
+
+    // Tested sort criteria
+    io.datahubproject.openapi.v3.models.SortCriterion openapiSortCriterion =
+        io.datahubproject.openapi.v3.models.SortCriterion.builder()
+            .field("name")
+            .order(io.datahubproject.openapi.v3.models.SortCriterion.SortOrder.ASCENDING)
+            .build();
+
+    assertEquals(sortCriterion, openapiSortCriterion.toRecordTemplate());
+  }
+
+  @Test
   public void testScrollEntitiesWithMultipleSortFields() throws Exception {
     List<Urn> TEST_URNS =
         List.of(
@@ -541,11 +710,20 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     ScrollResult expectedResult =
         new ScrollResult()
+            .setNumEntities(2)
+            .setMetadata(testSearchResultMetadata())
             .setEntities(
                 new SearchEntityArray(
                     List.of(
-                        new SearchEntity().setEntity(TEST_URNS.get(0)),
-                        new SearchEntity().setEntity(TEST_URNS.get(1)))));
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-1"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(1))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-id-2"))))));
 
     when(mockSearchService.scrollAcrossEntities(
             any(OperationContext.class),
@@ -581,14 +759,84 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testScrollEntitiesWithMissingValueParam() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(testSearchResultMetadata())
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id"))))));
+
+    // Capture the sort criteria passed to the SearchService
+    ArgumentCaptor<List> sortCriteriaCaptor = ArgumentCaptor.forClass(List.class);
+
+    when(mockSearchService.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            sortCriteriaCaptor.capture(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+
+    // Execute request with sortCriteria containing missingValue parameter
+    String requestBody =
+        "{\n"
+            + "  \"entities\": [\"dataset\"],\n"
+            + "  \"sortCriteria\": [\n"
+            + "    {\n"
+            + "      \"field\": \"name\",\n"
+            + "      \"order\": \"ASCENDING\",\n"
+            + "      \"missingValue\": \"FIRST\"\n"
+            + "    }\n"
+            + "  ]\n"
+            + "}";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    // Verify missingValue is set on the pegasus SortCriterion
+    List capturedSortCriteria = sortCriteriaCaptor.getValue();
+    assertNotNull(capturedSortCriteria);
+    assertTrue(capturedSortCriteria.size() > 0);
+    com.linkedin.metadata.query.filter.SortCriterion captured =
+        (com.linkedin.metadata.query.filter.SortCriterion) capturedSortCriteria.get(0);
+    assertEquals("_first", captured.data().get("missingValue"));
+  }
+
+  @Test
   public void testScrollEntitiesWithPitKeepAlive() throws Exception {
     List<Urn> TEST_URNS =
         List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
 
     ScrollResult expectedResult =
         new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(testSearchResultMetadata())
             .setEntities(
-                new SearchEntityArray(List.of(new SearchEntity().setEntity(TEST_URNS.get(0)))))
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id"))))))
             .setScrollId("test-scroll-id");
 
     when(mockSearchService.scrollAcrossEntities(
@@ -621,6 +869,150 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful())
         .andExpect(MockMvcResultMatchers.jsonPath("$.scrollId").value("test-scroll-id"));
+  }
+
+  @Test
+  public void testScrollEntitiesWithSliceParameters() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"),
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,2,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(2)
+            .setMetadata(testSearchResultMetadata())
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id-1"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(1))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id"))))))
+            .setScrollId("test-scroll-id");
+
+    // Use ArgumentCaptor to capture the OperationContext and verify slice options
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+
+    when(mockSearchService.scrollAcrossEntities(
+            opContextCaptor.capture(),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data()))),
+                TEST_URNS.get(1),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("sliceId", "0")
+                .param("sliceMax", "2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.entities[0].urn").value(TEST_URNS.get(0).toString()))
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.entities[1].urn").value(TEST_URNS.get(1).toString()));
+
+    // Verify that slice options were properly set in the operation context
+    OperationContext capturedOpContext = opContextCaptor.getValue();
+    assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
+    assertEquals(
+        0,
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+    assertEquals(
+        2,
+        capturedOpContext
+            .getSearchContext()
+            .getSearchFlags()
+            .getSliceOptions()
+            .getMax()
+            .intValue());
+  }
+
+  @Test
+  public void testScrollEntitiesWithOnlyOneSliceParameter() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setMetadata(testSearchResultMetadata())
+            .setNumEntities(1)
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-id-1"))))));
+
+    // Use ArgumentCaptor to capture the OperationContext and verify no slice options
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+
+    when(mockSearchService.scrollAcrossEntities(
+            opContextCaptor.capture(),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    // Test with only sliceId - should not set slice options
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("sliceId", "0")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    // Verify that slice options were not set (both parameters are required)
+    OperationContext capturedOpContext = opContextCaptor.getValue();
+    assertNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
   }
 
   public void testEntityVersioningFeatureFlagDisabled() throws Exception {
@@ -1391,5 +1783,263 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     assertNotNull(headers);
     assertEquals("test-value", headers.get("X-Custom-Header"));
     assertEquals("123", headers.get("X-Version-Match"));
+  }
+
+  @Test
+  public void testScrollDoesNotMutateDefaultSearchFlags() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(testSearchResultMetadata())
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id"))))))
+            .setScrollId("test-scroll-id");
+
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+
+    when(mockSearchService.scrollAcrossEntities(
+            opContextCaptor.capture(),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(com.linkedin.metadata.query.filter.Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("skipCache", "true")
+                .param("includeSoftDelete", "true")
+                .param("sliceId", "1")
+                .param("sliceMax", "5")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    OperationContext capturedOpContext = opContextCaptor.getValue();
+    SearchFlags capturedFlags = capturedOpContext.getSearchContext().getSearchFlags();
+
+    assertTrue(capturedFlags.isSkipCache());
+    assertTrue(capturedFlags.isIncludeSoftDeleted());
+    assertNotNull(capturedFlags.getSliceOptions());
+    assertEquals(1, capturedFlags.getSliceOptions().getId().intValue());
+    assertEquals(5, capturedFlags.getSliceOptions().getMax().intValue());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    capturedOpContext = opContextCaptor.getValue();
+    capturedFlags = capturedOpContext.getSearchContext().getSearchFlags();
+    assertFalse(capturedFlags.isSkipCache());
+    assertFalse(capturedFlags.isIncludeSoftDeleted());
+    assertNull(capturedFlags.getSliceOptions());
+  }
+
+  @Test
+  public void testPatchEntityBatchAuthAllowed() throws Exception {
+    Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,batch-auth,PROD)");
+    stubIngestProposalReturningUrn(testUrn);
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class)) {
+      authUtils
+          .when(() -> EntityAuthorizationUtils.isAPIAuthorizedBatchItems(any(), any()))
+          .thenAnswer(
+              invocation -> {
+                Collection<? extends BatchItem> items = invocation.getArgument(1);
+                return items.stream()
+                    .map(item -> Pair.of((BatchItem) item, HttpStatus.SC_OK))
+                    .collect(Collectors.toList());
+              });
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.patch("/openapi/v3/entity/dataset")
+                  .content(statusRemovedFalsePatchBody(testUrn))
+                  .contentType("application/json-patch+json")
+                  .param("async", "false")
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful())
+          .andExpect(MockMvcResultMatchers.jsonPath("$[0].urn").value(testUrn.toString()));
+    }
+
+    verify(mockEntityService)
+        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), eq(false));
+  }
+
+  @Test
+  public void testPatchEntityBatchAuthDenied() throws Exception {
+    Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,batch-auth-deny,PROD)");
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class)) {
+      authUtils
+          .when(() -> EntityAuthorizationUtils.isAPIAuthorizedBatchItems(any(), any()))
+          .thenAnswer(
+              invocation -> {
+                Collection<? extends BatchItem> items = invocation.getArgument(1);
+                return items.stream()
+                    .map(item -> Pair.of((BatchItem) item, HttpStatus.SC_FORBIDDEN))
+                    .collect(Collectors.toList());
+              });
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.patch("/openapi/v3/entity/dataset")
+                  .content(statusRemovedFalsePatchBody(testUrn))
+                  .contentType("application/json-patch+json")
+                  .param("async", "false")
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isForbidden());
+    }
+
+    verify(mockEntityService, times(0))
+        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
+  }
+
+  private static String statusRemovedFalsePatchBody(Urn urn) {
+    return "[\n"
+        + "    {\n"
+        + "      \"urn\": \""
+        + urn
+        + "\",\n"
+        + "      \"status\": {\n"
+        + "        \"value\": {\n"
+        + "          \"patch\": [{\n"
+        + "            \"op\": \"add\",\n"
+        + "            \"path\": \"/removed\",\n"
+        + "            \"value\": false\n"
+        + "          }]\n"
+        + "        }\n"
+        + "      }\n"
+        + "    }\n"
+        + "]";
+  }
+
+  private void stubIngestProposalReturningUrn(Urn urn) {
+    when(mockEntityService.ingestProposal(
+            any(OperationContext.class), any(AspectsBatch.class), eq(false)))
+        .thenAnswer(
+            invocation -> {
+              AspectsBatch batch = invocation.getArgument(1);
+              List<IngestResult> results = new ArrayList<>();
+              for (MCPItem item : batch.getMCPItems()) {
+                results.add(
+                    IngestResult.builder()
+                        .urn(item.getUrn())
+                        .request(item)
+                        .result(
+                            UpdateAspectResult.builder()
+                                .urn(item.getUrn())
+                                .auditStamp(item.getAuditStamp())
+                                .newValue(new Status().setRemoved(false))
+                                .newSystemMetadata(new SystemMetadata())
+                                .build())
+                        .sqlCommitted(true)
+                        .isUpdate(true)
+                        .publishedMCL(true)
+                        .build());
+              }
+              return results;
+            });
+  }
+
+  private SearchResultMetadata testSearchResultMetadata() {
+    AggregationMetadata aggregationMetadata = new AggregationMetadata();
+    aggregationMetadata.setAggregations(new LongMap(Collections.singletonMap("testPlatform", 1L)));
+    aggregationMetadata.setName("platform");
+    return new SearchResultMetadata()
+        .setAggregations(new AggregationMetadataArray(aggregationMetadata));
+  }
+
+  private void stubViewAuthorization(
+      Urn documentUrn, Urn sourceUrn, boolean canViewDocument, boolean canViewSource) {
+    reset(authorizerChain);
+    when(authorizerChain.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation ->
+                authorizationResult(
+                    invocation.getArgument(0),
+                    documentUrn,
+                    sourceUrn,
+                    canViewDocument,
+                    canViewSource));
+    when(authorizerChain.authorize(
+            any(AuthorizationRequest.class), any(Map.class), any(OperationContext.class)))
+        .thenAnswer(
+            invocation ->
+                authorizationResult(
+                    invocation.getArgument(0),
+                    documentUrn,
+                    sourceUrn,
+                    canViewDocument,
+                    canViewSource));
+  }
+
+  private static AuthorizationResult authorizationResult(
+      AuthorizationRequest request,
+      Urn documentUrn,
+      Urn sourceUrn,
+      boolean canViewDocument,
+      boolean canViewSource) {
+    boolean allowed =
+        request
+            .getResourceSpec()
+            .map(
+                resource ->
+                    (canViewDocument && documentUrn.toString().equals(resource.getEntity()))
+                        || (canViewSource && sourceUrn.toString().equals(resource.getEntity())))
+            .orElse(false);
+    return new AuthorizationResult(
+        request,
+        allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+        "bridge document test");
+  }
+
+  private static Map<String, Aspect> bridgeDocumentAspects(Urn sourceUrn) {
+    DocumentInfo documentInfo = new DocumentInfo();
+    StringMap properties = new StringMap();
+    properties.put(DocumentAuthorizationUtils.BRIDGE_TYPE_PROPERTY, sourceUrn.getEntityType());
+    properties.put(DocumentAuthorizationUtils.BRIDGE_SOURCE_ENTITY_PROPERTY, sourceUrn.toString());
+    documentInfo.setCustomProperties(properties);
+    SubTypes subTypes =
+        new SubTypes()
+            .setTypeNames(new StringArray(DocumentAuthorizationUtils.BRIDGE_DOCUMENT_SUBTYPE));
+    return Map.of(
+        DOCUMENT_INFO_ASPECT_NAME,
+        new Aspect(documentInfo.data()),
+        SUB_TYPES_ASPECT_NAME,
+        new Aspect(subTypes.data()));
   }
 }

@@ -1,0 +1,85 @@
+{
+  "eventTime": "2025-06-24T10:40:40.472698302Z",
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.35.0-SNAPSHOT/integration/flink",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "eventType": "START",
+  "run": {
+    "runId": "0197a186-8ffc-73ac-b5c7-5b168e062215",
+    "facets": {
+      "processing_engine": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.35.0-SNAPSHOT/integration/flink",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+        "version": "2.0.0",
+        "name": "flink",
+        "openlineageAdapterVersion": "1.35.0-SNAPSHOT"
+      },
+      "flink_job": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.35.0-SNAPSHOT/integration/flink",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "jobId": "21789fe91d5cf53f916a59bf8ea6c765"
+      }
+    }
+  },
+  "job": {
+    "namespace": "flink-jobs",
+    "name": "flink-sql-job-json",
+    "facets": {
+      "jobType": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.35.0-SNAPSHOT/integration/flink",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "processingType": "STREAMING",
+        "integration": "FLINK",
+        "jobType": "JOB"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "namespace": "kafka://kafka-prod",
+      "name": "lineage-test-topic-json",
+      "facets": {
+        "documentation": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.35.0-SNAPSHOT/integration/flink",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-0/DocumentationDatasetFacet.json#/$defs/DocumentationDatasetFacet",
+          "description": ""
+        },
+        "schema": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.35.0-SNAPSHOT/integration/flink",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "name": "text",
+              "type": "STRING",
+              "description": ""
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "namespace": "kafka://kafka-prod",
+      "name": "lineage-test-topic-json-flinkoutput",
+      "facets": {
+        "documentation": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.35.0-SNAPSHOT/integration/flink",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-0/DocumentationDatasetFacet.json#/$defs/DocumentationDatasetFacet",
+          "description": ""
+        },
+        "schema": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.35.0-SNAPSHOT/integration/flink",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "name": "text",
+              "type": "STRING",
+              "description": ""
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+}

@@ -1,7 +1,9 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal, message } from 'antd';
+import { toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Modal } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
@@ -13,7 +15,8 @@ import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/
 import { ApplicationLink } from '@app/shared/tags/ApplicationLink';
 import { useAppConfig } from '@app/useAppConfig';
 
-import { useBatchSetApplicationMutation } from '@graphql/application.generated';
+import { useBatchUnsetApplicationMutation } from '@graphql/application.generated';
+import { ApplicationAssociation } from '@types';
 
 const Content = styled.div`
     display: flex;
@@ -24,7 +27,7 @@ const Content = styled.div`
 `;
 
 const ApplicationLinkWrapper = styled.div`
-    margin-right: 12px;
+    margin-right: 4px;
     display: flex;
     align-items: center;
 `;
@@ -39,6 +42,8 @@ interface Props {
 }
 
 export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
     const {
         config: { visualConfig },
     } = useAppConfig();
@@ -46,47 +51,45 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
     const { entityData } = useEntityData();
     const refetch = useRefetch();
     const urn = useMutationUrn();
-    const [batchSetApplicationMutation] = useBatchSetApplicationMutation();
+    const [batchUnsetApplicationMutation] = useBatchUnsetApplicationMutation();
     const [showModal, setShowModal] = useState(false);
-    const application = entityData?.application?.application;
+    const applications = entityData?.applications || [];
     const canEditApplication = !!entityData?.privileges?.canEditProperties;
 
-    console.log('application', application);
-
-    if (!application && !visualConfig.application?.showSidebarSectionWhenEmpty) {
+    if (applications.length === 0 && !visualConfig.application?.showSidebarSectionWhenEmpty) {
         return null;
     }
 
-    const removeApplication = () => {
-        batchSetApplicationMutation({
+    const removeApplication = (applicationUrn: string) => {
+        batchUnsetApplicationMutation({
             variables: {
                 input: {
-                    applicationUrn: null,
+                    applicationUrn,
                     resourceUrns: [urn],
                 },
             },
         })
             .then(() => {
-                message.success({ content: 'Removed Application.', duration: 2 });
+                toast.success(t('sidebar.application.removeSuccess'), { duration: 2 });
                 refetch?.();
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to remove application: \n ${e.message || ''}`, duration: 3 });
+                    toast.error(t('sidebar.application.removeFailed', { message: e.message || '' }), { duration: 3 });
                 }
             });
     };
 
-    const onRemoveApplication = () => {
+    const onRemoveApplication = (applicationUrn: string) => {
         Modal.confirm({
-            title: `Confirm Application Removal`,
-            content: `Are you sure you want to remove this application?`,
+            title: t('sidebar.application.removeConfirmTitle'),
+            content: t('sidebar.application.removeConfirmContent'),
             onOk() {
-                removeApplication();
+                removeApplication(applicationUrn);
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: tc('yes'),
             maskClosable: true,
             closable: true,
         });
@@ -95,25 +98,32 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
     return (
         <div className="sidebar-application-section">
             <SidebarSection
-                title="Application"
+                title={t('sidebar.application.sectionTitle')}
                 content={
                     <Content>
-                        {application && (
-                            <ApplicationLinkWrapper>
-                                <ApplicationLink
-                                    application={application}
-                                    closable={!readOnly && !updateOnly && canEditApplication}
-                                    readOnly={readOnly}
-                                    onClose={(e) => {
-                                        e.preventDefault();
-                                        onRemoveApplication();
-                                    }}
-                                    fontSize={12}
-                                />
-                            </ApplicationLinkWrapper>
-                        )}
-                        {(!application || !!updateOnly) && (
-                            <>{!application && <EmptySectionText message={EMPTY_MESSAGES.application.title} />}</>
+                        {applications.length > 0 &&
+                            applications.map((appAssociation: ApplicationAssociation) => (
+                                <ApplicationLinkWrapper key={appAssociation.application?.urn}>
+                                    <ApplicationLink
+                                        application={appAssociation.application}
+                                        closable={!readOnly && !updateOnly && canEditApplication}
+                                        readOnly={readOnly}
+                                        onClose={(e) => {
+                                            e.preventDefault();
+                                            if (appAssociation.application?.urn) {
+                                                onRemoveApplication(appAssociation.application.urn);
+                                            }
+                                        }}
+                                        fontSize={12}
+                                    />
+                                </ApplicationLinkWrapper>
+                            ))}
+                        {(applications.length === 0 || !!updateOnly) && (
+                            <>
+                                {applications.length === 0 && (
+                                    <EmptySectionText message={EMPTY_MESSAGES.application.title} />
+                                )}
+                            </>
                         )}
                     </Content>
                 }
@@ -121,7 +131,7 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
                     !readOnly && (
                         <SectionActionButton
                             dataTestId="add-applications-button"
-                            button={application ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                            icon={applications.length > 0 ? PencilSimple : Plus}
                             onClick={(event) => {
                                 setShowModal(true);
                                 event.stopPropagation();

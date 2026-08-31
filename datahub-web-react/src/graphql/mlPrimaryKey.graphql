@@ -1,4 +1,4 @@
-query getMLPrimaryKey($urn: String!) {
+query getMLPrimaryKey($urn: String!, $skipSiblingsSearch: Boolean = false) {
     mlPrimaryKey(urn: $urn) {
         urn
         type
@@ -16,9 +16,6 @@ query getMLPrimaryKey($urn: String!) {
             properties {
                 ...structuredPropertiesFields
             }
-        }
-        forms {
-            ...formsFields
         }
         ...notes
     }

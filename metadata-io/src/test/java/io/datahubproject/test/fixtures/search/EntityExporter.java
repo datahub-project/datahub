@@ -1,15 +1,18 @@
 package io.datahubproject.test.fixtures.search;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
 
+import com.datahub.context.OperationFingerprint;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.Builder;
 import lombok.NonNull;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.opensearch.client.indices.GetMappingsResponse;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -18,7 +21,7 @@ import org.opensearch.search.sort.SortOrder;
 
 @Builder
 public class EntityExporter {
-  @NonNull private RestHighLevelClient client;
+  @NonNull private SearchClientShim<?> client;
   @Builder.Default private int fetchSize = 3000;
   @NonNull private FixtureWriter writer;
   @NonNull private String fixtureName;
@@ -26,10 +29,7 @@ public class EntityExporter {
   @Builder.Default private String sourceIndexSuffix = "index_v2";
 
   @Builder.Default
-  private Set<String> indexEntities =
-      SEARCHABLE_ENTITY_TYPES.stream()
-          .map(entityType -> entityType.toString().toLowerCase().replaceAll("_", ""))
-          .collect(Collectors.toSet());
+  private Set<String> indexEntities = new HashSet<>(parseCsv(DEFAULT_SEARCH_ENTITY_TYPES));
 
   public void export() throws IOException {
     Set<String> searchIndexSuffixes =
@@ -39,7 +39,10 @@ public class EntityExporter {
 
     // Fetch indices
     GetMappingsResponse response =
-        client.indices().getMapping(new GetMappingsRequest().indices("*"), RequestOptions.DEFAULT);
+        client.getIndexMapping(
+            OperationFingerprint.EMPTY,
+            new GetMappingsRequest().indices("*"),
+            RequestOptions.DEFAULT);
 
     response.mappings().keySet().stream()
         .filter(

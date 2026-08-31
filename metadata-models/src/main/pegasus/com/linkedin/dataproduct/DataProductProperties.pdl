@@ -1,6 +1,7 @@
 namespace com.linkedin.dataproduct
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
 
 /**
  * The main properties of a Data Product
@@ -16,7 +17,9 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   name: optional string
 
@@ -25,7 +28,9 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription"
+    "hasValuesFieldName": "hasDescription",
+    "searchTier": 2,
+    "sanitizeRichText": true
   }
   description: optional string
 
@@ -35,8 +40,22 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   @Relationship = {
     "/*/destinationUrn": {
       "name": "DataProductContains",
-      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey" ],
+      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "document" ],
     }
   }
   assets: optional array[DataProductAssociation]
+
+  /**
+   * Optional: parent Data Product, forming a parent-child taxonomy.
+   */
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "dataProduct" ],
+  }
+  @Searchable = {
+    "fieldName": "parentDataProduct",
+    "fieldType": "URN",
+    "hasValuesFieldName": "hasParentDataProduct"
+  }
+  parentDataProduct: optional Urn
 }

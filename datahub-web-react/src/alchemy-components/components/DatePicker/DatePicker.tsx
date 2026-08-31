@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
-import { StyledAntdDatePicker } from '@components/components/DatePicker/components';
+import { DatePickerWrapper, Label, StyledAntdDatePicker } from '@components/components/DatePicker/components';
 import { DatePickerVariant } from '@components/components/DatePicker/constants';
 import useVariantProps from '@components/components/DatePicker/hooks/useVariantProps';
 import { DatePickerProps, DatePickerValue } from '@components/components/DatePicker/types';
@@ -16,6 +16,8 @@ export function DatePicker({
     variant = datePickerDefault.variant,
     disabled = datePickerDefault.disabled,
     disabledDate,
+    placeholder,
+    label,
 }: DatePickerProps) {
     const [internalValue, setInternalValue] = useState<DatePickerValue | undefined>(value);
 
@@ -38,18 +40,22 @@ export function DatePicker({
                     open: isOpen,
                     setValue: setInternalValue,
                 },
+                placeholder,
             });
-    }, [disabled, isOpen, inputRender]);
+    }, [disabled, placeholder, isOpen, inputRender]);
 
     return (
-        <StyledAntdDatePicker
-            {...datePickerProps}
-            value={value}
-            inputRender={wrappedInputRender && ((props) => wrappedInputRender?.(props))}
-            onChange={(newValue) => setInternalValue(newValue)}
-            onOpenChange={(open) => setIsOpen(open)}
-            disabled={disabled}
-            disabledDate={disabledDate}
-        />
+        <DatePickerWrapper>
+            {label && <Label aria-label={label}>{label}</Label>}
+            <StyledAntdDatePicker
+                {...datePickerProps}
+                value={value}
+                inputRender={wrappedInputRender && ((props) => wrappedInputRender?.(props))}
+                onChange={(newValue) => setInternalValue(newValue)}
+                onOpenChange={(open) => setIsOpen(open)}
+                disabled={disabled}
+                disabledDate={disabledDate}
+            />
+        </DatePickerWrapper>
     );
 }

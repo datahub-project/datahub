@@ -4,7 +4,6 @@ from typing import Dict, Optional
 
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.lossy_collections import LossyDict
@@ -15,7 +14,6 @@ from datahub.utilities.stats_collections import TopKDict
 @dataclass
 class RedshiftReport(
     SQLSourceReport,
-    IngestionStageReport,
     BaseTimeWindowReport,
     ClassificationReportMixin,
 ):
@@ -58,7 +56,14 @@ class RedshiftReport(
 
     # lineage/usage v2
     sql_aggregator: Optional[SqlAggregatorReport] = None
+    # The default (stl_scan) usage path builds its own aggregator; surface its
+    # report too so that path isn't an observability blind spot.
+    usage_aggregator: Optional[SqlAggregatorReport] = None
     lineage_phases_timer: Dict[str, PerfTimer] = field(default_factory=dict)
+    # Split usage/unified-feed cost into fetching rows from Redshift vs
+    # parsing/feeding the aggregator, so a slow run is diagnosable.
+    usage_query_fetch_timer: PerfTimer = field(default_factory=PerfTimer)
+    usage_parsing_timer: PerfTimer = field(default_factory=PerfTimer)
 
     is_shared_database: bool = False
     outbound_shares_count: Optional[int] = None

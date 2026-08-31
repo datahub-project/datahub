@@ -1,0 +1,52 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "c0bbfe77effc66a53b03af5a72da5dfb45e15230c6bf358e1a00d7e4dfee8cb9",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_data,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "region",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_data,PROD)",
+                    "column": "region"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"_0\".\"REGION\" AS \"REGION\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "product",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_data,PROD)",
+                    "column": "product"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"_0\".\"PRODUCT\" AS \"PRODUCT\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT region, product FROM SEMANTIC_VIEW(sales_data DIMENSIONS region, product)"
+    }
+}

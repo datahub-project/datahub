@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.client.BaseClient;
+import com.linkedin.common.client.restli.RestliRequestContextResolver;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
@@ -26,6 +27,7 @@ import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteReferencesRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoExistsRequestBuilder;
+import com.linkedin.entity.EntitiesDoFilterExistingUrnsRequestBuilder;
 import com.linkedin.entity.EntitiesDoFilterRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
 import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
@@ -46,6 +48,7 @@ import com.linkedin.entity.EntitiesVersionedV2RequestBuilders;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityArray;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.FilterExistingUrnsRequest;
 import com.linkedin.entity.RunsDoRollbackRequestBuilder;
 import com.linkedin.entity.RunsRequestBuilders;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
@@ -71,6 +74,8 @@ import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeProposalArray;
 import com.linkedin.mxe.PlatformEvent;
@@ -87,6 +92,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -127,9 +133,29 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   private final ExecutorService batchGetV2Pool;
   private final ExecutorService batchIngestPool;
 
+  /**
+   * Legacy no-resolver constructor — pass-through outbound decoration (see {@link BaseClient}).
+   * Production wiring should prefer the overload that accepts a {@link
+   * RestliRequestContextResolver} so any registered enrichers' headers land on every Restli call.
+   */
   public RestliEntityClient(
-      @Nonnull final Client restliClient, EntityClientConfig entityClientConfig) {
-    super(restliClient, entityClientConfig);
+      @Nonnull final Client restliClient,
+      EntityClientConfig entityClientConfig,
+      MetricUtils metricUtils) {
+    this(restliClient, entityClientConfig, metricUtils, null);
+  }
+
+  public RestliEntityClient(
+      @Nonnull final Client restliClient,
+      EntityClientConfig entityClientConfig,
+      MetricUtils metricUtils,
+      @Nullable final RestliRequestContextResolver restliRequestContextResolver) {
+    super(
+        restliClient,
+        entityClientConfig,
+        restliRequestContextResolver != null
+            ? restliRequestContextResolver
+            : new RestliRequestContextResolver(java.util.Collections.emptyList()));
     this.batchGetV2Pool =
         new ThreadPoolExecutor(
             entityClientConfig.getBatchGetV2Concurrency(), // core threads
@@ -139,6 +165,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             new ArrayBlockingQueue<>(
                 entityClientConfig.getBatchGetV2QueueSize()), // fixed size queue
             new ThreadPoolExecutor.CallerRunsPolicy());
+    if (metricUtils != null) {
+      MicrometerMetricsRegistry.registerExecutorMetrics(
+          "entity-client-get", this.batchGetV2Pool, metricUtils.getRegistry());
+    }
     this.batchIngestPool =
         new ThreadPoolExecutor(
             entityClientConfig.getBatchIngestConcurrency(), // core threads
@@ -148,6 +178,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             new ArrayBlockingQueue<>(
                 entityClientConfig.getBatchIngestQueueSize()), // fixed size queue
             new ThreadPoolExecutor.CallerRunsPolicy());
+    if (metricUtils != null) {
+      MicrometerMetricsRegistry.registerExecutorMetrics(
+          "entity-client-ingest", this.batchIngestPool, metricUtils.getRegistry());
+    }
   }
 
   @Override
@@ -165,16 +199,14 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .aspectsParam(aspectNames)
             .id(urn.toString())
             .alwaysIncludeKeyAspectParam(alwaysIncludeKeyAspect);
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   @Override
   @Nonnull
   public Entity get(@Nonnull OperationContext opContext, @Nonnull final Urn urn)
       throws RemoteInvocationException {
-    return sendClientRequest(
-            ENTITIES_REQUEST_BUILDERS.get().id(urn.toString()),
-            opContext.getSessionAuthentication())
+    return sendClientRequest(ENTITIES_REQUEST_BUILDERS.get().id(urn.toString()), opContext)
         .getEntity();
   }
 
@@ -209,7 +241,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
               .batchGet()
               .ids(urnsInBatch.stream().map(Urn::toString).collect(Collectors.toSet()));
       final Map<Urn, Entity> batchResponse =
-          sendClientRequest(batchGetRequestBuilder, opContext.getSessionAuthentication())
+          sendClientRequest(batchGetRequestBuilder, opContext)
               .getEntity()
               .getResults()
               .entrySet()
@@ -272,8 +304,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
                                             .map(Urn::toString)
                                             .collect(Collectors.toList()));
 
-                            return sendClientRequest(
-                                    requestBuilder, opContext.getSessionAuthentication())
+                            return sendClientRequest(requestBuilder, opContext)
                                 .getEntity()
                                 .getResults()
                                 .entrySet()
@@ -343,8 +374,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
                                                         versionedUrn.getVersionStamp()))
                                             .collect(Collectors.toSet()));
 
-                            return sendClientRequest(
-                                    requestBuilder, opContext.getSessionAuthentication())
+                            return sendClientRequest(requestBuilder, opContext)
                                 .getEntity()
                                 .getResults()
                                 .entrySet()
@@ -399,7 +429,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .fieldParam(field)
             .filterParam(filterOrDefaultEmptyFilter(requestFilters))
             .limitParam(limit);
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -427,7 +457,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .queryParam(query)
             .filterParam(filterOrDefaultEmptyFilter(requestFilters))
             .limitParam(limit);
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -460,7 +490,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (requestFilters != null) {
       requestBuilder.filterParam(newFilter(requestFilters));
     }
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -505,7 +535,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException {
     EntitiesDoIngestRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity);
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   @Override
@@ -525,7 +555,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .entityParam(entity)
             .systemMetadataParam(systemMetadata);
 
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   @Override
@@ -534,7 +564,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     EntitiesDoBatchIngestRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionBatchIngest().entitiesParam(new EntityArray(entities));
 
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   /**
@@ -571,7 +601,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .countParam(count);
     requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -600,7 +630,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .startParam(start)
             .countParam(count);
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -651,7 +681,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       }
     }
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -702,7 +732,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
     }
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   @Override
@@ -742,7 +772,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
     }
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   @Nonnull
@@ -790,7 +820,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
     requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   @Override
@@ -841,7 +871,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
     requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -857,7 +887,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException {
     EntitiesDoGetBrowsePathsRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionGetBrowsePaths().urnParam(urn);
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   @Override
@@ -865,7 +895,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException {
     EntitiesDoSetWritableRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionSetWritable().valueParam(canWrite);
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   @Override
@@ -883,7 +913,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         ENTITIES_REQUEST_BUILDERS
             .actionBatchGetTotalEntityCount()
             .entitiesParam(new StringArray(entityName));
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /** List all urns existing for a particular Entity type. */
@@ -900,7 +930,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .entityParam(entityName)
             .startParam(start)
             .countParam(count);
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /** Hard delete an entity with a particular urn. */
@@ -909,7 +939,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException {
     EntitiesDoDeleteRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionDelete().urnParam(urn.toString());
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   /** Delete all references to a particular entity. */
@@ -918,7 +948,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException {
     EntitiesDoDeleteReferencesRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionDeleteReferences().urnParam(urn.toString());
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   @Nonnull
@@ -942,7 +972,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.sortParam(sortCriteria.get(0));
       requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
     }
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   @Override
@@ -960,7 +990,31 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .actionExists()
             .urnParam(urn.toString())
             .includeSoftDeleteParam(includeSoftDeleted);
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
+  }
+
+  @Override
+  @Nonnull
+  public Set<Urn> filterExistingUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns)
+      throws RemoteInvocationException {
+    if (urns.isEmpty()) {
+      return Collections.emptySet();
+    }
+
+    FilterExistingUrnsRequest request =
+        new FilterExistingUrnsRequest()
+            .setUrns(
+                new StringArray(urns.stream().map(Urn::toString).collect(Collectors.toList())));
+
+    EntitiesDoFilterExistingUrnsRequestBuilder requestBuilder =
+        ENTITIES_REQUEST_BUILDERS.actionFilterExistingUrns().requestParam(request);
+    StringArray existingUrnStrs = sendClientRequest(requestBuilder, opContext).getEntity();
+    Set<Urn> existing = new HashSet<>();
+    for (String urnStr : existingUrnStrs) {
+      existing.add(UrnUtils.getUrn(urnStr));
+    }
+    return existing;
   }
 
   /**
@@ -982,7 +1036,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     AspectsGetRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS.get().id(urn).aspectParam(aspect).versionParam(version);
 
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -1004,7 +1058,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     AspectsGetRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS.get().id(urn).aspectParam(aspect).versionParam(version);
     try {
-      return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+      return sendClientRequest(requestBuilder, opContext).getEntity();
     } catch (RestLiResponseException e) {
       if (e.getStatus() == HttpStatus.S_404_NOT_FOUND.getCode()) {
         // Then the aspect was not found. Return null.
@@ -1067,9 +1121,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.sortParam(sort);
     }
 
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication())
-        .getEntity()
-        .getValues();
+    return sendClientRequest(requestBuilder, opContext).getEntity().getValues();
   }
 
   @Nonnull
@@ -1098,13 +1150,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
                             final AspectsDoIngestProposalBatchRequestBuilder requestBuilder =
                                 ASPECTS_REQUEST_BUILDERS
                                     .actionIngestProposalBatch()
-                                    .proposalsParam(
-                                        new MetadataChangeProposalArray(metadataChangeProposals))
+                                    .proposalsParam(new MetadataChangeProposalArray(batch))
                                     .asyncParam(String.valueOf(async));
                             String result =
-                                sendClientRequest(
-                                        requestBuilder, opContext.getSessionAuthentication())
-                                    .getEntity();
+                                sendClientRequest(requestBuilder, opContext).getEntity();
 
                             if (RESTLI_SUCCESS.equals(result)) {
                               return batch.stream()
@@ -1156,8 +1205,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         ASPECTS_REQUEST_BUILDERS.get().id(urn).aspectParam(aspect).versionParam(version);
 
     try {
-      VersionedAspect entity =
-          sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+      VersionedAspect entity = sendClientRequest(requestBuilder, opContext).getEntity();
       if (entity.hasAspect()) {
         DataMap rawAspect = ((DataMap) entity.data().get("aspect"));
         if (rawAspect.containsKey(aspectClass.getCanonicalName())) {
@@ -1201,7 +1249,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (key != null) {
       requestBuilder.keyParam(key);
     }
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   @Override
@@ -1210,7 +1258,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws Exception {
     final RunsDoRollbackRequestBuilder requestBuilder =
         RUNS_REQUEST_BUILDERS.actionRollback().runIdParam(runId).dryRunParam(false);
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   // TODO: Refactor QueryUtils inside of metadata-io to extract these methods into a single shared

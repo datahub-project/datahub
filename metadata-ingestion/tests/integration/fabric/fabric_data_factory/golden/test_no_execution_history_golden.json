@@ -1,0 +1,296 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "fabric",
+                "env": "PROD",
+                "workspace_id": "ws-11111111-1111-1111-1111-111111111111"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/groups/ws-11111111-1111-1111-1111-111111111111/list",
+            "name": "Production Workspace",
+            "qualifiedName": "ws-11111111-1111-1111-1111-111111111111",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fabric"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Fabric Workspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fabric-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "pipeline_id": "pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                "workspace_id": "ws-11111111-1111-1111-1111-111111111111"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/groups/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "name": "Simple Pipeline",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+                    "urn": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),Step1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fabric-data-factory"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),Step1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "activity_type": "Lookup",
+                "state": "Active"
+            },
+            "externalUrl": "https://app.fabric.microsoft.com/groups/ws-11111111-1111-1111-1111-111111111111/pipelines/pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "name": "Step1",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),Step1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Lookup Activity"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),Step1)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),Step1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+                    "urn": "urn:li:container:2815a3749ee83086336a8645afeaabfb"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2815a3749ee83086336a8645afeaabfb",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fabric-data-factory,ws-11111111-1111-1111-1111-111111111111.pl-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa,PROD),Step1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "no-execution-history-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

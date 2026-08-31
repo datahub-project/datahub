@@ -1,5 +1,5 @@
 ---
-description: This page provides an overview of working with DataHub SQL Assertions
+description: "Define and run Custom SQL Assertions in DataHub Cloud Observe to validate data quality with arbitrary SQL queries."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -34,15 +34,11 @@ Let's get started!
 
 ## Support
 
-Custom SQL Assertions are currently supported for:
+:::caution Warehouse-only assertion type
+Custom SQL Assertions **require an active warehouse connection** — there is no ingestion-driven fallback, because an arbitrary SQL query can only be executed by the source system itself. Custom SQL Assertions are therefore **only available on Snowflake, Redshift, BigQuery, and Databricks**.
+:::
 
-1. Snowflake
-2. Redshift
-3. BigQuery
-4. Databricks
-
-Note that an Ingestion Source _must_ be configured with the data platform of your choice in DataHub Cloud's **Ingestion**
-tab.
+An Ingestion Source _must_ be configured with the data platform of your choice in DataHub Cloud's **Ingestion** tab.
 
 > Note that SQL Assertions are not yet supported if you are connecting to your warehouse
 > using the DataHub CLI.
@@ -192,6 +188,20 @@ To resume the assertion, simply click **Start**.
 
 <p align="left">
   <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
+</p>
+
+## Anomaly Detection ⚡
+
+:::info
+Anomaly Detection on Custom SQL Assertions is currently in **Public Beta** — available to all DataHub Cloud customers; we welcome feedback as we continue to iterate.
+:::
+
+Custom SQL Assertions support [Anomaly Detection](./anomaly-detection.md) — an AI-powered alternative to a fixed threshold that learns the normal distribution of the metric returned by your SQL query and flags statistical outliers. Because Custom SQL itself requires an active warehouse connection, Anomaly Detection for Custom SQL is available on Snowflake, Redshift, BigQuery, and Databricks only.
+
+You can enable Anomaly Detection by selecting the `Detect with AI` option in the UI:
+
+<p align="left">
+  <img width="90%"  src="/imgs/observe/custom/custom-sql-smart-assertion.png"/>
 </p>
 
 ## Creating Custom SQL Assertions via API

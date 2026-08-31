@@ -24,6 +24,8 @@ query appConfig {
         }
         authConfig {
             tokenAuthEnabled
+            allowNoExpiry
+            allowedAccessTokenDurations
         }
         identityManagementConfig {
             enabled
@@ -54,6 +56,7 @@ query appConfig {
             }
             application {
                 showSidebarSectionWhenEmpty
+                showApplicationInNavigation
             }
         }
         telemetryConfig {
@@ -68,6 +71,12 @@ query appConfig {
         searchBarConfig {
             apiVariant
         }
+        searchCardConfig {
+            showDescription
+        }
+        searchFlagsConfig {
+            defaultSkipHighlighting
+        }
         homePageConfig {
             firstInPersonalSidebar
         }
@@ -81,12 +90,12 @@ query appConfig {
             nestedDomainsEnabled
             platformBrowseV2
             businessAttributeEntityEnabled
+            contextDocumentsEnabled
             dataContractsEnabled
             editableDatasetNameEnabled
             themeV2Enabled
             themeV2Default
             themeV2Toggleable
-            lineageGraphV2
             showSeparateSiblings
             showManageStructuredProperties
             schemaFieldCLLEnabled
@@ -101,7 +110,27 @@ query appConfig {
             showIntroducePage
             showIngestionPageRedesign
             showLineageExpandMore
+            showLineageFilterNodes
+            showStatsTabRedesign
             showHomePageRedesign
+            showDefaultExternalLinks
+            showProductUpdates
+            logicalModelsEnabled
+            showHomepageUserRole
+            assetSummaryPageV1
+            datasetSummaryPageV1
+            metricsEnabled
+            ingestionOnboardingRedesignV1
+            documentationFileUploadV1
+            contextDocumentsEnabled
+            hideLineageInSearchCards
+            dataProductLineageEnabled
+            glossaryBasedPoliciesEnabled
+            multipleDataProductsPerAsset
+            showTestsInHealthIcon
+            i18nEnabled
+            browserTracingEnabled
+            browserWebVitalsEnabled
         }
         chromeExtensionConfig {
             enabled
@@ -131,10 +160,61 @@ query getDocPropagationSettings {
     }
 }
 
+query getHomePageSettings {
+    globalHomePageSettings {
+        defaultTemplate {
+            ...PageTemplate
+        }
+    }
+}
+
+query getPresignedUploadUrl($input: GetPresignedUploadUrlInput!) {
+    getPresignedUploadUrl(input: $input) {
+        url
+        fileId
+    }
+}
+
+mutation createDataHubFile($input: CreateDataHubFileInput!) {
+    createDataHubFile(input: $input) {
+        file {
+            urn
+        }
+    }
+}
+
 mutation updateGlobalViewsSettings($input: UpdateGlobalViewsSettingsInput!) {
     updateGlobalViewsSettings(input: $input)
 }
 
 mutation updateDocPropagationSettings($input: UpdateDocPropagationSettingsInput!) {
     updateDocPropagationSettings(input: $input)
+}
+
+mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
+    updateApplicationsSettings(input: $input)
+}
+
+query getLatestProductUpdate {
+    latestProductUpdate {
+        enabled
+        id
+        title
+        header
+        requiredVersion
+        description
+        image
+        primaryCtaText
+        primaryCtaLink
+        secondaryCtaText
+        secondaryCtaLink
+        ctaText
+        ctaLink
+        features {
+            title
+            description
+            icon
+            availability
+        }
+    }
 }

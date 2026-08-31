@@ -13,7 +13,7 @@ import {
     FiltersRenderer,
 } from '@app/searchV2/filtersV2/types';
 
-export interface Props {
+interface Props {
     fields: FieldName[];
     viewUrn?: string | null;
     fieldToAppliedFiltersMap?: FieldToAppliedFieldFiltersMap;

@@ -1,0 +1,41 @@
+[
+  {
+    "name": "campaign-attribution",
+    "enabled": true,
+    "schemaKey": "iglu:com.snowplowanalytics.snowplow/campaign_attribution/jsonschema/1-0-0",
+    "userData": {
+      "mapping": "static",
+      "fields": {
+        "mktCampaign": ["utm_campaign"],
+        "mktContent": ["utm_content"],
+        "mktMedium": ["utm_medium"],
+        "mktSource": ["utm_source"],
+        "mktTerm": ["utm_term"]
+      }
+    }
+  },
+  {
+    "name": "event-fingerprint",
+    "enabled": true,
+    "schemaKey": "iglu:com.snowplowanalytics.snowplow/event_fingerprint_config/jsonschema/1-0-1",
+    "userData": {
+      "excludeParameters": ["cv", "eid", "nuid", "stm"],
+      "hashAlgorithm": "MD5"
+    }
+  },
+  {
+    "name": "anon-ip",
+    "enabled": false,
+    "schemaKey": "iglu:com.snowplowanalytics.snowplow/anon_ip/jsonschema/1-0-1",
+    "userData": {
+      "anonOctets": 1,
+      "anonSegments": 1
+    }
+  },
+  {
+    "name": "api-request-enrichment",
+    "enabled": false,
+    "schemaKey": "iglu:com.snowplowanalytics.snowplow.enrichments/api_request_enrichment_config/jsonschema/1-0-0",
+    "userData": {}
+  }
+]

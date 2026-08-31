@@ -4,8 +4,13 @@ import static auth.AuthUtils.*;
 import static auth.ConfigUtil.*;
 
 import auth.sso.SsoConfigs;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.Getter;
 
 /** Class responsible for extracting and validating OIDC related configurations. */
@@ -44,6 +49,12 @@ public class OidcConfigs extends SsoConfigs {
   public static final String OIDC_PREFERRED_JWS_ALGORITHM = "auth.oidc.preferredJwsAlgorithm";
   public static final String OIDC_GRANT_TYPE = "auth.oidc.grantType";
   public static final String OIDC_ACR_VALUES = "auth.oidc.acrValues";
+  public static final String OIDC_HTTP_RETRY_ATTEMPTS = "auth.oidc.httpRetryAttempts";
+  public static final String OIDC_HTTP_RETRY_DELAY = "auth.oidc.httpRetryDelay";
+  public static final String OIDC_ACCESS_DENIED_REDIRECT_URL = "auth.oidc.accessDeniedRedirectUrl";
+  public static final String OIDC_ACCESS_DENIED_MESSAGE = "auth.oidc.accessDeniedMessage";
+  public static final String OIDC_DISABLE_PKCE = "auth.oidc.disablePkce";
+  public static final String OIDC_REQUIRED_GROUPS_CONFIG_PATH = "auth.oidc.requiredGroups";
 
   /** Default values */
   private static final String DEFAULT_OIDC_USERNAME_CLAIM = "email";
@@ -60,6 +71,8 @@ public class OidcConfigs extends SsoConfigs {
   private static final String DEFAULT_OIDC_GROUPS_CLAIM = "groups";
   private static final String DEFAULT_OIDC_READ_TIMEOUT = "5000";
   private static final String DEFAULT_OIDC_CONNECT_TIMEOUT = "1000";
+  private static final String DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS = "3";
+  private static final String DEFAULT_OIDC_HTTP_RETRY_DELAY = "1000";
 
   private final String clientId;
   private final String clientSecret;
@@ -83,6 +96,14 @@ public class OidcConfigs extends SsoConfigs {
   private final Optional<String> preferredJwsAlgorithm;
   private final Optional<String> grantType;
   private final Optional<String> acrValues;
+  private final String httpRetryAttempts;
+  private final String httpRetryDelay;
+  private final Optional<String> accessDeniedRedirectUrl;
+  private final Optional<String> accessDeniedMessage;
+  private final boolean disablePkce;
+
+  /* Group Access Control */
+  private final Set<String> requiredGroups;
 
   public OidcConfigs(Builder builder) {
     super(builder);
@@ -108,6 +129,20 @@ public class OidcConfigs extends SsoConfigs {
     this.preferredJwsAlgorithm = builder.preferredJwsAlgorithm;
     this.acrValues = builder.acrValues;
     this.grantType = builder.grantType;
+    this.httpRetryAttempts = builder.httpRetryAttempts;
+    this.httpRetryDelay = builder.httpRetryDelay;
+    this.accessDeniedRedirectUrl = builder.accessDeniedRedirectUrl;
+    this.accessDeniedMessage = builder.accessDeniedMessage;
+    this.disablePkce = builder.disablePkce;
+    this.requiredGroups = builder.requiredGroups;
+  }
+
+  public String getHttpRetryAttempts() {
+    return httpRetryAttempts;
+  }
+
+  public String getHttpRetryDelay() {
+    return httpRetryDelay;
   }
 
   public static class Builder extends SsoConfigs.Builder<Builder> {
@@ -136,6 +171,52 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<String> preferredJwsAlgorithm = Optional.empty();
     private Optional<String> grantType = Optional.empty();
     private Optional<String> acrValues = Optional.empty();
+    private String httpRetryAttempts = DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS;
+    private String httpRetryDelay = DEFAULT_OIDC_HTTP_RETRY_DELAY;
+    private Optional<String> accessDeniedRedirectUrl = Optional.empty();
+    private Optional<String> accessDeniedMessage = Optional.empty();
+    private boolean disablePkce = false;
+    private Set<String> requiredGroups = Collections.emptySet();
+
+    private static Set<String> parseRequiredGroupsFromConfig(
+        final com.typesafe.config.Config configs) {
+      return getOptional(configs, OIDC_REQUIRED_GROUPS_CONFIG_PATH)
+          .map(
+              s ->
+                  Arrays.stream(s.split(","))
+                      .map(String::trim)
+                      .filter(str -> !str.isEmpty())
+                      .collect(Collectors.toSet()))
+          .orElse(Collections.emptySet());
+    }
+
+    private void seedAccessControlFromConfig(final com.typesafe.config.Config configs) {
+      requiredGroups = parseRequiredGroupsFromConfig(configs);
+      accessDeniedRedirectUrl = getOptional(configs, OIDC_ACCESS_DENIED_REDIRECT_URL);
+      accessDeniedMessage = getOptional(configs, OIDC_ACCESS_DENIED_MESSAGE);
+    }
+
+    private void overlayAccessControlFromJson() {
+      if (jsonNode.has(REQUIRED_GROUPS) && jsonNode.get(REQUIRED_GROUPS).isArray()) {
+        final Set<String> parsedGroups = new HashSet<>();
+        jsonNode
+            .get(REQUIRED_GROUPS)
+            .forEach(
+                node -> {
+                  final String group = node.asText().trim();
+                  if (!group.isEmpty()) {
+                    parsedGroups.add(group);
+                  }
+                });
+        requiredGroups = parsedGroups;
+      }
+      if (jsonNode.has(ACCESS_DENIED_MESSAGE)) {
+        accessDeniedMessage = Optional.of(jsonNode.get(ACCESS_DENIED_MESSAGE).asText());
+      }
+      if (jsonNode.has(ACCESS_DENIED_REDIRECT_URL)) {
+        accessDeniedRedirectUrl = Optional.of(jsonNode.get(ACCESS_DENIED_REDIRECT_URL).asText());
+      }
+    }
 
     public Builder from(final com.typesafe.config.Config configs) {
       super.from(configs);
@@ -185,11 +266,21 @@ public class OidcConfigs extends SsoConfigs {
           Optional.ofNullable(getOptional(configs, OIDC_PREFERRED_JWS_ALGORITHM, null));
       grantType = Optional.ofNullable(getOptional(configs, OIDC_GRANT_TYPE, null));
       acrValues = Optional.ofNullable(getOptional(configs, OIDC_ACR_VALUES, null));
+      httpRetryAttempts =
+          getOptional(configs, OIDC_HTTP_RETRY_ATTEMPTS, DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS);
+      httpRetryDelay = getOptional(configs, OIDC_HTTP_RETRY_DELAY, DEFAULT_OIDC_HTTP_RETRY_DELAY);
+      if (configs.hasPath(OIDC_DISABLE_PKCE)) {
+        disablePkce = configs.getBoolean(OIDC_DISABLE_PKCE);
+      }
+      seedAccessControlFromConfig(configs);
       return this;
     }
 
     public Builder from(final com.typesafe.config.Config configs, final String ssoSettingsJsonStr) {
       super.from(ssoSettingsJsonStr);
+      // Seed access-control fields from env/static config first so they survive dynamic SSO
+      // refresh when the JSON omits them (see #18591).
+      seedAccessControlFromConfig(configs);
       if (jsonNode.has(CLIENT_ID)) {
         clientId = jsonNode.get(CLIENT_ID).asText();
       }
@@ -254,6 +345,8 @@ public class OidcConfigs extends SsoConfigs {
 
       grantType = Optional.ofNullable(getOptional(configs, OIDC_GRANT_TYPE, null));
       acrValues = Optional.ofNullable(getOptional(configs, OIDC_ACR_VALUES, null));
+
+      overlayAccessControlFromJson();
 
       return this;
     }

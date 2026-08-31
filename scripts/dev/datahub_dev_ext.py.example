@@ -1,0 +1,96 @@
+"""
+datahub_dev_ext.py — extension point for fork-specific configuration.
+
+USAGE
+-----
+Copy this file to ``scripts/dev/datahub_dev_ext.py`` in your fork (or just
+drop a new file at that path). ``datahub_dev.py`` auto-discovers it at startup
+and calls ``extend_config(config)`` so you can overlay any field without ever
+touching the upstream file again.
+
+The file is gitignored in the main repo, so it will never appear as an
+untracked change in upstream PRs.
+
+AVAILABLE EXTENSION POINTS
+---------------------------
+All fields of ``DevToolingConfig`` are mutable inside ``extend_config``:
+
+  config.module_to_container   dict[str, tuple[str|None, str|None]]
+      Maps a repo-path prefix to (gradle_task, docker_service_name).
+      Set gradle_task=None to trigger a full rebuild when that prefix changes.
+
+  config.rebuild_module_aliases   dict[str, str]
+      Short alias → docker service name, used by ``rebuild --module <alias>``.
+
+  config.services   list[ServiceConfig]
+      Ordered list of HTTP health-check endpoints. ``cmd_status`` and
+      ``cmd_wait`` iterate this list.  Each entry has:
+        name       str         label in JSON output
+        health_url str         must return HTTP 200 to be considered healthy
+        status_url str | None  optional URL whose JSON body is shown in status output
+        required   bool        if True, must be up for overall ready=True
+
+  config.gradle_reload_task          str   default ":docker:reload"
+  config.gradle_reload_env_task      str   default ":docker:reloadEnv"
+  config.gradle_quickstart_task      str   default "quickstartDebug"
+  config.gradle_smoke_install_task   str   default ":smoke-test:installDev"
+  config.gradle_sync_flags_task      str   default ":metadata-service:configuration:generateFlagClassification"
+
+EXAMPLE: Acryl fork
+-------------------
+The snippet below shows how the Acryl fork adds three extra services and
+overrides the quickstart Gradle task — all without modifying datahub_dev.py.
+"""
+
+import os
+
+from datahub_dev import DevToolingConfig, ServiceConfig
+
+INTEGRATIONS_URL = os.environ.get("DATAHUB_INTEGRATIONS_URL", "http://localhost:9003")
+EXECUTOR_URL = os.environ.get("DATAHUB_EXECUTOR_URL", "http://localhost:9004")
+
+
+def extend_config(config: DevToolingConfig) -> DevToolingConfig:
+    # Register new modules so `rebuild` auto-detects changes in those paths
+    config.module_to_container.update(
+        {
+            "datahub-integrations-service/": (
+                ":datahub-integrations-service:dockerPrepare",
+                "datahub-integrations-service",
+            ),
+            "datahub-executor/": (
+                ":datahub-executor:dockerPrepare",
+                "datahub-executor-coordinator",
+            ),
+        }
+    )
+
+    # Add short aliases for `rebuild --module <alias>`
+    config.rebuild_module_aliases.update(
+        {
+            "integrations": "datahub-integrations-service",
+            "executor": "datahub-executor-coordinator",
+        }
+    )
+
+    # Add health-check entries (required=False: won't block overall readiness
+    # when the services are absent, e.g. when running without a specific profile)
+    config.services.extend(
+        [
+            ServiceConfig(
+                "integrations",
+                f"{INTEGRATIONS_URL}/health",
+                required=False,
+            ),
+            ServiceConfig(
+                "executor",
+                f"{EXECUTOR_URL}/health",
+                required=False,
+            ),
+        ]
+    )
+
+    # Use the fork-specific quickstart task instead of the upstream one
+    config.gradle_quickstart_task = "quickstartDebugAcryl"
+
+    return config

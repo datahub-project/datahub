@@ -29,7 +29,7 @@ const StyledModal = styled(Modal)`
 
 const StyledClose = styled(CloseOutlined)`
     && {
-        color: white;
+        color: ${(props) => props.theme.colors.textOnFillDefault};
         font-size: 24px;
         margin: 18px 12px 0 0;
     }

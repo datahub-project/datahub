@@ -1,0 +1,7 @@
+namespace com.linkedin.platform.event.v1
+
+enum RelationshipChangeOperation {
+   ADD
+   REMOVE
+   RESTATE
+}

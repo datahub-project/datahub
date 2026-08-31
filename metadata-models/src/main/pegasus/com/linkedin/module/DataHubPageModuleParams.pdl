@@ -10,7 +10,9 @@ record DataHubPageModuleParams {
    * The params required if the module is type LINK
    */
   linkParams: optional record LinkModuleParams {
-    linkUrn: Urn
+    linkUrl: string
+    imageUrl: optional string
+    description: optional string
   }
 
   /**
@@ -19,4 +21,13 @@ record DataHubPageModuleParams {
   richTextParams: optional record RichTextModuleParams {
     content: string
   }
+  /**
+   * The params required if the module is type ASSET_COLLECTION
+   */
+  assetCollectionParams: optional AssetCollectionModuleParams
+
+  /**
+   * The params required if the module is type HIERARCHY_VIEW
+   */
+  hierarchyViewParams: optional HierarchyModuleParams
 }

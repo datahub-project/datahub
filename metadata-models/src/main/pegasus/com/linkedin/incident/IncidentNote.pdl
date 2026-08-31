@@ -1,0 +1,28 @@
+namespace com.linkedin.incident
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * A note or update added to an incident, either by a user in DataHub or synced from an
+ * external incident management system.
+ */
+record IncidentNote {
+
+  /**
+   * The content of the note. Rendered as markdown in the UI.
+   */
+  @Searchable = {
+    "fieldType": "TEXT"
+  }
+  message: string
+
+  /**
+   * When the note was created, and the actor who created it.
+   */
+  created: AuditStamp
+
+  /**
+   * The source of this note. Absent if the note was created natively in DataHub.
+   */
+  source: optional IncidentNoteSource
+}

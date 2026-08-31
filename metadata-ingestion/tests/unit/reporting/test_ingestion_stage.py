@@ -2,7 +2,10 @@ import time
 
 import pytest
 
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
+from datahub.ingestion.source_report.ingestion_stage import (
+    IngestionHighStage,
+    IngestionStageReport,
+)
 
 
 def test_ingestion_stage_context_records_duration():
@@ -10,7 +13,9 @@ def test_ingestion_stage_context_records_duration():
     with report.new_stage(stage="Test Stage"):
         pass
     assert len(report.ingestion_stage_durations) == 1
-    assert "Test Stage" in next(iter(report.ingestion_stage_durations.keys()))
+    key = next(iter(report.ingestion_stage_durations.keys()))
+    assert "Ingestion" in key
+    assert "Test Stage" in key
 
 
 def test_ingestion_stage_context_handles_exceptions():
@@ -21,7 +26,9 @@ def test_ingestion_stage_context_handles_exceptions():
     except ValueError:
         pass
     assert len(report.ingestion_stage_durations) == 1
-    assert "Test Stage" in next(iter(report.ingestion_stage_durations))
+    key = next(iter(report.ingestion_stage_durations.keys()))
+    assert "Ingestion" in key
+    assert "Test Stage" in key
 
 
 def test_ingestion_stage_context_report_handles_multiple_stages():
@@ -74,3 +81,22 @@ def test_ingestion_stage_context_report_handles_nested_stages():
     inner_sum = inner1_duration + inner2_duration
     # generous tolerance to avoid flakiness in test
     assert outer_duration == pytest.approx(inner_sum, abs=0.05)
+
+
+def test_ingestion_high_stage_context_records_duration():
+    report = IngestionStageReport()
+    with report.new_high_stage(stage=IngestionHighStage.PROFILING):
+        time.sleep(0.1)
+    assert len(report.ingestion_high_stage_seconds) == 1
+    assert report.ingestion_high_stage_seconds[IngestionHighStage.PROFILING] > 0
+
+
+def test_ingestion_stage_with_high_stage():
+    report = IngestionStageReport()
+    with report.new_stage(stage="Test Stage", high_stage=IngestionHighStage.PROFILING):
+        time.sleep(0.1)
+    assert len(report.ingestion_stage_durations) == 1
+    key = next(iter(report.ingestion_stage_durations.keys()))
+    assert "Profiling" in key
+    assert "Test Stage" in key
+    assert report.ingestion_high_stage_seconds[IngestionHighStage.PROFILING] > 0

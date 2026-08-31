@@ -1,0 +1,5 @@
+import dayjs from '@utils/dayjs';
+
+export function formatTimestamp(timestamp: number, format: string) {
+    return dayjs(timestamp).format(format);
+}

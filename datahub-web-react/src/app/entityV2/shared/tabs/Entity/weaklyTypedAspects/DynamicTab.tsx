@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import DynamicPropertiesTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicPropertiesTab';
 import DynamicTabularTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicTabularTab';
 
@@ -18,10 +17,13 @@ type Props = {
 const QueryText = styled(Typography.Paragraph)`
     margin: 20px;
     &&& pre {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         border: none;
     }
 `;
+
+const SYNTAX_LANGUAGE_JSON = 'json';
+const EMPTY_JSON_OBJECT = '{}';
 
 // NOTE: Yes, using `!important` is a shame. However, the SyntaxHighlighter is applying styles directly
 // to the component, so there's no way around this
@@ -43,7 +45,9 @@ export default function DynamicTab({ renderSpec, payload, type }: Props) {
         <>
             <QueryText>
                 <pre>
-                    <NestedSyntax language="json">{JSON.stringify(JSON.parse(payload || '{}'), null, 2)}</NestedSyntax>
+                    <NestedSyntax language={SYNTAX_LANGUAGE_JSON}>
+                        {JSON.stringify(JSON.parse(payload || EMPTY_JSON_OBJECT), null, 2)}
+                    </NestedSyntax>
                 </pre>
             </QueryText>
         </>

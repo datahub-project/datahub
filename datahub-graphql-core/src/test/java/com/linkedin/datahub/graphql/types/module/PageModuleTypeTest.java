@@ -202,7 +202,9 @@ public class PageModuleTypeTest {
     com.linkedin.module.DataHubPageModuleParams params =
         new com.linkedin.module.DataHubPageModuleParams();
     com.linkedin.module.LinkModuleParams linkParams = new com.linkedin.module.LinkModuleParams();
-    linkParams.setLinkUrn(UrnUtils.getUrn("urn:li:post:test-post"));
+
+    linkParams.setLinkUrl("https://example.com/test-link");
+
     params.setLinkParams(linkParams);
     gmsProperties.setParams(params);
 

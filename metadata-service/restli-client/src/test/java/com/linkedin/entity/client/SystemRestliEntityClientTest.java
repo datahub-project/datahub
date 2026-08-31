@@ -54,7 +54,8 @@ public class SystemRestliEntityClientTest {
                 .batchGetV2Size(1)
                 .batchGetV2Concurrency(2)
                 .build(),
-            noCacheConfig);
+            noCacheConfig,
+            null);
 
     com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
     com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
@@ -100,7 +101,8 @@ public class SystemRestliEntityClientTest {
                 .batchGetV2Size(1)
                 .batchGetV2Concurrency(2)
                 .build(),
-            cacheConfig);
+            cacheConfig,
+            null);
 
     mockResponse(mockRestliClient, responseStatusTrue);
     assertEquals(
@@ -142,7 +144,8 @@ public class SystemRestliEntityClientTest {
                 .batchGetV2Size(1)
                 .batchGetV2Concurrency(2)
                 .build(),
-            noCacheConfig);
+            noCacheConfig,
+            null);
 
     com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
     com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
@@ -188,7 +191,8 @@ public class SystemRestliEntityClientTest {
                 .batchGetV2Size(1)
                 .batchGetV2Concurrency(2)
                 .build(),
-            cacheConfig);
+            cacheConfig,
+            null);
 
     mockResponse(mockRestliClient, responseStatusTrue);
     assertEquals(
@@ -230,7 +234,8 @@ public class SystemRestliEntityClientTest {
                 .batchGetV2Size(1)
                 .batchGetV2Concurrency(2)
                 .build(),
-            noCacheConfig);
+            noCacheConfig,
+            null);
 
     com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
     com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
@@ -280,7 +285,8 @@ public class SystemRestliEntityClientTest {
                 .batchGetV2Size(1)
                 .batchGetV2Concurrency(2)
                 .build(),
-            cacheConfig);
+            cacheConfig,
+            null);
 
     mockResponse(mockRestliClient, responseStatusTrue);
     assertEquals(
@@ -313,7 +319,9 @@ public class SystemRestliEntityClientTest {
                 EntityClientCache.Key.builder()
                     .urn(TEST_URN)
                     .aspectName(DATASET_PROPERTIES_ASPECT_NAME)
-                    .contextId("1379821641")
+                    .contextId(
+                        TestOperationContexts.systemContextNoSearchAuthorization()
+                            .getEntityContextId())
                     .build()),
         new EntityClientCache.NullEnvelopedAspect(),
         "Expected null object for the non-existent cache entry");

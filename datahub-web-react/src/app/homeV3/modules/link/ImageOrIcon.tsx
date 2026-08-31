@@ -1,0 +1,27 @@
+import { Icon } from '@components';
+import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+const Image = styled.img`
+    height: 24px;
+    width: 24px;
+    object-fit: contain;
+    background-color: transparent;
+`;
+
+export default function ImageOrIcon({ imageUrl }: { imageUrl?: string | null }) {
+    const { t } = useTranslation('modules');
+    const [hasError, setHasError] = useState(false);
+
+    React.useEffect(() => {
+        setHasError(false);
+    }, [imageUrl]);
+
+    if (imageUrl && !hasError) {
+        return <Image src={imageUrl} alt={t('link.imageAlt')} onError={() => setHasError(true)} />;
+    }
+
+    return <Icon icon={LinkSimple} size="3xl" color="gray" />;
+}

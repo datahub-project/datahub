@@ -10,22 +10,75 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_SECURITY_ADMIN_USER=admin
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
+      # Improve startup stability in CI
+      - GF_LOG_LEVEL=info
+      - GF_SERVER_HTTP_PORT=3000
+      - GF_DATABASE_WAL=true
+      # Reduce resource usage for CI
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=3 --timeout=10 --spider http://localhost:3000/api/health && wget --no-verbose --tries=1 --timeout=5 --spider http://localhost:3000/api/org || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 45s
     volumes:
       - grafana-storage:/var/lib/grafana
       - ./provisioning:/etc/grafana/provisioning
-      - ./default-dashboard.json:/var/lib/grafana/dashboards/default-dashboard.json
+      - ./dashboards:/var/lib/grafana/dashboards
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
+    networks:
+      - grafana-network
 
   postgres:
     image: postgres:13
-    container_name: grafana-postgres
+    container_name: postgres
     environment:
       POSTGRES_DB: grafana
       POSTGRES_USER: grafana
       POSTGRES_PASSWORD: grafana
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U grafana -d grafana" ]
+      interval: 10s
+      timeout: 10s
+      retries: 8
+      start_period: 30s
     volumes:
       - postgres-storage:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    networks:
+      - grafana-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+
+    networks:
+      - grafana-network
+
+networks:
+  grafana-network:
+    driver: bridge
 
 volumes:
   grafana-storage:

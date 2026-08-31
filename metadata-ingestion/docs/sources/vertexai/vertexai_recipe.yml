@@ -1,8 +1,19 @@
 source:
   type: vertexai
   config:
-    project_id: "acryl-poc"
-    region:  "us-west2"
+    project_ids:
+      - "acryl-poc"
+    # project_id: "acryl-poc"  # [deprecated] Still works — auto-migrated to project_ids with a warning
+    # region: "us-west2"  # [deprecated] Prefer 'regions' or 'discover_regions'
+    # regions:
+    #   - "us-west2"
+    #   - "us-central1"
+    # discover_regions: true  # Enumerate available regions and scan all
+    # project_labels:
+    #   - "env:prod"
+    # project_id_pattern:
+    #   allow:
+    #     - ".*-prod"
 # You must either set GOOGLE_APPLICATION_CREDENTIALS or provide credential as shown below
 #   credential:
 #      private_key: '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'

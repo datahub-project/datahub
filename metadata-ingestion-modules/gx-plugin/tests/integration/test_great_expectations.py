@@ -55,11 +55,14 @@ def test_ge_ingest(
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration"
 
-    with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "great-expectations"
-    ) as docker_services, mock.patch(
-        "datahub.emitter.rest_emitter.DatahubRestEmitter.emit_mcp"
-    ) as mock_emit_mcp:
+    with (
+        docker_compose_runner(
+            test_resources_dir / "docker-compose.yml", "great-expectations"
+        ) as docker_services,
+        mock.patch(
+            "datahub.emitter.rest_emitter.DatahubRestEmitter.emit_mcp"
+        ) as mock_emit_mcp,
+    ):
         wait_for_port(docker_services, "ge_postgres", 5432)
 
         emitter = MockDatahubEmitter("")

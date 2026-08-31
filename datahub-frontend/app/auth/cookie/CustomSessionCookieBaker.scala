@@ -1,6 +1,6 @@
 package auth.cookie
 
-import com.google.inject.Inject
+import javax.inject.Inject
 import play.api.http.{SecretConfiguration, SessionConfiguration}
 import play.api.libs.crypto.CookieSigner
 import play.api.mvc.DefaultSessionCookieBaker

@@ -17,6 +17,11 @@ vi.mock('@app/searchV2/utils/navigateToSearchUrl', () => ({
     navigateToSearchUrl: vi.fn(),
 }));
 
+vi.mock('react-router', () => ({
+    useLocation: vi.fn(() => ({ pathname: '/test-path' })),
+    useHistory: vi.fn(() => ({})),
+}));
+
 describe('useGoToSearchPage Hook', () => {
     const mockQuickFilter = {
         field: 'type',

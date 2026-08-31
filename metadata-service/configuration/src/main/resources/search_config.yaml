@@ -1,4 +1,46 @@
-# Notes:
+##################################################
+# `fieldConfigurations` Notes:
+#
+# Here we define field and highlighting options that can be referred to
+# in the `searchFlags` in the graphql API
+#
+
+fieldConfigurations:
+  # Excludes column match and highlight
+  excludeColumns:
+    searchFields:
+      remove:
+        - fieldPaths
+        - fieldPaths.*
+
+    highlightFields:
+      enabled: true
+      remove:
+        - fieldPaths
+        - fieldPaths.*
+
+  excludeColumnHighlight:
+    searchFields:
+      # No modifications - use PDL defaults
+
+    highlightFields:
+      enabled: true
+      remove:
+        - fieldPaths
+        - fieldPaths.*
+
+
+  # PDL legacy configuration
+  legacy:
+    searchFields:
+      # No modifications - use PDL defaults
+
+    highlightFields:
+      enabled: true
+      # No modifications - use PDL defaults
+
+##################################################
+# `queryConfigurations` Notes:
 #
 # First match wins
 #

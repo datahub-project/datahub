@@ -1,0 +1,61 @@
+import { Button } from '@components';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useVisibilityObserver } from '@app/entityV2/summary/documentation/useVisibilityObserver';
+
+const MAX_VIEW_HEIGHT = 286;
+
+const Wrapper = styled.div<{ expanded: boolean }>`
+    max-height: ${({ expanded }) => (expanded ? 'none' : `${MAX_VIEW_HEIGHT}px`)};
+    display: flex;
+    flex-direction: column;
+    transition: max-height 0.3s ease;
+`;
+
+const ContentContainer = styled.div<{ $expanded: boolean; $hasMore: boolean }>`
+    overflow: ${({ $expanded }) => ($expanded ? 'visible' : 'hidden')};
+    ${({ $expanded, $hasMore, theme }) =>
+        !$expanded &&
+        $hasMore &&
+        `
+            -webkit-mask-image: linear-gradient(to bottom, black 60%, ${theme.colors.overlayMask} 90%, transparent 100%);
+            mask-image: linear-gradient(to bottom, black 60%, ${theme.colors.overlayMask} 90%, transparent 100%);
+        `}
+`;
+
+const StyledButton = styled(Button)`
+    align-self: center;
+    margin-bottom: 16px;
+`;
+
+interface Props {
+    children: React.ReactNode;
+}
+
+export default function DescriptionViewer({ children }: Props) {
+    const { t } = useTranslation('entity.profile.summary');
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    const { elementRef, hasMore } = useVisibilityObserver(MAX_VIEW_HEIGHT, [children]);
+
+    return (
+        <Wrapper expanded={isExpanded}>
+            <ContentContainer ref={elementRef} $expanded={isExpanded} $hasMore={hasMore}>
+                {children}
+            </ContentContainer>
+            {hasMore && (
+                <StyledButton
+                    variant="text"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsExpanded((val) => !val);
+                    }}
+                >
+                    {isExpanded ? t('documentation.viewLess') : t('documentation.viewMore')}
+                </StyledButton>
+            )}
+        </Wrapper>
+    );
+}

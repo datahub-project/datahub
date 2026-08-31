@@ -5,3 +5,98 @@ mutation submitFormPrompt($urn: String!, $input: SubmitFormPromptInput!) {
 mutation verifyForm($input: VerifyFormInput!) {
     verifyForm(input: $input)
 }
+
+query getFormsForEntity($urn: String!) {
+    entity(urn: $urn) {
+        ... on Dataset {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on Dashboard {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on Chart {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on DataFlow {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on DataJob {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on Container {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on GlossaryTerm {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on GlossaryNode {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on Domain {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on DataProduct {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on CorpUser {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on CorpGroup {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on Application {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on MLFeature {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on MLFeatureTable {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on MLModel {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on MLModelGroup {
+            forms {
+                ...formsFields
+            }
+        }
+        ... on MLPrimaryKey {
+            forms {
+                ...formsFields
+            }
+        }
+    }
+}

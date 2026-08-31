@@ -5,29 +5,47 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASP
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.search.CreatePitRequest;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -50,6 +68,7 @@ public class ESUtilsTest {
     Urn underscoresAndDotsUrn =
         Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
     Urn dateWithDotsUrn = Urn.createFromString("urn:li:structuredProperty:date_here.with_dot");
+    Urn stewardUrn = Urn.createFromString("urn:li:structuredProperty:steward");
 
     // legacy
     aspectRetriever = mock(AspectRetriever.class);
@@ -61,7 +80,8 @@ public class ESUtilsTest {
     structPropAbFghTenDefinition.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropAbFghTenDefinition.setQualifiedName("ab.fgh.ten");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(abFghTenUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(abFghTenUrn)), anySet()))
         .thenReturn(
             Map.of(
                 abFghTenUrn,
@@ -73,7 +93,8 @@ public class ESUtilsTest {
     dateWithDotsDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
     dateWithDotsDefinition.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "date"));
     dateWithDotsDefinition.setQualifiedName("date_here.with_dot");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(dateWithDotsUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(dateWithDotsUrn)), anySet()))
         .thenReturn(
             Map.of(
                 dateWithDotsUrn,
@@ -81,13 +102,27 @@ public class ESUtilsTest {
                     STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                     new Aspect(dateWithDotsDefinition.data()))));
 
+    StructuredPropertyDefinition stewardDefinition = new StructuredPropertyDefinition();
+    stewardDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
+    stewardDefinition.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "urn"));
+    stewardDefinition.setQualifiedName("steward");
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(stewardUrn)), anySet()))
+        .thenReturn(
+            Map.of(
+                stewardUrn,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(stewardDefinition.data()))));
+
     StructuredPropertyDefinition structPropUnderscoresAndDotsDefinition =
         new StructuredPropertyDefinition();
     structPropUnderscoresAndDotsDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
     structPropUnderscoresAndDotsDefinition.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropUnderscoresAndDotsDefinition.setQualifiedName("under.scores.and.dots_make_a_mess");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(underscoresAndDotsUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(underscoresAndDotsUrn)), anySet()))
         .thenReturn(
             Map.of(
                 underscoresAndDotsUrn,
@@ -106,7 +141,8 @@ public class ESUtilsTest {
     structPropAbFghTenDefinitionV1.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropAbFghTenDefinitionV1.setQualifiedName("ab.fgh.ten");
-    when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(abFghTenUrn)), anySet()))
+    when(aspectRetrieverV1.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(abFghTenUrn)), anySet()))
         .thenReturn(
             Map.of(
                 abFghTenUrn,
@@ -120,13 +156,53 @@ public class ESUtilsTest {
     structPropUnderscoresAndDotsDefinitionV1.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropUnderscoresAndDotsDefinitionV1.setQualifiedName("under.scores.and.dots_make_a_mess");
-    when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(underscoresAndDotsUrn)), anySet()))
+    when(aspectRetrieverV1.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(underscoresAndDotsUrn)), anySet()))
         .thenReturn(
             Map.of(
                 underscoresAndDotsUrn,
                 Map.of(
                     STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                     new Aspect(structPropUnderscoresAndDotsDefinitionV1.data()))));
+  }
+
+  /**
+   * Every hierarchical condition has to reach the rewrite chain carrying its own condition -- that
+   * is the seam the rewriters' condition switch keys off, and the single arm in {@code
+   * getQueryBuilderFromCriterionForSingleField} has to serve all three. Every other {@code
+   * ESUtilsTest} case passes {@link QueryFilterRewriteChain#EMPTY} or a bare mock, so the seam was
+   * untested in either direction.
+   */
+  @Test
+  public void testRewriteChainReceivesTheCriterionCondition() {
+    QueryFilterRewriteChain chain = mock(QueryFilterRewriteChain.class);
+    when(chain.rewrite(any(), any(), any())).thenAnswer(invocation -> invocation.getArgument(2));
+
+    OperationContext opContext = mock(OperationContext.class);
+    // EMPTY carries SearchContext's own default flags, which leave `fulltext` unset -- the shape
+    // that used to blow up deriving a search type on the way into the chain.
+    when(opContext.getSearchContext()).thenReturn(SearchContext.EMPTY);
+
+    List<Condition> conditions =
+        List.of(Condition.ANCESTORS_INCL, Condition.DESCENDANTS_INCL, Condition.RELATED_INCL);
+    for (Condition condition : conditions) {
+      ESUtils.getQueryBuilderFromCriterion(
+          buildCriterion("container", condition, "urn:li:container:foo"),
+          false,
+          new HashMap<>(),
+          opContext,
+          chain);
+    }
+
+    ArgumentCaptor<QueryFilterRewriterContext> contexts =
+        ArgumentCaptor.forClass(QueryFilterRewriterContext.class);
+    verify(chain, Mockito.times(conditions.size())).rewrite(any(), contexts.capture(), any());
+    assertEquals(
+        contexts.getAllValues().stream()
+            .map(QueryFilterRewriterContext::getCondition)
+            .collect(Collectors.toList()),
+        conditions,
+        "Expected each condition to reach the rewrite chain unchanged");
   }
 
   @Test
@@ -152,7 +228,7 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
         buildCriterion("myTestField", Condition.EQUAL, "value1", "value2");
@@ -175,7 +251,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion timeseriesField =
         buildCriterion("myTestField", Condition.EQUAL, "value1", "value2");
@@ -198,7 +274,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -230,12 +306,13 @@ public class ESUtilsTest {
             + "      }\n"
             + "    ],\n"
             + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
             + "    \"boost\" : 1.0,\n"
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
         buildCriterion("myTestField", Condition.IEQUAL, "value1", "value2");
@@ -272,12 +349,13 @@ public class ESUtilsTest {
             + "      }\n"
             + "    ],\n"
             + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
             + "    \"boost\" : 1.0,\n"
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -314,7 +392,7 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
         buildCriterion("myTestField", Condition.CONTAIN, "value1", "value2");
@@ -358,7 +436,7 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -395,7 +473,7 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
         buildCriterion("myTestField", Condition.START_WITH, "value1", "value2");
@@ -439,7 +517,7 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -475,7 +553,7 @@ public class ESUtilsTest {
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
         buildCriterion("myTestField", Condition.END_WITH, "value1", "value2");
@@ -519,7 +597,7 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
 
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -549,7 +627,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     // No diff in the timeseries field case for this condition.
     final Criterion timeseriesField = buildExistsCriterion("myTestField");
@@ -577,7 +655,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -607,7 +685,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     // No diff in the timeseries case for this condition
     final Criterion timeseriesField = buildIsNullCriterion("myTestField");
@@ -635,7 +713,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -680,7 +758,7 @@ public class ESUtilsTest {
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion timeseriesField =
         buildCriterion(FIELD_TO_EXPAND, Condition.EQUAL, "value1", "value2");
@@ -723,7 +801,7 @@ public class ESUtilsTest {
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion originCriterion = buildCriterion("origin", Condition.EQUAL, "PROD");
 
@@ -763,7 +841,7 @@ public class ESUtilsTest {
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(originExpanded.toString(), originExpected);
+    assertEquals(originExpanded.toString(), originExpected);
 
     final Criterion envCriterion = buildCriterion("env", Condition.EQUAL, "PROD");
 
@@ -803,7 +881,7 @@ public class ESUtilsTest {
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(envExpanded.toString(), envExpected);
+    assertEquals(envExpanded.toString(), envExpected);
 
     final Criterion businessAttributeRefNestedFieldCriterion =
         buildCriterion("businessAttribute", Condition.EQUAL, "urn:li:businessAttribute:value");
@@ -843,7 +921,7 @@ public class ESUtilsTest {
             + "    \"boost\" : 1.0\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(businessAttributeExpanded.toString(), businessAttributeExpected);
+    assertEquals(businessAttributeExpanded.toString(), businessAttributeExpected);
   }
 
   @Test
@@ -867,7 +945,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"structuredProperties.ab.fgh.ten\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -892,7 +970,231 @@ public class ESUtilsTest {
             + "    \"_name\" : \"structuredProperties.under.scores.and.dots_make_a_mess\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromUrnStructPropEqualsValue() {
+    // URN parents are already keyword (no normalizer); EQUAL must not append .keyword.
+    final Criterion singleValueCriterion =
+        buildCriterion("structuredProperties.steward", Condition.EQUAL, "urn:li:corpuser:jdoe");
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY);
+    String expected =
+        "{\n"
+            + "  \"terms\" : {\n"
+            + "    \"structuredProperties.steward\" : [\n"
+            + "      \"urn:li:corpuser:jdoe\"\n"
+            + "    ],\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"structuredProperties.steward\"\n"
+            + "  }\n"
+            + "}";
+    assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testToKeywordFieldSkipsKeywordSuffixWhenStructuredPropertyDefinitionMissing()
+      throws URISyntaxException {
+    // Transient aspect miss must not fall back to the STRING-like ".keyword" append — that returns
+    // empty for URN/DATE/NUMBER parents (no usable .keyword subfield). Prefer the parent field.
+    Urn missingUrn = Urn.createFromString("urn:li:structuredProperty:transientMiss");
+    AspectRetriever missingRetriever = mock(AspectRetriever.class);
+    when(missingRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(missingRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(missingUrn)), anySet()))
+        .thenReturn(Map.of());
+
+    String resolved =
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.transientMiss",
+            false,
+            missingRetriever);
+
+    assertEquals(resolved, "structuredProperties.transientMiss");
+  }
+
+  @Test
+  public void testToKeywordFieldStripsCallerKeywordSuffixWhenDefinitionMissing()
+      throws URISyntaxException {
+    // If the caller already appended .keyword and definition lookup fails, strip the subfield so
+    // typed parents (URN/DATE/NUMBER) are not queried on a missing multi-field.
+    Urn missingUrn = Urn.createFromString("urn:li:structuredProperty:transientMiss");
+    AspectRetriever missingRetriever = mock(AspectRetriever.class);
+    when(missingRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(missingRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(missingUrn)), anySet()))
+        .thenReturn(Map.of());
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.transientMiss.keyword",
+            false,
+            missingRetriever),
+        "structuredProperties.transientMiss");
+  }
+
+  @Test
+  public void testToKeywordFieldVersionedPathWithoutDefinitionInfersStringKeyword() {
+    // Callers sometimes pass an already-resolved versioned ES path. Definition lookup cannot use
+    // that path as an FQN; infer STRING from the type segment and keep .keyword.
+    AspectRetriever emptyRetriever = mock(AspectRetriever.class);
+    when(emptyRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(emptyRetriever.getLatestAspectObjects(any(OperationFingerprint.class), anySet(), anySet()))
+        .thenReturn(Map.of());
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties._versioned.hello.00000000000001.string",
+            false,
+            emptyRetriever),
+        "structuredProperties._versioned.hello.00000000000001.string.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldVersionedPathWithoutDefinitionInfersUrnParent() {
+    AspectRetriever emptyRetriever = mock(AspectRetriever.class);
+    when(emptyRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(emptyRetriever.getLatestAspectObjects(any(OperationFingerprint.class), anySet(), anySet()))
+        .thenReturn(Map.of());
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties._versioned.owner_ref.00000000000001.urn",
+            false,
+            emptyRetriever),
+        "structuredProperties._versioned.owner_ref.00000000000001.urn");
+  }
+
+  @Test
+  public void testToKeywordFieldUnversionedUrnSkipsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.steward",
+            false,
+            aspectRetriever),
+        "structuredProperties.steward");
+  }
+
+  @Test
+  public void testToKeywordFieldUnversionedStringAppendsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.ab.fgh.ten",
+            false,
+            aspectRetriever),
+        "structuredProperties.ab_fgh_ten.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldUnversionedDateSkipsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.date_here.with_dot",
+            false,
+            aspectRetriever),
+        "structuredProperties.date_here_with_dot");
+  }
+
+  @Test
+  public void testToKeywordFieldVersionedUrnSkipsKeywordSuffix() throws URISyntaxException {
+    Urn versionedUrnSp = Urn.createFromString("urn:li:structuredProperty:owner.ref");
+    AspectRetriever versionedUrnRetriever = mock(AspectRetriever.class);
+    when(versionedUrnRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    StructuredPropertyDefinition versionedUrnDef = new StructuredPropertyDefinition();
+    versionedUrnDef.setVersion("00000000000001");
+    versionedUrnDef.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "urn"));
+    versionedUrnDef.setQualifiedName("owner.ref");
+    when(versionedUrnRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(versionedUrnSp)), anySet()))
+        .thenReturn(
+            Map.of(
+                versionedUrnSp,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(versionedUrnDef.data()))));
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.owner.ref",
+            false,
+            versionedUrnRetriever),
+        "structuredProperties._versioned.owner_ref.00000000000001.urn");
+  }
+
+  @Test
+  public void testToKeywordFieldVersionedStringAppendsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.ab.fgh.ten",
+            false,
+            aspectRetrieverV1),
+        "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldUnknownValueTypeAppendsKeywordSuffix() throws URISyntaxException {
+    // UNKNOWN follows the STRING-like path (usesKeywordSubfield=true) so filters still target
+    // .keyword.
+    Urn unknownUrn = Urn.createFromString("urn:li:structuredProperty:mystery");
+    AspectRetriever unknownRetriever = mock(AspectRetriever.class);
+    when(unknownRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    StructuredPropertyDefinition unknownDef = new StructuredPropertyDefinition();
+    unknownDef.setVersion(null, SetMode.REMOVE_IF_NULL);
+    unknownDef.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "other"));
+    unknownDef.setQualifiedName("mystery");
+    when(unknownRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(unknownUrn)), anySet()))
+        .thenReturn(
+            Map.of(
+                unknownUrn,
+                Map.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, new Aspect(unknownDef.data()))));
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.mystery",
+            false,
+            unknownRetriever),
+        "structuredProperties.mystery.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldNonStructuredPropertyAppendsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class), "myTestField", false, aspectRetriever),
+        "myTestField.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldSkipKeywordSuffixFlag() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.ab.fgh.ten",
+            true,
+            aspectRetriever),
+        "structuredProperties.ab_fgh_ten");
   }
 
   @Test
@@ -920,7 +1222,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"structuredProperties.ab.fgh.ten\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -949,7 +1251,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"structuredProperties.under.scores.and.dots_make_a_mess\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -979,7 +1281,7 @@ public class ESUtilsTest {
             + "    }\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -1007,7 +1309,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"structuredProperties.ab.fgh.ten\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     // No diff in the timeseries field case for this condition.
     final Criterion timeseriesField = buildExistsCriterion("myTestField");
@@ -1031,7 +1333,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -1063,7 +1365,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"structuredProperties.ab.fgh.ten\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     // No diff in the timeseries field case for this condition.
     final Criterion timeseriesField = buildCriterion("myTestField", Condition.EXISTS);
@@ -1087,7 +1389,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"myTestField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -1118,7 +1420,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"testObjectField.numericField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
 
     final Criterion multiValueCriterion =
         new Criterion()
@@ -1144,7 +1446,7 @@ public class ESUtilsTest {
             + "    \"_name\" : \"testObjectField.numericField\"\n"
             + "  }\n"
             + "}";
-    Assert.assertEquals(result.toString(), expected);
+    assertEquals(result.toString(), expected);
   }
 
   @Test
@@ -1156,9 +1458,9 @@ public class ESUtilsTest {
             .minimumShouldMatch("1");
 
     boolean changed = ESUtils.optimizePass(boolQuery, true);
-    Assert.assertTrue(changed);
-    Assert.assertEquals(0, boolQuery.should().size());
-    Assert.assertEquals(1, boolQuery.must().size());
+    assertTrue(changed);
+    assertEquals(0, boolQuery.should().size());
+    assertEquals(1, boolQuery.must().size());
     Assert.assertNull(boolQuery.minimumShouldMatch());
   }
 
@@ -1171,9 +1473,9 @@ public class ESUtilsTest {
             .minimumShouldMatch("1");
 
     boolean changed = ESUtils.optimizePass(boolQuery, false);
-    Assert.assertTrue(changed);
-    Assert.assertEquals(0, boolQuery.should().size());
-    Assert.assertEquals(1, boolQuery.filter().size());
+    assertTrue(changed);
+    assertEquals(0, boolQuery.should().size());
+    assertEquals(1, boolQuery.filter().size());
     Assert.assertNull(boolQuery.minimumShouldMatch());
   }
 
@@ -1186,9 +1488,9 @@ public class ESUtilsTest {
             .minimumShouldMatch("100%");
 
     boolean changed = ESUtils.optimizePass(boolQuery, true);
-    Assert.assertTrue(changed);
-    Assert.assertEquals(0, boolQuery.should().size());
-    Assert.assertEquals(1, boolQuery.must().size());
+    assertTrue(changed);
+    assertEquals(0, boolQuery.should().size());
+    assertEquals(1, boolQuery.must().size());
   }
 
   @Test
@@ -1202,7 +1504,7 @@ public class ESUtilsTest {
 
     boolean changed = ESUtils.optimizePass(boolQuery, true);
     Assert.assertFalse(changed);
-    Assert.assertEquals(2, boolQuery.should().size());
+    assertEquals(2, boolQuery.should().size());
   }
 
   @Test
@@ -1213,7 +1515,7 @@ public class ESUtilsTest {
 
     boolean changed = ESUtils.optimizePass(boolQuery, true);
     Assert.assertFalse(changed);
-    Assert.assertEquals(1, boolQuery.should().size());
+    assertEquals(1, boolQuery.should().size());
   }
 
   @Test
@@ -1227,10 +1529,10 @@ public class ESUtilsTest {
     BoolQueryBuilder outerBool = QueryBuilders.boolQuery().filter(innerBool);
 
     boolean changed = ESUtils.optimizePass(outerBool, false);
-    Assert.assertTrue(changed);
-    Assert.assertEquals(2, outerBool.filter().size());
+    assertTrue(changed);
+    assertEquals(2, outerBool.filter().size());
     // Check that the filters are now at the top level
-    Assert.assertTrue(outerBool.filter().stream().allMatch(q -> q instanceof TermQueryBuilder));
+    assertTrue(outerBool.filter().stream().allMatch(q -> q instanceof TermQueryBuilder));
   }
 
   @Test
@@ -1255,10 +1557,10 @@ public class ESUtilsTest {
     } while (changed);
 
     // All filters should now be at the root level
-    Assert.assertEquals(3, rootQuery.filter().size());
-    Assert.assertEquals(0, rootQuery.must().size());
-    Assert.assertEquals(0, rootQuery.should().size());
-    Assert.assertEquals(0, rootQuery.mustNot().size());
+    assertEquals(3, rootQuery.filter().size());
+    assertEquals(0, rootQuery.must().size());
+    assertEquals(0, rootQuery.should().size());
+    assertEquals(0, rootQuery.mustNot().size());
   }
 
   @Test
@@ -1274,8 +1576,8 @@ public class ESUtilsTest {
 
     boolean changed = ESUtils.optimizePass(outerBool, false);
     Assert.assertFalse(changed);
-    Assert.assertEquals(1, outerBool.filter().size());
-    Assert.assertEquals(innerBool, outerBool.filter().get(0));
+    assertEquals(1, outerBool.filter().size());
+    assertEquals(innerBool, outerBool.filter().get(0));
   }
 
   @Test
@@ -1289,12 +1591,12 @@ public class ESUtilsTest {
     BoolQueryBuilder outerBool = QueryBuilders.boolQuery().must(innerBool);
 
     boolean changed = ESUtils.optimizePass(outerBool, true);
-    Assert.assertTrue(changed);
+    assertTrue(changed);
 
     // The inner bool query should have been optimized
     BoolQueryBuilder optimizedInner = (BoolQueryBuilder) outerBool.must().get(0);
-    Assert.assertEquals(0, optimizedInner.should().size());
-    Assert.assertEquals(1, optimizedInner.must().size());
+    assertEquals(0, optimizedInner.should().size());
+    assertEquals(1, optimizedInner.must().size());
   }
 
   @Test
@@ -1308,10 +1610,10 @@ public class ESUtilsTest {
     QueryBuilder result = ESUtils.queryOptimize(boolQuery, true);
 
     // Should be unwrapped to just the term query
-    Assert.assertTrue(result instanceof TermQueryBuilder);
+    assertTrue(result instanceof TermQueryBuilder);
     TermQueryBuilder termQuery = (TermQueryBuilder) result;
-    Assert.assertEquals("field1", termQuery.fieldName());
-    Assert.assertEquals("value1", termQuery.value());
+    assertEquals("field1", termQuery.fieldName());
+    assertEquals("value1", termQuery.value());
   }
 
   @Test
@@ -1323,9 +1625,9 @@ public class ESUtilsTest {
     QueryBuilder result = ESUtils.queryOptimize(boolQuery, false);
 
     // Should be unwrapped to just the term query
-    Assert.assertTrue(result instanceof TermQueryBuilder);
+    assertTrue(result instanceof TermQueryBuilder);
     TermQueryBuilder termQuery = (TermQueryBuilder) result;
-    Assert.assertEquals("field1", termQuery.fieldName());
+    assertEquals("field1", termQuery.fieldName());
   }
 
   @Test
@@ -1337,9 +1639,9 @@ public class ESUtilsTest {
     QueryBuilder result = ESUtils.queryOptimize(boolQuery, false);
 
     // Should remain a bool query
-    Assert.assertTrue(result instanceof BoolQueryBuilder);
+    assertTrue(result instanceof BoolQueryBuilder);
     BoolQueryBuilder resultBool = (BoolQueryBuilder) result;
-    Assert.assertEquals(1, resultBool.mustNot().size());
+    assertEquals(1, resultBool.mustNot().size());
   }
 
   @Test
@@ -1354,7 +1656,7 @@ public class ESUtilsTest {
     // Test that non-bool queries are returned unchanged
     TermQueryBuilder termQuery = QueryBuilders.termQuery("field1", "value1");
     QueryBuilder result = ESUtils.queryOptimize(termQuery, false);
-    Assert.assertEquals(termQuery, result);
+    assertEquals(termQuery, result);
   }
 
   @Test
@@ -1398,7 +1700,7 @@ public class ESUtilsTest {
               !nestedBool.must().isEmpty()
                   || !nestedBool.should().isEmpty()
                   || !nestedBool.mustNot().isEmpty();
-          Assert.assertTrue(
+          assertTrue(
               hasNonFilterClauses || nestedBool.filter().isEmpty(),
               "Nested bool query should not have only filter clauses");
         }
@@ -1413,13 +1715,13 @@ public class ESUtilsTest {
         QueryBuilders.boolQuery()
             .should(QueryBuilders.termQuery("field", "value"))
             .minimumShouldMatch("1");
-    Assert.assertTrue(ESUtils.isOptimizableShould(query1));
+    assertTrue(ESUtils.isOptimizableShould(query1));
 
     BoolQueryBuilder query2 =
         QueryBuilders.boolQuery()
             .should(QueryBuilders.termQuery("field", "value"))
             .minimumShouldMatch("100%");
-    Assert.assertTrue(ESUtils.isOptimizableShould(query2));
+    assertTrue(ESUtils.isOptimizableShould(query2));
 
     BoolQueryBuilder query3 =
         QueryBuilders.boolQuery()
@@ -1440,7 +1742,7 @@ public class ESUtilsTest {
     BoolQueryBuilder flattenable =
         QueryBuilders.boolQuery()
             .filter(QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("field1", "value1")));
-    Assert.assertTrue(ESUtils.canFlattenFilters(flattenable));
+    assertTrue(ESUtils.canFlattenFilters(flattenable));
 
     BoolQueryBuilder notFlattenable =
         QueryBuilders.boolQuery()
@@ -1457,11 +1759,11 @@ public class ESUtilsTest {
     // Test the canUnwrap method
     BoolQueryBuilder singleMust =
         QueryBuilders.boolQuery().must(QueryBuilders.termQuery("field", "value"));
-    Assert.assertTrue(ESUtils.canUnwrap(singleMust));
+    assertTrue(ESUtils.canUnwrap(singleMust));
 
     BoolQueryBuilder singleFilter =
         QueryBuilders.boolQuery().filter(QueryBuilders.termQuery("field", "value"));
-    Assert.assertTrue(ESUtils.canUnwrap(singleFilter));
+    assertTrue(ESUtils.canUnwrap(singleFilter));
 
     BoolQueryBuilder multipleClauses =
         QueryBuilders.boolQuery()
@@ -1528,7 +1830,7 @@ public class ESUtilsTest {
     QueryBuilder optimized = ESUtils.queryOptimize(rootQuery, false);
 
     // Verify the optimization results
-    Assert.assertTrue(optimized instanceof BoolQueryBuilder);
+    assertTrue(optimized instanceof BoolQueryBuilder);
     BoolQueryBuilder optimizedBool = (BoolQueryBuilder) optimized;
 
     // After optimization:
@@ -1537,27 +1839,25 @@ public class ESUtilsTest {
     // 3. Multiple unwrapping steps bring the innermost bool to the root
     // Result: The inner bool query with 3 should clauses is now at the root
 
-    Assert.assertEquals(0, optimizedBool.filter().size(), "Should have no filter clauses");
-    Assert.assertEquals(0, optimizedBool.must().size(), "Should have no must clauses");
-    Assert.assertEquals(3, optimizedBool.should().size(), "Should have 3 should clauses at root");
-    Assert.assertEquals(0, optimizedBool.mustNot().size(), "Should have no mustNot clauses");
-    Assert.assertEquals(
-        "1", optimizedBool.minimumShouldMatch(), "Should have minimumShouldMatch=1");
+    assertEquals(0, optimizedBool.filter().size(), "Should have no filter clauses");
+    assertEquals(0, optimizedBool.must().size(), "Should have no must clauses");
+    assertEquals(3, optimizedBool.should().size(), "Should have 3 should clauses at root");
+    assertEquals(0, optimizedBool.mustNot().size(), "Should have no mustNot clauses");
+    assertEquals("1", optimizedBool.minimumShouldMatch(), "Should have minimumShouldMatch=1");
 
     // Each of the 3 should clauses should be a bool query with 3 filters
     for (QueryBuilder shouldClause : optimizedBool.should()) {
-      Assert.assertTrue(shouldClause instanceof BoolQueryBuilder);
+      assertTrue(shouldClause instanceof BoolQueryBuilder);
       BoolQueryBuilder shouldBool = (BoolQueryBuilder) shouldClause;
-      Assert.assertEquals(
-          3, shouldBool.filter().size(), "Each branch should have 3 filter clauses");
-      Assert.assertEquals(0, shouldBool.must().size());
-      Assert.assertEquals(0, shouldBool.should().size());
-      Assert.assertEquals(0, shouldBool.mustNot().size());
+      assertEquals(3, shouldBool.filter().size(), "Each branch should have 3 filter clauses");
+      assertEquals(0, shouldBool.must().size());
+      assertEquals(0, shouldBool.should().size());
+      assertEquals(0, shouldBool.mustNot().size());
     }
 
     // Verify the actual filters in each branch
     BoolQueryBuilder branch1 = (BoolQueryBuilder) optimizedBool.should().get(0);
-    Assert.assertTrue(
+    assertTrue(
         branch1.filter().stream()
             .anyMatch(
                 f ->
@@ -1565,7 +1865,7 @@ public class ESUtilsTest {
                         && ((TermsQueryBuilder) f).fieldName().equals("source.urn")));
 
     BoolQueryBuilder branch2 = (BoolQueryBuilder) optimizedBool.should().get(1);
-    Assert.assertTrue(
+    assertTrue(
         branch2.filter().stream()
             .anyMatch(
                 f ->
@@ -1573,7 +1873,7 @@ public class ESUtilsTest {
                         && ((TermQueryBuilder) f).value().equals("DataProcessInstanceProduces")));
 
     BoolQueryBuilder branch3 = (BoolQueryBuilder) optimizedBool.should().get(2);
-    Assert.assertTrue(
+    assertTrue(
         branch3.filter().stream()
             .anyMatch(
                 f ->
@@ -1613,14 +1913,14 @@ public class ESUtilsTest {
     // 3. leaf1 and leaf2 flattened
     // Result should be a single bool query with 2 term filters
 
-    Assert.assertTrue(optimized instanceof BoolQueryBuilder);
+    assertTrue(optimized instanceof BoolQueryBuilder);
     BoolQueryBuilder optimizedBool = (BoolQueryBuilder) optimized;
 
-    Assert.assertEquals(2, optimizedBool.filter().size(), "Should have 2 filters at root level");
+    assertEquals(2, optimizedBool.filter().size(), "Should have 2 filters at root level");
 
     // Both filters should be term queries, not bool queries
     for (QueryBuilder filter : optimizedBool.filter()) {
-      Assert.assertTrue(
+      assertTrue(
           filter instanceof TermQueryBuilder,
           "Filters should be term queries after full optimization");
     }
@@ -1645,19 +1945,19 @@ public class ESUtilsTest {
     QueryBuilder optimized = ESUtils.queryOptimize(level1, false);
 
     // All nested bool queries with only filters should be flattened
-    Assert.assertTrue(optimized instanceof BoolQueryBuilder);
+    assertTrue(optimized instanceof BoolQueryBuilder);
     BoolQueryBuilder optimizedBool = (BoolQueryBuilder) optimized;
 
     // Should have 3 filters at the root level
-    Assert.assertEquals(3, optimizedBool.filter().size());
-    Assert.assertEquals(0, optimizedBool.must().size());
-    Assert.assertEquals(0, optimizedBool.should().size());
-    Assert.assertEquals(0, optimizedBool.mustNot().size());
+    assertEquals(3, optimizedBool.filter().size());
+    assertEquals(0, optimizedBool.must().size());
+    assertEquals(0, optimizedBool.should().size());
+    assertEquals(0, optimizedBool.mustNot().size());
 
     // All filters should be non-bool queries
-    Assert.assertTrue(optimizedBool.filter().get(0) instanceof TermsQueryBuilder);
-    Assert.assertTrue(optimizedBool.filter().get(1) instanceof TermQueryBuilder);
-    Assert.assertTrue(optimizedBool.filter().get(2) instanceof TermsQueryBuilder);
+    assertTrue(optimizedBool.filter().get(0) instanceof TermsQueryBuilder);
+    assertTrue(optimizedBool.filter().get(1) instanceof TermQueryBuilder);
+    assertTrue(optimizedBool.filter().get(2) instanceof TermsQueryBuilder);
   }
 
   @Test
@@ -1678,20 +1978,68 @@ public class ESUtilsTest {
     // Optimize
     QueryBuilder optimized = ESUtils.queryOptimize(rootQuery, true);
 
-    Assert.assertTrue(optimized instanceof BoolQueryBuilder);
+    assertTrue(optimized instanceof BoolQueryBuilder);
     BoolQueryBuilder optimizedBool = (BoolQueryBuilder) optimized;
 
     // Should have the must clause preserved
-    Assert.assertEquals(1, optimizedBool.must().size());
+    assertEquals(1, optimizedBool.must().size());
 
     // The should->filter optimization should have occurred
     // And the inner filter should be flattened
-    Assert.assertEquals(1, optimizedBool.filter().size());
+    assertEquals(1, optimizedBool.filter().size());
 
     // The filter should be the term query directly
-    Assert.assertTrue(optimizedBool.filter().get(0) instanceof TermQueryBuilder);
+    assertTrue(optimizedBool.filter().get(0) instanceof TermQueryBuilder);
     TermQueryBuilder filterTerm = (TermQueryBuilder) optimizedBool.filter().get(0);
-    Assert.assertEquals("status", filterTerm.fieldName());
-    Assert.assertEquals("active", filterTerm.value());
+    assertEquals("status", filterTerm.fieldName());
+    assertEquals("active", filterTerm.value());
+  }
+
+  @Test(expectedExceptions = APIThrottleException.class)
+  public void testComputePointInTimeThrottling() throws Exception {
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+
+    // Simulate TOO_MANY_REQUESTS response
+    OpenSearchStatusException throttleException =
+        new OpenSearchStatusException("Too many requests", RestStatus.TOO_MANY_REQUESTS);
+
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    when(mockClient.createPit(any(OperationContext.class), any(CreatePitRequest.class), any()))
+        .thenThrow(throttleException);
+
+    // Should throw APIThrottleException with appropriate retry duration
+    ESUtils.computePointInTime(
+        TestOperationContexts.systemContextNoSearchAuthorization(),
+        null,
+        "5m",
+        mockClient,
+        "test-index");
+  }
+
+  @Test
+  public void testComputePointInTimeThrottlingCauseChain() throws IOException {
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+
+    OpenSearchStatusException throttleException =
+        new OpenSearchStatusException("Too many requests", RestStatus.TOO_MANY_REQUESTS);
+
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    when(mockClient.createPit(any(OperationContext.class), any(CreatePitRequest.class), any()))
+        .thenThrow(throttleException);
+
+    try {
+      ESUtils.computePointInTime(
+          TestOperationContexts.systemContextNoSearchAuthorization(),
+          null,
+          "5m",
+          mockClient,
+          "test-index");
+      fail("Should have thrown APIThrottleException");
+    } catch (APIThrottleException e) {
+      // Verify the cause is set correctly
+      assertEquals(e.getCause(), throttleException);
+      // Verify retry duration matches keepAlive
+      assertTrue(e.getDurationMs() > 0);
+    }
   }
 }

@@ -1,9 +1,10 @@
 import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
-import { Text, colors } from '@components';
-import { Button, Input, Modal, Spin, notification } from 'antd';
+import { Modal, Text } from '@components';
+import { Input, Spin, notification } from 'antd';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -23,8 +24,8 @@ const ImpactAnalysisWarning = styled.div`
     padding: 8px;
     display: flex;
     align-items: center;
-    color: ${colors.yellow[1000]};
-    background-color: ${colors.yellow[0]};
+    color: ${(props) => props.theme.colors.textWarning};
+    background-color: ${(props) => props.theme.colors.bgSurfaceWarning};
     margin-bottom: 16px;
     border-radius: 8px;
 `;
@@ -46,8 +47,9 @@ type Props = {
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
 };
 
-const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 200;
+const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 100;
 const DOWNLOAD_NOTIFICATION_KEY = 'download-csv-notification';
+const FILENAME_PLACEHOLDER = 'datahub.csv';
 const formatTime = (seconds: number) => {
     if (seconds < 60) return `${Math.round(seconds)}s`;
     const minutes = Math.floor(seconds / 60);
@@ -65,7 +67,10 @@ export default function DownloadAsCsvModal({
     showDownloadAsCsvModal,
     setShowDownloadAsCsvModal,
 }: Props) {
+    const { t } = useTranslation('entity.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const { lineageSearchPath } = useContext(LineageTabContext);
+    const theme = useTheme();
     const { entityData: entitySearchIsEmbeddedWithin } = useEntityData();
     const location = useLocation();
 
@@ -74,18 +79,23 @@ export default function DownloadAsCsvModal({
     );
     const entityRegistry = useEntityRegistry();
     const openNotification = (currentCount = 0, estimatedTimeRemaining?: number) => {
-        let description =
-            totalResults && currentCount < totalResults
-                ? `Downloading ${currentCount} of ${totalResults} entities...`
-                : 'Creating CSV to download';
+        // Scroll Across Entities gives max 10k as total but results can go further than that
+        const hasMoreThanLimit = totalResults === 10000;
+        const total = hasMoreThanLimit ? '10,000+' : totalResults;
+        let description = totalResults
+            ? t('download.progress', { count: currentCount, total })
+            : t('download.creating');
 
         if (estimatedTimeRemaining !== undefined) {
-            description += `\nEstimated time remaining: ${formatTime(estimatedTimeRemaining)}`;
+            // Show estimate only if the count is less than 10k entities
+            if (!hasMoreThanLimit) {
+                description += t('download.timeRemaining', { time: formatTime(estimatedTimeRemaining) });
+            }
         }
 
         notification.info({
             key: DOWNLOAD_NOTIFICATION_KEY,
-            message: 'Preparing Download',
+            message: t('download.preparing'),
             description,
             placement: 'bottomRight',
             duration: null,
@@ -102,8 +112,8 @@ export default function DownloadAsCsvModal({
     const showFailedDownloadNotification = () => {
         notification.destroy();
         notification.error({
-            message: 'Download Failed',
-            description: 'The CSV file could not be downloaded',
+            message: t('download.failed'),
+            description: t('download.failedDescription'),
             placement: 'bottomRight',
             duration: 3,
         });
@@ -189,43 +199,40 @@ export default function DownloadAsCsvModal({
         <Modal
             centered
             onCancel={() => setShowDownloadAsCsvModal(false)}
-            title="Download as..."
-            visible={showDownloadAsCsvModal}
-            footer={
-                <>
-                    <Button onClick={() => setShowDownloadAsCsvModal(false)} type="text">
-                        Close
-                    </Button>
-                    <Button
-                        data-testid="csv-modal-download-button"
-                        onClick={() => {
-                            setShowDownloadAsCsvModal(false);
-                            triggerCsvDownload(saveAsTitle);
-                        }}
-                        disabled={saveAsTitle.length === 0}
-                    >
-                        Download
-                    </Button>
-                </>
-            }
+            title={t('download.title')}
+            open={showDownloadAsCsvModal}
+            buttons={[
+                {
+                    text: tc('close'),
+                    variant: 'text',
+                    onClick: () => setShowDownloadAsCsvModal(false),
+                },
+                {
+                    text: tc('download'),
+                    onClick: () => {
+                        setShowDownloadAsCsvModal(false);
+                        triggerCsvDownload(saveAsTitle);
+                    },
+                    variant: 'filled',
+                    disabled: saveAsTitle.length === 0,
+                    buttonDataTestId: 'csv-modal-download-button',
+                },
+            ]}
         >
             {lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
-                    <ExclamationCircleFilled style={{ color: colors.yellow[1000], fontSize: 16 }} />
+                    <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                     <div>
                         <Text weight="bold" style={{ lineHeight: 'normal' }}>
-                            Results may vary
+                            {t('download.resultsMayVaryTitle')}
                         </Text>
-                        <SubText>
-                            Search results include referenced assets even if they don&apos;t exist. We&apos;ll only
-                            download the assets that exist in DataHub.
-                        </SubText>
+                        <SubText>{t('download.resultsMayVaryText')}</SubText>
                     </div>
                 </ImpactAnalysisWarning>
             )}
             <Input
                 data-testid="download-as-csv-input"
-                placeholder="datahub.csv"
+                placeholder={FILENAME_PLACEHOLDER}
                 value={saveAsTitle}
                 onChange={(e) => {
                     setSaveAsTitle(e.target.value);

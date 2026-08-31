@@ -1,0 +1,13 @@
+{
+    "resultText.failing": "Failing",
+    "resultText.passing": "Passing",
+    "summary.allFailing": "All tests are failing",
+    "summary.allPassing": "All tests are passing",
+    "summary.countsSubtitle": "{{passing}} passing tests, {{failing}} failing tests",
+    "summary.noTestsRun": "No tests have run",
+    "summary.someFailing": "Some tests are failing",
+    "summary.statusTooltip": "This status is based on the most recent run of each test.",
+    "testResults.empty": "No Tests Found :(",
+    "testResults.noEvaluations": "No Evaluations",
+    "testResults.title": "Governance Test Results"
+}

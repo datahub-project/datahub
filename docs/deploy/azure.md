@@ -194,7 +194,7 @@ You should see a result like this:
 
 ![frontend-image](https://github.com/Saketh-Mahesh/azure-docs-images/blob/main/frontend-status.png?raw=true)
 
-## Use PostgresSQL for the storage layer
+## Use PostgreSQL for the storage layer
 
 Configure a PostgreSQL database in the same virtual network as the Kubernetes cluster or implement virtual network peering to connect both networks. Once the database is provisioned, you should be able to see the following page under the Connect tab on the left side.
 

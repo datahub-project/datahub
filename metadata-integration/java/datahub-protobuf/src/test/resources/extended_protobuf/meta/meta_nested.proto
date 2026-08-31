@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package meta;
+
+import "google/protobuf/descriptor.proto";
+
+/*
+  Message-type metadata for testing nested message extensions.
+  This tests the case where extension values are MESSAGE types, not primitives/enums.
+*/
+message NestedMetadata {
+  string description = 1;
+  int32 priority = 2;
+}
+
+/*
+  Extension for MessageOptions using a MESSAGE type (not primitive/enum)
+*/
+message nested_msg {
+  extend google.protobuf.MessageOptions {
+    NestedMetadata metadata = 7000;
+  }
+}
+
+/*
+  Extension for EnumOptions using a MESSAGE type
+*/
+message nested_enum {
+  extend google.protobuf.EnumOptions {
+    NestedMetadata metadata = 7100;
+  }
+}
+
+/*
+  Extension for EnumValueOptions using a MESSAGE type
+*/
+message nested_enum_value {
+  extend google.protobuf.EnumValueOptions {
+    NestedMetadata metadata = 7200;
+  }
+}

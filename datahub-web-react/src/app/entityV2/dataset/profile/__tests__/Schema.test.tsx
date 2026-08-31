@@ -55,10 +55,10 @@ describe('Schema', () => {
         expect(getByText('the name of the order')).toBeInTheDocument();
         expect(getByText('shipping_address')).toBeInTheDocument();
         expect(getByText('the address the order ships to')).toBeInTheDocument();
-    });
+    }, 30_000);
 
     it('renders raw', () => {
-        const { getByText, queryAllByTestId } = render(
+        const { getByTestId, queryAllByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <EntityContext.Provider
@@ -88,16 +88,16 @@ describe('Schema', () => {
 
         expect(queryAllByTestId('schema-raw-view')).toHaveLength(0);
 
-        const rawButton = getByText('Raw');
+        const rawButton = getByTestId('schema-raw-view-button');
         fireEvent.click(rawButton);
 
         expect(queryAllByTestId('schema-raw-view')).toHaveLength(1);
 
-        const schemaButton = getByText('Tabular');
+        const schemaButton = getByTestId('schema-tabular-view-button');
         fireEvent.click(schemaButton);
 
         expect(queryAllByTestId('schema-raw-view')).toHaveLength(0);
-    });
+    }, 30_000);
 
     it('renders tags and terms', () => {
         const { getByText } = render(

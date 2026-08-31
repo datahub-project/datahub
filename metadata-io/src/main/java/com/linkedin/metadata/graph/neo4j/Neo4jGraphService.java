@@ -1,5 +1,7 @@
 package com.linkedin.metadata.graph.neo4j;
 
+import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
+
 import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.annotations.VisibleForTesting;
@@ -54,9 +56,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.StopWatch;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
@@ -73,6 +75,7 @@ public class Neo4jGraphService implements GraphService {
   private final Driver driver;
   private final SessionConfig sessionConfig;
   @Getter private final GraphServiceConfiguration graphServiceConfig;
+  private boolean canWrite = true;
 
   public Neo4jGraphService(
       @Nonnull LineageRegistry lineageRegistry,
@@ -85,13 +88,21 @@ public class Neo4jGraphService implements GraphService {
     this.graphServiceConfig = graphServiceConfig;
   }
 
+  public void setWritable(boolean writable) {
+    canWrite = writable;
+  }
+
   @Override
   public LineageRegistry getLineageRegistry() {
     return lineageRegistry;
   }
 
   @Override
-  public void addEdge(@Nonnull final Edge edge) {
+  public void addEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     log.debug(
         String.format(
             "Adding Edge source: %s, destination: %s, type: %s",
@@ -215,12 +226,20 @@ public class Neo4jGraphService implements GraphService {
   }
 
   @Override
-  public void upsertEdge(final Edge edge) {
-    addEdge(edge);
+  public void upsertEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
+    addEdge(opContext, edge);
   }
 
   @Override
-  public void removeEdge(final Edge edge) {
+  public void removeEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     log.debug(
         String.format(
             "Deleting Edge source: %s, destination: %s, type: %s",
@@ -340,6 +359,19 @@ public class Neo4jGraphService implements GraphService {
 
     log.debug("Neo4j getLineage results = {}", result);
     return result;
+  }
+
+  @Nonnull
+  @Override
+  public EntityLineageResult getImpactLineage(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int maxHops) {
+    // For Neo4j, we can reuse the existing getLineage method with appropriate parameters
+    // since Neo4j doesn't have the same slice-based search capabilities as Elasticsearch
+    log.debug("Neo4j getImpactLineage maxHops = {}", maxHops);
+    return getLineage(opContext, entityUrn, lineageGraphFilters, 0, null, maxHops);
   }
 
   private String getPathFindingLabelFilter(Set<String> entityNames) {
@@ -498,9 +530,12 @@ public class Neo4jGraphService implements GraphService {
       return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
     }
 
-    final String srcCriteria = filterToCriteria(graphFilters.getSourceEntityFilter()).trim();
-    final String destCriteria = filterToCriteria(graphFilters.getDestinationEntityFilter()).trim();
-    final String edgeCriteria = relationshipFilterToCriteria(graphFilters.getRelationshipFilter());
+    final Neo4jFilterFragments srcFilter =
+        filterToFragments(graphFilters.getSourceEntityFilter(), "src");
+    final Neo4jFilterFragments destFilter =
+        filterToFragments(graphFilters.getDestinationEntityFilter(), "dest");
+    final Neo4jFilterFragments edgeFilter =
+        filterToFragments(graphFilters.getRelationshipFilter(), "r");
 
     final RelationshipDirection relationshipDirection = graphFilters.getRelationshipDirection();
 
@@ -512,24 +547,12 @@ public class Neo4jGraphService implements GraphService {
     }
 
     String srcNodeLabel = StringUtils.EMPTY;
-    // Create a URN from the String. Only proceed if srcCriteria is not null or empty
-    if (StringUtils.isNotEmpty(srcCriteria)) {
-      final String urnValue =
-          graphFilters
-              .getSourceEntityFilter()
-              .getOr()
-              .get(0)
-              .getAnd()
-              .get(0)
-              .getValues()
-              .get(0)
-              .toString();
-      try {
-        final Urn urn = Urn.createFromString(urnValue);
-        srcNodeLabel = urn.getEntityType();
+    // Label optimization only when every parseable source URN shares one entity type.
+    if (srcFilter.hasConstraints()) {
+      final String commonType = commonSourceNodeLabel(graphFilters.getSourceEntityFilter());
+      if (commonType != null) {
+        srcNodeLabel = commonType;
         matchTemplate = matchTemplate.replace("(src ", "(src:%s ");
-      } catch (URISyntaxException e) {
-        log.error("Failed to parse URN: {} ", urnValue, e);
       }
     }
 
@@ -541,6 +564,12 @@ public class Neo4jGraphService implements GraphService {
     String whereClause =
         computeEntityTypeWhereClause(
             graphFilters.getSourceTypes(), graphFilters.getDestinationTypes());
+    whereClause =
+        appendWherePredicates(
+            whereClause,
+            srcFilter.wherePredicates,
+            destFilter.wherePredicates,
+            edgeFilter.wherePredicates);
 
     // Build Statement strings
     String baseStatementString;
@@ -550,19 +579,19 @@ public class Neo4jGraphService implements GraphService {
           String.format(
               matchTemplate,
               srcNodeLabel,
-              srcCriteria,
+              srcFilter.propertyMap,
               relationshipTypeFilter,
-              edgeCriteria,
-              destCriteria,
+              edgeFilter.propertyMap,
+              destFilter.propertyMap,
               whereClause);
     } else {
       baseStatementString =
           String.format(
               matchTemplate,
-              srcCriteria,
+              srcFilter.propertyMap,
               relationshipTypeFilter,
-              edgeCriteria,
-              destCriteria,
+              edgeFilter.propertyMap,
+              destFilter.propertyMap,
               whereClause);
     }
     log.info(baseStatementString);
@@ -604,31 +633,40 @@ public class Neo4jGraphService implements GraphService {
 
     Boolean hasSourceTypes = sourceTypes != null && !sourceTypes.isEmpty();
     Boolean hasDestTypes = destinationTypes != null && !destinationTypes.isEmpty();
+    // Parenthesize type OR-groups so AND with later predicates cannot bind into one branch.
     if (hasSourceTypes && hasDestTypes) {
       whereClause =
           String.format(
               " WHERE left(type(r), 2)<>'r_' AND %s AND %s",
-              sourceTypes.stream().map(type -> "src:" + type).collect(Collectors.joining(" OR ")),
+              sourceTypes.stream()
+                  .map(type -> "src:" + type)
+                  .collect(Collectors.joining(" OR ", "(", ")")),
               destinationTypes.stream()
                   .map(type -> "dest:" + type)
-                  .collect(Collectors.joining(" OR ")));
+                  .collect(Collectors.joining(" OR ", "(", ")")));
     } else if (hasSourceTypes) {
       whereClause =
           String.format(
               " WHERE left(type(r), 2)<>'r_' AND %s",
-              sourceTypes.stream().map(type -> "src:" + type).collect(Collectors.joining(" OR ")));
+              sourceTypes.stream()
+                  .map(type -> "src:" + type)
+                  .collect(Collectors.joining(" OR ", "(", ")")));
     } else if (hasDestTypes) {
       whereClause =
           String.format(
               " WHERE left(type(r), 2)<>'r_' AND %s",
               destinationTypes.stream()
                   .map(type -> "dest:" + type)
-                  .collect(Collectors.joining(" OR ")));
+                  .collect(Collectors.joining(" OR ", "(", ")")));
     }
     return whereClause;
   }
 
   public void removeNode(@Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
 
     log.debug("Removing Neo4j node with urn: {}", urn);
     final String srcNodeLabel = urn.getEntityType();
@@ -659,6 +697,10 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull final Urn urn,
       @Nonnull final Set<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
 
     log.debug(
         "Removing Neo4j edge types from node with urn: {}, types: {}, filter: {}",
@@ -708,9 +750,11 @@ public class Neo4jGraphService implements GraphService {
           String destUrnString = typeDest.values().get(1).asNode().get("urn").asString();
           Urn destUrn = createFromString(destUrnString);
           if (removeMode.equals("0")) {
-            removeEdge(new Edge(destUrn, urn, relationshipType, null, null, null, null, null));
+            removeEdge(
+                opContext, new Edge(destUrn, urn, relationshipType, null, null, null, null, null));
           } else {
-            removeEdge(new Edge(urn, destUrn, relationshipType, null, null, null, null, null));
+            removeEdge(
+                opContext, new Edge(urn, destUrn, relationshipType, null, null, null, null, null));
           }
         }
       }
@@ -718,6 +762,10 @@ public class Neo4jGraphService implements GraphService {
   }
 
   public void removeNodesMatchingLabel(@Nonnull String labelPattern) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     log.debug("Removing Neo4j nodes matching label {}", labelPattern);
     final String matchTemplate =
         "MATCH (n) WHERE any(l IN labels(n) WHERE l=~'%s') DETACH DELETE n";
@@ -729,12 +777,20 @@ public class Neo4jGraphService implements GraphService {
   }
 
   @Override
-  public void clear() {
+  public void clear(@Nonnull OperationContext opContext) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     removeNodesMatchingLabel(".*");
   }
 
   @VisibleForTesting
   public void wipe() {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return;
+    }
     runQuery(new Statement("MATCH (n) DETACH DELETE n", Map.of())).consume();
   }
 
@@ -821,79 +877,168 @@ public class Neo4jGraphService implements GraphService {
       return key + ":" + value;
     }
 
-    return key + ":\"" + value + "\"";
+    return key + ":\"" + escapeCypherString(value.toString()) + "\"";
   }
 
   /**
-   * Converts {@link RelationshipFilter} to neo4j query criteria, filter criterion condition
-   * requires to be EQUAL.
+   * Converts a {@link Filter} into Neo4j MATCH property-map criteria plus WHERE predicates.
    *
-   * @param filter Query relationship filter
-   * @return Neo4j criteria string
+   * <p>Single-value EQUAL criteria stay in the node/relationship property map. Multi-value EQUAL
+   * criteria become {@code alias.field IN [...]} WHERE predicates — Neo4j property maps cannot
+   * express OR across values, and taking only {@code values.get(0)} silently under-filters.
    */
   @Nonnull
-  private static String relationshipFilterToCriteria(@Nonnull RelationshipFilter filter) {
-    return disjunctionToCriteria(filter.getOr());
+  @VisibleForTesting
+  static Neo4jFilterFragments filterToFragments(@Nullable Filter filter, @Nonnull String alias) {
+    if (filter == null || filter.getOr() == null) {
+      return Neo4jFilterFragments.EMPTY;
+    }
+    return disjunctionToFragments(filter.getOr(), alias);
   }
 
   /**
-   * Converts {@link Filter} to neo4j query criteria, filter criterion condition requires to be
-   * EQUAL.
-   *
-   * @param filter Query Filter
-   * @return Neo4j criteria string
+   * Same as {@link #filterToFragments(Filter, String)} for relationship filters. {@link
+   * RelationshipFilter} includes Filter fields in PDL but is not a Java subtype of {@link Filter}.
    */
   @Nonnull
-  private static String filterToCriteria(@Nonnull Filter filter) {
-    return disjunctionToCriteria(filter.getOr());
+  private static Neo4jFilterFragments filterToFragments(
+      @Nullable RelationshipFilter filter, @Nonnull String alias) {
+    if (filter == null || filter.getOr() == null) {
+      return Neo4jFilterFragments.EMPTY;
+    }
+    return disjunctionToFragments(filter.getOr(), alias);
   }
 
-  private static String disjunctionToCriteria(final ConjunctiveCriterionArray disjunction) {
+  @Nonnull
+  private static Neo4jFilterFragments disjunctionToFragments(
+      @Nullable final ConjunctiveCriterionArray disjunction, @Nonnull String alias) {
+    if (disjunction == null || disjunction.isEmpty()) {
+      return Neo4jFilterFragments.EMPTY;
+    }
     if (disjunction.size() > 1) {
       // TODO: Support disjunctions (ORs).
       throw new UnsupportedOperationException(
           "Neo4j query filter only supports 1 set of conjunction criteria");
     }
     final CriterionArray criterionArray =
-        disjunction.size() > 0 ? disjunction.get(0).getAnd() : new CriterionArray();
-    return criterionToString(criterionArray);
+        disjunction.get(0).getAnd() != null ? disjunction.get(0).getAnd() : new CriterionArray();
+    return criterionToFragments(criterionArray, alias);
   }
 
-  /**
-   * Converts {@link CriterionArray} to neo4j query string.
-   *
-   * @param criterionArray CriterionArray in a Filter
-   * @return Neo4j criteria string
-   */
   @Nonnull
-  private static String criterionToString(@Nonnull CriterionArray criterionArray) {
+  private static Neo4jFilterFragments criterionToFragments(
+      @Nonnull CriterionArray criterionArray, @Nonnull String alias) {
     if (!criterionArray.stream()
         .allMatch(criterion -> Condition.EQUAL.equals(criterion.getCondition()))) {
       throw new RuntimeException(
           "Neo4j query filter only support EQUAL condition " + criterionArray);
     }
 
-    final StringJoiner joiner = new StringJoiner(",", "{", "}");
+    final StringJoiner mapJoiner = new StringJoiner(",", "{", "}");
+    final List<String> wherePredicates = new ArrayList<>();
 
-    criterionArray.forEach(
-        criterion ->
-            joiner.add(toCriterionString(criterion.getField(), criterion.getValues().get(0))));
+    for (var criterion : criterionArray) {
+      if (criterion.getValues() == null || criterion.getValues().isEmpty()) {
+        // Fail closed — dropping an EQUAL constraint would over-match.
+        throw new IllegalArgumentException(
+            "Neo4j EQUAL criterion requires at least one value for field: " + criterion.getField());
+      }
+      if (criterion.getValues().size() == 1) {
+        mapJoiner.add(toCriterionString(criterion.getField(), criterion.getValues().get(0)));
+      } else {
+        String inList =
+            criterion.getValues().stream()
+                .map(value -> "\"" + escapeCypherString(value) + "\"")
+                .collect(Collectors.joining(", ", "[", "]"));
+        wherePredicates.add(alias + "." + criterion.getField() + " IN " + inList);
+      }
+    }
 
-    return joiner.length() <= 2 ? "" : joiner.toString();
+    String propertyMap = mapJoiner.length() <= 2 ? "" : mapJoiner.toString();
+    return new Neo4jFilterFragments(propertyMap, wherePredicates);
   }
 
-  /** Gets Node based on Urn, if not exist, creates placeholder node. */
   @Nonnull
-  private Statement getOrInsertNode(@Nonnull Urn urn) {
-    final String nodeType = urn.getEntityType();
+  private static String escapeCypherString(@Nonnull String value) {
+    return value.replace("\\", "\\\\").replace("\"", "\\\"");
+  }
 
-    final String mergeTemplate = "MERGE (node:%s {urn: $urn}) RETURN node";
-    final String statement = String.format(mergeTemplate, nodeType);
+  /**
+   * Returns the shared Neo4j node label for source filter URNs, or {@code null} when the filter has
+   * no parseable URNs or mixes entity types (so a single label would under-match).
+   */
+  @Nullable
+  @VisibleForTesting
+  static String commonSourceNodeLabel(@Nullable Filter filter) {
+    if (filter == null || filter.getOr() == null || filter.getOr().isEmpty()) {
+      return null;
+    }
+    if (filter.getOr().get(0).getAnd() == null) {
+      return null;
+    }
+    String commonType = null;
+    boolean sawUrn = false;
+    for (var criterion : filter.getOr().get(0).getAnd()) {
+      if (criterion.getValues() == null) {
+        continue;
+      }
+      for (String value : criterion.getValues()) {
+        try {
+          final String type = Urn.createFromString(value).getEntityType();
+          sawUrn = true;
+          if (commonType == null) {
+            commonType = type;
+          } else if (!commonType.equals(type)) {
+            return null;
+          }
+        } catch (URISyntaxException ignored) {
+          // Non-URN filter values (e.g. platform) do not participate in label selection.
+        }
+      }
+    }
+    return sawUrn ? commonType : null;
+  }
 
-    final Map<String, Object> params = new HashMap<>();
-    params.put("urn", urn.toString());
+  /**
+   * Appends AND-joined predicates to an existing WHERE clause. Parenthesizes the existing body so
+   * Cypher AND/OR precedence cannot let a new predicate apply to only one branch of a type OR.
+   */
+  @SafeVarargs
+  @Nonnull
+  @VisibleForTesting
+  static String appendWherePredicates(
+      @Nonnull String whereClause, @Nonnull List<String>... predicateGroups) {
+    List<String> extras =
+        java.util.Arrays.stream(predicateGroups)
+            .flatMap(List::stream)
+            .filter(StringUtils::isNotBlank)
+            .collect(Collectors.toList());
+    if (extras.isEmpty()) {
+      return whereClause;
+    }
+    String joined = String.join(" AND ", extras);
+    if (StringUtils.containsIgnoreCase(whereClause, "WHERE")) {
+      String body = whereClause.replaceFirst("(?i)\\s*WHERE\\s+", "").trim();
+      return " WHERE (" + body + ") AND " + joined;
+    }
+    return " WHERE " + joined;
+  }
 
-    return buildStatement(statement, params);
+  @VisibleForTesting
+  static final class Neo4jFilterFragments {
+    static final Neo4jFilterFragments EMPTY = new Neo4jFilterFragments("", List.of());
+
+    final String propertyMap;
+    final List<String> wherePredicates;
+
+    Neo4jFilterFragments(@Nonnull String propertyMap, @Nonnull List<String> wherePredicates) {
+      this.propertyMap = propertyMap;
+      this.wherePredicates = List.copyOf(wherePredicates);
+    }
+
+    boolean hasConstraints() {
+      return StringUtils.isNotEmpty(propertyMap) || !wherePredicates.isEmpty();
+    }
   }
 
   @Override
@@ -949,6 +1094,7 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
@@ -959,9 +1105,12 @@ public class Neo4jGraphService implements GraphService {
       return new RelatedEntitiesScrollResult(0, 0, null, Collections.emptyList());
     }
 
-    final String srcCriteria = filterToCriteria(graphFilters.getSourceEntityFilter()).trim();
-    final String destCriteria = filterToCriteria(graphFilters.getDestinationEntityFilter()).trim();
-    final String edgeCriteria = relationshipFilterToCriteria(graphFilters.getRelationshipFilter());
+    final Neo4jFilterFragments srcFilter =
+        filterToFragments(graphFilters.getSourceEntityFilter(), "src");
+    final Neo4jFilterFragments destFilter =
+        filterToFragments(graphFilters.getDestinationEntityFilter(), "dest");
+    final Neo4jFilterFragments edgeFilter =
+        filterToFragments(graphFilters.getRelationshipFilter(), "r");
 
     final RelationshipDirection relationshipDirection = graphFilters.getRelationshipDirection();
 
@@ -973,24 +1122,12 @@ public class Neo4jGraphService implements GraphService {
     }
 
     String srcNodeLabel = StringUtils.EMPTY;
-    // Create a URN from the String. Only proceed if srcCriteria is not null or empty
-    if (StringUtils.isNotEmpty(srcCriteria)) {
-      final String urnValue =
-          graphFilters
-              .getSourceEntityFilter()
-              .getOr()
-              .get(0)
-              .getAnd()
-              .get(0)
-              .getValues()
-              .get(0)
-              .toString();
-      try {
-        final Urn urn = Urn.createFromString(urnValue);
-        srcNodeLabel = urn.getEntityType();
+    // Label optimization only when every parseable source URN shares one entity type.
+    if (srcFilter.hasConstraints()) {
+      final String commonType = commonSourceNodeLabel(graphFilters.getSourceEntityFilter());
+      if (commonType != null) {
+        srcNodeLabel = commonType;
         matchTemplate = matchTemplate.replace("(src ", "(src:%s ");
-      } catch (URISyntaxException e) {
-        log.error("Failed to parse URN: {} ", urnValue, e);
       }
     }
 
@@ -1002,6 +1139,12 @@ public class Neo4jGraphService implements GraphService {
     String whereClause =
         computeEntityTypeWhereClause(
             graphFilters.getSourceTypes(), graphFilters.getDestinationTypes());
+    whereClause =
+        appendWherePredicates(
+            whereClause,
+            srcFilter.wherePredicates,
+            destFilter.wherePredicates,
+            edgeFilter.wherePredicates);
 
     // Build Statement strings
     String baseStatementString;
@@ -1011,19 +1154,19 @@ public class Neo4jGraphService implements GraphService {
           String.format(
               matchTemplate,
               srcNodeLabel,
-              srcCriteria,
+              srcFilter.propertyMap,
               relationshipTypeFilter,
-              edgeCriteria,
-              destCriteria,
+              edgeFilter.propertyMap,
+              destFilter.propertyMap,
               whereClause);
     } else {
       baseStatementString =
           String.format(
               matchTemplate,
-              srcCriteria,
+              srcFilter.propertyMap,
               relationshipTypeFilter,
-              edgeCriteria,
-              destCriteria,
+              edgeFilter.propertyMap,
+              destFilter.propertyMap,
               whereClause);
     }
     log.info(baseStatementString);
@@ -1059,7 +1202,6 @@ public class Neo4jGraphService implements GraphService {
                         null));
     final int totalCount = runQuery(countStatement).single().get(0).asInt();
     log.info("Total Related Entities: {}", totalCount);
-    // return new RelatedEntitiesResult(0, relatedEntities.size(), totalCount, relatedEntities);
     String nextScrollId = null;
     if (relatedEntities.size() == count) {
       String pitId = Integer.toString(offset + count);

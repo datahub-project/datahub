@@ -1,6 +1,6 @@
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -14,15 +14,17 @@ from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 
 
 class CockroachDBConfig(PostgresConfig):
-    scheme = Field(default="cockroachdb+psycopg2", description="database scheme")
-    schema_pattern = Field(
+    scheme: HiddenFromDocs[str] = Field(
+        default="cockroachdb+psycopg2", description="database scheme"
+    )
+    schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(deny=["information_schema", "crdb_internal"])
     )
 
 
 @platform_name("CockroachDB")
 @config_class(CockroachDBConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
@@ -37,5 +39,5 @@ class CockroachDBSource(PostgresSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = CockroachDBConfig.parse_obj(config_dict)
+        config = CockroachDBConfig.model_validate(config_dict)
         return cls(config, ctx)

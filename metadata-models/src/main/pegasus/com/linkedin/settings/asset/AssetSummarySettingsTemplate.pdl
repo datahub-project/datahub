@@ -1,0 +1,13 @@
+namespace com.linkedin.settings.asset
+
+import com.linkedin.common.Urn
+
+/**
+ * Object containing the template and any additional info for asset summary settings
+ */
+record AssetSummarySettingsTemplate {
+  /**
+   * The urn of the template
+   */
+  template: Urn
+}

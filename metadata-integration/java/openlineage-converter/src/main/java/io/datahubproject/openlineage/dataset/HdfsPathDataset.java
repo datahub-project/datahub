@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.List;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 @ToString
 @Slf4j
@@ -124,7 +124,13 @@ public class HdfsPathDataset extends SparkDataset {
     return null;
   }
 
-  private static String getRawNameWithoutPartition(String pathUri, String partitionRegexp) {
+  /**
+   * Strips a trailing partition (matched by {@code partitionRegexp}, anchored at the end) from a
+   * path. Public so the converter can apply the same {@code file_partition_regexp} logic to
+   * bare-namespace FS datasets (e.g. {@code file}, {@code dbfs}) that don't flow through {@link
+   * #create}.
+   */
+  public static String getRawNameWithoutPartition(String pathUri, String partitionRegexp) {
     String result = pathUri.replaceAll(partitionRegexp + "$", "");
     // Remove trailing slash
     return result.replaceAll("/$", "");
@@ -179,7 +185,8 @@ public class HdfsPathDataset extends SparkDataset {
   public enum HdfsPlatform {
     S3(Arrays.asList("s3", "s3a", "s3n"), "s3"),
     GCS(Arrays.asList("gs", "gcs"), "gcs"),
-    ABFS(Arrays.asList("abfs", "abfss"), "abfs"),
+    ABFS(Arrays.asList("abfs", "abfss"), "abs"),
+    WASB(Arrays.asList("wasb", "wasbs"), "abs"),
     DBFS(Collections.singletonList("dbfs"), "dbfs"),
     FILE(Collections.singletonList("file"), "file"),
     // default platform

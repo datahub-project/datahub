@@ -1,9 +1,11 @@
-import { Button, Tooltip, colors } from '@components';
+import { Button, Tooltip } from '@components';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const StyledButton = styled(Button)`
-    border: 1px solid ${colors.gray[100]};
+    border: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 type Props = {
@@ -13,19 +15,20 @@ type Props = {
 };
 
 export default function DownloadButton({ setShowDownloadAsCsvModal, isDownloadingCsv, disabled }: Props) {
+    const { t } = useTranslation('shared.search');
     return (
-        <Tooltip title="Download results..." showArrow={false} placement="top">
+        <Tooltip title={t('downloadResults.tooltip')} showArrow={false} placement="top">
             <StyledButton
                 onClick={() => setShowDownloadAsCsvModal(true)}
                 disabled={isDownloadingCsv || disabled}
                 isCircle
-                icon={{ icon: 'DownloadSimple', source: 'phosphor' }}
+                icon={{ icon: DownloadSimple }}
                 variant="text"
                 color="gray"
                 size="sm"
                 data-testid="download-csv-button"
             >
-                {isDownloadingCsv ? 'Downloading...' : null}
+                {isDownloadingCsv ? t('downloading') : null}
             </StyledButton>
         </Tooltip>
     );

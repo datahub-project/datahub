@@ -1,0 +1,58 @@
+namespace com.linkedin.incident
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Url
+
+/**
+ * A link to an external system (e.g., Jira, ServiceNow, PagerDuty) associated with an incident.
+ */
+record IncidentExternalLink {
+  /**
+   * Unique connection identifier for this integration. Allows linking to multiple instances
+   * of the same system (e.g., 'primary-jira', 'ops-servicenow', 'critical-pagerduty').
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  connectionId: string
+
+  /**
+   * The external system name (e.g., 'jira', 'servicenow', 'pagerduty').
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "External System",
+    "fieldName": "externalSystem"
+  }
+  system: string
+
+  /**
+   * The identifier in the external system (e.g., 'PROJ-123' for Jira).
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "fieldName": "externalLinkId"
+  }
+  externalId: string
+
+  /**
+   * The direct URL to the external issue/ticket.
+   */
+  url: Url
+
+  /**
+   * When this link was created.
+   */
+  created: AuditStamp
+
+  /**
+   * Whether bidirectional sync is enabled for this link.
+   */
+  syncEnabled: boolean = true
+
+  /**
+   * Epoch milliseconds of the last successful synchronization.
+   */
+  lastSyncTimeMillis: optional long
+}

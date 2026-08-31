@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for creating MLModel and MLModelGroup entities in DataHub via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -18,14 +22,14 @@ This guide will show you how to
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed steps, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 ## Create MLModelGroup
 
 You can create an MLModelGroup by providing the necessary attributes such as name, platform, and other metadata.
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_mlmodel_group.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlmodel_group_create.py show_path_as_comment }}
 ```
 
 ## Create MLModel
@@ -33,7 +37,7 @@ You can create an MLModelGroup by providing the necessary attributes such as nam
 You can create an MLModel by providing the necessary attributes such as name, platform, and other metadata.
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_mlmodel.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlmodel_create_full.py show_path_as_comment }}
 ```
 
 Note that you can associate an MLModel with an MLModelGroup by providing the group URN when creating the MLModel.
@@ -41,7 +45,7 @@ Note that you can associate an MLModel with an MLModelGroup by providing the gro
 You can also set MLModelGroup later by updating the MLModel entity as shown below.
 
 ```python
-{{ inline /metadata-ingestion/examples/library/add_mlgroup_to_mlmodel.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlgroup_add_to_mlmodel.py show_path_as_comment }}
 ```
 
 ## Read MLModelGroup
@@ -49,7 +53,7 @@ You can also set MLModelGroup later by updating the MLModel entity as shown belo
 You can read an MLModelGroup by providing the group URN.
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_mlmodel_group.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlmodel_group_read.py show_path_as_comment }}
 ```
 
 #### Expected Output
@@ -65,7 +69,7 @@ You can read an MLModelGroup by providing the group URN.
 You can read an MLModel by providing the model URN.
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_mlmodel.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlmodel_read.py show_path_as_comment }}
 ```
 
 #### Expected Output

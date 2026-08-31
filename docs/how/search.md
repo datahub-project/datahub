@@ -1,4 +1,10 @@
+---
+title: Search
+description: "Use the DataHub search bar to find datasets, columns, dashboards, charts, and pipelines across your data ecosystem."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
+import ProductTour from '@site/src/components/ProductTour';
 
 # Search
 
@@ -6,11 +12,15 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 The **search bar** is an important mechanism for discovering data assets in DataHub. From the search bar, you can find Datasets, Columns, Dashboards, Charts, Data Pipelines, and more. Simply type in a term and press 'enter'.
 
+Prefer to explore hands-on? Take the interactive tour below, then read on for the details.
+
+<ProductTour name="search" title="Search" />
+
 <p align="center">
 <img width="70%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/search-landingpage.png?raw=true" />
 </p>
 
-**Advanced queries** and the **filter sidebar** helps fine tuning queries. For programmatic users Datahub provides a **GraphQL API** as well.
+**Advanced queries** and the **filter sidebar** helps fine tuning queries. For programmatic users DataHub provides a **GraphQL API** as well.
 
 ## Search Setup, Prerequisites, and Permissions
 
@@ -70,7 +80,7 @@ After creating a filter, you can choose whether results should or should not mat
 
 ### Results
 
-Search results appear ranked by their relevance. In self-hosted DataHub ranking is based on how closely the query matched textual fields of an asset and its metadata. In DataHub Cloud, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency.
+Search results appear ranked by their relevance. In DataHub Core ranking is based on how closely the query matched textual fields of an asset and its metadata. In DataHub Cloud, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency.
 
 With better metadata comes better results. Learn more about ingestion technical metadata in the [metadata ingestion](../../metadata-ingestion/README.md) guide.
 
@@ -128,6 +138,7 @@ If you want to:
 - Find a dataset with a column name, **latitude**
 
   - `/q fieldPaths: latitude` [Sample results](https://demo.datahub.com/search?page=1&query=%2Fq%20fieldPaths%3A%20latitude)
+  - `/q fieldPaths: *latitude` to include columns that may use V2 fieldPaths such as [version=2.0].[type=string].latitude
   - fieldPaths is the name of the attribute that holds the column name in Datasets.
 
 - Find a dataset with the term **latitude** in the field description
@@ -146,8 +157,37 @@ If you want to:
   - BrowsePath is stored as a complete string, for instance `/datasets/prod/hive/SampleKafkaDataset`, hence the need for wildcards on both ends of the term to return a result.
 
 - Find a dataset without the **name** field
+
   - `/q -_exists_:name` [Sample results](https://demo.datahub.com/search?filter_entity___false___EQUAL___0=DATASET&page=1&query=%252Fq%2520-_exists_%253Aname&unionType=0)
   - the `-` is negating the existence of the field name.
+
+- Find whether a dataset has upstream lineage as per the last emission of the relevant aspect.
+
+  - `/q hasUpstreams:true`
+  - `/q hasFineGrainedUpstreams:true`
+  - These 2 filters are supported starting from release `0.3.13.x` of DataHub Cloud.
+  - Note that whether or not the upstreams are valid URNs or not is not considered. It just considers whether the metadata was emitted or not.
+  - There is no corresponding filter for downstream lineage currently.
+  - This only works for `dataset` entity.
+
+- Find whether a dataset has usage as per the last emission of the relevant aspect.
+
+  - `/q hasUniqueUserCount:true`
+  - `/q hasTotalSqlQueriesCount:true`
+  - These 2 filters will be supported starting from release `0.3.14.x` of DataHub Cloud.
+  - Note that it does not check whether the field is zero. It just checks for whether the metadata was emitted or not.
+
+- Find the number of upstreams via `upstreamCountFeature` field or downstreams via `downstreamCountFeature` field. Only 1 hop lineage is considered.
+
+  - `/q upstreamCountFeature:>2` -> Greater than 2 upstreams at 1 hop
+  - `/q downstreamCountFeature:<3` -> Less than 3 downstreams at 1 hop
+  - `/q upstreamCountFeature:<=10` -> Less than or equal to 10 upstreams at 1 hop
+  - `/q upstreamCountFeature:[5 TO *]` -> To find out where at 1 hop an asset has Greater than or equal to 5 upstream lineage
+  - The advantage of `upstreamCountFeature` over `hasUpstreams` is that it considers whether the upstreams and downstreams are valid URNs.
+  - The disadvantage of `upstreamCountFeature` over `hasUpstreams` is that these are updated once a day and are not real-time like `hasUpstreams`.
+  - The reason `upstreamCountFeature` is useful is that after lineage is emitted once it will probably not change drastically for most of the tables. So this information will be almost up-to-date for all tables with a lag of around 24 hours.
+  - These 2 filters will be supported starting from release `0.3.14.x` of DataHub Cloud.
+  - These are DataHub Cloud _only_ filters.
 
 <!--
 ## Additional Resources
@@ -159,7 +199,7 @@ If you want to:
 **What can you do with DataHub?**
 
 <p align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/embed/dubrKIcv37c" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/dubrKIcv37c" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
 </p>
 
 ### GraphQL
@@ -294,6 +334,24 @@ the **term** `orders` is the same, however one location may be more important an
 **Note:** The customized query is a pass-through to Elasticsearch and must comply with their API, syntax errors are possible.
 It is recommended to test the customized queries prior to production deployment and knowledge of the Elasticsearch query
 language is required.
+
+### Default search entity types
+
+When GraphQL callers omit `types` (search, autocomplete, browse V2, and related resolvers), GMS uses configurable
+default entity-type lists from `elasticsearch.search` in `application.yaml`:
+
+| Config key                      | Environment variable                      | Used when callers omit `types` for |
+| ------------------------------- | ----------------------------------------- | ---------------------------------- |
+| `defaultEntityTypes`            | `SEARCH_DEFAULT_ENTITY_TYPES`             | Search / scroll / aggregate        |
+| `autocompleteEntityTypes`       | `SEARCH_AUTOCOMPLETE_ENTITY_TYPES`        | Autocomplete across entities       |
+| `browseEntityTypes`             | `SEARCH_BROWSE_ENTITY_TYPES`              | Browse V2                          |
+| `prioritizedSourceEntityTypes`  | `SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES`  | Source-entity quick filters        |
+| `prioritizedDatahubEntityTypes` | `SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES` | DataHub-entity quick filters       |
+
+Each list supports `value` / `add` / `remove` (and matching `*_ADD` / `*_REMOVE` env vars). Unset env vars keep the YAML
+defaults. An explicitly empty resolved list means GraphQL searches **no** entity types — it does not expand to all
+indices. Explicit non-empty `types` on the GraphQL request always win. Unknown registry names are soft-dropped with a
+warn at startup. Full variable reference: [Environment Variables](../deploy/environment-vars.md).
 
 ### Enable Custom Search
 
@@ -541,15 +599,87 @@ autocompleteConfigurations:
       boost_mode: multiply
 ```
 
+### Field Configurations
+
+Field configurations allow you to customize which fields are included in search queries and result highlighting. Each configuration is identified by a label and can modify the default behavior using three operations:
+
+- `add` - Adds fields to the system defaults
+- `remove` - Removes fields from the system defaults
+- `replace` - Completely replaces the system default field list
+
+As of today the UI will only exercise the `default` label, however calls to graphql can refer to other labels. See graphql documentation for further details.
+
+**Note:** The `replace` operation cannot be combined with `add` or `remove`. However, `add` and `remove` can be used together.
+
+#### Field Configuration Example
+
+```yaml
+fieldConfigurations:
+  # Default configuration - if searchFlags doesn't specify
+  default:
+    searchFields:
+      remove:
+        - fieldPaths
+
+    highlightFields:
+      enabled: true
+      remove:
+        - fieldPaths
+
+  # PDL legacy configuration
+  legacy:
+    searchFields:
+    # No modifications - use PDL defaults
+
+    highlightFields:
+      enabled: true
+      # No modifications - use PDL defaults
+
+  # Configuration for technical users - adds technical fields
+  technical:
+    searchFields:
+      add:
+        - fieldPaths
+        - platform
+      remove:
+        - customProperties
+    highlightFields:
+      enabled: true
+      add:
+        - fieldPaths
+        - platform
+
+  # Configuration for business users - simplified field set
+  business:
+    searchFields:
+      replace:
+        - name
+        - description
+        - tags
+        - glossaryTerms
+    highlightFields:
+      enabled: true
+      replace:
+        - name
+        - description
+
+  # Configuration with no highlighting
+  no-highlight:
+    searchFields:
+      # Uses system defaults
+    highlightFields:
+      enabled: false
+```
+
 ## FAQ and Troubleshooting
 
 **How are the results ordered?**
 
-The order of the search results is based on the weight what Datahub gives them based on our search algorithm. The current algorithm in OSS DataHub is based on a text-match score from Elasticsearch.
+The order of the search results is based on the weight what DataHub gives them based on our search algorithm. The current algorithm in OSS DataHub is based on a text-match score from Elasticsearch.
 
 **Where to find more information?**
 
-The sample queries here are non exhaustive. [The link here](https://demo.datahub.com/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag `Searchable`.  
+The sample queries here are non exhaustive. [The link here](https://demo.datahub.com/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside DataHub. Click on the fields inside each entity and see which field has the tag `Searchable`.  
 However, it does not tell you the specific attribute name to use for specialized searches. One way to do so is to inspect the ElasticSearch indices, for example:  
 `curl http://localhost:9200/_cat/indices` returns all the ES indices in the ElasticSearch container.
 

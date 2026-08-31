@@ -1,10 +1,13 @@
 package com.linkedin.datahub.graphql.types.tag.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Tag;
+import com.linkedin.datahub.graphql.types.common.mappers.MetadataAttributionMapper;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -40,12 +43,23 @@ public class GlobalTagsMapper {
       @Nonnull final TagAssociation input,
       @Nonnull final Urn entityUrn) {
 
-    final com.linkedin.datahub.graphql.generated.TagAssociation result =
-        new com.linkedin.datahub.graphql.generated.TagAssociation();
-    final Tag resultTag = new Tag();
-    resultTag.setUrn(input.getTag().toString());
-    result.setTag(resultTag);
-    result.setAssociatedUrn(entityUrn.toString());
-    return Optional.of(result);
+    if (context == null || canView(context.getOperationContext(), input.getTag())) {
+      final com.linkedin.datahub.graphql.generated.TagAssociation result =
+          new com.linkedin.datahub.graphql.generated.TagAssociation();
+      final Tag resultTag = new Tag();
+      resultTag.setUrn(input.getTag().toString());
+      result.setTag(resultTag);
+      if (entityUrn != null) {
+        result.setAssociatedUrn(entityUrn.toString());
+      }
+      if (input.getContext() != null) {
+        result.setContext(input.getContext());
+      }
+      if (input.getAttribution() != null) {
+        result.setAttribution(MetadataAttributionMapper.map(context, input.getAttribution()));
+      }
+      return Optional.of(result);
+    }
+    return Optional.empty();
   }
 }

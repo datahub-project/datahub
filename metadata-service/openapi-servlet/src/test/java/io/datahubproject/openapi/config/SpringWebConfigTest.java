@@ -27,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
@@ -36,6 +37,7 @@ import org.testng.annotations.Test;
 public class SpringWebConfigTest extends AbstractTestNGSpringContextTests {
 
   OperationContext operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+  @MockitoBean private TracingInterceptor tracingInterceptor;
   @Autowired private ConfigurationProvider configurationProvider;
   @Autowired private ObjectMapperProvider objectMapperProvider;
   @Autowired private List<OpenAPI> openAPIs;
@@ -84,7 +86,7 @@ public class SpringWebConfigTest extends AbstractTestNGSpringContextTests {
 
       // The customizer is what actually performs the merge
       // We need to simulate what Spring does when it builds the OpenAPI spec
-      assertEquals(1, groupedApi.getOpenApiCustomizers().size());
+      assertEquals(2, groupedApi.getOpenApiCustomizers().size());
 
       // Apply the customizer to openApi1 (simulating Spring's behavior)
       groupedApi.getOpenApiCustomizers().forEach(customizer -> customizer.customise(openApi1));

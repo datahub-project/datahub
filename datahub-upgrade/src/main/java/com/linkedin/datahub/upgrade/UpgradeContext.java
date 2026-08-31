@@ -25,4 +25,16 @@ public interface UpgradeContext {
 
   /** Returns the operation context for the upgrade */
   OperationContext opContext();
+
+  /**
+   * Whether any blocking upgrade voted that K8 scale-down is required (e.g. BuildIndices needs
+   * reindex). Set during ScaleDownEvaluationStep; default false for implementations that do not
+   * support it.
+   */
+  default boolean isScaleDownRequired() {
+    return false;
+  }
+
+  /** Sets whether K8 scale-down is required. No-op for implementations that do not support it. */
+  default void setScaleDownRequired(boolean scaleDownRequired) {}
 }

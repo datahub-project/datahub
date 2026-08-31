@@ -1,0 +1,17 @@
+[
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:7f8a9b0c",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "A financial instrument as defined by FIBO.",
+            "termSource": "EXTERNAL",
+            "sourceRef": "FIBO",
+            "sourceUrl": "https://spec.edmcouncil.org/fibo/"
+        }
+    }
+}
+]

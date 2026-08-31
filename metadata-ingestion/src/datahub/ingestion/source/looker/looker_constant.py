@@ -11,3 +11,7 @@ prod = "prod"
 dev = "dev"
 NAME = "name"
 DERIVED_DOT_SQL = "derived.sql"
+
+VIEW_FIELD_TYPE_ATTRIBUTE = "type"
+VIEW_FIELD_INTERVALS_ATTRIBUTE = "intervals"
+VIEW_FIELD_TIMEFRAMES_ATTRIBUTE = "timeframes"

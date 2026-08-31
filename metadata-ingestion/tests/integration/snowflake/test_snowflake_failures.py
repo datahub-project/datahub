@@ -3,16 +3,23 @@ from typing import cast
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from pytest import fixture
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.snowflake import snowflake_query
-from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
+from datahub.ingestion.source.snowflake.constants import (
+    SnowflakeEdition,
+    SnowflakeShowKind,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
-from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    SHOW_STREAM_MAX_PAGE_SIZE,
+    SnowflakeQuery,
+)
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from tests.integration.snowflake.common import (
     FROZEN_TIME,
@@ -59,6 +66,7 @@ def snowflake_pipeline_config(tmp_path):
                 match_fully_qualified_names=True,
                 schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                 include_usage_stats=False,
+                use_queries_v2=False,
                 start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                     tzinfo=timezone.utc,
                 ),
@@ -71,7 +79,7 @@ def snowflake_pipeline_config(tmp_path):
     return config
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_snowflake_missing_role_access_causes_pipeline_failure(
     pytestconfig,
     snowflake_pipeline_config,
@@ -88,7 +96,7 @@ def test_snowflake_missing_role_access_causes_pipeline_failure(
             pipeline.raise_from_status()
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_snowflake_missing_warehouse_access_causes_pipeline_failure(
     pytestconfig,
     snowflake_pipeline_config,
@@ -112,7 +120,7 @@ def test_snowflake_missing_warehouse_access_causes_pipeline_failure(
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_snowflake_no_databases_with_access_causes_pipeline_failure(
     pytestconfig,
     snowflake_pipeline_config,
@@ -136,7 +144,7 @@ def test_snowflake_no_databases_with_access_causes_pipeline_failure(
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_snowflake_no_tables_causes_pipeline_failure(
     pytestconfig, snowflake_pipeline_config
 ):
@@ -149,17 +157,33 @@ def test_snowflake_no_tables_causes_pipeline_failure(
         # Simulate no tables, views, or streams
         no_tables_fn = query_permission_response_override(
             default_query_results,
-            [SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB")],
+            [
+                SnowflakeQuery.tables_for_schema(
+                    "TEST_SCHEMA",
+                    "TEST_DB",
+                    table_types={"BASE TABLE", "EXTERNAL TABLE"},
+                )
+            ],
             [],
         )
         no_views_fn = query_permission_response_override(
             no_tables_fn,
-            [SnowflakeQuery.show_views_for_database("TEST_DB")],
+            [
+                SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.VIEWS, "TEST_DB"
+                )
+            ],
             [],
         )
         sf_cursor.execute.side_effect = query_permission_response_override(
             no_views_fn,
-            [SnowflakeQuery.streams_for_database("TEST_DB")],
+            [
+                SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.STREAMS,
+                    "TEST_DB",
+                    limit=SHOW_STREAM_MAX_PAGE_SIZE,
+                )
+            ],
             [],
         )
 
@@ -176,7 +200,7 @@ def test_snowflake_no_tables_causes_pipeline_failure(
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_snowflake_no_tables_warns_on_no_datasets(
     pytestconfig, snowflake_pipeline_config
 ):
@@ -189,17 +213,33 @@ def test_snowflake_no_tables_warns_on_no_datasets(
         # Simulate no tables, views, or streams
         no_tables_fn = query_permission_response_override(
             default_query_results,
-            [SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB")],
+            [
+                SnowflakeQuery.tables_for_schema(
+                    "TEST_SCHEMA",
+                    "TEST_DB",
+                    table_types={"BASE TABLE", "EXTERNAL TABLE"},
+                )
+            ],
             [],
         )
         no_views_fn = query_permission_response_override(
             no_tables_fn,
-            [SnowflakeQuery.show_views_for_database("TEST_DB")],
+            [
+                SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.VIEWS, "TEST_DB"
+                )
+            ],
             [],
         )
         sf_cursor.execute.side_effect = query_permission_response_override(
             no_views_fn,
-            [SnowflakeQuery.streams_for_database("TEST_DB")],
+            [
+                SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.STREAMS,
+                    "TEST_DB",
+                    limit=SHOW_STREAM_MAX_PAGE_SIZE,
+                )
+            ],
             [],
         )
 
@@ -218,7 +258,7 @@ def test_snowflake_no_tables_warns_on_no_datasets(
         assert len(pipeline.source.get_report().failures) == 0
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_snowflake_list_columns_error_causes_pipeline_warning(
     pytestconfig,
     snowflake_pipeline_config,
@@ -245,7 +285,7 @@ def test_snowflake_list_columns_error_causes_pipeline_warning(
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_snowflake_list_primary_keys_error_causes_pipeline_warning(
     pytestconfig,
     snowflake_pipeline_config,
@@ -270,7 +310,7 @@ def test_snowflake_list_primary_keys_error_causes_pipeline_warning(
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
     pytestconfig,
     snowflake_pipeline_config,
@@ -300,7 +340,7 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_snowflake_missing_snowflake_operations_permission_causes_pipeline_failure(
     pytestconfig,
     snowflake_pipeline_config,
@@ -324,7 +364,7 @@ def test_snowflake_missing_snowflake_operations_permission_causes_pipeline_failu
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_snowflake_missing_snowflake_secure_view_definitions_raises_pipeline_info(
     pytestconfig,
     snowflake_pipeline_config,
@@ -345,16 +385,16 @@ def test_snowflake_missing_snowflake_secure_view_definitions_raises_pipeline_inf
         pipeline.run()
 
         pipeline.raise_from_status(raise_warnings=True)
-        assert pipeline.source.get_report().infos.as_obj() == [
-            {
-                "title": "Secure view definition not found",
-                "message": "Lineage will be missing for the view.",
-                "context": ["TEST_DB.TEST_SCHEMA.VIEW_1"],
-            }
-        ]
+        infos = pipeline.source.get_report().infos.as_obj()
+        # Check that the expected info is present (other infos like semantic views may also exist)
+        assert {
+            "title": "Secure view definition not found",
+            "message": "Lineage will be missing for the view.",
+            "context": ["TEST_DB.TEST_SCHEMA.VIEW_1"],
+        } in infos
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_snowflake_failed_secure_view_definitions_query_raises_pipeline_warning(
     pytestconfig,
     snowflake_pipeline_config,
@@ -384,8 +424,142 @@ def test_snowflake_failed_secure_view_definitions_query_raises_pipeline_warning(
         ]
 
 
+@time_machine.travel(FROZEN_TIME, tick=True)
+def test_snowflake_dynamic_table_missing_monitor_privilege_raises_pipeline_warning(
+    pytestconfig,
+    snowflake_pipeline_config,
+):
+    """When SHOW DYNAMIC TABLES returns text=None (MONITOR privilege not granted),
+    pipeline emits a warning per dynamic table and still completes without failure."""
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        # Return text=None for the dynamic table (simulates missing MONITOR privilege)
+        sf_cursor.execute.side_effect = query_permission_response_override(
+            default_query_results,
+            [
+                snowflake_query.SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.DYNAMIC_TABLES, "TEST_DB"
+                )
+            ],
+            [
+                {
+                    "created_on": "2021-06-08 00:00:00",
+                    "name": "TABLE_2",
+                    "database_name": "TEST_DB",
+                    "schema_name": "TEST_SCHEMA",
+                    "owner": "ACCOUNTADMIN",
+                    "comment": "Comment for Table",
+                    "text": None,  # NULL — MONITOR not granted
+                    "target_lag": None,
+                    "warehouse": "TEST_WAREHOUSE",
+                    "refresh_mode": "AUTO",
+                    "refresh_mode_reason": "DYNAMIC_TABLE_CONFIG",
+                    "data_timestamp": "2021-06-08 00:00:00",
+                    "scheduling_state": "RUNNING",
+                    "owner_role_type": "ROLE",
+                    "bytes": 0,
+                    "rows": 0,
+                }
+            ],
+        )
+
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+
+        report = cast(SnowflakeV2Report, pipeline.source.get_report())
+        assert report.num_dynamic_tables_missing_definition == 1
+        assert any(
+            w.title
+            == "Dynamic table definition unavailable — column-level lineage skipped"
+            for w in report.infos
+        )
+
+
+@time_machine.travel(FROZEN_TIME, tick=True)
+def test_snowflake_dynamic_table_inputs_lineage_without_ddl(
+    pytestconfig,
+    snowflake_pipeline_config,
+):
+    """INPUTS from DYNAMIC_TABLE_GRAPH_HISTORY produces table-level lineage
+    independently of DDL availability."""
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        base = query_permission_response_override(
+            default_query_results,
+            [snowflake_query.SnowflakeQuery.get_dynamic_table_graph_history("TEST_DB")],
+            [
+                {
+                    # DYNAMIC_TABLE_GRAPH_HISTORY reports NAME unqualified, with
+                    # DATABASE_NAME and SCHEMA_NAME as separate columns. A fully qualified
+                    # NAME here used to look right while leaving the row unmatched.
+                    "NAME": "TABLE_2",
+                    "SCHEMA_NAME": "TEST_SCHEMA",
+                    "DATABASE_NAME": "TEST_DB",
+                    "INPUTS": [
+                        {"name": "TEST_DB.TEST_SCHEMA.TABLE_1", "kind": "TABLE"}
+                    ],
+                    "TARGET_LAG_TYPE": "USER_DEFINED",
+                    "TARGET_LAG_SEC": 3600,
+                    "SCHEDULING_STATE": {"state": "ACTIVE"},
+                    "ALTER_TRIGGER": ["NONE"],
+                }
+            ],
+        )
+        sf_cursor.execute.side_effect = query_permission_response_override(
+            base,
+            [
+                snowflake_query.SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.DYNAMIC_TABLES, "TEST_DB"
+                )
+            ],
+            [
+                {
+                    "created_on": "2021-06-08 00:00:00",
+                    "name": "TABLE_2",
+                    "database_name": "TEST_DB",
+                    "schema_name": "TEST_SCHEMA",
+                    "owner": "ACCOUNTADMIN",
+                    "comment": "Comment for Table",
+                    "text": None,  # DDL unavailable
+                    "target_lag": None,
+                    "warehouse": "TEST_WAREHOUSE",
+                    "refresh_mode": "AUTO",
+                    "refresh_mode_reason": "DYNAMIC_TABLE_CONFIG",
+                    "data_timestamp": "2021-06-08 00:00:00",
+                    "scheduling_state": "RUNNING",
+                    "owner_role_type": "ROLE",
+                    "bytes": 0,
+                    "rows": 0,
+                }
+            ],
+        )
+
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+
+        report = cast(SnowflakeV2Report, pipeline.source.get_report())
+        assert report.num_dynamic_tables_missing_definition == 1
+        assert report.sql_aggregator is not None
+        assert report.sql_aggregator.num_known_mapping_lineage >= 1
+        # `>= 1` on a global counter is satisfied by lineage from anywhere in the fixtures,
+        # so it kept passing when a stale graph-history row stopped matching. Assert the
+        # graph history was actually read: a KeyError on a missing column is swallowed into
+        # this warning, leaving the INPUTS path silently untested.
+        assert not [
+            w for w in report.warnings if "dynamic table graph history" in str(w)
+        ], "graph history failed to load, so INPUTS lineage was never exercised"
+
+
 # Tests for known_snowflake_edition config option
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 @pytest.mark.parametrize(
     "known_edition, expected_is_standard",
     [

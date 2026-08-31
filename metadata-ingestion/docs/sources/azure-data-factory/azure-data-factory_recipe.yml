@@ -1,0 +1,56 @@
+# Example recipe for Azure Data Factory source
+# See README.md for full configuration options
+
+source:
+  type: azure-data-factory
+  config:
+    # Required: Azure subscription containing Data Factories
+    subscription_id: ${AZURE_SUBSCRIPTION_ID}
+    
+    # Optional: Filter to specific resource group
+    # resource_group: my-resource-group
+    
+    # Authentication (using service principal)
+    credential:
+      authentication_method: service_principal
+      client_id: ${AZURE_CLIENT_ID}
+      client_secret: ${AZURE_CLIENT_SECRET}
+      tenant_id: ${AZURE_TENANT_ID}
+    
+    # Optional: Filter factories by name pattern
+    factory_pattern:
+      allow:
+        - ".*"  # Allow all factories by default
+      deny: []
+    
+    # Optional: Filter pipelines by name pattern
+    pipeline_pattern:
+      allow:
+        - ".*"  # Allow all pipelines by default
+      deny: []
+    
+    # Feature flags
+    include_lineage: true
+    include_column_lineage: false  # Advanced: requires Data Flow parsing
+    include_execution_history: false  # Set to true for pipeline run history
+    execution_history_days: 7  # Only used when include_execution_history is true
+    
+    # Optional: Map linked services to platform instances for accurate lineage
+    # platform_instance_map:
+    #   "my-snowflake-connection": "prod_snowflake"
+    
+    # Optional: Platform instance for this ADF connector
+    # platform_instance: "main-adf"
+    
+    # Environment
+    env: PROD
+    
+    # Optional: Stateful ingestion for stale entity removal
+    # stateful_ingestion:
+    #   enabled: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+

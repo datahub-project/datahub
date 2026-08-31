@@ -1,20 +1,32 @@
+import json
+import logging
 import pathlib
-from typing import Iterable, List, cast
+import tempfile
+import time
+from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
+from typing import Iterable, List, Optional, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from typing_extensions import Self
 
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.committable import CommitPolicy, Committable
 from datahub.ingestion.api.common import RecordEnvelope
+from datahub.ingestion.api.decorators import platform_name
+from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
-from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.run.pipeline import (
+    Pipeline,
+    PipelineContext,
+)
+from datahub.ingestion.sink.datahub_kafka import DatahubKafkaSink
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
 from datahub.metadata.schema_classes import (
@@ -52,7 +64,7 @@ class TestPipeline:
         "datahub.ingestion.source.kafka.kafka.KafkaSource.get_workunits", autospec=True
     )
     @patch("datahub.ingestion.sink.console.ConsoleSink.close", autospec=True)
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_configure(self, mock_sink, mock_source, mock_consumer):
         pipeline = Pipeline.create(
             {
@@ -69,7 +81,7 @@ class TestPipeline:
         mock_source.assert_called_once()
         mock_sink.assert_called_once()
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     @patch(
         "datahub.cli.config_utils.load_client_config",
@@ -93,7 +105,294 @@ class TestPipeline:
         assert pipeline.sink.config.server == "http://fake-gms-server:8080"
         assert pipeline.sink.config.token is None
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+    def test_configure_without_sink_kafka_default(
+        self,
+        mock_producer,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # Kafka default is selected purely by DATAHUB_INGESTION_DEFAULT_SINK.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
+        monkeypatch.setenv("KAFKA_SCHEMAREGISTRY_URL", "http://fake-registry:8081")
+        # This test asserts sink config, not connectivity; stub the init probe
+        # so it doesn't try to reach the fake broker/registry.
+        monkeypatch.setattr(
+            "datahub.ingestion.run.pipeline._kafka_endpoints_reachable",
+            lambda *a, **k: True,
+        )
+        mock_fetch_config.return_value = mock_server_config
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubKafkaSink)
+        assert pipeline.sink_type == "datahub-kafka"
+        assert pipeline.sink.config.connection.bootstrap == "fake-broker:9092"
+        # Schema registry URL resolves from KAFKA_SCHEMAREGISTRY_URL.
+        assert (
+            pipeline.sink.config.connection.schema_registry_url
+            == "http://fake-registry:8081"
+        )
+        # DELETE/RESTATE fallback is auto-wired to the default GMS so those
+        # change types degrade to REST instead of failing over Kafka.
+        assert pipeline.sink.config.rest_fallback is not None
+        assert (
+            pipeline.sink.config.rest_fallback.server == "http://fake-gms-server:8080"
+        )
+        # ctx.graph must be populated (from the REST fallback) so stateful
+        # ingestion / stale-entity soft-deletion still work under the Kafka sink.
+        assert pipeline.ctx.graph is not None
+        # Producer buffer bounds are wired (OOM protection). Regression guard:
+        # a dropped/typoed key would silently revert to librdkafka's ~1 GiB.
+        pc = pipeline.sink.config.connection.producer_config
+        assert pc["queue.buffering.max.kbytes"] == 131072
+        assert pc["queue.buffering.max.messages"] == 20000
+        assert pc["linger.ms"] == 100
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+    def test_configure_without_sink_kafka_default_buffer_env_override(
+        self,
+        mock_producer,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # The producer buffer tuning knobs are overridable via env.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_QUEUE_MAX_KBYTES", "262144")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_QUEUE_MAX_MESSAGES", "50000")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_LINGER_MS", "50")
+        # Config-only test; stub the connectivity probe.
+        monkeypatch.setattr(
+            "datahub.ingestion.run.pipeline._kafka_endpoints_reachable",
+            lambda *a, **k: True,
+        )
+        mock_fetch_config.return_value = mock_server_config
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubKafkaSink)
+        pc = pipeline.sink.config.connection.producer_config
+        assert pc["queue.buffering.max.kbytes"] == 262144
+        assert pc["queue.buffering.max.messages"] == 50000
+        assert pc["linger.ms"] == 50
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_configure_kafka_default_without_bootstrap_falls_back_to_rest(
+        self,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # Kafka default selected but no broker configured: don't fail the run --
+        # degrade to REST so metadata still lands.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
+        monkeypatch.delenv("KAFKA_BOOTSTRAP_SERVER", raising=False)
+        mock_fetch_config.return_value = mock_server_config
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        # On degrade, sink_type must reflect the sink actually built, not the
+        # requested datahub-kafka default.
+        assert pipeline.sink_type == "datahub-rest"
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    @patch("confluent_kafka.Producer")
+    def test_configure_kafka_default_unreachable_broker_falls_back_to_rest(
+        self,
+        mock_producer,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # A broker that never answers the metadata fetch: fall back to REST
+        # rather than buffering silently and stalling ~300s at flush().
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "unreachable:9092")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT", "1")
+        mock_fetch_config.return_value = mock_server_config
+        mock_producer.return_value.list_topics.side_effect = Exception("broker down")
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink_type == "datahub-rest"
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    @patch("requests.get")
+    @patch("confluent_kafka.Producer")
+    def test_configure_kafka_default_unreachable_registry_falls_back_to_rest(
+        self,
+        mock_producer,
+        mock_requests_get,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # Broker reachable, schema registry not: fall back to REST, since MCP
+        # schemas can't be registered against an unreachable registry.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
+        monkeypatch.setenv("KAFKA_SCHEMAREGISTRY_URL", "http://fake-registry:8081")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT", "1")
+        mock_fetch_config.return_value = mock_server_config
+        # Broker probe succeeds (default MagicMock), registry GET fails.
+        mock_requests_get.side_effect = Exception("registry down")
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink_type == "datahub-rest"
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_configure_without_sink_unrecognized_selector_warns_and_uses_rest(
+        self,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+        caplog,
+    ):
+        # A garbage selector value must warn and fall back to REST (fail-safe).
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafak")  # typo
+        mock_fetch_config.return_value = mock_server_config
+
+        with caplog.at_level(logging.WARNING):
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "file",
+                        "config": {"path": "test_file.json"},
+                    },
+                }
+            )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink_type == "datahub-rest"
+        assert any(
+            "DATAHUB_INGESTION_DEFAULT_SINK" in r.message for r in caplog.records
+        )
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_configure_without_sink_defaults_to_rest_when_ff_unset(
+        self,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # With the FF unset the injected default must stay datahub-rest,
+        # byte-identical to historical behavior.
+        monkeypatch.delenv("DATAHUB_INGESTION_DEFAULT_SINK", raising=False)
+        mock_fetch_config.return_value = mock_server_config
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink_type == "datahub-rest"
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    def test_explicit_sink_overrides_kafka_default(self, monkeypatch):
+        # The kafka default only applies to no-sink recipes; a recipe with an
+        # explicit sink must be honored as-is even when the default selector is
+        # set to datahub-kafka.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+                "sink": {"type": "console"},
+            },
+            report_to=None,
+        )
+        assert pipeline.sink_type == "console"
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     @patch(
         "datahub.cli.config_utils.load_client_config",
@@ -128,7 +427,7 @@ class TestPipeline:
             pipeline.sink.emitter._session.headers["Authorization"] == "Basic user:pass"
         )
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     def test_configure_with_rest_sink_initializes_graph(
         self, mock_fetch_config, mock_server_config
@@ -163,7 +462,7 @@ class TestPipeline:
         assert pipeline.ctx.graph.config.server == pipeline.config.sink.config["server"]
         assert pipeline.ctx.graph.config.token == pipeline.config.sink.config["token"]
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     def test_configure_with_rest_sink_with_additional_props_initializes_graph(
         self, mock_fetch_config, mock_server_config
@@ -198,7 +497,7 @@ class TestPipeline:
         assert pipeline.ctx.graph.config.server == pipeline.config.sink.config["server"]
         assert pipeline.ctx.graph.config.token == pipeline.config.sink.config["token"]
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch(
         "datahub.ingestion.source.kafka.kafka.KafkaSource.get_workunits", autospec=True
     )
@@ -223,7 +522,7 @@ class TestPipeline:
         assert pipeline.config.sink.config == {"filename": str(tmp_path / "test.json")}
         assert pipeline.ctx.graph is None, "DataHubGraph should not be initialized"
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_run_including_fake_transformation(self):
         pipeline = Pipeline.create(
             {
@@ -250,7 +549,7 @@ class TestPipeline:
         assert len(sink_report.received_records) == 1
         assert expected_mce == sink_report.received_records[0].record
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_run_including_registered_transformation(self):
         # This is not testing functionality, but just the transformer registration system.
 
@@ -291,7 +590,7 @@ class TestPipeline:
             ),
         ],
     )
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_pipeline_return_code(self, tmp_path, source, strict_warnings, exit_code):
         config_file: pathlib.Path = tmp_path / "test.yml"
 
@@ -378,7 +677,7 @@ sink:
             ),
         ],
     )
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_pipeline_process_commits(self, commit_policy, source, should_commit):
         pipeline = Pipeline.create(
             {
@@ -410,7 +709,7 @@ sink:
             else:
                 mock_commit.assert_not_called()
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     def test_pipeline_graph_has_expected_client_mode_and_component(
         self, mock_fetch_config, mock_server_config
@@ -444,7 +743,7 @@ sink:
         assert pipeline.ctx.graph.config.server == "http://somehost.someplace.some:8080"
         assert pipeline.ctx.graph.config.token == "foo"
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     @patch(
         "datahub.cli.config_utils.load_client_config",
@@ -514,6 +813,7 @@ class AddStatusRemovedTransformer(Transformer):
             yield record_envelope
 
 
+@platform_name("fake")
 class FakeSource(Source):
     def __init__(self, ctx: PipelineContext):
         super().__init__(ctx)
@@ -537,19 +837,21 @@ class FakeSource(Source):
         pass
 
 
+@platform_name("fake")
 class FakeSourceWithWarnings(FakeSource):
     def __init__(self, ctx: PipelineContext):
         super().__init__(ctx)
-        self.source_report.report_warning("test_warning", "warning_text")
+        self.source_report.warning("test_warning", "warning_text", log=False)
 
     def get_report(self) -> SourceReport:
         return self.source_report
 
 
+@platform_name("fake")
 class FakeSourceWithFailures(FakeSource):
     def __init__(self, ctx: PipelineContext):
         super().__init__(ctx)
-        self.source_report.report_failure("test_failure", "failure_text")
+        self.source_report.failure("test_failure", "failure_text")
 
     def get_report(self) -> SourceReport:
         return self.source_report
@@ -573,3 +875,244 @@ def get_initial_mce() -> MetadataChangeEventClass:
 
 def get_status_removed_aspect() -> StatusClass:
     return StatusClass(removed=False)
+
+
+class RealisticSinkReport(SinkReport):
+    """Sink report that simulates the real DatahubRestSinkReport behavior"""
+
+    def __init__(self):
+        super().__init__()
+        self.pending_requests = (
+            0  # Start with 0, will be incremented by async operations
+        )
+
+
+class RealisticDatahubRestSink(Sink):
+    """
+    Realistic simulation of DatahubRestSink that uses an executor like the real implementation.
+    This simulates the async behavior that can cause timing issues.
+    """
+
+    def __init__(self):
+        self.report = RealisticSinkReport()
+        self.executor = ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="sink-worker"
+        )
+        self.close_called = False
+        self.shutdown_complete = False
+
+    def write_record_async(
+        self,
+        record_envelope: RecordEnvelope,
+        write_callback: Optional[WriteCallback] = None,
+    ) -> None:
+        """Simulate async record writing like the real DatahubRestSink"""
+        # Increment pending requests when starting async work
+        self.report.pending_requests += 1
+        print(
+            f"📝 Starting async write - pending_requests now: {self.report.pending_requests}"
+        )
+
+        # Submit async work to executor
+        future = self.executor.submit(self._process_record, record_envelope)
+
+        # Add callback to decrement pending requests when done
+        future.add_done_callback(self._on_request_complete)
+
+    def _process_record(self, record_envelope: RecordEnvelope) -> None:
+        """Simulate processing a record (like sending HTTP request)"""
+        # Simulate network delay
+        time.sleep(0.1)
+        print(f"🌐 Processed record: {record_envelope.record}")
+
+    def _on_request_complete(self, future: Future) -> None:
+        """Callback when async request completes"""
+        self.report.pending_requests -= 1
+        print(
+            f"✅ Request completed - pending_requests now: {self.report.pending_requests}"
+        )
+
+    def close(self):
+        """Simulate the real DatahubRestSink close() method"""
+        print("🔧 Starting sink close()...")
+        self.close_called = True
+
+        # Simulate the executor.shutdown() behavior
+        print(
+            f"⏳ Shutting down executor with {self.report.pending_requests} pending requests..."
+        )
+        self.executor.shutdown(wait=True)  # Wait for all pending requests to complete
+
+        # After shutdown, pending_requests should be 0
+        self.report.pending_requests = 0
+        self.shutdown_complete = True
+        print("✅ Sink close() completed - all pending requests processed")
+
+
+class MockReporter:
+    """Mock reporter that tracks when completion notification is called"""
+
+    def __init__(self, sink=None):
+        self.completion_called = False
+        self.completion_pending_requests = None
+        self.sink = sink
+        self.start_called = False
+
+    def on_start(self, ctx):
+        """Mock on_start method"""
+        self.start_called = True
+        print("📊 MockReporter.on_start() called")
+
+    def on_completion(self, status, report, ctx):
+        self.completion_called = True
+        # Check pending requests at the time of completion notification
+        if (
+            self.sink
+            and hasattr(self.sink, "report")
+            and hasattr(self.sink.report, "pending_requests")
+        ):
+            self.completion_pending_requests = self.sink.report.pending_requests
+            print(
+                f"📊 Completion notification sees {self.completion_pending_requests} pending requests"
+            )
+
+
+class TestSinkReportTimingOnClose:
+    """Test class for validating sink report timing when sink.close() is called"""
+
+    def _create_real_pipeline_with_realistic_sink(self):
+        """Create a real Pipeline instance with a realistic sink using Pipeline.create()"""
+
+        from datahub.cli.datapack.loader import IndexFileEntry
+        from datahub.cli.datapack.models import DataPackInfo, TrustTier
+        from datahub.ingestion.run.pipeline import Pipeline
+
+        # Create realistic sink
+        sink = RealisticDatahubRestSink()
+
+        mock_pack = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
+        )
+
+        # demo-data now pre-ingests via datapack loader; avoid network and ~/.datahubenv
+        with (
+            patch("datahub.cli.datapack.loader.check_trust"),
+            patch("datahub.cli.datapack.registry.get_pack", return_value=mock_pack),
+            patch("datahub.cli.datapack.loader.ingest_datapack_file_entries"),
+            patch("datahub.cli.datapack.loader.download_pack") as mock_download,
+            tempfile.NamedTemporaryFile(suffix=".json", mode="w") as pack_file,
+        ):
+            json.dump([], pack_file)
+            pack_file.flush()
+            mock_download.return_value = [IndexFileEntry(path=Path(pack_file.name))]
+
+            # Create pipeline using Pipeline.create() like the existing tests do
+            # Use demo data source which is simpler and doesn't require external dependencies
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "demo-data",
+                        "config": {},
+                    },
+                    "sink": {
+                        "type": "console"
+                    },  # Use console sink to avoid network issues
+                }
+            )
+
+        # Replace the sink with our realistic sink and register it with the exit_stack
+        # This ensures the context manager calls close() on our realistic sink
+        pipeline.sink = pipeline.exit_stack.enter_context(sink)
+
+        return pipeline, sink
+
+    def _add_pending_requests_to_sink(
+        self, sink: RealisticDatahubRestSink, count: int = 3
+    ) -> int:
+        """Add some pending requests to the sink to simulate async work"""
+        print(f"📝 Adding {count} pending requests to sink...")
+        for i in range(count):
+            sink.write_record_async(RecordEnvelope(f"record_{i}", metadata={}))
+
+        # Give some time for work to start
+        time.sleep(0.05)
+        print(f"📊 Current pending requests: {sink.report.pending_requests}")
+        return sink.report.pending_requests
+
+    def test_sink_report_timing_on_close(self):
+        """Test that validates completion notification runs with 0 pending requests after sink.close()"""
+        print("\n🧪 Testing sink report timing on close...")
+
+        # Create test pipeline with realistic sink
+        pipeline, sink = self._create_real_pipeline_with_realistic_sink()
+
+        # Add pending requests to simulate async work
+        pending_count = self._add_pending_requests_to_sink(sink, 3)
+        assert pending_count > 0, "❌ Expected pending requests to be added"
+
+        # Create mock reporter to track completion
+        reporter = MockReporter(sink=sink)
+        pipeline.reporters = [reporter]
+
+        # Create a wrapper that checks pending requests before calling the real method
+        original_notify = pipeline._notify_reporters_on_ingestion_completion
+
+        def notify_with_pending_check():
+            print("🔔 Calling _notify_reporters_on_ingestion_completion()...")
+
+            # Check pending requests before notifying reporters
+            if hasattr(pipeline.sink, "report") and hasattr(
+                pipeline.sink.report, "pending_requests"
+            ):
+                pending_requests = pipeline.sink.report.pending_requests
+                print(
+                    f"📊 Pending requests when _notify_reporters_on_ingestion_completion() runs: {pending_requests}"
+                )
+
+                # This is the key assertion - there should be no pending requests
+                assert pending_requests == 0, (
+                    f"❌ Expected 0 pending requests when _notify_reporters_on_ingestion_completion() runs, "
+                    f"but found {pending_requests}. This indicates a timing issue."
+                )
+                print(
+                    "✅ No pending requests when _notify_reporters_on_ingestion_completion() runs"
+                )
+
+            # Call original method
+            original_notify()
+
+        # Replace the method temporarily
+        pipeline._notify_reporters_on_ingestion_completion = notify_with_pending_check
+
+        # Run the REAL Pipeline.run() method with the CORRECT behavior (completion notification after context manager)
+        print(
+            "📢 Running REAL Pipeline.run() with correct timing (completion notification after context manager)..."
+        )
+        pipeline.run()
+
+        # Verify the fix: sink.close() was called by context manager before _notify_reporters_on_ingestion_completion
+        assert sink.close_called, "❌ Sink close() should be called by context manager"
+        print("✅ Sink close() was called by context manager")
+
+        assert reporter.completion_called, "❌ Completion notification should be called"
+        print("✅ Completion notification was called")
+
+        # Verify no pending requests at completion (the key fix)
+        assert reporter.completion_pending_requests == 0, (
+            f"❌ Expected 0 pending requests at completion, got {reporter.completion_pending_requests}. "
+            "This indicates the timing fix is working correctly."
+        )
+        print("✅ No pending requests at completion notification")
+
+        # Verify the sink's pending_requests is also 0
+        assert sink.report.pending_requests == 0, (
+            f"❌ Sink should have 0 pending requests after close() completes, got {sink.report.pending_requests}"
+        )
+        print("✅ Sink has 0 pending requests after close()")
+
+        print(
+            "🎉 Sink report timing fix test passed! The fix works with realistic async behavior."
+        )

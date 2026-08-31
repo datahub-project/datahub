@@ -2,7 +2,6 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { StatusOverTimeAssertionResultChart } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/StatusOverTimeAssertionResultChart';
 import {
     AssertionResultChartData,
@@ -34,7 +33,7 @@ const VizHeader = styled.div`
 const VizHeaderTitle = styled(Typography.Text)`
     margin-bottom: 20px;
     margin-top: 4px;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 16px;
     font-weight: 600;
 `;

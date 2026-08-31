@@ -1,0 +1,29 @@
+id: CustomerAnalytics
+platform: snowflake
+env: PROD
+name: CustomerAnalytics
+description: Analytics data concerning customer interactions and behaviors.
+owners:
+  - id: urn:li:corpuser:jsmith
+    type: urn:li:ownershipType:dataSteward
+schema:
+  fields:
+    - id: "customer_id"
+      type: "string"
+      description: "Unique identifier for the customer"
+
+    - id: "purchase_amount"
+      type: "float"
+      description: "Total amount spent by the customer"
+
+    - id: "purchase_date"
+      type: "string"
+      description: "Date of purchase"
+tags:
+  - urn:li:tag:sales
+domains:
+  - urn:li:domain:retail
+glossary_terms:
+  - urn:li:glossaryTerm:data-quality.high
+  - urn:li:glossaryTerm:data-privacy.sensitive
+  - urn:li:glossaryTerm:data-security.confidential

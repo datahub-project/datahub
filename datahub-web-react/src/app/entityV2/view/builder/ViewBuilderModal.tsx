@@ -1,31 +1,13 @@
-import { Modal, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ViewBuilderForm } from '@app/entityV2/view/builder/ViewBuilderForm';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '@app/entityV2/view/types';
 import ClickOutside from '@app/shared/ClickOutside';
-import { Button } from '@src/alchemy-components';
-
-const modalWidth = 700;
-const modalStyle = { top: 40 };
-const modalBodyStyle = { paddingRight: 60, paddingLeft: 60, paddingBottom: 40 };
-
-const TitleContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-`;
-
-const SaveButtonContainer = styled.div`
-    width: 100%;
-    display: flex;
-    justify-content: right;
-`;
-
-const CancelButton = styled(Button)`
-    margin-right: 12px;
-`;
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { Modal } from '@src/alchemy-components';
+import { ModalButton } from '@src/alchemy-components/components/Modal/Modal';
 
 type Props = {
     mode: ViewBuilderMode;
@@ -35,70 +17,81 @@ type Props = {
     onCancel?: () => void;
 };
 
-const getTitleText = (mode, urn) => {
-    if (mode === ViewBuilderMode.PREVIEW) {
-        return 'Preview View';
-    }
-    return urn !== undefined ? 'Edit View' : 'Create new View';
-};
+const MODAL_WIDTH = '60%';
+const MODAL_WRAP_CLASS = 'view-builder-modal';
+const CLICK_OUTSIDE_CLASS = 'test-builder-modal';
+const MODAL_WRAP_PROPS = { style: { overflow: 'hidden' } };
+const MODAL_BODY_STYLE = { overflow: 'hidden', maxHeight: '75vh' };
 
 export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation('entity.views');
+    const { t: tc } = useTranslation('common.actions');
     const [viewBuilderState, setViewBuilderState] = useState<ViewBuilderState>(initialState || DEFAULT_BUILDER_STATE);
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
     useEffect(() => {
         setViewBuilderState(initialState || DEFAULT_BUILDER_STATE);
     }, [initialState]);
 
-    const confirmClose = () => {
-        Modal.confirm({
-            title: 'Exit View Editor',
-            content: `Are you sure you want to exit View editor? All changes will be lost`,
-            onOk() {
-                onCancel?.();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
+    const hasFilters = (viewBuilderState?.definition?.filter?.filters?.length ?? 0) > 0;
+    const canSave = viewBuilderState.name && viewBuilderState.viewType && hasFilters;
 
-    const canSave = viewBuilderState.name && viewBuilderState.viewType && viewBuilderState?.definition?.filter;
-    const titleText = getTitleText(mode, urn);
+    const titleText = useMemo(() => {
+        if (mode === ViewBuilderMode.PREVIEW) return t('builder.titlePreview');
+        return urn !== undefined ? t('builder.titleEdit') : t('builder.titleCreate');
+    }, [mode, urn, t]);
+
+    const footerButtons: ModalButton[] = useMemo(() => {
+        const buttons: ModalButton[] = [
+            {
+                text: tc('cancel'),
+                variant: 'text',
+                color: 'gray',
+                onClick: () => onCancel?.(),
+                buttonDataTestId: 'view-builder-cancel',
+            },
+        ];
+
+        if (mode === ViewBuilderMode.EDITOR) {
+            buttons.push({
+                text: tc('save'),
+                onClick: () => onSubmit(viewBuilderState),
+                disabled: !canSave,
+                buttonDataTestId: 'view-builder-save',
+            });
+        }
+
+        return buttons;
+    }, [mode, onCancel, onSubmit, viewBuilderState, canSave, tc]);
 
     return (
-        <ClickOutside onClickOutside={confirmClose} wrapperClassName="test-builder-modal">
+        <ClickOutside onClickOutside={() => setShowConfirmationModal(true)} wrapperClassName={CLICK_OUTSIDE_CLASS}>
             <Modal
-                wrapClassName="view-builder-modal"
-                footer={null}
-                title={
-                    <TitleContainer>
-                        <Typography.Text>{titleText}</Typography.Text>
-                    </TitleContainer>
-                }
-                style={modalStyle}
-                bodyStyle={modalBodyStyle}
-                visible
-                width={modalWidth}
-                onCancel={onCancel}
+                wrapClassName={MODAL_WRAP_CLASS}
+                wrapProps={MODAL_WRAP_PROPS}
+                bodyStyle={MODAL_BODY_STYLE}
+                buttons={footerButtons}
+                title={titleText}
+                subtitle={t('builder.subtitle')}
+                onCancel={() => onCancel?.()}
                 data-testid="view-modal"
+                width={MODAL_WIDTH}
             >
                 <ViewBuilderForm urn={urn} mode={mode} state={viewBuilderState} updateState={setViewBuilderState} />
-                <SaveButtonContainer>
-                    <CancelButton variant="text" color="gray" data-testid="view-builder-cancel" onClick={onCancel}>
-                        Cancel
-                    </CancelButton>
-                    {mode === ViewBuilderMode.EDITOR && (
-                        <Button
-                            data-testid="view-builder-save"
-                            disabled={!canSave}
-                            onClick={() => onSubmit(viewBuilderState)}
-                        >
-                            Save
-                        </Button>
-                    )}
-                </SaveButtonContainer>
             </Modal>
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => {
+                    setShowConfirmationModal(false);
+                }}
+                handleConfirm={() => {
+                    setShowConfirmationModal(false);
+                    onCancel?.();
+                }}
+                modalTitle={t('builder.exitTitle')}
+                modalText={t('builder.exitText')}
+                confirmButtonText={tc('yes')}
+            />
         </ClickOutside>
     );
 };

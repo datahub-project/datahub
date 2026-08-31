@@ -3,7 +3,7 @@ package com.linkedin.metadata.aspect.patch.template.common;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
-import com.linkedin.metadata.aspect.patch.template.CompoundKeyTemplate;
+import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +11,7 @@ import javax.annotation.Nonnull;
 import lombok.Builder;
 
 @Builder
-public class GenericPatchTemplate<T extends RecordTemplate> extends CompoundKeyTemplate<T> {
+public class GenericPatchTemplate<T extends RecordTemplate> implements ArrayMergingTemplate<T> {
 
   @Nonnull private final GenericJsonPatch genericJsonPatch;
   @Nonnull private final Class<T> templateType;
@@ -53,6 +53,6 @@ public class GenericPatchTemplate<T extends RecordTemplate> extends CompoundKeyT
   }
 
   public T applyPatch(RecordTemplate recordTemplate) throws IOException {
-    return super.applyPatch(recordTemplate, genericJsonPatch.getJsonPatch());
+    return applyPatch(recordTemplate, genericJsonPatch.getJsonPatch());
   }
 }

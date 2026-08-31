@@ -1,20 +1,21 @@
 import { debounce } from 'lodash';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { NavSidebar } from '@app/homeV2/layout/NavSidebar';
+import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import { NavSidebar as NavSidebarRedesign } from '@app/homeV2/layout/navBarRedesign/NavSidebar';
 import { SearchHeader } from '@app/searchV2/SearchHeader';
 import useGoToSearchPage from '@app/searchV2/useGoToSearchPage';
 import useQueryAndFiltersFromLocation from '@app/searchV2/useQueryAndFiltersFromLocation';
 import { getAutoCompleteInputFromQuickFilter } from '@app/searchV2/utils/filterUtils';
+import ProductUpdates from '@app/shared/product/update/ProductUpdates';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
-import { colors } from '@src/alchemy-components';
 
 import {
     GetAutoCompleteMultipleResultsQuery,
@@ -28,7 +29,8 @@ const Body = styled.div`
 `;
 
 const BodyBackground = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1600] : REDESIGN_COLORS.BACKGROUND)};
+    background-color: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.colors.bgSurfaceNewNav : props.theme.colors.bgSurface};
     position: fixed;
     height: 100%;
     width: 100%;
@@ -39,19 +41,25 @@ const Navigation = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     z-index: ${(props) => (props.$isShowNavBarRedesign ? 0 : 200)};
 `;
 
-const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+const Content = styled.div<{
+    $isShowNavBarRedesign?: boolean;
+    $hideSearchBar?: boolean;
+    $isNavBarCollapsed?: boolean;
+}>`
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     margin-top: ${(props) => (props.$isShowNavBarRedesign ? '56px' : '72px')};
+    ${(props) => props.$hideSearchBar && 'margin-top: 6px;'}
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        padding: 11px 15px 11px 3px;
+        padding: 11px 15px 11px ${props.$isNavBarCollapsed ? '15px' : '3px'};
     `}
     flex: 1;
     display: flex;
     flex-direction: column;
     max-height: ${(props) => (props.$isShowNavBarRedesign ? 'calc(100vh - 56px)' : 'calc(100vh - 72px)')};
+    max-height: ${(props) => props.$hideSearchBar && 'calc(100vh - 6px)'};
     width: 100%;
     overflow: ${(props) => (props.$isShowNavBarRedesign ? 'hidden' : 'auto')};
 `;
@@ -70,9 +78,11 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
     const { query: currentQuery } = useQueryAndFiltersFromLocation();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const { isCollapsed } = useNavBarContext();
 
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
+    const { t } = useTranslation('search');
     const { selectedQuickFilter } = useQuickFiltersContext();
 
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
@@ -122,7 +132,9 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
         <>
             <SearchHeader
                 initialQuery={currentQuery as string}
-                placeholderText={themeConfig.content.search.searchbarMessage}
+                placeholderText={t('searchBar.placeholder', {
+                    defaultValue: themeConfig.content.search.searchbarMessage,
+                })}
                 suggestions={
                     (newSuggestionData &&
                         newSuggestionData?.autoCompleteForMultiple &&
@@ -139,8 +151,15 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
                 <Navigation $isShowNavBarRedesign={isShowNavBarRedesign}>
                     <FinalNavBar />
                 </Navigation>
-                <Content $isShowNavBarRedesign={isShowNavBarRedesign}>{children}</Content>
+                <Content
+                    $isShowNavBarRedesign={isShowNavBarRedesign}
+                    $hideSearchBar={hideSearchBar}
+                    $isNavBarCollapsed={isCollapsed}
+                >
+                    {children}
+                </Content>
             </Body>
+            <ProductUpdates />
         </>
     );
 };

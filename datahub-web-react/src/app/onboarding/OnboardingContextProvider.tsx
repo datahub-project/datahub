@@ -6,6 +6,7 @@ export const OnboardingContextProvider = ({ children }: { children: React.ReactN
     const [isOpen, setIsOpen] = useState(false);
     const [reshow, setReshow] = useState(false);
     const [isNewlyIntroducedUser, setIsNewlyIntroducedUser] = useState(false);
+    const [isOnboardingAvailable, setIsOnboardingAvailable] = useState<boolean>(false);
 
     return (
         <OnboardingContext.Provider
@@ -16,6 +17,8 @@ export const OnboardingContextProvider = ({ children }: { children: React.ReactN
                 setTourReshow: setReshow,
                 isUserInitializing: isNewlyIntroducedUser,
                 setIsUserInitializing: setIsNewlyIntroducedUser,
+                isOnboardingAvailable,
+                setIsOnboardingAvailable,
             }}
         >
             {children}

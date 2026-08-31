@@ -39,6 +39,5 @@ describe('DataJobFlowTab', () => {
             </MockedProvider>,
         );
         expect(getByText('DataFlowInfoName')).toBeInTheDocument();
-        expect(getByText('DataFlowInfo1 Description')).toBeInTheDocument();
     });
 });

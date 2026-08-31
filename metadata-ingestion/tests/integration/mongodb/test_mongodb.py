@@ -4,8 +4,9 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
+pytestmark = pytest.mark.integration_batch_4
 
-@pytest.mark.integration
+
 def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/mongodb"
 
@@ -13,6 +14,9 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
         test_resources_dir / "docker-compose.yml", "mongo"
     ) as docker_services:
         wait_for_port(docker_services, "testmongodb", 27017)
+        # Compose file exposes the mongo port ephemerally, so a leaked container
+        # from a prior run can never hold onto the port a fresh run needs.
+        mongo_port = docker_services.port_for("testmongodb", 27017)
 
         # Run the metadata ingestion pipeline.
         pipeline = Pipeline.create(
@@ -21,7 +25,7 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
                 "source": {
                     "type": "mongodb",
                     "config": {
-                        "connect_uri": "mongodb://localhost:57017",
+                        "connect_uri": f"mongodb://localhost:{mongo_port}",
                         "username": "mongoadmin",
                         "password": "examplepass",
                         "maxDocumentSize": 25000,
@@ -54,7 +58,7 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
                 "source": {
                     "type": "mongodb",
                     "config": {
-                        "connect_uri": "mongodb://localhost:57017",
+                        "connect_uri": f"mongodb://localhost:{mongo_port}",
                         "username": "mongoadmin",
                         "password": "examplepass",
                         "maxSchemaSize": 10,
@@ -87,7 +91,7 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
                 "source": {
                     "type": "mongodb",
                     "config": {
-                        "connect_uri": "mongodb://localhost:57017",
+                        "connect_uri": f"mongodb://localhost:{mongo_port}",
                         "username": "mongoadmin",
                         "password": "examplepass",
                         "useRandomSampling": False,

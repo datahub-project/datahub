@@ -6,8 +6,9 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Button, Select, message } from 'antd';
 import { orderBy } from 'lodash';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
@@ -17,7 +18,6 @@ import { PERSONA_TYPE_TO_VIEW_URN, PersonaType, ROLE_TO_PERSONA_TYPE } from '@ap
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import Loading from '@app/shared/Loading';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useListGlobalViewsQuery } from '@src/graphql/view.generated';
 
@@ -34,7 +34,7 @@ const Container = styled.div`
 `;
 
 const Content = styled.div`
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     padding: 20px;
 
     .ant-select-selection-item {
@@ -45,7 +45,7 @@ const Content = styled.div`
 
     .ant-select-selection-overflow-item-rest {
         .ant-select-selection-item {
-            background-color: #fff !important;
+            background-color: ${(props) => props.theme.colors.bg} !important;
             border: none !important;
             padding: 0 0 0 5px !important;
             height: auto !important;
@@ -56,7 +56,7 @@ const Content = styled.div`
 `;
 
 const Title = styled.div`
-    color: #374066;
+    color: ${(props) => props.theme.colors.text};
     text-align: center;
     font: 700 35px Mulish;
     line-height: 44px;
@@ -64,7 +64,7 @@ const Title = styled.div`
 `;
 
 const Subtitle = styled.div`
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
     width: 268px;
     text-align: center;
     font: 400 13px Mulish;
@@ -76,8 +76,8 @@ const DoneButton = styled(Button)`
     width: 290px;
     height: 45px;
     flex-shrink: 0;
-    background-color: #3f54d1;
-    color: #fff;
+    background-color: ${(props) => props.theme.colors.buttonFillBrand};
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     margin-top: 12px;
 `;
 
@@ -91,14 +91,14 @@ const PsuedoCheckBox = styled.div<{ checked?: boolean }>`
     width: 12px;
     height: 12px;
     border-radius: 4px;
-    border: 1px solid #cfd1da;
-    background: #fff;
-    color: #fff;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bgSurface};
+    color: ${(props) => props.theme.colors.textOnFillBrand};
 
     ${(props) =>
         props.checked &&
         `
-        background: ${props.theme.styles['primary-color']};
+        background: ${props.theme.colors.buttonFillBrand};
         border: none;
     `}
 
@@ -122,7 +122,7 @@ const SelectWrapper = styled.div`
         position: absolute;
         left: 10px;
         z-index: 99;
-        fill: #a9adbd;
+        fill: ${(props) => props.theme.colors.textTertiary};
     }
 
     .ant-select-arrow {
@@ -163,23 +163,23 @@ const SelectGrid = styled.div`
         &:hover,
         &:focus,
         &:active {
-            background-color: #fff !important;
+            background-color: ${(props) => props.theme.colors.bg} !important;
         }
     }
 
     .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
-        background-color: #fff !important;
+        background-color: ${(props) => props.theme.colors.bg} !important;
     }
 
     .ant-select-item-option-content {
         display: flex;
         justify-content: center;
-        background-color: #fff !important;
+        background-color: ${(props) => props.theme.colors.bg} !important;
 
         &:hover,
         &:focus,
         &:active {
-            background-color: #fff !important;
+            background-color: ${(props) => props.theme.colors.bg} !important;
         }
     }
 `;
@@ -204,7 +204,7 @@ const Footer = styled.div`
 `;
 
 const SkipButton = styled.div`
-    color: ${colors.gray[400]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-weight: 700;
     :hover {
         cursor: pointer;
@@ -260,6 +260,9 @@ const DEFAULT_PERSONA = PersonaType.TECHNICAL_USER;
 
 // TODO: Make section ordering dynamic based on populated data.
 export const IntroduceYourselfMainContent = () => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
+    const themeConfig = useTheme();
     const userContext = useUserContext();
     const { refetchUser, user } = userContext;
     const defaultDataPlatforms = useGetDataPlatforms();
@@ -296,7 +299,7 @@ export const IntroduceYourselfMainContent = () => {
                 limit: 10,
             },
         },
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
         skip: !currentUserUrn,
     });
 
@@ -360,7 +363,7 @@ export const IntroduceYourselfMainContent = () => {
             .catch((_) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to provision a default view. An unexpected error occurred.`,
+                    content: t('introduceYourself.errorProvisionView'),
                     duration: 3,
                 });
             });
@@ -398,7 +401,7 @@ export const IntroduceYourselfMainContent = () => {
             })
             .catch((err) => {
                 console.error(err);
-                message.error('Failed to save user details. :(');
+                message.error(t('introduceYourself.errorSaveDetails'));
             });
     };
 
@@ -423,7 +426,7 @@ export const IntroduceYourselfMainContent = () => {
             })
             .catch((err) => {
                 console.error(err);
-                message.error('Failed to save user details. :(');
+                message.error(t('introduceYourself.errorSaveDetails'));
             });
     };
 
@@ -435,8 +438,8 @@ export const IntroduceYourselfMainContent = () => {
     const selectStyles = {
         width: 290,
         borderRadius: '8px',
-        borderColor: '#5F6685',
-        color: '#81879f',
+        borderColor: themeConfig.colors.border,
+        color: themeConfig.colors.textTertiary,
     };
 
     // Sort Roles Alphabetically
@@ -457,12 +460,12 @@ export const IntroduceYourselfMainContent = () => {
     return (
         <Container>
             <Content>
-                <Title>Before we begin</Title>
-                <Subtitle>Tell us more about yourself, so we can personalize your experience</Subtitle>
+                <Title>{t('introduceYourself.mainTitle')}</Title>
+                <Subtitle>{t('introduceYourself.mainSubtitle')}</Subtitle>
                 <SelectWrapper>
                     <AccountCircleOutlinedIcon />
                     <Select
-                        placeholder="Select your Role"
+                        placeholder={t('introduceYourself.rolePlaceholder')}
                         suffixIcon={<KeyboardArrowDownOutlinedIcon />}
                         data-testid="introduce-role-select"
                         size="large"
@@ -481,7 +484,7 @@ export const IntroduceYourselfMainContent = () => {
                 <SelectWrapper>
                     <SettingsOutlinedIcon />
                     <Select
-                        placeholder="Optional - Select your Data Tools"
+                        placeholder={t('introduceYourself.dataToolsPlaceholder')}
                         size="large"
                         style={selectStyles}
                         onChange={(value) => setSelectedPlatforms(value)}
@@ -539,11 +542,11 @@ export const IntroduceYourselfMainContent = () => {
                     loading={loading}
                     disabled={!hasPersona}
                 >
-                    Get Started
+                    {t('introduceYourself.getStarted')}
                 </DoneButton>
                 <Footer>
-                    <Tooltip placement="bottom" title="Continue to DataHub">
-                        <SkipButton onClick={onSkip}>Skip</SkipButton>
+                    <Tooltip placement="bottom" title={t('introduceYourself.continueTo')}>
+                        <SkipButton onClick={onSkip}>{tc('skip')}</SkipButton>
                     </Tooltip>
                 </Footer>
             </Content>

@@ -1,0 +1,10 @@
+source:
+  type: excel
+  config:
+    path_list:
+      - "/data/path/reporting/excel/*.xlsx"
+    profiling:
+      enabled: false
+
+sink:
+  # sink configs

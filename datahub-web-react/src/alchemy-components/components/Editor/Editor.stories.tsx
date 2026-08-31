@@ -3,9 +3,10 @@ import { Remirror, ThemeProvider, useRemirror } from '@remirror/react';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 import { BoldExtension, ItalicExtension } from 'remirror/extensions';
+import { useTheme } from 'styled-components';
 
 import { Editor } from '@components/components/Editor/Editor';
-import { EditorTheme } from '@components/components/Editor/EditorTheme';
+import { getEditorTheme } from '@components/components/Editor/EditorTheme';
 
 import UserContextProvider from '@src/app/context/UserContextProvider';
 
@@ -20,9 +21,11 @@ const meta = {
     },
     decorators: [
         (Story) => {
+            const theme = useTheme();
+            const editorTheme = getEditorTheme(theme);
             return (
                 <MockedProvider mocks={[]} addTypename={false}>
-                    <ThemeProvider theme={EditorTheme}>
+                    <ThemeProvider theme={editorTheme}>
                         <UserContextProvider>
                             <Story />
                         </UserContextProvider>

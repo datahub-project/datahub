@@ -9,7 +9,6 @@ import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -191,6 +190,19 @@ public interface EntitySearchService {
       @Nonnull String field,
       @Nullable Filter requestParams,
       @Nullable Integer limit);
+
+  /**
+   * For each of {@code entityUrns}, returns the active-incident count and the latest active
+   * incident (by {@code lastUpdated} desc), computed in a single aggregation over the incident
+   * index. Entities with no active incidents are absent from the returned map.
+   *
+   * @param opContext the operation context
+   * @param entityUrns the entities to summarize incidents for
+   * @return map of entity urn -> {@link IncidentStats}; empty when {@code entityUrns} is empty
+   */
+  @Nonnull
+  Map<Urn, IncidentStats> getActiveIncidentStats(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns);
 
   /**
    * Gets a list of groups/entities that match given browse request.
@@ -404,13 +416,6 @@ public interface EntitySearchService {
   @Nonnull
   Map<Urn, Map<String, Object>> raw(@Nonnull OperationContext opContext, @Nonnull Set<Urn> urns);
 
-  /**
-   * Return index convention
-   *
-   * @return convent
-   */
-  IndexConvention getIndexConvention();
-
   default void appendRunId(
       @Nonnull final OperationContext opContext, @Nonnull List<IngestResult> results) {
 
@@ -447,4 +452,18 @@ public interface EntitySearchService {
         .forEach(
             entry -> appendRunId(opContext, entry.getKey().getKey(), entry.getKey().getValue()));
   }
+
+  /**
+   * Validates the new backing index's doc count against the source count snapshotted when the
+   * reindex was launched, then atomically swaps the alias.
+   *
+   * @param expectedSourceDocCount source doc count snapshotted at reindex submission time
+   * @return true if swapped, false if doc counts didn't match
+   */
+  boolean validateAndSwapAlias(
+      @Nonnull OperationContext opContext,
+      @Nonnull String aliasName,
+      @Nonnull String newBackingIndex,
+      long expectedSourceDocCount)
+      throws Exception;
 }

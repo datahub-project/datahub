@@ -2,10 +2,12 @@ import copy
 import html
 import json
 import logging
+import re
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Tuple, Type
 
+from pydantic import BaseModel
 from pydantic.fields import Field
 from tableauserverclient import Server
 
@@ -17,6 +19,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
+    Upstream,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
@@ -37,8 +40,26 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 from datahub.utilities.ordered_set import OrderedSet
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+
+class DatasourceType(StrEnum):
+    """Enum for Tableau datasource types used in Virtual Connection processing."""
+
+    EMBEDDED = "embedded"
+    PUBLISHED = "published"
+
+
+class LineageResult(BaseModel):
+    """Result of lineage processing with upstream tables and fine-grained lineage."""
+
+    upstream_tables: List[Upstream]
+    fine_grained_lineages: List[FineGrainedLineage]
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class TableauLineageOverrides(ConfigModel):
@@ -65,6 +86,7 @@ workbook_graphql_query = """
       projectName
       owner {
         username
+        email
       }
       description
       uri
@@ -107,6 +129,7 @@ sheet_graphql_query = """
         luid
         owner {
           username
+          email
         }
     }
     datasourceFields {
@@ -185,6 +208,7 @@ dashboard_graphql_query = """
         luid
         owner {
           username
+          email
         }
     }
 }
@@ -225,19 +249,22 @@ embedded_datasource_graphql_query = """
         description
         isHidden
         folderName
-        # upstreamFields {
-        #     name
-        #     datasource {
-        #         id
-        #     }
-        # }
-        # upstreamColumns {
-        #     name
-        #     table {
-        #         __typename
-        #         id
-        #     }
-        # }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+                name
+                ... on VirtualConnectionTable {
+                    virtualConnection {
+                        id
+                        name
+                        luid
+                        projectName
+                    }
+                }
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
@@ -268,6 +295,7 @@ embedded_datasource_graphql_query = """
         luid
         owner {
           username
+          email
         }
     }
 }
@@ -390,19 +418,22 @@ published_datasource_graphql_query = """
         description
         isHidden
         folderName
-        # upstreamFields {
-        #     name
-        #     datasource {
-        #         id
-        #     }
-        # }
-        # upstreamColumns {
-        #     name
-        #     table {
-        #         __typename
-        #         id
-        #     }
-        # }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+                name
+                ... on VirtualConnectionTable {
+                    virtualConnection {
+                        id
+                        name
+                        luid
+                        projectName
+                    }
+                }
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
@@ -424,6 +455,7 @@ published_datasource_graphql_query = """
     }
     owner {
       username
+      email
     }
     description
     uri
@@ -432,15 +464,25 @@ published_datasource_graphql_query = """
         name
     }
 }
-        """
+"""
 
 database_tables_graphql_query = """
 {
     id
+    name
+    fullName
+    schema
     isEmbedded
+    database {
+        name
+        id
+        connectionType
+    }
     columns {
-      remoteType
-      name
+        id
+        name
+        remoteType
+        description
     }
 }
 """
@@ -455,8 +497,28 @@ database_servers_graphql_query = """
 }
 """
 
+virtual_connection_graphql_query = """
+{
+    id
+    name
+    luid
+    projectName
+    description
+    tables {
+        id
+        name
+        columns {
+            id
+            name
+            remoteType
+            description
+        }
+    }
+}
+"""
+
 # https://referencesource.microsoft.com/#system.data/System/Data/OleDb/OLEDB_Enum.cs,364
-FIELD_TYPE_MAPPING = {
+FIELD_TYPE_MAPPING: Dict[str, Type] = {
     "INTEGER": NumberTypeClass,
     "REAL": NumberTypeClass,
     "STRING": StringTypeClass,
@@ -579,16 +641,37 @@ def get_platform(connection_type: str) -> str:
         platform = "oracle"
     elif connection_type in ("tbio", "teradata"):
         platform = "teradata"
-    elif connection_type in ("sqlserver"):
+    elif connection_type in ("sqlserver",):
         platform = "mssql"
-    elif connection_type in ("athena"):
+    elif connection_type in ("athena",):
         platform = "athena"
+    elif connection_type in ("googlebigquery",):
+        platform = "bigquery"
     elif connection_type.endswith("_jdbc"):
         # e.g. convert trino_jdbc -> trino
         platform = connection_type[: -len("_jdbc")]
     else:
         platform = connection_type
     return platform
+
+
+# Platforms where Tableau's `database` names the same container as the schema, so the
+# dataset identifier is `schema.table`.
+_TWO_TIER_DB_STRIP_PLATFORMS = ("athena", "hive", "mysql", "teradata")
+
+# Two-tier (database.table) platforms; everything else is three-tier. Decides how many
+# trailing segments a dataset identifier keeps when trimming over-qualified names.
+#
+# Superset by construction: stripping yields a 2-part name from GraphQL, so SQL-parsed
+# names must trim to 2 as well or the two lineage paths disagree on the same table.
+# clickhouse is trimmed without being stripped (as it has been since #11230) — trimming
+# alone gets it to 2 parts, and keeping the database means a schemaless upstream still
+# resolves to `db.table` rather than a bare table name.
+_TWO_TIER_PLATFORMS = (*_TWO_TIER_DB_STRIP_PLATFORMS, "clickhouse")
+
+
+def _dataset_name_max_parts(platform: str) -> int:
+    return 2 if platform in _TWO_TIER_PLATFORMS else 3
 
 
 @lru_cache(128)
@@ -618,16 +701,11 @@ def get_fully_qualified_table_name(
         .replace("`", "")
     )
 
-    if platform in ("athena", "hive", "mysql", "clickhouse"):
-        # it two tier database system (athena, hive, mysql), just take final 2
-        fully_qualified_table_name = ".".join(
-            fully_qualified_table_name.split(".")[-2:]
-        )
-    else:
-        # if there are more than 3 tokens, just take the final 3
-        fully_qualified_table_name = ".".join(
-            fully_qualified_table_name.split(".")[-3:]
-        )
+    # Trim over-qualified names to the platform's tier depth: two-tier systems keep the
+    # final 2 tokens, others the final 3.
+    fully_qualified_table_name = ".".join(
+        fully_qualified_table_name.split(".")[-_dataset_name_max_parts(platform) :]
+    )
 
     return fully_qualified_table_name
 
@@ -733,12 +811,13 @@ class TableauUpstreamReference:
         lineage_overrides: Optional[TableauLineageOverrides] = None,
         database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = None,
         database_server_hostname_map: Optional[Dict[str, str]] = None,
+        database_id_to_platform_instance_map: Optional[Dict[str, str]] = None,
     ) -> str:
         (
             upstream_db,
             platform_instance,
             platform,
-            original_platform,
+            _,
         ) = get_overridden_info(
             connection_type=self.connection_type,
             upstream_db=self.database,
@@ -747,10 +826,13 @@ class TableauUpstreamReference:
             platform_instance_map=platform_instance_map,
             database_hostname_to_platform_instance_map=database_hostname_to_platform_instance_map,
             database_server_hostname_map=database_server_hostname_map,
+            database_id_to_platform_instance_map=database_id_to_platform_instance_map,
         )
 
+        # Name the table in the overridden platform's shape, not the source's, so it
+        # matches what the target platform's own ingestion emits.
         table_name = get_fully_qualified_table_name(
-            original_platform,
+            platform,
             upstream_db or "",
             self.schema,
             self.table,
@@ -761,6 +843,22 @@ class TableauUpstreamReference:
         )
 
 
+class OverriddenInfoFn(Protocol):
+    # A Protocol rather than a Callable alias so callers can (and must) pass the
+    # trailing run of same-typed Optional[Dict[str, str]] maps by keyword.
+    def __call__(
+        self,
+        connection_type: str,
+        upstream_db: Optional[str],
+        upstream_db_id: Optional[str],
+        platform_instance_map: Optional[Dict[str, str]],
+        lineage_overrides: Optional[TableauLineageOverrides] = None,
+        database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = None,
+        database_server_hostname_map: Optional[Dict[str, str]] = None,
+        database_id_to_platform_instance_map: Optional[Dict[str, str]] = None,
+    ) -> Tuple[Optional[str], Optional[str], str, str]: ...
+
+
 def get_overridden_info(
     connection_type: str,
     upstream_db: Optional[str],
@@ -769,6 +867,7 @@ def get_overridden_info(
     lineage_overrides: Optional[TableauLineageOverrides] = None,
     database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = None,
     database_server_hostname_map: Optional[Dict[str, str]] = None,
+    database_id_to_platform_instance_map: Optional[Dict[str, str]] = None,
 ) -> Tuple[Optional[str], Optional[str], str, str]:
     original_platform = platform = get_platform(connection_type)
     if (
@@ -801,12 +900,21 @@ def get_overridden_info(
         ):
             platform_instance = database_hostname_to_platform_instance_map.get(hostname)
 
-    if original_platform in (
-        "athena",
-        "hive",
-        "mysql",
-        "teradata",
-    ):  # Two tier databases
+    # Applied after hostname so it wins: one id is one connection, whereas a hostname
+    # can be shared (e.g. Athena workgroups behind a regional endpoint).
+    if (
+        database_id_to_platform_instance_map is not None
+        and upstream_db_id is not None
+        and upstream_db_id in database_id_to_platform_instance_map
+    ):
+        platform_instance = database_id_to_platform_instance_map[upstream_db_id]
+
+    # Either side being two-tier leaves nothing for the database segment: a two-tier
+    # target has no slot for one, and a two-tier source has no catalog to fill one.
+    if (
+        platform in _TWO_TIER_DB_STRIP_PLATFORMS
+        or original_platform in _TWO_TIER_DB_STRIP_PLATFORMS
+    ):
         upstream_db = None
 
     return upstream_db, platform_instance, platform, original_platform
@@ -824,8 +932,76 @@ def make_description_from_params(description, formula):
     return final_description
 
 
+_DATASET_URN_NAME_RE = re.compile(
+    r"^urn:li:dataset:\(urn:li:dataPlatform:[^,]+,(?P<name>.+),[^,)]+\)$"
+)
+
+_DATASET_URN_RE = re.compile(
+    r"^urn:li:dataset:\(urn:li:dataPlatform:(?P<platform>[^,]+),(?P<name>.+),(?P<env>[^,)]+)\)$"
+)
+
+
+def _normalize_parsed_upstream_urn(
+    dataset_urn: str, platform_instance: Optional[str]
+) -> str:
+    """Trim extra leading name segments that SQL parsing keeps but a DataHub dataset
+    URN does not.
+
+    The SQL parser preserves every component of an over-qualified reference -- most
+    importantly a SQL Server four-part name ``[linked_server].db.schema.table`` -- but a
+    DataHub dataset is identified by ``database.schema.table`` (or ``database.table`` for
+    two-tier platforms). This mirrors ``get_fully_qualified_table_name``'s last-2/last-3
+    truncation, which the GraphQL ``fullName`` path already applies; here we apply it to
+    the parsed-SQL path (custom SQL and Initial SQL) so the two agree.
+
+    Instance-aware: ``platform_instance`` is prepended to the URN name, so it is peeled
+    off before counting/trimming the table-name segments and restored afterwards --
+    otherwise the instance itself would be trimmed away.
+    """
+    match = _DATASET_URN_RE.match(dataset_urn)
+    if not match:
+        return dataset_urn
+    platform = match.group("platform")
+    name = match.group("name")
+    env = match.group("env")
+
+    prefix = ""
+    core = name
+    if platform_instance:
+        # The instance segment is lower-cased in the URN name and may itself contain
+        # dots, so match it as a case-insensitive string prefix rather than by token.
+        instance_prefix = f"{platform_instance.lower()}."
+        if name.lower().startswith(instance_prefix):
+            prefix = name[: len(instance_prefix)]
+            core = name[len(instance_prefix) :]
+
+    tokens = core.split(".")
+    max_parts = _dataset_name_max_parts(platform)
+    if len(tokens) <= max_parts:
+        return dataset_urn
+    core = ".".join(tokens[-max_parts:])
+    return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{prefix}{core},{env})"
+
+
+def _is_temp_table_upstream(dataset_urn: str) -> bool:
+    """Whether a parsed upstream URN refers to a SQL Server #/## temp table.
+
+    Per-statement SQL parsing (used for both custom SQL and Initial SQL) treats a
+    ``SELECT ... INTO #tmp`` / ``FROM #tmp`` reference as a regular table, yielding a
+    URN for a session-local pseudo-table that is not a real dataset. Identify it by a
+    ``#``-prefixed table-name component and drop it, mirroring how SQLServerSource /
+    SqlQueriesSource filter temp tables. (Custom SQL is a single SELECT and never
+    produces temp tables, so this is a no-op there.)
+    """
+    match = _DATASET_URN_NAME_RE.match(dataset_urn)
+    if not match:
+        return False
+    return match.group("name").split(".")[-1].startswith("#")
+
+
 def make_upstream_class(
     parsed_result: Optional[SqlParsingResult],
+    platform_instance: Optional[str] = None,
 ) -> List[UpstreamClass]:
     upstream_tables: List[UpstreamClass] = []
 
@@ -833,6 +1009,12 @@ def make_upstream_class(
         return upstream_tables
 
     for dataset_urn in parsed_result.in_tables:
+        # Drop over-qualified leading segments (e.g. a SQL Server linked-server prefix)
+        # so the upstream URN matches DataHub's database.schema.table convention, the
+        # same as the GraphQL fullName path.
+        dataset_urn = _normalize_parsed_upstream_urn(dataset_urn, platform_instance)
+        if _is_temp_table_upstream(dataset_urn):
+            continue
         upstream_tables.append(
             UpstreamClass(type=DatasetLineageType.TRANSFORMED, dataset=dataset_urn)
         )
@@ -873,14 +1055,10 @@ def make_fine_grained_lineage_class(
                     ),
                 )
             ]
-            if cll_info.downstream is not None
-            and cll_info.downstream.column is not None
+            if cll_info.downstream is not None and cll_info.downstream.column
             else []
         )
-        upstreams = [
-            builder.make_schema_field_urn(column_ref.table, column_ref.column)
-            for column_ref in cll_info.upstreams
-        ]
+        upstreams = cll_info.upstream_schema_field_urns()
 
         fine_grained_lineages.append(
             FineGrainedLineage(
@@ -1022,3 +1200,56 @@ def optimize_query_filter(query_filter: dict) -> dict:
             OrderedSet(query_filter[c.PROJECT_NAME_WITH_IN])
         )
     return optimized_query
+
+
+# Translation table for removing special characters (created once, reused)
+# Characters to remove: [ ] " ` ' \" \
+_CLEAN_TABLE_NAME_TRANSLATION = str.maketrans("", "", '[]"`\'\\"\\')
+
+
+def clean_table_name(name: str) -> str:
+    """Clean table name by removing brackets, quotes, and other special characters"""
+    if not name:
+        return name
+
+    # Use translate() for efficient character removal in a single pass
+    return name.translate(_CLEAN_TABLE_NAME_TRANSLATION).strip()
+
+
+def is_table_name_field(field_name: str, field_type: str = "") -> bool:
+    """
+    Determine if a field is actually a table name reference rather than a column field.
+
+    Common patterns:
+    - "TABLE_NAME (SCHEMA.TABLE_NAME)"
+    - Field name matches table name exactly
+    - Field has no proper column mapping
+
+    Args:
+        field_name: The field name to check
+        field_type: The field type (optional)
+
+    Returns:
+        True if this appears to be a table name field, False otherwise
+    """
+    if not field_name:
+        return False
+
+    # Pattern for "TABLE_NAME (SCHEMA.TABLE_NAME)" format
+    # Allow alphanumeric characters, underscores, and numbers in table/schema names
+    table_pattern = (
+        r"^([A-Z0-9_]+)\s*\([A-Z0-9_]+\.[A-Z0-9_]+\)(\s*\([^)]+\))*(\s*\(\d+\))?$"
+    )
+
+    if re.match(table_pattern, field_name):
+        return True
+
+    # Additional checks for other table-like patterns
+    # If field name is all uppercase and contains schema-like patterns
+    if field_name.isupper() and ("." in field_name or "_" in field_name):
+        # Check if it looks like a fully qualified table name
+        parts = field_name.split(".")
+        if len(parts) >= 2 and all(part.replace("_", "").isalnum() for part in parts):
+            return True
+
+    return False

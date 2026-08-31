@@ -1,0 +1,23 @@
+# Python Dependency Pinning Exclusions
+#
+# Packages listed here are ALLOWED to remain unpinned or use lower-bound-only
+# pinning (e.g., package>=1.0) despite the strict pinning policy.
+#
+# FORMAT:
+#   - One package name per line (case-sensitive)
+#   - Lines starting with # are comments
+#   - Empty lines are ignored
+#
+# Changes to exclusions get reviewed as part of the PR
+#
+# ============================================================================
+# CURRENT EXCLUSIONS:
+# ============================================================================
+acryl-datahub
+datahub-agent-context
+# Airflow providers needed for loading test DAGs; must be compatible with
+# whatever Airflow 3.x is being tested so can't be pinned to a specific version
+apache-airflow-providers-snowflake
+apache-airflow-providers-amazon
+apache-airflow-providers-google
+

@@ -1,15 +1,16 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Bulk Creating Smart Assertions with Python SDK
+# Bulk Creating Assertions with Anomaly Detection via the Python SDK
 
 <FeatureAvailability saasOnly />
 
-This guide specifically covers how to use the DataHub Cloud Python SDK for **bulk creating smart assertions**, including:
+This guide specifically covers how to use the [DataHub Cloud Python SDK](https://pypi.org/project/acryl-datahub-cloud/) for **bulk creating assertions with [Anomaly Detection](/docs/managed-datahub/observe/anomaly-detection.md) enabled** (formerly referred to as "Smart Assertions"), including:
 
-- Smart Freshness Assertions
-- Smart Volume Assertions
-- Smart Column Metric Assertions
+- Freshness Assertions with Anomaly Detection (GA)
+- Volume Assertions with Anomaly Detection (GA)
+- Column Metric Assertions with Anomaly Detection (Public Beta)
+- Custom SQL Assertions with Anomaly Detection (Public Beta)
 
 This is particularly useful for applying data quality checks across many tables and columns at scale.
 
@@ -33,12 +34,12 @@ The actor making API calls must have the `Edit Assertions` and `Edit Monitors` p
 
 :::note
 Before creating assertions, you need to ensure the target datasets are already present in your DataHub instance.
-If you attempt to create assertions for entities that do not exist, your operation will fail.
+If you attempt to create assertions for entities that do not exist, GMS will continuously report errors to the logs.
 :::
 
 ### Goal Of This Guide
 
-This guide will show you how to programmatically create large numbers of smart assertions using the DataHub Cloud Python SDK.
+This guide will show you how to programmatically create large numbers of assertions with Anomaly Detection enabled using the DataHub Cloud Python SDK.
 
 ## Overview
 
@@ -72,6 +73,12 @@ from datahub.sdk import DataHubClient
 
 client = DataHubClient.from_env()
 ```
+
+## Important Considerations for Parallel Processing
+
+- Always run bulk assertion creation for a given dataset in a single thread to avoid race conditions.
+- Always call subscription APIs for a given dataset in a single thread to avoid race conditions.
+  - If you are subscribing to assertions directly, make sure to also run the script on a single thread per dataset.
 
 ## Step 1: Discover Tables
 
@@ -138,28 +145,28 @@ critical_datasets = find_tables_by_tag(client, "critical")
 
 ## Step 2: Create Table-Level Assertions
 
-### Smart Freshness Assertions
+### Freshness Assertions with Anomaly Detection
 
 ```python
 # Storage for assertion URNs (for later updates)
 assertion_registry = {
     "freshness": {},
     "volume": {},
+    "smart_sql": {},
     "column_metrics": {}
 }
 
 def create_freshness_assertions(datasets, client, registry):
-    """Create smart freshness assertions for multiple datasets."""
+    """Create Freshness assertions with Anomaly Detection for multiple datasets."""
 
     for dataset_urn in datasets:
         try:
-            # Create smart freshness assertion
             freshness_assertion = client.assertions.sync_smart_freshness_assertion(
                 dataset_urn=dataset_urn,
                 display_name=f"Freshness Anomaly Monitor",
                 # Detection mechanism - information_schema is recommended
                 detection_mechanism="information_schema",
-                # Smart sensitivity setting
+                # AI sensitivity setting
                 sensitivity="medium",  # options: "low", "medium", "high"
                 # Tags for grouping (supports urns or plain tag names!)
                 tags=["automated", "freshness", "data_quality"],
@@ -179,21 +186,20 @@ def create_freshness_assertions(datasets, client, registry):
 create_freshness_assertions(datasets, client, assertion_registry)
 ```
 
-### Smart Volume Assertions
+### Volume Assertions with Anomaly Detection
 
 ```python
 def create_volume_assertions(datasets, client, registry):
-    """Create smart volume assertions for multiple datasets."""
+    """Create Volume assertions with Anomaly Detection for multiple datasets."""
 
     for dataset_urn in datasets:
         try:
-            # Create smart volume assertion
             volume_assertion = client.assertions.sync_smart_volume_assertion(
                 dataset_urn=dataset_urn,
-                display_name=f"Smart Volume Check",
+                display_name=f"Volume Anomaly Monitor",
                 # Detection mechanism options
                 detection_mechanism="information_schema",
-                # Smart sensitivity setting
+                # AI sensitivity setting
                 sensitivity="medium",
                 # Tags for grouping
                 tags=["automated", "volume", "data_quality"],
@@ -213,6 +219,52 @@ def create_volume_assertions(datasets, client, registry):
 
 # Create volume assertions for all datasets
 create_volume_assertions(datasets, client, assertion_registry)
+```
+
+### Custom SQL Assertions with Anomaly Detection (Public Beta)
+
+```python
+def create_smart_sql_assertions(datasets, client, registry):
+    """Create Custom SQL assertions with Anomaly Detection for multiple datasets."""
+
+    # Define SQL queries to run on each table
+    sql_queries = {
+        "row_count": "SELECT COUNT(*) FROM {table_name}",
+        "null_check": "SELECT COUNT(*) FROM {table_name} WHERE id IS NULL",
+        "active_records": "SELECT COUNT(*) FROM {table_name} WHERE status = 'active'",
+    }
+
+    for dataset_urn in datasets:
+        registry["smart_sql"][str(dataset_urn)] = {}
+
+        for query_name, query_template in sql_queries.items():
+            try:
+                table_name = dataset_urn.name
+                statement = query_template.format(table_name=table_name)
+
+                sql_assertion = client.assertions.sync_smart_sql_assertion(
+                    dataset_urn=dataset_urn,
+                    display_name=f"SQL Anomaly Monitor - {query_name}",
+                    statement=statement,
+                    # AI-powered sensitivity setting
+                    sensitivity="medium",  # options: "low", "medium", "high"
+                    # Tags for grouping
+                    tags=["automated", "anomaly_detection", query_name],
+                    # Schedule
+                    schedule="0 */6 * * *",  # Every 6 hours
+                    # Enable the assertion
+                    enabled=True
+                )
+
+                registry["smart_sql"][str(dataset_urn)][query_name] = str(sql_assertion.urn)
+
+                print(f"✅ Created Custom SQL anomaly monitor '{query_name}' for {dataset_urn.name}: {sql_assertion.urn}")
+
+            except Exception as e:
+                print(f"❌ Failed to create Custom SQL anomaly monitor '{query_name}' for {dataset_urn.name}: {e}")
+
+# Create Custom SQL anomaly monitors for all datasets
+create_smart_sql_assertions(datasets, client, assertion_registry)
 ```
 
 ## Step 3: Get Column Information
@@ -247,11 +299,11 @@ for dataset_urn in datasets:
 
 ## Step 4: Create Column-Level Assertions
 
-### Smart Column Metric Assertions
+### Column Metric Assertions with Anomaly Detection (Public Beta)
 
 ```python
 def create_column_assertions(datasets, columns_dict, client, registry):
-    """Create smart column metric assertions for multiple datasets and columns."""
+    """Create Column Metric assertions with Anomaly Detection for multiple datasets and columns."""
 
     # Define rules for which columns should get which assertions
     assertion_rules = {
@@ -259,23 +311,17 @@ def create_column_assertions(datasets, columns_dict, client, registry):
         "null_checks": {
             "column_patterns": ["id", "*_id", "user_id", "email"],
             "metric_type": "null_count",
-            "operator": "equal_to",
-            "value": 0
         },
         # Unique count checks for ID columns
         "unique_checks": {
             "column_patterns": ["*_id", "email", "username"],
-            "metric_type": "unique_percentage",
-            "operator": "greater_than_or_equal_to",
-            "value": 0.95
+            "metric_type": "unique_count",
         },
-        # Range checks for numeric columns
-        "range_checks": {
-            "column_patterns": ["amount", "price", "quantity", "score"],
-            "metric_type": "min",
-            "operator": "greater_than_or_equal_to",
-            "value": 0
-        }
+        # Empty count checks for string columns
+        "empty_checks": {
+            "column_patterns": ["name", "description", "title"],
+            "metric_type": "empty_count",
+        },
     }
 
     for dataset_urn in datasets:
@@ -300,8 +346,6 @@ def create_column_assertions(datasets, columns_dict, client, registry):
                             dataset_urn=dataset_urn,
                             column_name=column_name,
                             metric_type=rule_config["metric_type"],
-                            operator=rule_config["operator"],
-                            criteria_parameters=rule_config["value"],
                             display_name=f"{rule_name.replace('_', ' ').title()} - {column_name}",
                             # Detection mechanism for column metrics
                             detection_mechanism="all_rows_query_datahub_dataset_profile",
@@ -339,7 +383,15 @@ def should_apply_rule(column_name, column_type, rule_config):
 create_column_assertions(datasets, dataset_columns, client, assertion_registry)
 ```
 
-## Step 5: Store Assertion URNs
+## Step 5: Create Subscription
+
+Reference the [Subscriptions SDK](/docs/api/tutorials/subscriptions.md) for more information on how to create subscriptions on Datasets or Assertions.
+
+:::note
+When creating subscriptions in bulk, you must perform the operation in a single thread to avoid race conditions. Additionally, we recommend creating subscriptions at the dataset level rather than for individual assertions, as this makes ongoing management much easier.
+:::
+
+## Step 6: Store Assertion URNs
 
 ### Save to File
 
@@ -389,7 +441,7 @@ def load_assertion_registry(filename):
 # assertion_registry = load_assertion_registry("assertion_registry_20240101_120000.json")
 ```
 
-## Step 6: Update Existing Assertions
+## Step 7: Update Existing Assertions
 
 ```python
 def update_existing_assertions(registry, client):
@@ -545,7 +597,7 @@ Our backend is designed to handle large scale operations. However, since writes 
 ```python
 #!/usr/bin/env python3
 """
-Complete example script for bulk creating smart assertions.
+Complete example script for bulk creating assertions with Anomaly Detection enabled.
 """
 
 import json
@@ -622,4 +674,4 @@ if __name__ == "__main__":
     main()
 ```
 
-This guide provides a comprehensive approach to bulk creating smart assertions using the DataHub Cloud Python SDK. The new tag name auto-conversion feature makes it easier to organize and manage your assertions with simple, readable tag names that are automatically converted to proper URN format.
+This guide provides a comprehensive approach to bulk creating assertions (with [Anomaly Detection](/docs/managed-datahub/observe/anomaly-detection.md) enabled where supported) using the DataHub Cloud Python SDK. The new tag name auto-conversion feature makes it easier to organize and manage your assertions with simple, readable tag names that are automatically converted to proper URN format.

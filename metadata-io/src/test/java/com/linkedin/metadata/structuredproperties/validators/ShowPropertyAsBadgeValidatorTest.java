@@ -2,6 +2,7 @@ package com.linkedin.metadata.structuredproperties.validators;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.GraphRetriever;
@@ -85,6 +86,7 @@ public class ShowPropertyAsBadgeValidatorTest {
     // Test validation
     Stream<AspectValidationException> validationResult =
         ShowPropertyAsBadgeValidator.validateSettingsUpserts(
+            OperationFingerprint.EMPTY,
             TestMCP.ofOneUpsertItem(TEST_PROPERTY_URN, propertySettings, TEST_REGISTRY),
             retrieverContext);
 
@@ -118,6 +120,7 @@ public class ShowPropertyAsBadgeValidatorTest {
     // Test validation
     Stream<AspectValidationException> validationResult =
         ShowPropertyAsBadgeValidator.validateSettingsUpserts(
+            OperationFingerprint.EMPTY,
             TestMCP.ofOneUpsertItem(TEST_PROPERTY_URN, propertySettings, TEST_REGISTRY),
             retrieverContext);
 
@@ -151,6 +154,42 @@ public class ShowPropertyAsBadgeValidatorTest {
     // Test validation
     Stream<AspectValidationException> validationResult =
         ShowPropertyAsBadgeValidator.validateSettingsUpserts(
+            OperationFingerprint.EMPTY,
+            TestMCP.ofOneUpsertItem(TEST_PROPERTY_URN, propertySettings, TEST_REGISTRY),
+            retrieverContext);
+
+    // Assert no validation exceptions
+    Assert.assertTrue(validationResult.findAny().isEmpty());
+  }
+
+  @Test
+  public void testValidUpsertWhenUpdatingSamePropertyWithBadge() {
+    // Updating a property that already has showAsAssetBadge = true should succeed
+    // This is the bug fix scenario from CUS-6349
+
+    StructuredPropertySettings propertySettings =
+        new StructuredPropertySettings()
+            .setShowAsAssetBadge(true)
+            .setShowInAssetSummary(true)
+            .setShowInSearchFilters(true);
+
+    // Mock search returns the SAME property being updated (it already has badge)
+    SearchEntity sameProperty = new SearchEntity();
+    sameProperty.setEntity(TEST_PROPERTY_URN);
+    ScrollResult mockResult = new ScrollResult();
+    mockResult.setEntities(new SearchEntityArray(Collections.singletonList(sameProperty)));
+    Mockito.when(
+            mockSearchRetriever.scroll(
+                Mockito.eq(Collections.singletonList(STRUCTURED_PROPERTY_ENTITY_NAME)),
+                Mockito.any(Filter.class),
+                Mockito.eq(null),
+                Mockito.eq(10)))
+        .thenReturn(mockResult);
+
+    // Test validation - should pass because we're updating the same property
+    Stream<AspectValidationException> validationResult =
+        ShowPropertyAsBadgeValidator.validateSettingsUpserts(
+            OperationFingerprint.EMPTY,
             TestMCP.ofOneUpsertItem(TEST_PROPERTY_URN, propertySettings, TEST_REGISTRY),
             retrieverContext);
 

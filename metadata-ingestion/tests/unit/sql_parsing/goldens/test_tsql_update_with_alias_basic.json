@@ -1,0 +1,62 @@
+{
+    "query_type": "UPDATE",
+    "query_type_props": {},
+    "query_fingerprint": "d4101967aa0695083a97b645340ee9cc166a4301031cff167886f0289774695e",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.source_table,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)",
+                "column": "col1",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.source_table,PROD)",
+                    "column": "col1"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[src].[col1] AS [col1]"
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.source_table,PROD)"
+            ],
+            "on_clause": "[dst].[id] = [src].[id]",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.source_table,PROD)",
+                    "column": "id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)",
+                    "column": "id"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "UPDATE dst SET dst.col1 = src.col1 FROM mydb.dbo.target_table AS dst JOIN mydb.dbo.source_table AS src ON dst.id = src.id"
+    }
+}

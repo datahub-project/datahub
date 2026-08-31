@@ -9,6 +9,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AllowedValue;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DataTypeEntity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.EntityTypeEntity;
@@ -97,6 +98,18 @@ public class StructuredPropertyMapper
         gmsDefinition.getEntityTypes().stream()
             .map(this::createEntityTypeEntity)
             .collect(Collectors.toList()));
+    if (gmsDefinition.hasAllowedPlatforms()) {
+      definition.setAllowedPlatforms(
+          gmsDefinition.getAllowedPlatforms().stream()
+              .map(
+                  platformUrn -> {
+                    final DataPlatform platform = new DataPlatform();
+                    platform.setUrn(platformUrn.toString());
+                    platform.setType(EntityType.DATA_PLATFORM);
+                    return platform;
+                  })
+              .collect(Collectors.toList()));
+    }
     extendedProperty.setDefinition(definition);
   }
 
@@ -127,6 +140,7 @@ public class StructuredPropertyMapper
     settings.setIsHidden(gmsSettings.isIsHidden());
     settings.setShowInSearchFilters(gmsSettings.isShowInSearchFilters());
     settings.setShowInAssetSummary(gmsSettings.isShowInAssetSummary());
+    settings.setHideInAssetSummaryWhenEmpty(gmsSettings.isHideInAssetSummaryWhenEmpty());
     settings.setShowAsAssetBadge(gmsSettings.isShowAsAssetBadge());
     settings.setShowInColumnsTable(gmsSettings.isShowInColumnsTable());
 

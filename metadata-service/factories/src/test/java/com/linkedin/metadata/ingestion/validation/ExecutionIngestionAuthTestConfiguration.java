@@ -1,7 +1,12 @@
 package com.linkedin.metadata.ingestion.validation;
 
+import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVENTION_BEAN;
+
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.context.SystemOperationContextFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.MappingsBuilderFactory;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
@@ -15,21 +20,33 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.services.RestrictedService;
+import io.datahubproject.metadata.services.SecretService;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 
+// All dependencies are @Bean methods rather than @MockitoBean fields because @MockitoBean on a
+// @Configuration class requires an existing bean definition to override — but in this test
+// context many factories are not loaded, so no definitions exist for these types/names.
 @Configuration
 @ComponentScan(
     basePackages = {
       "com.linkedin.gms.factory.config",
-      "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.auth",
-      "com.linkedin.gms.factory.entityclient"
+      "com.linkedin.gms.factory.entityclient",
     })
+@Import({MappingsBuilderFactory.class, SystemOperationContextFactory.class})
 public class ExecutionIngestionAuthTestConfiguration {
+
   @Bean
   public EntityRegistry entityRegistry() {
     PathSpecBasedSchemaAnnotationVisitor.class
@@ -41,50 +58,127 @@ public class ExecutionIngestionAuthTestConfiguration {
             .getResourceAsStream("entity-registry.yml"));
   }
 
-  @Qualifier("entityService")
-  @MockBean
-  private EntityService<?> entityService;
+  @Bean(name = INDEX_CONVENTION_BEAN)
+  @Primary
+  public IndexConvention indexConvention() {
+    return Mockito.mock(IndexConvention.class);
+  }
 
-  @Qualifier("graphClient")
-  @MockBean
-  private GraphClient graphClient;
+  @Bean(name = "entityService")
+  @Primary
+  @SuppressWarnings("unchecked")
+  public EntityService<?> entityService() {
+    return Mockito.mock(EntityService.class);
+  }
 
-  @MockBean private GraphService graphService;
+  @Bean(name = "graphClient")
+  @Primary
+  public GraphClient graphClient() {
+    return Mockito.mock(GraphClient.class);
+  }
 
-  @Qualifier("searchService")
-  @MockBean
-  private SearchService searchService;
+  @Bean
+  @Primary
+  public GraphService graphService() {
+    return Mockito.mock(GraphService.class);
+  }
 
-  @Qualifier("baseElasticSearchComponents")
-  @MockBean
-  private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
-      baseElasticSearchComponents;
+  @Bean(name = "searchService")
+  @Primary
+  public SearchService searchService() {
+    return Mockito.mock(SearchService.class);
+  }
 
-  @Qualifier("deleteEntityService")
-  @MockBean
-  private DeleteEntityService deleteEntityService;
+  @Bean(name = "baseElasticSearchComponents")
+  public BaseElasticSearchComponentsFactory.BaseElasticSearchComponents baseElasticSearchComponents(
+      @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention mockIndexConvention) {
+    return new BaseElasticSearchComponentsFactory.BaseElasticSearchComponents(
+        null, // config
+        null, // searchClient
+        mockIndexConvention,
+        null, // bulkProcessor
+        null // indexBuilder
+        );
+  }
 
-  @Qualifier("entitySearchService")
-  @MockBean
-  private EntitySearchService entitySearchService;
+  @Bean(name = "deleteEntityService")
+  @Primary
+  public DeleteEntityService deleteEntityService() {
+    return Mockito.mock(DeleteEntityService.class);
+  }
 
-  @Qualifier("cachingEntitySearchService")
-  @MockBean
-  private CachingEntitySearchService cachingEntitySearchService;
+  @Bean(name = "entitySearchService")
+  @Primary
+  public EntitySearchService entitySearchService() {
+    return Mockito.mock(EntitySearchService.class);
+  }
 
-  @Qualifier("timeseriesAspectService")
-  @MockBean
-  private TimeseriesAspectService timeseriesAspectService;
+  @Bean(name = "cachingEntitySearchService")
+  @Primary
+  public CachingEntitySearchService cachingEntitySearchService() {
+    return Mockito.mock(CachingEntitySearchService.class);
+  }
 
-  @Qualifier("relationshipSearchService")
-  @MockBean
-  private LineageSearchService lineageSearchService;
+  @Bean(name = "timeseriesAspectService")
+  @Primary
+  public TimeseriesAspectService timeseriesAspectService() {
+    return Mockito.mock(TimeseriesAspectService.class);
+  }
 
-  @Qualifier("kafkaEventProducer")
-  @MockBean
-  private EventProducer eventProducer;
+  @Bean(name = "relationshipSearchService")
+  @Primary
+  public LineageSearchService lineageSearchService() {
+    return Mockito.mock(LineageSearchService.class);
+  }
 
-  @MockBean private RollbackService rollbackService;
+  @Bean(name = "kafkaEventProducer")
+  @Primary
+  public EventProducer eventProducer() {
+    return Mockito.mock(EventProducer.class);
+  }
 
-  @MockBean private io.datahubproject.metadata.context.TraceContext traceContext;
+  @Bean
+  @Primary
+  public RollbackService rollbackService() {
+    return Mockito.mock(RollbackService.class);
+  }
+
+  @Bean
+  @Primary
+  public SystemTelemetryContext systemTelemetryContext() {
+    return Mockito.mock(SystemTelemetryContext.class);
+  }
+
+  @Bean
+  @Primary
+  public MetricUtils metricUtils() {
+    return Mockito.mock(MetricUtils.class);
+  }
+
+  @Bean
+  @Primary
+  public RestrictedService restrictedService() {
+    return Mockito.mock(RestrictedService.class);
+  }
+
+  @Bean(name = "systemEntityClient")
+  @Primary
+  public SystemEntityClient systemEntityClient() {
+    return Mockito.mock(SystemEntityClient.class);
+  }
+
+  @Bean(name = "dataHubSecretService")
+  @Primary
+  public SecretService dataHubSecretService() {
+    return Mockito.mock(SecretService.class);
+  }
+
+  @Bean(name = "searchClientShim")
+  @Primary
+  @SuppressWarnings("unchecked")
+  public SearchClientShim<?> searchClientShim() {
+    SearchClientShim<?> mock = Mockito.mock(SearchClientShim.class);
+    Mockito.when(mock.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    return mock;
+  }
 }

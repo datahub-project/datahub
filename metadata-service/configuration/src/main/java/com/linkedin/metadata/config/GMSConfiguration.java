@@ -1,0 +1,81 @@
+package com.linkedin.metadata.config;
+
+import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
+import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
+import lombok.Data;
+
+/** POJO representing the "datahub.gms" configuration block in application.yaml. */
+@Data
+public class GMSConfiguration {
+  /** The host where GMS is running */
+  private String host;
+
+  /** The port where GMS is running */
+  private Integer port;
+
+  /** The base path for GMS endpoints */
+  private String basePath;
+
+  /** Whether base path is enabled for GMS */
+  private Boolean basePathEnabled;
+
+  /** Whether to use SSL for GMS connections */
+  private Boolean useSSL;
+
+  /** Truststore configuration for SSL */
+  private TruststoreConfiguration truststore;
+
+  /** Keystore configuration for SSL client authentication (mTLS) */
+  private KeystoreConfiguration keystore;
+
+  /** Async request configuration */
+  private AsyncConfiguration async;
+
+  /** The complete URI for GMS (takes precedence over host/port/useSSL) */
+  private String uri;
+
+  /** SSL context protocol */
+  private String sslContext;
+
+  /**
+   * GMS HTTP service rate limiting (GraphQL, OpenAPI, Rest.li, /auth/*). Not MCP ingestion or Kafka
+   * lag throttle.
+   */
+  private RateLimitProperties rateLimits;
+
+  /** Config-driven entity hierarchy graph cache (VBAC, filter expansion, policy fields). */
+  private EntityGraphCacheProperties entityGraphCache;
+
+  @Data
+  public static class TruststoreConfiguration {
+    /** Path to the truststore file */
+    private String path;
+
+    /** Password for the truststore */
+    private String password;
+
+    /** Type of the truststore (e.g., PKCS12) */
+    private String type;
+  }
+
+  @Data
+  public static class KeystoreConfiguration {
+    /** Path to the keystore file */
+    private String path;
+
+    /** Password for the keystore */
+    private String password;
+
+    /** Type of the keystore (e.g., PKCS12) */
+    private String type;
+
+    /** Password for the private key; defaults to keystore password when unset */
+    private String keyPassword;
+  }
+
+  @Data
+  public static class AsyncConfiguration {
+    /** Request timeout in milliseconds */
+    private Long requestTimeoutMs;
+  }
+}

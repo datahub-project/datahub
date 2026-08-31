@@ -8,12 +8,15 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.SystemAspectValidator;
+import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -23,6 +26,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Used to maintain state for the Ebean supported database. This class tracks changes to the
@@ -34,6 +38,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @Builder
 @AllArgsConstructor
+@Slf4j
 public class EbeanSystemAspect implements SystemAspect {
 
   /**
@@ -55,6 +60,18 @@ public class EbeanSystemAspect implements SystemAspect {
   @Setter @Nullable private SystemMetadata systemMetadata;
 
   @Setter @Nullable private AuditStamp auditStamp;
+
+  @Nullable private List<SystemAspectValidator> systemAspectValidators;
+
+  @Nullable private AspectSizeValidationConfiguration validationConfig;
+
+  @Nullable private io.datahubproject.metadata.context.OperationContext operationContext;
+
+  @Nullable
+  @Override
+  public Object getOperationContext() {
+    return operationContext;
+  }
 
   @Nonnull
   @Override
@@ -80,21 +97,49 @@ public class EbeanSystemAspect implements SystemAspect {
   @Override
   @Nonnull
   public EntityAspect withVersion(long version) {
+    log.debug("withVersion({}) called for urn={}, aspect={}", version, getUrn(), getAspectName());
     if (systemMetadata == null) {
       throw new IllegalStateException("Cannot save without system metadata");
     }
 
     AuditStamp insertAuditStamp = Objects.requireNonNull(auditStamp);
-    return new EbeanAspectV2(
-            urn.toString(),
-            aspectName,
-            version,
-            RecordUtils.toJsonString(Objects.requireNonNull(recordTemplate)),
-            new Timestamp(insertAuditStamp.getTime()),
-            insertAuditStamp.getActor().toString(),
-            Optional.ofNullable(insertAuditStamp.getImpersonator()).map(Urn::toString).orElse(null),
-            RecordUtils.toJsonString(systemMetadata))
-        .toEntityAspect();
+    EntityAspect entityAspect =
+        new EbeanAspectV2(
+                urn.toString(),
+                aspectName,
+                version,
+                RecordUtils.toJsonString(Objects.requireNonNull(recordTemplate)),
+                new Timestamp(insertAuditStamp.getTime()),
+                insertAuditStamp.getActor().toString(),
+                Optional.ofNullable(insertAuditStamp.getImpersonator())
+                    .map(Urn::toString)
+                    .orElse(null),
+                RecordUtils.toJsonString(systemMetadata))
+            .toEntityAspect();
+
+    // Call payload validators after aspect is serialized to JSON
+    // We pass both SystemAspect (this) and EntityAspect (serialized form) to validators:
+    // - SystemAspect provides context: URN, aspect spec, RecordTemplate object
+    // - EntityAspect provides the JSON string that was ALREADY serialized for DB write (line 108)
+    // This is NOT duplicate serialization - validators reuse the JSON created for the DB write,
+    // making validation/metrics essentially free without re-serializing.
+    log.debug(
+        "withVersion() called with {} validators, metadata size: {} bytes",
+        systemAspectValidators != null ? systemAspectValidators.size() : 0,
+        entityAspect.getMetadata() != null ? entityAspect.getMetadata().length() : 0);
+    if (systemAspectValidators != null && !systemAspectValidators.isEmpty()) {
+      log.debug(
+          "Invoking {} SystemAspectValidators for urn={}, aspect={}, size={} bytes",
+          systemAspectValidators.size(),
+          getUrn(),
+          getAspectName(),
+          entityAspect.getMetadata() != null ? entityAspect.getMetadata().length() : 0);
+      for (SystemAspectValidator validator : systemAspectValidators) {
+        validator.validatePayload(this, entityAspect);
+      }
+    }
+
+    return entityAspect;
   }
 
   @Nonnull
@@ -117,7 +162,10 @@ public class EbeanSystemAspect implements SystemAspect {
           this.aspectSpec,
           this.recordTemplate,
           this.systemMetadata,
-          this.auditStamp);
+          this.auditStamp,
+          this.systemAspectValidators,
+          this.validationConfig,
+          this.operationContext);
     }
 
     public EbeanSystemAspect forUpdate(
@@ -129,6 +177,15 @@ public class EbeanSystemAspect implements SystemAspect {
       this.ebeanAspectV2 = ebeanAspectV2;
       this.urn = UrnUtils.getUrn(ebeanAspectV2.getUrn());
       this.aspectName = ebeanAspectV2.getAspect();
+
+      // Pre-patch validation: iterate through validators
+      if (systemAspectValidators != null) {
+        for (SystemAspectValidator validator : systemAspectValidators) {
+          validator.validatePrePatch(
+              ebeanAspectV2.getMetadata(), urn, aspectName, operationContext);
+        }
+      }
+
       this.recordTemplate =
           Optional.ofNullable(ebeanAspectV2.getMetadata())
               .map(
@@ -242,7 +299,10 @@ public class EbeanSystemAspect implements SystemAspect {
           this.aspectSpec,
           recordTemplateCopy,
           systemMetadataCopy,
-          auditStampCopy);
+          auditStampCopy,
+          this.systemAspectValidators,
+          this.validationConfig,
+          this.operationContext);
     } catch (CloneNotSupportedException e) {
       throw new RuntimeException(e);
     }

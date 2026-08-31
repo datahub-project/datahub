@@ -9,11 +9,13 @@ dependencies {
   implementation project(':metadata-auth:auth-api')
   implementation project(':metadata-service:auth-impl')
   implementation project(':metadata-service:factories')
+  implementation project(':metadata-service:rate-limit')
 
   implementation externalDependency.servletApi
   implementation externalDependency.springCore
   implementation externalDependency.springWeb
   implementation externalDependency.springWebMVC
+  implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.graphqlJava
   implementation externalDependency.springBeans
   implementation externalDependency.springContext
@@ -25,6 +27,12 @@ dependencies {
   implementation externalDependency.charle
   implementation externalDependency.jetbrains
   implementation externalDependency.opentelemetryApi
+
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+  testImplementation project(':metadata-service:configuration')
+  testImplementation externalDependency.jacksonDataFormatYaml
+  testImplementation project(':metadata-operation-context')
 }
 
 configurations.all{

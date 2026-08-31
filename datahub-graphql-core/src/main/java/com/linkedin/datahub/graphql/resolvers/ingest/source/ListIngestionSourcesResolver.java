@@ -11,6 +11,8 @@ import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesResult;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
+import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
+import com.linkedin.datahub.graphql.util.SelectionSetUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -24,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 /** Lists all ingestion sources stored within DataHub. Requires the MANAGE_INGESTION privilege. */
@@ -34,6 +37,8 @@ public class ListIngestionSourcesResolver
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
   private static final String DEFAULT_QUERY = "";
+  private static final String FACETS_FIELD_NAME = "facets";
+  private static final List<String> FACET_FIELDS = List.of("type");
 
   private final EntityClient _entityClient;
 
@@ -62,19 +67,27 @@ public class ListIngestionSourcesResolver
     // construct sort criteria, defaulting to systemCreated
     List<SortCriterion> sortCriteria = buildSortCriteria(input.getSort());
 
+    // Only compute the facet aggregation when the caller actually selects it, to avoid an
+    // unnecessary terms aggregation on every list/count call (e.g. getNoOfIngestionSources).
+    final List<String> facetFields =
+        SelectionSetUtils.selectedSubFieldNames(environment).contains(FACETS_FIELD_NAME)
+            ? FACET_FIELDS
+            : Collections.emptyList();
+
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // First, get all ingestion sources Urns.
             final SearchResult gmsResult =
-                _entityClient.search(
+                _entityClient.searchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
-                    Constants.INGESTION_SOURCE_ENTITY_NAME,
+                    List.of(Constants.INGESTION_SOURCE_ENTITY_NAME),
                     query,
                     buildFilter(filters, Collections.emptyList()),
-                    sortCriteria,
                     start,
-                    count);
+                    count,
+                    sortCriteria,
+                    facetFields);
 
             // Now that we have entities we can bind this to a result.
             final ListIngestionSourcesResult result = new ListIngestionSourcesResult();
@@ -82,6 +95,15 @@ public class ListIngestionSourcesResolver
             result.setCount(gmsResult.getPageSize());
             result.setTotal(gmsResult.getNumEntities());
             result.setIngestionSources(mapUnresolvedIngestionSources(gmsResult.getEntities()));
+            if (gmsResult.getMetadata() != null
+                && gmsResult.getMetadata().getAggregations() != null) {
+              result.setFacets(
+                  gmsResult.getMetadata().getAggregations().stream()
+                      .map(facet -> MapperUtils.mapFacet(context, facet))
+                      .collect(Collectors.toList()));
+            } else {
+              result.setFacets(Collections.emptyList());
+            }
             return result;
           } catch (Exception e) {
             throw new RuntimeException("Failed to list ingestion sources", e);
@@ -108,19 +130,10 @@ public class ListIngestionSourcesResolver
   List<SortCriterion> buildSortCriteria(
       com.linkedin.datahub.graphql.generated.SortCriterion sortCriterionInput) {
     if (sortCriterionInput == null) {
-      // TODO: default to last executed
-      return null;
+      return List.of();
     }
 
     SortOrder order = SortOrder.valueOf(sortCriterionInput.getSortOrder().name());
-
-    // For name field, sort by type first and then by name
-    if ("name".equals(sortCriterionInput.getField())) {
-      return List.of(
-          new SortCriterion().setField("type").setOrder(order),
-          new SortCriterion().setField("name").setOrder(order));
-    } else {
-      return List.of(new SortCriterion().setField(sortCriterionInput.getField()).setOrder(order));
-    }
+    return List.of(new SortCriterion().setField(sortCriterionInput.getField()).setOrder(order));
   }
 }

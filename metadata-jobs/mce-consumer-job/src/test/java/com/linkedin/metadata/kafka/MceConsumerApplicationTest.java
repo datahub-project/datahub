@@ -12,9 +12,10 @@ import io.datahubproject.metadata.jobs.common.health.kafka.KafkaHealthIndicator;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.springframework.web.client.RestTemplate;
 import org.testng.annotations.Test;
 
 @ActiveProfiles("test")
@@ -24,7 +25,9 @@ import org.testng.annotations.Test;
     properties = {"authentication.enabled=false"})
 public class MceConsumerApplicationTest extends AbstractTestNGSpringContextTests {
 
-  @Autowired private TestRestTemplate restTemplate;
+  @LocalServerPort private int port;
+
+  private final RestTemplate restTemplate = new RestTemplate();
 
   @Autowired private EntityService<?> _mockEntityService;
 
@@ -39,7 +42,9 @@ public class MceConsumerApplicationTest extends AbstractTestNGSpringContextTests
 
     String response =
         this.restTemplate.postForObject(
-            "/gms/aspects?action=restoreIndices", "{\"urn\":\"\"}", String.class);
+            "http://localhost:" + port + "/gms/aspects?action=restoreIndices",
+            "{\"urn\":\"\"}",
+            String.class);
     assertTrue(response.contains(mockResult.toString()), String.format("Found: %s", response));
   }
 

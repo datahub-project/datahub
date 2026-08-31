@@ -37,6 +37,12 @@ public class DataHubAppConfiguration {
   /** Search bar related configs */
   private SearchBarConfiguration searchBar;
 
+  /** Search card related configs */
+  private SearchCardConfiguration searchCard;
+
+  /** Search flags related configs */
+  private SearchFlagsConfiguration searchFlags;
+
   /** Home page related configs */
   private HomePageConfiguration homePage;
 
@@ -49,6 +55,24 @@ public class DataHubAppConfiguration {
   /** ElasticSearch configurations */
   private ElasticSearchConfiguration elasticSearch;
 
+  /**
+   * MAE consumer Elasticsearch tuning ({@code maeConsumer.*}); active when {@code
+   * MAE_CONSUMER_ENABLED=true}.
+   */
+  private MaeConsumerConfiguration maeConsumer;
+
+  /**
+   * MCE consumer tuning ({@code mceConsumer.*}); pgQueue poll batch sizes apply when {@code
+   * datahub.messaging.transport=pgqueue}.
+   */
+  private MceConsumerConfiguration mceConsumer;
+
+  /**
+   * PE consumer tuning ({@code peConsumer.*}); pgQueue poll batch sizes apply when {@code
+   * datahub.messaging.transport=pgqueue}.
+   */
+  private PeConsumerConfiguration peConsumer;
+
   /** Search Service configurations */
   private SearchServiceConfiguration searchService;
 
@@ -57,6 +81,9 @@ public class DataHubAppConfiguration {
 
   /** System Update configurations */
   private SystemUpdateConfiguration systemUpdate;
+
+  /** Global Kubernetes environment (e.g. serviceHost set when pod runs in K8). */
+  private com.linkedin.metadata.config.kubernetes.KubernetesConfiguration kubernetes;
 
   /** The base URL where DataHub is hosted. */
   private String baseUrl;
@@ -70,11 +97,17 @@ public class DataHubAppConfiguration {
   /** Ebean related configuration */
   private EbeanConfiguration ebean;
 
+  /** Cassandra related configuration (when entityService.impl is cassandra) */
+  private CassandraConfiguration cassandra;
+
   /** GraphQL Configurations */
   private GraphQLConfiguration graphQL;
 
   /** MCP throttling configuration */
   private MetadataChangeProposalConfig metadataChangeProposal;
+
+  /** MCL Processing configurations */
+  private MetadataChangeLogConfig metadataChangeLog;
 
   /** Timeseries Aspect Service configuration */
   private TimeseriesAspectServiceConfig timeseriesAspectService;
@@ -84,4 +117,16 @@ public class DataHubAppConfiguration {
 
   /* Secret service configuration */
   private SecretServiceConfiguration secretService;
+
+  /** MCL Processing configurations */
+  private MCLProcessingConfiguration mclProcessing;
+
+  /** Structured properties related configurations */
+  private StructuredPropertiesConfiguration structuredProperties;
+
+  /** Consistency checks configuration */
+  private ConsistencyChecksConfiguration consistencyChecks;
+
+  /** Bootstrap (startup steps, async worker pool sizing). */
+  private BootstrapConfiguration bootstrap;
 }

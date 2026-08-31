@@ -6,6 +6,7 @@ apply from: '../../gradle/coverage/java-coverage.gradle'
 
 dependencies {
   implementation project(':entity-registry')
+  implementation project(':metadata-operation-context')
   implementation project(':metadata-service:services')
   implementation project(':metadata-utils')
   compileOnly externalDependency.lombok

@@ -3,15 +3,15 @@
 from datetime import timedelta
 
 import pendulum
-from airflow.decorators import dag, task
+from airflow.sdk import dag, task
 
 from datahub.ingestion.graph.client import DataHubGraph, RemovedStatusFilter
 from datahub_airflow_plugin.hooks.datahub import DatahubRestHook
 
 
 @dag(
-    schedule_interval=timedelta(days=1),
     start_date=pendulum.datetime(2021, 1, 1, tz="UTC"),
+    schedule=timedelta(days=1),
     catchup=False,
 )
 def datahub_graph_usage_sample_dag():

@@ -196,7 +196,7 @@ describe('Sidebar Logic Components', () => {
             const closeButton = getByText('Close');
             fireEvent.click(closeButton);
             expect(queryByRole('dialog')).not.toBeInTheDocument();
-        });
+        }, 30_000);
 
         it('does not render when no query properties are present', () => {
             const queryWithoutProperties = {

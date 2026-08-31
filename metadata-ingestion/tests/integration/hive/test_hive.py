@@ -1,14 +1,16 @@
 import re
 import subprocess
+from datetime import datetime, timezone
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2020-04-14 07:00:00"
+FROZEN_TIME_DT = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc)
 
 data_platform = "hive"
 
@@ -22,7 +24,9 @@ def hive_runner(docker_compose_runner, pytestconfig):
         test_resources_dir / "docker-compose.yml", "hive", parallel=1
     ) as docker_services:
         wait_for_port(docker_services, "testhiveserver2", 10000, timeout=120)
-        yield docker_services
+        # HiveServer2's host port is ephemeral (see docker-compose.yml); discover
+        # the real port Docker assigned so the test can connect via localhost.
+        yield docker_services.port_for("hive-server", 10000)
 
 
 @pytest.fixture(scope="module")
@@ -32,12 +36,14 @@ def test_resources_dir(pytestconfig):
 
 @pytest.fixture(scope="module")
 def loaded_hive(hive_runner):
-    # Set up the container.
+    # Set up the container. This runs beeline inside the container against its
+    # own internal port, so it's unaffected by the host's ephemeral port mapping.
     command = "docker exec testhiveserver2 /opt/hive/bin/beeline -u jdbc:hive2://localhost:10000 -f /hive_setup.sql"
     subprocess.run(command, shell=True, check=True)
+    yield hive_runner
 
 
-def base_pipeline_config(events_file, db=None):
+def base_pipeline_config(hive_port, events_file, db=None):
     return {
         "run_id": "hive-test",
         "source": {
@@ -45,7 +51,7 @@ def base_pipeline_config(events_file, db=None):
             "config": {
                 "scheme": "hive",
                 "database": db,
-                "host_port": "localhost:10000",
+                "host_port": f"localhost:{hive_port}",
             },
         },
         "sink": {
@@ -55,15 +61,13 @@ def base_pipeline_config(events_file, db=None):
     }
 
 
-@freeze_time(FROZEN_TIME)
-def test_hive_ingest(
-    loaded_hive, pytestconfig, test_resources_dir, tmp_path, mock_time
-):
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
+def test_hive_ingest(loaded_hive, pytestconfig, test_resources_dir, tmp_path):
     mce_out_file = "test_hive_ingest.json"
     events_file = tmp_path / mce_out_file
 
     # Run the metadata ingestion pipeline.
-    pipeline = Pipeline.create(base_pipeline_config(events_file, "db1"))
+    pipeline = Pipeline.create(base_pipeline_config(loaded_hive, events_file, "db1"))
     pipeline.run()
     pipeline.pretty_print_summary()
     pipeline.raise_from_status(raise_warnings=True)
@@ -82,16 +86,14 @@ def test_hive_ingest(
     # Limitation - native data types for union does not show up as expected
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
 @pytest.mark.integration_batch_1
-def test_hive_ingest_all_db(
-    loaded_hive, pytestconfig, test_resources_dir, tmp_path, mock_time
-):
+def test_hive_ingest_all_db(loaded_hive, pytestconfig, test_resources_dir, tmp_path):
     mce_out_file = "test_hive_ingest.json"
     events_file = tmp_path / mce_out_file
 
     # Run the metadata ingestion pipeline.
-    pipeline = Pipeline.create(base_pipeline_config(events_file))
+    pipeline = Pipeline.create(base_pipeline_config(loaded_hive, events_file))
     pipeline.run()
     pipeline.pretty_print_summary()
     pipeline.raise_from_status(raise_warnings=True)
@@ -110,7 +112,7 @@ def test_hive_ingest_all_db(
     # Limitation - native data types for union does not show up as expected
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
 def test_hive_instance_check(loaded_hive, test_resources_dir, tmp_path, pytestconfig):
     instance: str = "production_warehouse"
 
@@ -118,7 +120,7 @@ def test_hive_instance_check(loaded_hive, test_resources_dir, tmp_path, pytestco
     mce_out_file = "test_hive_instance.json"
     events_file = tmp_path / mce_out_file
 
-    pipeline_config = base_pipeline_config(events_file, "db1")
+    pipeline_config = base_pipeline_config(loaded_hive, events_file, "db1")
     pipeline_config["source"]["config"]["platform_instance"] = instance
 
     pipeline = Pipeline.create(pipeline_config)

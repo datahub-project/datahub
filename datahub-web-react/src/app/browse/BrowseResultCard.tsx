@@ -13,15 +13,15 @@ const styles = {
 
 const ResultCard = styled(Card)`
     && {
-        border-color: ${(props) => props.theme.styles['border-color-base']};
-        box-shadow: ${(props) => props.theme.styles['box-shadow']};
+        border-color: ${(props) => props.theme.colors.border};
+        box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
     &&:hover {
-        box-shadow: ${(props) => props.theme.styles['box-shadow-hover']};
+        box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
 `;
 
-export interface BrowseResultProps {
+interface BrowseResultProps {
     url: string;
     name: string;
     count?: number | undefined;

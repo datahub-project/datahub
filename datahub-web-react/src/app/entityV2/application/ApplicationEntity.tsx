@@ -1,11 +1,7 @@
-import {
-    AppstoreOutlined,
-    FileDoneOutlined,
-    FileOutlined,
-    ReadOutlined,
-    UnorderedListOutlined,
-} from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
+import { AppstoreOutlined, FileOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -28,8 +24,10 @@ import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 
 import { useGetApplicationQuery } from '@graphql/application.generated';
 import { Application, EntityType, SearchResult } from '@types';
@@ -49,29 +47,12 @@ export class ApplicationEntity implements Entity<Application> {
     type: EntityType = EntityType.Application;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <FileDoneOutlined className={TYPE_ICON_CLASS_NAME} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <FileDoneOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />
-            );
-        }
-
-        if (styleType === IconStyleType.SVG) {
-            return (
-                <path d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-600 72h560v208H232V136zm560 480H232V408h560v208zm0 272H232V680h560v208zM304 240a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0z" />
-            );
-        }
-
         return (
-            <FileDoneOutlined
+            <AppWindow
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -86,9 +67,9 @@ export class ApplicationEntity implements Entity<Application> {
 
     getPathName = () => 'application';
 
-    getEntityName = () => 'Application';
+    getEntityName = () => i18next.t('entity.types:application.name');
 
-    getCollectionName = () => 'Applications';
+    getCollectionName = () => i18next.t('entity.types:application.namePlural');
 
     useEntityQuery = useGetApplicationQuery;
 
@@ -102,33 +83,7 @@ export class ApplicationEntity implements Entity<Application> {
             headerActionItems={new Set([EntityActionItem.BATCH_ADD_APPLICATION])}
             headerDropdownItems={headerDropdownItems}
             isNameEditable
-            tabs={[
-                {
-                    id: EntityProfileTab.SUMMARY_TAB,
-                    name: 'Summary',
-                    component: ApplicationSummaryTab,
-                    icon: ReadOutlined,
-                },
-                {
-                    name: 'Documentation',
-                    component: DocumentationTab,
-                    icon: FileOutlined,
-                },
-                {
-                    name: 'Assets',
-                    getDynamicName: (entityData, _, loading) => {
-                        const assetCount = entityData?.children?.total;
-                        return <TabNameWithCount name="Assets" count={assetCount} loading={loading} />;
-                    },
-                    component: ApplicationEntitiesTab,
-                    icon: AppstoreOutlined,
-                },
-                {
-                    name: 'Properties',
-                    component: PropertiesTab,
-                    icon: UnorderedListOutlined,
-                },
-            ]}
+            tabs={this.getProfileTabs()}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
@@ -169,12 +124,47 @@ export class ApplicationEntity implements Entity<Application> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
+
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+
+        return [
+            {
+                id: EntityProfileTab.SUMMARY_TAB,
+                name: i18next.t('entity.types:tab.summary'),
+                component: showSummaryTab ? SummaryTab : ApplicationSummaryTab,
+                icon: ReadOutlined,
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: i18next.t('entity.types:tab.documentation'),
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
+                : []),
+            {
+                name: i18next.t('entity.types:tab.assets'),
+                getCount: (entityData, _, loading) => {
+                    return !loading ? entityData?.children?.total : undefined;
+                },
+                component: ApplicationEntitiesTab,
+                icon: AppstoreOutlined,
+            },
+            {
+                name: i18next.t('entity.types:tab.properties'),
+                component: PropertiesTab,
+                icon: UnorderedListOutlined,
+            },
+        ];
+    };
 
     renderPreview = (previewType: PreviewType, data: Application, actions) => {
         const genericProperties = this.getGenericEntityProperties(data);
@@ -215,6 +205,7 @@ export class ApplicationEntity implements Entity<Application> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -253,6 +244,8 @@ export class ApplicationEntity implements Entity<Application> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 

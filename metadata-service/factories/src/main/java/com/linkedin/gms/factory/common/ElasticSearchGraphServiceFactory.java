@@ -8,6 +8,7 @@ import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -28,30 +29,49 @@ public class ElasticSearchGraphServiceFactory {
   @Qualifier("baseElasticSearchComponents")
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
-  @Autowired private ConfigurationProvider configurationProvider;
+  @Bean
+  @Nonnull
+  protected ESGraphWriteDAO esGraphWriteDAO(final ConfigurationProvider configurationProvider) {
+    ESGraphWriteDAO esGraphWriteDAO =
+        new ESGraphWriteDAO(
+            components.getIndexConvention(),
+            components.getBulkProcessor(),
+            components.getConfig().getBulkProcessor().getNumRetries(),
+            configurationProvider.getElasticSearch().getSearch().getGraph());
+    if (configurationProvider.getDatahub().isReadOnly()) {
+      esGraphWriteDAO.setWritable(false);
+    }
+
+    return esGraphWriteDAO;
+  }
 
   @Bean(name = "graphService")
   @Nonnull
   protected GraphService getInstance(
+      final ESGraphWriteDAO esGraphWriteDAO,
       final EntityRegistry entityRegistry,
-      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo) {
+      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
+      MetricUtils metricUtils,
+      @Qualifier("esGraphQueryDAO") final ESGraphQueryDAO esGraphQueryDAO) {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
     return new ElasticSearchGraphService(
         lineageRegistry,
         components.getBulkProcessor(),
         components.getIndexConvention(),
-        new ESGraphWriteDAO(
-            components.getIndexConvention(),
-            components.getBulkProcessor(),
-            components.getNumRetries(),
-            configurationProvider.getElasticSearch().getSearch().getGraph()),
-        new ESGraphQueryDAO(
-            components.getSearchClient(),
-            lineageRegistry,
-            components.getIndexConvention(),
-            configurationProvider.getGraphService(),
-            configurationProvider.getElasticSearch()),
+        esGraphWriteDAO,
+        esGraphQueryDAO,
         components.getIndexBuilder(),
         idHashAlgo);
+  }
+
+  @Bean(name = "esGraphQueryDAO")
+  @Nonnull
+  protected ESGraphQueryDAO createESGraphQueryDAO(
+      final ConfigurationProvider configurationProvider, MetricUtils metricUtils) {
+    return new ESGraphQueryDAO(
+        components.getSearchClient(),
+        configurationProvider.getGraphService(),
+        configurationProvider.getElasticSearch(),
+        metricUtils);
   }
 }

@@ -1,27 +1,26 @@
-import { colors } from '@components/theme';
-
-const radioBorderColors = {
-    default: colors.gray[400],
-    disabled: colors.gray[300],
-    error: colors.red[500],
-};
-
-const radioCheckmarkColors = {
-    default: colors.white,
-    disabled: colors.gray[300],
-    checked: colors.violet[500],
-    error: colors.red[500],
-};
-
-export function getRadioBorderColor(disabled: boolean, error: string) {
-    if (disabled) return radioBorderColors.disabled;
-    if (error) return radioCheckmarkColors.error;
-    return radioBorderColors.default;
+export function getRadioBorderColor(
+    disabled: boolean,
+    error: string,
+    themeColors: { radioButtonBorder: string; borderDisabled: string; textError: string },
+) {
+    if (disabled) return themeColors.borderDisabled;
+    if (error) return themeColors.textError;
+    return themeColors.radioButtonBorder;
 }
 
-export function getRadioCheckmarkColor(checked: boolean, disabled: boolean, error: string) {
-    if (disabled) return radioCheckmarkColors.disabled;
-    if (error) return radioCheckmarkColors.error;
-    if (checked) return radioCheckmarkColors.checked;
-    return radioCheckmarkColors.default;
+export function getRadioCheckmarkColor(
+    checked: boolean,
+    disabled: boolean,
+    error: string,
+    themeColors: {
+        radioButtonDotFill: string;
+        radioButtonDotDisabled: string;
+        iconBrand: string;
+        textError: string;
+    },
+) {
+    if (disabled) return themeColors.radioButtonDotDisabled;
+    if (error) return themeColors.textError;
+    if (checked) return themeColors.iconBrand;
+    return themeColors.radioButtonDotFill;
 }

@@ -15,7 +15,7 @@ const DatasetText = styled(Typography.Text)`
     color: ${ANTD_GRAY[7]};
 `;
 
-export const DatasetIcon = styled.span`
+const DatasetIcon = styled.span`
     color: ${ANTD_GRAY[7]};
     margin-right: 4px;
     font-size: 12px;

@@ -64,11 +64,15 @@ vi.mock('@src/alchemy-components', async () => {
         ...actual,
         // Override specific components with mocks
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        Icon: (props: { icon: string; onClick?: () => void; [key: string]: any }) => (
-            <button type="button" data-testid={`mock-icon-${props.icon.toLowerCase()}`} onClick={props.onClick}>
-                {props.icon}
-            </button>
-        ),
+        Icon: (props: { icon: any; onClick?: () => void; [key: string]: any }) => {
+            const iconName =
+                typeof props.icon === 'string' ? props.icon : props.icon?.displayName || props.icon?.name || '';
+            return (
+                <button type="button" data-testid={`mock-icon-${iconName.toLowerCase()}`} onClick={props.onClick}>
+                    {iconName}
+                </button>
+            );
+        },
         Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
         Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
             <button type="button" onClick={onClick}>

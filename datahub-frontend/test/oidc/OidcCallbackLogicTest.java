@@ -1,16 +1,86 @@
 package oidc;
 
+import static auth.sso.oidc.OidcCallbackLogic.checkRequiredGroups;
 import static auth.sso.oidc.OidcCallbackLogic.getGroupNames;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import auth.sso.oidc.OidcConfigs;
+import auth.sso.oidc.RequiredGroupsException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.pac4j.core.profile.CommonProfile;
 
 public class OidcCallbackLogicTest {
+
+  @Test
+  public void testCheckRequiredGroups_UserHasRequiredGroup() {
+    CommonProfile profile =
+        createMockProfileWithAttribute("[\"group1\", \"group2\"]", "groupsClaimName");
+    when(profile.containsAttribute("groupsClaimName")).thenReturn(true);
+    String userName = "testuser";
+
+    OidcConfigs oidcConfigs = mock(OidcConfigs.class);
+    Set<String> requiredGroups = new HashSet<>(Arrays.asList("group1", "group3"));
+    when(oidcConfigs.getRequiredGroups()).thenReturn(requiredGroups);
+    when(oidcConfigs.getGroupsClaimName()).thenReturn("groupsClaimName");
+
+    org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+        () -> checkRequiredGroups(profile, userName, oidcConfigs));
+  }
+
+  @Test
+  public void testCheckRequiredGroups_UserHasNoRequiredGroup_Throws() {
+    CommonProfile profile =
+        createMockProfileWithAttribute("[\"group3\", \"group4\"]", "groupsClaimName");
+    when(profile.containsAttribute("groupsClaimName")).thenReturn(true);
+    String userName = "testuser";
+    OidcConfigs oidcConfigs = mock(OidcConfigs.class);
+    Set<String> requiredGroups = new HashSet<>(Arrays.asList("group1", "group2"));
+    when(oidcConfigs.getRequiredGroups()).thenReturn(requiredGroups);
+    when(oidcConfigs.getGroupsClaimName()).thenReturn("groupsClaimName");
+
+    org.junit.jupiter.api.Assertions.assertThrows(
+        RequiredGroupsException.class, () -> checkRequiredGroups(profile, userName, oidcConfigs));
+  }
+
+  @Test
+  public void testCheckRequiredGroups_CommaSeparatedClaims_UsesAnyClaim() {
+    CommonProfile profile = mock(CommonProfile.class);
+    when(profile.containsAttribute("groups")).thenReturn(false);
+    when(profile.containsAttribute("roles")).thenReturn(true);
+    when(profile.getAttribute("roles")).thenReturn(Arrays.asList("admins"));
+    when(profile.getAttribute("roles", Collection.class)).thenReturn(Arrays.asList("admins"));
+
+    OidcConfigs oidcConfigs = mock(OidcConfigs.class);
+    when(oidcConfigs.getRequiredGroups()).thenReturn(new HashSet<>(Arrays.asList("admins")));
+    when(oidcConfigs.getGroupsClaimName()).thenReturn("groups, roles");
+
+    org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+        () -> checkRequiredGroups(profile, "testuser", oidcConfigs));
+  }
+
+  @Test
+  public void testCheckRequiredGroups_CommaSeparatedClaims_ThrowsWhenNoneMatch() {
+    CommonProfile profile = mock(CommonProfile.class);
+    when(profile.containsAttribute("groups")).thenReturn(true);
+    when(profile.containsAttribute("roles")).thenReturn(true);
+    when(profile.getAttribute("groups")).thenReturn(Arrays.asList("other"));
+    when(profile.getAttribute("groups", Collection.class)).thenReturn(Arrays.asList("other"));
+    when(profile.getAttribute("roles")).thenReturn(Arrays.asList("viewers"));
+    when(profile.getAttribute("roles", Collection.class)).thenReturn(Arrays.asList("viewers"));
+
+    OidcConfigs oidcConfigs = mock(OidcConfigs.class);
+    when(oidcConfigs.getRequiredGroups()).thenReturn(new HashSet<>(Arrays.asList("admins")));
+    when(oidcConfigs.getGroupsClaimName()).thenReturn("groups,roles");
+
+    org.junit.jupiter.api.Assertions.assertThrows(
+        RequiredGroupsException.class, () -> checkRequiredGroups(profile, "testuser", oidcConfigs));
+  }
 
   @Test
   public void testGetGroupsClaimNamesJsonArray() {
@@ -52,9 +122,9 @@ public class OidcCallbackLogicTest {
     when(profile.getAttribute(attributeName)).thenReturn(attribute);
 
     // Mock for getAttribute(String, Class<T>)
-    if (attribute instanceof Collection) {
+    if (attribute instanceof Collection<?>) {
       when(profile.getAttribute(attributeName, Collection.class))
-          .thenReturn((Collection) attribute);
+          .thenReturn((Collection<?>) attribute);
     } else if (attribute instanceof String) {
       when(profile.getAttribute(attributeName, String.class)).thenReturn((String) attribute);
     }

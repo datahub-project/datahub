@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a DataHubFile
+ */
+@Aspect = {
+  "name": "dataHubFileKey",
+}
+record DataHubFileKey {
+  /**
+  * Unique id for the file.
+  */
+  id: string
+}
+

@@ -2,15 +2,16 @@ import { Tooltip } from '@components';
 import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace';
 import { Button } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const StyledButton = styled(Button)`
     height: 25px;
     width: 25px;
-    color: ${(p) => p.theme.styles['primary-color']};
+    color: ${(p) => p.theme.colors.iconBrand};
     padding: 0px;
     border-radius: 20px;
-    border: 1px solid ${(p) => p.theme.styles['primary-color']};
+    border: 1px solid ${(p) => p.theme.colors.borderBrand};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -19,8 +20,8 @@ const StyledButton = styled(Button)`
     margin-top: 2px;
 
     &:hover {
-        color: ${(p) => p.theme.styles['primary-color']};
-        border-color: ${(p) => p.theme.styles['primary-color']};
+        color: ${(p) => p.theme.colors.iconBrand};
+        border-color: ${(p) => p.theme.colors.borderBrand};
     }
 `;
 
@@ -37,8 +38,9 @@ interface Props {
 }
 
 export const BackButton = ({ onGoBack }: Props) => {
+    const { t } = useTranslation('shared.misc');
     return (
-        <Tooltip title="Go back" showArrow={false} placement="bottom">
+        <Tooltip title={t('backButton.tooltip')} showArrow={false} placement="bottom">
             <StyledButton onClick={onGoBack}>
                 <StyledLeftOutlined />
             </StyledButton>

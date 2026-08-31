@@ -12,9 +12,9 @@ import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.sql.Timestamp;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -28,6 +28,10 @@ import lombok.Setter;
 @Table(name = "metadata_aspect_v2")
 public class EbeanAspectV2 extends Model {
 
+  // Intentionally duplicated with @Table(name = ...) above: Java forbids referencing a class's
+  // own constant in a class-level annotation, so the literal cannot be wired to TABLE_NAME.
+  public static final String TABLE_NAME = "metadata_aspect_v2";
+
   public static final String ALL_COLUMNS = "*";
   public static final String KEY_ID = "key";
   public static final String URN_COLUMN = "urn";
@@ -40,15 +44,44 @@ public class EbeanAspectV2 extends Model {
 
   public static final String SYSTEM_METADATA_COLUMN = "systemmetadata";
 
+  /**
+   * Canonical primary-key ordering used to acquire {@code FOR UPDATE} row locks in a consistent
+   * order across every write path (upsert, next-version, delete). Concurrent writers that lock
+   * overlapping rows in different orders deadlock; locking in this single canonical order prevents
+   * that. Two forms are provided and MUST stay in sync: an Ebean property path for {@code
+   * Query.orderBy(...)} on {@link EbeanAspectV2} queries, and a raw-SQL column list for hand-built
+   * statements. Composed from the column constants so there is one source of truth (no scattered
+   * order-by literals).
+   */
+  public static final String KEY_ORDER_BY_PROPERTY_PATH =
+      KEY_ID
+          + "."
+          + URN_COLUMN
+          + ", "
+          + KEY_ID
+          + "."
+          + ASPECT_COLUMN
+          + ", "
+          + KEY_ID
+          + "."
+          + VERSION_COLUMN;
+
+  public static final String KEY_ORDER_BY_SQL =
+      URN_COLUMN + ", " + ASPECT_COLUMN + ", " + VERSION_COLUMN;
+
   /** Key for an aspect in the table. */
   @Embeddable
   @Getter
-  @AllArgsConstructor
   @NoArgsConstructor
-  @EqualsAndHashCode
-  public static class PrimaryKey implements Serializable {
+  public static class PrimaryKey implements Serializable, Comparable<PrimaryKey> {
 
     private static final long serialVersionUID = 1L;
+
+    public PrimaryKey(@Nonnull String urn, @Nonnull String aspect, long version) {
+      this.urn = urn.stripTrailing();
+      this.aspect = aspect.stripTrailing();
+      this.version = version;
+    }
 
     @Nonnull
     @Index
@@ -70,6 +103,46 @@ public class EbeanAspectV2 extends Model {
 
     public EntityAspectIdentifier toAspectIdentifier() {
       return new EntityAspectIdentifier(getUrn(), getAspect(), getVersion());
+    }
+
+    // Custom Equals and Hash code that trims to handle MySQL PAD SPACE:
+    // https://dev.mysql.com/doc/refman/8.4/en/charset-binary-collations.html#charset-binary-collations-trailing-space-comparisons
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      PrimaryKey that = (PrimaryKey) o;
+      return version == that.version
+          && Objects.equals(urn.stripTrailing(), that.urn.stripTrailing())
+          && Objects.equals(aspect.stripTrailing(), that.aspect.stripTrailing());
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(urn.stripTrailing(), aspect.stripTrailing(), version);
+    }
+
+    @Override
+    public int compareTo(EbeanAspectV2.PrimaryKey other) {
+      final String thisUrn = this.urn.stripTrailing();
+      final String otherUrn = other.urn.stripTrailing();
+      int urnComparison = thisUrn.compareTo(otherUrn);
+      if (urnComparison != 0) {
+        return urnComparison;
+      }
+
+      final String thisAspect = this.aspect.stripTrailing();
+      final String otherAspect = other.aspect.stripTrailing();
+      int aspectComparison = thisAspect.compareTo(otherAspect);
+      if (aspectComparison != 0) {
+        return aspectComparison;
+      }
+
+      return Long.compare(this.version, other.version);
     }
   }
 
@@ -103,6 +176,7 @@ public class EbeanAspectV2 extends Model {
   private String createdFor;
 
   @Column(name = SYSTEM_METADATA_COLUMN, nullable = true)
+  @Lob
   protected String systemMetadata;
 
   public EbeanAspectV2(

@@ -1,15 +1,20 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, cast
+from unittest.mock import create_autospec, patch
 
 import pydantic
 import pytest
+from opensearchpy.client.indices import IndicesClient
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.elastic_search import (
     CollapseUrns,
+    ElasticsearchSource,
     ElasticsearchSourceConfig,
     ElasticToSchemaFieldConverter,
+    _api_key_authorization,
     collapse_urn,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
@@ -19,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def test_elasticsearch_throws_error_wrong_operation_config():
     with pytest.raises(pydantic.ValidationError):
-        ElasticsearchSourceConfig.parse_obj(
+        ElasticsearchSourceConfig.model_validate(
             {
                 "profiling": {
                     "enabled": True,
@@ -43,7 +48,7 @@ def assret_field_paths_match(
 ) -> None:
     logger.debug('FieldPaths=\n"' + '",\n"'.join(f.fieldPath for f in fields) + '"')
     assert len(fields) == len(expected_field_paths)
-    for f, efp in zip(fields, expected_field_paths):
+    for f, efp in zip(fields, expected_field_paths, strict=False):
         assert f.fieldPath == efp
     assert_field_paths_are_unique(fields)
 
@@ -2478,14 +2483,14 @@ def test_host_port_parsing() -> None:
     bad_examples = ["localhost:abcd", "htttp://localhost:1234", "localhost:9200//"]
     for example in examples:
         config_dict = {"host": example}
-        config = ElasticsearchSourceConfig.parse_obj(config_dict)
+        config = ElasticsearchSourceConfig.model_validate(config_dict)
         assert config.host == example
 
     for bad_example in bad_examples:
         config_dict = {"host": bad_example}
 
         with pytest.raises(pydantic.ValidationError):
-            ElasticsearchSourceConfig.parse_obj(config_dict)
+            ElasticsearchSourceConfig.model_validate(config_dict)
 
 
 def test_collapse_urns() -> None:
@@ -2512,3 +2517,94 @@ def test_collapse_urns() -> None:
         )
         == "urn:li:dataset:(urn:li:dataPlatform:elasticsearch,platform1.prefix_datahub_usage_event,PROD)"
     )
+
+
+def test_composable_template_structure() -> None:
+    """Test that composable template structure is correctly handled"""
+    # Test that the _extract_mcps method correctly handles composable template structure
+    # This ensures that mappings, settings, and aliases are extracted from the right location
+    composable_template_response = {
+        "index_templates": [
+            {
+                "name": "test-template",
+                "index_template": {
+                    "index_patterns": ["test-*"],
+                    "template": {
+                        "settings": {
+                            "index": {
+                                "number_of_shards": "3",
+                                "number_of_replicas": "2",
+                            }
+                        },
+                        "mappings": {
+                            "properties": {
+                                "field1": {"type": "text"},
+                                "field2": {"type": "keyword"},
+                            }
+                        },
+                        "aliases": {"test-alias": {}},
+                    },
+                },
+            }
+        ]
+    }
+
+    # Verify the structure is as expected for composable templates
+    index_templates = composable_template_response.get("index_templates", [{}])
+    template_data = index_templates[0]
+    raw_index_metadata = cast(Dict[str, Any], template_data.get("index_template", {}))
+
+    # Check that mappings are under template.mappings
+    assert "template" in raw_index_metadata
+    assert "mappings" in raw_index_metadata["template"]
+    assert "properties" in raw_index_metadata["template"]["mappings"]
+
+    # Check that settings are under template.settings
+    assert "settings" in raw_index_metadata["template"]
+    assert "index" in raw_index_metadata["template"]["settings"]
+
+    # Check that aliases are under template.aliases
+    assert "aliases" in raw_index_metadata["template"]
+
+
+def test_api_key_authorization_encodes_id_key_pair() -> None:
+    # base64("id:key") == "aWQ6a2V5"
+    assert _api_key_authorization(("id", "key")) == "ApiKey aWQ6a2V5"
+
+
+def test_api_key_authorization_passes_through_encoded_string() -> None:
+    assert _api_key_authorization("already-encoded") == "ApiKey already-encoded"
+
+
+@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+def test_api_key_list_sets_authorization_header(mock_opensearch: Any) -> None:
+    ElasticsearchSource.create(
+        {"host": "localhost:9200", "api_key": ["id", "key"]},
+        PipelineContext(run_id="test"),
+    )
+    _, kwargs = mock_opensearch.call_args
+    assert kwargs["headers"] == {"Authorization": "ApiKey aWQ6a2V5"}
+
+
+@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+def test_no_api_key_omits_authorization_header(mock_opensearch: Any) -> None:
+    ElasticsearchSource.create(
+        {"host": "localhost:9200"},
+        PipelineContext(run_id="test"),
+    )
+    _, kwargs = mock_opensearch.call_args
+    assert "headers" not in kwargs
+
+
+@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+def test_index_apis_use_keyword_only_opensearch_3_api(mock_opensearch: Any) -> None:
+    client = mock_opensearch.return_value
+    client.indices = create_autospec(IndicesClient, instance=True)
+    client.indices.get_alias.return_value = {}
+    source = ElasticsearchSource.create(
+        {"host": "localhost:9200"},
+        PipelineContext(run_id="test"),
+    )
+    list(source.get_workunits_internal())
+    assert client.indices.get_alias.call_args.args == ()
+    assert client.indices.get_alias.call_args.kwargs == {}

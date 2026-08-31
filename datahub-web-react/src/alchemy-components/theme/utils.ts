@@ -5,7 +5,6 @@ import { Theme } from '@conf/theme/types';
 
 import { ColorOptions, DEFAULT_VALUE, FontSizeOptions, MiscColorOptions, RotationOptions } from './config';
 import { foundations } from './foundations';
-import { semanticTokens } from './semantic-tokens';
 
 const { colors, typography, transform } = foundations;
 /*
@@ -24,7 +23,8 @@ export const getColor = (
     }
 
     if (!color) return finalColors.black;
-    if (color === 'inherit' || color === 'transparent' || color === 'current') return finalColors;
+    if (color === 'inherit' || color === 'transparent') return color;
+    if (color === 'current') return 'currentColor';
     if (color === 'white') return finalColors.white;
     if (color === 'black') return finalColors.black;
     const colorValue = finalColors[color];
@@ -57,15 +57,20 @@ export const getRotationTransform = (rotate?: RotationOptions) => {
  * @param {string} [warning] - Warning definition, if any.
  * @returns {string} - The status color based on the provided flags.
  */
-export const getStatusColors = (isSuccess?: boolean, warning?: string, isInvalid?: boolean): string => {
+export const getStatusColors = (
+    isSuccess?: boolean,
+    warning?: string,
+    isInvalid?: boolean,
+    themeColors?: { borderError: string; borderSuccess: string; borderWarning: string; borderInput: string },
+): string => {
     if (isInvalid) {
-        return colors.red[600];
+        return themeColors?.borderError ?? colors.red[600];
     }
     if (isSuccess) {
-        return colors.green[600];
+        return themeColors?.borderSuccess ?? colors.green[600];
     }
     if (warning) {
-        return colors.yellow[600];
+        return themeColors?.borderWarning ?? colors.yellow[600];
     }
-    return semanticTokens.colors['border-color'];
+    return themeColors?.borderInput ?? colors.gray[100];
 };

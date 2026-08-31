@@ -16,7 +16,7 @@ import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.TraceIdGenerator;
 import io.datahubproject.metadata.exception.TraceException;
 import io.datahubproject.openapi.v1.models.TraceStatus;
@@ -47,26 +47,31 @@ public class TraceServiceImpl implements TraceService {
   private final EntityRegistry entityRegistry;
   private final SystemMetadataService systemMetadataService;
   private final EntityService<?> entityService;
-  private final MCPTraceReader mcpTraceReader;
-  private final MCPFailedTraceReader mcpFailedTraceReader;
-  private final MCLTraceReader mclVersionedTraceReader;
-  private final MCLTraceReader mclTimeseriesTraceReader;
+  private final McpPendingTracePort mcpTraceReader;
+  private final McpFailedTracePort mcpFailedTraceReader;
 
   public TraceServiceImpl(
       EntityRegistry entityRegistry,
       SystemMetadataService systemMetadataService,
       EntityService<?> entityService,
-      MCPTraceReader mcpTraceReader,
-      MCPFailedTraceReader mcpFailedTraceReader,
-      MCLTraceReader mclVersionedTraceReader,
-      MCLTraceReader mclTimeseriesTraceReader) {
+      McpPendingTracePort mcpTraceReader,
+      McpFailedTracePort mcpFailedTraceReader) {
     this.entityRegistry = entityRegistry;
     this.systemMetadataService = systemMetadataService;
     this.entityService = entityService;
     this.mcpTraceReader = mcpTraceReader;
     this.mcpFailedTraceReader = mcpFailedTraceReader;
-    this.mclVersionedTraceReader = mclVersionedTraceReader;
-    this.mclTimeseriesTraceReader = mclTimeseriesTraceReader;
+  }
+
+  /**
+   * Extracts the epoch millis encoded in a DataHub trace ID from system metadata. Returns null if
+   * the system metadata has no trace ID, the trace ID doesn't follow DataHub's format (e.g.,
+   * propagated W3C trace IDs from external OTel systems), or the extracted timestamp is
+   * implausible.
+   */
+  @Nullable
+  public static Long extractTraceIdEpochMillis(@Nullable SystemMetadata systemMetadata) {
+    return TraceIdGenerator.getTimestampMillis(extractTraceId(systemMetadata));
   }
 
   @Nonnull
@@ -383,7 +388,7 @@ public class TraceServiceImpl implements TraceService {
               .flatMap(
                   entry ->
                       systemMetadataService
-                          .findAspectsByUrn(entry.getKey(), entry.getValue(), true)
+                          .findAspectsByUrn(opContext, entry.getKey(), entry.getValue(), true)
                           .stream())
               .collect(Collectors.groupingBy(summary -> UrnUtils.getUrn(summary.getUrn())));
 
@@ -473,15 +478,14 @@ public class TraceServiceImpl implements TraceService {
   @Nullable
   private static String extractTraceId(@Nullable SystemMetadata systemMetadata) {
     if (systemMetadata != null && systemMetadata.getProperties() != null) {
-      return systemMetadata.getProperties().get(TraceContext.TELEMETRY_TRACE_KEY);
+      return systemMetadata.getProperties().get(SystemTelemetryContext.TELEMETRY_TRACE_KEY);
     }
     return null;
   }
 
   private static long extractTimestamp(@Nullable String traceId, long createOnMillis) {
-    return Optional.ofNullable(traceId)
-        .map(TraceIdGenerator::getTimestampMillis)
-        .orElse(createOnMillis);
+    Long epochMillis = TraceIdGenerator.getTimestampMillis(traceId);
+    return epochMillis != null ? epochMillis : createOnMillis;
   }
 
   private List<TraceException> extractTraceExceptions(

@@ -5,17 +5,22 @@ import tempfile
 from json import JSONDecodeError
 from typing import Any, Dict, List, Optional
 
+import pytest
+
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.schema_classes import DatasetProfileClass
 from tests.aspect_generators.timeseries.dataset_profile_gen import gen_dataset_profiles
+from tests.utilities.domains import Domain
 from tests.utils import (
     get_strftime_from_timestamp_millis,
     run_datahub_cmd,
-    wait_for_writes_to_sync,
+    sync_elastic,
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 test_aspect_name: str = "datasetProfile"
 test_dataset_urn: str = builder.make_dataset_urn_with_platform_instance(
@@ -24,10 +29,6 @@ test_dataset_urn: str = builder.make_dataset_urn_with_platform_instance(
     "test_platform_instance",
     "TEST",
 )
-
-
-def sync_elastic() -> None:
-    wait_for_writes_to_sync()
 
 
 def datahub_put_profile(auth_session, dataset_profile: DatasetProfileClass) -> None:

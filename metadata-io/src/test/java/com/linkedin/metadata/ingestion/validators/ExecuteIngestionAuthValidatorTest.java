@@ -12,6 +12,7 @@ import static org.testng.AssertJUnit.assertTrue;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
@@ -103,6 +104,7 @@ public class ExecuteIngestionAuthValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -154,6 +156,7 @@ public class ExecuteIngestionAuthValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -204,7 +207,10 @@ public class ExecuteIngestionAuthValidatorTest {
             .build();
 
     assertEquals(
-        validator.validateProposed(Set.of(testItem), mockRetrieverContext, null).count(),
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY, Set.of(testItem), mockRetrieverContext, null)
+            .count(),
         0,
         "Expected no exceptions when session is null");
   }
@@ -229,13 +235,11 @@ public class ExecuteIngestionAuthValidatorTest {
 
     List<AspectValidationException> exceptions =
         validator
-            .validateProposed(Set.of(testItem), mockRetrieverContext, mockSession)
+            .validateProposed(
+                OperationFingerprint.EMPTY, Set.of(testItem), mockRetrieverContext, mockSession)
             .collect(Collectors.toList());
 
-    assertEquals(exceptions.size(), 1);
-    assertTrue(
-        exceptions.get(0).getMessage().contains("Couldn't find the ingestion source details"));
-    assertTrue(exceptions.get(0).getMessage().contains(EXECUTION_REQUEST_URN_STRING));
+    assertEquals(exceptions.size(), 0);
   }
 
   @Test
@@ -255,12 +259,11 @@ public class ExecuteIngestionAuthValidatorTest {
 
     List<AspectValidationException> exceptions =
         validator
-            .validateProposed(Set.of(testItem), mockRetrieverContext, mockSession)
+            .validateProposed(
+                OperationFingerprint.EMPTY, Set.of(testItem), mockRetrieverContext, mockSession)
             .collect(Collectors.toList());
 
-    assertEquals(exceptions.size(), 1);
-    assertTrue(
-        exceptions.get(0).getMessage().contains("Couldn't find the ingestion source details"));
+    assertEquals(exceptions.size(), 0);
   }
 
   @Test
@@ -268,7 +271,11 @@ public class ExecuteIngestionAuthValidatorTest {
     // Test with empty collection of batch items
     assertEquals(
         validator
-            .validateProposed(Collections.emptySet(), mockRetrieverContext, mockSession)
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Collections.emptySet(),
+                mockRetrieverContext,
+                mockSession)
             .count(),
         0,
         "Expected no exceptions for empty batch items");
@@ -335,7 +342,11 @@ public class ExecuteIngestionAuthValidatorTest {
 
     List<AspectValidationException> exceptions =
         validator
-            .validateProposed(Set.of(allowedItem, deniedItem), mockRetrieverContext, mockSession)
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(allowedItem, deniedItem),
+                mockRetrieverContext,
+                mockSession)
             .collect(Collectors.toList());
 
     assertEquals(exceptions.size(), 1, "Expected only one denied item");
@@ -391,7 +402,11 @@ public class ExecuteIngestionAuthValidatorTest {
 
       List<AspectValidationException> exceptions =
           validator
-              .validateProposed(Set.of(item1, item2), mockRetrieverContext, mockSession)
+              .validateProposed(
+                  OperationFingerprint.EMPTY,
+                  Set.of(item1, item2),
+                  mockRetrieverContext,
+                  mockSession)
               .collect(Collectors.toList());
 
       assertEquals(exceptions.size(), 2, "Expected both items to be denied");

@@ -8,9 +8,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import jakarta.json.JsonPatch;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -19,27 +16,6 @@ import javax.annotation.Nullable;
  * templates
  */
 public class AspectTemplateEngine {
-
-  public static final Set<String> SUPPORTED_TEMPLATES =
-      Stream.of(
-              DATASET_PROPERTIES_ASPECT_NAME,
-              EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-              GLOBAL_TAGS_ASPECT_NAME,
-              GLOSSARY_TERMS_ASPECT_NAME,
-              OWNERSHIP_ASPECT_NAME,
-              UPSTREAM_LINEAGE_ASPECT_NAME,
-              DATA_FLOW_INFO_ASPECT_NAME,
-              DATA_JOB_INFO_ASPECT_NAME,
-              DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
-              DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
-              CHART_INFO_ASPECT_NAME,
-              DASHBOARD_INFO_ASPECT_NAME,
-              STRUCTURED_PROPERTIES_ASPECT_NAME,
-              STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
-              FORM_INFO_ASPECT_NAME,
-              UPSTREAM_LINEAGE_ASPECT_NAME,
-              VERSION_PROPERTIES_ASPECT_NAME)
-          .collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;
 
@@ -53,9 +29,15 @@ public class AspectTemplateEngine {
 
   @Nullable
   public RecordTemplate getDefaultTemplate(String aspectSpecName) {
-    return _aspectTemplateMap.containsKey(aspectSpecName)
-        ? _aspectTemplateMap.get(aspectSpecName).getDefault()
-        : null;
+    if (_aspectTemplateMap.containsKey(aspectSpecName)) {
+      try {
+        return _aspectTemplateMap.get(aspectSpecName).getDefault();
+      } catch (UnsupportedOperationException e) {
+        // Some templates intentionally do not provide a sensible default; signal absence.
+        return null;
+      }
+    }
+    return null;
   }
 
   /**

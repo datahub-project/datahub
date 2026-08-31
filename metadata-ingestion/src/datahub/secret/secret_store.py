@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
 from datahub.configuration.common import ConfigModel
@@ -9,7 +9,7 @@ class SecretStoreConfig(ConfigModel):
     config: Dict
 
 
-class SecretStore:
+class SecretStore(ABC):
     """
     Abstract base class for a Secret Store, or a class that resolves "secret" values by name.
     """

@@ -1,0 +1,35 @@
+{
+    "query_type": "UPDATE",
+    "query_type_props": {},
+    "query_fingerprint": "d8218d2b4dca6025b8abcd8a901c44acb2d8a2833a58131d5befe520899f68ad",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,mydb.dbo.target_table,PROD)",
+                "column": "col1",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "'value' AS [col1]"
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "UPDATE mydb.dbo.target_table SET col1 = ? WHERE id = ?"
+    }
+}

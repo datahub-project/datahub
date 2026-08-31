@@ -39,7 +39,7 @@ class LoggingCallback(WriteCallback):
 class DeadLetterQueueCallback(WriteCallback, Closeable):
     def __init__(self, ctx: PipelineContext, config: Optional[FileSinkConfig]) -> None:
         if not config:
-            config = FileSinkConfig.parse_obj({"filename": "failed_events.json"})
+            config = FileSinkConfig.model_validate({"filename": "failed_events.json"})
         self.file_sink: FileSink = FileSink(ctx, config)
         self.file_sink_lock = threading.Lock()
         self.logging_callback = LoggingCallback(name="failure-queue")

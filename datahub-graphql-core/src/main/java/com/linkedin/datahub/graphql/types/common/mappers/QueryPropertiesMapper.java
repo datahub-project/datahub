@@ -55,6 +55,14 @@ public class QueryPropertiesMapper
     created.setActor(input.getCreated().getActor(GetMode.NULL).toString());
     result.setCreated(created);
 
+    // Map created resolved audit stamp
+    ResolvedAuditStamp createdOn = new ResolvedAuditStamp();
+    createdOn.setTime(input.getCreated().getTime());
+    final CorpUser createdUser = new CorpUser();
+    createdUser.setUrn(input.getCreated().getActor().toString());
+    createdOn.setActor(createdUser);
+    result.setCreatedOn(createdOn);
+
     // Map last modified audit stamp
     AuditStamp lastModified = new AuditStamp();
     lastModified.setTime(input.getLastModified().getTime());

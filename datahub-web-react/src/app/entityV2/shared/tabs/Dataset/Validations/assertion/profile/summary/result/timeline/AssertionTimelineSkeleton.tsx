@@ -1,8 +1,7 @@
 import { Col, Row, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const SKELETON_MARGIN_BOTTOM_PX = 12;
 const Body = styled.div`
@@ -31,8 +30,8 @@ const StyledCol = styled(Col)`
 const Box = styled.div`
     width: 100%;
     height: 100%;
-    background-color: ${ANTD_GRAY[3]};
-    border: 1px solid ${ANTD_GRAY[4]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -55,14 +54,14 @@ const LoadingTextContainer = styled.div`
 `;
 const LoadingText = styled(Typography.Text)`
     font-size: 14px;
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textDisabled};
 `;
 
 const NUM_GRID_BOXES = 12;
 const ANT_COL_6_SPAN = 6;
 const ANT_COL_6_ITEM_WIDTH_RATIO = 1 / 4;
 const NUM_GRID_ROWS = NUM_GRID_BOXES * ANT_COL_6_ITEM_WIDTH_RATIO;
-const renderGridSkeleton = (height: number) => {
+const renderGridSkeleton = (height: number, loadingText: string) => {
     const boxes = Array.from({ length: NUM_GRID_BOXES }, (_, index) => (
         <StyledCol key={index} span={ANT_COL_6_SPAN}>
             <Box style={{ height: height / NUM_GRID_ROWS }} />
@@ -72,7 +71,7 @@ const renderGridSkeleton = (height: number) => {
     return (
         <Container>
             <LoadingTextContainer>
-                <LoadingText>Loading...</LoadingText>
+                <LoadingText>{loadingText}</LoadingText>
             </LoadingTextContainer>
             <Row gutter={0}>{boxes}</Row>
         </Container>
@@ -84,11 +83,12 @@ type Props = {
 };
 
 export const AssertionTimelineSkeleton = (props: Props) => {
+    const { t: tc } = useTranslation('common.feedback');
     const skeletonHeight = props.parentDimensions.height - SKELETON_MARGIN_BOTTOM_PX;
     return (
         <Body style={props.parentDimensions}>
             <GridContainer style={{ height: skeletonHeight }}>
-                <GridSkeletonContainer>{renderGridSkeleton(skeletonHeight)}</GridSkeletonContainer>
+                <GridSkeletonContainer>{renderGridSkeleton(skeletonHeight, tc('loading'))}</GridSkeletonContainer>
             </GridContainer>
         </Body>
     );

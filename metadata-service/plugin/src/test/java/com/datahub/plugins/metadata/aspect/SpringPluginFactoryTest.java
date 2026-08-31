@@ -3,6 +3,7 @@ package com.datahub.plugins.metadata.aspect;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.test.TestEntityProfile;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.events.metadata.ChangeType;
@@ -134,6 +135,7 @@ public class SpringPluginFactoryTest {
 
     @Override
     protected Stream<AspectValidationException> validateProposedAspects(
+        @Nonnull OperationFingerprint operationContext,
         @Nonnull Collection<? extends BatchItem> mcpItems,
         @Nonnull RetrieverContext retrieverContext) {
       return mcpItems.stream().map(i -> AspectValidationException.forItem(i, "test error"));
@@ -141,7 +143,9 @@ public class SpringPluginFactoryTest {
 
     @Override
     protected Stream<AspectValidationException> validatePreCommitAspects(
-        @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        @Nonnull Collection<ChangeMCP> changeMCPs,
+        @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
     }
   }
@@ -162,13 +166,17 @@ public class SpringPluginFactoryTest {
 
     @Override
     protected Stream<ChangeMCP> applyMCPSideEffect(
-        Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        Collection<ChangeMCP> changeMCPS,
+        @Nonnull RetrieverContext retrieverContext) {
       return changeMCPS.stream();
     }
 
     @Override
     protected Stream<MCPItem> postMCPSideEffect(
-        Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        Collection<MCLItem> mclItems,
+        @Nonnull RetrieverContext retrieverContext) {
       return Stream.of();
     }
   }

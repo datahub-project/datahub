@@ -123,7 +123,9 @@ public class UpsertStructuredPropertiesResolver
             ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME));
     StructuredProperties structuredProperties = new StructuredProperties();
     structuredProperties.setProperties(new StructuredPropertyValueAssignmentArray());
-    if (response != null && response.getAspects().containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME)) {
+    if (response != null
+        && response.getAspects() != null
+        && response.getAspects().containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME)) {
       structuredProperties =
           new StructuredProperties(
               response.getAspects().get(STRUCTURED_PROPERTIES_ASPECT_NAME).getValue().data());
@@ -149,6 +151,7 @@ public class UpsertStructuredPropertiesResolver
                                 .collect(Collectors.toList()));
                     propAssignment.setValues(values);
                     propAssignment.setLastModified(auditStamp);
+                    propAssignment.removeAttribution();
                   }
                   return propAssignment;
                 })

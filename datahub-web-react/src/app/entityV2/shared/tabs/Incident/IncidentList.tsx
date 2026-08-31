@@ -1,5 +1,7 @@
 import { Empty } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
@@ -19,7 +21,9 @@ import { useGetEntityIncidentsQuery } from '@graphql/incident.generated';
 import { EntityPrivileges, Incident } from '@types';
 
 export const IncidentList = () => {
+    const { t } = useTranslation('entity.profile.incident');
     const { urn, entityType } = useEntityData();
+    const location = useLocation();
     const refetchEntity = useRefetch();
     const [showIncidentBuilder, setShowIncidentBuilder] = useState(false);
     const [entity, setEntity] = useState<EntityStagedForIncident>({
@@ -33,7 +37,7 @@ export const IncidentList = () => {
     const [allIncidentData, setAllIncidentData] = useState<Incident[]>([]);
 
     const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
-    const incidentUrnParam = getQueryParams('incident_urn', window.location);
+    const incidentUrnParam = getQueryParams('incident_urn', location);
     const incidentDefaultFilters = INCIDENT_DEFAULT_FILTERS;
     if (incidentUrnParam) {
         incidentDefaultFilters.filterCriteria.state = [];
@@ -106,7 +110,7 @@ export const IncidentList = () => {
                 />
             );
         }
-        return <Empty description="No incidents yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <Empty description={t('list.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
 
     return (

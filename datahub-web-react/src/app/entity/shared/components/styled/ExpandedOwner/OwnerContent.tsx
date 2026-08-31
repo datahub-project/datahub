@@ -1,15 +1,17 @@
+import { Avatar } from '@components';
 import { Popover, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import {
     getDescriptionFromType,
     getNameFromType,
 } from '@app/entity/shared/containers/profile/sidebar/Ownership/ownershipUtils';
-import { CustomAvatar } from '@app/shared/avatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Owner } from '@types';
+import { EntityType, Owner } from '@types';
 
 const TextWrapper = styled.span<{ fontSize?: number }>`
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
@@ -18,6 +20,7 @@ const TextWrapper = styled.span<{ fontSize?: number }>`
 const ContentWrapper = styled.span`
     display: flex;
     align-items: center;
+    gap: 4px;
 `;
 
 const OwnerPopoverTitleContainer = styled.div`
@@ -25,6 +28,7 @@ const OwnerPopoverTitleContainer = styled.div`
     flex-direction: row;
     align-items: center;
     justify-content: flex-start;
+    gap: 6px;
 `;
 
 const OwnerEntityTypeText = styled(Typography.Text)`
@@ -76,6 +80,7 @@ export default function OwnerContent({ name, owner, hidePopOver, pictureLink, fo
     const ownerEntityType = owner.owner.type;
     const ownerEntityTypeDisplayName = entityRegistry.getEntityName(ownerEntityType);
     const ownerDisplayName = entityRegistry.getDisplayName(ownerEntityType, ownerEntity);
+    const avatarType = ownerEntityType === EntityType.CorpGroup ? AvatarType.group : AvatarType.user;
     let ownershipTypeName;
     let ownershipTypeDescription;
     if (owner.ownershipType && owner.ownershipType.info) {
@@ -86,11 +91,7 @@ export default function OwnerContent({ name, owner, hidePopOver, pictureLink, fo
         ownershipTypeDescription = getDescriptionFromType(owner.type);
     }
 
-    const avatar: React.ReactNode = (
-        <CustomAvatar name={name} photoUrl={pictureLink} useDefaultAvatar={false} hideTooltip />
-    );
-
-    /* TODO: We probably do not want render if ownership type has been soft deleted */
+    const avatar = <Avatar name={name} imageUrl={pictureLink} type={avatarType} />;
 
     return (
         <ContentWrapper>

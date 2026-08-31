@@ -121,6 +121,10 @@ public class QueryPropertiesMapperTest {
     assertEquals(result.getLastModified().getTime().longValue(), 2000L);
     assertEquals(result.getLastModified().getActor(), userUrn.toString());
 
+    // Verify createdOn resolved stamp
+    assertEquals(result.getCreatedOn().getTime().longValue(), 1000L);
+    assertEquals(result.getCreatedOn().getActor().getUrn(), userUrn.toString());
+
     // Verify optional fields
     assertEquals(result.getName(), "Test Query");
     assertEquals(result.getDescription(), "Test Description");

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
-from pydantic.class_validators import validator
+from pydantic import field_validator
 from vertica_sqlalchemy_dialect.base import VerticaInspector
 
 from datahub.configuration.common import AllowDenyPattern
@@ -25,7 +25,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.data_reader import DataReader
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -42,7 +45,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     SubTypesClass,
@@ -52,7 +54,10 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities import config_clean
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+    from datahub.ingestion.source.profiling.common import (
+        ProfilerRequest as GEProfilerRequest,
+    )
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -100,20 +105,25 @@ class VerticaConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme: str = pydantic.Field(default="vertica+vertica_python")
 
-    @validator("host_port")
-    def clean_host_port(cls, v):
+    @field_validator("host_port", mode="after")
+    @classmethod
+    def clean_host_port(cls, v: str) -> str:
         return config_clean.remove_protocol(v)
 
 
 @platform_name("Vertica")
 @config_class(VerticaConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default, can be disabled via configuration `include_view_lineage` and `include_projection_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.PROJECTIONS,
+    ],
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
@@ -129,7 +139,7 @@ class VerticaSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "VerticaSource":
-        config = VerticaConfig.parse_obj(config_dict)
+        config = VerticaConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
@@ -193,8 +203,10 @@ class VerticaSource(SQLAlchemySource):
             return custom_properties
 
         except Exception as ex:
-            self.report.report_failure(
-                f"{database}", f"unable to get extra_properties : {ex}"
+            self.report.failure(
+                message="Unable to get extra_properties",
+                context=f"{database}",
+                exc=ex,
             )
         return None
 
@@ -205,8 +217,10 @@ class VerticaSource(SQLAlchemySource):
             custom_properties = inspector._get_schema_properties(schema)
             return custom_properties
         except Exception as ex:
-            self.report.report_failure(
-                f"{database}.{schema}", f"unable to get extra_properties : {ex}"
+            self.report.failure(
+                message="Unable to get extra_properties",
+                context=f"{database}.{schema}",
+                exc=ex,
             )
         return None
 
@@ -265,8 +279,11 @@ class VerticaSource(SQLAlchemySource):
                     logger.warning(
                         f"Unable to ingest view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
                     )
-                    self.report.report_warning(
-                        f"{schema}.{view}", f"Ingestion error: {e}"
+                    self.report.warning(
+                        message="Ingestion error",
+                        context=f"{schema}.{view}",
+                        exc=e,
+                        log=False,
                     )
                 if self.config.include_view_lineage:
                     try:
@@ -299,11 +316,18 @@ class VerticaSource(SQLAlchemySource):
                         logger.warning(
                             f"Unable to get lineage of view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
                         )
-                        self.report.report_warning(
-                            f"{schema}.{view}", f"Ingestion error: {e}"
+                        self.report.warning(
+                            message="Ingestion error",
+                            context=f"{schema}.{view}",
+                            exc=e,
+                            log=False,
                         )
         except Exception as e:
-            self.report.report_failure(f"{schema}", f"Views error: {e}")
+            self.report.failure(
+                message="Views error",
+                context=f"{schema}",
+                exc=e,
+            )
 
     def _process_view(
         self,
@@ -396,8 +420,11 @@ class VerticaSource(SQLAlchemySource):
                         f"Unable to ingest {schema}.{projection} due to an exception %s",
                         ex,
                     )
-                    self.report.report_warning(
-                        f"{schema}.{projection}", f"Ingestion error: {ex}"
+                    self.report.warning(
+                        message="Ingestion error",
+                        context=f"{schema}.{projection}",
+                        exc=ex,
+                        log=False,
                     )
                 if self.config.include_projection_lineage:
                     try:
@@ -425,9 +452,18 @@ class VerticaSource(SQLAlchemySource):
                         logger.warning(
                             f"Unable to get lineage of projection {projection} due to an exception.\n {traceback.format_exc()}"
                         )
-                        self.report.report_warning(f"{schema}", f"Ingestion error: {e}")
+                        self.report.warning(
+                            message="Ingestion error",
+                            context=f"{schema}",
+                            exc=e,
+                            log=False,
+                        )
         except Exception as ex:
-            self.report.report_failure(f"{schema}", f"Projection error: {ex}")
+            self.report.failure(
+                message="Projection error",
+                context=f"{schema}",
+                exc=ex,
+            )
 
     def _process_projections(
         self,
@@ -494,10 +530,7 @@ class VerticaSource(SQLAlchemySource):
         if dpi_aspect:
             yield dpi_aspect
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspectName="subTypes",
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.PROJECTIONS]),
         ).as_workunit()
 
@@ -525,7 +558,9 @@ class VerticaSource(SQLAlchemySource):
         Args: schema: schema name
 
         """
-        from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+        from datahub.ingestion.source.profiling.common import (
+            ProfilerRequest as GEProfilerRequest,
+        )
 
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.
@@ -554,9 +589,10 @@ class VerticaSource(SQLAlchemySource):
             if partition is None and self.is_table_partitioned(
                 database=None, schema=schema, table=projection
             ):
-                self.report.report_warning(
-                    "profile skipped as partitioned table is empty or partition id was invalid",
-                    dataset_name,
+                self.report.warning(
+                    message="Profile skipped as partitioned table is empty or partition id was invalid",
+                    context=dataset_name,
+                    log=False,
                 )
                 continue
             if (
@@ -631,11 +667,18 @@ class VerticaSource(SQLAlchemySource):
                     logger.warning(
                         f"Unable to ingest {schema}.{models} due to an exception. %s {traceback.format_exc()}"
                     )
-                    self.report.report_warning(
-                        f"{schema}.{models}", f"Ingestion error: {error}"
+                    self.report.warning(
+                        message="Ingestion error",
+                        context=f"{schema}.{models}",
+                        exc=error,
+                        log=False,
                     )
         except Exception as error:
-            self.report.report_failure(f"{schema}", f"Model error: {error}")
+            self.report.failure(
+                message="Model error",
+                context=f"{schema}",
+                exc=error,
+            )
 
     def _process_models(
         self,

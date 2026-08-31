@@ -3,7 +3,6 @@
 import hashlib
 import json
 import logging
-import os
 import re
 import time
 from datetime import datetime, timezone
@@ -26,9 +25,12 @@ import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 from typing_extensions import assert_never
 
+from datahub.configuration.env_vars import get_dataset_urn_to_lower
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.schema_classes import (
     AssertionKeyClass,
+    AssertionSourceClass,
+    AssertionSourceTypeClass,
     AuditStampClass,
     ChartKeyClass,
     ContainerKeyClass,
@@ -70,11 +72,24 @@ Aspect = TypeVar("Aspect", bound=AspectAbstract)
 DEFAULT_ENV = FabricTypeClass.PROD
 ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
 
+# NOTE: This is lowercase "prod", not the FabricType enum value "PROD".
+# This creates a two-layer mismatch that every caller must handle:
+#   URN  (DataFlowKey.cluster) - free-form string: "prod" is valid
+#   Aspect (DataFlowInfo.env)  - FabricType enum:  only uppercase "PROD", "DEV", … are valid
+# The aspect's env field is indexed with addToFilters=true ("Environment" facet in search),
+# so it must carry a valid FabricType value. Code that writes to those aspects
+# (datahub.api, datahub.sdk) must normalize cluster → uppercase before writing to the aspect,
+# while keeping the original casing in the URN identity.
+# Two proper fixes exist, both requiring a URN migration for existing Airflow entities:
+#   (A) Change this default to "PROD" and tighten DataFlowKey.cluster to FabricType in
+#       the model, eliminating the mismatch at the source.
+#   (B) Remove the coupling entirely: keep cluster as a free-form string, stop using it
+#       as an env value in the aspects, and fix the Airflow plugin to stop conflating the
+#       two — removing the need for the normalization workaround in datahub.api / datahub.sdk.
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
-DATASET_URN_TO_LOWER: bool = (
-    os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false") == "true"
-)
+SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
+DATASET_URN_TO_LOWER: bool = get_dataset_urn_to_lower() == "true"
 
 if TYPE_CHECKING:
     from datahub.emitter.mcp_builder import DatahubKey
@@ -230,6 +245,17 @@ def make_assertion_urn(assertion_id: str) -> str:
     return f"urn:li:assertion:{assertion_id}"
 
 
+def make_assertion_source() -> AssertionSourceClass:
+    """Create a standard AssertionSource for ingestion-created assertions."""
+    return AssertionSourceClass(
+        type=AssertionSourceTypeClass.EXTERNAL,
+        created=AuditStampClass(
+            time=int(time.time() * 1000),
+            actor=SYSTEM_ACTOR,
+        ),
+    )
+
+
 def assertion_urn_to_key(assertion_urn: str) -> Optional[AssertionKeyClass]:
     pattern = r"urn:li:assertion:(.*)"
     results = re.search(pattern, assertion_urn)
@@ -374,6 +400,12 @@ def make_domain_urn(domain: str) -> str:
     if domain.startswith("urn:li:domain:"):
         return domain
     return f"urn:li:domain:{domain}"
+
+
+def make_data_product_urn(data_product_id: str) -> str:
+    if data_product_id.startswith("urn:li:dataProduct:"):
+        return data_product_id
+    return f"urn:li:dataProduct:{data_product_id}"
 
 
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:

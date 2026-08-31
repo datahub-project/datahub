@@ -17,10 +17,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.system_info.SystemInfoService;
 import com.linkedin.metadata.systemmetadata.TraceService;
+import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.v1.models.TraceRequestV1;
 import io.datahubproject.openapi.v1.models.TraceResponseV1;
@@ -33,16 +35,16 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -60,11 +62,11 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
           .searchStorage(TraceStorageStatus.ok(TraceWriteStatus.ACTIVE_STATE))
           .build();
 
+  @MockitoBean private TraceService mockTraceService;
+
   @Autowired private TraceController traceController;
 
   @Autowired private MockMvc mockMvc;
-
-  @Autowired private TraceService mockTraceService;
 
   @Test
   public void initTest() {
@@ -230,7 +232,6 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
 
   @TestConfiguration
   public static class TraceControllerTestConfig {
-    @MockBean public TraceService traceService;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -239,10 +240,10 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean(name = "systemOperationContext")
     public OperationContext systemOperationContext(ObjectMapper objectMapper) {
-      TraceContext traceContext = mock(TraceContext.class);
+      SystemTelemetryContext systemTelemetryContext = mock(SystemTelemetryContext.class);
       return TestOperationContexts.systemContextTraceNoSearchAuthorization(
           () -> ObjectMapperContext.builder().objectMapper(objectMapper).build(),
-          () -> traceContext);
+          () -> systemTelemetryContext);
     }
 
     @Bean
@@ -253,9 +254,20 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
 
     @Bean
     @Primary
-    public TraceContext traceContext(
+    public SystemTelemetryContext traceContext(
         @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
-      return systemOperationContext.getTraceContext();
+      return systemOperationContext.getSystemTelemetryContext();
+    }
+
+    @Bean
+    @Qualifier("gitVersion")
+    public GitVersion gitVersion() {
+      return mock(GitVersion.class);
+    }
+
+    @Bean
+    public SystemInfoService systemInfoService() {
+      return mock(SystemInfoService.class);
     }
 
     @Bean

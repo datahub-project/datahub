@@ -1,6 +1,7 @@
 from typing import Any, Dict, Iterable, List, Tuple, Type
 
 import pydantic
+from pydantic import model_validator
 
 from datahub.emitter.mce_builder import make_assertion_urn, make_container_urn
 from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
@@ -14,7 +15,7 @@ STATEFUL_INGESTION_IGNORED_ENTITY_TYPES = {
 }
 
 
-def pydantic_state_migrator(mapping: Dict[str, str]) -> classmethod:
+def pydantic_state_migrator(mapping: Dict[str, str]) -> Any:
     # mapping would be something like:
     # {
     #    'encoded_view_urns': 'dataset',
@@ -56,7 +57,7 @@ def pydantic_state_migrator(mapping: Dict[str, str]) -> classmethod:
 
         return values
 
-    return pydantic.root_validator(pre=True, allow_reuse=True)(_validate_field_rename)
+    return model_validator(mode="before")(_validate_field_rename)
 
 
 class GenericCheckpointState(CheckpointStateBase):

@@ -6,7 +6,12 @@ import static org.testng.Assert.*;
 import com.datahub.telemetry.TrackingService;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
+import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
+import com.linkedin.metadata.dao.producer.KafkaUsageEventPublisher;
+import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolver;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.event.UsageEventPublisher;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
@@ -70,14 +75,13 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
         mixpanelMessageBuilder, "MixpanelMessageBuilder should be null when telemetry is disabled");
 
     // Use reflection to access the Kafka producer
-    java.lang.reflect.Field dataHubUsageProducerField =
-        trackingService.getClass().getDeclaredField("dataHubUsageProducer");
-    dataHubUsageProducerField.setAccessible(true);
-    Object dataHubUsageProducer = dataHubUsageProducerField.get(trackingService);
+    java.lang.reflect.Field usagePublisherField =
+        trackingService.getClass().getDeclaredField("usageEventPublisher");
+    usagePublisherField.setAccessible(true);
+    Object usagePublisher = usagePublisherField.get(trackingService);
 
-    // Verify that the Kafka producer is still available
     assertNotNull(
-        dataHubUsageProducer, "Kafka producer should be available even when telemetry is disabled");
+        usagePublisher, "Usage publisher should be available even when telemetry is disabled");
   }
 
   @Test
@@ -113,14 +117,12 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
         "MixpanelMessageBuilder should be initialized when telemetry is enabled");
 
     // Use reflection to access the Kafka producer
-    java.lang.reflect.Field dataHubUsageProducerField =
-        trackingService.getClass().getDeclaredField("dataHubUsageProducer");
-    dataHubUsageProducerField.setAccessible(true);
-    Object dataHubUsageProducer = dataHubUsageProducerField.get(trackingService);
+    java.lang.reflect.Field usagePublisherField =
+        trackingService.getClass().getDeclaredField("usageEventPublisher");
+    usagePublisherField.setAccessible(true);
+    Object usagePublisher = usagePublisherField.get(trackingService);
 
-    // Verify that the Kafka producer is still available
-    assertNotNull(
-        dataHubUsageProducer, "Kafka producer should be available when telemetry is enabled");
+    assertNotNull(usagePublisher, "Usage publisher should be available when telemetry is enabled");
 
     // Close the context
     enabledContext.close();
@@ -153,9 +155,9 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
       com.linkedin.metadata.config.kafka.KafkaConfiguration config =
           new com.linkedin.metadata.config.kafka.KafkaConfiguration();
       com.linkedin.metadata.config.kafka.TopicsConfiguration topicsConfig =
-          new com.linkedin.metadata.config.kafka.TopicsConfiguration();
+          new com.linkedin.metadata.config.kafka.TopicsConfiguration(null, null);
       topicsConfig.setDataHubUsage("DataHubUsageEvent_v1");
-      config.setTopics(topicsConfig);
+      config.setTopicsConfiguration(topicsConfig);
       return config;
     }
 
@@ -193,6 +195,17 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     @Qualifier("dataHubUsageProducer")
     public Producer<String, String> dataHubUsageProducer() {
       return mock(Producer.class);
+    }
+
+    @Bean
+    @Qualifier("dataHubUsageEventProducer")
+    public UsageEventPublisher dataHubUsageEventProducer(
+        @Qualifier("dataHubUsageProducer") Producer<String, String> producer) {
+      return new KafkaUsageEventPublisher(
+          producer,
+          mock(KafkaHealthChecker.class),
+          mock(MetricUtils.class),
+          mock(OutboundContextResolver.class));
     }
   }
 
@@ -223,9 +236,9 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
       com.linkedin.metadata.config.kafka.KafkaConfiguration config =
           new com.linkedin.metadata.config.kafka.KafkaConfiguration();
       com.linkedin.metadata.config.kafka.TopicsConfiguration topicsConfig =
-          new com.linkedin.metadata.config.kafka.TopicsConfiguration();
+          new com.linkedin.metadata.config.kafka.TopicsConfiguration(null, null);
       topicsConfig.setDataHubUsage("DataHubUsageEvent_v1");
-      config.setTopics(topicsConfig);
+      config.setTopicsConfiguration(topicsConfig);
       return config;
     }
 
@@ -263,6 +276,17 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     @Qualifier("dataHubUsageProducer")
     public Producer<String, String> dataHubUsageProducer() {
       return mock(Producer.class);
+    }
+
+    @Bean
+    @Qualifier("dataHubUsageEventProducer")
+    public UsageEventPublisher dataHubUsageEventProducer(
+        @Qualifier("dataHubUsageProducer") Producer<String, String> producer) {
+      return new KafkaUsageEventPublisher(
+          producer,
+          mock(KafkaHealthChecker.class),
+          mock(MetricUtils.class),
+          mock(OutboundContextResolver.class));
     }
   }
 }

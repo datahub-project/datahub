@@ -1,0 +1,18 @@
+source:
+  type: notion
+  config:
+    # Notion API token from your integration
+    api_key: "${NOTION_API_KEY}"
+
+    # Ingest specific pages (get IDs from page URLs)
+    page_ids:
+      - "your-page-id-here"
+
+    # Or ingest all accessible content (leave page_ids and database_ids empty)
+    # page_ids: []
+    # database_ids: []
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

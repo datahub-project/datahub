@@ -83,7 +83,7 @@ export const mapResourceTypeToPrivileges = (
     return [];
 };
 
-export const createCriterion = (
+const createCriterion = (
     resourceFieldType: string,
     fieldValues: Array<PolicyMatchCriterionValue>,
 ): PolicyMatchCriterion => ({

@@ -18,7 +18,6 @@ from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.graph.filters import RemovedStatusFilter
-from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.urns.urn import guess_entity_type
@@ -116,7 +115,7 @@ class DeletionResult:
     help="specifies soft/hard deletion",
 )
 @click.option("-n", "--dry-run", required=False, is_flag=True)
-@telemetry.with_telemetry()
+@upgrade.check_upgrade
 def by_registry(
     registry_id: str,
     soft: bool,
@@ -171,7 +170,7 @@ def by_registry(
 @click.option(
     "-f", "--force", required=False, is_flag=True, help="force the delete if set"
 )
-@telemetry.with_telemetry()
+@upgrade.check_upgrade
 def references(urn: str, dry_run: bool, force: bool) -> None:
     """
     Delete all references to an entity (but not the entity itself).
@@ -234,8 +233,16 @@ def references(urn: str, dry_run: bool, force: bool) -> None:
     help="Batch size when querying for entities to un-soft delete."
     "Maximum 5000. Large batch sizes may cause timeouts.",
 )
+@click.option(
+    "-f",
+    "--force",
+    required=False,
+    is_flag=True,
+    help="Force the un-delete without confirmation prompts.",
+)
+@upgrade.check_upgrade
 def undo_by_filter(
-    urn: Optional[str], platform: Optional[str], batch_size: int
+    urn: Optional[str], platform: Optional[str], batch_size: int, force: bool
 ) -> None:
     """
     Undo soft deletion by filters
@@ -254,6 +261,29 @@ def undo_by_filter(
             )
         )
         logger.info(f"Going to un-soft delete {len(urns)} urns")
+
+        if len(urns) == 0:
+            click.echo(
+                "Found no soft-deleted entities to restore. Maybe you want to change your filters?"
+            )
+            return
+
+        if not force:
+            urns_by_type: Dict[str, List[str]] = {}
+            for u in urns:
+                entity_type = guess_entity_type(u)
+                urns_by_type.setdefault(entity_type, []).append(u)
+
+            click.echo(f"Found {len(urns)} soft-deleted entities to restore:")
+            for entity_type, entity_urns in urns_by_type.items():
+                click.echo(f"  - {len(entity_urns)} {entity_type}(s)")
+
+            click.confirm(
+                f"\nThis will un-soft-delete {len(urns)} entities in DataHub, making them visible again. "
+                "Do you want to continue?",
+                abort=True,
+            )
+
         urns_iter = progressbar.progressbar(urns, redirect_stdout=True)
         for urn in urns_iter:
             assert urn
@@ -370,7 +400,6 @@ def undo_by_filter(
     "--workers", type=int, default=1, help="Num of workers to use for deletion."
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def by_filter(
     urn: Optional[str],
     urn_file: Optional[str],
@@ -470,6 +499,7 @@ def by_filter(
                 query=query,
                 status=soft_delete_filter,
                 batch_size=batch_size,
+                skip_cache=True,
             )
         )
         if len(urns) == 0:

@@ -25,6 +25,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 public class IcebergBatch {
+  // TODO: Support patch operations in IcebergBatch
   private List<MetadataChangeProposal> mcps = new ArrayList<>();
 
   @Getter private final AuditStamp auditStamp;

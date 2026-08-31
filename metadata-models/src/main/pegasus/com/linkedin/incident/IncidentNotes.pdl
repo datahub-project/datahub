@@ -1,0 +1,17 @@
+namespace com.linkedin.incident
+
+/**
+ * A collection of notes and updates added to an incident over its lifetime, by users
+ * in DataHub or synced from external systems. Stored as a separate aspect so that
+ * ingestion sources that UPSERT IncidentInfo do not accidentally overwrite user-authored notes.
+ */
+@Aspect = {
+  "name": "incidentNotes"
+}
+record IncidentNotes {
+
+  /**
+   * The list of notes associated with this incident, ordered by creation time ascending.
+   */
+  notes: array[IncidentNote] = []
+}

@@ -1,3 +1,7 @@
+---
+description: "Use the getIndexSizes Rest.li endpoint in DataHub to inspect the size of timeseries ElasticSearch indices before truncation or cleanup."
+---
+
 # Get Index Sizes Endpoint
 
 You can do a HTTP POST request to `/gms/operations?action=getIndexSizes` endpoint with no parameters to see the size of indices in ElasticSearch. For now, only timeseries indices are supported, as they can grow indefinitely, and the `truncateTimeseriesAspect` endpoint is provided to clean up old entries. This endpoint can be used in conjunction with the cleanup endpoint to see which indices are the largest before truncation.

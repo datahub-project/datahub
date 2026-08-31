@@ -13,7 +13,7 @@ import requests
 from cached_property import cached_property
 from dateutil import parser
 from packaging import version
-from pydantic import root_validator, validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from requests import Response
 from requests.adapters import HTTPAdapter
@@ -21,7 +21,7 @@ from requests.models import HTTPBasicAuth
 from requests_gssapi import HTTPSPNEGOAuth
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
 )
@@ -36,14 +36,12 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import JobContainerSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -128,7 +126,7 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: Optional[str] = Field(
         default=None, description='Nifi username, must be set for auth = "SINGLE_USER"'
     )
-    password: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None, description='Nifi password, must be set for auth = "SINGLE_USER"'
     )
 
@@ -140,7 +138,7 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     client_key_file: Optional[str] = Field(
         default=None, description="Path to PEM file containing the client’s secret key"
     )
-    client_key_password: Optional[str] = Field(
+    client_key_password: Optional[TransparentSecretStr] = Field(
         default=None, description="The password to decrypt the client_key_file"
     )
 
@@ -165,39 +163,33 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
         " When disabled, re-states lineage on each run.",
     )
 
-    @root_validator(skip_on_failure=True)
-    def validate_auth_params(cla, values):
-        if values.get("auth") is NifiAuthType.CLIENT_CERT and not values.get(
-            "client_cert_file"
-        ):
+    @model_validator(mode="after")
+    def validate_auth_params(self) -> "NifiSourceConfig":
+        if self.auth is NifiAuthType.CLIENT_CERT and not self.client_cert_file:
             raise ValueError(
                 "Config `client_cert_file` is required for CLIENT_CERT auth"
             )
-        elif values.get("auth") in (
+        elif self.auth in (
             NifiAuthType.SINGLE_USER,
             NifiAuthType.BASIC_AUTH,
-        ) and (not values.get("username") or not values.get("password")):
+        ) and (not self.username or not self.password):
             raise ValueError(
-                f"Config `username` and `password` is required for {values.get('auth').value} auth"
+                f"Config `username` and `password` is required for {self.auth.value} auth"
             )
-        return values
+        return self
 
-    @root_validator(skip_on_failure=True)
-    def validator_site_url_to_site_name(cls, values):
-        site_url_to_site_name = values.get("site_url_to_site_name")
-        site_url = values.get("site_url")
-        site_name = values.get("site_name")
+    @model_validator(mode="after")
+    def validator_site_url_to_site_name(self) -> "NifiSourceConfig":
+        if self.site_url_to_site_name is None:
+            self.site_url_to_site_name = {}
 
-        if site_url_to_site_name is None:
-            site_url_to_site_name = {}
-            values["site_url_to_site_name"] = site_url_to_site_name
+        if self.site_url not in self.site_url_to_site_name:
+            self.site_url_to_site_name[self.site_url] = self.site_name
 
-        if site_url not in site_url_to_site_name:
-            site_url_to_site_name[site_url] = site_name
+        return self
 
-        return values
-
-    @validator("site_url")
+    @field_validator("site_url", mode="after")
+    @classmethod
     def validator_site_url(cls, site_url: str) -> str:
         assert site_url.startswith(("http://", "https://")), (
             "site_url must start with http:// or https://"
@@ -476,7 +468,7 @@ class NifiSourceReport(StaleEntityRemovalSourceReport):
 # allowRemoteAccess
 @platform_name("NiFi", id="nifi")
 @config_class(NifiSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.LINEAGE_COARSE, "Supported. See docs for limitations")
 class NifiSource(StatefulIngestionSourceBase):
     config: NifiSourceConfig
@@ -675,8 +667,8 @@ class NifiSource(StatefulIngestionSourceBase):
 
             if not pg_response.ok:
                 self.report.warning(
-                    "Failed to get process group flow " + pg.get("id"),
-                    self.config.site_url,
+                    message="Failed to get process group flow",
+                    context=f"{self.config.site_url}: {pg.get('id')}",
                 )
                 continue
 
@@ -717,10 +709,8 @@ class NifiSource(StatefulIngestionSourceBase):
                 ("Get", "List", "Fetch", "Put")
             ):
                 self.report.warning(
-                    f"Dropping NiFi Processor of type {component.type}, id {component.id}, name {component.name} from lineage view. \
-                    This is likely an Ingress or Egress node which may be reading to/writing from external datasets \
-                    However not currently supported in datahub",
-                    self.config.site_url,
+                    message="Dropping NiFi Processor from lineage view: likely an Ingress or Egress node not currently supported in DataHub",
+                    context=f"{self.config.site_url}: type={component.type}, id={component.id}, name={component.name}",
                 )
             else:
                 logger.debug(
@@ -844,9 +834,8 @@ class NifiSource(StatefulIngestionSourceBase):
                 )
         else:
             self.report.warning(
-                f"Provenance events could not be fetched for processor \
-                    {processor.id} of type {processor.name}",
-                self.config.site_url,
+                message="Provenance events could not be fetched for processor",
+                context=f"{self.config.site_url}: id={processor.id}, type={processor.name}",
             )
             logger.warning(provenance_response.text)
         return
@@ -1012,10 +1001,8 @@ class NifiSource(StatefulIngestionSourceBase):
                 for site_url in site_urls:
                     if site_url not in self.config.site_url_to_site_name:
                         self.report.warning(
-                            f"Site with url {site_url} is being used in flow but\
-                            corresponding site name is not configured via site_url_to_site_name.\
-                            This may result in broken lineage.",
-                            site_url,
+                            message="Site URL is used in flow but corresponding site name is not configured via site_url_to_site_name, this may result in broken lineage",
+                            context=site_url,
                         )
                     else:
                         site_name = self.config.site_url_to_site_name[site_url]
@@ -1033,10 +1020,8 @@ class NifiSource(StatefulIngestionSourceBase):
                 for site_url in site_urls:
                     if site_url not in self.config.site_url_to_site_name:
                         self.report.warning(
-                            f"Site with url {site_url} is being used in flow but\
-                            corresponding site name is not configured via site_url_to_site_name.\
-                            This may result in broken lineage.",
-                            self.config.site_url,
+                            message="Site URL is used in flow but corresponding site name is not configured via site_url_to_site_name, this may result in broken lineage",
+                            context=site_url,
                         )
                     else:
                         site_name = self.config.site_url_to_site_name[site_url]
@@ -1125,7 +1110,7 @@ class NifiSource(StatefulIngestionSourceBase):
             assert self.config.username is not None
             assert self.config.password is not None
             self.session.auth = HTTPBasicAuth(
-                self.config.username, self.config.password
+                self.config.username, self.config.password.get_secret_value()
             )
             self.session.headers.update(
                 {
@@ -1140,7 +1125,9 @@ class NifiSource(StatefulIngestionSourceBase):
                 SSLAdapter(
                     certfile=self.config.client_cert_file,
                     keyfile=self.config.client_key_file,
-                    password=self.config.client_key_password,
+                    password=self.config.client_key_password.get_secret_value()
+                    if self.config.client_key_password
+                    else None,
                 ),
             )
             return
@@ -1152,7 +1139,9 @@ class NifiSource(StatefulIngestionSourceBase):
                 url=urljoin(self.rest_api_base_url, TOKEN_ENDPOINT),
                 data={
                     "username": self.config.username,
-                    "password": self.config.password,
+                    "password": self.config.password.get_secret_value()
+                    if self.config.password
+                    else None,
                 },
             )
         elif self.config.auth is NifiAuthType.KERBEROS:
@@ -1166,19 +1155,13 @@ class NifiSource(StatefulIngestionSourceBase):
         token_response.raise_for_status()
         self.session.headers.update({"Authorization": "Bearer " + token_response.text})
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
             self.authenticate()
         except Exception as e:
-            self.report.failure("Failed to authenticate", self.config.site_url, exc=e)
+            self.report.failure(
+                message="Failed to authenticate", context=self.config.site_url, exc=e
+            )
             return
 
         # Creates nifi_flow by invoking /flow rest api and saves as self.nifi_flow
@@ -1186,7 +1169,9 @@ class NifiSource(StatefulIngestionSourceBase):
             self.create_nifi_flow()
         except Exception as e:
             self.report.failure(
-                "Failed to get root process group flow", self.config.site_url, exc=e
+                message="Failed to get root process group flow",
+                context=self.config.site_url,
+                exc=e,
             )
             return
 

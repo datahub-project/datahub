@@ -1,5 +1,6 @@
 import { Badge, StructuredPopover, Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
@@ -23,10 +24,15 @@ const AvatarStackWithHover = ({
     size = 'default',
     showRemainingNumber = true,
     maxToShow = 4,
+    totalCount,
     entityRegistry,
+    title,
 }: Props) => {
-    const users = avatars.filter((avatar) => avatar.type === AvatarType.user);
-    const groups = avatars.filter((avatar) => avatar.type === AvatarType.group);
+    const { t: tc } = useTranslation('common.labels');
+    const resolvedTitle = title ?? tc('owners');
+    const users = avatars?.filter((avatar) => avatar.type === AvatarType.user) || [];
+    const groups = avatars?.filter((avatar) => avatar.type === AvatarType.group) || [];
+    const roles = avatars?.filter((avatar) => avatar.type === AvatarType.role) || [];
 
     const renderTitle = (headerText, count) => (
         <HeaderContainer>
@@ -41,12 +47,12 @@ const AvatarStackWithHover = ({
         <StopPropagationWrapper>
             <StructuredPopover
                 width={280}
-                title="Owners"
+                title={resolvedTitle}
                 sections={[
                     ...(users.length > 0
                         ? [
                               {
-                                  title: renderTitle('Users', users.length),
+                                  title: renderTitle(tc('users'), users.length),
                                   content: (
                                       <HoverSectionContent
                                           avatars={users}
@@ -60,7 +66,7 @@ const AvatarStackWithHover = ({
                     ...(groups.length > 0
                         ? [
                               {
-                                  title: renderTitle('Groups', groups.length),
+                                  title: renderTitle(tc('groups'), groups.length),
                                   content: (
                                       <HoverSectionContent
                                           avatars={groups}
@@ -72,10 +78,30 @@ const AvatarStackWithHover = ({
                               },
                           ]
                         : []),
+                    ...(roles.length > 0
+                        ? [
+                              {
+                                  title: renderTitle(tc('roles'), roles.length),
+                                  content: (
+                                      <HoverSectionContent
+                                          avatars={roles}
+                                          entityRegistry={entityRegistry}
+                                          size={size}
+                                          type={AvatarType.role}
+                                      />
+                                  ),
+                              },
+                          ]
+                        : []),
                 ]}
             >
                 <div>
-                    <AvatarStack avatars={avatars} showRemainingNumber={showRemainingNumber} maxToShow={maxToShow} />
+                    <AvatarStack
+                        avatars={avatars}
+                        showRemainingNumber={showRemainingNumber}
+                        maxToShow={maxToShow}
+                        totalCount={totalCount}
+                    />
                 </div>
             </StructuredPopover>
         </StopPropagationWrapper>

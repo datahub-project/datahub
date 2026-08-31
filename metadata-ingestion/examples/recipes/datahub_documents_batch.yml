@@ -1,0 +1,65 @@
+# DataHub Documents Source - Batch Mode
+#
+# This recipe processes Document entities from DataHub in batch mode.
+# It fetches documents via GraphQL, partitions their text as markdown,
+# chunks the content, generates embeddings, and emits SemanticContent aspects.
+#
+# When to use Batch Mode:
+# - Initial processing of all documents
+# - Scheduled/periodic runs (e.g., daily, weekly)
+# - Processing specific document sets on demand
+# - When you need to process all documents regardless of recent changes
+#
+# When to use Event Mode instead:
+# - Real-time processing as documents change
+# - Continuous pipelines that react immediately to updates
+# - When you want to minimize processing overhead by only handling changes
+
+source:
+  type: datahub-documents
+  config:
+    # DataHub connection
+    datahub:
+      server: "http://localhost:8080"
+      token: "${DATAHUB_TOKEN}"
+
+    # Mode selection - Batch mode (explicit)
+    event_mode:
+      enabled: false  # Set to true to use event-driven mode instead
+
+    # Platform filtering - process documents from these platforms
+    platform_filter:
+      - notion
+      - confluence
+
+    # Incremental processing - only process changed documents
+    # In batch mode, this tracks content hashes to skip documents whose text hasn't changed
+    # between runs. This is useful for scheduled batch jobs to avoid reprocessing unchanged content.
+    incremental:
+      enabled: true
+      force_reprocess: false
+      state_file_path: "/path/to/state.json"  # Optional: defaults to ~/.datahub/document_chunking_state/{pipeline_name}.json
+
+    # Chunking strategy
+    chunking:
+      strategy: by_title  # Options: by_title, basic
+      max_characters: 500
+      combine_text_under_n_chars: 100
+      overlap: 0  # Only used for basic strategy
+
+    # Embedding configuration - Bedrock example
+    embedding:
+      provider: bedrock
+      model: cohere.embed-english-v3
+      aws_region: us-west-2
+      batch_size: 25
+
+    # Processing options
+    skip_empty_text: true
+    min_text_length: 50
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    token: "${DATAHUB_TOKEN}"

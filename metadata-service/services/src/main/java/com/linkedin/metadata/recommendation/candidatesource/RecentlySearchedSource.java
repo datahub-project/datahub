@@ -12,9 +12,9 @@ import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.recommendation.SearchParams;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -25,8 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
-import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.AggregationBuilder;
@@ -38,7 +36,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 @Slf4j
 @RequiredArgsConstructor
 public class RecentlySearchedSource implements RecommendationSource {
-  private final RestHighLevelClient _searchClient;
+  private final SearchClientShim<?> _searchClient;
   private final IndexConvention _indexConvention;
 
   private static final String DATAHUB_USAGE_INDEX = "datahub_usage_event";
@@ -63,18 +61,8 @@ public class RecentlySearchedSource implements RecommendationSource {
   @Override
   public boolean isEligible(
       @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
-    boolean analyticsEnabled = false;
-    try {
-      analyticsEnabled =
-          _searchClient
-              .indices()
-              .exists(
-                  new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
-                  RequestOptions.DEFAULT);
-    } catch (IOException e) {
-      log.error("Failed to check whether DataHub usage index exists");
-    }
-    return requestContext.getScenario() == ScenarioType.SEARCH_BAR && analyticsEnabled;
+    return requestContext.getScenario() == ScenarioType.SEARCH_BAR
+        && UsageEventIndexChecker.usageIndexExists(opContext, _searchClient, _indexConvention);
   }
 
   @Override
@@ -83,14 +71,14 @@ public class RecentlySearchedSource implements RecommendationSource {
       @Nonnull RecommendationRequestContext requestContext,
       @Nullable Filter filter) {
     SearchRequest searchRequest =
-        buildSearchRequest(opContext.getSessionActorContext().getActorUrn());
+        buildSearchRequest(opContext, opContext.getSessionActorContext().getActorUrn());
 
     return opContext.withSpan(
         "getRecentlySearched",
         () -> {
           try {
             final SearchResponse searchResponse =
-                _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+                _searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results
             ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
             return parsedTerms.getBuckets().stream()
@@ -108,7 +96,8 @@ public class RecentlySearchedSource implements RecommendationSource {
         MetricUtils.name(this.getClass(), "getRecentlySearched"));
   }
 
-  private SearchRequest buildSearchRequest(@Nonnull Urn userUrn) {
+  private SearchRequest buildSearchRequest(
+      @Nonnull OperationContext opContext, @Nonnull Urn userUrn) {
     SearchRequest request = new SearchRequest();
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
@@ -137,7 +126,7 @@ public class RecentlySearchedSource implements RecommendationSource {
     source.size(0);
 
     request.source(source);
-    request.indices(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX));
+    request.indices(_indexConvention.getIndexName(opContext, DATAHUB_USAGE_INDEX));
     return request;
   }
 

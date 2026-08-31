@@ -14,6 +14,7 @@ import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.EntitySpec;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
@@ -29,6 +30,7 @@ import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,14 +42,24 @@ import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-@SpringBootTest(classes = SpringStandardPluginConfiguration.class)
-@TestPropertySource(properties = {"authentication.enabled=true", "entityClient.impl=java"})
-@Import(ExecutionIngestionAuthTestConfiguration.class)
+@SpringBootTest(
+    classes = {
+      SpringStandardPluginConfiguration.class,
+      ExecutionIngestionAuthTestConfiguration.class
+    })
+@TestPropertySource(
+    properties = {
+      "authentication.enabled=true",
+      "entityClient.impl=java",
+      "authentication.tokenService.signingKey=test-signing-key-for-tests",
+      "authentication.tokenService.salt=test-salt-for-tests",
+      "spring.main.allow-bean-definition-overriding=true",
+    })
 public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private ExecuteIngestionAuthValidator validator;
@@ -59,6 +71,10 @@ public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringCo
   @Autowired private AuthorizerChain authorizerChain;
 
   @Autowired private EntityRegistry entityRegistry;
+
+  @MockitoBean private MeterRegistry meterRegistry;
+
+  @MockitoBean private ObjectMapper objectMapper;
 
   @Test
   public void testAuthInit() {
@@ -95,6 +111,7 @@ public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringCo
     assertEquals(
         validator
             .validateProposed(
+                systemOperationContext,
                 Set.of(item),
                 systemOperationContext.getRetrieverContext(),
                 systemOperationContext.asSession(
@@ -109,7 +126,10 @@ public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringCo
     assertEquals(
         validator
             .validateProposed(
-                Set.of(item), systemOperationContext.getRetrieverContext(), systemOperationContext)
+                systemOperationContext,
+                Set.of(item),
+                systemOperationContext.getRetrieverContext(),
+                systemOperationContext)
             .count(),
         0,
         "Expected Execution Request to be allowed when the system user has execute permission on the Ingestion source");

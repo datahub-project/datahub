@@ -3,12 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Iterable, List, Optional
 
-import pydantic
+from pydantic import model_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.source.identity.corp_user_status import (
+    CORP_USER_STATUS_ACTIVE,
+    make_corp_user_status_aspect,
+)
 from datahub.metadata.schema_classes import (
     CorpUserEditableInfoClass,
     CorpUserInfoClass,
@@ -65,16 +69,16 @@ class CorpUser(ConfigModel):
     picture_link: Optional[str] = None
     phone: Optional[str] = None
 
-    @pydantic.validator("full_name", always=True)
-    def full_name_can_be_built_from_first_name_last_name(v, values):
-        if not v:
-            if "first_name" in values or "last_name" in values:
-                first_name = values.get("first_name") or ""
-                last_name = values.get("last_name") or ""
-                full_name = f"{first_name} {last_name}" if last_name else first_name
-                return full_name
-        else:
-            return v
+    @model_validator(mode="after")
+    def full_name_can_be_built_from_first_name_last_name(self) -> "CorpUser":
+        if not self.full_name:
+            if self.first_name or self.last_name:
+                first_name = self.first_name or ""
+                last_name = self.last_name or ""
+                self.full_name = (
+                    f"{first_name} {last_name}" if last_name else first_name
+                )
+        return self
 
     @property
     def urn(self):
@@ -112,7 +116,7 @@ class CorpUser(ConfigModel):
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=str(self.urn),
                 aspect=CorpUserInfoClass(
-                    active=True,  # Deprecated, use CorpUserStatus instead.
+                    active=True,
                     displayName=self.display_name,
                     email=self.email,
                     title=self.title,
@@ -126,6 +130,11 @@ class CorpUser(ConfigModel):
                 ),
             )
             yield mcp
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=make_corp_user_status_aspect(CORP_USER_STATUS_ACTIVE),
+            )
 
         for group_membership in self.generate_group_membership_aspect():
             mcp = MetadataChangeProposalWrapper(

@@ -1,0 +1,15 @@
+{
+  "type" : "record",
+  "name" : "GenericPayload",
+  "namespace" : "com.linkedin.pegasus2avro.mxe",
+  "doc" : "Generic payload record structure for serializing a Platform Event.",
+  "fields" : [ {
+    "name" : "value",
+    "type" : "bytes",
+    "doc" : "The value of the event, serialized as bytes."
+  }, {
+    "name" : "contentType",
+    "type" : "string",
+    "doc" : "The content type, which represents the fashion in which the event was serialized.\nThe only type currently supported is application/json."
+  } ]
+}

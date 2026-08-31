@@ -1,64 +1,34 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { ANTD_GRAY, EDITING_DOCUMENTATION_URL_PARAM, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
+import { EDITING_DOCUMENTATION_URL_PARAM } from '@app/entityV2/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
+import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
+import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
+import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { getGlossaryEntityIcon } from '@app/glossaryV2/utils';
+import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
+import {
+    TREE_ROW_ENTITY_ICON_GLYPH_SIZE,
+    TREE_ROW_ENTITY_ICON_SIZE,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
+import { EntityType } from '@types';
 
-const TermWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
-    padding: 13px 0;
-    padding-left: calc(${(props) => (props.$depth ? props.$depth * 18 + 12 : 18)}px);
-    background-color: ${(props) => props.$isSelected && REDESIGN_COLORS.HIGHLIGHT_PURPLE};
-    display: flex;
-`;
+const DeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    line-height: 0;
 
-const nameStyles = `
-    display: inline-block;
-    height: 100%;
-    width: 100%;
-    font-size: 12px;
-    font-weight: 400;
-    line-height: normal;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-
-    &:hover {
-        color: ${REDESIGN_COLORS.HOVER_PURPLE_2};
-        opacity: 1;
-    }
-`;
-
-interface TermLinkProps {
-    $isSelected: boolean;
-    $areChildrenVisible?: boolean;
-    $isChildNode?: boolean;
-    $entityType?: string;
-}
-
-export const TermLink = styled(Link)<TermLinkProps>`
-    ${nameStyles}
-
-    ${(props) => props.$isChildNode && `opacity: 1;`}
-    ${(props) => props.$areChildrenVisible && `color: ${REDESIGN_COLORS.HOVER_PURPLE_2}; font-weight: 500; opacity: 1;`}
-    ${(props) => props.$isSelected && `color: ${REDESIGN_COLORS.HOVER_PURPLE}; font-weight: 700; opacity: 1;`}
-`;
-
-export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
-    ${nameStyles}
-
-    &:hover {
-        ${(props) =>
-            props.showSelectStyles &&
-            `
-        background-color: ${ANTD_GRAY[3]};
-        cursor: pointer;
-        `}
+    & svg {
+        width: 12px;
+        height: 12px;
     }
 `;
 
@@ -67,16 +37,33 @@ interface Props {
     isSelecting?: boolean;
     selectTerm?: (urn: string, displayName: string) => void;
     includeActiveTabPath?: boolean;
-    areChildrenVisible?: boolean;
     depth: number;
+    selectedUrns?: string[];
+    iconColor?: string;
+    /**
+     * SaaS: pass lifecycle / version badges here (or compose in a fork wrapper).
+     * OSS uses this for deprecation; shared row never imports SaaS badge components.
+     */
+    afterLabel?: React.ReactNode;
 }
 
 function TermItem(props: Props) {
-    const { term, isSelecting, selectTerm, includeActiveTabPath, areChildrenVisible } = props;
+    const { term, isSelecting, selectTerm, includeActiveTabPath, depth, selectedUrns, iconColor, afterLabel } = props;
 
+    const history = useHistory();
     const { entityData } = useGlossaryEntityData();
     const entityRegistry = useEntityRegistry();
     const activeTabPath = useGlossaryActiveTabPath();
+    const generateColor = useGenerateGlossaryColorFromPalette();
+
+    const resolvedIconColor = resolveGlossaryEntityColor(term, generateColor, { inheritedColor: iconColor });
+    const TermIcon = getGlossaryEntityIcon(EntityType.GlossaryTerm);
+
+    const isOnEntityPage = entityData?.urn === term.urn;
+    const isMultiSelected = isSelecting && selectedUrns?.includes(term.urn);
+    const isRowSelected = !!isOnEntityPage && !isSelecting;
+
+    const isActivelyEditing = activeTabPath.includes(EDITING_DOCUMENTATION_URL_PARAM);
 
     function handleSelectTerm() {
         if (selectTerm) {
@@ -85,30 +72,53 @@ function TermItem(props: Props) {
         }
     }
 
-    const isOnEntityPage = entityData && entityData.urn === term.urn;
+    function handleRowClick() {
+        if (isSelecting) {
+            handleSelectTerm();
+            return;
+        }
+        const url = entityRegistry.getEntityUrl(term.type, term.urn);
+        const suffix = includeActiveTabPath && !isActivelyEditing ? `/${activeTabPath}` : '';
+        history.push(`${url}${suffix}`);
+    }
 
-    const isActivelyEditing = activeTabPath.includes(EDITING_DOCUMENTATION_URL_PARAM);
+    const displayName = entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term);
+
+    const deprecation = isOnEntityPage ? entityData?.deprecation : term.deprecation;
+
+    const deprecationBadge = deprecation?.deprecated ? (
+        <DeprecationSlot>
+            <DeprecationIcon urn={term.urn} deprecation={deprecation} showUndeprecate={false} showText={false} />
+        </DeprecationSlot>
+    ) : null;
+
+    // SaaS can pass lifecycle/version via `afterLabel`; OSS deprecation composes with it.
+    const resolvedAfterLabel =
+        afterLabel != null || deprecationBadge != null ? (
+            <>
+                {deprecationBadge}
+                {afterLabel}
+            </>
+        ) : undefined;
 
     return (
-        <TermWrapper $isSelected={entityData?.urn === term.urn} $depth={props.depth}>
-            {!isSelecting && (
-                <TermLink
-                    to={`${entityRegistry.getEntityUrl(term.type, term.urn)}${
-                        includeActiveTabPath && !isActivelyEditing ? `/${activeTabPath}` : ''
-                    }`}
-                    $isSelected={entityData?.urn === term.urn}
-                    $areChildrenVisible={areChildrenVisible}
-                    $entityType={term.type}
-                >
-                    {entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term)}
-                </TermLink>
-            )}
-            {isSelecting && (
-                <NameWrapper showSelectStyles={!!selectTerm} onClick={handleSelectTerm}>
-                    {entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term)}
-                </NameWrapper>
-            )}
-        </TermWrapper>
+        <HierarchicalBrowseTreeRow
+            level={depth}
+            isSelected={isRowSelected}
+            icon={
+                <GlossaryColoredIcon
+                    color={resolvedIconColor}
+                    icon={TermIcon}
+                    size={TREE_ROW_ENTITY_ICON_SIZE}
+                    iconSize={TREE_ROW_ENTITY_ICON_GLYPH_SIZE}
+                />
+            }
+            label={displayName}
+            afterLabel={resolvedAfterLabel}
+            trailing={isMultiSelected ? <SelectedMark /> : undefined}
+            onSelect={handleRowClick}
+            data-testid={`glossary-sidebar-term-${term.urn}`}
+        />
     );
 }
 

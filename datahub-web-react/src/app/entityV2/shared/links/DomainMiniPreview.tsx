@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import EntityCount from '@app/entityV2/shared/containers/profile/header/EntityCount';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
@@ -14,7 +13,7 @@ const DomainLinkContainer = styled.div`
     display: flex;
     flex-direction: row;
     :hover {
-        background-color: #f5f7fa;
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
     border-radius: 12px;
     cursor: pointer;
@@ -30,7 +29,7 @@ const DomainInfoContainer = styled.div`
 const DomainTitle = styled.div`
     font-size: 12px;
     font-weight: 400;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
     font-family: Mulish;
     overflow: hidden;
     white-space: nowrap;
@@ -41,7 +40,7 @@ const DomainTitle = styled.div`
 const DomainContents = styled.div`
     font-size: 12px;
     font-weight: 400;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-family: Mulish;
     overflow: hidden;
     white-space: nowrap;

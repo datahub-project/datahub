@@ -1,5 +1,6 @@
 import { Dropdown } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { NestedOption } from '@components/components/Select/Nested/NestedOption';
 import { NestedSelectOption } from '@components/components/Select/Nested/types';
@@ -8,6 +9,7 @@ import {
     Container,
     DropdownContainer,
     OptionList,
+    Required,
     SelectBase,
     SelectLabel,
 } from '@components/components/Select/components';
@@ -38,6 +40,7 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     loadData?: (node: OptionType) => void;
     onSearch?: (query: string) => void;
     width?: number | 'full' | 'fit-content';
+    minWidth?: string;
     height?: number;
     placeholder?: string;
     searchPlaceholder?: string;
@@ -49,6 +52,8 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     shouldDisplayConfirmationFooter?: boolean;
     selectLabelProps?: SelectLabelProps;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
+    renderCustomSelectedValue?: (option: OptionType) => React.ReactNode;
+    dataTestId?: string;
 }
 
 export const selectDefaults: SelectProps = {
@@ -59,7 +64,7 @@ export const selectDefaults: SelectProps = {
     isDisabled: false,
     isReadOnly: false,
     isRequired: false,
-    isMultiSelect: false,
+    isMultiSelect: true,
     width: 255,
     height: 425,
     shouldDisplayConfirmationFooter: false,
@@ -90,13 +95,22 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     shouldDisplayConfirmationFooter = selectDefaults.shouldDisplayConfirmationFooter,
     selectLabelProps,
     renderCustomOptionText,
+    renderCustomSelectedValue,
+    dataTestId,
     ...props
 }: SelectProps<OptionType>) => {
+    const { t } = useTranslation('alchemy');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedOptions, setSelectedOptions] = useState<OptionType[]>(initialValues);
     const [stagedOptions, setStagedOptions] = useState<OptionType[]>(initialValues);
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const previousInitialValueKeysRef = useRef<string>(
+        (initialValues ?? [])
+            .map((value) => value.value)
+            .sort()
+            .join(','),
+    );
     const {
         isOpen,
         isVisible,
@@ -105,16 +119,22 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     } = useSelectDropdown(false, selectRef, dropdownRef);
 
     useEffect(() => {
-        if (initialValues && shouldAlwaysSyncParentValues) {
-            // Check if selectedOptions and initialValues are different
-            const areDifferent = JSON.stringify(selectedOptions) !== JSON.stringify(initialValues);
-
-            if (initialValues && areDifferent) {
-                setSelectedOptions(initialValues);
-            }
+        if (!shouldAlwaysSyncParentValues) {
+            return;
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [initialValues]);
+
+        const initialValueKeys = (initialValues ?? [])
+            .map((value) => value.value)
+            .sort()
+            .join(',');
+        if (initialValueKeys === previousInitialValueKeysRef.current) {
+            return;
+        }
+
+        previousInitialValueKeysRef.current = initialValueKeys;
+        setSelectedOptions(initialValues ?? []);
+        setStagedOptions(initialValues ?? []);
+    }, [initialValues, shouldAlwaysSyncParentValues]);
 
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {
@@ -137,11 +157,11 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     // Instead of calling the update function individually whenever selectedOptions changes,
     // we use the useEffect hook to trigger the onUpdate function automatically when selectedOptions is updated.
     useEffect(() => {
-        if (onUpdate) {
+        if (onUpdate && !shouldDisplayConfirmationFooter) {
             onUpdate(selectedOptions);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedOptions]);
+    }, [selectedOptions, shouldDisplayConfirmationFooter]);
 
     // Sync staged and selected options automaticly when shouldDisplayConfirmationFooter disabled
     useEffect(() => {
@@ -150,9 +170,10 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
 
     const onClickUpdateButton = useCallback(() => {
         setSelectedOptions(stagedOptions); // update selected options
+        onUpdate?.(stagedOptions);
         closeDropdown();
         handleSearch('');
-    }, [closeDropdown, stagedOptions, handleSearch]);
+    }, [closeDropdown, stagedOptions, handleSearch, onUpdate]);
 
     const onClickCancelButton = useCallback(() => {
         setStagedOptions(selectedOptions); // reset staged options
@@ -165,7 +186,11 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
             let newStagedOptions: OptionType[];
             if (stagedOptions.find((o) => o.value === option.value)) {
                 newStagedOptions = stagedOptions.filter((o) => o.value !== option.value);
+            } else if (!isMultiSelect) {
+                // Single selection: replace all options with just this one
+                newStagedOptions = [option];
             } else {
+                // Multi selection: add to existing options
                 newStagedOptions = [...stagedOptions, option];
             }
             setStagedOptions(newStagedOptions);
@@ -178,14 +203,23 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
 
     const addOptions = useCallback(
         (optionsToAdd: OptionType[]) => {
-            const existingValues = new Set(stagedOptions.map((option) => option.value));
-            const filteredOptionsToAdd = optionsToAdd.filter((option) => !existingValues.has(option.value));
-            if (filteredOptionsToAdd.length) {
-                const newStagedOptions = [...stagedOptions, ...filteredOptionsToAdd];
-                setStagedOptions(newStagedOptions);
+            if (!isMultiSelect) {
+                // Single selection: take only the first option
+                const firstOption = optionsToAdd[0];
+                if (firstOption) {
+                    setStagedOptions([firstOption]);
+                }
+            } else {
+                // Multi selection: add to existing options
+                const existingValues = new Set(stagedOptions.map((option) => option.value));
+                const filteredOptionsToAdd = optionsToAdd.filter((option) => !existingValues.has(option.value));
+                if (filteredOptionsToAdd.length) {
+                    const newStagedOptions = [...stagedOptions, ...filteredOptionsToAdd];
+                    setStagedOptions(newStagedOptions);
+                }
             }
         },
-        [stagedOptions],
+        [stagedOptions, isMultiSelect],
     );
 
     const removeOptions = useCallback(
@@ -234,15 +268,23 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     const rootOptions = parentValueToOptions[NO_PARENT_VALUE] || [];
 
     return (
-        <Container ref={selectRef} size={size || 'md'} width={props.width || 255}>
-            {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
+        <Container ref={selectRef} size={size || 'md'} width={props.width || 255} $minWidth={props.minWidth}>
+            {label && (
+                <SelectLabel onClick={handleSelectClick}>
+                    {label} {isRequired && <Required>*</Required>}
+                </SelectLabel>
+            )}
             {isVisible && (
                 <Dropdown
                     open={isOpen}
                     disabled={isDisabled}
                     placement="bottomRight"
                     dropdownRender={() => (
-                        <DropdownContainer ref={dropdownRef} style={{ maxHeight: height, overflow: 'auto' }}>
+                        <DropdownContainer
+                            ref={dropdownRef}
+                            style={{ maxHeight: height, overflow: 'auto' }}
+                            data-testid={dataTestId ? `${dataTestId}-dropdown` : undefined}
+                        >
                             {showSearch && (
                                 <DropdownSearchBar
                                     placeholder={searchPlaceholder}
@@ -295,16 +337,17 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                         isOpen={isOpen}
                         onClick={handleSelectClick}
                         fontSize={size}
-                        data-testid="nested-options-dropdown-container"
+                        data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                         width={props.width}
                         {...props}
                     >
                         <SelectLabelRenderer
                             selectedValues={selectedOptions.map((o) => o.value)}
                             options={options}
-                            placeholder={placeholder || 'Select an option'}
+                            placeholder={placeholder || t('select.placeholder')}
                             isMultiSelect={isMultiSelect}
                             removeOption={(option) => removeOptions([option], true)}
+                            renderCustomSelectedValue={renderCustomSelectedValue}
                             {...(selectLabelProps || {})}
                         />
                         <SelectActionButtons

@@ -28,7 +28,7 @@ class DataHubDebugSourceConfig(ConfigModel):
 
 @platform_name("DataHubDebug")
 @config_class(DataHubDebugSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.UNKNOWN)
 class DataHubDebugSource(Source):
     """
     DataHubDebugSource is helper to debug things in executor where ingestion is running.
@@ -46,7 +46,7 @@ class DataHubDebugSource(Source):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DataHubDebugSourceConfig.parse_obj(config_dict)
+        config = DataHubDebugSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def perform_dns_probe(self, url: str) -> None:

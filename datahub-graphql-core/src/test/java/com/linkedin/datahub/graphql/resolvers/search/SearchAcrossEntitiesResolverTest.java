@@ -1,29 +1,39 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
-import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.datahub.graphql.generated.SearchFlags;
+import com.linkedin.datahub.graphql.generated.SearchSortInput;
+import com.linkedin.datahub.graphql.generated.SortCriterion;
+import com.linkedin.datahub.graphql.generated.SortOrder;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
@@ -35,8 +45,9 @@ import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletionException;
-import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -188,7 +199,6 @@ public class SearchAcrossEntitiesResolverTest {
                     ImmutableList.of(
                         new FacetFilterInput(
                             "baseField",
-                            "baseTest",
                             ImmutableList.of("baseTest"),
                             false,
                             FilterOperator.EQUAL)))),
@@ -212,6 +222,72 @@ public class SearchAcrossEntitiesResolverTest {
         10);
 
     verifyMockViewService(mockService, TEST_VIEW_URN);
+  }
+
+  @Test
+  public static void testFilterRemovesDuplicates() throws Exception {
+    // Has no duplicate values
+    Filter expectedFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    buildCriterion("baseField", Condition.EQUAL, "baseTest"))))));
+
+    ViewService mockService = Mockito.mock(ViewService.class);
+    EntityClient mockClient =
+        initMockEntityClient(
+            ImmutableList.of(Constants.DATASET_ENTITY_NAME),
+            "",
+            expectedFilter,
+            0,
+            10,
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(0)
+                .setMetadata(new SearchResultMetadata()));
+
+    final SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, mockService);
+
+    final SearchAcrossEntitiesInput testInput =
+        new SearchAcrossEntitiesInput(
+            ImmutableList.of(EntityType.DATASET),
+            "",
+            0,
+            10,
+            null,
+            ImmutableList.of(
+                new AndFilterInput(
+                    ImmutableList.of(
+                        new FacetFilterInput(
+                            "baseField",
+                            ImmutableList.of("baseTest", "baseTest"),
+                            false,
+                            FilterOperator.EQUAL)))),
+            null,
+            null,
+            null);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    verifyMockEntityClient(
+        mockClient,
+        ImmutableList.of(
+            Constants.DATASET_ENTITY_NAME), // Verify that merged entity types were used.
+        "",
+        expectedFilter,
+        0,
+        10);
   }
 
   @Test
@@ -357,21 +433,105 @@ public class SearchAcrossEntitiesResolverTest {
   }
 
   @Test
+  public static void testSearchWithSearchFlagsAndSortInput() throws Exception {
+    ViewService mockService = Mockito.mock(ViewService.class);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SearchResult emptyResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(0)
+            .setMetadata(new SearchResultMetadata());
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), eq("query"), any(), eq(0), eq(10), any(), any()))
+        .thenReturn(emptyResult);
+
+    SearchAcrossEntitiesInput input =
+        new SearchAcrossEntitiesInput(
+            ImmutableList.of(EntityType.DATASET),
+            "query",
+            0,
+            10,
+            null,
+            null,
+            null,
+            new SearchFlags(),
+            null);
+    SearchSortInput sortInput = new SearchSortInput();
+    SortCriterion sortCriterion = new SortCriterion();
+    sortCriterion.setField("name");
+    sortCriterion.setSortOrder(SortOrder.ASCENDING);
+    sortInput.setSortCriteria(ImmutableList.of(sortCriterion));
+    input.setSortInput(sortInput);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, mockService);
+    resolver.get(mockEnv).get();
+
+    Mockito.verify(mockClient, Mockito.times(1))
+        .searchAcrossEntities(any(), any(), eq("query"), any(), eq(0), eq(10), any(), any());
+  }
+
+  @Test
+  public static void testSearchWithStructuredPropertyFacets() throws Exception {
+    ViewService mockService = Mockito.mock(ViewService.class);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SearchResult emptyResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(0)
+            .setMetadata(new SearchResultMetadata());
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenReturn(emptyResult);
+
+    SearchFlags flags = new SearchFlags();
+    flags.setIncludeStructuredPropertyFacets(true);
+    SearchAcrossEntitiesInput input =
+        new SearchAcrossEntitiesInput(
+            ImmutableList.of(EntityType.DATASET), "q", 0, 10, null, null, null, flags, null);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, mockService);
+    resolver.get(mockEnv).get();
+
+    Mockito.verify(mockClient, Mockito.atLeast(1))
+        .searchAcrossEntities(any(), any(), any(), any(), anyInt(), anyInt(), any(), any());
+  }
+
+  @Test
   public static void testApplyViewViewDoesNotExist() throws Exception {
     // When a view does not exist, the endpoint should WARN and not apply the view.
+    // Note: Since DOCUMENT is in the default search entity types, document default filters
+    // (state=PUBLISHED, showInGlobalContext=true) are automatically applied.
 
     ViewService mockService = initMockViewService(TEST_VIEW_URN, null);
 
-    List<String> searchEntityTypes =
-        SEARCHABLE_ENTITY_TYPES.stream()
-            .map(EntityTypeMapper::getName)
-            .collect(Collectors.toList());
+    List<String> searchEntityTypes = parseCsv(DEFAULT_SEARCH_ENTITY_TYPES);
+
+    // Create the expected document filter that gets applied when DOCUMENT is in entity types
+    Filter expectedDocumentFilter = buildDocumentDefaultFilter();
 
     EntityClient mockClient =
         initMockEntityClient(
             searchEntityTypes,
             "",
-            null,
+            expectedDocumentFilter,
             0,
             10,
             new SearchResult()
@@ -401,7 +561,50 @@ public class SearchAcrossEntitiesResolverTest {
 
     resolver.get(mockEnv).get();
 
-    verifyMockEntityClient(mockClient, searchEntityTypes, "", null, 0, 10);
+    verifyMockEntityClient(mockClient, searchEntityTypes, "", expectedDocumentFilter, 0, 10);
+  }
+
+  /**
+   * Builds the default document filter applied when DOCUMENT is in entity types. Since
+   * getMockAllowContext allows all privileges (canManageDocuments=true), the legacy clause omits
+   * the state != UNPUBLISHED filter.
+   */
+  private static Filter buildDocumentDefaultFilter() {
+    Criterion lifecycleCriterion = new Criterion();
+    lifecycleCriterion.setField("lifecycleStage");
+    lifecycleCriterion.setCondition(Condition.EQUAL);
+    lifecycleCriterion.setValues(
+        new com.linkedin.data.template.StringArray(
+            Collections.singletonList("urn:li:lifecycleStageType:PUBLISHED")));
+
+    ConjunctiveCriterion publishedClause =
+        new ConjunctiveCriterion()
+            .setAnd(
+                new CriterionArray(
+                    ImmutableList.of(lifecycleCriterion, buildShowInGlobalContextCriterion())));
+
+    Criterion isNullCriterion = new Criterion();
+    isNullCriterion.setField("lifecycleStage");
+    isNullCriterion.setCondition(Condition.IS_NULL);
+
+    ConjunctiveCriterion legacyClause =
+        new ConjunctiveCriterion()
+            .setAnd(
+                new CriterionArray(
+                    ImmutableList.of(isNullCriterion, buildShowInGlobalContextCriterion())));
+
+    return new Filter()
+        .setOr(new ConjunctiveCriterionArray(ImmutableList.of(publishedClause, legacyClause)));
+  }
+
+  private static Criterion buildShowInGlobalContextCriterion() {
+    Criterion criterion = new Criterion();
+    criterion.setField("showInGlobalContext");
+    criterion.setCondition(Condition.EQUAL);
+    criterion.setValues(
+        new com.linkedin.data.template.StringArray(Collections.singletonList("false")));
+    criterion.setNegated(true);
+    return criterion;
   }
 
   @Test
@@ -472,7 +675,7 @@ public class SearchAcrossEntitiesResolverTest {
                 Mockito.eq(start),
                 Mockito.eq(limit),
                 Mockito.eq(Collections.emptyList()),
-                Mockito.eq(null)))
+                Mockito.eq(Collections.emptyList())))
         .thenReturn(result);
     return client;
   }
@@ -498,11 +701,108 @@ public class SearchAcrossEntitiesResolverTest {
             Mockito.eq(start),
             Mockito.eq(limit),
             Mockito.eq(Collections.emptyList()),
-            Mockito.eq(null));
+            Mockito.eq(Collections.emptyList()));
   }
 
   private static void verifyMockViewService(ViewService mockService, Urn viewUrn) {
     Mockito.verify(mockService, Mockito.times(1)).getViewInfo(any(), Mockito.eq(viewUrn));
+  }
+
+  @Test
+  public static void testStructuredPropertyFacetsScopedToSearchedEntityTypes() throws Exception {
+    // Given: three enabled structured properties — one scoped to datasets, one scoped to glossary
+    // terms, and one with no entityTypes in its search document.
+    SearchEntity datasetOnlySp =
+        new SearchEntity()
+            .setEntity(UrnUtils.getUrn("urn:li:structuredProperty:datasetOnly"))
+            .setExtraFields(
+                new StringMap(Map.of("entityTypes", "[\"urn:li:entityType:datahub.dataset\"]")));
+    SearchEntity termScopedSp =
+        new SearchEntity()
+            .setEntity(UrnUtils.getUrn("urn:li:structuredProperty:termScoped"))
+            .setExtraFields(
+                new StringMap(
+                    Map.of("entityTypes", "[\"urn:li:entityType:datahub.glossaryTerm\"]")));
+    SearchEntity noTypesSp =
+        new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:structuredProperty:noTypes"));
+    SearchResult spFetchResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray(datasetOnlySp, termScopedSp, noTypesSp))
+            .setFrom(0)
+            .setPageSize(100)
+            .setNumEntities(3)
+            .setMetadata(new SearchResultMetadata());
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    // Structured property fetch (7-arg overload used by getStructuredPropertyFacets)
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(),
+                anyList(),
+                Mockito.eq("*"),
+                any(),
+                Mockito.anyInt(),
+                Mockito.anyInt(),
+                Mockito.eq(Collections.emptyList())))
+        .thenReturn(spFetchResult);
+    // Main search call
+    SearchResult emptyResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setFrom(0)
+            .setPageSize(10)
+            .setNumEntities(0)
+            .setMetadata(new SearchResultMetadata());
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(),
+                anyList(),
+                Mockito.anyString(),
+                any(),
+                Mockito.anyInt(),
+                Mockito.anyInt(),
+                anyList(),
+                anyList()))
+        .thenReturn(emptyResult);
+
+    ViewService mockService = Mockito.mock(ViewService.class);
+    final SearchAcrossEntitiesResolver resolver =
+        new SearchAcrossEntitiesResolver(mockClient, mockService);
+
+    // When: searching only glossary terms with structured property facets enabled
+    final SearchAcrossEntitiesInput testInput = new SearchAcrossEntitiesInput();
+    testInput.setTypes(ImmutableList.of(EntityType.GLOSSARY_TERM));
+    testInput.setQuery("");
+    testInput.setStart(0);
+    testInput.setCount(10);
+    SearchFlags searchFlags = new SearchFlags();
+    searchFlags.setIncludeStructuredPropertyFacets(true);
+    testInput.setSearchFlags(searchFlags);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).join();
+
+    // Then: the dataset-scoped property is excluded; the matching and the entityTypes-less
+    // (fail-open) properties are kept.
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<String>> facetsCaptor = ArgumentCaptor.forClass(List.class);
+    Mockito.verify(mockClient, Mockito.times(1))
+        .searchAcrossEntities(
+            any(),
+            anyList(),
+            Mockito.anyString(),
+            any(),
+            Mockito.anyInt(),
+            Mockito.anyInt(),
+            anyList(),
+            facetsCaptor.capture());
+    Assert.assertEquals(
+        facetsCaptor.getValue(),
+        ImmutableList.of("structuredProperties.termScoped", "structuredProperties.noTypes"));
   }
 
   private SearchAcrossEntitiesResolverTest() {}

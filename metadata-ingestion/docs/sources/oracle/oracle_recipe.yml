@@ -2,7 +2,7 @@ source:
   type: oracle
   config:
     # Coordinates
-    host_port: localhost:5432
+    host_port: localhost:1521
     database: dbname
 
     # Credentials
@@ -11,6 +11,28 @@ source:
 
     # Options
     service_name: svc # omit database if using this option
+    
+    # Data Dictionary Mode
+    data_dictionary_mode: "ALL" # or "DBA" for full database access
+    
+    # Stored Procedures
+    include_stored_procedures: true
+    procedure_pattern:
+      allow:
+        - "SCHEMA.*" # Include all procedures from SCHEMA
+      deny:
+        - "SYS.*"    # Exclude system procedures
+    
+    # Materialized Views
+    include_materialized_views: true
+    
+    # Usage and Operations (requires audit data or query logs)
+    include_usage_stats: true
+    include_operational_stats: true
+    
+    # Oracle Client Configuration (optional)
+    enable_thick_mode: false # Set to true to use Oracle thick client
+    # thick_mode_lib_dir: "/path/to/oracle/client" # Required on Mac/Windows if thick mode enabled
 
 sink:
   # sink configs

@@ -226,6 +226,46 @@ public class DataHubUsageEventTransformerTest {
   }
 
   @Test
+  public void testTransformDataHubUsageEventWithEntityTypeOnlyEntityUrn() throws Exception {
+    // Test event types that include an entity URN
+    String actorUrn = "urn:li:corpuser:testUser";
+    String entityUrn = "urn:li:dataset";
+    String entityType = EntityType.DATASET.name();
+
+    ObjectNode usageEvent = OBJECT_MAPPER.createObjectNode();
+    usageEvent.put("type", DataHubUsageEventType.ENTITY_VIEW_EVENT.getType());
+    usageEvent.put("timestamp", System.currentTimeMillis());
+    usageEvent.put("actorUrn", actorUrn);
+    usageEvent.put("entityUrn", entityUrn);
+    usageEvent.put("entityType", entityType);
+
+    // Mock entity hydrators
+    ObjectNode hydratedActor = OBJECT_MAPPER.createObjectNode();
+    hydratedActor.put("username", "testUser");
+
+    when(_mockEntityHydrator.getHydratedEntity(actorUrn)).thenReturn(Optional.of(hydratedActor));
+    when(_mockEntityHydrator.getHydratedEntity(entityUrn)).thenReturn(Optional.empty());
+
+    // Transform the event
+    Optional<DataHubUsageEventTransformer.TransformedDocument> result =
+        _transformer.transformDataHubUsageEvent(usageEvent.toString());
+
+    // Verify result
+    assertTrue(result.isPresent());
+
+    // Parse the document to verify fields
+    ObjectNode transformedDoc = (ObjectNode) OBJECT_MAPPER.readTree(result.get().getDocument());
+
+    // Verify hydrated entity fields
+    assertFalse(transformedDoc.has("dataset_name"));
+    assertFalse(transformedDoc.has("dataset_platform"));
+
+    // Verify the entity hydrator was called for both actor and entity
+    verify(_mockEntityHydrator).getHydratedEntity(actorUrn);
+    verify(_mockEntityHydrator).getHydratedEntity(entityUrn);
+  }
+
+  @Test
   public void testTransformDataHubUsageEventWithNonExistentEntity() throws Exception {
     // Test with an entity that doesn't exist in the system
     String actorUrn = "urn:li:corpuser:testUser";

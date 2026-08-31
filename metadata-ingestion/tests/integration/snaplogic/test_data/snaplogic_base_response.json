@@ -1,0 +1,213 @@
+{
+  "size": 1,
+  "page": 0,
+  "content": [
+    {
+      "eventTime": "2025-07-15T13:26:38.987Z",
+      "producer": "https://tahoe.elastic.snaplogicdev.com/sl/designer.html?#pipe_snode=685013b9da1804dd3b4037e8",
+      "schemaURL": "https://openlineage.io/spec/1-0-0/OpenLineage.json#/definitions/RunEvent",
+      "eventType": "COMPLETE",
+      "run": {
+        "runId": "99ad4ca0-c368-32a3-b573-e25f05d70d98",
+        "facets": {
+          "parent": {
+            "_producer": "https://tahoe.elastic.snaplogicdev.com/sl/designer.html?#pipe_snode=685013b9da1804dd3b4037e8",
+            "job": {
+              "namespace": "SnapLogic",
+              "name": "Datahub Demo 3"
+            },
+            "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/ParentRunFacet.json",
+            "run": {
+              "runId": "b519a833-0b1a-45b3-8dc6-ba35e103e015"
+            }
+          }
+        }
+      },
+      "job": {
+        "namespace": "SnapLogic",
+        "name": "Datahub Demo 3:Azure Synapse SQL - Select:2faf1220-44e8-4a52-a093-48f1e4d7d79a"
+      },
+      "inputs": [
+        {
+          "namespace": "sqlserver://snaplogic-test.database.windows.net:1433",
+          "name": "snaplogic-test.tonyschema.accounts",
+          "facets": {
+            "schema": {
+              "_producer": "https://tahoe.elastic.snaplogicdev.com/sl/designer.html?#pipe_snode=685013b9da1804dd3b4037e8",
+              "fields": [
+                {
+                  "name": "Id",
+                  "type": "VARCHAR",
+                  "description": ""
+                },
+                {
+                  "name": "IsDeleted",
+                  "type": "VARCHAR",
+                  "description": ""
+                },
+                {
+                  "name": "MasterRecordId",
+                  "type": "VARCHAR",
+                  "description": ""
+                },
+                {
+                  "name": "Name",
+                  "type": "VARCHAR",
+                  "description": ""
+                },
+                {
+                  "name": "Type",
+                  "type": "VARCHAR",
+                  "description": ""
+                },
+                {
+                  "name": "account_id",
+                  "type": "VARCHAR",
+                  "description": ""
+                },
+                {
+                  "name": "contact_name",
+                  "type": "VARCHAR",
+                  "description": ""
+                }
+              ],
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/SchemaDatasetFacet.json"
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "namespace": "SnapLogic",
+          "name": "Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1",
+          "facets": {
+            "schema": {
+              "_producer": "https://tahoe.elastic.snaplogicdev.com/sl/designer  .html?#pipe_snode=685013b9da1804dd3b4037e8",
+              "fields": [
+                {
+                  "name": "Id",
+                  "type": "VARCHAR",
+                  "description": ""
+                },
+                {
+                  "name": "IsDeleted",
+                  "type": "VARCHAR",
+                  "description": ""
+                },
+                {
+                  "name": "MasterRecordId",
+                  "type": "VARCHAR",
+                  "description": ""
+                },
+                {
+                  "name": "Name",
+                  "type": "VARCHAR",
+                  "description": ""
+                },
+                {
+                  "name": "Type",
+                  "type": "VARCHAR",
+                  "description": ""
+                },
+                {
+                  "name": "account_id",
+                  "type": "VARCHAR",
+                  "description": ""
+                },
+                {
+                  "name": "contact_name",
+                  "type": "VARCHAR",
+                  "description": ""
+                }
+              ],
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/SchemaDatasetFacet.json"
+            },
+            "columnLineage": {
+              "_producer": "https://tahoe.elastic.snaplogicdev.com/sl/designer.html?#pipe_snode=685013b9da1804dd3b4037e8",
+              "fields": {
+                "IsDeleted": {
+                  "inputFields": [
+                    {
+                      "field": "IsDeleted",
+                      "name": "snaplogic-test.tonyschema.accounts",
+                      "namespace": "sqlserver://snaplogic-test.database.windows.net:1433"
+                    }
+                  ],
+                  "transformationType": "IDENTITY",
+                  "transformationDescription": "Mapping"
+                },
+                "Type": {
+                  "inputFields": [
+                    {
+                      "field": "Type",
+                      "name": "snaplogic-test.tonyschema.accounts",
+                      "namespace": "sqlserver://snaplogic-test.database.windows.net:1433"
+                    }
+                  ],
+                  "transformationType": "IDENTITY",
+                  "transformationDescription": "Mapping"
+                },
+                "contact_name": {
+                  "inputFields": [
+                    {
+                      "field": "contact_name",
+                      "name": "snaplogic-test.tonyschema.accounts",
+                      "namespace": "sqlserver://snaplogic-test.database.windows.net:1433"
+                    }
+                  ],
+                  "transformationType": "IDENTITY",
+                  "transformationDescription": "Mapping"
+                },
+                "account_id": {
+                  "inputFields": [
+                    {
+                      "field": "account_id",
+                      "name": "snaplogic-test.tonyschema.accounts",
+                      "namespace": "sqlserver://snaplogic-test.database.windows.net:1433"
+                    }
+                  ],
+                  "transformationType": "IDENTITY",
+                  "transformationDescription": "Mapping"
+                },
+                "Id": {
+                  "inputFields": [
+                    {
+                      "field": "Id",
+                      "name": "snaplogic-test.tonyschema.accounts",
+                      "namespace": "sqlserver://snaplogic-test.database.windows.net:1433"
+                    }
+                  ],
+                  "transformationType": "IDENTITY",
+                  "transformationDescription": "Mapping"
+                },
+                "MasterRecordId": {
+                  "inputFields": [
+                    {
+                      "field": "MasterRecordId",
+                      "name": "snaplogic-test.tonyschema.accounts",
+                      "namespace": "sqlserver://snaplogic-test.database.windows.net:1433"
+                    }
+                  ],
+                  "transformationType": "IDENTITY",
+                  "transformationDescription": "Mapping"
+                },
+                "Name": {
+                  "inputFields": [
+                    {
+                      "field": "Name",
+                      "name": "snaplogic-test.tonyschema.accounts",
+                      "namespace": "sqlserver://snaplogic-test.database.windows.net:1433"
+                    }
+                  ],
+                  "transformationType": "IDENTITY",
+                  "transformationDescription": "Mapping"
+                }
+              },
+              "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ColumnLineageDatasetFacet.json"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

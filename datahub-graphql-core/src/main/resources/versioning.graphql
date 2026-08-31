@@ -2,28 +2,29 @@ type VersionSet implements Entity {
   """
   The primary key of the VersionSet
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   The latest versioned entity linked to in this version set
   """
-  latestVersion: Entity
+  latestVersion: Entity @aspectMapping(aspects: ["versionSetProperties"])
 
   """
   Executes a search on all versioned entities linked to this version set
   By default sorts by sortId in descending order
   """
-  versionsSearch(input: SearchAcrossEntitiesInput!): SearchResults
+  versionsSearch(input: SearchAcrossEntitiesInput!): SearchResults @noAspects
 }
 
 type VersionProperties {
@@ -72,10 +73,12 @@ interface SupportsVersions {
 
 extend type Dataset implements SupportsVersions {
   versionProperties: VersionProperties
+    @aspectMapping(aspects: ["versionProperties"])
 }
 
 extend type MLModel implements SupportsVersions {
   versionProperties: VersionProperties
+    @aspectMapping(aspects: ["versionProperties"])
 }
 
 extend type Query {

@@ -1,0 +1,46 @@
+source:
+  type: omni
+  config:
+    # Coordinates
+    base_url: "https://your-org.omniapp.co/api"
+
+    # Credentials
+    api_key: "${OMNI_API_KEY}"
+
+    # Connection → warehouse stitching
+    # Map Omni connection IDs to DataHub platform names so that physical table
+    # URNs match what was ingested by your warehouse source connector.
+    connection_to_platform:
+      "conn_abc123": "snowflake"
+
+    # Optional: map connection IDs to platform instances
+    # connection_to_platform_instance:
+    #   "conn_abc123": "my_snowflake_account"
+
+    # Optional: override the database name inferred from the Omni connection
+    # connection_to_database:
+    #   "conn_abc123": "ANALYTICS_PROD"
+
+    # Optional: include workbook-only documents (not just published dashboards)
+    # include_workbook_only: false
+
+    # Optional: filter which models to ingest
+    # model_pattern:
+    #   allow:
+    #     - ".*"
+
+    # Optional: filter which documents (dashboards/workbooks) to ingest
+    # document_pattern:
+    #   allow:
+    #     - ".*"
+
+    # Optional: disable column-level lineage
+    # include_column_lineage: true
+
+    # Optional: stateful ingestion with stale entity removal
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+sink:
+  # sink configs

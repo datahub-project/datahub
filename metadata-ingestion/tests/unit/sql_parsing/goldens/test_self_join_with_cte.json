@@ -34,7 +34,7 @@
                 "table": null,
                 "column": "current_value",
                 "column_type": null,
-                "native_column_type": null
+                "native_column_type": "VARIANT"
             },
             "upstreams": [
                 {
@@ -60,7 +60,7 @@
                 "table": null,
                 "column": "value_1_day_ago",
                 "column_type": null,
-                "native_column_type": null
+                "native_column_type": "VARIANT"
             },
             "upstreams": [
                 {

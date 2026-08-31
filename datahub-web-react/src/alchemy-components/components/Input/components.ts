@@ -1,13 +1,12 @@
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 
-import type { InputProps } from '@components/components/Input/types';
 import {
     INPUT_MAX_HEIGHT,
     formLabelTextStyles,
     inputPlaceholderTextStyles,
     inputValueTextStyles,
 } from '@components/components/commonStyles';
-import theme, { borders, colors, radius, spacing, typography } from '@components/theme';
+import { borders, radius, spacing, typography } from '@components/theme';
 import { getStatusColors } from '@components/theme/utils';
 
 const defaultFlexStyles = {
@@ -28,63 +27,90 @@ export const InputWrapper = styled.div({
     width: '100%',
 });
 
-export const InputContainer = styled.div(
-    ({ isSuccess, warning, isDisabled, isInvalid }: InputProps) => ({
-        border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid)}`,
-        backgroundColor: isDisabled ? colors.gray[100] : colors.white,
-        paddingRight: spacing.md,
-    }),
-    {
-        ...defaultFlexStyles,
-        width: '100%',
-        maxHeight: INPUT_MAX_HEIGHT,
-        overflow: 'hidden',
-        borderRadius: radius.md,
-        flex: 1,
-        color: colors.gray[400], // 1st icon color
+export const inputContainerStyles = css<{
+    isSuccess?: boolean;
+    warning?: string;
+    isDisabled?: boolean;
+    isInvalid?: boolean;
+}>`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    flex: 1;
+    max-height: ${INPUT_MAX_HEIGHT};
+    padding-right: ${spacing.md};
+    overflow: hidden;
+    border-radius: ${radius.md};
+    border: ${({ isSuccess, warning, isInvalid, theme }) =>
+        `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid, theme.colors)}`};
+    background-color: ${({ isDisabled, theme }) => (isDisabled ? theme.colors.bgInputDisabled : theme.colors.bg)};
+    color: ${({ theme }) => theme.colors.icon};
+    box-shadow: ${({ theme }) => theme.colors.shadowXs};
 
-        '&:focus-within': {
-            borderColor: colors.violet[200],
-            outline: `${borders['1px']} ${colors.violet[200]}`,
-        },
-    },
-);
+    &:focus-within {
+        border-color: ${({ theme }) => theme.colors.borderBrandFocused};
+        outline: ${({ theme }) => `${borders['1px']} ${theme.colors.borderBrandFocused}`};
+    }
+`;
 
-export const InputField = styled.input({
+export const InputContainer = styled.div<{
+    isSuccess?: boolean;
+    warning?: string;
+    isDisabled?: boolean;
+    isInvalid?: boolean;
+}>`
+    ${inputContainerStyles}
+`;
+
+export const InputField = styled.input(({ theme }) => ({
     padding: `${spacing.sm} ${spacing.md}`,
     lineHeight: typography.lineHeights.normal,
     maxHeight: INPUT_MAX_HEIGHT,
     border: borders.none,
     width: '100%',
+    backgroundColor: 'transparent',
 
-    // Shared common input text styles
     ...inputValueTextStyles(),
+    color: theme.colors.text,
 
     '&::placeholder': {
         ...inputPlaceholderTextStyles,
+        color: theme.colors.textPlaceholder,
     },
 
     '&:focus': {
         outline: 'none',
     },
-});
 
-export const Required = styled.span({
-    color: colors.red[500],
-});
+    '&:disabled': {
+        backgroundColor: theme.colors.bgInputDisabled,
+        cursor: 'not-allowed',
+    },
+}));
 
-export const Label = styled.div({
+export const Required = styled.span(({ theme }) => ({
+    color: theme.colors.textError,
+}));
+
+export const Label = styled.div(({ theme }) => ({
     ...formLabelTextStyles,
-    marginBottom: spacing.xsm,
+    color: theme.colors.text,
+    marginBottom: spacing.xxsm,
     textAlign: 'left',
-});
+}));
 
-export const ErrorMessage = styled.div({
+export const ErrorMessage = styled.div(({ theme: t }) => ({
     ...defaultMessageStyles,
-    color: theme.semanticTokens.colors.error,
-});
+    color: t.colors.textError,
+}));
 
-export const WarningMessage = styled.div({
+export const WarningMessage = styled.div(({ theme: t }) => ({
     ...defaultMessageStyles,
-    color: theme.semanticTokens.colors.warning,
-});
+    color: t.colors.textWarning,
+}));
+
+export const HelperText = styled.div(({ theme }) => ({
+    ...defaultMessageStyles,
+    color: theme.colors.textSecondary,
+}));

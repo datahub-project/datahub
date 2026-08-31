@@ -1,8 +1,9 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.PROPERTIES;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
+import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
+import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -10,11 +11,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
-import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexSettingsComparison;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.util.Pair;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -26,6 +30,7 @@ import org.opensearch.common.settings.Settings;
 @Getter
 @Accessors(fluent = true)
 public class ReindexConfig {
+
   public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   static {
@@ -49,6 +54,17 @@ public class ReindexConfig {
       Stream.concat(SETTINGS_DYNAMIC.stream(), SETTINGS_STATIC.stream())
           .collect(Collectors.toList());
 
+  /**
+   * Mapping parameters that Elasticsearch/OpenSearch accept on an <i>existing</i> field via {@code
+   * PUT /<index>/_mapping}. A modified field whose changed leaf keys are all in this set can be
+   * applied live instead of forcing a reindex.
+   *
+   * <p>{@code ignore_above} sits on the keyword surface of TEXT / TEXT_PARTIAL / WORD_GRAM, which
+   * exist on nearly every index — so classifying a change to it as reindex-requiring makes {@code
+   * system-update} attempt to rebuild the whole fleet at once.
+   */
+  public static final Set<String> IN_PLACE_UPDATABLE_MAPPING_PARAMETERS = Set.of(IGNORE_ABOVE);
+
   private final String name;
   private final boolean exists;
   private final Settings currentSettings;
@@ -58,6 +74,7 @@ public class ReindexConfig {
   private final boolean enableIndexMappingsReindex;
   private final boolean enableIndexSettingsReindex;
   private final boolean enableStructuredPropertiesReindex;
+  private final boolean enableStructuredPropertyTypeMismatchReindex;
   private final String version;
 
   /* Calculated */
@@ -65,10 +82,44 @@ public class ReindexConfig {
   private boolean requiresApplySettings;
   private boolean requiresApplyMappings;
   private final boolean isPureMappingsAddition;
+
+  /**
+   * True when the mapping diff modifies existing fields but every modification is confined to an
+   * in-place updatable mapping parameter (see {@link #IN_PLACE_UPDATABLE_MAPPING_PARAMETERS}). Such
+   * a diff is applied with a single {@code PutMappingRequest} — no reindex and no backfill. New
+   * fields may be present alongside, since adding fields is already an in-place operation.
+   *
+   * <p>Removals are excluded: dropping {@code ignore_above} makes writes <i>stricter</i> and would
+   * reintroduce immense-term rejections on indices that currently carry the guard.
+   */
+  private final boolean isInPlaceMappingParameterUpdate;
+
+  /**
+   * True when existing documents should eventually be rebuilt under an in-place mapping parameter
+   * update. Applying the mapping live only changes how subsequent writes are indexed, so a
+   * controlled incremental rebuild is required for consistent historical search behavior.
+   */
+  private final boolean requiresMappingReconciliation;
+
   private final boolean isSettingsReindex;
   private final boolean hasNewStructuredProperty;
   private final boolean isPureStructuredPropertyAddition;
   private final boolean hasRemovedStructuredProperty;
+
+  /**
+   * True when a structured property field exists in both current and target mappings but with a
+   * different Elasticsearch {@code type} (e.g. dynamic {@code float}/{@code long} vs intended
+   * {@code double} for NUMBER properties). Type changes require reindex; put-mapping cannot change
+   * an existing field type.
+   */
+  private final boolean hasStructuredPropertyTypeMismatch;
+
+  /**
+   * True when the mapping diff contains new or modified fields that are NOT structured properties.
+   * New fields come from new {@code @Searchable} annotations and require backfill because the ES
+   * {@code _reindex} API only copies existing doc fields.
+   */
+  private final boolean requiresDataBackfill;
 
   private void restrictedMethod() throws IllegalAccessException {
     String allowed = "ReindexDebugStep";
@@ -102,6 +153,7 @@ public class ReindexConfig {
   }
 
   public static class ReindexConfigBuilder {
+
     // hide calculated fields
     private ReindexConfigBuilder requiresReindex(boolean ignored) {
       return this;
@@ -119,6 +171,14 @@ public class ReindexConfig {
       return this;
     }
 
+    private ReindexConfigBuilder isInPlaceMappingParameterUpdate(boolean ignored) {
+      return this;
+    }
+
+    private ReindexConfigBuilder requiresMappingReconciliation(boolean ignored) {
+      return this;
+    }
+
     private ReindexConfigBuilder isSettingsReindexRequired(boolean ignored) {
       return this;
     }
@@ -132,6 +192,19 @@ public class ReindexConfig {
     }
 
     private ReindexConfigBuilder hasRemovedStructuredProperty(boolean ignored) {
+      return this;
+    }
+
+    private ReindexConfigBuilder hasStructuredPropertyTypeMismatch(boolean ignored) {
+      return this;
+    }
+
+    @Nonnull
+    private IndexSettingsComparison settingsComparison = IndexSettingsComparison.Strict.INSTANCE;
+
+    public ReindexConfigBuilder settingsComparisonShim(
+        @Nonnull SearchClientShim<?> settingsComparisonShim) {
+      this.settingsComparison = settingsComparisonShim;
       return this;
     }
 
@@ -154,15 +227,68 @@ public class ReindexConfig {
           .collect(
               Collectors.toMap(
                   Map.Entry::getKey,
-                  e -> {
-                    if (e.getValue() instanceof Map) {
-                      return sortMap((Map<String, Object>) e.getValue());
-                    } else {
-                      return String.valueOf(e.getValue());
-                    }
-                  },
+                  e -> sortObject(e.getValue()),
                   (oldValue, newValue) -> newValue,
                   TreeMap::new));
+    }
+
+    private static List<Object> sortList(List<?> input) {
+      if (input == null) {
+        return new ArrayList<>();
+      }
+      return input.stream().map(ReindexConfigBuilder::sortObject).collect(Collectors.toList());
+    }
+
+    private static Object sortObject(Object item) {
+      if (item instanceof Map) {
+        return sortMap((Map<String, Object>) item);
+      } else if (item instanceof List) {
+        return sortList((List<?>) item);
+      } else {
+        return item;
+      }
+    }
+
+    /**
+     * Normalize a map for comparison by recursively converting all primitive values to strings.
+     * This ensures consistent comparison between mappings from different sources (code vs
+     * Elasticsearch).
+     */
+    static TreeMap<String, Object> normalizeMapForComparison(Map<String, Object> input) {
+      if (input == null) {
+        return new TreeMap<>();
+      }
+      TreeMap<String, Object> result =
+          input.entrySet().stream()
+              .collect(
+                  Collectors.toMap(
+                      Map.Entry::getKey,
+                      e -> normalizeObjectForComparison(e.getValue()),
+                      (oldValue, newValue) -> newValue,
+                      TreeMap::new));
+      if (result.containsKey(PROPERTIES) && !result.containsKey(TYPE)) {
+        result.put(TYPE, "object");
+      }
+      return result;
+    }
+
+    private static List<Object> normalizeListForComparison(List<?> input) {
+      if (input == null) {
+        return new ArrayList<>();
+      }
+      return input.stream()
+          .map(ReindexConfigBuilder::normalizeObjectForComparison)
+          .collect(Collectors.toList());
+    }
+
+    private static Object normalizeObjectForComparison(Object item) {
+      if (item instanceof Map) {
+        return normalizeMapForComparison((Map<String, Object>) item);
+      } else if (item instanceof List) {
+        return normalizeListForComparison((List<?>) item);
+      } else {
+        return String.valueOf(item);
+      }
     }
   }
 
@@ -176,56 +302,108 @@ public class ReindexConfig {
   }
 
   private static class CalculatedBuilder extends ReindexConfigBuilder {
+
     @Override
     public ReindexConfig build() {
       if (super.exists) {
         /* Consider mapping changes */
         MapDifference<String, Object> mappingsDiff =
             calculateMapDifference(
-                getOrDefault(super.currentMappings, List.of(PROPERTIES)),
-                getOrDefault(super.targetMappings, List.of(PROPERTIES)));
+                normalizeMapForComparison(getOrDefault(super.currentMappings, List.of(PROPERTIES))),
+                normalizeMapForComparison(getOrDefault(super.targetMappings, List.of(PROPERTIES))));
 
         super.requiresApplyMappings =
             !mappingsDiff.entriesDiffering().isEmpty()
                 || !mappingsDiff.entriesOnlyOnRight().isEmpty();
-        super.isPureStructuredPropertyAddition =
-            mappingsDiff
-                    .entriesDiffering()
-                    .keySet()
-                    .equals(Set.of(STRUCTURED_PROPERTY_MAPPING_FIELD))
-                || mappingsDiff
-                    .entriesOnlyOnRight()
-                    .keySet()
-                    .equals(Set.of(STRUCTURED_PROPERTY_MAPPING_FIELD));
         super.isPureMappingsAddition =
             super.requiresApplyMappings
                 && mappingsDiff.entriesDiffering().isEmpty()
                 && !mappingsDiff.entriesOnlyOnRight().isEmpty();
-        super.hasNewStructuredProperty =
-            (mappingsDiff.entriesDiffering().containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD)
+        Set<String> inPlaceApplyableFields =
+            inPlaceApplyableDifferingFields(mappingsDiff.entriesDiffering());
+        super.isInPlaceMappingParameterUpdate =
+            super.requiresApplyMappings
+                && !inPlaceApplyableFields.isEmpty()
+                && inPlaceApplyableFields.equals(mappingsDiff.entriesDiffering().keySet());
+        super.requiresMappingReconciliation = super.isInPlaceMappingParameterUpdate;
+        // Compute SP diffs independently of mappingsDiff because calculateMapDifference
+        // strips dynamic fields (including structuredProperties) from the comparison.
+        Pair<Long, Long> spDiffCount =
+            structuredPropertiesDiffCount(super.currentMappings, super.targetMappings);
+        super.hasNewStructuredProperty = spDiffCount.getSecond() > 0;
+        super.hasRemovedStructuredProperty = spDiffCount.getFirst() > 0;
+        // calculateMapDifference strips the structuredProperties subtree from mappingsDiff (by
+        // name via isKnownDynamicField). Detect type conflicts (e.g. float vs double) separately
+        // so system-update can reindex indices that locked the wrong type via dynamic mapping on
+        // an older, dynamic:true container.
+        Set<String> mismatchedStructuredPropertyFields =
+            structuredPropertyTypeMismatches(super.currentMappings, super.targetMappings);
+        super.hasStructuredPropertyTypeMismatch = !mismatchedStructuredPropertyFields.isEmpty();
+        if (super.hasStructuredPropertyTypeMismatch) {
+          log.info(
+              "Index: {} - Structured property Elasticsearch type mismatch(es): {}",
+              super.name,
+              mismatchedStructuredPropertyFields);
+        }
+        // True when the only mapping change is adding structured properties.
+        // Covers both cases: SP visible in mappingsDiff (no dynamic flag) and
+        // SP stripped from mappingsDiff (dynamic=true, the common production case).
+        boolean onlySPInDiff =
+            (mappingsDiff.entriesDiffering().isEmpty()
+                    || mappingsDiff
+                        .entriesDiffering()
+                        .keySet()
+                        .equals(Set.of(STRUCTURED_PROPERTY_MAPPING_FIELD)))
+                && (mappingsDiff.entriesOnlyOnRight().isEmpty()
                     || mappingsDiff
                         .entriesOnlyOnRight()
-                        .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD))
-                && structuredPropertiesDiffCount(super.currentMappings, super.targetMappings)
-                        .getSecond()
-                    > 0;
-        super.hasRemovedStructuredProperty =
-            (mappingsDiff.entriesDiffering().containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD)
+                        .keySet()
+                        .equals(Set.of(STRUCTURED_PROPERTY_MAPPING_FIELD)))
+                && (mappingsDiff.entriesDiffering().containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD)
                     || mappingsDiff
-                        .entriesOnlyOnLeft()
-                        .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD))
-                && structuredPropertiesDiffCount(super.currentMappings, super.targetMappings)
-                        .getFirst()
-                    > 0;
+                        .entriesOnlyOnRight()
+                        .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD));
+        super.isPureStructuredPropertyAddition =
+            (onlySPInDiff || !super.requiresApplyMappings)
+                && super.hasNewStructuredProperty
+                && !super.hasRemovedStructuredProperty
+                && !super.hasStructuredPropertyTypeMismatch;
+
+        // Detect new or modified non-structured-property fields that require DB backfill.
+        // New fields: _reindex won't populate them (they didn't exist in the source index).
+        // Modified fields: _reindex with conflicts:proceed may skip docs with incompatible values,
+        // and partial doc upserts from MCLs won't fix them unless the owning aspect is
+        // re-processed.
+        Set<String> newNonStructuredPropertyFields =
+            mappingsDiff.entriesOnlyOnRight().keySet().stream()
+                .filter(key -> !STRUCTURED_PROPERTY_MAPPING_FIELD.equals(key))
+                .collect(Collectors.toSet());
+        // In-place parameter updates are excluded: they change how subsequent writes are indexed,
+        // not what any document stores, so there is nothing to backfill.
+        Set<String> modifiedNonStructuredPropertyFields =
+            mappingsDiff.entriesDiffering().keySet().stream()
+                .filter(key -> !STRUCTURED_PROPERTY_MAPPING_FIELD.equals(key))
+                .filter(key -> !inPlaceApplyableFields.contains(key))
+                .collect(Collectors.toSet());
+        super.requiresDataBackfill =
+            !newNonStructuredPropertyFields.isEmpty()
+                || !modifiedNonStructuredPropertyFields.isEmpty();
 
         if (super.requiresApplyMappings && super.isPureMappingsAddition) {
           log.info(
               "Index: {} - New fields have been added to index. Adding: {}",
               super.name,
               mappingsDiff.entriesOnlyOnRight());
+        } else if (super.requiresApplyMappings && super.isInPlaceMappingParameterUpdate) {
+          log.info(
+              "Index: {} - Mapping parameter change applyable in place, no reindex required."
+                  + " Fields: {} Adding: {}",
+              super.name,
+              inPlaceApplyableFields,
+              mappingsDiff.entriesOnlyOnRight().keySet());
         } else if (super.requiresApplyMappings) {
           log.info(
-              "Index: {} - There's diff between new mappings (left) and old mappings (right): {}",
+              "Index: {} - There's diff between old mappings (left) and new mappings (right): {}",
               super.name,
               mappingsDiff.entriesDiffering());
         }
@@ -235,7 +413,9 @@ public class ReindexConfig {
         super.isSettingsReindex = isSettingsReindexRequired();
 
         /* Determine reindexing required - some settings and mappings do not require reindex, analysis always does */
-        if (super.requiresApplyMappings && !super.isPureMappingsAddition) {
+        if (super.requiresApplyMappings
+            && !super.isPureMappingsAddition
+            && !super.isInPlaceMappingParameterUpdate) {
           if (super.enableIndexMappingsReindex) {
             super.requiresReindex = true;
           } else {
@@ -243,10 +423,13 @@ public class ReindexConfig {
                 "Index: {} - There's diff between new mappings, however reindexing is DISABLED.",
                 super.name);
           }
-        } else if (super.hasRemovedStructuredProperty) {
-          if (super.enableIndexMappingsReindex
-              && super.enableIndexMappingsReindex
-              && super.enableStructuredPropertiesReindex) {
+        } else if (super.hasRemovedStructuredProperty || super.hasStructuredPropertyTypeMismatch) {
+          boolean reindexForRemoval =
+              super.hasRemovedStructuredProperty && super.enableStructuredPropertiesReindex;
+          boolean reindexForTypeMismatch =
+              super.hasStructuredPropertyTypeMismatch
+                  && super.enableStructuredPropertyTypeMismatchReindex;
+          if (super.enableIndexMappingsReindex && (reindexForRemoval || reindexForTypeMismatch)) {
             super.requiresApplyMappings = true;
             super.requiresReindex = true;
           } else {
@@ -255,10 +438,19 @@ public class ReindexConfig {
                   "Index: {} - There's diff between new mappings, however reindexing is DISABLED.",
                   super.name);
             }
-            if (!super.enableIndexMappingsReindex) {
+            if (super.hasRemovedStructuredProperty && !super.enableStructuredPropertiesReindex) {
               log.warn(
-                  "Index: {} - There's a removed Structured Property, however Structured Property reindexing is DISABLED.",
+                  "Index: {} - There's a removed Structured Property, however Structured Property"
+                      + " reindexing is DISABLED.",
                   super.name);
+            }
+            if (super.hasStructuredPropertyTypeMismatch
+                && !super.enableStructuredPropertyTypeMismatchReindex) {
+              log.warn(
+                  "Index: {} - Structured Property field type mismatch(es) detected ({}), however"
+                      + " Structured Property type-mismatch reindexing is DISABLED.",
+                  super.name,
+                  mismatchedStructuredPropertyFields);
             }
           }
         }
@@ -310,6 +502,70 @@ public class ReindexConfig {
     }
 
     /**
+     * Subset of the modified top-level fields whose changes Elasticsearch/OpenSearch can apply to
+     * the live index via {@code PUT /<index>/_mapping}.
+     *
+     * @param entriesDiffering modified fields, keyed by top-level field name under {@code
+     *     properties}
+     * @return names of the fields that need no reindex
+     */
+    private static Set<String> inPlaceApplyableDifferingFields(
+        Map<String, MapDifference.ValueDifference<Object>> entriesDiffering) {
+      return entriesDiffering.entrySet().stream()
+          .filter(
+              entry ->
+                  isInPlaceApplyableMappingDiff(
+                      entry.getValue().leftValue(), entry.getValue().rightValue()))
+          .map(Map.Entry::getKey)
+          .collect(Collectors.toSet());
+    }
+
+    /**
+     * Whether every leaf difference between a field's current and target mapping is the addition or
+     * modification of an in-place updatable parameter.
+     *
+     * <p>Deliberately conservative — anything else keeps the existing reindex behaviour:
+     *
+     * <ul>
+     *   <li>a key present only in {@code current} is a <b>removal</b>. Removing {@code
+     *       ignore_above} makes writes stricter, so it must not be applied silently in place.
+     *   <li>an added key that is not an in-place updatable parameter is a structural change (a new
+     *       sub-field, a {@code copy_to}, an analyzer), which put-mapping cannot retrofit onto
+     *       already-indexed documents.
+     *   <li>a modified scalar that is not an in-place updatable parameter (notably {@code type})
+     *       cannot be changed on an existing field at all.
+     * </ul>
+     */
+    @SuppressWarnings("unchecked")
+    private static boolean isInPlaceApplyableMappingDiff(
+        @Nullable Object current, @Nullable Object target) {
+      if (!(current instanceof Map) || !(target instanceof Map)) {
+        return false;
+      }
+
+      MapDifference<String, Object> diff =
+          Maps.difference((Map<String, Object>) current, (Map<String, Object>) target);
+
+      if (!diff.entriesOnlyOnLeft().isEmpty()) {
+        return false;
+      }
+      if (!IN_PLACE_UPDATABLE_MAPPING_PARAMETERS.containsAll(diff.entriesOnlyOnRight().keySet())) {
+        return false;
+      }
+
+      return diff.entriesDiffering().entrySet().stream()
+          .allMatch(
+              entry -> {
+                Object leftValue = entry.getValue().leftValue();
+                Object rightValue = entry.getValue().rightValue();
+                if (leftValue instanceof Map && rightValue instanceof Map) {
+                  return isInPlaceApplyableMappingDiff(leftValue, rightValue);
+                }
+                return IN_PLACE_UPDATABLE_MAPPING_PARAMETERS.contains(entry.getKey());
+              });
+    }
+
+    /**
      * Return counts for removed and added structured properties based on the difference between the
      * existing mapping configuration and the target configuration
      *
@@ -349,7 +605,111 @@ public class ReindexConfig {
               .count());
     }
 
+    /**
+     * Fields present in both current and target structured-property mappings whose Elasticsearch
+     * {@code type} differs. Common production case: NUMBER properties dynamically mapped as {@code
+     * float} or {@code long} while the definition-driven target is {@code double}.
+     */
+    private static Set<String> structuredPropertyTypeMismatches(
+        Map<String, Object> current, Map<String, Object> target) {
+      Map<String, String> currentTypes = structuredPropertyFieldTypes(current);
+      Map<String, String> targetTypes = structuredPropertyFieldTypes(target);
+
+      Set<String> mismatches = new TreeSet<>();
+      for (Map.Entry<String, String> currentEntry : currentTypes.entrySet()) {
+        String field = currentEntry.getKey();
+        String targetType = targetTypes.get(field);
+        if (targetType != null && !Objects.equals(currentEntry.getValue(), targetType)) {
+          mismatches.add(
+              String.format(
+                  "%s (current=%s, target=%s)", field, currentEntry.getValue(), targetType));
+        }
+      }
+      return mismatches;
+    }
+
+    /**
+     * Map of structured-property field ids (unversioned qualified-name keys and flattened versioned
+     * paths) to their Elasticsearch {@code type}.
+     */
+    private static Map<String, String> structuredPropertyFieldTypes(Map<String, Object> mappings) {
+      Map<String, String> fieldTypes = new HashMap<>();
+
+      Map<String, Object> structuredPropertyFields =
+          getOrDefault(
+              mappings, List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"));
+
+      for (Map.Entry<String, Object> entry : structuredPropertyFields.entrySet()) {
+        if (STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.equals(entry.getKey())) {
+          continue;
+        }
+        String type = extractMappingType(entry.getValue());
+        if (type != null) {
+          fieldTypes.put(entry.getKey(), type);
+        }
+      }
+
+      Map<String, Object> versionedMappings =
+          getOrDefault(
+              mappings,
+              List.of(
+                  "properties",
+                  STRUCTURED_PROPERTY_MAPPING_FIELD,
+                  "properties",
+                  STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD,
+                  "properties"));
+
+      flattenStructuredPropertyMappings(
+              Map.entry(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD, versionedMappings), 0)
+          .forEach(
+              entry -> {
+                String type = extractMappingType(entry.getValue());
+                if (type != null) {
+                  fieldTypes.put(entry.getKey(), type);
+                }
+              });
+
+      return fieldTypes;
+    }
+
+    /**
+     * Flatten nested versioned structured-property mappings down to field-mapping objects (maps
+     * that declare a scalar {@code type}), without descending into the {@code type} value itself.
+     */
+    private static Stream<Map.Entry<String, Object>> flattenStructuredPropertyMappings(
+        Map.Entry<String, Object> entry, int depth) {
+      if (entry.getValue() instanceof Map<?, ?> && depth < 5) {
+        Map<String, Object> nested = (Map<String, Object>) entry.getValue();
+        Object typeValue = nested.get(TYPE);
+        boolean hasScalarType = typeValue != null && !(typeValue instanceof Map);
+        boolean hasNestedProperties = nested.get(PROPERTIES) instanceof Map;
+        if (hasScalarType && !hasNestedProperties) {
+          return Stream.of(entry);
+        }
+        return nested.entrySet().stream()
+            .map(
+                e ->
+                    new AbstractMap.SimpleEntry<String, Object>(
+                        entry.getKey() + "." + e.getKey(), e.getValue()))
+            .flatMap(e -> flattenStructuredPropertyMappings(e, depth + 1));
+      }
+      return Stream.of(entry);
+    }
+
+    @Nullable
+    private static String extractMappingType(@Nullable Object mapping) {
+      if (!(mapping instanceof Map)) {
+        return null;
+      }
+      Object type = ((Map<?, ?>) mapping).get(TYPE);
+      return type != null && !(type instanceof Map) ? type.toString() : null;
+    }
+
     private boolean isAnalysisEqual() {
+      // If currentSettings is null, assume no current settings (new index or test scenario)
+      if (super.currentSettings == null) {
+        return true;
+      }
       if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
         return true;
       }
@@ -360,10 +720,14 @@ public class ReindexConfig {
       // Compare analysis section
       Map<String, Object> newAnalysis = (Map<String, Object>) indexSettings.get("analysis");
       Settings oldAnalysis = super.currentSettings.getByPrefix("index.analysis.");
-      return equalsGroup(newAnalysis, oldAnalysis);
+      return equalsGroup(newAnalysis, oldAnalysis, super.settingsComparison);
     }
 
     private boolean isSettingsEqual() {
+      // If currentSettings is null, assume no current settings (new index or test scenario)
+      if (super.currentSettings == null) {
+        return true;
+      }
       if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
         return true;
       }
@@ -385,6 +749,10 @@ public class ReindexConfig {
     }
 
     private boolean isSettingsReindexRequired() {
+      // If currentSettings is null, assume no current settings (new index or test scenario)
+      if (super.currentSettings == null) {
+        return false;
+      }
       if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
         return false;
       }
@@ -407,15 +775,17 @@ public class ReindexConfig {
         return true;
       }
 
-      return indexSettings.containsKey("analysis")
+      return (indexSettings.containsKey("analysis")
           && !equalsGroup(
               (Map<String, Object>) indexSettings.get("analysis"),
-              super.currentSettings.getByPrefix("index.analysis."));
+              super.currentSettings.getByPrefix("index.analysis."),
+              super.settingsComparison));
     }
 
     /**
-     * Dynamic fields should not be considered as part of the difference. This might need to be
-     * improved in the future for nested object fields.
+     * Dynamic fields should not be considered as part of the difference, except for structured
+     * properties. This prevents unnecessary reindexing when dynamic fields have minor differences
+     * in their properties.
      *
      * @param currentMappings current mappings
      * @param targetMappings target mappings
@@ -423,29 +793,149 @@ public class ReindexConfig {
      */
     private static MapDifference<String, Object> calculateMapDifference(
         Map<String, Object> currentMappings, Map<String, Object> targetMappings) {
+      // Identify dynamic fields in target (fields with dynamic=true) - recursively search all
+      // levels
+      Set<String> targetDynamicFields = findDynamicFields(targetMappings, "");
 
-      // Identify dynamic object fields in target
-      Set<String> targetObjectFields =
-          targetMappings.entrySet().stream()
-              .filter(
-                  entry ->
-                      entry.getValue() instanceof Map
-                          && ((Map<String, Object>) entry.getValue()).containsKey(TYPE)
-                          && ((Map<String, Object>) entry.getValue())
-                              .get(TYPE)
-                              .equals(ESUtils.OBJECT_FIELD_TYPE))
-              .map(Map.Entry::getKey)
-              .collect(Collectors.toSet());
-
-      if (!targetObjectFields.isEmpty()) {
-        log.debug("Object fields filtered from comparison: {}", targetObjectFields);
+      if (!targetDynamicFields.isEmpty()) {
+        log.info("Dynamic fields filtered from comparison: {}", targetDynamicFields);
         Map<String, Object> filteredCurrentMappings =
-            removeKeys(currentMappings, targetObjectFields);
-        Map<String, Object> filteredTargetMappings = removeKeys(targetMappings, targetObjectFields);
-        return Maps.difference(filteredCurrentMappings, filteredTargetMappings);
+            removeDynamicFields(currentMappings, targetDynamicFields);
+        Map<String, Object> filteredTargetMappings =
+            removeDynamicFields(targetMappings, targetDynamicFields);
+
+        MapDifference<String, Object> diff =
+            Maps.difference(filteredCurrentMappings, filteredTargetMappings);
+        log.info(
+            "Map difference - entriesOnlyOnLeft: {}, entriesOnlyOnRight: {}, entriesDiffering: {}",
+            diff.entriesOnlyOnLeft().keySet(),
+            diff.entriesOnlyOnRight().keySet(),
+            diff.entriesDiffering().keySet());
+        return diff;
       }
 
-      return Maps.difference(currentMappings, targetMappings);
+      MapDifference<String, Object> diff = Maps.difference(currentMappings, targetMappings);
+      log.info(
+          "No dynamic fields found. Map difference - entriesOnlyOnLeft: {}, entriesOnlyOnRight: {}, entriesDiffering: {}",
+          diff.entriesOnlyOnLeft().keySet(),
+          diff.entriesOnlyOnRight().keySet(),
+          diff.entriesDiffering().keySet());
+      return diff;
+    }
+
+    /**
+     * Recursively find all dynamic fields in the mappings
+     *
+     * @param mappings the mappings to search
+     * @param prefix the current path prefix
+     * @return set of field paths that are dynamic
+     */
+    private static Set<String> findDynamicFields(Map<String, Object> mappings, String prefix) {
+      Set<String> dynamicFields = new HashSet<>();
+
+      for (Map.Entry<String, Object> entry : mappings.entrySet()) {
+        String fieldPath = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
+
+        if (entry.getValue() instanceof Map) {
+          Map<String, Object> fieldMapping = (Map<String, Object>) entry.getValue();
+
+          // Check if this field is explicitly marked as dynamic
+          if (fieldMapping.containsKey("dynamic")
+              && (Boolean.TRUE.equals(fieldMapping.get("dynamic"))
+                  || "true".equals(fieldMapping.get("dynamic")))) {
+            dynamicFields.add(fieldPath);
+          }
+
+          // Check if this field is known to be dynamic based on field name patterns
+          // This handles cases where ES drops dynamic=true from the mapping but the field should be
+          // dynamic
+          if (isKnownDynamicField(entry.getKey(), fieldMapping)) {
+            dynamicFields.add(fieldPath);
+          }
+
+          // Recursively search in properties if they exist
+          if (fieldMapping.containsKey("properties")
+              && fieldMapping.get("properties") instanceof Map) {
+            Map<String, Object> properties = (Map<String, Object>) fieldMapping.get("properties");
+            String propertiesPath = fieldPath.isEmpty() ? "properties" : fieldPath + ".properties";
+            dynamicFields.addAll(findDynamicFields(properties, propertiesPath));
+          }
+        }
+      }
+
+      return dynamicFields;
+    }
+
+    /**
+     * Check if a field is known to be dynamic based on its name and mapping structure. This handles
+     * cases where Elasticsearch drops dynamic=true from the mapping but the field should be
+     * dynamic.
+     *
+     * @param fieldName the field name
+     * @param fieldMapping the field mapping
+     * @return true if the field is known to be dynamic
+     */
+    private static boolean isKnownDynamicField(String fieldName, Map<String, Object> fieldMapping) {
+      // ownerTypes is dynamically built based on ownership types present in data
+      if ("ownerTypes".equals(fieldName) && "object".equals(fieldMapping.get("type"))) {
+        return true;
+      }
+
+      // structuredProperties fields are managed by dedicated definition-driven mapping updates
+      // (and the dedicated new/removed/type-mismatch detection paths), not the general mapping
+      // diff. Existing indexes may still carry dynamic:true on the container while new ones are
+      // created dynamic:false; excluding the subtree here keeps that difference from triggering
+      // reindexes.
+      if ("structuredProperties".equals(fieldName) && "object".equals(fieldMapping.get("type"))) {
+        return true;
+      }
+
+      return false;
+    }
+
+    /**
+     * Remove dynamic fields from mappings based on field paths
+     *
+     * @param mappings the mappings to filter
+     * @param dynamicFieldPaths the paths of dynamic fields to remove
+     * @return filtered mappings
+     */
+    private static Map<String, Object> removeDynamicFields(
+        Map<String, Object> mappings, Set<String> dynamicFieldPaths) {
+      Map<String, Object> filtered = new HashMap<>(mappings);
+
+      for (String fieldPath : dynamicFieldPaths) {
+        removeDynamicField(filtered, fieldPath);
+      }
+
+      return filtered;
+    }
+
+    /**
+     * Remove a single dynamic field from mappings based on its path
+     *
+     * @param mappings the mappings to modify
+     * @param fieldPath the path of the field to remove (e.g., "_aspects.ownership.ownerTypes")
+     */
+    private static void removeDynamicField(Map<String, Object> mappings, String fieldPath) {
+      String[] pathParts = fieldPath.split("\\.");
+
+      if (pathParts.length == 1) {
+        // Top-level field
+        mappings.remove(pathParts[0]);
+      } else {
+        // Nested field - navigate to the parent and remove the field
+        Map<String, Object> current = mappings;
+        for (int i = 0; i < pathParts.length - 1; i++) {
+          Object next = current.get(pathParts[i]);
+          if (next instanceof Map) {
+            current = (Map<String, Object>) next;
+          } else {
+            return; // Path doesn't exist
+          }
+        }
+        current.remove(pathParts[pathParts.length - 1]);
+      }
     }
 
     /**
@@ -479,8 +969,13 @@ public class ReindexConfig {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
-  private static boolean equalsGroup(Map<String, Object> newSettings, Settings oldSettings) {
-    if (!newSettings.keySet().equals(oldSettings.names())) {
+  private static boolean equalsGroup(
+      Map<String, Object> newSettings,
+      Settings oldSettings,
+      IndexSettingsComparison settingsComparison) {
+    Set<String> oldNames =
+        settingsComparison.indexSettingNamesForComparison(newSettings, oldSettings);
+    if (!newSettings.keySet().equals(oldNames)) {
       return false;
     }
 
@@ -492,7 +987,9 @@ public class ReindexConfig {
       }
       if (newSettings.get(key) instanceof Map) {
         if (!equalsGroup(
-            (Map<String, Object>) newSettings.get(key), oldSettings.getByPrefix(key + "."))) {
+            (Map<String, Object>) newSettings.get(key),
+            oldSettings.getByPrefix(key + "."),
+            settingsComparison)) {
           return false;
         }
       } else if (newSettings.get(key) instanceof List) {
@@ -502,14 +999,7 @@ public class ReindexConfig {
       } else {
         String oldValue = oldSettings.get(key);
         Object newValue = newSettings.get(key);
-        // Handle null values properly
-        if (newValue == null && oldValue == null) {
-          continue;
-        }
-        if (newValue == null || oldValue == null) {
-          return false;
-        }
-        if (!newValue.toString().equals(oldValue)) {
+        if (!settingsComparison.indexSettingValuesEqual(newValue, oldValue)) {
           return false;
         }
       }

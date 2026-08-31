@@ -1,5 +1,6 @@
 ---
 title: Form Analytics
+description: "Track Compliance Form completion and progress in DataHub Cloud with built-in analytics views for monitoring governance initiatives."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';

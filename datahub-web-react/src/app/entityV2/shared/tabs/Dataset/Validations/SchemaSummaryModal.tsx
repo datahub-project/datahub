@@ -1,5 +1,6 @@
-import { Button, Modal } from 'antd';
+import { Modal } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { SchemaSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/SchemaSummary';
 
@@ -19,15 +20,23 @@ type Props = {
 };
 
 export const SchemaSummaryModal = ({ schema, onClose }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
+    const { t: tc } = useTranslation('common.actions');
     return (
         <Modal
             width={800}
             style={modalStyle}
             bodyStyle={modalBodyStyle}
-            title="View Schema Assertion"
-            visible
+            title={t('schemaSummaryModal.title')}
+            open
             onCancel={onClose}
-            footer={<Button onClick={onClose}>Close</Button>}
+            buttons={[
+                {
+                    text: tc('close'),
+                    variant: 'filled',
+                    onClick: onClose,
+                },
+            ]}
         >
             <SchemaSummary schema={schema} />
         </Modal>

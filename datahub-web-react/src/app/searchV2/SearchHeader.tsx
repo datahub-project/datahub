@@ -1,26 +1,31 @@
-import { ArrowRight } from '@phosphor-icons/react';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
+import styled, { DefaultTheme, useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
+import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { V2_SEARCH_BAR_ID } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { SearchBarV2 } from '@app/searchV2/searchBarV2/SearchBarV2';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
+import { NAV_SIDEBAR_COLLAPSE_TRANSITION_MS } from '@app/shared/constants';
+import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageRoutes } from '@conf/Global';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AutoCompleteResultForEntity } from '@types';
 
-const getStyles = ($isShowNavBarRedesign?: boolean) => {
+const getStyles = ($isShowNavBarRedesign?: boolean, theme?: DefaultTheme) => {
     return {
         input: {
-            backgroundColor: $isShowNavBarRedesign ? 'white' : '#343444',
+            backgroundColor: theme?.colors?.bg ?? 'transparent',
         },
         searchBox: {
             maxWidth: $isShowNavBarRedesign ? '100%' : 620,
@@ -60,15 +65,15 @@ const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedes
 
         // preventing of NavBar's overlapping
         position: relative;
-        padding-left: ${props.$isNavBarCollapsed ? '224px' : '540px'};
-        left: ${props.$isNavBarCollapsed ? '-112px' : '-270px'};
+        padding-left: ${props.$isNavBarCollapsed ? '104px' : '540px'};
+        left: ${props.$isNavBarCollapsed ? '-52px' : '-270px'};
         transition: none;
         @media only screen and (min-width: 1280px) {
             padding-left: 540px;
             left: -270px;
         }
         @media only screen and (max-width: 1200px) {
-            transition: padding 250ms ease-in-out;
+            transition: padding ${NAV_SIDEBAR_COLLAPSE_TRANSITION_MS}ms ease-out;
         }
     `}
     ${(props) => props.$isShowNavBarRedesign && !props.$isNavBarCollapsed && 'justify-content: space-between;'}
@@ -76,7 +81,7 @@ const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedes
 `;
 
 const HeaderBackground = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    ${(props) => !props.$isShowNavBarRedesign && 'background-color: #171723;'}
+    ${(props) => !props.$isShowNavBarRedesign && `background-color: ${props.theme.colors.bgSurfaceDarker};`}
     position: fixed;
     height: 100px;
     width: 100%;
@@ -97,7 +102,7 @@ const SearchBarContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const StyledButton = styled(Button)`
-    color: ${REDESIGN_COLORS.BODY_TEXT_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     text-align: center;
 
     font-family: Mulish;
@@ -113,13 +118,13 @@ const StyledButton = styled(Button)`
     &:hover,
     :active,
     :focus {
-        color: ${REDESIGN_COLORS.GREY_300};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
 const NavBarTogglerWrapper = styled.div`
     position: fixed;
-    left: 68px;
+    left: 20px;
 `;
 
 type Props = {
@@ -144,6 +149,7 @@ export const SearchHeader = ({
     entityRegistry,
     hideSearchBar,
 }: Props) => {
+    const { t } = useTranslation('search');
     const [, setIsSearchBarFocused] = useState(false);
     const appConfig = useAppConfig();
     const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
@@ -151,7 +157,17 @@ export const SearchHeader = ({
     const { isCollapsed } = useNavBarContext();
     const searchViewAll = useSearchViewAll();
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const styles = getStyles(isShowNavBarRedesign);
+    const showHomepageRedesign = useShowHomePageRedesign();
+    const isHomePage = useIsHomePage();
+    // On the redesigned home page the toggler is rendered inside the home
+    // hero container (homeV3/header/Header.tsx), not in the global header.
+    const hideNavToggler = showHomepageRedesign && isHomePage;
+    const location = useLocation();
+
+    // Hide recommendations on analytics page since they are not displayed
+    const isAnalyticsPage = location.pathname === PageRoutes.ANALYTICS;
+    const themeConfig = useTheme();
+    const styles = getStyles(isShowNavBarRedesign, themeConfig);
 
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
     const FinalSearchBar = showSearchBarAutocompleteRedesign ? SearchBarV2 : SearchBar;
@@ -161,7 +177,7 @@ export const SearchHeader = ({
             <HeaderBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Wrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Header $isShowNavBarRedesign={isShowNavBarRedesign} $isNavBarCollapsed={isCollapsed}>
-                    {isShowNavBarRedesign && isCollapsed && (
+                    {isShowNavBarRedesign && isCollapsed && !hideNavToggler && (
                         <NavBarTogglerWrapper>
                             <NavBarToggler />
                         </NavBarTogglerWrapper>
@@ -183,6 +199,7 @@ export const SearchHeader = ({
                                 setIsSearchBarFocused={setIsSearchBarFocused}
                                 viewsEnabled={viewsEnabled}
                                 isShowNavBarRedesign={isShowNavBarRedesign}
+                                hideRecommendations={isAnalyticsPage}
                                 combineSiblings
                                 fixAutoComplete
                                 showQuickFilters
@@ -191,7 +208,7 @@ export const SearchHeader = ({
                             />
                             {isShowNavBarRedesign && (
                                 <StyledButton type="link" onClick={searchViewAll}>
-                                    View all <ArrowRight />
+                                    {t('searchHeader.discover')} <ArrowRight />
                                 </StyledButton>
                             )}
                         </SearchBarContainer>

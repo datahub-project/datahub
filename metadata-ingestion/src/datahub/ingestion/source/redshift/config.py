@@ -1,14 +1,16 @@
 import logging
+from copy import deepcopy
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import root_validator
+from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -94,17 +96,32 @@ class RedshiftConfig(
     # Because of this behavior, it uses dramatically fewer round trips for
     # large Redshift warehouses. As an example, see this query for the columns:
     # https://github.com/sqlalchemy-redshift/sqlalchemy-redshift/blob/60b4db04c1d26071c291aeea52f1dcb5dd8b0eb0/sqlalchemy_redshift/dialect.py#L745.
-    scheme: str = Field(
+    scheme: HiddenFromDocs[str] = Field(
         default="redshift+redshift_connector",
         description="",
-        hidden_from_docs=True,
     )
 
-    _database_alias_removed = pydantic_removed_field("database_alias")
+    _database_alias_removed = pydantic_removed_field(
+        "database_alias", month="November", year=2023
+    )
+    _use_lineage_v2_removed = pydantic_removed_field(
+        "use_lineage_v2", month="August", year=2025
+    )
+    _rename_lineage_v2_generate_queries_to_lineage_generate_queries = (
+        pydantic_renamed_field(
+            "lineage_v2_generate_queries", "lineage_generate_queries"
+        )
+    )
 
-    default_schema: str = Field(
+    default_schema: Optional[str] = Field(
         default="public",
-        description="The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector",
+        description=(
+            "The default schema to use if the SQL parser fails to parse the "
+            "schema with the `sql_based` lineage collector. Set to `None` "
+            "(or override at runtime) to leave unqualified table references "
+            "without a schema qualifier in the resulting URN, instead of "
+            "forcing them under the default schema."
+        ),
     )
 
     is_serverless: bool = Field(
@@ -112,13 +129,21 @@ class RedshiftConfig(
         description="Whether target Redshift instance is serverless (alternative is provisioned cluster)",
     )
 
-    use_lineage_v2: bool = Field(
+    lineage_generate_queries: bool = Field(
         default=True,
-        description="Whether to use the new SQL-based lineage collector.",
+        description="Whether to generate queries entities for the SQL-based lineage collector.",
     )
-    lineage_v2_generate_queries: bool = Field(
+
+    include_query_usage_statistics: bool = Field(
         default=True,
-        description="Whether to generate queries entities for the new SQL-based lineage collector.",
+        description=(
+            "Generate per-query popularity statistics (queryUsageStatistics) for the "
+            "Query entities emitted by the SQL-based lineage collector. This is a "
+            "sub-flag of include_usage_statistics: it only takes effect when "
+            "include_usage_statistics is enabled, and is independent of "
+            "include_column_usage_stats. Requires lineage_generate_queries (default "
+            "True) so Query entities exist to attach stats to."
+        ),
     )
 
     include_table_lineage: bool = Field(
@@ -136,6 +161,17 @@ class RedshiftConfig(
     include_usage_statistics: bool = Field(
         default=False,
         description="Generate usage statistic. email_domain config parameter needs to be set if enabled",
+    )
+
+    include_column_usage_stats: bool = Field(
+        default=False,
+        description="Generate column-level usage statistics (`fieldCounts`) by parsing "
+        "the SQL query text instead of attributing reads to the tables reported by "
+        "Redshift's `stl_scan` system table. This is slower (every read query is parsed) "
+        "but adds per-column usage. The full query text is reconstructed from "
+        "`STL_QUERYTEXT` / `SYS_QUERY_TEXT` (the same source used for lineage), not the "
+        "truncated `stl_query.querytxt`. Only applies when `include_usage_statistics` is "
+        "enabled.",
     )
 
     include_unload_lineage: bool = Field(
@@ -179,7 +215,19 @@ class RedshiftConfig(
         description="Whether to skip EXTERNAL tables.",
     )
 
-    @root_validator(pre=True)
+    extract_ownership: bool = Field(
+        default=False,
+        description=(
+            "When enabled, extracts table and view owners from the Redshift catalog "
+            "(pg_catalog.pg_user) and emits them as TECHNICAL_OWNER in DataHub. "
+            "Ownership is applied using OVERWRITE mode, meaning any existing ownership "
+            "information (including manually added or modified owners from the UI) "
+            "will be replaced."
+        ),
+    )
+
+    @model_validator(mode="before")
+    @classmethod
     def check_email_is_set_on_usage(cls, values):
         if values.get("include_usage_statistics"):
             assert "email_domain" in values and values["email_domain"], (
@@ -187,32 +235,45 @@ class RedshiftConfig(
             )
         return values
 
-    @root_validator(skip_on_failure=True)
-    def check_database_is_set(cls, values):
-        assert values.get("database"), "database must be set"
-        return values
+    @model_validator(mode="after")
+    def check_database_is_set(self) -> "RedshiftConfig":
+        assert self.database, "database must be set"
+        return self
 
-    @root_validator(skip_on_failure=True)
-    def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
-        match_fully_qualified_names = values.get("match_fully_qualified_names")
+    @property
+    def lineage_enabled(self) -> bool:
+        """True if any lineage source is enabled. Single source of truth so the
+        source-level gating and the aggregator's generate_lineage stay in sync."""
+        return (
+            self.include_table_lineage
+            or self.include_view_lineage
+            or self.include_copy_lineage
+            or self.include_unload_lineage
+            or self.include_share_lineage
+            or self.include_table_rename_lineage
+        )
 
-        schema_pattern: Optional[AllowDenyPattern] = values.get("schema_pattern")
-
+    @model_validator(mode="after")
+    def backward_compatibility_configs_set(self) -> "RedshiftConfig":
         if (
-            schema_pattern is not None
-            and schema_pattern != AllowDenyPattern.allow_all()
-            and match_fully_qualified_names is not None
-            and not match_fully_qualified_names
+            self.schema_pattern is not None
+            and self.schema_pattern != AllowDenyPattern.allow_all()
+            and self.match_fully_qualified_names is not None
+            and not self.match_fully_qualified_names
         ):
             logger.warning(
                 "Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
                 "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
                 "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
             )
-        return values
+        return self
 
-    @root_validator(skip_on_failure=True)
+    @model_validator(mode="before")
+    @classmethod
     def connection_config_compatibility_set(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
+
         if (
             ("options" in values and "connect_args" in values["options"])
             and "extra_client_options" in values
@@ -225,8 +286,8 @@ class RedshiftConfig(
         if "options" in values and "connect_args" in values["options"]:
             values["extra_client_options"] = values["options"]["connect_args"]
 
-        if values["extra_client_options"]:
-            if values["options"]:
+        if values.get("extra_client_options"):
+            if values.get("options"):
                 values["options"]["connect_args"] = values["extra_client_options"]
             else:
                 values["options"] = {"connect_args": values["extra_client_options"]}

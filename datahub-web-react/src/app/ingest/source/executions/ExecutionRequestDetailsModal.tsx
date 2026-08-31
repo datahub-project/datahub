@@ -1,10 +1,9 @@
 import { DownloadOutlined } from '@ant-design/icons';
 import { Button, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 import YAML from 'yamljs';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import IngestedAssets from '@app/ingest/source/IngestedAssets';
 import { StructuredReport } from '@app/ingest/source/executions/reporting/StructuredReport';
 import {
@@ -56,7 +55,7 @@ const SubHeaderParagraph = styled(Typography.Paragraph)`
 const HeaderSection = styled.div``;
 
 const StatusSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${({ theme }) => theme.colors.border};
     padding: 16px;
     padding-left: 30px;
     padding-right: 30px;
@@ -67,14 +66,14 @@ const ResultText = styled.div`
 `;
 
 const IngestedAssetsSection = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${({ theme }) => theme.colors.border};
     padding: 16px;
     padding-left: 30px;
     padding-right: 30px;
 `;
 
 const RecipeSection = styled.div`
-    border-top: 1px solid ${ANTD_GRAY[4]};
+    border-top: 1px solid ${({ theme }) => theme.colors.border};
     padding-top: 16px;
     padding-left: 30px;
     padding-right: 30px;
@@ -92,12 +91,12 @@ const ShowMoreButton = styled(Button)`
 
 const DetailsContainer = styled.div<DetailsContainerProps>`
     margin-bottom: -25px;
-    ${(props) =>
-        props.areDetailsExpandable &&
-        !props.showExpandedDetails &&
+    ${({ areDetailsExpandable, showExpandedDetails, theme }) =>
+        areDetailsExpandable &&
+        !showExpandedDetails &&
         `
-        -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90% );
-        mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90%);
+        -webkit-mask-image: linear-gradient(to bottom, black 50%, ${theme.colors.overlayMask} 60%, transparent 90%);
+        mask-image: linear-gradient(to bottom, black 50%, ${theme.colors.overlayMask} 60%, transparent 90%);
     `}
 `;
 
@@ -123,6 +122,7 @@ type Props = {
 export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     const [showExpandedLogs, setShowExpandedLogs] = useState(false);
     const [showExpandedRecipe, setShowExpandedRecipe] = useState(false);
+    const theme = useTheme();
 
     const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
     const output = data?.executionRequest?.result?.report || 'No output found.';
@@ -144,7 +144,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     });
 
     const ResultIcon = status && getExecutionRequestStatusIcon(status);
-    const resultColor = status && getExecutionRequestStatusDisplayColor(status);
+    const resultColor = status && getExecutionRequestStatusDisplayColor(theme, status);
     const resultText = status && (
         <Typography.Text style={{ color: resultColor, fontSize: 14 }}>
             {ResultIcon && <ResultIcon style={{ marginRight: 4 }} />}

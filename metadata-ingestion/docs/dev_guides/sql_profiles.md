@@ -1,3 +1,7 @@
+---
+description: "SQL Profiling in DataHub collects table-level and column-level statistics for relational sources during ingestion."
+---
+
 # SQL Profiling
 
 SQL Profiling collects table level and column level statistics.
@@ -26,4 +30,23 @@ Extracts:
 
 ## Supported Sources
 
-SQL profiling is supported for all SQL sources. Check the individual source page to verify if it supports profiling.
+{{ inline /docs/generated/ingestion/sql_profiling_support_table.md.snippet }}
+
+## Profiler Implementation
+
+DataHub uses a SQLAlchemy-based profiler for all SQL sources. It runs profiling queries directly against your SQL source's existing SQLAlchemy connection and emits the table- and column-level statistics listed under [Capabilities](#capabilities). No additional dependencies are required beyond the SQL connector itself.
+
+No configuration is required to use it — any SQL source with profiling enabled will use the SQLAlchemy profiler automatically:
+
+```yaml
+source:
+  config:
+    profiling:
+      enabled: true
+```
+
+:::note
+
+The legacy Great Expectations profiler (`profiling.method: ge`) has been removed. SQLAlchemy is now the only SQL profiler; the `profiling.method` option no longer has any effect and can be dropped from recipes.
+
+:::

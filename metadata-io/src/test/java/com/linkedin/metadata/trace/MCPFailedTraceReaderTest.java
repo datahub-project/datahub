@@ -13,7 +13,7 @@ import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,11 +29,12 @@ public class MCPFailedTraceReaderTest
   KafkaTraceReader<FailedMetadataChangeProposal> buildTraceReader() {
     return MCPFailedTraceReader.builder()
         .adminClient(adminClient)
-        .consumerSupplier(() -> consumer)
+        .consumerPool(TraceConsumerPools.singleConsumer(consumer))
         .pollDurationMs(100)
         .pollMaxAttempts(3)
         .executorService(executorService)
         .timeoutSeconds(5)
+        .cancelFuturesOnTimeout(true)
         .topicName(TOPIC_NAME)
         .consumerGroupId(CONSUMER_GROUP)
         .build();
@@ -80,7 +81,7 @@ public class MCPFailedTraceReaderTest
 
     SystemMetadata systemMetadata = new SystemMetadata();
     Map<String, String> properties = new HashMap<>();
-    properties.put(TraceContext.TELEMETRY_TRACE_KEY, TRACE_ID);
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TRACE_ID);
     systemMetadata.setProperties(new StringMap(properties));
 
     FailedMetadataChangeProposal fmcp = buildMessage(systemMetadata);

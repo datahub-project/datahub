@@ -1,7 +1,7 @@
 namespace com.linkedin.metadata.query.filter
 
 /**
- * A criterion for matching a field with given value
+ * A criterion for matching a field with given values
  */
 record Criterion {
 
@@ -11,13 +11,7 @@ record Criterion {
   field: string
 
   /**
-   * The value of the intended field
-   */
-  value: string
-
-  /**
-   * Values. one of which the intended field should match
-   * Note, if values is set, the above "value" field will be ignored
+   * Values to match against the field (one match suffices unless otherwise documented).
    */
   values: array[string] = []
 

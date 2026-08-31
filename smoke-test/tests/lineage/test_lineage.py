@@ -38,9 +38,12 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
+from tests.utilities.domains import Domain
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 class DeleteAgent:
@@ -58,12 +61,12 @@ class DataHubGraphDeleteAgent(DeleteAgent):
 
 class DataHubConsoleDeleteAgent(DeleteAgent):
     def delete_entity(self, urn: str) -> None:
-        print(f"Would delete {urn}")
+        logger.info(f"Would delete {urn}")
 
 
 class DataHubConsoleEmitter:
     def emit_mcp(self, mcp: MetadataChangeProposalWrapper) -> None:
-        print(mcp)
+        logger.info(mcp)
 
 
 INFINITE_HOPS: int = -1
@@ -186,9 +189,11 @@ def search_across_lineage(
         """,
         variables=variable,
     )
-    print(f"Query -> Entity {main_entity} with hops {hops} and direction {direction}")
-    print(result)
-    print(_explain_sal_result(result))
+    logger.info(
+        f"Query -> Entity {main_entity} with hops {hops} and direction {direction}"
+    )
+    logger.info(result)
+    logger.info(_explain_sal_result(result))
     return result
 
 
@@ -307,7 +312,7 @@ class ScenarioExpectation:
             if query.hops != INFINITE_HOPS and len(paths) != (
                 query.hops + 1
             ):  # +1 because the path includes the main entity
-                print(
+                logger.info(
                     f"Skipping {entity} because it is less than or more than {query.hops} hops away"
                 )
                 continue
@@ -704,7 +709,7 @@ class Scenario(BaseModel):
             delete_agent.delete_entity(urn)
 
     def test_expectation(self, graph: DataHubGraph) -> bool:
-        print("Testing expectation...")
+        logger.info("Testing expectation...")
         assert self.expectations is not None
         try:
             for hop_index in range(self.num_hops):
@@ -722,7 +727,7 @@ class Scenario(BaseModel):
                     graph.exists(self.get_transformation_query_urn(hop_index)) is True
                 )
 
-            wait_for_writes_to_sync()  # Wait for the graph to update
+            wait_for_writes_to_sync(mcp_only=True)  # Wait for the graph to update
             # We would like to check that lineage is correct for all datasets and schema fields for all values of hops and for all directions of lineage exploration
             # Since we already have expectations stored for all datasets and schema_fields, we can just check that the results match the expectations
 
@@ -789,10 +794,10 @@ class Scenario(BaseModel):
                         raise
                     # for i in range(len(impacted_entity_paths)):
                     #     assert impacted_entity_paths[i].path == expectation.impacted_entities[impacted_entity][i].path, f"Expected impacted entity paths to be {expectation.impacted_entities[impacted_entity][i].path}, found {impacted_entity_paths[i].path}"
-            print("Test passed!")
+            logger.info("Test passed!")
             return True
         except AssertionError as e:
-            print("Test failed!")
+            logger.info("Test failed!")
             raise e
             return False
 
@@ -837,7 +842,7 @@ def test_lineage_via_node(
     for mcps in scenario.get_lineage_mcps():
         emitter.emit_mcp(mcps)
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
     try:
         scenario.test_expectation(graph_client)
     finally:
@@ -924,7 +929,7 @@ def ingest_multipath_metadata(
         ],
     ):
         graph_client.emit_mcp(mcp)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
     yield
     for urn in [chart_urn] + intermediates + [destination_urn]:
         graph_client.delete_entity(urn, hard=True)

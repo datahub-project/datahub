@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useDataNotCombinedWithSiblings, useEntityData } from '@app/entity/shared/EntityContext';
 import { stripSiblingsFromEntity } from '@app/entity/shared/siblingUtils';
 import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
@@ -14,6 +14,9 @@ import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { Dataset, Entity } from '@types';
 
+// eslint-disable-next-line i18next/no-literal-string -- API filter field name, not UI text
+const SIBLINGS_FILTER_FIELD = 'siblings';
+
 const EntityListContainer = styled.div`
     display: flex;
     align-items: center;
@@ -21,7 +24,7 @@ const EntityListContainer = styled.div`
     flex-wrap: wrap;
 
     margin-left: -8px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const AndMoreWrapper = styled.div`
@@ -29,11 +32,12 @@ const AndMoreWrapper = styled.div`
     margin-top: 5px;
     :hover {
         cursor: pointer;
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+        color: ${(props) => props.theme.colors.hyperlinks};
     }
 `;
 
 export const SidebarSiblingsSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData, urn } = useEntityData();
 
     const dataNotCombinedWithSiblings = useDataNotCombinedWithSiblings<GetDatasetQuery>();
@@ -51,7 +55,7 @@ export const SidebarSiblingsSection = () => {
     if (!showSeparateSiblings && isHideSiblingMode) {
         return (
             <SidebarSection
-                title="Part of"
+                title={t('sidebar.siblings.partOfTitle')}
                 content={
                     <EntityListContainer>
                         <CompactEntityNameList entities={[entityData as Entity]} showFullTooltips />
@@ -74,8 +78,6 @@ export const SidebarSiblingsSection = () => {
         return <></>;
     }
 
-    // you are always going to be in the sibling group, so if the sibling group is just you do not render.
-    // The less than case is likely not neccessary but just there as a safety case for unexpected scenarios
     if (!showSeparateSiblings && allSiblingsInGroupThatExist.length <= 1) {
         return <></>;
     }
@@ -85,7 +87,7 @@ export const SidebarSiblingsSection = () => {
     return (
         <>
             <SidebarSection
-                title="Composed of"
+                title={t('sidebar.siblings.composedOfTitle')}
                 content={
                     <EntityListContainer data-testid="siblings-list">
                         <CompactEntityNameList
@@ -95,7 +97,7 @@ export const SidebarSiblingsSection = () => {
                         />
                         {numSiblingsNotShown > 0 && (
                             <AndMoreWrapper onClick={() => setShowAllSiblings(true)}>
-                                and {numSiblingsNotShown} more
+                                {t('sidebar.siblings.andMore', { count: numSiblingsNotShown })}
                             </AndMoreWrapper>
                         )}
                     </EntityListContainer>
@@ -103,10 +105,10 @@ export const SidebarSiblingsSection = () => {
             />
             {showAllSiblings && (
                 <EmbeddedListSearchModal
-                    title="View All Siblings"
+                    title={t('sidebar.siblings.viewAllTitle')}
                     fixedFilters={{
                         unionType: UnionType.OR,
-                        filters: [{ field: 'siblings', values: [urn] }],
+                        filters: [{ field: SIBLINGS_FILTER_FIELD, values: [urn] }],
                     }}
                     onClose={() => setShowAllSiblings(false)}
                 />

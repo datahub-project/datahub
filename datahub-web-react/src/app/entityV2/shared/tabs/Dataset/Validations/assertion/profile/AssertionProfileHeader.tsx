@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Actions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/Actions';
@@ -14,15 +15,15 @@ const Container = styled.div`
     justify-content: space-between;
     align-items: start;
     padding: 20px 24px;
-    border-bottom: 1px solid #f0f0f0;
-    background-color: #fff;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const NavBar = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const Status = styled.div``;
@@ -53,6 +54,7 @@ type Props = {
 // TODO: Add support for V2 styled actions: Delete, start, stop.
 // TODO: Replace with the newer close Icon.
 export const AssertionProfileHeader = ({ assertion, contract, result, canEditContract, close, refetch }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const isFieldAssertion = assertion?.info?.type === AssertionType.Field;
     return (
         <>
@@ -78,7 +80,7 @@ export const AssertionProfileHeader = ({ assertion, contract, result, canEditCon
                             }}
                         />
                     )) ||
-                        'Assertion details'}
+                        t('profile.assertionDetails')}
                 </Title>
                 <Status>
                     <AssertionResultPill result={result} />

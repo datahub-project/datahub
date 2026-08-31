@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<suite name="metadata-io-opensearch" parallel="tests" thread-count="1">
+    <test name="opensearch-testcontainers">
+        <packages>
+            <package name="com.linkedin.metadata.graph.search.opensearch.*" />
+            <package name="com.linkedin.metadata.search.opensearch.*"/>
+            <package name="com.linkedin.metadata.test.batch.opensearch.*"/>
+        </packages>
+    </test>
+</suite>
+

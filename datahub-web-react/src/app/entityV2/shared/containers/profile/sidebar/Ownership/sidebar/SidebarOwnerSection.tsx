@@ -1,9 +1,10 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
-// import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
+import { isPropagated } from '@app/entity/shared/propagation/utils';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import { EditOwnersModal } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
@@ -12,6 +13,7 @@ import { OwnershipTypeSection } from '@app/entityV2/shared/containers/profile/si
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { ENTITY_PROFILE_OWNERS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import { dedupeByUrn } from '@src/utils/dedupeByUrn';
 
 import { Owner, OwnershipType, OwnershipTypeEntity } from '@types';
 
@@ -28,6 +30,7 @@ const OwnershipSections = styled.div`
     justify-content: start;
     flex-wrap: wrap;
     max-width: 100%;
+    gap: 4px;
 `;
 
 interface Props {
@@ -36,6 +39,7 @@ interface Props {
 }
 
 export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityType, entityData } = useEntityData();
     const mutationUrn = useMutationUrn();
 
@@ -80,13 +84,19 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
     return (
         <div id={ENTITY_PROFILE_OWNERS_ID}>
             <SidebarSection
-                title="Owners"
+                title={t('sidebar.ownership.sectionTitle')}
                 content={
                     <Content>
                         <OwnershipSections>
                             {ownershipTypeNames.map((ownershipTypeName) => {
                                 const ownershipType = ownershipTypesMap.get(ownershipTypeName) as OwnershipTypeEntity;
-                                const owners = ownersByTypeMap.get(ownershipTypeName) as Owner[];
+                                // Guard against the same owner urn appearing more than once with different
+                                // attribution, preferring the non-propagated (manually applied) entry
+                                const owners = dedupeByUrn(
+                                    ownersByTypeMap.get(ownershipTypeName) as Owner[],
+                                    (owner) => owner.owner.urn,
+                                    (owner) => isPropagated(owner.attribution?.sourceDetail),
+                                );
                                 return (
                                     <OwnershipTypeSection
                                         key={ownershipTypeName}
@@ -103,13 +113,13 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                 extra={
                     !readOnly && (
                         <SectionActionButton
-                            button={<AddRoundedIcon />}
+                            icon={Plus}
                             onClick={(event) => {
                                 setShowAddModal(true);
                                 event.stopPropagation();
                             }}
                             actionPrivilege={canEditOwners}
-                            dataTestId="addOwner"
+                            dataTestId="add-owners-button"
                         />
                     )
                 }

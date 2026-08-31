@@ -293,6 +293,25 @@ class MLModel(
                 job for job in props.downstreamJobs if job != job_str
             ]
 
+    @property
+    def deployments(self) -> Optional[List[str]]:
+        return self._ensure_model_props().deployments
+
+    def set_deployments(self, deployments: Sequence[str]) -> None:
+        self._ensure_model_props().deployments = list(deployments)
+
+    def add_deployment(self, deployment: str) -> None:
+        props = self._ensure_model_props()
+        if props.deployments is None:
+            props.deployments = []
+        if deployment not in props.deployments:
+            props.deployments.append(deployment)
+
+    def remove_deployment(self, deployment: str) -> None:
+        props = self._ensure_model_props()
+        if props.deployments is not None:
+            props.deployments = [d for d in props.deployments if d != deployment]
+
     def _init_basic_properties(
         self,
         version: Optional[str] = None,

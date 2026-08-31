@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
+from pydantic import ConfigDict
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_user_urn
@@ -52,8 +53,8 @@ OPERATION_STATEMENT_TYPES = {
     "CREATE": OperationTypeClass.CREATE,
     "CREATE_TABLE": OperationTypeClass.CREATE,
     "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
-    "MERGE": OperationTypeClass.CUSTOM,
-    "COPY": OperationTypeClass.CUSTOM,
+    "MERGE": OperationTypeClass.UPDATE,  # Upsert semantics - aligns with BigQuery
+    "COPY": OperationTypeClass.INSERT,  # Bulk load semantics
     "TRUNCATE_TABLE": OperationTypeClass.CUSTOM,
     # TODO: Dataset for below query types are not detected by snowflake in snowflake.access_history.objects_modified.
     # However it seems possible to support these using sql parsing in future.
@@ -70,8 +71,7 @@ OPERATION_STATEMENT_TYPES = {
 
 
 class PermissiveModel(pydantic.BaseModel):
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class SnowflakeColumnReference(PermissiveModel):
@@ -231,7 +231,10 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
 
         with self.report.usage_aggregation.result_fetch_timer as fetch_timer:
             for row in results:
-                with fetch_timer.pause(), self.report.usage_aggregation.result_skip_timer as skip_timer:
+                with (
+                    fetch_timer.pause(),
+                    self.report.usage_aggregation.result_skip_timer as skip_timer,
+                ):
                     if results.rownumber is not None and results.rownumber % 1000 == 0:
                         logger.debug(f"Processing usage row number {results.rownumber}")
                         logger.debug(self.report.usage_aggregation.as_string())
@@ -255,7 +258,10 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                             f"Skipping usage for {row['OBJECT_DOMAIN']} {dataset_identifier}, as table is not accessible."
                         )
                         continue
-                    with skip_timer.pause(), self.report.usage_aggregation.result_map_timer as map_timer:
+                    with (
+                        skip_timer.pause(),
+                        self.report.usage_aggregation.result_map_timer as map_timer,
+                    ):
                         wu = self.build_usage_statistics_for_dataset(
                             dataset_identifier, row
                         )
@@ -292,7 +298,8 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 exc_info=e,
             )
             self.report.warning(
-                "Failed to parse usage statistics for dataset", dataset_identifier
+                message="Failed to parse usage statistics for dataset",
+                context=dataset_identifier,
             )
 
         return None
@@ -360,7 +367,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             return sorted(
                 [
                     DatasetFieldUsageCounts(
-                        fieldPath=self.identifiers.snowflake_identifier(
+                        fieldPath=self.identifiers.snowflake_column_identifier(
                             field_count["col"]
                         ),
                         count=field_count["total"],
@@ -411,8 +418,9 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 else:
                     logger.debug(e, exc_info=e)
                     self.report.warning(
-                        "usage",
-                        f"Extracting the date range for usage data from Snowflake failed due to error {e}.",
+                        message="Extracting the date range for usage data from Snowflake failed",
+                        context="usage",
+                        exc=e,
                     )
                 self.report_status("date-range-check", False)
             else:
@@ -423,8 +431,8 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                         or db_row["MAX_TIME"] is None
                     ):
                         self.report.warning(
-                            "check-usage-data",
-                            f"Missing data for access_history {db_row}.",
+                            message="Missing data for access_history",
+                            context=f"check-usage-data: {db_row}",
                         )
                         break
                     self.report.min_access_history_time = db_row["MIN_TIME"].astimezone(
@@ -509,8 +517,9 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
         except Exception as e:
             self.report.rows_parsing_error += 1
             self.report.warning(
-                "operation",
-                f"Failed to parse operation history row {event_dict}, {e}",
+                message="Failed to parse operation history row",
+                context=f"{event_dict}",
+                exc=e,
             )
 
     def parse_event_objects(self, event_dict: Dict) -> None:
@@ -582,9 +591,10 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             )
         ):
             # Skip this run
-            self.report.report_warning(
-                "usage-extraction",
-                "Skip this run as there was already a run for current ingestion window.",
+            self.report.warning(
+                message="Skip this run as there was already a run for current ingestion window.",
+                context="usage-extraction",
+                log=False,
             )
             return False
 

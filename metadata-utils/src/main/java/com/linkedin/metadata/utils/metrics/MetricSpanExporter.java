@@ -4,20 +4,22 @@ import static com.linkedin.metadata.utils.metrics.MetricUtils.DROPWIZARD_METRIC;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.DROPWIZARD_NAME;
 
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.sdk.common.CompletableResultCode;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
 import java.util.Collection;
-import java.util.concurrent.TimeUnit;
+import lombok.RequiredArgsConstructor;
 
 /** Created to forward opentelemetry spans to dropwizard for backwards compatibility */
+@RequiredArgsConstructor
 public class MetricSpanExporter implements SpanExporter {
   private static final AttributeKey<String> DROPWIZARD_ATTR_KEY =
       AttributeKey.stringKey(DROPWIZARD_METRIC);
   private static final AttributeKey<String> DROPWIZARD_NAME_ATTR_KEY =
       AttributeKey.stringKey(DROPWIZARD_NAME);
+
+  private final MetricUtils metricUtils;
 
   @Override
   public CompletableResultCode export(Collection<SpanData> spans) {
@@ -42,8 +44,7 @@ public class MetricSpanExporter implements SpanExporter {
             : MetricRegistry.name(dropWizardName);
 
     // Update timer with the span duration
-    Timer timer = MetricUtils.get().timer(dropWizardMetricName);
-    timer.update(durationNanos, TimeUnit.NANOSECONDS);
+    if (metricUtils != null) metricUtils.time(dropWizardMetricName, durationNanos);
   }
 
   @Override

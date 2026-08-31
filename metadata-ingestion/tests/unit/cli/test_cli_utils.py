@@ -15,13 +15,15 @@ def test_first_non_null():
     assert cli_utils.first_non_null([" ", "1", "2"]) == "1"
 
 
-@mock.patch.dict(os.environ, {"DATAHUB_GMS_HOST": "http://localhost:9092"})
+@mock.patch.dict(os.environ, {"DATAHUB_GMS_HOST": "http://localhost:9092"}, clear=True)
 def test_correct_url_when_gms_host_in_old_format():
     assert _get_config_from_env() == ("http://localhost:9092", None)
 
 
 @mock.patch.dict(
-    os.environ, {"DATAHUB_GMS_HOST": "localhost", "DATAHUB_GMS_PORT": "8080"}
+    os.environ,
+    {"DATAHUB_GMS_HOST": "localhost", "DATAHUB_GMS_PORT": "8080"},
+    clear=True,
 )
 def test_correct_url_when_gms_host_and_port_set():
     assert _get_config_from_env() == ("http://localhost:8080", None)
@@ -34,6 +36,7 @@ def test_correct_url_when_gms_host_and_port_set():
         "DATAHUB_GMS_HOST": "localhost",
         "DATAHUB_GMS_PORT": "8080",
     },
+    clear=True,
 )
 def test_correct_url_when_gms_host_port_url_set():
     assert _get_config_from_env() == ("http://localhost:8080", None)
@@ -47,6 +50,7 @@ def test_correct_url_when_gms_host_port_url_set():
         "DATAHUB_GMS_PORT": "8080",
         "DATAHUB_GMS_PROTOCOL": "https",
     },
+    clear=True,
 )
 def test_correct_url_when_gms_host_port_url_protocol_set():
     assert _get_config_from_env() == ("https://localhost:8080", None)
@@ -57,6 +61,7 @@ def test_correct_url_when_gms_host_port_url_protocol_set():
     {
         "DATAHUB_GMS_URL": "https://example.com",
     },
+    clear=True,
 )
 def test_correct_url_when_url_set():
     assert _get_config_from_env() == ("https://example.com", None)

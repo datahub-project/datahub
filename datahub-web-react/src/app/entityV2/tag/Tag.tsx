@@ -1,8 +1,8 @@
-import { TagFilled, TagOutlined } from '@ant-design/icons';
+import { Tag as TagIcon } from '@phosphor-icons/react/dist/csr/Tag';
+import i18next from 'i18next';
 import * as React from 'react';
-import styled from 'styled-components';
 
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewContext, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import { urlEncodeUrn } from '@app/entityV2/shared/utils';
@@ -11,10 +11,6 @@ import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 
 import { EntityType, SearchResult, Tag } from '@types';
 
-const PreviewTagIcon = styled(TagOutlined)`
-    font-size: 20px;
-`;
-
 /**
  * Definition of the DataHub Tag entity.
  */
@@ -22,21 +18,12 @@ export class TagEntity implements Entity<Tag> {
     type: EntityType = EntityType.Tag;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <TagFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <TagFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
         return (
-            <TagOutlined
+            <TagIcon
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -53,13 +40,13 @@ export class TagEntity implements Entity<Tag> {
 
     getPathName: () => string = () => this.getGraphName();
 
-    getCollectionName: () => string = () => 'Tags';
+    getCollectionName: () => string = () => i18next.t('entity.types:tag.namePlural');
 
-    getEntityName: () => string = () => 'Tag';
+    getEntityName: () => string = () => i18next.t('entity.types:tag.name');
 
     renderProfile: (urn: string) => JSX.Element = (urn) => <TagProfile urn={urn} />;
 
-    renderPreview = (previewType: PreviewType, data: Tag) => {
+    renderPreview = (previewType: PreviewType, data: Tag, _actions, extraContext?: PreviewContext) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <DefaultPreviewCard
@@ -68,16 +55,18 @@ export class TagEntity implements Entity<Tag> {
                 name={this.displayName(data)}
                 urn={data.urn}
                 url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
-                logoComponent={<PreviewTagIcon />}
+                logoComponent={<TagIcon size={20} color="currentColor" />}
                 entityType={EntityType.Tag}
                 typeIcon={this.icon(14, IconStyleType.ACCENT)}
                 previewType={previewType}
+                deprecation={data.deprecation}
+                propagationDetails={extraContext?.propagationDetails}
             />
         );
     };
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as Tag);
+        return this.renderPreview(PreviewType.SEARCH, result.entity as Tag, undefined, undefined);
     };
 
     displayName = (data: Tag) => {
@@ -89,6 +78,6 @@ export class TagEntity implements Entity<Tag> {
     };
 
     supportedCapabilities = () => {
-        return new Set([EntityCapabilityType.OWNERS]);
+        return new Set([EntityCapabilityType.OWNERS, EntityCapabilityType.DEPRECATION]);
     };
 }

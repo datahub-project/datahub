@@ -1,3 +1,6 @@
+import json
+from datetime import datetime, timezone
+
 from pydantic import BaseModel
 
 from datahub.api.entities.common.serialized_value import SerializedResourceValue
@@ -20,11 +23,11 @@ def test_base_model():
     serialized_resource_value = SerializedResourceValue.create(test_base_model)
 
     assert serialized_resource_value.content_type == "JSON"
-    # TODO: This is a bug in the code. The schema_type should not be None.
     assert serialized_resource_value.schema_type == "JSON"
+    # Keys should be sorted alphabetically
     assert (
         serialized_resource_value.blob
-        == b'{"test_string_field": "test_string_field", "test_int_field": 42, "test_dict_field": {"test_key": "test_value"}}'
+        == b'{"test_dict_field": {"test_key": "test_value"}, "test_int_field": 42, "test_string_field": "test_string_field"}'
     )
     assert serialized_resource_value.schema_ref == MyTestModel.__name__
 
@@ -55,6 +58,18 @@ def test_dictwrapper():
     assert read_typed_resource_value.tags == []
 
 
+def test_base_model_with_datetime_field():
+    class ModelWithDatetime(BaseModel):
+        ts: datetime
+
+    m = ModelWithDatetime(ts=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    srv = SerializedResourceValue.create(m)
+    parsed = json.loads(srv.blob)
+    assert isinstance(parsed["ts"], str)
+    # Python 3.10 fromisoformat doesn't accept 'Z'; replace before parsing.
+    datetime.fromisoformat(parsed["ts"].replace("Z", "+00:00"))
+
+
 def test_raw_dictionary():
     test_object = {
         "test_string_field": "test_string_field",
@@ -66,6 +81,7 @@ def test_raw_dictionary():
 
     assert serialized_resource_value.content_type == "JSON"
     assert serialized_resource_value.schema_type is None
+    # Raw dictionaries don't use sort_keys, so they maintain original order
     assert (
         serialized_resource_value.blob
         == b'{"test_string_field": "test_string_field", "test_int_field": 42, "test_dict_field": {"test_key": "test_value"}}'

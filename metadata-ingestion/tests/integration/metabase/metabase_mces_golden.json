@@ -24,12 +24,20 @@
                             }
                         },
                         "chartUrl": "http://localhost:3000/card/1",
-                        "inputs": [
+                        "inputEdges": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)"
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
+                                "lastModified": {
+                                    "time": 1639417592792,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
                             },
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)"
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
+                                "lastModified": {
+                                    "time": 1639417592792,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
                             }
                         ],
                         "type": "TABLE"
@@ -91,9 +99,13 @@
                             }
                         },
                         "chartUrl": "http://localhost:3000/card/2",
-                        "inputs": [
+                        "inputEdges": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)"
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)",
+                                "lastModified": {
+                                    "time": 1636614000000,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
                             }
                         ],
                         "type": "BAR"
@@ -149,12 +161,20 @@
                             }
                         },
                         "chartUrl": "http://localhost:3000/card/3",
-                        "inputs": [
+                        "inputEdges": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)"
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)",
+                                "lastModified": {
+                                    "time": 1685628119636,
+                                    "actor": "urn:li:corpuser:john.doe@example.com"
+                                }
                             },
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)"
+                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)",
+                                "lastModified": {
+                                    "time": 1685628119636,
+                                    "actor": "urn:li:corpuser:john.doe@example.com"
+                                }
                             }
                         ],
                         "type": "TABLE"
@@ -195,12 +215,32 @@
                         "customProperties": {},
                         "title": "Dashboard 1",
                         "description": "",
-                        "charts": [
-                            "urn:li:chart:(metabase,1)",
-                            "urn:li:chart:(metabase,2)",
-                            "urn:li:chart:(metabase,3)"
+                        "charts": [],
+                        "chartEdges": [
+                            {
+                                "destinationUrn": "urn:li:chart:(metabase,1)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:chart:(metabase,2)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:chart:(metabase,3)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            }
                         ],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1705398694904,
@@ -249,12 +289,32 @@
                         "customProperties": {},
                         "title": "Dashboard 2",
                         "description": "",
-                        "charts": [
-                            "urn:li:chart:(metabase,1)",
-                            "urn:li:chart:(metabase,2)",
-                            "urn:li:chart:(metabase,3)"
+                        "charts": [],
+                        "chartEdges": [
+                            {
+                                "destinationUrn": "urn:li:chart:(metabase,1)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:chart:(metabase,2)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:chart:(metabase,3)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            }
                         ],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1705398694904,
@@ -303,12 +363,32 @@
                         "customProperties": {},
                         "title": "Dashboard 1",
                         "description": "",
-                        "charts": [
-                            "urn:li:chart:(metabase,1)",
-                            "urn:li:chart:(metabase,2)",
-                            "urn:li:chart:(metabase,3)"
+                        "charts": [],
+                        "chartEdges": [
+                            {
+                                "destinationUrn": "urn:li:chart:(metabase,1)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:chart:(metabase,2)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:chart:(metabase,3)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            }
                         ],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1705398694904,
@@ -357,12 +437,32 @@
                         "customProperties": {},
                         "title": "Dashboard 2",
                         "description": "",
-                        "charts": [
-                            "urn:li:chart:(metabase,1)",
-                            "urn:li:chart:(metabase,2)",
-                            "urn:li:chart:(metabase,3)"
+                        "charts": [],
+                        "chartEdges": [
+                            {
+                                "destinationUrn": "urn:li:chart:(metabase,1)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:chart:(metabase,2)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            },
+                            {
+                                "destinationUrn": "urn:li:chart:(metabase,3)",
+                                "lastModified": {
+                                    "time": 1705398694904,
+                                    "actor": "urn:li:corpuser:admin@metabase.com"
+                                }
+                            }
                         ],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1705398694904,

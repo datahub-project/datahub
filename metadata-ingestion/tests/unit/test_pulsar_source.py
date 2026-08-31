@@ -28,7 +28,7 @@ class TestPulsarSourceConfig:
 
     def test_pulsar_source_config_valid_web_service_url(self):
         assert (
-            PulsarSourceConfig().web_service_url_scheme_host_port(
+            PulsarSourceConfig.web_service_url_scheme_host_port(
                 "http://localhost:8080/"
             )
             == "http://localhost:8080"
@@ -38,16 +38,14 @@ class TestPulsarSourceConfig:
         with pytest.raises(
             ValueError, match=r"Scheme should be http or https, found ftp"
         ):
-            PulsarSourceConfig().web_service_url_scheme_host_port(
-                "ftp://localhost:8080/"
-            )
+            PulsarSourceConfig.web_service_url_scheme_host_port("ftp://localhost:8080/")
 
     def test_pulsar_source_config_invalid_web_service_url_host(self):
         with pytest.raises(
             ValueError,
             match=r"Not a valid hostname, hostname contains invalid characters, found localhost&",
         ):
-            PulsarSourceConfig().web_service_url_scheme_host_port(
+            PulsarSourceConfig.web_service_url_scheme_host_port(
                 "http://localhost&:8080/"
             )
 

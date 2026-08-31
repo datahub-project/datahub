@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
-    "start": "docusaurus start",
+    "start": "docusaurus start --port 3001",
     "build": "DOCUSAURUS_SSR_CONCURRENCY=5 docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
@@ -50,7 +50,7 @@
     "react-use-draggable-scroll": "^0.4.7",
     "sass": "^1.43.2",
     "swc-loader": "^0.2.6",
-    "swiper": "^11.1.4",
+    "swiper": "^12.1.2",
     "uuid": "^9.0.0"
   },
   "browserslist": {

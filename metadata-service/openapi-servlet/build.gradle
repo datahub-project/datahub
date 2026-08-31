@@ -13,6 +13,8 @@ dependencies {
   implementation project(':metadata-service:schema-registry-api')
   implementation project (':metadata-service:openapi-servlet:models')
   implementation project(':metadata-service:events-service')
+  implementation project(':metadata-service:rate-limit')
+  implementation project(':li-utils')
 
   implementation externalDependency.reflections
   implementation externalDependency.springBoot
@@ -25,6 +27,7 @@ dependencies {
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBeans
   implementation externalDependency.springContext
+  implementation externalDependency.fabric8KubernetesClient
   implementation externalDependency.swaggerCore
   implementation externalDependency.servletApi
   implementation externalDependency.slf4jApi
@@ -32,6 +35,7 @@ dependencies {
   implementation externalDependency.antlr4Runtime
   implementation externalDependency.antlr4
   implementation externalDependency.swaggerAnnotations
+  implementation externalDependency.graphqlJava
   implementation externalDependency.guava
   implementation('io.acryl:json-schema-avro:0.2.3')
   implementation externalDependency.jsonSchemaValidator
@@ -45,6 +49,8 @@ dependencies {
   implementation externalDependency.opentelemetrySdkMetrics
 
   testImplementation externalDependency.springBootTest
+  // Spring Boot 4.0: WebMvc test slice moved to separate module
+  testImplementation externalDependency.springBootWebMvcTest
   testImplementation project(':mock-entity-registry')
   testImplementation testFixtures(project(':metadata-io'))
   testImplementation externalDependency.springBoot

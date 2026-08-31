@@ -1,15 +1,15 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
 import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
 
 const LINE_LIMIT = 10;
 
 const SourceDescriptionWrapper = styled.div`
-    border-top: 1px solid ${ANTD_GRAY[4]};
+    border-top: 1px solid ${(props) => props.theme.colors.bgSurface};
     padding: 16px 0 16px 32px;
 `;
 
@@ -19,6 +19,7 @@ const Title = styled.div`
 `;
 
 export default function SourceDescription() {
+    const { t } = useTranslation('entity.profile.documentation');
     const { entityData } = useEntityData();
     const platformName = getPlatformNameFromEntityData(entityData);
     const sourceDescription = entityData?.properties?.description;
@@ -27,7 +28,11 @@ export default function SourceDescription() {
 
     return (
         <SourceDescriptionWrapper>
-            <Title>{platformName ? <span>{platformName}</span> : <>Source</>} Documentation:</Title>
+            <Title>
+                {platformName
+                    ? t('platformDocumentationTitle', { platform: platformName })
+                    : t('sourceDocumentationTitle')}
+            </Title>
             <DescriptionSection description={sourceDescription} lineLimit={LINE_LIMIT} isExpandable />
         </SourceDescriptionWrapper>
     );

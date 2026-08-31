@@ -14,12 +14,20 @@ record DatasetUsageStatistics includes TimeseriesAspectBase {
    * Unique user count
    */
   @TimeseriesField = {}
+  @Searchable = {
+    "fieldType": "COUNT",
+    "hasValuesFieldName": "hasUniqueUserCount"
+  }
   uniqueUserCount: optional int
 
   /**
    * Total SQL query count
    */
   @TimeseriesField = {}
+  @Searchable = {
+    "fieldType": "COUNT",
+    "hasValuesFieldName": "hasTotalSqlQueriesCount"
+  }
   totalSqlQueries: optional int
 
   /**

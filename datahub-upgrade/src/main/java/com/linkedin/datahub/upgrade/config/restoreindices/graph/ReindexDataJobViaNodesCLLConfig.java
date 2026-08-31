@@ -1,6 +1,6 @@
 package com.linkedin.datahub.upgrade.config.restoreindices.graph;
 
-import com.linkedin.datahub.upgrade.config.SystemUpdateCondition;
+import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.restoreindices.graph.vianodes.ReindexDataJobViaNodesCLL;
 import com.linkedin.metadata.entity.AspectDao;

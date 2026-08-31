@@ -19,7 +19,6 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils;
-import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.BusinessAttributeUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
@@ -32,10 +31,12 @@ import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -303,24 +304,12 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
                   Constants.DOMAINS_ASPECT_NAME,
                   _entityService,
                   null);
-      if (dataProductDomains != null
-          && dataProductDomains.hasDomains()
-          && dataProductDomains.getDomains().size() > 0) {
-        // get first domain since we only allow one domain right now
-        Urn domainUrn = UrnUtils.getUrn(dataProductDomains.getDomains().get(0).toString());
-        // if they can't edit a data product from either the parent domain permission or from
-        // permission on the data product itself, throw error
-        if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(context, domainUrn)
-            && !DataProductAuthorizationUtils.isAuthorizedToEditDataProduct(context, targetUrn)) {
-          throw new AuthorizationException(
-              "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        }
-      } else {
-        // should not happen since data products need to have a domain
-        if (!DataProductAuthorizationUtils.isAuthorizedToEditDataProduct(context, targetUrn)) {
-          throw new AuthorizationException(
-              "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        }
+      Set<Urn> productDomainUrns =
+          EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(dataProductDomains);
+      if (!EntityAspectAuthorizationUtils.isAuthorizedToRenameDataProduct(
+          context.getOperationContext(), targetUrn, productDomainUrns)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
 
       dataProductProperties.setName(input.getName());
@@ -334,6 +323,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
           _entityService);
 
       return true;
+    } catch (AuthorizationException e) {
+      throw e;
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to perform update against input %s", input), e);

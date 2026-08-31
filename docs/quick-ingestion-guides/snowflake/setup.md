@@ -1,5 +1,5 @@
 ---
-title: Setup
+title: Snowflake Setup
 ---
 
 # Snowflake Ingestion Guide: Setup & Prerequisites
@@ -37,7 +37,7 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
    grant usage on all schemas in database identifier($db_var) to role datahub_role;
    grant usage on future schemas in database identifier($db_var) to role datahub_role;
 
-   -- Grant Select acccess enable Data Profiling
+   -- Grant Select access enable Data Profiling
    grant select on all tables in database identifier($db_var) to role datahub_role;
    grant select on future tables in database identifier($db_var) to role datahub_role;
    grant select on all external tables in database identifier($db_var) to role datahub_role;
@@ -60,6 +60,19 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
 
    -- Assign privileges to extract lineage and usage statistics from Snowflake by executing the below query.
    grant imported privileges on database snowflake to role datahub_role;
+
+   -- Optional: If you want to ingest Snowflake internal marketplace listings as Data Products
+   -- Grant IMPORT SHARE for consumer mode (requires ACCOUNTADMIN to grant account-level privileges)
+   use role accountadmin;
+   grant import share on account to role datahub_role;  -- For INBOUND shares
+
+   -- For provider mode (OUTBOUND shares), grant SYSADMIN role (use SECURITYADMIN to grant roles)
+   -- Note: Only needed if shares are owned by ACCOUNTADMIN/SYSADMIN
+   -- If datahub_role creates/owns the shares, no additional grant needed
+   use role securityadmin;
+   grant role sysadmin to role datahub_role;  -- Allows seeing shares owned by SYSADMIN/ACCOUNTADMIN
+
+   -- Alternatively, use role: SYSADMIN directly in your recipe
 
    ```
 

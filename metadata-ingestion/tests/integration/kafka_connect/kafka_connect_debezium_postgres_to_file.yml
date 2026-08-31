@@ -1,0 +1,18 @@
+---
+run_id: kafka-connect-debezium-postgres-3-level-run
+
+# Test configuration for Debezium PostgreSQL connector with 2-level container in the topic name (schema.table)
+
+source:
+  type: "kafka-connect"
+  config:
+    connect_uri: "http://localhost:28083"    
+    connector_patterns:
+      allow:
+        - debezium-postgres-connector
+    convert_lineage_urns_to_lowercase: true
+
+sink:
+  type: file
+  config:
+    filename: "./kafka_connect_mces.json"

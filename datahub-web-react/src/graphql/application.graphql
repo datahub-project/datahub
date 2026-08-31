@@ -14,9 +14,6 @@ query getApplication($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         ...notes
     }
 }
@@ -92,4 +89,8 @@ mutation deleteApplication($urn: String!) {
 
 mutation batchSetApplication($input: BatchSetApplicationInput!) {
     batchSetApplication(input: $input)
+}
+
+mutation batchUnsetApplication($input: BatchUnsetApplicationInput!) {
+    batchUnsetApplication(input: $input)
 }
