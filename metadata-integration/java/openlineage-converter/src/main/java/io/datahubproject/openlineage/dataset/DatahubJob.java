@@ -82,6 +82,7 @@ public class DatahubJob {
   Ownership flowOwnership;
   GlobalTags flowGlobalTags;
   Domains flowDomains;
+  Domains jobDomains;
   DataPlatformInstance flowPlatformInstance;
   DataPlatformInstance jobPlatformInstance;
   DataProcessInstanceRunEvent dataProcessInstanceRunEvent;
@@ -150,7 +151,8 @@ public class DatahubJob {
     generateFlowGlobalTagsAspect(flowUrn, flowGlobalTags, config, mcps);
 
     // Generate and add domain Aspect
-    generateFlowDomainsAspect(mcps, customProperties);
+    generateDomainsAspect(flowUrn, DATAFLOW_ENTITY_TYPE, flowDomains, mcps);
+    generateDomainsAspect(jobUrn, DATAJOB_ENTITY_TYPE, jobDomains, mcps);
 
     log.info(
         "Adding input and output to {} Number of outputs: {}, Number of inputs {}",
@@ -419,21 +421,20 @@ public class DatahubJob {
     return Pair.of(inputUrnArray, inputEdges);
   }
 
-  private void generateFlowDomainsAspect(
-      List<MetadataChangeProposal> mcps, StringMap customProperties) {
-    if (flowDomains != null) {
-      MetadataChangeProposalWrapper domains =
-          MetadataChangeProposalWrapper.create(
-              b ->
-                  b.entityType(DATAFLOW_ENTITY_TYPE)
-                      .entityUrn(flowUrn)
-                      .upsert()
-                      .aspect(flowDomains));
-      try {
-        mcps.add(eventFormatter.convert(domains));
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+  private void generateDomainsAspect(
+      Urn entityUrn, String entityType, Domains domains, List<MetadataChangeProposal> mcps) {
+    // An empty domains aspect would clear domains set by other sources, so only emit a populated
+    // one.
+    if (domains == null || domains.getDomains() == null || domains.getDomains().isEmpty()) {
+      return;
+    }
+    MetadataChangeProposalWrapper domainsMcpw =
+        MetadataChangeProposalWrapper.create(
+            b -> b.entityType(entityType).entityUrn(entityUrn).upsert().aspect(domains));
+    try {
+      mcps.add(eventFormatter.convert(domainsMcpw));
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 

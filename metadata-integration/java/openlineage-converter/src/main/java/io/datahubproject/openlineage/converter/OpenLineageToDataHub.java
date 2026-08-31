@@ -67,6 +67,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -373,14 +374,19 @@ public class OpenLineageToDataHub {
   }
 
   public static Domains generateDomains(List<String> domains) {
-    domains.sort(String::compareToIgnoreCase);
+    // Copy before sorting: the caller's list may be an immutable config value.
+    List<String> sortedDomains = new ArrayList<>(domains);
+    sortedDomains.sort(String::compareToIgnoreCase);
     Domains datahubDomains = new Domains();
     UrnArray domainArray = new UrnArray();
-    for (String domain : domains) {
+    for (String domain : sortedDomains) {
       try {
         domainArray.add(Urn.createFromString(domain));
       } catch (URISyntaxException e) {
-        log.warn("Unable to create domain urn for domain urn: {}", domain);
+        log.warn(
+            "Skipping domain '{}': a full domain URN is required (urn:li:domain:<id>), "
+                + "a domain name cannot be resolved here.",
+            domain);
       }
     }
     datahubDomains.setDomains(domainArray);
@@ -448,6 +454,20 @@ public class OpenLineageToDataHub {
 
     GlobalTags tags = generateTags(event);
     jobBuilder.flowGlobalTags(tags);
+
+    // OpenLineage has no domain facet, so domains come from configuration only.
+    if (datahubConf.getDomains() != null && !datahubConf.getDomains().isEmpty()) {
+      Domains domains = generateDomains(datahubConf.getDomains());
+      if (domains.getDomains().isEmpty()) {
+        log.warn(
+            "None of the configured domains {} could be parsed as domain URNs; "
+                + "no domains aspect will be emitted.",
+            datahubConf.getDomains());
+      } else {
+        jobBuilder.flowDomains(domains);
+        jobBuilder.jobDomains(domains);
+      }
+    }
 
     DatahubJob datahubJob = jobBuilder.build();
     convertJobToDataJob(datahubJob, event, datahubConf);
