@@ -1,43 +1,9 @@
-import {
-    BUILD_FILTERS_TAB_KEY,
-    SELECT_ASSETS_TAB_KEY,
-    URN_FILTER_NAME,
-    VIEW_ENTITY_TYPES,
-} from '@app/entityV2/view/builder/constants';
+import { BUILD_FILTERS_TAB_KEY, SELECT_ASSETS_TAB_KEY, URN_FILTER_NAME } from '@app/entityV2/view/builder/constants';
 import { ViewFilter } from '@app/entityV2/view/builder/types';
 import { ViewBuilderState } from '@app/entityV2/view/types';
-import { ENTITY_FILTER_NAME } from '@app/search/utils/constants';
 import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
 import { EntityType, FacetFilter, FilterOperator, LogicalOperator } from '@types';
-
-/**
- * UI operator id representing "does not equal". Persisted as an EQUAL condition
- * with negated=true (the backend has no dedicated NOT_EQUAL operator).
- */
-const NOT_EQUAL_OPERATOR = 'not_equals';
-
-/**
- * Lookup for persisted `_entityType` values. Keyed on every EntityType — not just
- * the subset the builder offers — so a view scoped elsewhere (API, or a newer
- * builder) keeps that scope through an edit. Views written by the redesigned
- * builder before entity-type lifting stored the lowercase option id ("dataset")
- * instead of the enum ("DATASET"), so those ids are accepted as aliases.
- */
-const ENTITY_TYPE_BY_VALUE = new Map<string, EntityType>([
-    ...Object.values(EntityType).map((type) => [type.toLowerCase(), type] as [string, EntityType]),
-    ...VIEW_ENTITY_TYPES.map((e) => [e.id.toLowerCase(), e.type] as [string, EntityType]),
-]);
-
-/** Normalizes persisted `_entityType` values to EntityType, dropping unknown ones. */
-function normalizeEntityTypes(values: string[]): EntityType[] {
-    const seen = new Set<EntityType>();
-    values.forEach((value) => {
-        const type = ENTITY_TYPE_BY_VALUE.get(value.toLowerCase());
-        if (type) seen.add(type);
-    });
-    return [...seen];
-}
 
 /** Non-nullable shorthand for the definition property of ViewBuilderState. */
 type ViewDefinition = NonNullable<ViewBuilderState['definition']>;
@@ -50,7 +16,6 @@ export function mapUiOperatorToCondition(operator: string | undefined): FilterOp
     if (!operator) return undefined;
     const map: Record<string, FilterOperator> = {
         equals: FilterOperator.Equal,
-        [NOT_EQUAL_OPERATOR]: FilterOperator.Equal,
         exists: FilterOperator.Exists,
         within: FilterOperator.DescendantsIncl,
         contains_str: FilterOperator.Contain,
@@ -69,23 +34,15 @@ export function mapUiOperatorToCondition(operator: string | undefined): FilterOp
  * Maps a backend FilterOperator back to a UI operator ID string.
  * For EQUAL with boolean values ("true"/"false"), returns the is_true/is_false
  * operator so the query builder renders the correct unary toggle.
- * A negated EQUAL filter maps to the "does not equal" operator so negation is
- * shown per-row rather than as a group-level NOT.
  * Falls back to 'equals' for unknown conditions.
  */
-export function mapConditionToUiOperator(
-    condition: FilterOperator | null | undefined,
-    values?: string[],
-    negated?: boolean,
-): string {
+export function mapConditionToUiOperator(condition: FilterOperator | null | undefined, values?: string[]): string {
     if (!condition) return 'equals';
 
     if (condition === FilterOperator.Equal && values?.length === 1) {
         if (values[0] === 'true') return 'is_true';
         if (values[0] === 'false') return 'is_false';
     }
-
-    if (negated && condition === FilterOperator.Equal) return NOT_EQUAL_OPERATOR;
 
     const map: Record<string, string> = {
         [FilterOperator.Equal]: 'equals',
@@ -123,21 +80,18 @@ function resolveFilterValues(prop: PropertyPredicate): string[] {
 /**
  * Recursively extracts all PropertyPredicates from a LogicalPredicate tree,
  * flattening nested groups into a single-level list of ViewFilters.
- * Negation comes from two sources — a per-row "does not equal" operator and any
- * enclosing NOT group — combined with XOR so a NOT group over a "does not equal"
- * row cancels out correctly.
+ * Propagates negation from NOT groups down to each filter.
  */
 function flattenPredicateToFilters(predicate: LogicalPredicate | PropertyPredicate, isNegated: boolean): ViewFilter[] {
     if (predicate.type === 'property') {
         const prop = predicate as PropertyPredicate;
         if (!prop.property) return [];
-        const operatorNegated = prop.operator === NOT_EQUAL_OPERATOR;
         return [
             {
                 field: prop.property,
                 values: resolveFilterValues(prop),
                 condition: mapUiOperatorToCondition(prop.operator),
-                negated: isNegated !== operatorNegated || undefined,
+                negated: isNegated || undefined,
             },
         ];
     }
@@ -146,27 +100,6 @@ function flattenPredicateToFilters(predicate: LogicalPredicate | PropertyPredica
     const childNegated = logical.operator === LogicalOperatorType.NOT ? !isNegated : isNegated;
 
     return (logical.operands || []).flatMap((op) => flattenPredicateToFilters(op, childNegated));
-}
-
-/** True for the `_entityType` row that carries the view's entity-type scope. */
-function isScopeOperand(operand: LogicalPredicate | PropertyPredicate): boolean {
-    return operand?.type === 'property' && (operand as PropertyPredicate).property === ENTITY_FILTER_NAME;
-}
-
-/**
- * Recovers the group that carries the view's own operator from the
- * AND(_entityType, <group>) shape `filtersToLogicalPredicate` builds for a
- * scoped OR view. The flat view model cannot express nesting, so without this
- * the inner group is flattened into the enclosing AND and an OR view silently
- * becomes an AND view the moment the editor emits.
- */
-function scopedOperatorGroup(predicate: LogicalPredicate): LogicalPredicate | undefined {
-    if (predicate.operator !== LogicalOperatorType.AND) return undefined;
-    const rest = (predicate.operands || []).filter((operand) => !isScopeOperand(operand));
-    if (rest.length !== 1 || rest[0]?.type !== 'logical') return undefined;
-    const group = rest[0] as LogicalPredicate;
-    // A NOT group carries negation, not the view operator.
-    return group.operator === LogicalOperatorType.NOT ? undefined : group;
 }
 
 /**
@@ -180,15 +113,6 @@ export function logicalPredicateToFilters(predicate: LogicalPredicate | null | u
 } {
     if (!predicate || !predicate.operands?.length) {
         return { operator: LogicalOperator.And, filters: [] };
-    }
-
-    const operatorGroup = scopedOperatorGroup(predicate);
-    if (operatorGroup) {
-        const scopeFilters = (predicate.operands || [])
-            .filter(isScopeOperand)
-            .flatMap((operand) => flattenPredicateToFilters(operand, false));
-        const inner = logicalPredicateToFilters(operatorGroup);
-        return { operator: inner.operator, filters: [...scopeFilters, ...inner.filters] };
     }
 
     const operator = predicate.operator === LogicalOperatorType.OR ? LogicalOperator.Or : LogicalOperator.And;
@@ -208,85 +132,41 @@ export function filtersToSelectedUrns(filters: ViewFilter[]): string[] {
 }
 
 /**
- * Converts existing ViewBuilderState filters back to a LogicalPredicate for the
- * Build Filters tab. Restores each filter's condition to its UI operator, using
- * the per-row "does not equal" operator for negated filters. The view's
- * top-level entityTypes are surfaced as a leading `_entityType` condition row so
- * they are visible and editable (and lifted back out on save). That row is
- * always ANDed with the conditions, matching how the backend applies the scope.
+ * Converts existing ViewBuilderState filters back to a LogicalPredicate
+ * for the Build Filters tab. Restores each filter's condition back to
+ * the UI operator, and wraps in NOT if all filters are negated.
  */
 export function filtersToLogicalPredicate(
     operator: LogicalOperator | undefined,
     filters: ViewFilter[],
-    entityTypes?: EntityType[] | null,
 ): LogicalPredicate {
-    // Entity-type scope can arrive either as the view's top-level entityTypes or,
-    // for views written by the redesigned builder before lifting existed, as a
-    // plain `_entityType` filter. Merge and normalize both into one row.
-    const scopedTypes = normalizeEntityTypes([
-        ...(entityTypes ?? []),
-        ...filters.filter((f) => f.field === ENTITY_FILTER_NAME && !f.negated).flatMap((f) => f.values ?? []),
-    ]);
-    const scopeRow: PropertyPredicate | undefined = scopedTypes.length
-        ? {
-              type: 'property',
-              property: ENTITY_FILTER_NAME,
-              operator: 'equals',
-              values: scopedTypes,
-          }
-        : undefined;
+    const allNegated = filters.length > 0 && filters.every((f) => f.negated);
 
-    const operands: (LogicalPredicate | PropertyPredicate)[] = [];
+    const operands: PropertyPredicate[] = filters.map((filter) => {
+        const uiOperator = mapConditionToUiOperator(filter.condition, filter.values);
+        const isBooleanOp = uiOperator === 'is_true' || uiOperator === 'is_false';
+        return {
+            type: 'property' as const,
+            property: filter.field,
+            operator: uiOperator,
+            values: isBooleanOp ? [] : filter.values || [],
+        };
+    });
 
-    // Rows whose negation has no per-row operator (exists / within / booleans /
-    // string matches) keep the group-level NOT so the flag survives the round-trip.
-    const negatedWithoutRowOperator: PropertyPredicate[] = [];
-
-    filters
-        .filter((f) => !(f.field === ENTITY_FILTER_NAME && !f.negated))
-        .forEach((filter) => {
-            const uiOperator = mapConditionToUiOperator(filter.condition, filter.values, filter.negated);
-            const isBooleanOp = uiOperator === 'is_true' || uiOperator === 'is_false';
-            const row: PropertyPredicate = {
-                type: 'property',
-                property: filter.field,
-                operator: uiOperator,
-                values: isBooleanOp ? [] : filter.values || [],
-            };
-            if (filter.negated && uiOperator !== NOT_EQUAL_OPERATOR) {
-                negatedWithoutRowOperator.push(row);
-            } else {
-                operands.push(row);
-            }
-        });
-
-    if (negatedWithoutRowOperator.length) {
-        operands.push({
+    if (allNegated) {
+        return {
             type: 'logical',
             operator: LogicalOperatorType.NOT,
-            operands: negatedWithoutRowOperator,
-        });
+            operands,
+        };
     }
 
     const logicalOperator = operator === LogicalOperator.Or ? LogicalOperatorType.OR : LogicalOperatorType.AND;
 
-    // The scope is a restriction the backend ANDs with the filter expression, so
-    // it must not become an operand of an OR group — the editor would then read
-    // as "entity type is one of ... OR <conditions>", which is not the saved
-    // view. Nest the conditions in their own OR group under an AND instead;
-    // logicalPredicateToFilters unwraps this shape on save.
-    if (scopeRow && logicalOperator === LogicalOperatorType.OR && operands.length) {
-        return {
-            type: 'logical',
-            operator: LogicalOperatorType.AND,
-            operands: [scopeRow, { type: 'logical', operator: LogicalOperatorType.OR, operands }],
-        };
-    }
-
     return {
         type: 'logical',
         operator: logicalOperator,
-        operands: scopeRow ? [scopeRow, ...operands] : operands,
+        operands,
     };
 }
 
@@ -308,23 +188,22 @@ export function getInitialTabKey(filters: ViewFilter[]): string {
 
 /**
  * Builds a view definition object compatible with ViewBuilderState.
- * The `_entityType` filter row (if present) is lifted into the view's top-level
- * `entityTypes` scope rather than persisted as a search filter, mirroring the
- * legacy builder. ViewFilter is structurally compatible with FacetFilter; the
- * cast bridges the generated __typename field that ViewFilter intentionally omits.
+ * A View's entity-type scope lives in its own top-level `entityTypes` field rather
+ * than in the filter list, and this builder edits filters only — so the caller's
+ * existing scope is threaded through unchanged instead of being rebuilt here.
+ * ViewFilter is structurally compatible with FacetFilter; the cast bridges
+ * the generated __typename field that ViewFilter intentionally omits.
  */
-export function buildViewDefinition(operator: LogicalOperator, filters: ViewFilter[]): ViewDefinition {
-    // Only a plain, non-negated entity-type row maps onto the top-level scope.
-    // A negated one ("None" over _entityType) stays a search filter so its
-    // meaning is not silently inverted.
-    const isScopeRow = (f: ViewFilter) => f.field === ENTITY_FILTER_NAME && !f.negated;
-    const entityTypes = normalizeEntityTypes(filters.filter(isScopeRow).flatMap((f) => f.values ?? []));
-    const realFilters = filters.filter((f) => !isScopeRow(f));
+export function buildViewDefinition(
+    operator: LogicalOperator,
+    filters: ViewFilter[],
+    entityTypes: EntityType[],
+): ViewDefinition {
     return {
         entityTypes,
         filter: {
             operator,
-            filters: realFilters as FacetFilter[],
+            filters: filters as FacetFilter[],
         },
     };
 }

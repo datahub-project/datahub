@@ -10,7 +10,6 @@ import {
     mapUiOperatorToCondition,
     selectedUrnsToFilters,
 } from '@app/entityV2/view/builder/utils';
-import { ENTITY_FILTER_NAME } from '@app/search/utils/constants';
 import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
 import { EntityType, FilterOperator, LogicalOperator } from '@types';
@@ -169,24 +168,6 @@ describe('View builder conversion utils', () => {
             expect(result.filters).toHaveLength(1);
             expect(result.filters[0].negated).toBe(true);
         });
-
-        it('should cancel negation when a NOT group wraps a not_equals row (double negation)', () => {
-            // A "None" group over a "does not equal" row is NOT(NOT x), which must
-            // collapse back to a plain equals — the group NOT and the per-row
-            // not_equals cancel via XOR rather than stacking.
-            const predicate: LogicalPredicate = {
-                type: 'logical',
-                operator: LogicalOperatorType.NOT,
-                operands: [{ type: 'property', property: 'tags', operator: 'not_equals', values: ['urn:li:tag:pii'] }],
-            };
-
-            const result = logicalPredicateToFilters(predicate);
-
-            expect(result.filters).toHaveLength(1);
-            expect(result.filters[0].field).toBe('tags');
-            expect(result.filters[0].condition).toBe(FilterOperator.Equal);
-            expect(result.filters[0].negated).toBeUndefined();
-        });
     });
 
     describe('filtersToSelectedUrns', () => {
@@ -269,73 +250,15 @@ describe('View builder conversion utils', () => {
             expect(op1.operator).toBe('exists');
         });
 
-        it('should represent negated filters with the per-row not_equals operator', () => {
+        it('should use NOT operator when all filters are negated', () => {
             const filters = [
-                {
-                    field: 'domains',
-                    values: ['urn:li:domain:marketing'],
-                    condition: FilterOperator.Equal,
-                    negated: true,
-                },
-                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal, negated: false },
+                { field: 'domains', values: ['urn:li:domain:marketing'], negated: true },
+                { field: 'tags', values: ['urn:li:tag:pii'], negated: true },
             ];
 
             const result = filtersToLogicalPredicate(LogicalOperator.And, filters);
 
-            // Group operator stays AND; negation is carried per-row, not as a NOT group.
-            expect(result.operator).toBe(LogicalOperatorType.AND);
-            const op0 = result.operands[0] as { operator?: string };
-            const op1 = result.operands[1] as { operator?: string };
-            expect(op0.operator).toBe('not_equals');
-            expect(op1.operator).toBe('equals');
-        });
-
-        it('should seed a leading _entityType row from the top-level entityTypes', () => {
-            const filters = [{ field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal }];
-
-            const result = filtersToLogicalPredicate(LogicalOperator.And, filters, [
-                EntityType.Dataset,
-                EntityType.Dashboard,
-            ]);
-
-            expect(result.operands).toHaveLength(2);
-            const entityTypeRow = result.operands[0] as { property?: string; operator?: string; values?: string[] };
-            expect(entityTypeRow.property).toBe('_entityType');
-            expect(entityTypeRow.operator).toBe('equals');
-            expect(entityTypeRow.values).toEqual([EntityType.Dataset, EntityType.Dashboard]);
-        });
-
-        it('should AND the _entityType row with an OR group of conditions', () => {
-            // entityTypes is a scope the backend ANDs with the filter expression,
-            // so it must not read as one more alternative in the OR group.
-            const filters = [
-                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal },
-                { field: 'domains', values: ['urn:li:domain:marketing'], condition: FilterOperator.Equal },
-            ];
-
-            const result = filtersToLogicalPredicate(LogicalOperator.Or, filters, [EntityType.Dataset]);
-
-            expect(result.operator).toBe(LogicalOperatorType.AND);
-            expect(result.operands).toHaveLength(2);
-            expect(result.operands[0]).toMatchObject({
-                property: ENTITY_FILTER_NAME,
-                values: [EntityType.Dataset],
-            });
-            const conditions = result.operands[1] as LogicalPredicate;
-            expect(conditions.operator).toBe(LogicalOperatorType.OR);
-            expect(conditions.operands).toHaveLength(2);
-        });
-
-        it('should keep the predicate flat for an OR view with no entity-type scope', () => {
-            const filters = [
-                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal },
-                { field: 'domains', values: ['urn:li:domain:marketing'], condition: FilterOperator.Equal },
-            ];
-
-            const result = filtersToLogicalPredicate(LogicalOperator.Or, filters);
-
-            expect(result.operator).toBe(LogicalOperatorType.OR);
-            expect(result.operands).toHaveLength(2);
+            expect(result.operator).toBe(LogicalOperatorType.NOT);
         });
 
         it('should default to equals when condition is undefined', () => {
@@ -399,24 +322,11 @@ describe('View builder conversion utils', () => {
         it('should build a valid view definition with AND operator', () => {
             const filters = [{ field: URN_FILTER_NAME, values: ['urn:li:domain:marketing'] }];
 
-            const result = buildViewDefinition(LogicalOperator.And, filters);
+            const result = buildViewDefinition(LogicalOperator.And, filters, []);
 
             expect(result.entityTypes).toEqual([]);
             expect(result.filter?.operator).toBe(LogicalOperator.And);
             expect(result.filter?.filters).toHaveLength(1);
-        });
-
-        it('should lift _entityType rows into the top-level entityTypes and drop them from filters', () => {
-            const filters = [
-                { field: '_entityType', values: [EntityType.Dataset, EntityType.Container] },
-                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal },
-            ];
-
-            const result = buildViewDefinition(LogicalOperator.And, filters);
-
-            expect(result.entityTypes).toEqual([EntityType.Dataset, EntityType.Container]);
-            expect(result.filter?.filters).toHaveLength(1);
-            expect(result.filter?.filters?.[0]?.field).toBe('tags');
         });
     });
 
@@ -433,10 +343,6 @@ describe('View builder conversion utils', () => {
         it('should map boolean operators to Equal', () => {
             expect(mapUiOperatorToCondition('is_true')).toBe(FilterOperator.Equal);
             expect(mapUiOperatorToCondition('is_false')).toBe(FilterOperator.Equal);
-        });
-
-        it('should map not_equals to Equal (negation carried by the negated flag)', () => {
-            expect(mapUiOperatorToCondition('not_equals')).toBe(FilterOperator.Equal);
         });
 
         it('should return undefined for undefined input', () => {
@@ -474,14 +380,6 @@ describe('View builder conversion utils', () => {
             expect(mapConditionToUiOperator(null)).toBe('equals');
             expect(mapConditionToUiOperator(undefined)).toBe('equals');
         });
-
-        it('should map a negated Equal condition to not_equals', () => {
-            expect(mapConditionToUiOperator(FilterOperator.Equal, ['urn:li:tag:pii'], true)).toBe('not_equals');
-        });
-
-        it('should not treat a non-negated Equal as not_equals', () => {
-            expect(mapConditionToUiOperator(FilterOperator.Equal, ['urn:li:tag:pii'], false)).toBe('equals');
-        });
     });
 
     describe('round-trip: logicalPredicateToFilters → filtersToLogicalPredicate', () => {
@@ -507,122 +405,6 @@ describe('View builder conversion utils', () => {
             expect(op0.values).toEqual(['urn:li:domain:finance']);
             expect(op1.property).toBe('platform');
             expect(op1.operator).toBe('exists');
-        });
-
-        it('should preserve entityTypes and per-row negation across a full load → save cycle', () => {
-            // Mirrors the reported regression: a view scoped to several entity
-            // types with a single "tag does not equal" filter.
-            const savedEntityTypes = [
-                EntityType.Dataset,
-                EntityType.Dashboard,
-                EntityType.Chart,
-                EntityType.Container,
-                EntityType.DataProduct,
-            ];
-            const savedFilters = [
-                {
-                    field: 'tags',
-                    values: ['urn:li:tag:private'],
-                    condition: FilterOperator.Equal,
-                    negated: true,
-                },
-            ];
-
-            // Load into the builder. The scope is ANDed with the OR group of conditions.
-            const predicate = filtersToLogicalPredicate(LogicalOperator.Or, savedFilters, savedEntityTypes);
-            const entityTypeRow = predicate.operands[0] as { property?: string; operator?: string; values?: string[] };
-            const conditions = predicate.operands[1] as LogicalPredicate;
-            const tagRow = conditions.operands[0] as { property?: string; operator?: string };
-            expect(entityTypeRow.property).toBe('_entityType');
-            expect(entityTypeRow.values).toEqual(savedEntityTypes);
-            expect(conditions.operator).toBe(LogicalOperatorType.OR);
-            expect(tagRow.property).toBe('tags');
-            expect(tagRow.operator).toBe('not_equals');
-
-            // Save back out.
-            const { operator, filters } = logicalPredicateToFilters(predicate);
-            const definition = buildViewDefinition(operator, filters);
-
-            expect(definition.entityTypes).toEqual(savedEntityTypes);
-            expect(definition.filter?.operator).toBe(LogicalOperator.Or);
-            expect(definition.filter?.filters).toHaveLength(1);
-            const savedTag = definition.filter?.filters?.[0];
-            expect(savedTag?.field).toBe('tags');
-            expect(savedTag?.condition).toBe(FilterOperator.Equal);
-            expect(savedTag?.negated).toBe(true);
-            expect(savedTag?.values).toEqual(['urn:li:tag:private']);
-        });
-
-        it('should preserve the OR operator of a scoped view across a load → save cycle', () => {
-            // The scope wrapper nests the conditions in an OR group; if the save
-            // path flattened it, the view would silently become an AND view.
-            const savedFilters = [
-                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal },
-                { field: 'domains', values: ['urn:li:domain:marketing'], condition: FilterOperator.Equal },
-            ];
-
-            const predicate = filtersToLogicalPredicate(LogicalOperator.Or, savedFilters, [EntityType.Dataset]);
-            const { operator, filters } = logicalPredicateToFilters(predicate);
-            const definition = buildViewDefinition(operator, filters);
-
-            expect(definition.entityTypes).toEqual([EntityType.Dataset]);
-            expect(definition.filter?.operator).toBe(LogicalOperator.Or);
-            expect(definition.filter?.filters?.map((f) => f.field)).toEqual(['tags', 'domains']);
-        });
-
-        it('should keep the OR operator after the scope row is deleted in the editor', () => {
-            const predicate = filtersToLogicalPredicate(
-                LogicalOperator.Or,
-                [
-                    { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal },
-                    { field: 'domains', values: ['urn:li:domain:marketing'], condition: FilterOperator.Equal },
-                ],
-                [EntityType.Dataset],
-            );
-            // Deleting the scope row leaves the AND wrapper holding only the OR group.
-            const withoutScope: LogicalPredicate = { ...predicate, operands: [predicate.operands[1]] };
-
-            const { operator, filters } = logicalPredicateToFilters(withoutScope);
-            const definition = buildViewDefinition(operator, filters);
-
-            expect(definition.entityTypes).toEqual([]);
-            expect(definition.filter?.operator).toBe(LogicalOperator.Or);
-            expect(definition.filter?.filters?.map((f) => f.field)).toEqual(['tags', 'domains']);
-        });
-
-        it('should preserve a mix of negated and non-negated filters across a load → save cycle', () => {
-            // The exact master regression: the old "wrap in NOT only if every
-            // filter is negated" heuristic dropped negation on load whenever the
-            // set was mixed, so re-saving lost the per-row negated flags.
-            const savedFilters = [
-                {
-                    field: 'domains',
-                    values: ['urn:li:domain:marketing'],
-                    condition: FilterOperator.Equal,
-                    negated: true,
-                },
-                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal, negated: false },
-            ];
-
-            // Load: negation is carried per-row via not_equals, group stays AND.
-            const predicate = filtersToLogicalPredicate(LogicalOperator.And, savedFilters);
-            expect(predicate.operator).toBe(LogicalOperatorType.AND);
-            const domainRow = predicate.operands[0] as { property?: string; operator?: string };
-            const tagRow = predicate.operands[1] as { property?: string; operator?: string };
-            expect(domainRow.operator).toBe('not_equals');
-            expect(tagRow.operator).toBe('equals');
-
-            // Save: each row keeps its own negation independently.
-            const { operator, filters } = logicalPredicateToFilters(predicate);
-            const definition = buildViewDefinition(operator, filters);
-
-            expect(definition.filter?.filters).toHaveLength(2);
-            const domain = definition.filter?.filters?.find((f) => f.field === 'domains');
-            const tag = definition.filter?.filters?.find((f) => f.field === 'tags');
-            expect(domain?.condition).toBe(FilterOperator.Equal);
-            expect(domain?.negated).toBe(true);
-            expect(tag?.condition).toBe(FilterOperator.Equal);
-            expect(tag?.negated).toBeFalsy();
         });
 
         it('should round-trip within operator as DescendantsIncl', () => {
@@ -685,150 +467,6 @@ describe('View builder conversion utils', () => {
         });
     });
 
-    describe('legacy _entityType values', () => {
-        // Views saved by the redesigned builder before entity-type lifting existed
-        // stored the lowercase option id ("dataset") as an ordinary filter. Those
-        // values are not valid EntityType enum members, so lifting them verbatim
-        // would make the save mutation fail.
-        it('should normalize lowercase ids into the EntityType enum', () => {
-            const legacyFilters = [{ field: ENTITY_FILTER_NAME, values: ['dataset', 'dashboard'] }];
-
-            const predicate = filtersToLogicalPredicate(LogicalOperator.And, legacyFilters, []);
-            const { operator, filters } = logicalPredicateToFilters(predicate);
-            const definition = buildViewDefinition(operator, filters);
-
-            expect(definition.entityTypes).toEqual([EntityType.Dataset, EntityType.Dashboard]);
-            expect(definition.filter?.filters).toEqual([]);
-        });
-
-        it('should normalize multi-word types in either casing', () => {
-            const legacyFilters = [{ field: ENTITY_FILTER_NAME, values: ['dataFlow', 'DATA_JOB'] }];
-
-            const { operator, filters } = logicalPredicateToFilters(
-                filtersToLogicalPredicate(LogicalOperator.And, legacyFilters, []),
-            );
-
-            expect(buildViewDefinition(operator, filters).entityTypes).toEqual([
-                EntityType.DataFlow,
-                EntityType.DataJob,
-            ]);
-        });
-
-        it('should merge a legacy filter with top-level entityTypes into one row', () => {
-            const predicate = filtersToLogicalPredicate(
-                LogicalOperator.And,
-                [{ field: ENTITY_FILTER_NAME, values: ['dataset'] }],
-                [EntityType.Dataset],
-            );
-
-            expect(predicate.operands).toHaveLength(1);
-            const row = predicate.operands[0] as { property?: string; values?: string[] };
-            expect(row.property).toBe(ENTITY_FILTER_NAME);
-            expect(row.values).toEqual([EntityType.Dataset]);
-        });
-    });
-
-    describe("entity types outside the builder's offered list", () => {
-        // The builder only offers a subset of EntityType. A view scoped via the
-        // API (or a newer builder) to a type it does not list must keep that
-        // scope through an edit instead of silently losing it.
-        it('should preserve a valid EntityType that VIEW_ENTITY_TYPES does not include', () => {
-            const predicate = filtersToLogicalPredicate(
-                LogicalOperator.And,
-                [],
-                [EntityType.Dataset, EntityType.Metric, EntityType.Incident],
-            );
-
-            const { operator, filters } = logicalPredicateToFilters(predicate);
-
-            expect(buildViewDefinition(operator, filters).entityTypes).toEqual([
-                EntityType.Dataset,
-                EntityType.Metric,
-                EntityType.Incident,
-            ]);
-        });
-
-        it('should still drop a value that matches no entity type at all', () => {
-            const { operator, filters } = logicalPredicateToFilters(
-                filtersToLogicalPredicate(
-                    LogicalOperator.And,
-                    [{ field: ENTITY_FILTER_NAME, values: ['dataset', 'not_a_real_type'] }],
-                    [],
-                ),
-            );
-
-            expect(buildViewDefinition(operator, filters).entityTypes).toEqual([EntityType.Dataset]);
-        });
-    });
-
-    describe('negation without a per-row operator', () => {
-        // "does not equal" only covers negated EQUAL. Exists / Within / booleans
-        // have no negated row operator, so their flag rides on a NOT group.
-        it.each([
-            ['exists', { field: 'tags', values: [], condition: FilterOperator.Exists, negated: true }],
-            [
-                'within',
-                {
-                    field: 'domains',
-                    values: ['urn:li:domain:finance'],
-                    condition: FilterOperator.DescendantsIncl,
-                    negated: true,
-                },
-            ],
-            ['boolean', { field: 'removed', values: ['true'], condition: FilterOperator.Equal, negated: true }],
-        ])('should preserve negated through a %s round-trip', (_label, saved) => {
-            const { operator, filters } = logicalPredicateToFilters(
-                filtersToLogicalPredicate(LogicalOperator.And, [saved], []),
-            );
-
-            expect(buildViewDefinition(operator, filters).filter?.filters).toEqual([saved]);
-        });
-
-        it('should keep per-row and group-level negation side by side', () => {
-            const saved = [
-                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal, negated: true },
-                { field: 'owners', values: ['urn:li:corpuser:jdoe'], condition: FilterOperator.Equal },
-                { field: 'glossaryTerms', values: [], condition: FilterOperator.Exists, negated: true },
-            ];
-
-            const { operator, filters } = logicalPredicateToFilters(
-                filtersToLogicalPredicate(LogicalOperator.And, saved, []),
-            );
-            const result = buildViewDefinition(operator, filters).filter?.filters;
-
-            expect(result).toHaveLength(3);
-            expect(result).toEqual(expect.arrayContaining(saved));
-        });
-
-        it('should keep a negated _entityType row as a filter rather than inverting the scope', () => {
-            const predicate: LogicalPredicate = {
-                type: 'logical',
-                operator: LogicalOperatorType.NOT,
-                operands: [
-                    {
-                        type: 'property',
-                        property: ENTITY_FILTER_NAME,
-                        operator: 'equals',
-                        values: [EntityType.Dataset],
-                    },
-                ],
-            };
-
-            const { operator, filters } = logicalPredicateToFilters(predicate);
-            const definition = buildViewDefinition(operator, filters);
-
-            expect(definition.entityTypes).toEqual([]);
-            expect(definition.filter?.filters).toEqual([
-                {
-                    field: ENTITY_FILTER_NAME,
-                    values: [EntityType.Dataset],
-                    condition: FilterOperator.Equal,
-                    negated: true,
-                },
-            ]);
-        });
-    });
-
     describe('buildEntityMap', () => {
         it('should build a map keyed by URN', () => {
             const entities = [
@@ -855,6 +493,36 @@ describe('View builder conversion utils', () => {
             const result = buildEntityMap(entities);
 
             expect(result['urn:li:domain:a'].name).toBe('second');
+        });
+    });
+
+    describe('entity-type scope pass-through', () => {
+        it('should return the entity types it was given', () => {
+            const definition = buildViewDefinition(
+                LogicalOperator.And,
+                [{ field: 'tags', values: ['urn:li:tag:pii'] }],
+                [EntityType.Dataset, EntityType.Dashboard],
+            );
+
+            expect(definition.entityTypes).toEqual([EntityType.Dataset, EntityType.Dashboard]);
+        });
+
+        it('should never invent a scope of its own', () => {
+            expect(
+                buildViewDefinition(LogicalOperator.And, [{ field: 'tags', values: ['urn:li:tag:pii'] }], [])
+                    .entityTypes,
+            ).toEqual([]);
+        });
+
+        it('should keep an _entityType row as an ordinary filter instead of lifting it into the scope', () => {
+            const definition = buildViewDefinition(
+                LogicalOperator.And,
+                [{ field: '_entityType', values: ['dataset'] }],
+                [EntityType.Chart],
+            );
+
+            expect(definition.entityTypes).toEqual([EntityType.Chart]);
+            expect(definition.filter?.filters).toEqual([{ field: '_entityType', values: ['dataset'] }]);
         });
     });
 });

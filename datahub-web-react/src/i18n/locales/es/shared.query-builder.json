@@ -33,8 +33,6 @@
     "operators.lessThanDesc": "Menor que un valor",
     "operators.not": "No",
     "operators.notDesc": "No",
-    "operators.notEquals": "No es igual a",
-    "operators.notEqualsDesc": "No es igual a un valor",
     "operators.regexMatch": "Coincide con regex",
     "operators.regexMatchDesc": "Coincide con un valor de regex",
     "operators.startsWith": "Comienza con",

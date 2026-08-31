@@ -9,10 +9,6 @@ export enum OperatorId {
      */
     EQUAL_TO = 'equals',
     /**
-     * A value does not equal another value. Stored as an EQUAL condition with negated=true.
-     */
-    NOT_EQUAL = 'not_equals',
-    /**
      * A value equals another value exactly.
      */
     STARTS_WITH = 'starts_with',
@@ -83,15 +79,6 @@ const OPERATORS: Operator[] = [
         },
         get description() {
             return i18next.t('shared.query-builder:operators.equalsDesc');
-        },
-    },
-    {
-        id: OperatorId.NOT_EQUAL,
-        get displayName() {
-            return i18next.t('shared.query-builder:operators.notEquals');
-        },
-        get description() {
-            return i18next.t('shared.query-builder:operators.notEqualsDesc');
         },
     },
     {

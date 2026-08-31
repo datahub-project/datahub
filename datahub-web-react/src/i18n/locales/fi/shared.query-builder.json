@@ -33,8 +33,6 @@
     "operators.lessThanDesc": "Pienempi kuin arvo",
     "operators.not": "Ei",
     "operators.notDesc": "Ei",
-    "operators.notEquals": "Ei ole sama kuin",
-    "operators.notEqualsDesc": "Ei vastaa arvoa",
     "operators.regexMatch": "Vastaa säännöllistä lauseketta",
     "operators.regexMatchDesc": "Vastaa säännöllisen lausekkeen arvoa",
     "operators.startsWith": "Alkaa",
