@@ -1,16 +1,23 @@
 package com.linkedin.datahub.upgrade.sqlsetup.postgres;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.config.postgres.PgTimeseriesStoreOptions;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
+import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties.PgCron.Iam;
 import io.ebean.Database;
 import io.ebean.datasource.DataSourceConfig;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.util.Map;
+import java.util.Properties;
 import javax.sql.DataSource;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -54,6 +61,41 @@ public class PgTimeseriesStoreConnectionsTest {
       Connection got =
           PgTimeseriesStoreConnections.open(
               store, fallback, new PostgresSqlSetupProperties(), null);
+      assertEquals(got, expected);
+    }
+  }
+
+  @Test
+  public void shouldUseIam_followsEbeanPoolWhenPgCronIamUnset() {
+    DataSourceConfig ebeanDs = new DataSourceConfig();
+    ebeanDs.setCustomProperties(Map.of("wrapperPlugins", "failover, iam"));
+    assertTrue(PgTimeseriesStoreConnections.shouldUseIam(null, ebeanDs));
+    assertFalse(PgTimeseriesStoreConnections.shouldUseIam(null, new DataSourceConfig()));
+    Iam iam = new Iam();
+    iam.setUseIamAuth(true);
+    assertTrue(PgTimeseriesStoreConnections.shouldUseIam(iam, null));
+  }
+
+  @Test
+  public void open_customUrl_ebeanIam_usesPropertiesConnection() throws Exception {
+    PgTimeseriesStoreOptions store =
+        baseStore().toBuilder().poolUrl("jdbc:postgresql://localhost:5432/ts").build();
+    Database fallback = mock(Database.class);
+    DataSourceConfig ebeanDs = new DataSourceConfig();
+    ebeanDs.setUsername("ebean_user");
+    ebeanDs.setPassword("ebean_pass");
+    ebeanDs.setCustomProperties(Map.of("wrapperPlugins", "iam"));
+    Connection expected = mock(Connection.class);
+
+    try (MockedStatic<DriverManager> dm = Mockito.mockStatic(DriverManager.class)) {
+      dm.when(
+              () ->
+                  DriverManager.getConnection(
+                      eq("jdbc:postgresql://localhost:5432/ts"), any(Properties.class)))
+          .thenReturn(expected);
+      Connection got =
+          PgTimeseriesStoreConnections.open(
+              store, fallback, new PostgresSqlSetupProperties(), ebeanDs);
       assertEquals(got, expected);
     }
   }

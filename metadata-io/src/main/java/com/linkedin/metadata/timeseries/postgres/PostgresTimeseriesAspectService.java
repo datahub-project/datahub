@@ -178,11 +178,11 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
 
     if (startTimeMillis != null) {
       where.append(" AND event_time >= ?");
-      params.add(java.sql.Timestamp.from(java.time.Instant.ofEpochMilli(startTimeMillis)));
+      params.add(TimeseriesFilterSqlBuilder.eventTimeParam(startTimeMillis));
     }
     if (endTimeMillis != null) {
       where.append(" AND event_time <= ?");
-      params.add(java.sql.Timestamp.from(java.time.Instant.ofEpochMilli(endTimeMillis)));
+      params.add(TimeseriesFilterSqlBuilder.eventTimeParam(endTimeMillis));
     }
 
     String orderBy =
@@ -574,7 +574,14 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   @Override
   public List<TimeseriesIndexSizeResult> getIndexSizes(@Nonnull OperationContext opContext) {
     List<TimeseriesIndexSizeResult> out = new ArrayList<>();
-    String sql = "SELECT pg_total_relation_size(?::regclass)";
+    // Parent-only pg_total_relation_size excludes partman children. Sum the partition tree.
+    String sql =
+        "WITH RECURSIVE partition_tree(relid) AS ("
+            + " SELECT ?::regclass::oid"
+            + " UNION ALL"
+            + " SELECT i.inhrelid FROM pg_inherits i"
+            + " JOIN partition_tree p ON i.inhparent = p.relid"
+            + ") SELECT COALESCE(SUM(pg_total_relation_size(relid)), 0) FROM partition_tree";
     for (StoreHandle handle : storeRegistry.allStores().values()) {
       String table = handle.getDao().qualifiedTable();
       try (Connection c = handle.getDatabase().dataSource().getConnection();
@@ -632,11 +639,11 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     params.addAll(built.getParams());
     if (startTimeMillis != null) {
       where.append(" AND event_time >= ?");
-      params.add(java.sql.Timestamp.from(java.time.Instant.ofEpochMilli(startTimeMillis)));
+      params.add(TimeseriesFilterSqlBuilder.eventTimeParam(startTimeMillis));
     }
     if (endTimeMillis != null) {
       where.append(" AND event_time <= ?");
-      params.add(java.sql.Timestamp.from(java.time.Instant.ofEpochMilli(endTimeMillis)));
+      params.add(TimeseriesFilterSqlBuilder.eventTimeParam(endTimeMillis));
     }
 
     String countWhere = where.toString();
@@ -1102,7 +1109,8 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
           String sql =
               "SELECT document FROM "
                   + qualifiedTable(entityName, aspectName)
-                  + " WHERE entity_name = ? AND aspect_name = ? AND urn = ? "
+                  + " WHERE entity_name = ? AND aspect_name = ? AND urn = ?"
+                  + primaryTimeseriesRowPredicate()
                   + " ORDER BY event_time DESC LIMIT 1";
           try (Connection c = database(entityName, aspectName).dataSource().getConnection();
               PreparedStatement ps = c.prepareStatement(sql)) {

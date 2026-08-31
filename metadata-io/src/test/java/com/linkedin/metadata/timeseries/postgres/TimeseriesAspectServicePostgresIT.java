@@ -2,6 +2,7 @@ package com.linkedin.metadata.timeseries.postgres;
 
 import static io.datahubproject.test.search.SearchTestUtils.TEST_TIMESERIES_ASPECT_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -582,14 +583,9 @@ public class TimeseriesAspectServicePostgresIT {
     for (TestEntityProfile p : profiles) {
       Map<String, JsonNode> documents =
           TimeseriesAspectTransformer.transform(urn, p, aspectSpec, null, "MD5");
-      // Primary and exploded rows share (message_id, event_time) under this aspect; upsert only
-      // non-exploded primaries so getAspectValues (ES-parity) can return all three.
       documents.forEach(
-          (key, value) -> {
-            if (!value.path(MappingsBuilder.IS_EXPLODED_FIELD).asBoolean(false)) {
-              writeSink.upsertDocument(opContext, ENTITY_NAME, ASPECT_NAME, key, value);
-            }
-          });
+          (key, value) ->
+              writeSink.upsertDocument(opContext, ENTITY_NAME, ASPECT_NAME, key, value));
     }
 
     Filter urnFilter =
@@ -783,7 +779,9 @@ public class TimeseriesAspectServicePostgresIT {
     List<TimeseriesIndexSizeResult> sizes = pgTimeseries.getIndexSizes(opContext);
     assertTrue(sizes.size() > 0);
     String qualified = schema + "." + tablePrefix + "_aspect";
-    assertTrue(sizes.stream().anyMatch(r -> qualified.equals(r.getIndexName())));
+    TimeseriesIndexSizeResult result =
+        sizes.stream().filter(r -> qualified.equals(r.getIndexName())).findFirst().orElseThrow();
+    assertTrue(result.getSizeInMb() > 0, "Partitioned table size must include child partitions");
   }
 
   @Test
@@ -890,13 +888,53 @@ public class TimeseriesAspectServicePostgresIT {
   }
 
   @Test
-  public void raw_returnsLatestDocumentMap() {
-    Map<Urn, Map<String, Map<String, Object>>> raw =
-        pgTimeseries.raw(opContext, Map.of(TEST_URN.toString(), Set.of(ASPECT_NAME)));
-    assertTrue(raw.containsKey(TEST_URN));
-    Map<String, Object> doc = raw.get(TEST_URN).get(ASPECT_NAME);
-    assertNotNull(doc);
-    assertEquals(doc.get(MappingsBuilder.URN_FIELD), TEST_URN.toString());
+  public void raw_returnsLatestPrimaryDocumentMap() throws Exception {
+    String qualified = schema + "." + tablePrefix + "_aspect";
+    String explodedMessageId = "raw-exploded-test";
+    try (java.sql.Connection c = database.dataSource().getConnection();
+        java.sql.PreparedStatement ps =
+            c.prepareStatement(
+                "INSERT INTO "
+                    + qualified
+                    + " (entity_name, aspect_name, urn, message_id, event_time, run_id,"
+                    + " event_granularity, partition_spec, event, system_metadata, document)"
+                    + " SELECT entity_name, aspect_name, urn, ?, event_time + INTERVAL '1 second',"
+                    + " run_id, event_granularity, partition_spec, event, system_metadata,"
+                    + " jsonb_set(document, '{isExploded}', 'true'::jsonb)"
+                    + " FROM "
+                    + qualified
+                    + " WHERE entity_name = ? AND aspect_name = ? AND urn = ?"
+                    + " ORDER BY event_time DESC LIMIT 1")) {
+      ps.setString(1, explodedMessageId);
+      ps.setString(2, ENTITY_NAME);
+      ps.setString(3, ASPECT_NAME);
+      ps.setString(4, TEST_URN.toString());
+      assertEquals(ps.executeUpdate(), 1);
+      c.commit();
+    }
+
+    try {
+      Map<Urn, Map<String, Map<String, Object>>> raw =
+          pgTimeseries.raw(opContext, Map.of(TEST_URN.toString(), Set.of(ASPECT_NAME)));
+      assertTrue(raw.containsKey(TEST_URN));
+      Map<String, Object> doc = raw.get(TEST_URN).get(ASPECT_NAME);
+      assertNotNull(doc);
+      assertEquals(doc.get(MappingsBuilder.URN_FIELD), TEST_URN.toString());
+      assertFalse(Boolean.TRUE.equals(doc.get(MappingsBuilder.IS_EXPLODED_FIELD)));
+    } finally {
+      try (java.sql.Connection c = database.dataSource().getConnection();
+          java.sql.PreparedStatement ps =
+              c.prepareStatement(
+                  "DELETE FROM "
+                      + qualified
+                      + " WHERE entity_name = ? AND aspect_name = ? AND message_id = ?")) {
+        ps.setString(1, ENTITY_NAME);
+        ps.setString(2, ASPECT_NAME);
+        ps.setString(3, explodedMessageId);
+        ps.executeUpdate();
+        c.commit();
+      }
+    }
   }
 
   @Test

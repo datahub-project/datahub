@@ -104,6 +104,7 @@ public final class PostgresTimeseriesAspectDao {
   private static String buildUpsertSql(String qualifiedTable) {
     return "INSERT INTO "
         + qualifiedTable
+        + " AS target"
         + " (entity_name, aspect_name, urn, message_id, event_time, "
         + "run_id, event_granularity, partition_spec, event, system_metadata, document) "
         + "VALUES (?,?,?,?,?,?,?,?::jsonb,?::jsonb,?::jsonb,?::jsonb) "
@@ -111,7 +112,9 @@ public final class PostgresTimeseriesAspectDao {
         + "urn = EXCLUDED.urn, event_time = EXCLUDED.event_time, "
         + "run_id = EXCLUDED.run_id, event_granularity = EXCLUDED.event_granularity, "
         + "partition_spec = EXCLUDED.partition_spec, event = EXCLUDED.event, "
-        + "system_metadata = EXCLUDED.system_metadata, document = EXCLUDED.document";
+        + "system_metadata = EXCLUDED.system_metadata, document = EXCLUDED.document "
+        + "WHERE COALESCE((EXCLUDED.document->>'isExploded')::boolean, false) = false "
+        + "OR COALESCE((target.document->>'isExploded')::boolean, false) = true";
   }
 
   private static void bindRow(PreparedStatement ps, TimeseriesAspectRowPayload row)

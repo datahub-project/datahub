@@ -3,6 +3,7 @@ from typing import Dict, Generator, Set
 
 import pytest
 
+from datahub.configuration.common import GraphError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sdk.dataset import Dataset
@@ -24,12 +25,15 @@ def _wait_for_downstream_lineage(
     sleep_sec, sleep_times = get_sleep_info()
     last_urns: Set[str] = set()
     for attempt in range(sleep_times):
-        results = test_client.lineage.get_lineage(
-            source_urn=upstream_urn,
-            direction="downstream",
-            max_hops=3,
-        )
-        last_urns = {r.urn for r in results}
+        try:
+            results = test_client.lineage.get_lineage(
+                source_urn=upstream_urn,
+                direction="downstream",
+                max_hops=3,
+            )
+            last_urns = {r.urn for r in results}
+        except GraphError:
+            last_urns = set()
         if expected_urns <= last_urns:
             return
         if attempt < sleep_times - 1:

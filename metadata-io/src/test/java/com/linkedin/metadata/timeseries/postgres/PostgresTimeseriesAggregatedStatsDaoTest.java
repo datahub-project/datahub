@@ -13,6 +13,11 @@ import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.testng.annotations.Test;
@@ -57,6 +62,12 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
         PostgresTimeseriesAggregatedStatsDao.formatMetricCell(
             null, AggregationType.SUM, DataSchema.Type.LONG),
         PostgresTimeseriesAggregatedStatsDao.ES_NULL_VALUE);
+  }
+
+  @Test
+  public void formatGroupCell_offsetDateTime_emitsEpochMillis() {
+    OffsetDateTime bucket = OffsetDateTime.parse("2021-05-27T00:00:00Z");
+    assertEquals(PostgresTimeseriesAggregatedStatsDao.formatGroupCell(bucket), "1622073600000");
   }
 
   @Test
@@ -222,6 +233,35 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
   }
 
   @Test
+  public void fillEmptyDateBuckets_dayMultiple2_matchesSqlBucketKeysAndFillsGap() {
+    GroupingBucket[] buckets =
+        new GroupingBucket[] {
+          new GroupingBucket()
+              .setKey("@timestamp")
+              .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+              .setTimeWindowSize(new TimeWindowSize().setMultiple(2).setUnit(CalendarInterval.DAY))
+        };
+    // Unaligned wall-clock times; SQL date_trunc+multiple=2 floors to even unix-day starts.
+    long firstSqlKey = sqlDayMultiple2BucketMillis(1622116800000L); // May 27 12:00 UTC
+    long lastSqlKey = sqlDayMultiple2BucketMillis(1622462400000L); // May 31 12:00 UTC
+    assertEquals(firstSqlKey, 1622073600000L); // May 27 00:00 UTC
+    assertEquals(lastSqlKey, 1622419200000L); // May 31 00:00 UTC
+
+    List<StringArray> rows =
+        List.of(row(String.valueOf(firstSqlKey), "4"), row(String.valueOf(lastSqlKey), "1"));
+    List<StringArray> filled =
+        PostgresTimeseriesAggregatedStatsDao.fillEmptyDateBuckets(rows, buckets, 1);
+
+    assertEquals(
+        filled.stream().map(r -> r.get(0)).collect(Collectors.toList()),
+        List.of("1622073600000", "1622246400000", "1622419200000"));
+    assertEquals(filled.get(1).get(1), PostgresTimeseriesAggregatedStatsDao.ES_NULL_VALUE);
+    assertEquals(filled.get(1).get(0), String.valueOf(sqlDayMultiple2BucketMillis(1622246400000L)));
+    assertEquals(filled.get(0).get(1), "4");
+    assertEquals(filled.get(2).get(1), "1");
+  }
+
+  @Test
   public void postgresDateBucketSql_multiple1_usesDateTruncOnly() {
     String sql =
         PostgresTimeseriesAggregatedStatsDao.postgresDateBucketSql(
@@ -272,5 +312,13 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
 
   private static StringArray row(String... cells) {
     return new StringArray(List.of(cells));
+  }
+
+  /** Java equivalent of {@code postgresDateBucketSql} for DAY + multiple=2 in GMT. */
+  private static long sqlDayMultiple2BucketMillis(long epochMillis) {
+    ZonedDateTime truncated =
+        Instant.ofEpochMilli(epochMillis).atZone(ZoneOffset.UTC).truncatedTo(ChronoUnit.DAYS);
+    long remainder = (truncated.toEpochSecond() / 86400) % 2;
+    return truncated.minusDays(remainder).toInstant().toEpochMilli();
   }
 }

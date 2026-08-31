@@ -112,14 +112,20 @@ def _wait_for_upstream_column_count(
     sleep_sec, sleep_times = get_sleep_info()
     last_count = 0
     for attempt in range(sleep_times):
-        last_count = count_upstream_columns(
-            graph_client,
-            urn,
-            include_ghost_entities=include_ghost_entities,
-            validate_schema_fields=validate_schema_fields,
-            or_filters=or_filters,
-            lineage_flags=lineage_flags,
-        )
+        try:
+            last_count = count_upstream_columns(
+                graph_client,
+                urn,
+                include_ghost_entities=include_ghost_entities,
+                validate_schema_fields=validate_schema_fields,
+                or_filters=or_filters,
+                lineage_flags=lineage_flags,
+            )
+        except GraphError as exc:
+            logger.warning(
+                "Lineage counts query failed during wait; retrying: %s", exc
+            )
+            last_count = 0
         if last_count >= min_count:
             return
         if attempt < sleep_times - 1:
