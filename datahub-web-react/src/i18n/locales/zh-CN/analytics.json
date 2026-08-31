@@ -1,0 +1,11 @@
+{
+    "allDomains": "所有 Domain",
+    "dataLandscapeSummary": "数据全景概览",
+    "domainLandscapeSummary": "Domain 全景概览",
+    "failedToLoadCharts": "加载 Chart 失败",
+    "failedToLoadDomains": "加载 Domain 失败",
+    "failedToLoadHighlights": "加载重点指标失败",
+    "noDomainData": "该 Domain 暂无分析数据",
+    "selectDomain": "选择 Domain",
+    "usageAnalytics": "使用分析"
+}

@@ -1,0 +1,9 @@
+{
+    "autoPropagatedDescription": "此描述是从上游列自动传播而来的。<learnMore>了解更多</learnMore>",
+    "origin": "来源",
+    "originLabel": "来源",
+    "propagated": "已传播",
+    "propagatedDescriptionTitle": "传播的描述",
+    "via": "经由",
+    "viaLabel": "经由"
+}

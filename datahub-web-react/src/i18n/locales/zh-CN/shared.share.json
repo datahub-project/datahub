@@ -1,0 +1,9 @@
+{
+    "copyLink.tooltip": "复制此实体的可共享链接。",
+    "copyName.label": "复制名称",
+    "copyName.tooltip": "复制此 {{type}} 的完整名称",
+    "copyUrn.label": "复制 URN",
+    "copyUrn.tooltip": "复制此 {{type}} 的 URN。URN 用于在 DataHub 上唯一标识一个实体。",
+    "email.label": "邮件",
+    "email.tooltip": "通过邮件共享此 {{type}}"
+}
