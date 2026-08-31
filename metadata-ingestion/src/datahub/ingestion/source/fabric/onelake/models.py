@@ -1,7 +1,6 @@
 """Data models for Microsoft Fabric OneLake entities.
 
 References:
-- Workspace API: https://learn.microsoft.com/en-us/rest/api/fabric/workspaces
 - Items API: https://learn.microsoft.com/en-us/rest/api/fabric/items
 - Tables API: https://learn.microsoft.com/en-us/rest/api/fabric/tables
 """
