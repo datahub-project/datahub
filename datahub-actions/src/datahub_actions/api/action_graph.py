@@ -351,6 +351,19 @@ query listIngestionSources($input: ListIngestionSourcesInput!, $execution_start:
         for mcp in dataset.build():
             self.graph.emit(mcp)
 
+    def remove_terms_from_dataset(
+        self,
+        entity_urn: str,
+        dataset_terms: List[str],
+    ) -> None:
+        dataset = DatasetPatchBuilder(urn=entity_urn)
+
+        for term in dataset_terms:
+            dataset.remove_term(term)
+
+        for mcp in dataset.build():
+            self.graph.emit(mcp)
+
     def get_corpuser_info(self, urn: str) -> Any:
         return self.get_untyped_aspect(
             urn, "corpUserInfo", "com.linkedin.identity.CorpUserInfo"

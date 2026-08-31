@@ -66,9 +66,13 @@ def test_dataset_level_add_propagates_to_downstream():
     assert graph.add_terms_to_dataset.call_args.args[0] == DOWNSTREAM
 
 
-def test_remove_is_not_propagated():
+def test_column_level_remove_propagates_to_downstream():
     action, graph = _action([DOWNSTREAM])
     action.act(_event(SCHEMA_FIELD, operation="REMOVE"))
+    graph.get_downstreams.assert_called_once_with(entity_urn=DATASET)
+    graph.remove_terms_from_dataset.assert_called_once()
+    assert graph.remove_terms_from_dataset.call_args.args[0] == DOWNSTREAM
+    assert graph.remove_terms_from_dataset.call_args.args[1] == [TERM]
     graph.add_terms_to_dataset.assert_not_called()
 
 

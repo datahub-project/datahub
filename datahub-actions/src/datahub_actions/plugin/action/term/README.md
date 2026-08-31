@@ -19,10 +19,9 @@ Propagation can be controlled via a specified list of terms or a specified list 
 
 - Given a list of "term groups", the propagation action will only propagate terms that belong to these term groups.
 
-### Additions
+### Additions and Removals
 
-The action propagates term additions to downstream datasets. Term removals are
-detected but not propagated downstream.
+The action propagates both term additions and removals to downstream datasets.
 
 ## Configurability
 
@@ -55,3 +54,4 @@ datahub:
 ## Caveats
 
 - Term Propagation is currently only supported for downstream datasets. Terms will not propagate to downstream dashboards or charts. Let us know if this is an important feature for you.
+- Propagation does not track provenance: a removal removes the term from every downstream dataset, and an addition adds it, regardless of whether the term was also applied to that dataset directly. A removal can therefore clear a term that a user set on a downstream dataset independently.

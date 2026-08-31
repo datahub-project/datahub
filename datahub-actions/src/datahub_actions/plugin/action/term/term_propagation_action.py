@@ -186,13 +186,11 @@ class TermPropagationAction(Action):
         ):
             assert self.ctx.graph
 
-            # Only additions are propagated. Downstream writes below always ADD the
-            # term, so without this guard a REMOVE would incorrectly add the term to
-            # downstream datasets.
-            if term_propagation_directive.operation != "ADD":
+            if term_propagation_directive.operation not in ("ADD", "REMOVE"):
                 logger.info(
-                    f"Skipping propagation of {term_propagation_directive.operation} "
-                    f"for term {term_propagation_directive.term}; only additions are propagated"
+                    f"Skipping propagation of unsupported operation "
+                    f"{term_propagation_directive.operation} for term "
+                    f"{term_propagation_directive.term}"
                 )
                 return
 
@@ -217,19 +215,28 @@ class TermPropagationAction(Action):
                 )
                 return
 
-            # apply terms to downstreams
+            # apply the change to downstream datasets (always at the dataset level)
             for dataset in downstreams:
-                logger.info(
-                    f"Will add term {term_propagation_directive.term} to {dataset}"
-                )
-                self.ctx.graph.add_terms_to_dataset(
-                    dataset,
-                    [term_propagation_directive.term],
-                    context={
-                        "propagated": True,
-                        "origin": term_propagation_directive.entity,
-                    },
-                )
+                if term_propagation_directive.operation == "ADD":
+                    logger.info(
+                        f"Will add term {term_propagation_directive.term} to {dataset}"
+                    )
+                    self.ctx.graph.add_terms_to_dataset(
+                        dataset,
+                        [term_propagation_directive.term],
+                        context={
+                            "propagated": True,
+                            "origin": term_propagation_directive.entity,
+                        },
+                    )
+                else:
+                    logger.info(
+                        f"Will remove term {term_propagation_directive.term} from {dataset}"
+                    )
+                    self.ctx.graph.remove_terms_from_dataset(
+                        dataset,
+                        [term_propagation_directive.term],
+                    )
 
     def close(self) -> None:
         return

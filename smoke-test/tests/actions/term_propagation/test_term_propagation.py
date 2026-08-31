@@ -8,7 +8,7 @@ import tenacity
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from tests.utilities.domains import Domain
-from tests.utilities.metadata_operations import add_term
+from tests.utilities.metadata_operations import add_term, remove_term
 from tests.utils import delete_urns, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
@@ -84,6 +84,19 @@ def _assert_term_on_dataset(graph_client, dataset_urn: str, term_urn: str) -> No
     )
 
 
+@tenacity.retry(
+    wait=tenacity.wait_exponential(multiplier=1, max=10),
+    stop=tenacity.stop_after_delay(90),
+)
+def _assert_term_absent_from_dataset(
+    graph_client, dataset_urn: str, term_urn: str
+) -> None:
+    terms = graph_client.get_aspect(dataset_urn, models.GlossaryTermsClass)
+    assert terms is None or all(t.urn != term_urn for t in terms.terms), (
+        f"term {term_urn} was not removed from downstream dataset {dataset_urn}"
+    )
+
+
 @pytest.fixture(scope="function")
 def test_id() -> str:
     return uuid.uuid4().hex[:8]
@@ -137,5 +150,34 @@ def test_dataset_level_term_propagates_to_downstream_dataset(
     try:
         assert add_term(auth_session, source, glossary_term)
         _assert_term_on_dataset(graph_client, downstream, glossary_term)
+    finally:
+        delete_urns(graph_client, urns)
+
+
+def test_column_level_term_removal_propagates_to_downstream_dataset(
+    graph_client, auth_session, test_id: str, glossary_term: str
+) -> None:
+    """A term removed from a COLUMN must also be removed from the downstream dataset,
+    so propagated terms don't accumulate and go stale."""
+    source, downstream = _emit_lineage_pair(graph_client, test_id, "rm")
+    urns: List[str] = [source, downstream]
+    try:
+        assert add_term(
+            auth_session,
+            source,
+            glossary_term,
+            sub_resource=FIELD_PATH,
+            sub_resource_type="DATASET_FIELD",
+        )
+        _assert_term_on_dataset(graph_client, downstream, glossary_term)
+
+        assert remove_term(
+            auth_session,
+            source,
+            glossary_term,
+            sub_resource=FIELD_PATH,
+            sub_resource_type="DATASET_FIELD",
+        )
+        _assert_term_absent_from_dataset(graph_client, downstream, glossary_term)
     finally:
         delete_urns(graph_client, urns)
