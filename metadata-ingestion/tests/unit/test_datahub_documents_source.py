@@ -951,7 +951,7 @@ class TestStateStorage:
             mock_state_handler.get_document_hash.return_value = None
             mock_state_handler.update_document_state = Mock()
 
-            def _yield_then_fail(document_urn, elements):
+            def _yield_then_fail(document_urn, elements, source_text_sha256=None):
                 yield Mock()
                 raise RuntimeError("embedding provider unavailable")
 
@@ -2489,8 +2489,115 @@ class TestPartialEntityHandling:
 
             documents = list(source._fetch_documents_graphql())
 
-            assert len(documents) == 1
-            assert documents[0]["urn"] == "urn:li:document:valid"
+            # Null info/contents are hydration anomalies and stay silently skipped;
+            # empty TEXT is yielded so _process_single_document can stamp a skip marker.
+            assert len(documents) == 2
+            assert documents[0]["urn"] == "urn:li:document:empty_text"
+            assert documents[1]["urn"] == "urn:li:document:valid"
+
+
+class TestSkipMarkersAndProvenance:
+    """Skip markers for never-embeddable documents + sourceTextSha256 provenance."""
+
+    @pytest.fixture
+    def config(self):
+        return DataHubDocumentsSourceConfig(
+            platform_filter=None,
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            min_text_length=10,
+            stateful_ingestion={"enabled": False},
+        )
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    @staticmethod
+    def _drain(gen):
+        """Collect a generator's yields and its StopIteration return value."""
+        items = []
+        try:
+            while True:
+                items.append(next(gen))
+        except StopIteration as stop:
+            return items, stop.value
+
+    def test_skip_marker_emitted_for_empty_text(self, ctx, config, mock_graph):
+        from datahub.metadata.schema_classes import SemanticContentClass
+
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            wus, result = self._drain(
+                source._process_single_document(
+                    {"urn": "urn:li:document:empty", "text": ""}
+                )
+            )
+
+        # True: the skip is deterministic for this text, so state should advance.
+        assert result is True
+        assert len(wus) == 1
+        aspect = wus[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.embeddings == {}
+        assert aspect.skipReason == "EMPTY_TEXT"
+        assert isinstance(aspect.skippedAt, int)
+
+    def test_skip_marker_emitted_below_min_text_length(self, ctx, config, mock_graph):
+        from datahub.metadata.schema_classes import SemanticContentClass
+
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            wus, result = self._drain(
+                source._process_single_document(
+                    {"urn": "urn:li:document:short", "text": "tiny"}
+                )
+            )
+
+        assert result is True
+        assert len(wus) == 1
+        aspect = wus[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.skipReason == "BELOW_MIN_TEXT_LENGTH"
+
+    def test_source_text_sha256_passed_to_chunking(self, ctx, config, mock_graph):
+        text = "This document has enough content to be partitioned and embedded."
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.chunking_source = Mock()
+            source.chunking_source.process_elements_inline.return_value = iter([])
+            wus, result = self._drain(
+                source._process_single_document(
+                    {"urn": "urn:li:document:hashed", "text": text}
+                )
+            )
+
+        assert result is True
+        kwargs = source.chunking_source.process_elements_inline.call_args.kwargs
+        assert (
+            kwargs["source_text_sha256"]
+            == hashlib.sha256(text.encode("utf-8")).hexdigest()
+        )
+
+    def test_source_text_sha256_cross_language_vector(self):
+        """Pinned vector shared with the Java projection test (UpdateIndicesV2Strategy):
+        both sides must produce identical digests for identical unicode text."""
+        text = "héllo \U0001f680\r\nworld"
+        assert (
+            hashlib.sha256(text.encode("utf-8")).hexdigest()
+            == "f319ae6318b99bf8c83d79fe08bdcbc42928dc83c0d9e23145440c83141321a9"
+        )
 
 
 class TestMaxDocumentsLimit:

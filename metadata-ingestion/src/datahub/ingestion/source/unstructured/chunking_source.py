@@ -254,7 +254,10 @@ class DocumentChunkingSource(Source):
         return re.sub(r"[^a-zA-Z0-9_]", "_", self.config.embedding.model)
 
     def process_elements_inline(
-        self, document_urn: str, elements: list[dict[str, Any]]
+        self,
+        document_urn: str,
+        elements: list[dict[str, Any]],
+        source_text_sha256: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Process elements inline and emit SemanticContent aspects.
 
@@ -264,6 +267,9 @@ class DocumentChunkingSource(Source):
         Args:
             document_urn: URN of the document
             elements: Unstructured.io elements to chunk and embed
+            source_text_sha256: SHA-256 hex digest (UTF-8 bytes) of the exact resolved
+                source text the elements were partitioned from, recorded on the emitted
+                embeddings as staleness provenance. None when the caller does not track it.
 
         Yields:
             MetadataWorkUnits containing SemanticContent aspects
@@ -301,7 +307,9 @@ class DocumentChunkingSource(Source):
 
         # Emit SemanticContent aspect (only if embeddings were generated)
         if embeddings:
-            yield from self._emit_semantic_content(document_urn, chunks, embeddings)
+            yield from self._emit_semantic_content(
+                document_urn, chunks, embeddings, source_text_sha256
+            )
 
         self.report.report_document_processed(len(chunks))
         self.report.report_embeddings_generated(len(embeddings))
@@ -821,6 +829,7 @@ class DocumentChunkingSource(Source):
         document_urn: str,
         chunks: list[dict[str, Any]],
         embeddings: list[list[float]],
+        source_text_sha256: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit SemanticContent aspect for the document."""
         from datahub.metadata.schema_classes import (
@@ -865,6 +874,7 @@ class DocumentChunkingSource(Source):
         embedding_model_data = EmbeddingModelDataClass(
             modelVersion=model_version,
             generatedAt=int(datetime.utcnow().timestamp() * 1000),
+            sourceTextSha256=source_text_sha256,
             chunkingStrategy=self.config.chunking.strategy,
             totalChunks=len(chunks),
             chunks=embedding_chunks,
