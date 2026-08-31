@@ -451,8 +451,7 @@ public class EntityRelationshipsResultResolver
     return relationships.stream()
         .filter(
             rel ->
-                normalizedTypes.contains(
-                    rel.getEntity().getEntityType().toLowerCase(Locale.ROOT)))
+                normalizedTypes.contains(rel.getEntity().getEntityType().toLowerCase(Locale.ROOT)))
         .collect(Collectors.toList());
   }
 

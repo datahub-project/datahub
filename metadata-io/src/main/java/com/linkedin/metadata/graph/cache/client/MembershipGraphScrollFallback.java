@@ -167,15 +167,14 @@ public final class MembershipGraphScrollFallback {
       @Nonnull MembershipReadSpec spec) {
     String entityType = UrnUtils.getUrn(seedUrn).getEntityType();
     return switch (entityType) {
-      case CORP_USER_ENTITY_NAME ->
-          new ScrollConfig(spec.getScrollUserEntityTypes(), spec.getScrollGroupEntityTypes());
-      case CORP_GROUP_ENTITY_NAME ->
-          direction == TraversalDirection.FORWARD
-              ? new ScrollConfig(spec.getScrollGroupEntityTypes(), spec.getScrollRoleEntityTypes())
-              : new ScrollConfig(spec.getScrollUserEntityTypes(), spec.getScrollGroupEntityTypes());
+      case CORP_USER_ENTITY_NAME -> new ScrollConfig(
+          spec.getScrollUserEntityTypes(), spec.getScrollGroupEntityTypes());
+      case CORP_GROUP_ENTITY_NAME -> direction == TraversalDirection.FORWARD
+          ? new ScrollConfig(spec.getScrollGroupEntityTypes(), spec.getScrollRoleEntityTypes())
+          : new ScrollConfig(spec.getScrollUserEntityTypes(), spec.getScrollGroupEntityTypes());
       case DATAHUB_ROLE_ENTITY_NAME ->
-          // Matches entity-graph-cache.yaml: both corpuser and corpGroup grant IsMemberOfRole.
-          new ScrollConfig(roleMemberSourceTypes(spec), spec.getScrollRoleEntityTypes());
+      // Matches entity-graph-cache.yaml: both corpuser and corpGroup grant IsMemberOfRole.
+      new ScrollConfig(roleMemberSourceTypes(spec), spec.getScrollRoleEntityTypes());
       default -> null;
     };
   }
