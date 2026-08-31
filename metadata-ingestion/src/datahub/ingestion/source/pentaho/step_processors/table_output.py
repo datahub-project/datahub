@@ -1,12 +1,12 @@
 """Table Output step processor for Pentaho transformations."""
 
-import xml.etree.ElementTree as ET
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
+from xml.etree.ElementTree import (
+    Element,  # nosec B405 - only for type hints; parsing goes through defusedxml
+)
 
+from datahub.ingestion.source.pentaho.context import ProcessingContext
 from datahub.ingestion.source.pentaho.step_processors.base import StepProcessor
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.pentaho.context import ProcessingContext
 
 
 class TableOutputProcessor(StepProcessor):
@@ -17,9 +17,9 @@ class TableOutputProcessor(StepProcessor):
 
     def process(
         self,
-        step: ET.Element,
-        context: "ProcessingContext",
-        root: Optional[ET.Element] = None,
+        step: Element,
+        context: ProcessingContext,
+        root: Optional[Element] = None,
     ):
         conn_name = step.findtext("connection")
         table = step.findtext("table")

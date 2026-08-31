@@ -1,11 +1,16 @@
 """Base classes for step processors."""
 
-import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional
+from xml.etree.ElementTree import (
+    Element,  # nosec B405 - only for type hints; parsing goes through defusedxml
+)
+
+from datahub.ingestion.source.pentaho.context import ProcessingContext
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.pentaho.context import ProcessingContext
+    # PentahoSource cannot be imported at runtime: pentaho imports
+    # step_processors, which imports this module, so the reference is circular.
     from datahub.ingestion.source.pentaho.pentaho import PentahoSource
 
 
@@ -24,9 +29,9 @@ class StepProcessor(ABC):
     @abstractmethod
     def process(
         self,
-        step: ET.Element,
-        context: "ProcessingContext",
-        root: Optional[ET.Element] = None,
+        step: Element,
+        context: ProcessingContext,
+        root: Optional[Element] = None,
     ):
         """Process the step and update context with lineage information."""
         pass

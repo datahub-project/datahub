@@ -786,6 +786,11 @@ oracle = [
     "sqlparse>=0.6.0,<1.0.0",
 ]
 
+pentaho = [
+    "defusedxml>=0.7.1,<0.8.0",
+    "sqlglot[c]==30.12.0",
+]
+
 pinecone = [
     "pinecone-client>=3.0.0,<6.0.0",
 ]
@@ -1876,6 +1881,7 @@ neo4j = "datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource"
 odcs = "datahub.ingestion.source.odcs.odcs_source:ODCSSource"
 vertexai = "datahub.ingestion.source.vertexai.vertexai:VertexAISource"
 hex = "datahub.ingestion.source.hex.hex:HexSource"
+pentaho = "datahub.ingestion.source.pentaho.pentaho:PentahoSource"
 timescaledb = "datahub.ingestion.source.sql.timescaledb:TimescaleDBSource"
 omni = "datahub.ingestion.source.omni.omni:OmniSource"
 pinecone = "datahub.ingestion.source.pinecone.pinecone_source:PineconeSource"

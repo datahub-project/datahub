@@ -26,7 +26,7 @@ class PentahoSourceConfig(ConfigModel):
         default="pentaho_admin", description="Default owner username"
     )
 
-    file_size_limit_mb: int = Field(
+    file_size_limit_mb: float = Field(
         default=50, description="Maximum file size in MB to process"
     )
 

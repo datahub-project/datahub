@@ -1,3 +1,4 @@
+import os
 import xml.etree.ElementTree as ET
 from unittest.mock import Mock, patch
 
@@ -284,7 +285,10 @@ class TestPentahoSource:
             self.ctx,
         )
         urn = source_with_instance._create_dataset_urn("bigquery", "dataset.table")
-        assert urn == "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_instance.dataset.table,PROD)"
+        assert (
+            urn
+            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,test_instance.dataset.table,PROD)"
+        )
 
         # Test file platform with path
         urn = self.source._create_dataset_urn("file", "/path/to/file.csv")
@@ -368,20 +372,19 @@ class TestPentahoSource:
         mock_getsize.return_value = 1024  # 1KB file
 
         # Mock the file processing methods
-        with patch.object(
-            self.source, "_process_ktr"
-        ) as mock_process_ktr, patch.object(
-            self.source, "_process_kjb"
-        ) as mock_process_kjb:
-
+        with (
+            patch.object(self.source, "_process_ktr") as mock_process_ktr,
+            patch.object(self.source, "_process_kjb") as mock_process_kjb,
+        ):
             mock_process_ktr.return_value = []
             mock_process_kjb.return_value = []
 
             list(self.source.get_workunits())
 
             # Should call processing methods for ktr and kjb files only
-            mock_process_ktr.assert_called_once_with("/test/test.ktr")
-            mock_process_kjb.assert_called_once_with("/test/test.kjb")
+            # os.path.join so the expected separator matches the host platform.
+            mock_process_ktr.assert_called_once_with(os.path.join("/test", "test.ktr"))
+            mock_process_kjb.assert_called_once_with(os.path.join("/test", "test.kjb"))
 
     def test_create_method(self):
         """Test the create class method."""
@@ -420,16 +423,19 @@ class TestPentahoSourceWithVariables:
         processor = TableInputProcessor(self.source)
 
         # Mock the source methods
-        with patch.object(
-            self.source, "_get_connection_type", return_value="GOOGLEBIGQUERY"
-        ), patch.object(
-            self.source, "_get_platform_from_connection", return_value="bigquery"
-        ), patch.object(
-            self.source,
-            "_create_dataset_urn",
-            return_value="urn:li:dataset:(urn:li:dataPlatform:bigquery,test_table,PROD)",
+        with (
+            patch.object(
+                self.source, "_get_connection_type", return_value="GOOGLEBIGQUERY"
+            ),
+            patch.object(
+                self.source, "_get_platform_from_connection", return_value="bigquery"
+            ),
+            patch.object(
+                self.source,
+                "_create_dataset_urn",
+                return_value="urn:li:dataset:(urn:li:dataPlatform:bigquery,test_table,PROD)",
+            ),
         ):
-
             # Create test XML element with variable in SQL
             step_xml = ET.fromstring(
                 """
@@ -461,16 +467,17 @@ class TestPentahoSourceWithVariables:
         processor = TableOutputProcessor(self.source)
 
         # Mock the source methods
-        with patch.object(
-            self.source, "_get_connection_type", return_value="VERTICA5"
-        ), patch.object(
-            self.source, "_get_platform_from_connection", return_value="vertica"
-        ), patch.object(
-            self.source,
-            "_create_dataset_urn",
-            return_value="urn:li:dataset:(urn:li:dataPlatform:vertica,schema.${tableString},PROD)",
+        with (
+            patch.object(self.source, "_get_connection_type", return_value="VERTICA5"),
+            patch.object(
+                self.source, "_get_platform_from_connection", return_value="vertica"
+            ),
+            patch.object(
+                self.source,
+                "_create_dataset_urn",
+                return_value="urn:li:dataset:(urn:li:dataPlatform:vertica,schema.${tableString},PROD)",
+            ),
         ):
-
             # Create test XML element with variable in table name
             step_xml = ET.fromstring(
                 """

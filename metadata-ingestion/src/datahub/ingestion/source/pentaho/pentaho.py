@@ -2,8 +2,12 @@
 
 import logging
 import os
-import xml.etree.ElementTree as ET
 from typing import Any, Dict, Iterable, List, Optional
+from xml.etree.ElementTree import (
+    Element,  # nosec B405 - only for type hints; parsing goes through defusedxml
+)
+
+import defusedxml.ElementTree as ET
 
 from datahub.emitter.mce_builder import (
     make_data_job_urn,
@@ -46,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 
 @platform_name("Pentaho")
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.ALPHA)
 @config_class(PentahoSourceConfig)
 @capability(
     SourceCapability.LINEAGE_COARSE,
@@ -208,7 +212,7 @@ class PentahoSource(Source):
         return make_dataset_urn(platform, clean_name, self.config.env)
 
     def _get_connection_type(
-        self, root: Optional[ET.Element], conn_name: str
+        self, root: Optional[Element], conn_name: str
     ) -> Optional[str]:
         """Get connection type from the transformation's connection definitions."""
         if not conn_name or root is None:
@@ -228,9 +232,9 @@ class PentahoSource(Source):
 
     def _process_step(
         self,
-        step: ET.Element,
+        step: Element,
         context: ProcessingContext,
-        root: Optional[ET.Element] = None,
+        root: Optional[Element] = None,
     ):
         """Process a single transformation step for table-level lineage."""
         step_type = step.findtext("type")
