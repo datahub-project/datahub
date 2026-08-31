@@ -2839,31 +2839,38 @@ def test_two_datasets_do_not_share_a_referenced_query_cache():
 
 @pytest.mark.integration
 def test_a_finished_workspaces_caches_are_released():
-    """These caches hold whole M-Query parse trees. The workspace loop drops a
-    workspace once emitted; the caches have to go with it or they accumulate for
-    every dataset in the tenant for the life of the run."""
+    """These hold whole M-Query parse trees. The workspace loop drops a workspace
+    once emitted; the caches have to go with it or they accumulate for every
+    dataset in the tenant for the life of the run.
+
+    Includes a dataset from another workspace, because a report or tile can be
+    built on one -- its cache is keyed by its own id, so releasing only the
+    emitted workspace's ids would leave it behind."""
     ctx, config, platform_instance_resolver = get_default_instances(
         override_config={"enable_advance_lineage_sql_construct": True}
     )
     mapper = powerbi.Mapper(
         ctx, config, PowerBiDashboardSourceReport(), platform_instance_resolver
     )
-    ds = _dataset("dataset-a", {"Base Query": _HIDDEN_BASE_EXPRESSION})
-    workspace = _workspace({"dataset-a": ds})
+    own = _dataset("dataset-own", {"Base Query": _HIDDEN_BASE_EXPRESSION})
+    foreign = _dataset("dataset-foreign", {"Base Query": _HIDDEN_BASE_EXPRESSION})
+    # The workspace being emitted owns only one of them.
+    workspace = _workspace({"dataset-own": own})
 
-    mapper.extract_lineage(
-        _table_of(ds, "loaded", 'let Source = #"Base Query" in Source'),
-        "urn:li:dataset:(urn:li:dataPlatform:powerbi,dataset-a.loaded,PROD)",
-        workspace,
-    )
-    populated = mapper.expression_cache_for(ds)
-    assert populated.parsed, "expected the walk to have cached a parse"
+    for ds in (own, foreign):
+        mapper.extract_lineage(
+            _table_of(ds, "loaded", 'let Source = #"Base Query" in Source'),
+            f"urn:li:dataset:(urn:li:dataPlatform:powerbi,{ds.id}.loaded,PROD)",
+            workspace,
+        )
+        assert mapper.expression_cache_for(ds).parsed, f"{ds.id} was not cached"
 
-    mapper.drop_expression_caches(workspace)
+    mapper.release_expression_caches()
 
-    assert not mapper.expression_cache_for(ds).parsed, (
-        "the workspace's caches should be released once it is fully emitted"
-    )
+    for ds in (own, foreign):
+        assert not mapper.expression_cache_for(ds).parsed, (
+            f"{ds.id}'s parse trees should be released once the workspace is emitted"
+        )
 
 
 @pytest.mark.integration

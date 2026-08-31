@@ -168,10 +168,19 @@ class Mapper:
             return ExpressionCache()
         return self.__expression_caches.setdefault(dataset.id, ExpressionCache())
 
-    def drop_expression_caches(self, workspace: powerbi_data_classes.Workspace) -> None:
-        """Release a fully-emitted workspace's parse trees."""
-        for dataset_id in (*workspace.datasets, *workspace.independent_datasets):
-            self.__expression_caches.pop(dataset_id, None)
+    def release_expression_caches(self) -> None:
+        """Release the parse trees held for the workspace just emitted.
+
+        All of them, not only the ids that workspace owns: a report or tile can
+        be built on a dataset from another workspace, and that dataset's cache is
+        keyed by its own id, so releasing only the emitted workspace's ids would
+        leave those behind for the rest of the run.
+
+        The reuse that matters is within a workspace -- to_datahub_dataset is
+        re-entered per tile and per report -- so this keeps the saving while
+        bounding what is held to one workspace at a time.
+        """
+        self.__expression_caches.clear()
 
     def lineage_urn_to_lowercase(self, value):
         return Mapper.urn_to_lowercase(
@@ -2187,7 +2196,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
                 # Fully emitted and never revisited; drop it to free its
                 # scan_result and parsed children.
-                self.mapper.drop_expression_caches(workspace)
+                self.mapper.release_expression_caches()
                 del workspaces[workspace_id]
 
     def get_report(self) -> SourceReport:
