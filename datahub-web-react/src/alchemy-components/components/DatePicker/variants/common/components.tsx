@@ -3,9 +3,9 @@ import { Calendar } from '@phosphor-icons/react/dist/csr/Calendar';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { ExtendedInputRenderProps } from '@components/components/DatePicker/types';
+import { DefaultDatePickerInputProps } from '@components/components/DatePicker/variants/common/types';
 
-export function DefaultDatePickerInput({ datePickerProps, ...props }: ExtendedInputRenderProps) {
+export function DefaultDatePickerInput({ datePickerProps, ...props }: DefaultDatePickerInputProps) {
     const { t } = useTranslation('alchemy');
     const { disabled } = datePickerProps;
     return (
@@ -16,7 +16,6 @@ export function DefaultDatePickerInput({ datePickerProps, ...props }: ExtendedIn
             isDisabled={disabled}
             placeholder={props.placeholder || t('datePicker.placeholder')}
             icon={{ icon: Calendar }}
-            isReadOnly
             style={{
                 cursor: disabled ? 'not-allowed' : 'pointer',
                 ...props.style,
