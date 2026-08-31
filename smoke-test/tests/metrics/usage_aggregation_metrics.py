@@ -446,3 +446,42 @@ def wait_for_metric_samples(
     for sample in samples[:3]:
         logger.info("  %s", sample)
     return samples
+
+
+def warm_up_actor_class_cache(
+    traffic_session,
+    scrape_session,
+    gms_url: str,
+    expected_tags: Dict[str, str],
+) -> None:
+    """Generate traffic until metrics appear with the expected actor_class tags.
+
+    The GMS entity client caches corpUserInfo for ~20s. When a user is freshly
+    created and then its flags are changed (e.g. isSupportUser set to true),
+    requests arriving before the cache expires are tagged with the stale
+    actor_class. This helper sends repeated GraphQL traffic and polls Prometheus
+    until the flush exports at least one input_bytes sample proving the cache
+    has refreshed and actor_class resolves correctly.
+    """
+
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(35),
+        wait=tenacity.wait_fixed(3),
+        reraise=True,
+    )
+    def _poll() -> None:
+        generate_graphql_read_traffic(traffic_session, repeat=2)
+        content = get_prometheus_metrics(scrape_session, gms_url)
+        samples = find_metric_samples(content, INPUT_BYTES_METRIC, expected_tags)
+        assert samples, (
+            f"Waiting for actor_class cache refresh: no {INPUT_BYTES_METRIC} "
+            f"samples yet with tags {expected_tags}"
+        )
+
+    logger.info(
+        "Warming up actor_class cache — sending traffic until %s appears with %s",
+        INPUT_BYTES_METRIC,
+        expected_tags,
+    )
+    _poll()
+    logger.info("Actor class cache warm-up complete")

@@ -45,6 +45,7 @@ from tests.metrics.usage_aggregation_metrics import (
     resolve_usage_actor_class,
     session_corp_user_urn,
     try_mint_personal_access_token,
+    warm_up_actor_class_cache,
     wait_for_metric_at_least,
     wait_for_metric_delta,
 )
@@ -332,6 +333,8 @@ class TestUsageAggregationGraphqlOutputDedup:
         )
         tags = graphql_metadata_query_tags("support")
         try:
+            warm_up_actor_class_cache(support_session, auth_session, gms_url, tags)
+
             output_baseline = fetch_metric_total(
                 auth_session, gms_url, OUTPUT_BYTES_METRIC, tags
             )
