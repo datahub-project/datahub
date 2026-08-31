@@ -295,6 +295,10 @@ def test_allowed_with_default_extension() -> None:
         path_spec.allowed("s3://bucket/table/file") is True
     )  # No extension, uses default
     assert path_spec.allowed("s3://bucket/table/file.csv") is True
+    assert not path_spec.allowed("s3://bucket/table/file.json")
+
+    for compression in SUPPORTED_COMPRESSIONS:
+        assert path_spec.allowed(f"s3://bucket/table/file.{compression}")
 
 
 def test_allowed_ignore_extension() -> None:
