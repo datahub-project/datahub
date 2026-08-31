@@ -33,8 +33,9 @@ Scopes = Tuple[Tuple[int, dict], ...]
 
 def resolve_to_data_access_functions(
     node_map: NodeIdMap,
-    shared: SharedExpressions,
     parameters: Optional[Dict[str, str]] = None,
+    *,
+    shared: SharedExpressions,
 ) -> List[DataAccessFunctionDetail]:
     """
     Entry point: walk the NodeIdMap and return all DataAccessFunctionDetail entries

@@ -25,6 +25,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     Lineage,
 )
 from datahub.ingestion.source.powerbi.m_query.shared_expressions import (
+    ExpressionCache,
     SharedExpressions,
     StopReason,
 )
@@ -69,7 +70,7 @@ def get_upstream_tables(
     config: PowerBiDashboardSourceConfig,
     parameters: Optional[Dict[str, str]] = None,
     expressions: Optional[Dict[str, str]] = None,
-    parse_cache: Optional[Dict[str, Optional[Dict[int, dict]]]] = None,
+    cache: Optional[ExpressionCache] = None,
 ) -> List[Lineage]:
     """Parse the M-Query expression on *table* and return upstream lineage.
 
@@ -105,7 +106,7 @@ def get_upstream_tables(
         parse=lambda text: _parse_with_bridge(text, config.m_query_parse_timeout),
         # Shared across the dataset's tables when the caller supplies one, so a
         # referenced query is parsed once per dataset rather than once per table.
-        parse_cache=parse_cache if parse_cache is not None else {},
+        cache=cache if cache is not None else ExpressionCache(),
     )
 
     if table.expression is None:

@@ -61,6 +61,9 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     create_dataplatform_instance_resolver,
 )
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
+from datahub.ingestion.source.powerbi.m_query.shared_expressions import (
+    ExpressionCache,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -138,7 +141,7 @@ class Mapper:
         # M-Query parse results per dataset id. The referenced queries a table
         # walks are dataset state, so parsing them once per table repeats work --
         # and repeats the full parse timeout when one of them times out.
-        self.__parse_caches: Dict[str, Dict[str, Optional[Dict[int, dict]]]] = {}
+        self.__expression_caches: Dict[str, ExpressionCache] = {}
         self.workspace_key: Optional[ContainerKey] = None
 
     @staticmethod
@@ -377,8 +380,8 @@ class Mapper:
             config=self.__config,
             parameters=parameters,
             expressions=expressions,
-            parse_cache=self.__parse_caches.setdefault(
-                table.dataset.id if table.dataset else "", {}
+            cache=self.__expression_caches.setdefault(
+                table.dataset.id if table.dataset else "", ExpressionCache()
             ),
         )
 

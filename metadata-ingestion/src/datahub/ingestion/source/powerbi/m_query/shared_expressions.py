@@ -82,6 +82,19 @@ _STOP_MESSAGES: Dict["StopReason", str] = {
 }
 
 
+@dataclass
+class ExpressionCache:
+    """Parse results for one dataset's referenced queries.
+
+    Shared by the dataset's tables so a query reaches the bridge once. The stop
+    reason is kept beside the result: a table hitting a cached failure has to be
+    told about it too, or only the first table to pay for the parse gets warned.
+    """
+
+    parsed: Dict[str, Optional[NodeIdMap]] = field(default_factory=dict)
+    stops: Dict[str, Tuple["StopReason", Optional[str]]] = field(default_factory=dict)
+
+
 @dataclass(frozen=True)
 class SharedExpressions:
     """The dataset's shared expressions, and how far into them the walk has gone.
@@ -105,7 +118,7 @@ class SharedExpressions:
     # Supplied by the caller so one dataset's tables share it: `texts` is dataset
     # state, so parsing a referenced query once per table wastes a bridge call per
     # table -- and a full m_query_parse_timeout per table when it times out.
-    parse_cache: Dict[str, Optional[NodeIdMap]] = field(default_factory=dict)
+    cache: ExpressionCache = field(default_factory=ExpressionCache)
     # name -> (why we stopped, detail for the operator). Structured rather than
     # free text so the caller can report each reason under its own title and
     # counter instead of calling every one of them a parse failure.
@@ -122,30 +135,37 @@ class SharedExpressions:
         return text
 
     def parsed(self, name: str, text: str) -> Optional[NodeIdMap]:
-        """Parse a query, once per walk however many routes reach it.
+        """Parse a query, once per dataset however many tables and routes reach it.
 
-        Returns None when the query cannot be parsed, recording why so the caller
-        can report it rather than leaving the table silently short of lineage.
+        Returns None when the query cannot be parsed. The reason is recorded on
+        this walk every time, including on a cache hit, so each table that
+        depends on a broken query is told rather than only the first one.
         Anything other than a parse, bridge or timeout failure is a defect rather
         than bad input, and is left to propagate.
         """
         key = name.casefold()
-        if key in self.parse_cache:
-            return self.parse_cache[key]
+        if key in self.cache.parsed:
+            result = self.cache.parsed[key]
+            if result is None:
+                reason, detail = self.cache.stops[key]
+                self.stopped(name, reason, detail)
+            return result
 
         try:
-            self.parse_cache[key] = self.parse(text)
+            self.cache.parsed[key] = self.parse(text)
         except MQueryParseError as e:
-            self.parse_cache[key] = None
-            self.stopped(name, StopReason.PARSE_ERROR, str(e))
+            self._failed(name, key, StopReason.PARSE_ERROR, str(e))
         except MQueryBridgeError as e:
-            self.parse_cache[key] = None
-            self.stopped(name, StopReason.BRIDGE_ERROR, str(e))
+            self._failed(name, key, StopReason.BRIDGE_ERROR, str(e))
         except TimeoutException as e:
-            self.parse_cache[key] = None
-            self.stopped(name, StopReason.TIMEOUT, str(e))
+            self._failed(name, key, StopReason.TIMEOUT, str(e))
 
-        return self.parse_cache[key]
+        return self.cache.parsed[key]
+
+    def _failed(self, name: str, key: str, reason: "StopReason", detail: str) -> None:
+        self.cache.parsed[key] = None
+        self.cache.stops[key] = (reason, detail)
+        self.stopped(name, reason, detail)
 
     def stopped(
         self, name: str, reason: "StopReason", detail: Optional[str] = None
