@@ -21,11 +21,25 @@ async function loadRemirrorLocale(locale: string): Promise<void> {
         return;
     }
     const { default: messages } = await loader();
-    const plurals = (remirrorPlurals as Record<string, ((n: number, ord?: boolean) => string) | undefined>)[locale];
+    // Lingui keys plural rules by language only (`pt`, `zh`), so a region-tagged locale such as
+    // `pt-BR` or `zh-TW` must fall back to its primary subtag. Without this, Lingui warns and
+    // resolves every plural to the `other` branch (e.g. pt-BR renders "1 linhas").
+    const pluralsByLocale = remirrorPlurals as Record<string, ((n: number, ord?: boolean) => string) | undefined>;
+    const plurals = pluralsByLocale[locale] ?? pluralsByLocale[locale.split('-')[0]];
     if (plurals) {
         remirrorI18n.loadLocaleData(locale, { plurals });
     }
     remirrorI18n.load(locale, messages);
+}
+
+// Prefer the full BCP-47 tag (e.g. zh-TW, pt-BR) before falling back to the primary subtag, so a
+// region-specific bundle is never skipped in favour of a generic one.
+function resolveRemirrorLocale(language: string): string {
+    if (REMIRROR_SUPPORTED_LOCALES.includes(language)) {
+        return language;
+    }
+    const primarySubtag = language.split('-')[0];
+    return REMIRROR_SUPPORTED_LOCALES.includes(primarySubtag) ? primarySubtag : 'en';
 }
 
 type Props = {
@@ -39,15 +53,7 @@ type Props = {
  */
 export default function RemirrorLocaleProvider({ children }: Props) {
     const { i18n: appI18n } = useTranslation();
-    // Prefer the full BCP-47 tag (e.g. zh-TW, pt-BR) before falling back to the primary
-    // subtag so region-specific Remirror bundles are not skipped.
-    const rawLanguage = appI18n.resolvedLanguage || appI18n.language || 'en';
-    const primaryLanguage = rawLanguage.split('-')[0];
-    const locale = REMIRROR_SUPPORTED_LOCALES.includes(rawLanguage)
-        ? rawLanguage
-        : REMIRROR_SUPPORTED_LOCALES.includes(primaryLanguage)
-          ? primaryLanguage
-          : 'en';
+    const locale = resolveRemirrorLocale(appI18n.resolvedLanguage || appI18n.language || 'en');
     // Only activate once the bundle is loaded, so labels never flash raw message ids. Until then
     // the provider stays on English (Remirror's built-in).
     const [activeLocale, setActiveLocale] = useState('en');
