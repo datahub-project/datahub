@@ -365,6 +365,10 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
         default_factory=int_top_k_dict
     )
     views_scanned: int = 0
+    # Underscore-prefixed so it is excluded from the serialized report.
+    _views_scanned_lock: threading.Lock = field(
+        default_factory=threading.Lock, repr=False
+    )
     total_listed_views: int = 0
     views_listed_per_namespace: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
@@ -387,7 +391,9 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
         self.tables_scanned += 1
 
     def report_view_scanned(self, name: str) -> None:
-        self.views_scanned += 1
+        # Called from the worker threads processing views concurrently.
+        with self._views_scanned_lock:
+            self.views_scanned += 1
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)

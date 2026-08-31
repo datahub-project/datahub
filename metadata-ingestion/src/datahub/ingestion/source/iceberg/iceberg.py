@@ -1,9 +1,10 @@
+import itertools
 import json
 import logging
 import threading
 import uuid
 from functools import partial
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from dateutil import parser as dateutil_parser
 from pyiceberg.catalog import Catalog
@@ -273,14 +274,17 @@ class IcebergSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
             except RESTError as e:
-                self.report.warning(
+                # Report a failure (not a warning) so that stale entity removal
+                # is skipped and a transient listing error cannot soft-delete
+                # the previously ingested views of this namespace.
+                self.report.failure(
                     title="Iceberg REST Server Error",
                     message="Iceberg REST Server returned error status when trying to list views for a namespace, skipping it.",
                     context=str(namespace),
                     exc=e,
                 )
             except Exception as e:
-                self.report.warning(
+                self.report.failure(
                     title="Error when listing views for a namespace",
                     message="Skipping views for the namespace due to errors while listing them.",
                     context=str(namespace),
@@ -424,29 +428,40 @@ class IcebergSource(StatefulIngestionSourceBase):
             )
             return
 
+        # Tables and views are dispatched through a single executor so view
+        # processing does not have to wait for all tables to finish. Each work
+        # item carries its processing function.
         for wu in ThreadedIteratorExecutor.process(
-            worker_func=_process_dataset,
-            args_list=[
-                (dataset_path, namespace_urn)
-                for dataset_path, namespace_urn in self._get_datasets(
-                    self.catalog, self.namespaces
-                )
-            ],
+            worker_func=self._invoke_processor,
+            args_list=itertools.chain(
+                (
+                    (_process_dataset, dataset_path, namespace_urn)
+                    for dataset_path, namespace_urn in self._get_datasets(
+                        self.catalog, self.namespaces
+                    )
+                ),
+                (
+                    (
+                        partial(self._process_view, thread_local),
+                        view_path,
+                        namespace_urn,
+                    )
+                    for view_path, namespace_urn in self._get_views(
+                        self.catalog, self.namespaces
+                    )
+                ),
+            ),
             max_workers=self.config.processing_threads,
         ):
             yield wu
 
-        for wu in ThreadedIteratorExecutor.process(
-            worker_func=partial(self._process_view, thread_local),
-            args_list=[
-                (view_path, namespace_urn)
-                for view_path, namespace_urn in self._get_views(
-                    self.catalog, self.namespaces
-                )
-            ],
-            max_workers=self.config.processing_threads,
-        ):
-            yield wu
+    @staticmethod
+    def _invoke_processor(
+        processor: Callable[[Identifier, str], Iterable[MetadataWorkUnit]],
+        path: Identifier,
+        namespace_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from processor(path, namespace_urn)
 
     def _process_view(
         self,

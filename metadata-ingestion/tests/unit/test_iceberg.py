@@ -2318,7 +2318,11 @@ def test_catalog_without_list_views_support_skips_views() -> None:
         assert source.report.total_listed_views == 0
 
 
-def test_exception_while_listing_views_does_not_fail_ingestion() -> None:
+def test_exception_while_listing_views_is_reported_as_failure() -> None:
+    # A failure (rather than a warning) is expected so that stale entity
+    # removal is skipped and a transient listing error cannot soft-delete
+    # previously ingested views. Views of healthy namespaces are still
+    # processed.
     source = with_iceberg_source(processing_threads=2)
     mock_catalog = MockCatalogExceptionListingViews(
         tables={"namespaceA": {}, "broken_views": {}},
@@ -2332,8 +2336,8 @@ def test_exception_while_listing_views_does_not_fail_ingestion() -> None:
         view_urn = "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.view1,PROD)"
         urns = [unit.metadata.entityUrn for unit in wu]  # type: ignore[union-attr]
         assert urns.count(view_urn) == MCPS_PER_VIEW
-        assert source.report.warnings.total_elements == 1
-        assert source.report.failures.total_elements == 0
+        assert source.report.warnings.total_elements == 0
+        assert source.report.failures.total_elements == 1
 
 
 def test_views_respect_table_pattern() -> None:
