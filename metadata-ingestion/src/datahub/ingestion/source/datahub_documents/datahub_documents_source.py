@@ -19,7 +19,7 @@ from dataclasses import field
 from datetime import datetime
 from itertools import islice
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional, cast
+from typing import Any, Dict, Generator, Iterable, Optional, cast
 
 from datahub.configuration.common import GraphError, OperationalError
 from datahub.ingestion.api.common import PipelineContext
@@ -79,6 +79,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
 
     num_documents_fetched: int = 0
     num_documents_processed: int = 0
+    num_documents_failed: int = 0
     num_documents_skipped: int = 0
     num_documents_skipped_unchanged: int = 0
     num_documents_skipped_empty: int = 0
@@ -98,6 +99,9 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     def report_document_processed(self, num_chunks: int) -> None:
         self.num_documents_processed += 1
         self.num_chunks_created += num_chunks
+
+    def report_document_failed(self) -> None:
+        self.num_documents_failed += 1
 
     def report_document_skipped(self) -> None:
         self.num_documents_skipped += 1
@@ -126,7 +130,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
 
 
 @platform_name("DataHubDocuments", id="datahub-documents")
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @config_class(DataHubDocumentsSourceConfig)
 class DataHubDocumentsSource(StatefulIngestionSourceBase):
     """
@@ -329,6 +333,25 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
             self.report.failure(message="Failed to run Unstructured pipeline", exc=e)
         finally:
+            # Every attempted document failing the same way is a systemic problem --
+            # a dependency or environment break -- not per-document data. Without
+            # this the run exits 0 having indexed nothing, and the only trace is a
+            # pile of per-document warnings. Same reasoning as the whole-batch
+            # hydration failure above. Read the chunking source's counter directly:
+            # self.report.num_documents_processed is only populated in get_report(),
+            # so it is still stale here.
+            if (
+                self.report.num_documents_failed > 0
+                and self.chunking_source.report.num_documents_processed == 0
+            ):
+                self.report.failure(
+                    title="Every document failed to process",
+                    message="No document could be processed, so nothing was "
+                    "indexed. This usually means a dependency or environment "
+                    "problem rather than bad document data; see the per-document "
+                    "warnings for the underlying error.",
+                    context=f"attempted={self.report.num_documents_failed}",
+                )
             # Save state after processing
             if self.config.incremental.enabled:
                 self._save_state()
@@ -373,10 +396,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     continue
 
             # Process document and yield workunits
-            yield from self._process_document_with_throttle(doc)
+            processed_ok = yield from self._process_document_with_throttle(doc)
 
-            # Update state after successful processing (we own this document now).
-            if self.config.incremental.enabled:
+            # Update state only when processing did not fail. Recording the hash for a
+            # failed document would make every later run skip it as "unchanged" even
+            # though no semanticContent was ever written for it.
+            if self.config.incremental.enabled and processed_ok:
                 self._update_document_state(doc["urn"], doc.get("text", ""))
 
     def _bootstrap_event_mode_offsets(self, consumer_id: str) -> None:
@@ -525,10 +550,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         self.report.report_document_fetched()
 
         # Process document and yield work units
-        yield from self._process_document_with_throttle(doc)
+        processed_ok = yield from self._process_document_with_throttle(doc)
 
-        # Update state (we own this document now).
-        if self.config.incremental.enabled:
+        # Update state only when processing did not fail (see _process_batch_mode).
+        if self.config.incremental.enabled and processed_ok:
             self._update_document_state(entity_urn, text)
 
     def _process_event_mode(self) -> Iterable[MetadataWorkUnit]:
@@ -587,6 +612,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         try:
             # Track if we've processed any events
             events_processed = False
+            failures_before = self.report.num_documents_failed
 
             # Process events
             # consume_events() already yields parsed MCL dicts with entityUrn, aspectName, etc.
@@ -596,6 +622,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     self.lock.heartbeat()
                 events_processed = True
                 yield from self._process_single_event(event)
+                # A failed document gets no state hash, but consuming its event would
+                # still acknowledge it — with no later event, it would never be
+                # retried. Hold the offsets so the window is re-polled next run.
+                if self.report.num_documents_failed > failures_before:
+                    event_consumer.suppress_offset_commits = True
 
             # If no events were processed and no lookback window, fall back to batch
             if not events_processed and not self.config.event_mode.lookback_days:
@@ -610,8 +641,14 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # A batch fallback above aborted systemically and already reported a
             # specific failure. Falling back again would replay a full
             # enumeration + hydration storm against GMS for the same outcome.
+            # Do not acknowledge events we did not finish processing.
+            event_consumer.suppress_offset_commits = True
             raise
         except Exception as e:
+            # An exception escaping the loop (e.g. the max-document limit abort)
+            # leaves events unprocessed with no failure counted per document —
+            # committing offsets would drop them, so hold the window here too.
+            event_consumer.suppress_offset_commits = True
             # Catch any errors during event processing and fall back to batch mode
             error_msg = str(e)
             logger.error(
@@ -1460,19 +1497,43 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     def _process_document_with_throttle(
         self, doc: dict[str, Any]
-    ) -> Iterable[MetadataWorkUnit]:
-        """Process one document and throttle only when it produced work units."""
+    ) -> Generator[MetadataWorkUnit, None, bool]:
+        """Process one document and throttle only when it produced work units.
+
+        Returns False when processing failed, so callers must not record
+        incremental state for the document (it should be retried next run).
+        """
         indexed = False
-        for wu in self._process_single_document(doc):
-            indexed = True
-            yield wu
+        gen = self._process_single_document(doc)
+        try:
+            while True:
+                try:
+                    wu = next(gen)
+                except StopIteration as stop:
+                    # _process_single_document returns False on a swallowed failure;
+                    # any other return (True, or None from a plain iterator) is ok.
+                    processed_ok = stop.value is not False
+                    break
+                indexed = True
+                yield wu
+        finally:
+            # Deterministic cleanup if our own generator is closed early. Plain
+            # iterators (test mocks) have no close().
+            close = getattr(gen, "close", None)
+            if close is not None:
+                close()
         if indexed:
             self._throttle_after_indexing()
+        return processed_ok
 
     def _process_single_document(
         self, doc: dict[str, Any]
-    ) -> Iterable[MetadataWorkUnit]:
-        """Process a single document: partition text → chunk → embed → emit SemanticContent."""
+    ) -> Generator[MetadataWorkUnit, None, bool]:
+        """Process a single document: partition text → chunk → embed → emit SemanticContent.
+
+        Returns False when processing failed (the failure is swallowed and
+        reported); returns True on success or a legitimate skip.
+        """
         try:
             document_urn = doc["urn"]
             text = doc.get("text", "")
@@ -1483,7 +1544,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     f"Skipping document {document_urn} (text too short: {len(text)} chars)"
                 )
                 self.report.report_document_skipped_empty()
-                return
+                return True
 
             # Partition text as markdown into unstructured elements
             logger.debug(f"Partitioning text for document {document_urn}")
@@ -1494,7 +1555,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     f"No elements created from text for document {document_urn}"
                 )
                 self.report.report_document_skipped()
-                return
+                return True
 
             # Delegate chunking + embedding + SemanticContent emission to chunking_source.
             # DocumentChunkingSource enforces max_documents and raises RuntimeError when exceeded.
@@ -1506,8 +1567,18 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
                 raise
-            error_msg = f"Failed to process document {doc.get('urn', 'unknown')}: {e}"
-            logger.warning(error_msg, exc_info=True)
+            # Structured rather than a bare logger call: a document that silently
+            # produces no semanticContent is invisible to operators otherwise.
+            self.report.report_document_failed()
+            self.report.warning(
+                title="Failed to process document",
+                message="The document could not be partitioned or chunked, so no "
+                "semanticContent was written for it.",
+                context=doc.get("urn", "unknown"),
+                exc=e,
+            )
+            return False
+        return True
 
     def get_report(self) -> SourceReport:
         # Forward stats from the chunking sub-component into our report

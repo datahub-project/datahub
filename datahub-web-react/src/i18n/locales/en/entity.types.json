@@ -53,6 +53,7 @@
     "dataProduct.newDataProduct": "New Data Product",
     "dataProduct.noDataProductsEmpty": "No Data Products",
     "dataProduct.outputPortsCountTitle": "Output Ports ({{count}})",
+    "dataProduct.parentLabel": "Parent Data Product",
     "dataProduct.searchPlaceholder": "Search data products...",
     "dataProduct.updateError": "Failed to update Data Product. An unexpected error occurred",
     "dataProduct.updateSuccess": "Updated Data Product!",
@@ -317,6 +318,7 @@
     "user.enterDisplayNameError": "Enter a display name.",
     "user.enterEmailError": "Enter your email",
     "user.imageUrlLabel": "Image URL",
+    "user.ingestionActor": "Ingestion",
     "user.invalidPhoneError": "not valid phone number",
     "user.invalidUrlError": "not valid url",
     "user.name": "Person",
@@ -327,5 +329,8 @@
     "user.tab.ownerOf": "Owner Of",
     "user.teamLabel": "Team",
     "user.teamsHeading": "Teams",
-    "user.titleRoleLabel": "Title/Role"
+    "user.titleRoleLabel": "Title/Role",
+    "tab.outputPorts": "Output Ports",
+    "dataProduct.outputPortsToggle": "Output ports · {{count}}",
+    "dataProduct.allAssetsToggle": "All assets · {{count}}"
 }

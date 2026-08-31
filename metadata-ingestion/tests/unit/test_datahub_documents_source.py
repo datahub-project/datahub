@@ -85,6 +85,21 @@ class TestTextPartitioner:
 
         assert elements == []
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 10),
+        reason="unstructured requires Python 3.10+",
+    )
+    def test_partition_single_character_falls_back(self):
+        """A single-character document yields zero elements from the markdown
+        partitioner; the fallback keeps it embeddable instead of silently
+        dropping it."""
+        partitioner = TextPartitioner()
+
+        elements = partitioner.partition_text("x")
+
+        assert len(elements) == 1
+        assert elements[0]["text"] == "x"
+
 
 class TestDataHubDocumentsConfig:
     """Test configuration validation."""
@@ -96,7 +111,7 @@ class TestDataHubDocumentsConfig:
         assert config.platform_filter is None  # Default: None = all NATIVE documents
         assert config.incremental.enabled is True
         assert config.skip_empty_text is True
-        assert config.min_text_length == 50
+        assert config.min_text_length == 0
         assert config.event_mode.enabled is False
         assert config.chunking.strategy == "by_title"
         assert config.partition_strategy == "markdown"
@@ -891,6 +906,197 @@ class TestStateStorage:
                 hash2 = source._calculate_text_hash("Document 2 content")
                 assert calls[0][0][1] == hash1
                 assert calls[1][0][1] == hash2
+
+    def test_failed_document_not_recorded_in_state(self, ctx, config, mock_graph):
+        """A document whose processing fails must NOT get its hash recorded,
+        otherwise every later run skips it as "unchanged" even though no
+        semanticContent was ever written for it."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_document_hash.return_value = None
+            mock_state_handler.update_document_state = Mock()
+
+            mock_docs = [
+                {"urn": "urn:li:document:failing", "text": "Some document content"},
+            ]
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(
+                    source.text_partitioner, "partition_text", return_value=[Mock()]
+                ),
+                patch.object(
+                    source.chunking_source,
+                    "process_elements_inline",
+                    side_effect=RuntimeError("embedding provider unavailable"),
+                ),
+            ):
+                workunits = list(source._process_batch_mode())
+
+                assert workunits == []
+                mock_state_handler.update_document_state.assert_not_called()
+
+    def test_partial_emission_then_failure_not_recorded(self, ctx, config, mock_graph):
+        """A failure after some work units were already emitted must also skip
+        the state update, so the document is fully reprocessed next run."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_document_hash.return_value = None
+            mock_state_handler.update_document_state = Mock()
+
+            def _yield_then_fail(document_urn, elements):
+                yield Mock()
+                raise RuntimeError("embedding provider unavailable")
+
+            mock_docs = [
+                {"urn": "urn:li:document:failing", "text": "Some document content"},
+            ]
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(
+                    source.text_partitioner, "partition_text", return_value=[Mock()]
+                ),
+                patch.object(
+                    source.chunking_source,
+                    "process_elements_inline",
+                    side_effect=_yield_then_fail,
+                ),
+            ):
+                workunits = list(source._process_batch_mode())
+
+                # The pre-failure work unit is still emitted, but the document
+                # is not marked as done.
+                assert len(workunits) == 1
+                mock_state_handler.update_document_state.assert_not_called()
+
+    def test_chunking_failure_not_recorded_in_state(self, ctx, config, mock_graph):
+        """A crash inside the chunker itself (below process_elements_inline) must
+        propagate as a failure, not read as a successfully-processed empty
+        document that gets its hash recorded."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_document_hash.return_value = None
+            mock_state_handler.update_document_state = Mock()
+
+            mock_docs = [
+                {"urn": "urn:li:document:failing", "text": "Some document content"},
+            ]
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(
+                    source.text_partitioner,
+                    "partition_text",
+                    return_value=[{"type": "NarrativeText", "text": "content"}],
+                ),
+                patch(
+                    "unstructured.staging.base.elements_from_dicts",
+                    side_effect=RuntimeError("chunker crashed"),
+                ),
+            ):
+                workunits = list(source._process_batch_mode())
+
+                assert workunits == []
+                assert source.report.num_documents_failed == 1
+                mock_state_handler.update_document_state.assert_not_called()
+
+    def test_event_failure_suppresses_offset_commit(self, ctx, config, mock_graph):
+        """A document that fails during event-mode processing must hold the offset
+        commit: its hash is not recorded, so acknowledging its event anyway would
+        mean it is never retried."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.config.event_mode.enabled = True
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_event_offset.return_value = "offset-1"
+
+            def _fail_event(event):
+                source.report.report_document_failed()
+                return iter([])
+
+            with (
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.DocumentEventConsumer"
+                ) as mock_consumer_cls,
+                patch.object(source, "_process_single_event", side_effect=_fail_event),
+            ):
+                consumer = mock_consumer_cls.return_value
+                consumer.consume_events.return_value = iter([{"entityUrn": "urn:x"}])
+                consumer.suppress_offset_commits = False
+
+                list(source._process_event_mode())
+
+                assert consumer.suppress_offset_commits is True
+
+    def test_event_exception_suppresses_offset_commit(self, ctx, config, mock_graph):
+        """An exception escaping the event loop (e.g. the max-document limit
+        abort) leaves events unprocessed with no per-document failure counted —
+        offsets must still be held so those events are not acknowledged."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.config.event_mode.enabled = True
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_event_offset.return_value = "offset-1"
+
+            with (
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.DocumentEventConsumer"
+                ) as mock_consumer_cls,
+                patch.object(
+                    source,
+                    "_process_single_event",
+                    side_effect=RuntimeError("Document limit of 100000 reached"),
+                ),
+                patch.object(source, "_process_batch_mode", return_value=iter([])),
+            ):
+                consumer = mock_consumer_cls.return_value
+                consumer.consume_events.return_value = iter([{"entityUrn": "urn:x"}])
+                consumer.suppress_offset_commits = False
+
+                list(source._process_event_mode())
+
+                assert consumer.suppress_offset_commits is True
+
+    def test_event_success_commits_offsets(self, ctx, config, mock_graph):
+        """Successful event processing must not suppress offset commits."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.config.event_mode.enabled = True
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_event_offset.return_value = "offset-1"
+
+            with (
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.DocumentEventConsumer"
+                ) as mock_consumer_cls,
+                patch.object(source, "_process_single_event", return_value=iter([])),
+            ):
+                consumer = mock_consumer_cls.return_value
+                consumer.consume_events.return_value = iter([{"entityUrn": "urn:x"}])
+                consumer.suppress_offset_commits = False
+
+                list(source._process_event_mode())
+
+                assert consumer.suppress_offset_commits is False
 
     def test_fallback_stores_document_hashes(self, ctx, config, mock_graph):
         """Test that fallback to batch mode stores document hashes."""
@@ -2437,6 +2643,36 @@ class TestMaxDocumentsLimit:
                 list(source._process_batch_mode())
 
             assert source.chunking_source.report.num_documents_processed == 2
+
+
+class TestOffsetCommitSuppression:
+    """Offsets must not be committed when a document in the window failed."""
+
+    @staticmethod
+    def _consumer(state_handler):
+        consumer = DocumentEventConsumer(
+            graph=Mock(),
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+            state_handler=state_handler,
+        )
+        consumer.offset_ids["MetadataChangeLog_Versioned_v1"] = "offset-42"
+        return consumer
+
+    def test_close_commits_offsets_by_default(self):
+        state_handler = Mock()
+        consumer = self._consumer(state_handler)
+        consumer.close()
+        state_handler.update_event_offset.assert_called_once_with(
+            "MetadataChangeLog_Versioned_v1", "offset-42"
+        )
+
+    def test_close_skips_commit_when_suppressed(self):
+        state_handler = Mock()
+        consumer = self._consumer(state_handler)
+        consumer.suppress_offset_commits = True
+        consumer.close()
+        state_handler.update_event_offset.assert_not_called()
 
 
 class TestGetCurrentOffset:
@@ -4222,3 +4458,44 @@ class TestSystemicAbortHandling:
                     list(source._process_event_mode())
 
             assert mock_batch.call_count == 1
+
+
+class TestTotalProcessingFailure:
+    """A run where every attempted document failed is systemic, not bad data."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    def _run(
+        self, ctx: PipelineContext, failed: int, processed: int
+    ) -> DataHubDocumentsSource:
+        source = DataHubDocumentsSource(ctx, _make_config())
+        with patch.object(source, "_process_batch_mode", return_value=iter([])):
+            source.report.num_documents_failed = failed
+            source.chunking_source.report.num_documents_processed = processed
+            list(source.get_workunits_internal())
+        return source
+
+    def test_all_documents_failed_fails_the_run(self, ctx, mock_graph):
+        # Otherwise the run exits 0 having indexed nothing, and a dependency
+        # break looks identical to "there was nothing to do".
+        with mock_graph:
+            source = self._run(ctx, failed=3, processed=0)
+
+        assert source.report.failures
+
+    def test_partial_failure_does_not_fail_the_run(self, ctx, mock_graph):
+        # Also pins the counter this reads: self.report.num_documents_processed is
+        # only populated in get_report(), so reading it here would still be 0 and
+        # would fail every run that had any per-document error.
+        with mock_graph:
+            source = self._run(ctx, failed=2, processed=5)
+
+        assert not source.report.failures

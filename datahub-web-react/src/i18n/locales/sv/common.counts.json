@@ -3,14 +3,14 @@
     "columnCount_other": "{{count}} kolumner",
     "matchCount_one": "{{count}} träff",
     "matchCount_other": "{{count}} träffar",
-    "ownerCount_one": "{{count}} owner",
-    "ownerCount_other": "{{count}} owners",
+    "ownerCount_one": "{{count}} ägare",
+    "ownerCount_other": "{{count}} ägare",
     "queryCount_one": "{{count}} Query",
     "queryCount_other": "{{count}} Queries",
     "rowCount_one": "{{count}} rad",
     "rowCount_other": "{{count}} rader",
-    "tagCount_one": "{{count}} Tag",
-    "tagCount_other": "{{count}} Tags",
+    "tagCount_one": "{{count}} tagg",
+    "tagCount_other": "{{count}} taggar",
     "termCount_one": "{{count}} term",
     "termCount_other": "{{count}} termer"
 }

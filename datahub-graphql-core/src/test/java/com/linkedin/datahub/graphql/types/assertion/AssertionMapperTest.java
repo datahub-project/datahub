@@ -4,6 +4,7 @@ import static org.testng.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionNote;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdAggregation;
@@ -22,6 +23,7 @@ import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.FreshnessCronSchedule;
 import com.linkedin.assertion.SchemaAssertionCompatibility;
 import com.linkedin.assertion.SchemaAssertionInfo;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
@@ -92,6 +94,69 @@ public class AssertionMapperTest {
     assertEquals(assertion.getTags().getTags().size(), 1);
     assertEquals(
         assertion.getTags().getTags().get(0).getTag().getUrn().toString(), "urn:li:tag:test");
+  }
+
+  @Test
+  public void testMapAssertionNoteFromDedicatedAspect() {
+    HashMap<String, EnvelopedAspect> aspects = new HashMap<>();
+    AssertionInfo info = createFreshnessAssertionInfoWithoutNullableFields();
+    AssertionNote note =
+        new AssertionNote()
+            .setContent("note from aspect")
+            .setLastModified(
+                new AuditStamp()
+                    .setTime(0L)
+                    .setActor(UrnUtils.getUrn("urn:li:corpuser:test_user")));
+    aspects.put(Constants.ASSERTION_INFO_ASPECT_NAME, createEnvelopedAspect(info.data()));
+    aspects.put(Constants.ASSERTION_NOTE_ASPECT_NAME, createEnvelopedAspect(note.data()));
+
+    Assertion assertion = AssertionMapper.map(null, createEntityResponse(aspects));
+
+    assertEquals(assertion.getInfo().getNote(), "note from aspect");
+  }
+
+  @Test
+  public void testMapAssertionNoteFallsBackToDeprecatedField() {
+    AssertionInfo info =
+        createFreshnessAssertionInfoWithoutNullableFields()
+            .setNote(
+                new AssertionNote()
+                    .setContent("legacy note")
+                    .setLastModified(
+                        new AuditStamp()
+                            .setTime(0L)
+                            .setActor(UrnUtils.getUrn("urn:li:corpuser:test_user"))));
+
+    Assertion assertion = AssertionMapper.map(null, createAssertionInfoEntityResponse(info));
+
+    assertEquals(assertion.getInfo().getNote(), "legacy note");
+  }
+
+  @Test
+  public void testDedicatedAssertionNoteTakesPrecedence() {
+    HashMap<String, EnvelopedAspect> aspects = new HashMap<>();
+    AssertionInfo info =
+        createFreshnessAssertionInfoWithoutNullableFields()
+            .setNote(
+                new AssertionNote()
+                    .setContent("legacy note")
+                    .setLastModified(
+                        new AuditStamp()
+                            .setTime(0L)
+                            .setActor(UrnUtils.getUrn("urn:li:corpuser:test_user"))));
+    AssertionNote note =
+        new AssertionNote()
+            .setContent("note from aspect")
+            .setLastModified(
+                new AuditStamp()
+                    .setTime(0L)
+                    .setActor(UrnUtils.getUrn("urn:li:corpuser:test_user")));
+    aspects.put(Constants.ASSERTION_INFO_ASPECT_NAME, createEnvelopedAspect(info.data()));
+    aspects.put(Constants.ASSERTION_NOTE_ASPECT_NAME, createEnvelopedAspect(note.data()));
+
+    Assertion assertion = AssertionMapper.map(null, createEntityResponse(aspects));
+
+    assertEquals(assertion.getInfo().getNote(), "note from aspect");
   }
 
   @Test

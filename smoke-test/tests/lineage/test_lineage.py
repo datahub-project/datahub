@@ -38,9 +38,12 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
+from tests.utilities.domains import Domain
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 class DeleteAgent:
@@ -724,7 +727,7 @@ class Scenario(BaseModel):
                     graph.exists(self.get_transformation_query_urn(hop_index)) is True
                 )
 
-            wait_for_writes_to_sync()  # Wait for the graph to update
+            wait_for_writes_to_sync(mcp_only=True)  # Wait for the graph to update
             # We would like to check that lineage is correct for all datasets and schema fields for all values of hops and for all directions of lineage exploration
             # Since we already have expectations stored for all datasets and schema_fields, we can just check that the results match the expectations
 
@@ -839,7 +842,7 @@ def test_lineage_via_node(
     for mcps in scenario.get_lineage_mcps():
         emitter.emit_mcp(mcps)
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
     try:
         scenario.test_expectation(graph_client)
     finally:
@@ -926,7 +929,7 @@ def ingest_multipath_metadata(
         ],
     ):
         graph_client.emit_mcp(mcp)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
     yield
     for urn in [chart_urn] + intermediates + [destination_urn]:
         graph_client.delete_entity(urn, hard=True)

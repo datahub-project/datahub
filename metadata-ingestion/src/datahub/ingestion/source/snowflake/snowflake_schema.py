@@ -15,6 +15,8 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    TypeGuard,
+    TypeVar,
 )
 
 import sqlglot
@@ -26,13 +28,19 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import (
     SemanticViewColumnSubtype,
     SnowflakeObjectDomain,
+    SnowflakeShowKind,
 )
-from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+    SnowflakePermissionError,
+)
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SHOW_COMMAND_MAX_PAGE_SIZE,
+    SHOW_STREAM_MAX_PAGE_SIZE,
     SnowflakeQuery,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.snowflake.snowflake_utils import snowflake_identity_key
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -52,6 +60,20 @@ class SnowflakeTaskState(StrEnum):
 
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+def _needs_definition(table: "SnowflakeTable") -> TypeGuard["SnowflakeDynamicTable"]:
+    """Whether a table is a dynamic table still awaiting its SHOW-derived definition.
+
+    Used both to choose which schemas the per-schema fallback visits and to decide which
+    tables the results are applied to - the two must agree, or the fallback either queries
+    schemas it has no use for or skips schemas it needed.
+    """
+    return isinstance(table, SnowflakeDynamicTable) and table.definition is None
+
+
+# Row type produced by a database-wide SHOW mapper (a view, stream or dynamic table).
+_ShowRowT = TypeVar("_ShowRowT")
 
 SCHEMA_PARALLELISM = get_snowflake_schema_parallelism()
 
@@ -154,6 +176,12 @@ class SemanticViewColumnMetadata:
     table_name: Optional[str]
     synonyms: List[str]
     expression: Optional[str]
+    # Whether two spellings are the same column, decided once at extraction --
+    # the only place that knows preserve_column_case. Consumers read this rather
+    # than folding `name` themselves; every casing bug in this module began with
+    # a consumer deriving it again and getting it wrong. `name` remains the
+    # stored spelling, and is what gets emitted.
+    identity_key: str
 
 
 @dataclass
@@ -172,7 +200,10 @@ class SnowflakeSemanticViewRelationship:
 class SemanticViewColumnCollection:
     """Collection of column metadata for a semantic view, organized by column name."""
 
-    # Maps uppercase column name to list of metadata occurrences
+    # Groups a column's occurrences across the view's logical tables. Folded so
+    # that a case-only pair lands in one bucket, which is what makes the default
+    # path collapse them exactly as it always has; _group_occurrences_by_case
+    # splits the bucket again when preserve_column_case asks for it.
     columns: Dict[str, List[SemanticViewColumnMetadata]] = field(default_factory=dict)
 
     def add_column(self, metadata: SemanticViewColumnMetadata) -> None:
@@ -181,19 +212,6 @@ class SemanticViewColumnCollection:
         if col_name_upper not in self.columns:
             self.columns[col_name_upper] = []
         self.columns[col_name_upper].append(metadata)
-
-    def get_occurrences(self, col_name_upper: str) -> List[SemanticViewColumnMetadata]:
-        """Get all occurrences of a column by its uppercase name."""
-        return self.columns.get(col_name_upper, [])
-
-    def has_duplicates(self, col_name_upper: str) -> bool:
-        """Check if a column has multiple occurrences."""
-        return len(self.columns.get(col_name_upper, [])) > 1
-
-    def get_duplicate_count(self, col_name_upper: str) -> int:
-        """Get the number of duplicate occurrences for a column."""
-        occurrences = self.columns.get(col_name_upper, [])
-        return max(0, len(occurrences) - 1)
 
 
 @dataclass
@@ -290,11 +308,13 @@ class SnowflakeSemanticView(BaseView):
     # Primary key columns: Set of column names that are part of the primary key.
     # Flat union across logical tables, consumed by the legacy dataset-mode path.
     primary_key_columns: set = field(default_factory=set)
-    # Primary keys keyed by logical table (uppercase) -> set of PK column names.
+    # Primary keys keyed by logical table (its stored name) -> set of PK column
+    # names, which are uppercased -- the join columns they are compared against
+    # are folded the same way.
     # The semanticModel mapper needs per-table PKs so isPartOfKey and relationship
     # cardinality don't leak across same-named columns on different logical tables.
     primary_key_columns_by_table: Dict[str, Set[str]] = field(default_factory=dict)
-    # Declared unique keys keyed by logical table (uppercase) -> list of column-sets
+    # Declared unique keys keyed by logical table (its stored name) -> list of column-sets
     # (each set is one complete unique key). Snowflake infers a one-to-one
     # relationship when the join columns are a unique key, not only the primary key.
     unique_key_column_sets_by_table: Dict[str, List[Set[str]]] = field(
@@ -310,13 +330,24 @@ class SnowflakeSemanticView(BaseView):
     )
     # Pre-computed upstream dataset URNs for column lineage generation
     resolved_upstream_urns: List[str] = field(default_factory=list)
-    # Raw per-logical-table column occurrences (uppercase column name -> occurrences),
-    # preserving each occurrence's own expression/comment/synonyms/subtype for the
-    # semanticModel mapper. Only populated when emit_semantic_model_entities is enabled
-    # (see _process_column_occurrences); the legacy path never reads it.
+    # Raw column occurrences grouped per column, preserving each occurrence's own
+    # expression/comment/synonyms/subtype for the semanticModel mapper. Only
+    # populated when emit_semantic_model_entities is enabled (see
+    # _process_column_occurrences); the legacy path never reads it.
+    # The key is a label, not data: _process_column_occurrences sets it to
+    # occurrences[0].name, so it carries nothing the group does not already hold.
+    # Nothing reads it -- every consumer goes through the occurrences' own `name`
+    # -- which is what keeps a mis-keyed group (a hand-built test fixture, say)
+    # from resolving differently than the same group would in production.
     column_occurrences: Dict[str, List["SemanticViewColumnMetadata"]] = field(
         default_factory=dict
     )
+    # Stored spellings of columns that differ only by case, folded name -> spellings.
+    # Recorded here because `columns` cannot carry it: with preserve_column_case off
+    # the pair is merged into one SnowflakeColumn before anything downstream sees it,
+    # so the one case an operator most needs told about is the one that leaves no
+    # trace. Populated in both modes, unlike column_occurrences.
+    column_case_collisions: Dict[str, Set[str]] = field(default_factory=dict)
     # Join relationships between logical tables, from INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS.
     # Only populated when emit_semantic_model_entities is enabled (see
     # _populate_semantic_view_relationships); consumed only by the semanticModel mapper.
@@ -326,6 +357,58 @@ class SnowflakeSemanticView(BaseView):
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.SEMANTIC_VIEW
+
+    def dimension_name_for_join_key(
+        self, join_key: str, logical_table: Optional[str] = None
+    ) -> str:
+        """The dimension name a relationship's join key refers to.
+
+        A join key names the base table column; a logical dataset's fields are
+        named after the dimension over it. Snowflake reports the two with
+        different casing -- `DIMENSIONS(chi."fkcol" AS "FkCol")` gives dimension
+        `fkcol` and foreign_keys `["FkCol"]` -- so the key as-is can anchor on a
+        path the dataset never declares. A dimension renamed outright is not
+        resolvable this way and falls through unchanged.
+        """
+        for occurrence in self.occurrences_for(join_key):
+            if logical_table is not None and (
+                not occurrence.table_name or occurrence.table_name != logical_table
+            ):
+                continue
+            return occurrence.name
+        return join_key
+
+    def occurrences_for(self, column_name: str) -> List["SemanticViewColumnMetadata"]:
+        """Occurrences for a column reference, matched case-insensitively.
+
+        Matched on each group's own stored name rather than its dict key: the two
+        are equal by construction, and reading the name means a group that was
+        filed under some other label still resolves the same way.
+
+        Callers may hold either spelling -- Snowflake reports the same column
+        differently across its metadata views, and unquoted DDL folds references
+        up.
+
+        Ordered, not filtered: the exact spelling's occurrences come first, then
+        the other case variants.
+
+        Folding without ordering loses a same-table pair -- callers disambiguate
+        by logical table, which cannot separate siblings on the same one, so
+        asking for "COL" got "col"'s expression. Returning only the exact match
+        loses the opposite case -- when the variant lives on another logical
+        table, the caller scoping by table finds nothing and falls through to the
+        raw reference. Ordering is what satisfies both.
+        """
+        target = column_name.upper()
+        exact: List["SemanticViewColumnMetadata"] = []
+        folded: List["SemanticViewColumnMetadata"] = []
+        for occurrences in self.column_occurrences.values():
+            stored_name = occurrences[0].name
+            if stored_name == column_name:
+                exact.extend(occurrences)
+            elif stored_name.upper() == target:
+                folded.extend(occurrences)
+        return [*exact, *folded]
 
 
 @dataclass
@@ -722,6 +805,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         fetch_views_from_information_schema: bool = False,
         emit_semantic_model_entities: bool = False,
         include_technical_schema: bool = True,
+        preserve_column_case: bool = False,
     ) -> None:
         self.connection = connection
         self.report = report
@@ -733,6 +817,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # dataset schema or new-mode logical datasets), which requires technical
         # schema. Skip those extra per-database queries when it is disabled.
         self._include_technical_schema = include_technical_schema
+        # Semantic-view columns are deduplicated by uppercase name, which merges
+        # columns differing only by case. Preserving casing means keeping them
+        # apart, so the grouping has to follow the same setting.
+        self._preserve_column_case = preserve_column_case
 
     def as_obj(self) -> Dict[str, Any]:
         # TODO: Move this into a proper report type that gets computed.
@@ -866,10 +954,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 ),
             )
         except Exception as e:
+            # Debug, not a warning: "returned too much data" is this path's normal
+            # signal to page per schema, so reporting it would alarm on a lossless run.
+            # The cost is that a genuine fault here is also quiet.
             logger.debug(
                 f"Failed to get all tables for database - {db_name}", exc_info=e
             )
-            # Error - Information schema query returned too much data. Please repeat query with more selective predicates.
             return None
 
         for table in cur:
@@ -961,54 +1051,83 @@ class SnowflakeDataDictionary(SupportsAsObj):
         else:
             return self._get_views_for_database_using_show(db_name)
 
-    def _get_views_for_database_using_show(
-        self, db_name: str
-    ) -> Dict[str, List[SnowflakeView]]:
-        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
+    def _probe_database_wide_show(
+        self,
+        *,
+        object_kind: SnowflakeShowKind,
+        db_name: str,
+        page_limit: int,
+        mapper: Callable[[Dict[str, Any]], _ShowRowT],
+    ) -> Optional[Dict[str, List[_ShowRowT]]]:
+        """Run one database-wide SHOW and group the rows by schema, or answer None.
 
-        views: Dict[str, List[SnowflakeView]] = {}
+        None means "this result is unusable, page per schema instead", for either reason: a
+        full page (the statement cannot be continued - see
+        SnowflakeQuery.show_objects_for_database) or a failure. An empty mapping means the
+        database genuinely holds none.
 
-        first_iteration = True
-        view_pagination_marker: Optional[str] = None
-        while first_iteration or view_pagination_marker is not None:
-            cur = self.connection.query(
-                SnowflakeQuery.show_views_for_database(
-                    db_name,
-                    limit=page_limit,
-                    view_pagination_marker=view_pagination_marker,
+        Failures are caught here rather than per caller so all three object kinds share one
+        policy, and because serialized_lru_cache does not cache exceptions - an uncaught one
+        would re-run this query once per schema. The mapping runs inside the same try for
+        that second reason: a row that breaks the mapper would otherwise escape the cached
+        caller and re-issue this whole page-sized query per schema.
+
+        A permission error is the exception, and propagates: see the handler.
+        """
+        try:
+            rows = list(
+                self.connection.query(
+                    SnowflakeQuery.show_objects_for_database(
+                        object_kind, db_name, limit=page_limit
+                    )
                 )
             )
 
-            first_iteration = False
-            view_pagination_marker = None
-
-            result_set_size = 0
-            for view in cur:
-                result_set_size += 1
-
-                view_name = view["name"]
-                schema_name = view["schema_name"]
-                if schema_name not in views:
-                    views[schema_name] = []
-                views[schema_name].append(
-                    SnowflakeView(
-                        name=view_name,
-                        created=view["created_on"],
-                        comment=view["comment"],
-                        view_definition=view["text"],
-                        last_altered=view["created_on"],  # TODO: This is not correct.
-                        materialized=(
-                            view.get("is_materialized", "false").lower() == "true"
-                        ),
-                        is_secure=(view.get("is_secure", "false").lower() == "true"),
-                    )
-                )
-
-            if result_set_size >= page_limit:
+            # Check the page size before mapping: on a full page every mapped object is
+            # discarded, and for dynamic tables each one parses JSON.
+            if len(rows) >= page_limit:
                 logger.info(
-                    f"Fetching next page of views for {db_name} - after {view_name}"
+                    f"Database-wide 'SHOW {object_kind}' for {db_name} filled its "
+                    f"{page_limit}-row page; falling back to per-schema queries, which "
+                    "paginate reliably."
                 )
-                view_pagination_marker = view_name
+                return None
+
+            grouped: Dict[str, List[_ShowRowT]] = {}
+            for row in rows:
+                grouped.setdefault(row["schema_name"], []).append(mapper(row))
+
+            return grouped
+        except SnowflakePermissionError:
+            # Not a size problem, so the per-schema fallback cannot help: it would be denied
+            # too, once per schema. Propagate instead, so the caller reports it as a
+            # permission error with actionable guidance - the classification the callers
+            # already implement, and which swallowing this downgraded to a generic warning.
+            raise
+        except Exception as e:
+            self.report.warning(
+                message="Database-wide SHOW failed; retrying per schema",
+                context=f"{object_kind} in {db_name}",
+                exc=e,
+            )
+            return None
+
+    def _get_views_for_database_using_show(
+        self, db_name: str
+    ) -> Optional[Dict[str, List[SnowflakeView]]]:
+        # SHOW is the default path for views because information_schema.views only exposes a
+        # definition to the view's owner:
+        # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
+        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
+
+        views = self._probe_database_wide_show(
+            object_kind=SnowflakeShowKind.VIEWS,
+            db_name=db_name,
+            page_limit=page_limit,
+            mapper=self._map_show_view,
+        )
+        if views is None:
+            return None
 
         # Because this is in a cached function, this will only log once per database.
         view_counts = {schema_name: len(views[schema_name]) for schema_name in views}
@@ -1016,6 +1135,127 @@ class SnowflakeDataDictionary(SupportsAsObj):
             f"Finished fetching views in {db_name}; counts by schema {view_counts}"
         )
         return views
+
+    def get_views_for_schema(
+        self, *, db_name: str, schema_name: str, view_filter: str = ""
+    ) -> List[SnowflakeView]:
+        """Fetch one schema's views, for when the database-wide fetch cannot return a
+        complete result. Mirrors the strategy chosen by get_views_for_database."""
+        if self._fetch_views_from_information_schema:
+            return self.get_views_for_schema_using_information_schema(
+                db_name=db_name, schema_name=schema_name, view_filter=view_filter
+            )
+        return self.get_views_for_schema_using_show(
+            db_name=db_name, schema_name=schema_name
+        )
+
+    def _iter_show_rows_for_schema(
+        self,
+        *,
+        object_kind: SnowflakeShowKind,
+        db_name: str,
+        schema_name: str,
+        page_limit: int,
+    ) -> Iterable[Dict[str, Any]]:
+        """Yield rows of a schema-scoped SHOW, paging by object name.
+
+        Paging is exact here because a schema's output is ordered by name alone, which is
+        what the cursor matches on (see SnowflakeQuery.show_objects_for_schema).
+
+        Snowflake does not honour that cursor for every object class - for INFORMATION_SCHEMA
+        views it is ignored and every page repeats the first - so termination is decided by
+        whether a full page yielded a name not already seen. Deliberately not by comparing
+        markers: that re-derives Snowflake's collation in Python and could call a working
+        cursor stalled on mixed-case identifiers. A short result plus a failure beats a hang.
+        """
+        context = f"{db_name}.{schema_name}"
+        seen_names: Set[str] = set()
+        marker: Optional[str] = None
+        while True:
+            rows_in_page = 0
+            new_in_page = 0
+            last_name: Optional[str] = None
+            query = SnowflakeQuery.show_objects_for_schema(
+                object_kind, db_name, schema_name, limit=page_limit, marker=marker
+            )
+            try:
+                page = list(self.connection.query(query))
+            except SnowflakePermissionError:
+                # As in _probe_database_wide_show: a denial is reported by the caller as a
+                # permission error, which names the missing grant. Reporting it here as an
+                # incomplete listing would be true but far less actionable.
+                raise
+            except Exception as e:
+                # Rows already yielded stand - a later page failing does not invalidate an
+                # earlier one - but the caller cannot tell a truncated schema from a small
+                # one, so the count has to be reported. Handled here so views, streams and
+                # dynamic tables share one policy.
+                #
+                # failure, not warning: this returns a knowingly incomplete object list, and
+                # stale-entity removal only skips soft-deletion when the source reported a
+                # failure (stale_entity_removal_handler: `if self.report.failures`). A warning
+                # would let the schema's missing objects be soft-deleted as if they were gone
+                # from Snowflake - and the fail-safe threshold (75% by default) is far too
+                # coarse to catch one schema out of hundreds.
+                self.report.failure(
+                    message="Paginated 'SHOW' failed for schema; "
+                    "results may be incomplete",
+                    context=f"SHOW {object_kind} in {context} (kept {len(seen_names)})",
+                    exc=e,
+                )
+                return
+
+            for row in page:
+                rows_in_page += 1
+                last_name = row["name"]
+                if last_name in seen_names:
+                    continue
+                seen_names.add(last_name)
+                new_in_page += 1
+                yield row
+
+            if rows_in_page < page_limit or last_name is None:
+                return
+
+            if new_in_page == 0:
+                # Same incompleteness, same severity as the failed-page case above: a cursor
+                # Snowflake ignores leaves objects unlisted, so soft-deletion must not run.
+                self.report.failure(
+                    message="Paginated 'SHOW' stopped early because Snowflake did not "
+                    "honour the pagination cursor; some objects may be missing.",
+                    context=f"SHOW {object_kind} in {context} after {marker}",
+                )
+                return
+
+            logger.info(
+                f"Fetching next page of {object_kind.lower()} for {context} - "
+                f"after {last_name}"
+            )
+            marker = last_name
+
+    def get_views_for_schema_using_show(
+        self, *, db_name: str, schema_name: str
+    ) -> List[SnowflakeView]:
+        return [
+            self._map_show_view(row)
+            for row in self._iter_show_rows_for_schema(
+                object_kind=SnowflakeShowKind.VIEWS,
+                db_name=db_name,
+                schema_name=schema_name,
+                page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
+            )
+        ]
+
+    def _map_show_view(self, row: Dict[str, Any]) -> SnowflakeView:
+        return SnowflakeView(
+            name=row["name"],
+            created=row["created_on"],
+            comment=row["comment"],
+            view_definition=row["text"],
+            last_altered=row["created_on"],  # TODO: This is not correct.
+            materialized=(row.get("is_materialized", "false").lower() == "true"),
+            is_secure=(row.get("is_secure", "false").lower() == "true"),
+        )
 
     def _map_view(self, db_name: str, row: Dict[str, Any]) -> Tuple[str, SnowflakeView]:
         schema_name = row["VIEW_SCHEMA"]
@@ -1131,8 +1371,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 SnowflakeQuery.get_views_for_database(db_name, view_filter),
             )
         except Exception as e:
+            # Debug for the same reason as get_tables_for_database: "returned too much
+            # data" is this path's normal overflow signal, not a fault.
             logger.debug(f"Failed to get all views for database {db_name}", exc_info=e)
-            # Error - Information schema query returned too much data. Please repeat query with more selective predicates.
             return None
 
         views: Dict[str, List[SnowflakeView]] = {}
@@ -1317,6 +1558,16 @@ class SnowflakeDataDictionary(SupportsAsObj):
             )
             return []
 
+    def _column_identity_key(self, column_name: str) -> str:
+        """Internal identity of a column name, matching
+        SnowflakeIdentifierBuilder.column_identity_key.
+
+        The data dictionary has no identifier builder, so it calls the shared
+        module-level fold directly."""
+        return snowflake_identity_key(
+            column_name, preserve_column_case=self._preserve_column_case
+        )
+
     def _parse_unique_key_sets(self, value: Optional[str], context: str) -> List[set]:
         """Parse UNIQUE_KEYS into a list of column-name sets.
 
@@ -1339,7 +1590,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # scalar defensively.
             columns = key if isinstance(key, list) else [key]
             col_set = {
-                str(c).upper()
+                self._column_identity_key(str(c))
                 for c in columns
                 if isinstance(c, (str, int, float, bool))
             }
@@ -1395,9 +1646,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 if base_table_id not in semantic_view_obj.base_tables:
                     semantic_view_obj.base_tables.append(base_table_id)
 
-                # Store the logical-to-physical mapping for lineage generation
-                logical_table_upper = logical_table_name.upper()
-                semantic_view_obj.logical_to_physical_table[logical_table_upper] = (
+                # Keyed by the stored name. Every INFORMATION_SCHEMA view that
+                # names a logical table reports this same spelling, so nothing
+                # needs folding to make them match -- and folding loses a
+                # case-only pair and mangles every mixed-case alias.
+                logical_table = logical_table_name
+                semantic_view_obj.logical_to_physical_table[logical_table] = (
                     base_table_id.as_tuple()
                 )
 
@@ -1408,13 +1662,18 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 if primary_keys:
                     pk_by_table = (
                         semantic_view_obj.primary_key_columns_by_table.setdefault(
-                            logical_table_upper, set()
+                            logical_table, set()
                         )
                     )
                     for pk_col in primary_keys:
-                        pk_col_upper = pk_col.upper()
-                        semantic_view_obj.primary_key_columns.add(pk_col_upper)
-                        pk_by_table.add(pk_col_upper)
+                        # Verified against Snowflake: PRIMARY_KEYS, FOREIGN_KEYS and
+                        # REF_KEYS all report the column's stored spelling, and a
+                        # quoted mixed-case column can only be referenced by it. So
+                        # fold the way columns fold -- which is still uppercase when
+                        # casing is not being preserved, leaving that path unchanged.
+                        pk_col_key = self._column_identity_key(pk_col)
+                        semantic_view_obj.primary_key_columns.add(pk_col_key)
+                        pk_by_table.add(pk_col_key)
 
                 unique_key_sets = self._parse_unique_key_sets(
                     row.get("UNIQUE_KEYS"),
@@ -1422,7 +1681,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
                 if unique_key_sets:
                     semantic_view_obj.unique_key_column_sets_by_table.setdefault(
-                        logical_table_upper, []
+                        logical_table, []
                     ).extend(unique_key_sets)
 
                 synonyms_raw = row.get("SYNONYMS")
@@ -1432,12 +1691,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     f"{logical_table_name} in {schema_name}.{view_name}",
                 )
                 if synonyms and logical_table_name:
-                    logical_table_upper = logical_table_name.upper()
-                    if logical_table_upper not in semantic_view_obj.table_synonyms:
-                        semantic_view_obj.table_synonyms[logical_table_upper] = []
-                    semantic_view_obj.table_synonyms[logical_table_upper].extend(
-                        synonyms
-                    )
+                    logical_table = logical_table_name
+                    if logical_table not in semantic_view_obj.table_synonyms:
+                        semantic_view_obj.table_synonyms[logical_table] = []
+                    semantic_view_obj.table_synonyms[logical_table].extend(synonyms)
 
             logger.info(
                 f"Populated base tables for {len(semantic_view_map)} semantic views "
@@ -1461,12 +1718,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     parsed = self._parse_base_tables_from_ddl(
                         semantic_view.view_definition
                     )
-                    for logical_alias_upper, (db, schema, table) in parsed.items():
+                    for logical_name, (db, schema, table) in parsed.items():
                         base_table_id = SnowflakeTableIdentifier(
                             database=db, schema=schema, table=table
                         )
                         semantic_view.base_tables.append(base_table_id)
-                        semantic_view.logical_to_physical_table[logical_alias_upper] = (
+                        semantic_view.logical_to_physical_table[logical_name] = (
                             base_table_id.as_tuple()
                         )
                     if parsed:
@@ -1508,15 +1765,19 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # partially-qualified names and SQL-query logical tables (empty parts).
             if len(parts) != 3:
                 continue
-            db, schema, table = parts
-            logical_name = (alias if alias else table).upper()
+            db, schema, table = (text for text, _quoted in parts)
+            # Resolve the way Snowflake does: an unquoted alias folds up, a quoted
+            # one is already the stored spelling. Falls back to the table name
+            # when the entry has no alias, which Snowflake resolves the same way.
+            name, quoted = alias if alias else parts[-1]
+            logical_name = name if quoted else name.upper()
             result[logical_name] = (db, schema, table)
         return result
 
     @staticmethod
     def _semantic_view_table_entries(
         view_definition: str,
-    ) -> List[Tuple[Optional[str], List[str]]]:
+    ) -> List[Tuple[Optional[Tuple[str, bool]], List[Tuple[str, bool]]]]:
         """Tokenize the semantic-view DDL and return one ``(alias, name_parts)``
         pair per entry in the ``TABLES ( ... )`` clause. ``alias`` is the logical
         alias when the entry is ``alias AS <table>`` (else None); ``name_parts``
@@ -1572,11 +1833,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
     @staticmethod
     def _entry_alias_and_name(
         entry_tokens: List[Token],
-    ) -> Tuple[Optional[str], List[str]]:
+    ) -> Tuple[Optional[Tuple[str, bool]], List[Tuple[str, bool]]]:
         """Split one TABLES-clause entry into its optional alias and the dotted
         components of the referenced table: ``alias AS db.sch.tab`` -> (alias,
         [db, sch, tab]); ``db.sch.tab`` -> (None, [db, sch, tab])."""
-        alias: Optional[str] = None
+        alias: Optional[Tuple[str, bool]] = None
         ref_tokens = entry_tokens
         # A top-level `AS` separates the alias from the table reference.
         depth = 0
@@ -1595,17 +1856,22 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return alias, SnowflakeDataDictionary._leading_identifier(ref_tokens)
 
     @staticmethod
-    def _leading_identifier(tokens: List[Token]) -> List[str]:
+    def _leading_identifier(tokens: List[Token]) -> List[Tuple[str, bool]]:
         """Collect the leading ``a.b.c`` identifier from a token run, stopping at
         the first token that is not part of a dotted name (a keyword such as
-        PRIMARY KEY / COMMENT, or an opening paren for a subquery). Quoted
-        identifiers arrive already unquoted from the tokenizer."""
-        parts: List[str] = []
+        PRIMARY KEY / COMMENT, or an opening paren for a subquery).
+
+        Returns ``(text, was_quoted)`` per part. The tokenizer strips the quotes
+        but keeps the distinction in the token type, and the caller needs it:
+        Snowflake folds an unquoted identifier to uppercase and leaves a quoted
+        one alone, so dropping it here would make `"Orders"` and `Orders`
+        indistinguishable."""
+        parts: List[Tuple[str, bool]] = []
         want_identifier = True
         for token in tokens:
             if want_identifier:
                 if token.token_type in (TokenType.VAR, TokenType.IDENTIFIER):
-                    parts.append(token.text)
+                    parts.append((token.text, token.token_type == TokenType.IDENTIFIER))
                     want_identifier = False
                 else:
                     break
@@ -1641,6 +1907,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
             metadata = SemanticViewColumnMetadata(
                 name=col_name,
+                identity_key=self._column_identity_key(col_name),
                 data_type=self._get_data_type_with_default(
                     row, type_label.upper(), col_name, default_data_type
                 ),
@@ -1677,23 +1944,49 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # Sort for deterministic output (synonyms have no inherent order)
         return sorted(unique_synonyms, key=str.lower)
 
+    def _group_occurrences_by_case(
+        self, occurrences: List[SemanticViewColumnMetadata]
+    ) -> List[List[SemanticViewColumnMetadata]]:
+        """Split a bucket of occurrences into the columns it actually represents.
+
+        Occurrences arrive bucketed by uppercase name, so two columns differing
+        only by case share a bucket and would be merged into one. They are
+        distinct columns, so keep them apart when casing is being preserved.
+        """
+        if not self._preserve_column_case:
+            return [occurrences]
+
+        by_stored_name: Dict[str, List[SemanticViewColumnMetadata]] = {}
+        for occurrence in occurrences:
+            by_stored_name.setdefault(occurrence.name, []).append(occurrence)
+        return list(by_stored_name.values())
+
     def _process_column_occurrences(
         self,
         semantic_view: SnowflakeSemanticView,
-        col_name_upper: str,
         occurrences: List[SemanticViewColumnMetadata],
         view_name: str,
         ordinal: int,
     ) -> None:
-        """Process and deduplicate column occurrences for a semantic view."""
+        """Process and deduplicate column occurrences for a semantic view.
+
+        Per-column metadata is keyed by the column's stored name rather than an
+        uppercased form, so a bucket split by case files each column separately
+        and every consumer can look up with the name it already holds.
+        """
         col_name = occurrences[0].name
+        # Keyed by the stored name, always. An uppercased key is what lets two
+        # columns differing only by case collide in the first place, and the key
+        # is internal — the emitted field path is decided separately, so this
+        # does not change what any deployment already has.
+        column_key = col_name
 
         # Only the semanticModel mapper reads column_occurrences (to group fields
         # per logical dataset); gate it behind the same flag as
         # _populate_semantic_view_relationships so legacy dataset-mode ingestion
         # doesn't carry the extra per-column memory for data it never uses.
         if self._emit_semantic_model_entities:
-            semantic_view.column_occurrences[col_name_upper] = occurrences
+            semantic_view.column_occurrences[column_key] = occurrences
 
         # Merge metadata from all occurrences
         data_type, merged_comment, merged_subtype = self._merge_column_metadata(
@@ -1714,19 +2007,19 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 expression=occurrences[0].expression,
             )
         )
-        semantic_view.column_subtypes[col_name_upper] = merged_subtype
+        semantic_view.column_subtypes[column_key] = merged_subtype
 
         # Store table mappings for column-level lineage
         table_names: List[str] = [
             occ.table_name for occ in occurrences if occ.table_name
         ]
         if table_names:
-            semantic_view.column_table_mappings[col_name_upper] = table_names
+            semantic_view.column_table_mappings[column_key] = table_names
 
         # Store merged synonyms
         unique_synonyms = self._deduplicate_synonyms(occurrences)
         if unique_synonyms:
-            semantic_view.column_synonyms[col_name_upper] = unique_synonyms
+            semantic_view.column_synonyms[column_key] = unique_synonyms
 
     def _merge_column_metadata(
         self,
@@ -1861,11 +2154,20 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     continue
 
                 ordinal = 1
-                for col_name_upper, occurrences in column_collection.columns.items():
-                    self._process_column_occurrences(
-                        semantic_view, col_name_upper, occurrences, view_key[1], ordinal
-                    )
-                    ordinal += 1
+                for occurrences in column_collection.columns.values():
+                    # Record the raw spellings before the bucket is merged. Once
+                    # _group_occurrences_by_case has returned a single group, the
+                    # second spelling is gone and the collision is undetectable.
+                    spellings = {occurrence.name for occurrence in occurrences}
+                    if len(spellings) > 1:
+                        semantic_view.column_case_collisions[
+                            next(iter(spellings)).lower()
+                        ] = spellings
+                    for grouped in self._group_occurrences_by_case(occurrences):
+                        self._process_column_occurrences(
+                            semantic_view, grouped, view_key[1], ordinal
+                        )
+                        ordinal += 1
 
             logger.info(
                 f"Populated columns for semantic views in database {db_name}. "
@@ -2206,61 +2508,48 @@ class SnowflakeDataDictionary(SupportsAsObj):
     @serialized_lru_cache(maxsize=1)
     def get_streams_for_database(
         self, db_name: str
-    ) -> Dict[str, List[SnowflakeStream]]:
-        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
+    ) -> Optional[Dict[str, List[SnowflakeStream]]]:
+        page_limit = SHOW_STREAM_MAX_PAGE_SIZE
 
-        streams: Dict[str, List[SnowflakeStream]] = {}
+        return self._probe_database_wide_show(
+            object_kind=SnowflakeShowKind.STREAMS,
+            db_name=db_name,
+            page_limit=page_limit,
+            mapper=self._map_show_stream,
+        )
 
-        first_iteration = True
-        stream_pagination_marker: Optional[str] = None
-        while first_iteration or stream_pagination_marker is not None:
-            cur = self.connection.query(
-                SnowflakeQuery.streams_for_database(
-                    db_name,
-                    limit=page_limit,
-                    stream_pagination_marker=stream_pagination_marker,
-                )
+    def get_streams_for_schema_using_show(
+        self, *, db_name: str, schema_name: str
+    ) -> List[SnowflakeStream]:
+        return [
+            self._map_show_stream(row)
+            for row in self._iter_show_rows_for_schema(
+                object_kind=SnowflakeShowKind.STREAMS,
+                db_name=db_name,
+                schema_name=schema_name,
+                page_limit=SHOW_STREAM_MAX_PAGE_SIZE,
             )
+        ]
 
-            first_iteration = False
-            stream_pagination_marker = None
-
-            result_set_size = 0
-            for stream in cur:
-                result_set_size += 1
-
-                stream_name = stream["name"]
-                schema_name = stream["schema_name"]
-                if schema_name not in streams:
-                    streams[schema_name] = []
-                streams[stream["schema_name"]].append(
-                    SnowflakeStream(
-                        name=stream["name"],
-                        created=stream["created_on"],
-                        owner=stream["owner"],
-                        comment=stream["comment"],
-                        source_type=stream["source_type"],
-                        type=stream["type"],
-                        stale=stream["stale"],
-                        mode=stream["mode"],
-                        database_name=stream["database_name"],
-                        schema_name=stream["schema_name"],
-                        invalid_reason=stream["invalid_reason"],
-                        owner_role_type=stream["owner_role_type"],
-                        stale_after=stream["stale_after"],
-                        table_name=stream["table_name"],
-                        base_tables=stream["base_tables"],
-                        last_altered=stream["created_on"],
-                    )
-                )
-
-            if result_set_size >= page_limit:
-                logger.info(
-                    f"Fetching next page of streams for {db_name} - after {stream_name}"
-                )
-                stream_pagination_marker = stream_name
-
-        return streams
+    def _map_show_stream(self, row: Dict[str, Any]) -> SnowflakeStream:
+        return SnowflakeStream(
+            name=row["name"],
+            created=row["created_on"],
+            owner=row["owner"],
+            comment=row["comment"],
+            source_type=row["source_type"],
+            type=row["type"],
+            stale=row["stale"],
+            mode=row["mode"],
+            database_name=row["database_name"],
+            schema_name=row["schema_name"],
+            invalid_reason=row["invalid_reason"],
+            owner_role_type=row["owner_role_type"],
+            stale_after=row["stale_after"],
+            table_name=row["table_name"],
+            base_tables=row["base_tables"],
+            last_altered=row["created_on"],
+        )
 
     @serialized_lru_cache(maxsize=1)
     def get_procedures_for_database(
@@ -2328,7 +2617,15 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 SnowflakeQuery.get_dynamic_table_graph_history(db_name)
             )
             for row in cur:
-                dt_name = row["NAME"]
+                # Keyed by the fully qualified name because that is how
+                # _map_show_dynamic_table looks it up. Keying on the bare NAME silently
+                # dropped every dynamic table's upstream lineage and its fallback target
+                # lag - the lookup simply never hit.
+                #
+                # The database comes from the row, not from db_name: the underlying function
+                # is account-scoped, so stamping the caller's database would let a same-named
+                # schema.table in another database claim this one's key.
+                dt_name = f"{row['DATABASE_NAME']}.{row['SCHEMA_NAME']}.{row['NAME']}"
                 dt_graph_info[dt_name] = {
                     "inputs": row.get("INPUTS"),
                     "target_lag_type": row.get("TARGET_LAG_TYPE"),
@@ -2351,105 +2648,110 @@ class SnowflakeDataDictionary(SupportsAsObj):
     @serialized_lru_cache(maxsize=1)
     def get_dynamic_tables_with_definitions(
         self, db_name: str
-    ) -> Dict[str, List[SnowflakeDynamicTable]]:
+    ) -> Optional[Dict[str, List[SnowflakeDynamicTable]]]:
         """Get dynamic tables with their definitions using SHOW DYNAMIC TABLES."""
         page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
-        dynamic_tables: Dict[str, List[SnowflakeDynamicTable]] = {}
 
         # Get graph/dependency information (pass db_name)
         dt_graph_info = self.get_dynamic_table_graph_info(db_name)
 
-        first_iteration = True
-        dt_pagination_marker: Optional[str] = None
+        # No try/except here: _probe_database_wide_show reports a failure and answers None,
+        # which is the caller's signal to page per schema. Returning {} instead would read
+        # as "this database genuinely has no dynamic tables" and silently drop every
+        # definition.
+        return self._probe_database_wide_show(
+            object_kind=SnowflakeShowKind.DYNAMIC_TABLES,
+            db_name=db_name,
+            page_limit=page_limit,
+            mapper=lambda row: self._map_show_dynamic_table(
+                db_name, row, dt_graph_info
+            ),
+        )
 
-        while first_iteration or dt_pagination_marker is not None:
-            try:
-                cur = self.connection.query(
-                    SnowflakeQuery.show_dynamic_tables_for_database(
-                        db_name,
-                        limit=page_limit,
-                        dynamic_table_pagination_marker=dt_pagination_marker,
-                    )
-                )
+    def get_dynamic_tables_for_schema_using_show(
+        self, *, db_name: str, schema_name: str
+    ) -> List[SnowflakeDynamicTable]:
+        dt_graph_info = self.get_dynamic_table_graph_info(db_name)
 
-                first_iteration = False
-                dt_pagination_marker = None
-                result_set_size = 0
+        # No handler here: _iter_show_rows_for_schema reports a failure with the count it
+        # kept, so all three object kinds degrade identically.
+        return [
+            self._map_show_dynamic_table(db_name, row, dt_graph_info)
+            for row in self._iter_show_rows_for_schema(
+                object_kind=SnowflakeShowKind.DYNAMIC_TABLES,
+                db_name=db_name,
+                schema_name=schema_name,
+                page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
+            )
+        ]
 
-                for dt in cur:
-                    result_set_size += 1
+    def _map_show_dynamic_table(
+        self,
+        db_name: str,
+        row: Dict[str, Any],
+        dt_graph_info: Dict[str, Dict[str, Any]],
+    ) -> SnowflakeDynamicTable:
+        dt_name = row["name"]
+        schema_name = row["schema_name"]
+        target_lag = row.get("target_lag")
+        upstream_tables: List[SnowflakeDynamicTableInput] = []
 
-                    dt_name = dt["name"]
-                    schema_name = dt["schema_name"]
-
-                    if schema_name not in dynamic_tables:
-                        dynamic_tables[schema_name] = []
-
-                    definition = dt.get("text")
-                    target_lag = dt.get("target_lag")
-                    upstream_tables: List[SnowflakeDynamicTableInput] = []
-                    if dt_graph_info:
-                        qualified_name = f"{db_name}.{schema_name}.{dt_name}"
-                        graph_info = dt_graph_info.get(qualified_name, {})
-                        if not target_lag:
-                            if graph_info.get("target_lag_type") and graph_info.get(
-                                "target_lag_sec"
-                            ):
-                                target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
-                        raw_inputs = graph_info.get("inputs")
-                        if raw_inputs:
-                            # INPUTS is ARRAY of OBJECTs [{name, kind}, ...]; may be a JSON string.
-                            try:
-                                if isinstance(raw_inputs, str):
-                                    raw_inputs = json.loads(raw_inputs)
-                                # Coerce non-list JSON values (e.g. "null" -> None,
-                                # single object -> dict) so the comprehension below
-                                # doesn't crash the whole database scan.
-                                if not isinstance(raw_inputs, list):
-                                    raw_inputs = []
-                                upstream_tables = [
-                                    SnowflakeDynamicTableInput(
-                                        name=inp["name"],
-                                        kind=inp.get("kind", "Table"),
-                                    )
-                                    for inp in raw_inputs
-                                    if isinstance(inp, dict) and inp.get("name")
-                                ]
-                            except json.JSONDecodeError as e:
-                                logger.warning(
-                                    f"Failed to parse INPUTS for dynamic table "
-                                    f"{db_name}.{schema_name}.{dt_name}: {e}"
-                                )
-
-                    dynamic_tables[schema_name].append(
-                        SnowflakeDynamicTable(
-                            name=dt_name,
-                            created=dt["created_on"],
-                            last_altered=dt.get("created_on"),
-                            size_in_bytes=dt.get("bytes", 0),
-                            rows_count=dt.get("rows", 0),
-                            comment=dt.get("comment"),
-                            definition=definition,
-                            target_lag=target_lag,
-                            upstream_tables=upstream_tables,
-                            is_dynamic=True,
-                            type="DYNAMIC TABLE",
+        qualified_name = f"{db_name}.{schema_name}.{dt_name}"
+        graph_info = dt_graph_info.get(qualified_name, {})
+        if not graph_info:
+            # Counted, not warned: on a database whose dynamic tables are all outside the
+            # graph history's 7-day window this is expected and per-table noise would drown
+            # the report. The count is what makes a total miss legible.
+            self.report.num_dynamic_tables_missing_graph_info += 1
+        else:
+            if not target_lag:
+                if graph_info.get("target_lag_type") and graph_info.get(
+                    "target_lag_sec"
+                ):
+                    target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
+            raw_inputs = graph_info.get("inputs")
+            if raw_inputs:
+                # INPUTS is ARRAY of OBJECTs [{name, kind}, ...]; may be a JSON string.
+                try:
+                    if isinstance(raw_inputs, str):
+                        raw_inputs = json.loads(raw_inputs)
+                    # Coerce non-list JSON values (e.g. "null" -> None,
+                    # single object -> dict) so the comprehension below
+                    # doesn't crash the whole database scan.
+                    if not isinstance(raw_inputs, list):
+                        raw_inputs = []
+                    upstream_tables = [
+                        SnowflakeDynamicTableInput(
+                            name=inp["name"],
+                            kind=inp.get("kind", "Table"),
                         )
+                        for inp in raw_inputs
+                        if isinstance(inp, dict) and inp.get("name")
+                    ]
+                except json.JSONDecodeError as e:
+                    # Every upstream edge for this dynamic table is lost, so this belongs in
+                    # the report rather than only in the log - the same reasoning as the
+                    # fetch failures above.
+                    self.report.warning(
+                        message="Failed to parse dynamic table inputs; "
+                        "upstream lineage will be missing",
+                        context=f"{db_name}.{schema_name}.{dt_name}",
+                        exc=e,
                     )
 
-                if result_set_size >= page_limit:
-                    logger.info(
-                        f"Fetching next page of dynamic tables for {db_name} - after {dt_name}"
-                    )
-                    dt_pagination_marker = dt_name
-
-            except Exception as e:
-                logger.debug(
-                    f"Failed to get dynamic tables for database {db_name}: {e}"
-                )
-                break
-
-        return dynamic_tables
+        return SnowflakeDynamicTable(
+            name=dt_name,
+            created=row["created_on"],
+            last_altered=row.get("created_on"),
+            size_in_bytes=row.get("bytes", 0),
+            rows_count=row.get("rows", 0),
+            comment=row.get("comment"),
+            definition=row.get("text"),
+            target_lag=target_lag,
+            upstream_tables=upstream_tables,
+            is_dynamic=True,
+            type="DYNAMIC TABLE",
+        )
 
     def populate_dynamic_table_definitions(
         self, tables: Dict[str, List[SnowflakeTable]], db_name: str
@@ -2459,12 +2761,23 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # Get dynamic tables with definitions from SHOW command
             dt_with_definitions = self.get_dynamic_tables_with_definitions(db_name)
 
+            if dt_with_definitions is None:
+                # The database-wide SHOW filled its page and cannot be paged safely, so
+                # page per schema instead - but only for schemas that actually hold a
+                # dynamic table still missing its definition, since that is all the loop
+                # below consumes. Visiting every schema in the database would cost one
+                # query per schema to answer a question about a handful of them.
+                dt_with_definitions = {
+                    schema_name: self.get_dynamic_tables_for_schema_using_show(
+                        db_name=db_name, schema_name=schema_name
+                    )
+                    for schema_name, table_list in tables.items()
+                    if any(_needs_definition(table) for table in table_list)
+                }
+
             for schema_name, table_list in tables.items():
                 for table in table_list:
-                    if (
-                        isinstance(table, SnowflakeDynamicTable)
-                        and table.definition is None
-                    ):
+                    if _needs_definition(table):
                         # Find matching dynamic table from SHOW results
                         show_dt_list = dt_with_definitions.get(schema_name, [])
                         for show_dt in show_dt_list:
@@ -2474,8 +2787,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
                                 table.upstream_tables = show_dt.upstream_tables
                                 break
         except Exception as e:
-            logger.debug(
-                f"Failed to populate dynamic table definitions for {db_name}: {e}"
+            self.report.warning(
+                message="Failed to populate dynamic table definitions",
+                context=db_name,
+                exc=e,
             )
 
     def get_stages_for_schema(

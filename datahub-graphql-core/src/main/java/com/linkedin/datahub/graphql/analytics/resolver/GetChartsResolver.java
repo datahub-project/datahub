@@ -92,7 +92,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<NamedLine> timeSeriesLines =
         _analyticsService.getTimeseriesChart(
             opContext,
-            _analyticsService.getUsageIndexName(),
+            _analyticsService.getUsageIndexName(opContext),
             dateRange,
             interval,
             Optional.empty(),
@@ -119,7 +119,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
       final List<Row> topUserRows =
           _analyticsService.getTopNTableChart(
               opContext,
-              _analyticsService.getUsageIndexName(),
+              _analyticsService.getUsageIndexName(opContext),
               Optional.of(trailingMonthDateRange),
               "actorUrn.keyword",
               Collections.emptyMap(),
@@ -254,7 +254,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<NamedLine> searchesTimeseries =
         _analyticsService.getTimeseriesChart(
             opContext,
-            _analyticsService.getUsageIndexName(),
+            _analyticsService.getUsageIndexName(opContext),
             trailingWeekDateRange,
             dailyInterval,
             Optional.empty(),
@@ -275,7 +275,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<Row> topSearchQueries =
         _analyticsService.getTopNTableChart(
             opContext,
-            _analyticsService.getUsageIndexName(),
+            _analyticsService.getUsageIndexName(opContext),
             Optional.of(trailingWeekDateRange),
             "query.keyword",
             ImmutableMap.of("type", ImmutableList.of(searchEventType)),
@@ -295,7 +295,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<Row> topViewedDatasets =
         _analyticsService.getTopNTableChart(
             opContext,
-            _analyticsService.getUsageIndexName(),
+            _analyticsService.getUsageIndexName(opContext),
             Optional.of(trailingWeekDateRange),
             "entityUrn.keyword",
             ImmutableMap.of(
@@ -327,7 +327,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<Row> topViewedDashboards =
         _analyticsService.getTopNTableChart(
             opContext,
-            _analyticsService.getUsageIndexName(),
+            _analyticsService.getUsageIndexName(opContext),
             Optional.of(trailingWeekDateRange),
             "entityUrn.keyword",
             ImmutableMap.of(
@@ -357,7 +357,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<NamedBar> sectionViewsPerEntityType =
         _analyticsService.getBarChart(
             opContext,
-            _analyticsService.getUsageIndexName(),
+            _analyticsService.getUsageIndexName(opContext),
             Optional.of(trailingWeekDateRange),
             ImmutableList.of("entityType.keyword", "section.keyword"),
             ImmutableMap.of("type", ImmutableList.of("EntitySectionViewEvent")),
@@ -371,7 +371,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<NamedBar> eventsByEventType =
         _analyticsService.getBarChart(
             opContext,
-            _analyticsService.getUsageIndexName(),
+            _analyticsService.getUsageIndexName(opContext),
             Optional.of(trailingWeekDateRange),
             ImmutableList.of("entityType.keyword", "actionType.keyword"),
             ImmutableMap.of("type", ImmutableList.of("EntityActionEvent")),
@@ -390,7 +390,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<NamedBar> entitiesPerDomain =
         _analyticsService.getBarChart(
             opContext,
-            _analyticsService.getAllEntityIndexName(),
+            _analyticsService.getAllEntityIndexName(opContext),
             Optional.empty(),
             ImmutableList.of("domains.keyword", "platform.keyword"),
             Collections.emptyMap(),
@@ -422,7 +422,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<NamedBar> entitiesPerPlatform =
         _analyticsService.getBarChart(
             opContext,
-            _analyticsService.getAllEntityIndexName(),
+            _analyticsService.getAllEntityIndexName(opContext),
             Optional.empty(),
             ImmutableList.of("platform.keyword"),
             Collections.emptyMap(),
@@ -446,7 +446,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<NamedBar> entitiesPerTerm =
         _analyticsService.getBarChart(
             opContext,
-            _analyticsService.getAllEntityIndexName(),
+            _analyticsService.getAllEntityIndexName(opContext),
             Optional.empty(),
             ImmutableList.of("glossaryTerms.keyword"),
             Collections.emptyMap(),
@@ -470,7 +470,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<NamedBar> entitiesPerEnv =
         _analyticsService.getBarChart(
             opContext,
-            _analyticsService.getAllEntityIndexName(),
+            _analyticsService.getAllEntityIndexName(opContext),
             Optional.empty(),
             ImmutableList.of("origin.keyword"),
             Collections.emptyMap(),

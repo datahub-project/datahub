@@ -12,6 +12,7 @@ on:
       - "!.github/**"
       - ".github/workflows/build-and-test.yml"
       - ".github/actions/ensure-codegen-updated"
+      - ".github/actions/configure-fast-apt-mirror"
       - ".github/scripts/send_failed_tests_to_posthog.py"
   pull_request:
     branches:
@@ -23,6 +24,7 @@ on:
       - "!.github/**"
       - ".github/workflows/build-and-test.yml"
       - ".github/actions/ensure-codegen-updated"
+      - ".github/actions/configure-fast-apt-mirror"
       - ".github/scripts/send_failed_tests_to_posthog.py"
   workflow_dispatch:
   schedule:
@@ -31,12 +33,16 @@ on:
     types: [published]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 env:
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
-  HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
+  # Enables the Depot remote Gradle build cache. settings.gradle gates it on
+  # DEPOT_TOKEN being present, so without this the workflow has no cross-run task
+  # output reuse at all -- which is why the run-scoped actions/cache entry below
+  # was given a prefix restore-key and grew without bound.
+  DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
   # Toggle backend test sharding. Repo variable (Settings → Actions → Variables); unset → '' →
   # falsy → defaults OFF, so it flips without a commit and each repo sets its own value.
   SHARDED_TESTS_RUNS_ENABLED: ${{ vars.SHARDED_TESTS_RUNS_ENABLED || 'false' }}
@@ -70,15 +76,28 @@ jobs:
           else
             echo "backend_sharding=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Determine runner type
+      - uses: ./.github/actions/determine-runners
+        id: runners
+        with:
+          # Only fork PRs are community; push/schedule/release/internal PRs are not.
+          is-community-pr: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          has-depot-label: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
+          # Heavy Gradle build/test jobs — matches prior depot-ubuntu-*-4 sizing.
+          default_runner_size: large
+      - name: Select runner
         id: set-runner
-        # Use depot runners only when a maintainer has explicitly added the "depot" label.
-        # vars.DEPOT_PROJECT_ID is not accessible to fork PRs, so we rely solely on the label.
+        env:
+          HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
+          DEFAULT_RUNNER: ${{ steps.runners.outputs.default-runner }}
+          DEPOT_LABEL_RUNNER: ${{ steps.runners.outputs.depot-label-runner }}
+        # 1. Internal PRs / push / schedule → default-runner (Depot when configured)
+        # 2. Community PRs without depot label → default-runner (ubuntu)
+        # 3. Community PRs with depot label → depot-label-runner (Depot)
         run: |
-          if [[ "${{ env.HAS_DEPOT_LABEL }}" == "true" ]]; then
-            echo "runner_type=depot-ubuntu-latest-4" >> "$GITHUB_OUTPUT"
+          if [[ "$HAS_DEPOT_LABEL" == "true" ]]; then
+            echo "runner_type=$DEPOT_LABEL_RUNNER" >> "$GITHUB_OUTPUT"
           else
-            echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            echo "runner_type=$DEFAULT_RUNNER" >> "$GITHUB_OUTPUT"
           fi
 
   # Runs unless the sharding toggle (SHARDED_TESTS_RUNS_ENABLED repo variable) is on. When on,
@@ -96,18 +115,28 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      # Restore-only: this job barely populates the uv cache (~20MB observed), and its
+      # save used to race the dependency-heavy jobs for the shared key and poison it.
+      # GitHub-hosted master copies are written by documentation.yml /
+      # check-datahub-jars.yml; metadata-ingestion.yml also saves this key on master,
+      # but usually to the Depot cache backend (it runs on Depot runners there).
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
       - name: Gradle build (and test) for NOT metadata ingestion
         # datahub-schematron:cli excluded due to dependency on metadata-ingestion
@@ -246,11 +275,18 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      # Restore-only: this job barely populates the uv cache (~20MB observed), and its
+      # save used to race the dependency-heavy jobs for the shared key and poison it.
+      # GitHub-hosted master copies are written by documentation.yml /
+      # check-datahub-jars.yml; metadata-ingestion.yml also saves this key on master,
+      # but usually to the Depot cache backend (it runs on Depot runners there).
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-uv-${{ hashFiles('metadata-ingestion/setup.py', 'metadata-ingestion/pyproject.toml', 'metadata-ingestion/uv.lock', 'metadata-ingestion/constraints.txt', 'metadata-ingestion/build-constraints.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
       # yarn's global download cache (safe to cache; node_modules itself is not — see
       # datahub-web-react/build.gradle). frontend-build is the writer; frontend-test restores
       # read-only. Turns yarnInstall from a cold ~100s download into a link-only step.
@@ -261,13 +297,16 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
       - name: Gradle build and test for frontend (no JS tests)
         run: |
@@ -326,11 +365,11 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           # Matrix legs read the cache only; the primary build job (build-except-metadata-ingestion)
@@ -476,26 +515,37 @@ jobs:
             echo "::error::Only $count backend test modules discovered (<20) — globs/excludes likely broken; refusing near-empty sharded run."
             exit 1
           fi
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           # setup-gradle handles deps/wrapper; the local build cache is managed explicitly
           # below with a run-scoped key so shards deterministically restore the seed's output.
           gradle-home-cache-excludes: caches/build-cache-1
+      # Deliberately no restore-keys. This entry exists to hand the seed job's
+      # build cache to the parallel jobs in the SAME run, which match on the exact
+      # run-scoped key. A prefix restore-key here instead made it a ratchet: each
+      # run restored the previous run's cache, compiled into it, and saved the
+      # union, with nothing pruning it -- this entry grew 3.2GB -> 7.2GB over 11
+      # runs in 4.5 hours (~+400MB/run) and was headed for the same wall its
+      # metadata-io sibling already hit: at 16.6GB that one could no longer be
+      # re-archived within the runner's disk, every save failed with a warning,
+      # and every run restored the same frozen blob. Cross-run reuse belongs to
+      # the remote build cache; this entry is intra-run handoff only.
       - name: Cache Gradle build cache (seed writes; run-scoped key)
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-backend-build-cache-${{ github.run_id }}
-          restore-keys: |
-            gradle-backend-build-cache-
-      - name: Build + non-test checks once (assemble, spotless, etc.)
+      - name: Build + non-test checks once (assemble, compile, etc.)
         # Compile main + test + non-test checks (no tests) to warm the shard cache.
         # Keep yarnGenerate / generateLazyIconStubs (codegen + graphqlUsageRegistryCheck need them);
         # drop yarnBuild via -x :datahub-frontend:testClasses / :datahub-web-react:jar (frontend-build
@@ -553,25 +603,30 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           # Shards read the seed's cache; only the seed writes. Avoids matrix write races.
           cache-read-only: true
           gradle-home-cache-excludes: caches/build-cache-1
       - name: Restore Gradle build cache (exact key from seed this run)
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        # cache/restore, not cache: these jobs consume the seed's output and
+        # must never write. With the full action they also saved at post-step,
+        # and the prefix restore-key let them pull a previous run's cache and
+        # re-save the union -- the same ratchet the seed job had.
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-backend-build-cache-${{ github.run_id }}
-          restore-keys: |
-            gradle-backend-build-cache-
       - name: Compute this shard's modules
         # Broad globs: a module is included by having ANY test source, so nothing depends on
         # class naming — each shard runs `:module:test` whole. Excludes mirror build-except's
@@ -680,23 +735,28 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
-          distribution: "zulu"
-          java-version: 21
+          distribution: "temurin"
+          java-version: 25
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           cache-read-only: true
           gradle-home-cache-excludes: caches/build-cache-1
       - name: Restore Gradle build cache (exact key from seed this run)
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        # cache/restore, not cache: these jobs consume the seed's output and
+        # must never write. With the full action they also saved at post-step,
+        # and the prefix restore-key let them pull a previous run's cache and
+        # re-save the union -- the same ratchet the seed job had.
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-backend-build-cache-${{ github.run_id }}
-          restore-keys: |
-            gradle-backend-build-cache-
       - name: Download all shards' JaCoCo exec
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:

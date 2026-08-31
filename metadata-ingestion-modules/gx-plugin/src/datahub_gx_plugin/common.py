@@ -9,11 +9,9 @@ from typing import Any, Dict, List, Optional, Union
 from sqlalchemy.engine.url import make_url
 
 import datahub.emitter.mce_builder as builder
-from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
@@ -24,22 +22,18 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionResultType,
     AssertionRunEvent,
     AssertionRunStatus,
+    AssertionSource,
+    AssertionSourceType,
     AssertionStdAggregation,
     AssertionStdOperator,
     AssertionStdParameter,
     AssertionStdParameters,
     AssertionStdParameterType,
     AssertionType,
-    DatasetAssertionInfo,
+    CustomAssertionInfo,
     DatasetAssertionScope,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    GenericAspectClass,
-    MetadataChangeProposalClass,
-)
-from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -388,29 +382,36 @@ def build_assertion_info(
         ),
     }
 
-    datasetAssertionInfo = DatasetAssertionInfo(
-        dataset=dataset,
-        fields=fields,
-        operator=AssertionStdOperator._NATIVE_,
-        aggregation=AssertionStdAggregation._NATIVE_,
-        nativeType=expectation_type,
-        nativeParameters={k: convert_to_string(v) for k, v in kwargs.items()},
-        scope=DatasetAssertionScope.DATASET_ROWS,
-    )
+    scope: Union[str, DatasetAssertionScope] = DatasetAssertionScope.DATASET_ROWS
+    aggregation: Union[str, AssertionStdAggregation] = AssertionStdAggregation._NATIVE_
+    operator: Union[str, AssertionStdOperator] = AssertionStdOperator._NATIVE_
+    parameters: Optional[AssertionStdParameters] = None
 
     if expectation_type in known_expectations.keys():
         assertion = known_expectations[expectation_type]
-        datasetAssertionInfo.scope = assertion.scope
-        datasetAssertionInfo.aggregation = assertion.aggregation
-        datasetAssertionInfo.operator = assertion.operator
-        datasetAssertionInfo.parameters = assertion.parameters
-    else:
-        if "column" in kwargs and expectation_type.startswith("expect_column_value"):
-            datasetAssertionInfo.scope = DatasetAssertionScope.DATASET_COLUMN
-            datasetAssertionInfo.aggregation = AssertionStdAggregation.IDENTITY
-        elif "column" in kwargs:
-            datasetAssertionInfo.scope = DatasetAssertionScope.DATASET_COLUMN
-            datasetAssertionInfo.aggregation = AssertionStdAggregation._NATIVE_
+        scope = assertion.scope
+        aggregation = assertion.aggregation
+        operator = assertion.operator
+        parameters = assertion.parameters
+    elif "column" in kwargs and expectation_type.startswith("expect_column_value"):
+        scope = DatasetAssertionScope.DATASET_COLUMN
+        aggregation = AssertionStdAggregation.IDENTITY
+    elif "column" in kwargs:
+        scope = DatasetAssertionScope.DATASET_COLUMN
+        aggregation = AssertionStdAggregation._NATIVE_
+
+    customAssertionInfo = CustomAssertionInfo(
+        type="greatExpectations",
+        entity=dataset,
+        field=fields[0] if fields else None,
+        fields=fields or None,
+        scope=scope,
+        aggregation=aggregation,
+        operator=operator,
+        parameters=parameters,
+        nativeType=expectation_type,
+        nativeParameters={k: convert_to_string(v) for k, v in kwargs.items()},
+    )
 
     custom_properties: Dict[str, str] = {
         "expectation_suite_name": expectation_suite_name or "",
@@ -421,10 +422,11 @@ def build_assertion_info(
         )
 
     return AssertionInfo(
-        type=AssertionType.DATASET,
-        datasetAssertion=datasetAssertionInfo,
+        type=AssertionType.CUSTOM,
+        customAssertion=customAssertionInfo,
         customProperties=custom_properties,
         description=description,
+        source=AssertionSource(type=AssertionSourceType.EXTERNAL),
     )
 
 
@@ -690,94 +692,25 @@ def build_assertions_with_results(
     return assertions_with_results
 
 
-def build_assertion_info_patch(
-    assertion_urn: str,
-    assertion_info: AssertionInfo,
-) -> MetadataChangeProposalClass:
-    assertion_info_obj = assertion_info.to_obj()
-    patch_ops = []
-
-    if "type" in assertion_info_obj:
-        patch_ops.append(
-            {"op": "add", "path": "/type", "value": assertion_info_obj["type"]}
-        )
-    if "datasetAssertion" in assertion_info_obj:
-        patch_ops.append(
-            {
-                "op": "add",
-                "path": "/datasetAssertion",
-                "value": assertion_info_obj["datasetAssertion"],
-            }
-        )
-    custom_properties = assertion_info_obj.get("customProperties") or {}
-    for key, value in custom_properties.items():
-        if value is None:
-            continue
-        patch_ops.append(
-            {
-                "op": "add",
-                "path": f"/customProperties/{key}",
-                "value": value,
-            }
-        )
-    if assertion_info_obj.get("description") is not None:
-        patch_ops.append(
-            {
-                "op": "add",
-                "path": "/description",
-                "value": assertion_info_obj["description"],
-            }
-        )
-
-    aspect_payload = {
-        "patch": pre_json_transform(patch_ops),
-        "forceGenericPatch": True,
-    }
-    return MetadataChangeProposalClass(
-        entityUrn=assertion_urn,
-        entityType=guess_entity_type(assertion_urn),
-        changeType=ChangeTypeClass.PATCH,
-        aspectName="assertionInfo",
-        aspect=GenericAspectClass(
-            value=json.dumps(pre_json_transform(aspect_payload)).encode(),
-            contentType=JSON_PATCH_CONTENT_TYPE,
-        ),
-    )
-
-
 def build_assertion_info_mcp(
-    graph: DataHubGraph,
     assertion_urn: str,
     assertion_info: AssertionInfo,
-) -> Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]:
-    try:
-        existing_info = graph.get_aspect(assertion_urn, AssertionInfo)
-    except Exception:
-        logger.warning(
-            "Failed to check existing assertionInfo. Falling back to upsert.",
-            exc_info=True,
-        )
-        existing_info = None
-
-    if existing_info is None:
-        return MetadataChangeProposalWrapper(
-            entityUrn=assertion_urn,
-            aspect=assertion_info,
-        )
-
-    return build_assertion_info_patch(assertion_urn, assertion_info)
+) -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(
+        entityUrn=assertion_urn,
+        aspect=assertion_info,
+    )
 
 
 def emit_assertion_results(
     emitter: DatahubRestEmitter,
     assertions: List[Dict[str, Any]],
 ) -> None:
-    graph = emitter.to_graph()
     for assertion in assertions:
         logger.info("Assertion URN - {urn}".format(urn=assertion["assertionUrn"]))
 
         assertion_info_mcp = build_assertion_info_mcp(
-            graph, assertion["assertionUrn"], assertion["assertionInfo"]
+            assertion["assertionUrn"], assertion["assertionInfo"]
         )
         emitter.emit_mcp(assertion_info_mcp)
 

@@ -82,7 +82,6 @@ from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeP
 from datahub.ingestion.source.unity.config import (
     FederationConnectionDetail,
     UnityCatalogAnalyzeProfilerConfig,
-    UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
     UnityCatalogSQLAlchemyProfilerConfig,
 )
@@ -382,7 +381,7 @@ class _ExternalSchemaKey:
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following metadata from Databricks Unity Catalog:
@@ -664,15 +663,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         "Using UnityCatalogGEProfiler with SQLAlchemyProfiler (method: sqlalchemy)"
                     )
                     # Use GenericProfiler which will use SQLAlchemyProfiler internally
-                    yield from UnityCatalogGEProfiler(
-                        config=self.config,
-                        profiling_config=self.config.profiling,
-                        report=self.report,
-                    ).get_workunits(list(self.tables.values()))
-                elif isinstance(self.config.profiling, UnityCatalogGEProfilerConfig):
-                    logger.info(
-                        "Using UnityCatalogGEProfiler with DatahubGEProfiler (method: ge)"
-                    )
                     yield from UnityCatalogGEProfiler(
                         config=self.config,
                         profiling_config=self.config.profiling,

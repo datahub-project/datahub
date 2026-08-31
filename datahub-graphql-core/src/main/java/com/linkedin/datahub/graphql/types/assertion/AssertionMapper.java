@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import com.linkedin.assertion.AssertionAction;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionNote;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Status;
@@ -75,7 +76,13 @@ public class AssertionMapper {
     if (envelopedAssertionInfo != null) {
       final AssertionInfo assertionInfo =
           new AssertionInfo(envelopedAssertionInfo.getValue().data());
-      result.setInfo(mapAssertionInfo(context, assertionInfo, entityUrn));
+      final EnvelopedAspect envelopedAssertionNote =
+          aspects.get(Constants.ASSERTION_NOTE_ASPECT_NAME);
+      final String note =
+          envelopedAssertionNote != null
+              ? new AssertionNote(envelopedAssertionNote.getValue().data()).getContent()
+              : null;
+      result.setInfo(mapAssertionInfo(context, assertionInfo, entityUrn, note));
       try {
         final Urn datasetUrn =
             Optional.ofNullable(assertionInfo.getEntityUrn())
@@ -138,13 +145,21 @@ public class AssertionMapper {
 
   public static com.linkedin.datahub.graphql.generated.AssertionInfo mapAssertionInfo(
       @Nullable QueryContext context, final AssertionInfo gmsAssertionInfo) {
-    return mapAssertionInfo(context, gmsAssertionInfo, null);
+    return mapAssertionInfo(context, gmsAssertionInfo, null, null);
   }
 
   public static com.linkedin.datahub.graphql.generated.AssertionInfo mapAssertionInfo(
       @Nullable QueryContext context,
       final AssertionInfo gmsAssertionInfo,
       @Nullable final Urn assertionUrn) {
+    return mapAssertionInfo(context, gmsAssertionInfo, assertionUrn, null);
+  }
+
+  public static com.linkedin.datahub.graphql.generated.AssertionInfo mapAssertionInfo(
+      @Nullable QueryContext context,
+      final AssertionInfo gmsAssertionInfo,
+      @Nullable final Urn assertionUrn,
+      @Nullable final String note) {
     final com.linkedin.datahub.graphql.generated.AssertionInfo assertionInfo =
         new com.linkedin.datahub.graphql.generated.AssertionInfo();
     assertionInfo.setType(AssertionType.valueOf(gmsAssertionInfo.getType().name()));
@@ -167,6 +182,11 @@ public class AssertionMapper {
     // Description
     if (gmsAssertionInfo.hasDescription()) {
       assertionInfo.setDescription(gmsAssertionInfo.getDescription());
+    }
+    if (note != null) {
+      assertionInfo.setNote(note);
+    } else if (gmsAssertionInfo.hasNote()) {
+      assertionInfo.setNote(gmsAssertionInfo.getNote().getContent());
     }
     // FRESHNESS Assertions
     if (gmsAssertionInfo.hasFreshnessAssertion()) {

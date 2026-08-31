@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.generated.PatchEntityInput;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.lang.reflect.Field;
@@ -314,7 +315,7 @@ public class AuthorizationUtils {
                         || field.getType().isPrimitive()) {
                       try {
                         switch (field.getName()) {
-                            // pass through to the restricted entity
+                          // pass through to the restricted entity
                           case "name":
                           case "type":
                           case "urn":
@@ -337,7 +338,7 @@ public class AuthorizationUtils {
                                         "get" + StringUtils.capitalise(field.getName()));
                                 return Boolean.TRUE.equals(
                                     boolGetter.invoke(entity, (Object[]) null));
-                                // mask these fields in the restricted entity
+                              // mask these fields in the restricted entity
                               case "char":
                               case "String":
                                 return "";
@@ -534,26 +535,30 @@ public class AuthorizationUtils {
 
   public static boolean isViewDatasetUsageAuthorized(
       final QueryContext context, final Urn resourceUrn) {
-    return AuthUtil.isAuthorized(
-        context.getOperationContext(),
-        PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
-        new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+    String aspectName =
+        DASHBOARD_ENTITY_NAME.equals(resourceUrn.getEntityType())
+            ? DASHBOARD_USAGE_STATISTICS_ASPECT_NAME
+            : DATASET_USAGE_STATISTICS_ASPECT_NAME;
+    return TimeseriesAuthUtil.canViewAspect(
+        context.getOperationContext(), resourceUrn, resourceUrn.getEntityType(), aspectName);
   }
 
   public static boolean isViewDatasetProfileAuthorized(
       final QueryContext context, final Urn resourceUrn) {
-    return AuthUtil.isAuthorized(
+    return TimeseriesAuthUtil.canViewAspect(
         context.getOperationContext(),
-        PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE,
-        new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+        resourceUrn,
+        resourceUrn.getEntityType(),
+        DATASET_PROFILE_ASPECT_NAME);
   }
 
   public static boolean isViewDatasetOperationsAuthorized(
       final QueryContext context, final Urn resourceUrn) {
-    return AuthUtil.isAuthorized(
+    return TimeseriesAuthUtil.canViewAspect(
         context.getOperationContext(),
-        PoliciesConfig.VIEW_DATASET_OPERATIONS_PRIVILEGE,
-        new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+        resourceUrn,
+        resourceUrn.getEntityType(),
+        DATASET_OPERATION_ASPECT_NAME);
   }
 
   public static boolean canManageAssetSummary(@Nonnull QueryContext context, @Nonnull Urn urn) {

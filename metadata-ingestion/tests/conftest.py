@@ -1,9 +1,11 @@
+import atexit
 import json
 import logging
 import os
 import pathlib
 import re
 import statistics
+import threading
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Protocol, Sequence
@@ -25,11 +27,30 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 # between retries.
 os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 
+
+@atexit.register
+def _report_threads_alive_at_exit() -> None:
+    # A non-daemon thread from a native client library that is still running when the
+    # interpreter finalizes can segfault the process long after the test session
+    # reported success (see the intermittent exit-139 CI failures). faulthandler shows
+    # the faulting thread; this names the threads that outlived the session.
+    lingering = [t for t in threading.enumerate() if t is not threading.main_thread()]
+    if lingering:
+        print(
+            f"[atexit] {len(lingering)} non-main thread(s) alive at interpreter shutdown:",
+            flush=True,
+        )
+        for thread in lingering:
+            print(f"[atexit]   {thread.name} daemon={thread.daemon}", flush=True)
+
+
 # We need our imports to go below the os.environ updates, since mere act
 # of importing some datahub modules will load env variables.
 from datahub.testing.pytest_hooks import (  # noqa: F401,E402
     load_golden_flags,
+    local_timezone,
     pytest_addoption,
+    pytest_configure,
 )
 from tests.test_helpers.docker_helpers import (  # noqa: F401,E402
     docker_compose_command,

@@ -10,9 +10,14 @@ list of globs (or a single glob). Example:
 import logging
 import os
 
+import pytest
+
 from tests.utilities.concurrent_openapi import run_tests
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 _ROOT_FIXTURE_GLOBS = [
     "tests/openapi/v1/*.json",
