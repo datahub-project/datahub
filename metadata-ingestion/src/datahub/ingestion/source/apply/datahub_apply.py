@@ -147,7 +147,7 @@ class DataHubApplyConfig(ConfigModel):
 
 @platform_name("DataHubApply")
 @config_class(DataHubApplyConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.UNKNOWN)
 class DataHubApplySource(Source):
     """
     This source is a helper over CLI

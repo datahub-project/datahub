@@ -147,10 +147,9 @@ Container call sites use [`BoundHierarchyAccess`](../../metadata-io/src/main/jav
 | -------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------- | ----------------------------- |
 | VBAC / policy `CONTAINER` field (`ContainerFieldResolverProvider`)               | **Core** — `VIEW_AUTHORIZATION_ENABLED` | `FORWARD` ancestor expand on container URNs | Aspect parent walk            |
 | GraphQL container hierarchy (`parentContainers` on datasets, charts, containers) | **Core**                                | Ordered `FORWARD` parent walk               | Aspect parent walk            |
-| GraphQL container children (`relationships` INCOMING `IsPartOf` on `container`)  | **Core**                                | `REVERSE` direct children (`maxDepth=1`)    | `GraphRetriever` scroll       |
 | Search filter rewriters (`ContainerExpansionRewriter`, `container.keyword`)      | **Core**                                | `FORWARD` or `REVERSE` per filter           | `GraphRetriever` scroll       |
 
-Direct-child `relationships` queries return **nested sub-containers only** (container → container edges), not datasets or other assets in the container. Asset listing uses `Container.entities` (search on `container.keyword`).
+GraphQL `Container.relationships(types: [IsPartOf], direction: INCOMING)` does **not** use this cache. That API is a generic graph-edge listing and returns all contained assets (datasets, charts, dashboards, nested containers, etc.) via `GraphClient` / the live graph index — the same behavior as before the entity graph cache. Prefer `Container.entities` (search on `container.keyword`) when you only need assets under a container with search filters and paging.
 
 Sync invalidation on **`container` entity** `container` aspect changes drops all partial keys (`DROP_PARTIAL`). Updates to asset `container` aspects (dataset moves between schemas) do **not** invalidate this graph — call sites read the direct parent from primary storage first.
 
@@ -168,16 +167,18 @@ Production ships a **FULL** graph for actor / group / role membership walks used
 | Population   | `SCHEDULED` (default 600s)                                                                                           |
 | Bounds       | `maxVertices: 21000`, `maxEdges: 60000` (target ~15k users + ~5k groups; raise via `ENTITY_GRAPH_CACHE_CONFIG_JSON`) |
 
+GraphQL `relationships` with `relatedEntityTypes` fetches neighbors up to **`bounds.maxEdges`** before filtering and paginating (fail closed if the listing exceeds that cap). Raise `maxEdges` when large role/group member listings need type-filtered pages.
+
 Membership call sites use [`BoundMembershipAccess`](../../metadata-io/src/main/java/com/linkedin/metadata/graph/cache/client/BoundMembershipAccess.java) with [`MembershipBindings.membershipSpec()`](../../metadata-io/src/main/java/com/linkedin/metadata/graph/cache/client/MembershipBindings.java):
 
-| Call site                                                               | Path                                                                                           | Fallback                                       |
-| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| GraphQL `relationships` OUTGOING on session `corpuser` (groups / roles) | **Session shortcut** — `ActorContext` groups + `AuthorizationContext.resolveSessionActorRoles` | — (no cache / graph)                           |
-| GraphQL `relationships` OUTGOING on `corpuser` (groups)                 | Typed `listRelated` depth 1                                                                    | Aspect read or graph scroll                    |
-| GraphQL `relationships` OUTGOING on `corpuser` (`IsMemberOfRole`)       | **`effectiveRolesForUser`** (direct roles ∪ roles via groups)                                  | `ActorGroupMembershipService` / graph scroll   |
-| GraphQL `relationships` INCOMING on `corpGroup` (members)               | Typed `listRelated` `REVERSE` depth 1                                                          | Graph scroll (ES graph index)                  |
-| GraphQL `relationships` OUTGOING on `corpGroup` (roles)                 | Typed `listRelated` depth 1                                                                    | Batch `RoleMembership` on group / graph scroll |
-| GraphQL `relationships` INCOMING on `dataHubRole` (assigned users)      | Typed `listRelated` `REVERSE` depth 1                                                          | Graph scroll                                   |
+| Call site                                                                         | Path                                                                                           | Fallback                                       |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| GraphQL `relationships` OUTGOING on session `corpuser` (groups / roles)           | **Session shortcut** — `ActorContext` groups + `AuthorizationContext.resolveSessionActorRoles` | — (no cache / graph)                           |
+| GraphQL `relationships` OUTGOING on `corpuser` (groups)                           | Typed `listRelated` depth 1                                                                    | Aspect read or graph scroll                    |
+| GraphQL `relationships` OUTGOING on `corpuser` (`IsMemberOfRole`)                 | **`effectiveRolesForUser`** (direct roles ∪ roles via groups)                                  | `ActorGroupMembershipService` / graph scroll   |
+| GraphQL `relationships` INCOMING on `corpGroup` (members)                         | Typed `listRelated` `REVERSE` depth 1                                                          | Graph scroll (ES graph index)                  |
+| GraphQL `relationships` OUTGOING on `corpGroup` (roles)                           | Typed `listRelated` depth 1                                                                    | Batch `RoleMembership` on group / graph scroll |
+| GraphQL `relationships` INCOMING on `dataHubRole` (members: users **and** groups) | Typed `listRelated` `REVERSE` depth 1                                                          | Graph scroll                                   |
 
 **Effective roles:** Cached / fast-path `IsMemberOfRole` OUTGOING on a `corpuser` returns **effective** roles (direct assignment plus roles inherited via group membership), aligned with [`SessionActorIdentity.resolveAllRoles`](../../li-utils/src/main/java/com/datahub/authorization/SessionActorIdentity.java). This may differ from a raw Elasticsearch graph scroll that lists only direct user→role edges.
 
@@ -352,7 +353,7 @@ Operators define **which graphs exist** (edges, `buildSource`, scope, population
 
 **REVERSE self-only expand:** a root with no descendants returns **`EmptyHit(emptySet)`** — a valid result, not a cache miss. Call sites must not treat this as a miss.
 
-**Seed coverage (all scopes):** when some seed URNs are absent from the materialized snapshot, `expand()` returns reachable vertices for seeds that **are** present (`Hit`) rather than failing closed. PARTIAL multi-root requests fail closed earlier when any root is not cache-ready (see [PARTIAL components](#partial-components)). Call sites that need a complete expansion for every seed should check seed membership or use live fallback when partial results are insufficient.
+**Seed coverage (all scopes):** when **any** requested seed URN is absent from the materialized snapshot, `expand()` returns **`Miss(ABSENT)`** so callers fall back to the live graph (or aspect walk). A partial HIT that expands only present seeds would under-restrict VBAC / policy ancestor expansion and hierarchy reads for newly created or re-parented roots still outside the snapshot. PARTIAL multi-root requests also fail closed earlier when any root is not cache-ready (see [PARTIAL components](#partial-components)).
 
 **LAZY rebuild latency:** missing or stale keys rebuild on the request thread when `rebuildExecution` is `SYNC` (default). **`SCHEDULED`** rebuilds run on `entity-graph-scheduler` (bundled `domain@search`). **`BACKGROUND`** (LAZY + FULL only) enqueues async rebuild — cached reads return **`Miss(STALE_BLOCKED)`** until fresh. While another pod holds `BUILDING`, **FULL**-scope cached reads may still serve the previous `ACTIVE` snapshot until sync invalidation removes stale vertices or drops the graph.
 

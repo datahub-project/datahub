@@ -6,7 +6,7 @@ import { DefaultDatePickerInput } from '@components/components/DatePicker/varian
 
 export const CommonVariantProps: VariantProps = {
     panelRender: (panel) => <StyledCalendarWrapper>{panel}</StyledCalendarWrapper>,
-    inputRender: (props) => <DefaultDatePickerInput {...props} />,
+    inputRender: (props) => <DefaultDatePickerInput isReadOnly {...props} />,
     bordered: false,
     allowClear: false,
     format: 'll',

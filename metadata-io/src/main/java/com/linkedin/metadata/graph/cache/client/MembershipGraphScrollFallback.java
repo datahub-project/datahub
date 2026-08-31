@@ -174,9 +174,17 @@ public final class MembershipGraphScrollFallback {
               ? new ScrollConfig(spec.getScrollGroupEntityTypes(), spec.getScrollRoleEntityTypes())
               : new ScrollConfig(spec.getScrollUserEntityTypes(), spec.getScrollGroupEntityTypes());
       case DATAHUB_ROLE_ENTITY_NAME ->
-          new ScrollConfig(spec.getScrollUserEntityTypes(), spec.getScrollRoleEntityTypes());
+          // Matches entity-graph-cache.yaml: both corpuser and corpGroup grant IsMemberOfRole.
+          new ScrollConfig(roleMemberSourceTypes(spec), spec.getScrollRoleEntityTypes());
       default -> null;
     };
+  }
+
+  @Nonnull
+  private static Set<String> roleMemberSourceTypes(@Nonnull MembershipReadSpec spec) {
+    LinkedHashSet<String> sources = new LinkedHashSet<>(spec.getScrollUserEntityTypes());
+    sources.addAll(spec.getScrollGroupEntityTypes());
+    return Set.copyOf(sources);
   }
 
   private record ScrollConfig(

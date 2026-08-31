@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -30,6 +31,8 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -39,6 +42,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -380,6 +384,46 @@ public class UpdateIndicesV2StrategyTest {
     verify(elasticSearchService, never())
         .buildReindexConfigsWithNewStructProp(
             any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class));
+  }
+
+  @Test
+  public void testUpdateIndexMappings_OneIndexFailureDoesNotAbortRemaining() throws Exception {
+    // A property declaring multiple entity types produces one mapping update per entity index.
+    // A failure applying the first index's mapping must not prevent the remaining indexes'
+    // mapping updates (their values would otherwise stay unindexed under dynamic:false).
+    AspectSpec spdSpec = mock(AspectSpec.class);
+    when(spdSpec.getName()).thenReturn(Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+    EntitySpec spEntitySpec = mock(EntitySpec.class);
+    when(spEntitySpec.getName()).thenReturn(Constants.STRUCTURED_PROPERTY_ENTITY_NAME);
+
+    StructuredPropertyDefinition def =
+        new StructuredPropertyDefinition()
+            .setVersion("00000000000001")
+            .setQualifiedName("multiTypeProp")
+            .setEntityTypes(
+                new UrnArray(
+                    UrnUtils.getUrn("urn:li:entityType:datahub.dataset"),
+                    UrnUtils.getUrn("urn:li:entityType:datahub.chart")))
+            .setValueType(UrnUtils.getUrn("urn:li:logicalType:STRING"));
+
+    ReindexConfig failing = mock(ReindexConfig.class);
+    when(failing.name()).thenReturn("datasetindex_v2");
+    ReindexConfig succeeding = mock(ReindexConfig.class);
+    when(succeeding.name()).thenReturn("chartindex_v2");
+    when(elasticSearchService.buildReindexConfigsWithNewStructProp(
+            any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class)))
+        .thenReturn(List.of(failing, succeeding));
+
+    ESIndexBuilder mockIndexBuilder = mock(ESIndexBuilder.class);
+    when(elasticSearchService.getIndexBuilder()).thenReturn(mockIndexBuilder);
+    doThrow(new IOException("index unavailable"))
+        .when(mockIndexBuilder)
+        .applyMappings(any(OperationContext.class), eq(failing), eq(false));
+
+    strategy.updateIndexMappings(operationContext, testUrn, spEntitySpec, spdSpec, def, null);
+
+    // The second index's mapping update must still have been applied.
+    verify(mockIndexBuilder).applyMappings(any(OperationContext.class), eq(succeeding), eq(false));
   }
 
   @Test
@@ -1031,10 +1075,9 @@ public class UpdateIndicesV2StrategyTest {
     // Two MCLs in the same batch on the same structured-property URN:
     //   MCL 1: prev entityTypes [] -> new [X]
     //   MCL 2 (survivor): prev [X] -> new [X, Y]
-    // Pre-coalesce, X's mapping was applied by MCL 1 and Y's by MCL 2. Under coalesce we fire
-    // updateIndexMappings only for the survivor, so the diff baseline must be the oldest
-    // predecessor's previousRecordTemplate ([]) — not the survivor's previous ([X]) — otherwise
-    // X's mapping is silently dropped.
+    // Under coalesce we fire updateIndexMappings only for the survivor. The mapping update now
+    // applies the survivor's FULL declared entity-type set ([X, Y]) — put_mapping is idempotent —
+    // so both X and Y are covered regardless of the coalesced diff baseline.
     AspectSpec spdSpec = mock(AspectSpec.class);
     when(spdSpec.getName()).thenReturn(Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
     when(spdSpec.isTimeseries()).thenReturn(false);

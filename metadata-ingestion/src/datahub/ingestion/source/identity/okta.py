@@ -203,7 +203,7 @@ class OktaSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("Okta")
 @config_class(OktaConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DESCRIPTIONS, "Optionally enabled via configuration")
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"

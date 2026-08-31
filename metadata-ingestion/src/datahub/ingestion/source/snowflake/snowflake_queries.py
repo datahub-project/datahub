@@ -1069,7 +1069,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         self._exit_stack.close()
 
 
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @config_class(SnowflakeQueriesSourceConfig)
 class SnowflakeQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeQueriesSourceConfig):
