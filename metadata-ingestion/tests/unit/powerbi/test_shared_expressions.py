@@ -12,21 +12,37 @@ both have been wrong: a route-dependent stop masked a real parse failure, and a
 cached failure warned only the first table that paid for the parse.
 """
 
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, Tuple
+from unittest.mock import MagicMock
 
 import pytest
 
+from datahub.ingestion.source.powerbi.config import (
+    PowerBiDashboardSourceConfig,
+    PowerBiDashboardSourceReport,
+)
+from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+    create_dataplatform_instance_resolver,
+)
 from datahub.ingestion.source.powerbi.m_query._bridge import (
     MQueryBridgeError,
     MQueryParseError,
 )
 from datahub.ingestion.source.powerbi.m_query.ast_utils import NodeIdMap
+from datahub.ingestion.source.powerbi.m_query.parser import (
+    _report_referenced_query_stops,
+)
 from datahub.ingestion.source.powerbi.m_query.shared_expressions import (
     MAX_REFERENCE_DEPTH,
     PARAMETER_QUERY_MARKER,
     ExpressionCache,
     SharedExpressions,
     StopReason,
+)
+from datahub.ingestion.source.powerbi.powerbi import Mapper
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    PowerBIDataset,
+    Table,
 )
 from datahub.utilities.threading_timeout import TimeoutException
 
@@ -264,3 +280,129 @@ def test_entering_a_query_keeps_the_caches_shared() -> None:
     shared = _shared(cache=cache)
 
     assert shared.entered("q").cache is cache
+
+
+# --- how a stop reaches the operator ----------------------------------------
+#
+# _report_referenced_query_stops turns the stops collected on a walk into
+# counters and warnings. It takes the report, the table and the walk, so it
+# needs no parse tree; what it decides is which of the two counters is charged
+# and which title the operator sees.
+
+
+def _table(full_name: str = "db.schema.a_table") -> Table:
+    return Table(name=full_name.split(".")[-1], full_name=full_name)
+
+
+def _reported(*stops: Tuple[str, StopReason]) -> PowerBiDashboardSourceReport:
+    shared = _shared()
+    for name, reason in stops:
+        shared.stopped(name, reason)
+    reporter = PowerBiDashboardSourceReport()
+    _report_referenced_query_stops(reporter, _table(), shared)
+    return reporter
+
+
+def test_a_broken_query_and_one_we_declined_to_walk_use_different_counters() -> None:
+    """An operator reacts differently to "your M is bad" and "we stopped here"."""
+    reporter = _reported(
+        ("broken", StopReason.PARSE_ERROR),
+        ("bare", StopReason.NO_LET),
+        ("looping", StopReason.CYCLE),
+    )
+
+    assert reporter.m_query_referenced_query_failures == 1
+    assert reporter.m_query_referenced_query_not_followed == 2
+
+
+def test_a_referenced_query_timeout_is_not_charged_to_the_parse_timeout_counter() -> (
+    None
+):
+    """m_query_parse_timeouts sizes m_query_parse_timeout, so it has to stay a
+    count of timeouts actually paid. A referenced query is parsed once per
+    dataset but reported once per table that reaches it, so charging it here
+    would report one timeout as many."""
+    reporter = _reported(("slow", StopReason.TIMEOUT))
+
+    assert reporter.m_query_referenced_query_failures == 1
+    assert reporter.m_query_parse_timeouts == 0
+
+
+def test_every_stop_is_reported_with_the_query_that_caused_it() -> None:
+    """The query name is the whole point: without it the operator has a warning
+    about a table and no way to find which of its queries came up short."""
+    reporter = _reported(("base rows", StopReason.NO_LET))
+
+    contexts = [
+        context
+        for warning in reporter.warnings
+        for context in (warning.context or [])
+        if context
+    ]
+    assert any("query=base rows" in c for c in contexts)
+    assert any("table-full-name=db.schema.a_table" in c for c in contexts)
+
+
+# --- the mapper's cache scoping ----------------------------------------------
+
+
+def _mapper() -> Mapper:
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="a-tenant", client_id="a-client", client_secret="a-secret"
+    )
+    return Mapper(
+        ctx=MagicMock(),
+        config=config,
+        reporter=PowerBiDashboardSourceReport(),
+        dataplatform_instance_resolver=create_dataplatform_instance_resolver(config),
+    )
+
+
+def _dataset(dataset_id: str) -> PowerBIDataset:
+    return PowerBIDataset(
+        id=dataset_id,
+        name=dataset_id,
+        description="",
+        webUrl=None,
+        workspace_id="a-workspace",
+        workspace_name="A Workspace",
+        parameters={},
+        tables=[],
+        tags=[],
+    )
+
+
+def test_one_datasets_tables_share_a_cache() -> None:
+    """Otherwise a referenced query is parsed once per table rather than once."""
+    mapper = _mapper()
+    dataset = _dataset("ds-1")
+
+    assert mapper.expression_cache_for(dataset) is mapper.expression_cache_for(dataset)
+
+
+def test_two_datasets_do_not_share_a_cache() -> None:
+    """The cache keys on query name alone, so sharing would cross wires between
+    two datasets that both define a name like `Source`."""
+    mapper = _mapper()
+
+    assert mapper.expression_cache_for(_dataset("ds-1")) is not (
+        mapper.expression_cache_for(_dataset("ds-2"))
+    )
+
+
+def test_a_dataset_less_table_gets_a_throwaway_cache() -> None:
+    mapper = _mapper()
+
+    assert mapper.expression_cache_for(None) is not mapper.expression_cache_for(None)
+
+
+def test_releasing_drops_every_held_cache() -> None:
+    """Not only the emitted workspace's ids: a report or tile can be built on a
+    dataset from another workspace, and that cache is keyed by its own id."""
+    mapper = _mapper()
+    dataset = _dataset("ds-1")
+    held = mapper.expression_cache_for(dataset)
+
+    mapper.release_expression_caches()
+
+    assert mapper.expression_cache_for(dataset) is not held
