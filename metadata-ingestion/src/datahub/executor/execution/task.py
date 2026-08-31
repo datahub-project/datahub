@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 from datahub.executor.common.config import ConfigModel
 from datahub.executor.context.execution_context import ExecutionContext
@@ -33,7 +33,7 @@ class TaskError(Exception):
     """An error occurred when executing a task"""
 
 
-class Task:
+class Task(ABC):
     @classmethod
     @abstractmethod
     def create(cls, config: dict, ctx: ExecutorContext) -> "Task":

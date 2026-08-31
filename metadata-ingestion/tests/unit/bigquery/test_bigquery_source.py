@@ -1683,6 +1683,42 @@ def test_bigquery_source_no_legacy_only_usage_field_report_warning_under_legacy_
 
 
 @pytest.mark.parametrize(
+    "recipe,expect_warning",
+    [
+        pytest.param({"use_queries_v2": True}, False, id="never-set"),
+        pytest.param(
+            {"use_queries_v2": True, "extract_column_lineage": False},
+            True,
+            id="explicitly-false",
+        ),
+        pytest.param(
+            {"use_queries_v2": True, "extract_column_lineage": True},
+            True,
+            id="explicitly-true",
+        ),
+        pytest.param(
+            {"use_queries_v2": False, "extract_column_lineage": False},
+            False,
+            id="legacy-path",
+        ),
+    ],
+)
+def test_bigquery_source_reports_extract_column_lineage_ignored_under_queries_v2(
+    recipe: dict, expect_warning: bool
+) -> None:
+    config = BigQueryV2Config.model_validate({"project_id": "p", **recipe})
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    warned = any(
+        "extract_column_lineage" in w.message for w in fake_source.report.warnings
+    )
+    assert warned is expect_warning
+
+
+@pytest.mark.parametrize(
     "field", ["apply_view_usage_to_tables", "include_read_operational_stats"]
 )
 def test_bigquery_config_legacy_only_usage_field_warns_under_queries_v2(
@@ -1718,6 +1754,40 @@ def test_bigquery_config_legacy_only_usage_fields_no_warning_under_legacy_path(
             "use_queries_v2" in record.msg or "legacy" in record.msg
             for record in caplog.records
         )
+
+
+@pytest.mark.parametrize(
+    "recipe,expect_warning",
+    [
+        pytest.param({"use_queries_v2": True}, False, id="never-set"),
+        pytest.param(
+            {"use_queries_v2": True, "extract_column_lineage": False},
+            True,
+            id="explicitly-false",
+        ),
+        pytest.param(
+            {"use_queries_v2": True, "extract_column_lineage": True},
+            True,
+            id="explicitly-true",
+        ),
+        pytest.param(
+            {"use_queries_v2": False, "extract_column_lineage": True},
+            False,
+            id="legacy-path",
+        ),
+    ],
+)
+def test_bigquery_config_extract_column_lineage_warns_under_queries_v2(
+    recipe: dict, expect_warning: bool, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Config-validation-time counterpart to the report warning in bigquery.py, which
+    # fires only from get_workunits_internal.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate({"project_id": "p", **recipe})
+
+    warned = any("extract_column_lineage" in record.msg for record in caplog.records)
+    assert warned is expect_warning
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
