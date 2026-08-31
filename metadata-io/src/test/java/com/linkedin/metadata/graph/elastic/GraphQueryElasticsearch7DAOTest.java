@@ -65,6 +65,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
@@ -377,27 +378,19 @@ public class GraphQueryElasticsearch7DAOTest {
             null,
             new ConcurrentHashMap<>());
 
-    // Call the method - internal buildLineageGraphFiltersQuery should return empty Optional
-    // But getLineageQuery should still build a query with minimumShouldMatch(1)
+    // buildLineageGraphFiltersQuery returns empty for every entity type, so the query must
+    // match nothing rather than degrade to match_all over the whole graph index.
     QueryBuilder result =
         dao.getLineageQuery(operationContext, urnsPerEntityType, lineageGraphFilters);
 
-    // Verify that we still got a query
     Assert.assertNotNull(result);
     Assert.assertTrue(result instanceof BoolQueryBuilder);
-
-    // Verify that the query was structured as expected for empty URNs
     BoolQueryBuilder boolQuery = (BoolQueryBuilder) result;
-    // There should be a filter clause with the entity type queries
-    Assert.assertTrue(boolQuery.filter().size() > 0);
-
-    // Verify the first filter is a BoolQuery with minimumShouldMatch(1)
-    Object firstFilter = boolQuery.filter().get(0);
-    Assert.assertTrue(firstFilter instanceof BoolQueryBuilder);
-    BoolQueryBuilder entityTypeQueries = (BoolQueryBuilder) firstFilter;
-    Assert.assertEquals(entityTypeQueries.minimumShouldMatch(), "1");
-    // Since URNs are empty, there should be no should clauses
-    Assert.assertEquals(entityTypeQueries.should().size(), 0);
+    Assert.assertTrue(
+        boolQuery.filter().isEmpty() && boolQuery.must().isEmpty() && boolQuery.should().isEmpty(),
+        "match-none query should carry no positive clauses");
+    Assert.assertEquals(boolQuery.mustNot().size(), 1);
+    Assert.assertTrue(boolQuery.mustNot().get(0) instanceof MatchAllQueryBuilder);
   }
 
   @Test

@@ -510,6 +510,14 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
           buildLineageGraphFiltersQuery(opContext, entityType, urns, lineageGraphFilters)
               .ifPresent(entityTypeQueries::should);
         });
+
+    // No should clauses means no entity type in this hop has registered lineage edges.
+    // minimumShouldMatch does not apply to a bool query without should clauses, so the
+    // clause-less bool would degrade to match_all -- dropping the source-urn filter and
+    // scanning the whole graph index. Such an entity genuinely has no lineage: match none.
+    if (entityTypeQueries.should().isEmpty()) {
+      return QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery());
+    }
     entityTypeQueries.minimumShouldMatch(1);
 
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
