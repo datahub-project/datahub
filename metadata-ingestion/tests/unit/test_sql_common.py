@@ -2,8 +2,14 @@ from typing import Dict
 from unittest import mock
 
 import pytest
+from sqlalchemy.engine import make_url
+from sqlalchemy.pool import QueuePool
 
-from datahub.ingestion.source.sql.sql_common import PipelineContext, SQLAlchemySource
+from datahub.ingestion.source.sql.sql_common import (
+    PipelineContext,
+    SQLAlchemySource,
+    _pool_accepts_sizing_options,
+)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
@@ -264,3 +270,69 @@ def test_fine_grained_lineages(
 
     assert actual_downstream == expected_simplified_downstream
     assert actual_upstream == expected_simplified_upstream
+
+
+class _TestSQLiteConfig(SQLCommonConfig):
+    # In-memory SQLite uses SingletonThreadPool on every SQLAlchemy version this
+    # package supports, so it exercises the non-pooling path without depending on
+    # the file-vs-memory pool choice, which differs between 1.4 and 2.x.
+    def get_sql_alchemy_url(self):
+        return "sqlite://"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "mysql+pymysql://user:pass@localhost:5330",
+        "postgresql://user:pass@localhost/db",
+        "sqlite:///test.db",
+        "sqlite://",
+    ],
+)
+def test_pool_accepts_sizing_options_agrees_with_sqlalchemy(url: str) -> None:
+    """The helper must match the pool SQLAlchemy would actually select."""
+    parsed_url = make_url(url)
+    expected = issubclass(
+        parsed_url.get_dialect().get_pool_class(parsed_url), QueuePool
+    )
+
+    assert _pool_accepts_sizing_options(url) is expected
+
+
+def test_pool_rejects_sizing_options_for_non_pooling_dialect() -> None:
+    assert not _pool_accepts_sizing_options("sqlite://")
+
+
+def test_pool_accepts_sizing_options_for_unresolvable_dialect() -> None:
+    # Driver not installed -> fall back to the previous behaviour rather than
+    # silently dropping the option for a dialect that may well support it.
+    assert _pool_accepts_sizing_options("not-a-real-dialect://host/db")
+
+
+def test_add_default_options_skips_max_overflow_for_non_pooling_dialect() -> None:
+    source = get_test_sql_alchemy_source()
+    config = _TestSQLiteConfig.model_validate({"profiling": {"enabled": True}})
+
+    source._add_default_options(config)
+
+    # Passing max_overflow to a non-QueuePool engine makes create_engine() raise
+    # TypeError, which previously aborted the run before profiling anything.
+    assert "max_overflow" not in config.options
+
+
+def test_add_default_options_sets_max_overflow_when_pooled() -> None:
+    source = get_test_sql_alchemy_source()
+    config = _TestSQLAlchemyConfig.model_validate({"profiling": {"enabled": True}})
+
+    source._add_default_options(config)
+
+    assert config.options["max_overflow"] == config.profiling.max_workers
+
+
+def test_add_default_options_noop_without_profiling() -> None:
+    source = get_test_sql_alchemy_source()
+    config = _TestSQLAlchemyConfig.model_validate({})
+
+    source._add_default_options(config)
+
+    assert "max_overflow" not in config.options
