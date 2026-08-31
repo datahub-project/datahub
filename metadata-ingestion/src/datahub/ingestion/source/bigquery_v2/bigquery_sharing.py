@@ -182,20 +182,9 @@ class BigQuerySharingHandler:
                 self.report.num_linked_datasets_not_linked += 1
 
         if self.config.extract_subscriptions_from_analytics_hub:
-            try:
-                self._enrich_from_sharing(project_id, linked)
-            except Exception as e:
-                # Enrichment is optional and must never abort the project; backstops
-                # anything _enrich_from_sharing's handlers miss (e.g. a bad subscription).
-                self.report.warning(
-                    title="BigQuery Sharing enrichment failed",
-                    message=(
-                        "Listing and subscription state are omitted for this project; "
-                        "lineage is unaffected."
-                    ),
-                    context=project_id,
-                    exc=e,
-                )
+            # _enrich_from_sharing guards its own failures (client build, each location,
+            # each subscription), so a sharing error never aborts the project's ingestion.
+            self._enrich_from_sharing(project_id, linked)
 
     def _resolve_from_dataset(
         self, project_id: str, dataset_name: str
@@ -330,7 +319,20 @@ class BigQuerySharingHandler:
                 continue
 
             for subscription in subscriptions:
-                self._apply_subscription(project_id, subscription)
+                try:
+                    self._apply_subscription(project_id, subscription)
+                except Exception as e:
+                    # A malformed entry (no destination_dataset, an unknown enum state)
+                    # must not skip the remaining subscriptions in this project.
+                    self.report.warning(
+                        title="Could not apply a BigQuery Sharing subscription",
+                        message=(
+                            "One subscription entry could not be applied, so its listing "
+                            "and subscription state are omitted; the rest are unaffected."
+                        ),
+                        context=f"{project_id}, location {location}",
+                        exc=e,
+                    )
 
     def _report_sharing_denied(
         self, project_id: str, location: str, exc: PermissionDenied

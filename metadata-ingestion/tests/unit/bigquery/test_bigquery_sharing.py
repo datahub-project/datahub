@@ -1174,6 +1174,46 @@ def test_malformed_subscription_does_not_abort_the_project() -> None:
     assert handler.report.warnings  # the failure was surfaced
 
 
+def test_one_malformed_subscription_does_not_skip_the_rest() -> None:
+    # A malformed entry must not skip the good subscriptions after it in the same
+    # project: each subscription is applied independently.
+    from google.cloud import bigquery_analyticshub_v1 as ah
+
+    def _sub(dataset_id: str, state: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            listing="projects/p/locations/us/dataExchanges/e/listings/L",
+            state=state,
+            resource_type=ah.SharedResourceType.BIGQUERY_DATASET,
+            destination_dataset=SimpleNamespace(
+                dataset_reference=SimpleNamespace(
+                    project_id=CONSUMER_PROJECT, dataset_id=dataset_id
+                )
+            ),
+            linked_resources=[],
+        )
+
+    handler = _make_handler(client=_resolvable_client())
+    handler.config.extract_subscriptions_from_analytics_hub = True
+    sharing_client = MagicMock()
+    sharing_client.list_subscriptions.return_value = [
+        _sub("linked_a", 5),  # malformed first: raw-int state, `.name` raises
+        _sub("linked_b", SimpleNamespace(name="STATE_ACTIVE")),  # good, applied after
+    ]
+    handler._sharing_client = sharing_client
+
+    handler.populate_for_project(
+        CONSUMER_PROJECT,
+        [
+            BigqueryDataset(name="linked_a", type="LINKED", location="US"),
+            BigqueryDataset(name="linked_b", type="LINKED", location="US"),
+        ],
+    )
+
+    b = handler.get_info(CONSUMER_PROJECT, "linked_b")
+    assert b is not None and b.listing == "L" and b.subscription_state == "ACTIVE"
+    assert handler.report.warnings  # the malformed entry was surfaced
+
+
 def test_one_location_failing_does_not_drop_the_others() -> None:
     # list_subscriptions is per-location and can fail with more than GoogleAPIError (a
     # credential refresh raises RefreshError); one failing must not stop the rest.
