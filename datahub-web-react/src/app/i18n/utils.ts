@@ -20,15 +20,9 @@ export function detectBrowserLanguage(): SupportedLanguage | undefined {
         if (!tag) return undefined;
         const lower = tag.toLowerCase();
         const base = lower.split('-')[0];
-        // Simplified Chinese (+ bare `zh`) → zh-CN. Traditional tags must not fold to zh-CN
-        // via the base-language match below; the zh-TW locale PR owns those mappings.
-        if (base === 'zh') {
-            if (lower.includes('hant') || lower === 'zh-tw' || lower === 'zh-hk' || lower === 'zh-mo') {
-                return undefined;
-            }
-            return 'zh-CN';
-        }
         // Exact (case-insensitive) match first, then fold region variants to their base language.
+        // Any `zh-*` tag (incl. Traditional) folds to `zh-CN` here; the zh-TW PR adds a real
+        // Hant branch that takes precedence over this fold.
         return (
             supported.find((locale) => locale.toLowerCase() === lower) ??
             supported.find((locale) => locale.toLowerCase().split('-')[0] === base)
