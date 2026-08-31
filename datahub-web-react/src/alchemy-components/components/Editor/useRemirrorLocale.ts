@@ -1,7 +1,6 @@
-import { i18n as remirrorI18n } from '@remirror/i18n';
+import { type I18n, i18n as remirrorI18n } from '@remirror/i18n';
 import * as remirrorPlurals from '@remirror/i18n/plurals';
-import { I18nProvider } from '@remirror/react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { REMIRROR_LOCALE_LOADERS } from '@src/i18n/remirror';
@@ -42,20 +41,18 @@ function resolveRemirrorLocale(language: string): string {
     return REMIRROR_SUPPORTED_LOCALES.includes(primarySubtag) ? primarySubtag : 'en';
 }
 
-type Props = {
-    children: React.ReactNode;
-};
-
 /**
- * Shares DataHub's Remirror translations with any Remirror editor. Wrap a `<Remirror>` tree
- * with this so the editor's built-in labels follow the active app language, falling back to
- * English for languages we don't ship a bundle for.
+ * Resolves the Remirror locale for the active app language and loads its bundle.
+ *
+ * Spread the result onto `<Remirror>` rather than wrapping the tree in `<I18nProvider>`:
+ * `<Remirror>` renders its own `I18nProvider` from these props, so an outer provider is
+ * shadowed and the editor's built-in labels stay English.
  */
-export default function RemirrorLocaleProvider({ children }: Props) {
+export default function useRemirrorLocale(): { i18n: I18n; locale: string } {
     const { i18n: appI18n } = useTranslation();
     const locale = resolveRemirrorLocale(appI18n.resolvedLanguage || appI18n.language || 'en');
-    // Only activate once the bundle is loaded, so labels never flash raw message ids. Until then
-    // the provider stays on English (Remirror's built-in).
+    // Only switch once the bundle is loaded, so labels never flash raw message ids. Until then
+    // the editor stays on English (Remirror's built-in).
     const [activeLocale, setActiveLocale] = useState('en');
 
     useEffect(() => {
@@ -72,9 +69,5 @@ export default function RemirrorLocaleProvider({ children }: Props) {
         };
     }, [locale]);
 
-    return (
-        <I18nProvider i18n={remirrorI18n} locale={activeLocale}>
-            {children}
-        </I18nProvider>
-    );
+    return { i18n: remirrorI18n, locale: activeLocale };
 }

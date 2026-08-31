@@ -2,7 +2,7 @@ import type { Messages } from '@remirror/i18n';
 
 // Supplementary locale bundles for Remirror's built-in labels (command/table/keyboard),
 // keyed by language code and loaded directly into Remirror's own Lingui i18n (see
-// `RemirrorLocaleProvider`). English ships with `@remirror/i18n`, so it is intentionally
+// `useRemirrorLocale`). English ships with `@remirror/i18n`, so it is intentionally
 // not duplicated here. Values may be plain strings or ICU strings (plural/select, e.g.
 // `{count, plural, one {# Zeile} other {# Zeilen}}`) that Lingui compiles at render time.
 //

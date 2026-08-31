@@ -29,7 +29,6 @@ import { useTheme } from 'styled-components';
 
 import { EditorContainer, getEditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
-import RemirrorLocaleProvider from '@components/components/Editor/RemirrorLocaleProvider';
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
@@ -40,6 +39,7 @@ import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingT
 import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
 import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
 import { EditorProps } from '@components/components/Editor/types';
+import useRemirrorLocale from '@components/components/Editor/useRemirrorLocale';
 
 import { notEmpty } from '@app/entityV2/shared/utils';
 
@@ -66,6 +66,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     } = props;
     const styledTheme = useTheme();
     const editorTheme = useMemo(() => getEditorTheme(styledTheme), [styledTheme]);
+    const remirrorLocale = useRemirrorLocale();
 
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
@@ -128,31 +129,31 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             $compact={compact}
         >
             <ThemeProvider theme={editorTheme}>
-                <RemirrorLocaleProvider>
-                    <Remirror
-                        classNames={EDITOR_CLASS_NAMES}
-                        editable={!readOnly}
-                        manager={manager}
-                        initialContent={state}
-                        placeholder={placeholder || ''}
-                    >
-                        {!readOnly && (
-                            <>
-                                {!hideToolbar && (
-                                    <>
-                                        <Toolbar styles={toolbarStyles} fixedBottom={fixedBottomToolbar} />
-                                        <CodeBlockToolbar />
-                                        {!hideHighlightToolbar && <FloatingToolbar />}
-                                        <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
-                                    </>
-                                )}
-                                <MentionsComponent renderOutsideEditor={compact} />
-                                {onChange && <OnChangeMarkdown onChange={onChange} />}
-                            </>
-                        )}
-                        <EditorComponent />
-                    </Remirror>
-                </RemirrorLocaleProvider>
+                <Remirror
+                    classNames={EDITOR_CLASS_NAMES}
+                    editable={!readOnly}
+                    manager={manager}
+                    initialContent={state}
+                    placeholder={placeholder || ''}
+                    i18n={remirrorLocale.i18n}
+                    locale={remirrorLocale.locale}
+                >
+                    {!readOnly && (
+                        <>
+                            {!hideToolbar && (
+                                <>
+                                    <Toolbar styles={toolbarStyles} fixedBottom={fixedBottomToolbar} />
+                                    <CodeBlockToolbar />
+                                    {!hideHighlightToolbar && <FloatingToolbar />}
+                                    <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
+                                </>
+                            )}
+                            <MentionsComponent renderOutsideEditor={compact} />
+                            {onChange && <OnChangeMarkdown onChange={onChange} />}
+                        </>
+                    )}
+                    <EditorComponent />
+                </Remirror>
             </ThemeProvider>
         </EditorContainer>
     );
