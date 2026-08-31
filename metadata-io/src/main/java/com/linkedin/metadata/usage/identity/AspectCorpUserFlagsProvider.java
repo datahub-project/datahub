@@ -44,7 +44,8 @@ public class AspectCorpUserFlagsProvider implements CorpUserFlagsProvider {
       }
       SystemAspect systemAspect =
           opContext
-              .getAspectRetriever()
+              .getRetrieverContext()
+              .getCachingAspectRetriever()
               .getLatestSystemAspect(opContext, urn, Constants.CORP_USER_INFO_ASPECT_NAME);
       if (systemAspect == null) {
         return CorpUserFlags.DEFAULT;
