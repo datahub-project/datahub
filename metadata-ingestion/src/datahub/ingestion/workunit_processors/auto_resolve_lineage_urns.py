@@ -531,7 +531,6 @@ class AutoResolveLineageUrnsProcessor(
                 schema_resolver
             )
             count = schema_resolver.schema_count()
-            message = f"Loaded {count} dataset schemas for {scope}."
             if count > _CATALOG_SIZE_WARN_THRESHOLD:
                 self.ctx.source_report.warning(
                     title="Lineage URN casing: large upstream catalog preloaded",
@@ -544,7 +543,7 @@ class AutoResolveLineageUrnsProcessor(
                     context=f"{scope}; {count} schemas",
                 )
             else:
-                logger.info(message)
+                logger.info(f"Loaded {count} dataset schemas for {scope}.")
 
     def _resolve_dataset(self, urn: str, *, with_schema: bool = False) -> _Resolution:
         """Resolve `urn` to the casing DataHub already stores, via the URN alias index.
