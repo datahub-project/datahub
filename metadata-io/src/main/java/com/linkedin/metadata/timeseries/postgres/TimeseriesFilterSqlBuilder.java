@@ -351,7 +351,7 @@ public final class TimeseriesFilterSqlBuilder {
   }
 
   @Nonnull
-  private static OffsetDateTime eventTimeParam(long epochMillis) {
+  static OffsetDateTime eventTimeParam(long epochMillis) {
     return OffsetDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZoneOffset.UTC);
   }
 

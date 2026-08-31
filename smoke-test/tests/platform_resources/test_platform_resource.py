@@ -3,7 +3,7 @@ import random
 import string
 import time
 from collections.abc import Callable
-from typing import List
+from typing import List, Optional
 
 import pytest
 
@@ -32,14 +32,32 @@ def _wait_for_search_results(
     """Poll OpenSearch until platform resource search returns enough hits."""
     sleep_sec, sleep_times = get_sleep_info()
     last: List[PlatformResource] = []
+    last_error: Optional[Exception] = None
     for attempt in range(sleep_times):
-        last = list(search_fn())
+        try:
+            last = list(search_fn())
+            last_error = None
+        except Exception as exc:
+            logger.warning(
+                "platform resource search failed during wait; retrying: %s", exc
+            )
+            last = []
+            last_error = exc
         if len(last) >= min_count:
+            assert len(last) == min_count, (
+                f"Expected exactly {min_count} platform resource search results, "
+                f"got {len(last)}"
+            )
             return last
         if attempt < sleep_times - 1:
             time.sleep(sleep_sec)
+    if last_error is not None:
+        raise AssertionError(
+            f"Expected exactly {min_count} platform resource search results, "
+            f"got {len(last)}"
+        ) from last_error
     raise AssertionError(
-        f"Expected at least {min_count} platform resource search results, "
+        f"Expected exactly {min_count} platform resource search results, "
         f"got {len(last)}"
     )
 
