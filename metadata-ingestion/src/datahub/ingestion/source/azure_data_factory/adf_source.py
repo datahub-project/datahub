@@ -1168,7 +1168,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             for endpoint in endpoints:
                 if endpoint.dataset:
                     dataset_urn = self._resolve_dataset_urn(
-                        endpoint.dataset.reference_name, factory_key
+                        endpoint.dataset.reference_name,
+                        factory_key,
+                        activity_dataset_parameters=getattr(
+                            endpoint.dataset, "parameters", None
+                        ),
                     )
                     if dataset_urn:
                         urns.append(str(dataset_urn))
@@ -1363,13 +1367,30 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         )
         if not context:
             return None
-        dataset, linked_service, _ls_ref_name, platform, platform_instance = context
+        dataset, linked_service, ls_ref_name, platform, platform_instance = context
 
         # Build dataset name from type properties
         table_name = self._extract_table_name(
             dataset, linked_service, dataset_name, activity_dataset_parameters
         )
-        if not table_name:
+        if table_name:
+            # Fully qualify a 2-part (or bare) reference with a resolved
+            # default database/catalog, same as the per-run query-based
+            # path already does - this is the static/no-execution-history
+            # path most pipelines actually go through, so without this
+            # they stay disconnected from fully-qualified dataset entities
+            # even when databricks_default_catalog/databricks_catalog_map
+            # are configured.
+            default_db = self._resolve_default_database(
+                linked_service,
+                platform,
+                factory_key,
+                ls_ref_name=ls_ref_name,
+                dataset=dataset,
+                activity_dataset_parameters=activity_dataset_parameters,
+            )
+            table_name = self._qualify_table_name(table_name, default_db)
+        else:
             table_name = dataset_name  # Fallback to ADF dataset name
 
         return DatasetUrn.create_from_ids(
@@ -1378,6 +1399,19 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             env=self.config.env,
             platform_instance=platform_instance,
         )
+
+    def _qualify_table_name(self, table_name: str, default_db: Optional[str]) -> str:
+        """Prepend a resolved default database/catalog to a 1- or 2-part
+        table reference, mirroring the same qualification already applied
+        to per-run resolved queries (see _extract_ddl_target_table).
+        Never double-qualifies an already fully-qualified name, and never
+        touches a file path (folder/file-based datasets have no
+        default_db to resolve in the first place)."""
+        if not default_db or "/" in table_name:
+            return table_name
+        if len(table_name.split(".")) >= 3:
+            return table_name
+        return f"{default_db}.{table_name}"
 
     def _resolve_default_database(
         self,
@@ -1454,7 +1488,12 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 if resolved:
                     return resolved
 
-        database = getattr(linked_service.properties, "database", None)
+        # "database" covers MySQL/PostgreSQL and the MongoDB v2/Atlas/
+        # CosmosDB Mongo API linked services; "database_name" is the
+        # legacy MongoDB linked service's own name for the same field.
+        database = getattr(linked_service.properties, "database", None) or getattr(
+            linked_service.properties, "database_name", None
+        )
         if isinstance(database, str) and database:
             resolved = resolve_candidate(database)
             if resolved:
@@ -1771,6 +1810,18 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         if table_name:
             return table_name
 
+        # MongoDB-family datasets identify their target via "collection"
+        # (or the legacy "collection_name"), not table/table_name - paired
+        # with the linked service's own "database"/"database_name" in
+        # _resolve_default_database to produce the database.collection
+        # shape DataHub's MongoDB source uses.
+        collection = resolve_value(
+            getattr(props, "collection", None)
+            or getattr(props, "collection_name", None)
+        )
+        if collection:
+            return collection
+
         table = resolve_value(getattr(props, "table", None))
         # Structured table reference (schema.table) - computed independently
         # of `table` so schema+table can combine even when table alone is set.
@@ -2079,8 +2130,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 data_flow_urn=str(flow_urn), job_id=activity_name
             )
 
-            fine_grained_lineages = (
-                [
+            if dynamic_columns:
+                fine_grained_lineages: Optional[list[FineGrainedLineageClass]] = [
                     FineGrainedLineageClass(
                         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                         upstreams=list(upstream_urns),
@@ -2089,9 +2140,23 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     )
                     for upstream_urns, downstream_urn in sorted(dynamic_columns)
                 ]
-                if dynamic_columns
-                else None
-            )
+            elif self.config.include_column_lineage:
+                # This MCP replaces the DataJob's whole dataJobInputOutput
+                # aspect - including whatever fineGrainedLineages the
+                # static path already emitted for this activity (e.g. a
+                # real explicit translator). Recompute it against the
+                # (possibly now-different) combined inputs/outputs rather
+                # than discarding it outright just because this specific
+                # run didn't itself contribute new column lineage.
+                fine_grained_lineages = self._extract_column_lineage(
+                    activity=activity,
+                    activity_type=activity.type or "Unknown",
+                    inlets=sorted(combined_inputs),
+                    outlets=sorted(combined_outputs),
+                    factory_key=factory_key,
+                )
+            else:
+                fine_grained_lineages = None
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=str(job_urn),
@@ -2161,41 +2226,45 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             output_urns = query_output_urns
 
         column_mappings: list[tuple[tuple[str, ...], str]] = []
-        static_translator = get_activity_translator_config(activity)
-        if (
-            static_translator is not None
-            and static_translator.get("type") == "Expression"
-        ):
-            # The activity's own translator is itself dynamic (e.g.
-            # sourced from a Lookup activity's output at execution time,
-            # read from a data-driven column-mapping table). ADF resolves
-            # it before running and records the resolved value directly
-            # on this specific run's own input - read it there instead of
-            # trying to independently reconstruct it, which sidesteps any
-            # per-iteration correlation problem entirely.
-            resolved_translator = self._resolve_run_translator(activity_run)
-            if isinstance(resolved_translator, dict):
-                if len(input_urns) == 1 and len(output_urns) == 1:
-                    column_mappings = self._translator_to_column_mappings(
-                        resolved_translator,
-                        next(iter(input_urns)),
-                        next(iter(output_urns)),
+        if self.config.include_column_lineage:
+            static_translator = get_activity_translator_config(activity)
+            if (
+                static_translator is not None
+                and static_translator.get("type") == "Expression"
+            ):
+                # The activity's own translator is itself dynamic (e.g.
+                # sourced from a Lookup activity's output at execution time,
+                # read from a data-driven column-mapping table). ADF resolves
+                # it before running and records the resolved value directly
+                # on this specific run's own input - read it there instead of
+                # trying to independently reconstruct it, which sidesteps any
+                # per-iteration correlation problem entirely.
+                resolved_translator = self._resolve_run_translator(activity_run)
+                if isinstance(resolved_translator, dict):
+                    if len(input_urns) == 1 and len(output_urns) == 1:
+                        column_mappings = self._translator_to_column_mappings(
+                            resolved_translator,
+                            next(iter(input_urns)),
+                            next(iter(output_urns)),
+                        )
+                elif resolved_translator is None and len(query_output_urns) == 1:
+                    # This run's dynamic translator resolved to nothing (e.g.
+                    # a data-driven mapping table had no override for this
+                    # iteration) - ADF's own behavior in that case is a plain
+                    # same-name copy, matching the same-name fallback used
+                    # below when no translator is configured at all.
+                    column_mappings = self._extract_query_column_lineage(
+                        activity,
+                        activity_run,
+                        factory_key,
+                        next(iter(query_output_urns)),
                     )
-            elif resolved_translator is None and len(query_output_urns) == 1:
-                # This run's dynamic translator resolved to nothing (e.g.
-                # a data-driven mapping table had no override for this
-                # iteration) - ADF's own behavior in that case is a plain
-                # same-name copy, matching the same-name fallback used
-                # below when no translator is configured at all.
+            elif static_translator is None and len(query_output_urns) == 1:
+                # Only attempt column-level lineage when there's a single,
+                # unambiguous per-run sink table to pair columns against.
                 column_mappings = self._extract_query_column_lineage(
                     activity, activity_run, factory_key, next(iter(query_output_urns))
                 )
-        elif static_translator is None and len(query_output_urns) == 1:
-            # Only attempt column-level lineage when there's a single,
-            # unambiguous per-run sink table to pair columns against.
-            column_mappings = self._extract_query_column_lineage(
-                activity, activity_run, factory_key, next(iter(query_output_urns))
-            )
 
         inlets = [DatasetUrn.from_string(u) for u in input_urns]
         outlets = [DatasetUrn.from_string(u) for u in output_urns]

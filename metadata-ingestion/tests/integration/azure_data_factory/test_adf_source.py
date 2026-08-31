@@ -3462,9 +3462,15 @@ def test_adf_source_dynamic_column_lineage_via_query_parsing(tmp_path):
 @pytest.mark.integration
 def test_adf_source_dynamic_column_lineage_skipped_with_explicit_translator(tmp_path):
     """Regression test: when the Copy activity has its own explicit ADF
-    translator (column mapping), the query-based column-lineage recovery
+    translator (column mapping), the query-based same-name-guess recovery
     must stay out of the way entirely - inventing a same-name mapping
-    here could silently contradict the user's own explicit one."""
+    here could silently contradict the user's own explicit one. The
+    explicit translator's own real mapping should still end up applied to
+    the real per-iteration table once execution history resolves it -
+    the augmentation step that unions in dynamically-resolved dataset
+    URNs must not discard the fine-grained lineage the static path
+    already computed just because this specific run didn't itself
+    contribute new column lineage."""
     output_file = tmp_path / "adf_dynamic_column_lineage_translator_events.json"
 
     factory_name = "translator-skip-test-factory"
@@ -3615,13 +3621,31 @@ def test_adf_source_dynamic_column_lineage_skipped_with_explicit_translator(tmp_
     assert len(lineage_aspects) >= 1
     aspect = lineage_aspects[-1]["aspect"]["json"]
     fine_grained_lineages = aspect.get("fineGrainedLineages")
+    assert fine_grained_lineages, (
+        "the explicit translator's real mapping should still be applied "
+        "to the real per-iteration table, not discarded by the augmentation step"
+    )
 
-    # The query-based per-run mechanism must not have contributed any
-    # mapping pointing at the real per-iteration "sales.orders_table"
-    # dataset - that would mean it ignored the explicit translator.
-    if fine_grained_lineages:
-        for fgl in fine_grained_lineages:
-            assert "sales.orders_table" not in fgl["upstreams"][0]
+    mappings = {
+        (fgl["upstreams"][0], fgl["downstreams"][0]) for fgl in fine_grained_lineages
+    }
+    # The explicit mapping (id->id, name->full_name), applied to the REAL
+    # resolved per-iteration table.
+    assert (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,sales.orders_table,DEV),id)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,sales.orders_table,DEV),id)",
+    ) in mappings
+    assert (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,sales.orders_table,DEV),name)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,sales.orders_table,DEV),full_name)",
+    ) in mappings
+    # A same-name guess for "name" (i.e. name -> name, from the
+    # query-based fallback) would mean the explicit translator was
+    # bypassed - assert that specific wrong mapping is absent.
+    assert (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,sales.orders_table,DEV),name)",
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,sales.orders_table,DEV),name)",
+    ) not in mappings
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -3955,6 +3979,155 @@ def test_adf_source_dynamic_translator_resolved_to_none_falls_back_to_same_name(
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,source_table,DEV),name)",
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,sink_table,DEV),name)",
     ) in mappings
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_adf_source_include_column_lineage_false_disables_execution_history_path(
+    tmp_path,
+):
+    """Regression test: include_column_lineage=False must also disable
+    the execution-history/dynamic column-lineage recovery path, not just
+    the static one - a Copy activity whose query would otherwise recover
+    same-name column lineage must emit none, while table-level lineage
+    keeps working."""
+    output_file = tmp_path / "adf_column_lineage_disabled_execution_history_events.json"
+
+    factory_name = "column-lineage-disabled-history-test-factory"
+    resource_group = "column-lineage-disabled-history-test-rg"
+
+    copy_activity = create_mock_activity(
+        name="MirrorWithDynamicTranslator",
+        activity_type="Copy",
+        inputs=[{"referenceName": "SourceDataset", "type": "DatasetReference"}],
+        outputs=[{"referenceName": "SinkDataset", "type": "DatasetReference"}],
+    )
+    pipeline_def = create_mock_pipeline(
+        name="ColumnLineageDisabledPipeline",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        activities=[copy_activity],
+    )
+    source_dataset = create_mock_dataset(
+        name="SourceDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="SqlSourceLS",
+        dataset_type="AzureSqlTableDataset",
+        type_properties={"table": "source_table"},
+    )
+    sink_dataset = create_mock_dataset(
+        name="SinkDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="PostgresSinkLS",
+        dataset_type="AzurePostgreSqlTableDataset",
+        type_properties={"table": "sink_table"},
+    )
+
+    pipeline_runs = [
+        create_mock_pipeline_run(
+            run_id="run-column-lineage-disabled",
+            pipeline_name="ColumnLineageDisabledPipeline",
+        ),
+    ]
+    activity_runs = {
+        "run-column-lineage-disabled": [
+            create_mock_activity_run(
+                activity_run_id="act-copy-1",
+                activity_name="MirrorWithDynamicTranslator",
+                activity_type="Copy",
+                pipeline_run_id="run-column-lineage-disabled",
+                pipeline_name="ColumnLineageDisabledPipeline",
+            ),
+        ]
+    }
+    activity_runs["run-column-lineage-disabled"][0]["input"] = {
+        "source": {"query": "SELECT id, name FROM source_table"},
+        "sink": {"preCopyScript": "truncate table sink_table"},
+    }
+
+    test_data = {
+        "factories": [
+            create_mock_factory(factory_name, resource_group, SUBSCRIPTION_ID)
+        ],
+        "pipelines": [pipeline_def],
+        "datasets": [source_dataset, sink_dataset],
+        "linked_services": [
+            create_mock_linked_service(
+                name="SqlSourceLS",
+                factory_name=factory_name,
+                resource_group=resource_group,
+                subscription_id=SUBSCRIPTION_ID,
+                service_type="SqlServer",
+            ),
+            create_mock_linked_service(
+                name="PostgresSinkLS",
+                factory_name=factory_name,
+                resource_group=resource_group,
+                subscription_id=SUBSCRIPTION_ID,
+                service_type="PostgreSql",
+            ),
+        ],
+        "triggers": [],
+        "pipeline_runs": pipeline_runs,
+        "activity_runs": activity_runs,
+    }
+    mock_client = create_mock_client(test_data, include_activity_runs=True)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-column-lineage-disabled-history",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": SUBSCRIPTION_ID,
+                            "resource_group": resource_group,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_column_lineage": False,
+                            "include_execution_history": True,
+                            "execution_history_days": 7,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": str(output_file)},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    events = json.loads(output_file.read_text())
+    lineage_aspects = [
+        e
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and "MirrorWithDynamicTranslator" in e.get("entityUrn", "")
+    ]
+    assert len(lineage_aspects) >= 1
+    aspect = lineage_aspects[-1]["aspect"]["json"]
+    assert not aspect.get("fineGrainedLineages"), (
+        "include_column_lineage=False must disable the execution-history "
+        "column-lineage path too, not just the static one"
+    )
+    # Table-level lineage should still work.
+    assert aspect.get("inputDatasets")
+    assert aspect.get("outputDatasets")
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

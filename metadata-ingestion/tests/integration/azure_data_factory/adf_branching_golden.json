@@ -229,7 +229,7 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,Customers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,SourceDB.Customers,DEV)"
             ],
             "outputDatasets": []
         }
@@ -532,7 +532,7 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,Customers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,SourceDB.Customers,DEV)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:abs,staging/customers,DEV)"
@@ -685,10 +685,10 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,Customers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,SourceDB.Customers,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,DimCustomers,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,DW.DimCustomers,DEV)"
             ]
         }
     },
@@ -742,7 +742,7 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,Orders,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,SourceDB.Orders,DEV)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:abs,staging/orders,DEV)"
@@ -870,10 +870,10 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,Orders,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,SourceDB.Orders,DEV)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,FactOrders,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,DW.FactOrders,DEV)"
             ]
         }
     },
@@ -991,7 +991,7 @@
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,Products,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,SourceDB.Products,DEV)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:abs,staging/customers,DEV)"

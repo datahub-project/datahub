@@ -527,6 +527,143 @@ class TestExpressionParameterResolution:
         assert "{'value'" not in str(urn)
         assert "Expression" not in str(urn)
 
+    def test_resolve_dataset_urn_applies_default_database_qualification(
+        self,
+    ) -> None:
+        """Regression test: the static (no-execution-history) path must
+        fully qualify a 2-part schema.table reference using the linked
+        service's own connection-string database, the same qualification
+        already applied on the per-run query-based path. Without this,
+        static lineage - what most pipelines actually go through - stays
+        disconnected from fully-qualified dataset entities even when the
+        linked service declares a database."""
+        source = self._make_source()
+        dataset = self._make_dataset(table="Customers", schema="dbo")
+        dataset.properties.linked_service_name = SimpleNamespace(
+            reference_name="MySqlLS"
+        )
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                type="AzureSqlDatabase",
+                connection_string="Server=tcp:myserver;Initial Catalog=SourceDB;",
+            )
+        )
+        source._datasets_cache = {"rg/factory": {"MyDataset": dataset}}
+        source._linked_services_cache = {"rg/factory": {"MySqlLS": linked_service}}
+        source.config.platform_instance_map = {}
+
+        urn = source._resolve_dataset_urn("MyDataset", "rg/factory")
+
+        assert urn is not None
+        assert "SourceDB.dbo.Customers" in str(urn)
+
+    def test_resolve_dataset_urn_never_double_qualifies(self) -> None:
+        """A table reference that's already 3-part must not get a second
+        database prefix jammed onto the front of it."""
+        source = self._make_source()
+        dataset = self._make_dataset(table="SourceDB.dbo.Customers")
+        dataset.properties.linked_service_name = SimpleNamespace(
+            reference_name="MySqlLS"
+        )
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                type="AzureSqlDatabase",
+                connection_string="Server=tcp:myserver;Initial Catalog=SourceDB;",
+            )
+        )
+        source._datasets_cache = {"rg/factory": {"MyDataset": dataset}}
+        source._linked_services_cache = {"rg/factory": {"MySqlLS": linked_service}}
+        source.config.platform_instance_map = {}
+
+        urn = source._resolve_dataset_urn("MyDataset", "rg/factory")
+
+        assert urn is not None
+        assert "SourceDB.SourceDB.dbo.Customers" not in str(urn)
+        assert "SourceDB.dbo.Customers" in str(urn)
+
+    def test_extract_table_name_reads_mongodb_collection(self) -> None:
+        """MongoDB-family datasets identify their target via "collection",
+        not table/table_name - without this, MongoDB/CosmosDB Mongo API
+        lineage falls back to the generic ADF dataset name and never
+        joins to DataHub's actual MongoDB source."""
+        source = self._make_source()
+        dataset = SimpleNamespace(
+            properties=SimpleNamespace(
+                table_name=None,
+                table=None,
+                collection="orders",
+                schema_type_properties_schema=None,
+                file_name=None,
+                folder_path=None,
+                location=None,
+                parameters={},
+            )
+        )
+        result = source._extract_table_name(
+            dataset, linked_service=None, dataset_name="MyDataset"
+        )
+        assert result == "orders"
+
+    def test_data_flow_source_forwards_activity_dataset_parameters(self) -> None:
+        """Regression test: Copy/Lookup activities already forward their
+        DatasetReference.parameters into dataset resolution, but Data Flow
+        sources/sinks didn't - parameterized Data Flow lineage stayed on
+        the dataset's unresolved/default name."""
+        source = self._make_source()
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+            schema="dbo",
+        )
+        dataset.properties.linked_service_name = SimpleNamespace(
+            reference_name="MySqlLS"
+        )
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(type="AzureSqlDatabase")
+        )
+        source._datasets_cache = {"rg/factory": {"MyDataset": dataset}}
+        source._linked_services_cache = {"rg/factory": {"MySqlLS": linked_service}}
+        source._data_flows_cache = {
+            "rg/factory": {
+                "MyDataFlow": SimpleNamespace(
+                    properties=SimpleNamespace(
+                        sources=[
+                            SimpleNamespace(
+                                name="src1",
+                                dataset=SimpleNamespace(
+                                    reference_name="MyDataset",
+                                    parameters={"table_name": "Orders"},
+                                ),
+                            )
+                        ]
+                    )
+                )
+            }
+        }
+        source.config.platform_instance_map = {}
+        activity = SimpleNamespace(
+            name="RunFlow",
+            data_flow=SimpleNamespace(reference_name="MyDataFlow"),
+        )
+
+        urns = source._extract_data_flow_sources(activity, "rg/factory")
+
+        assert len(urns) == 1
+        assert "dbo.Orders" in urns[0]
+
+    def test_resolve_default_database_reads_mongodb_database(self) -> None:
+        """MongoDB v2/Atlas/CosmosDB Mongo API linked services expose the
+        database directly as "database" (already covered generically),
+        but the legacy MongoDB linked service names the same field
+        "database_name" instead."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(database_name="analytics")
+        )
+        result = source._resolve_default_database(
+            linked_service, "mongodb", "rg/factory"
+        )
+        assert result == "analytics"
+
     def test_substitute_pipeline_run_parameters_rejects_unresolved_expression(
         self,
     ) -> None:
