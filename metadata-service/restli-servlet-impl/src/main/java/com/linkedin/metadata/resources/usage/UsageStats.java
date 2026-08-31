@@ -16,11 +16,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.WindowDuration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.dataset.DatasetFieldUsageCounts;
 import com.linkedin.dataset.DatasetFieldUsageCountsArray;
 import com.linkedin.dataset.DatasetUsageStatistics;
 import com.linkedin.dataset.DatasetUserUsageCounts;
 import com.linkedin.dataset.DatasetUserUsageCountsArray;
+import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -52,6 +54,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.Getter;
@@ -165,7 +168,9 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
           }
 
-          return UsageServiceUtil.query(opContext, _timeseriesAspectService, resource, duration, startTime, endTime, maxBuckets, timeZone);
+          UsageQueryResult result = UsageServiceUtil.query(opContext, _timeseriesAspectService, resource, duration, startTime, endTime, maxBuckets, timeZone);
+          stripTopSqlQueriesIfRestricted(opContext, resourceUrn, result);
+          return result;
         },
         MetricRegistry.name(this.getClass(), "query"));
   }
@@ -196,7 +201,34 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     }
 
     return RestliUtils.toTask(opContext,
-            () -> UsageServiceUtil.queryRange(opContext, _timeseriesAspectService, resource, duration, range, timeZone), MetricRegistry.name(this.getClass(), "queryRange"));
+            () -> {
+              UsageQueryResult result = UsageServiceUtil.queryRange(opContext, _timeseriesAspectService, resource, duration, range, timeZone);
+              stripTopSqlQueriesIfRestricted(opContext, resourceUrn, result);
+              return result;
+            }, MetricRegistry.name(this.getClass(), "queryRange"));
+  }
+
+  /**
+   * {@code topSqlQueries} embeds raw SQL, protected by {@code VIEW_ENTITY_QUERIES}/{@code
+   * VIEW_ALL_QUERIES} — a check distinct from (and in addition to) the {@code
+   * VIEW_DATASET_USAGE_PRIVILEGE} check both callers already perform, mirroring GraphQL's {@code
+   * DatasetUsageStatsResolver}. Unlike GraphQL, this Rest.li action has no per-field selection
+   * concept — the result shape is fixed — so restriction here always strips the field rather than
+   * denying the whole call, keeping the numeric usage data {@code VIEW_DATASET_USAGE} alone
+   * already authorizes.
+   */
+  private static void stripTopSqlQueriesIfRestricted(
+      @Nonnull OperationContext opContext, @Nonnull Urn resourceUrn, @Nullable UsageQueryResult result) {
+    if (result == null
+        || result.getBuckets() == null
+        || !EntityAspectAuthorizationUtils.isTopSqlQueriesRestricted(opContext, resourceUrn)) {
+      return;
+    }
+    for (UsageAggregation bucket : result.getBuckets()) {
+      if (bucket != null && bucket.getMetrics() != null) {
+        bucket.getMetrics().setTopSqlQueries(null, SetMode.REMOVE_IF_NULL);
+      }
+    }
   }
 
   private void ingest(@Nonnull OperationContext opContext, @Nonnull UsageAggregation bucket) {

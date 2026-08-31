@@ -1,13 +1,23 @@
 package com.linkedin.metadata.authorization;
 
+import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CHART_QUERY_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATASET_USAGE_STATISTICS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_TRANSFORM_LOGIC_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.VIEW_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -26,6 +36,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -80,10 +91,13 @@ public final class EntityAuthorizationUtils {
             .filter(urn -> !DocumentAuthorizationUtils.isDocumentEntity(urn))
             .filter(EntityAspectAuthorizationUtils::isSchemaFieldEntity)
             .toList();
+    List<Urn> queries =
+        urns.stream().filter(EntityAspectAuthorizationUtils::isQueryEntity).toList();
     List<Urn> others =
         urns.stream()
             .filter(urn -> !DocumentAuthorizationUtils.isDocumentEntity(urn))
             .filter(urn -> !EntityAspectAuthorizationUtils.isSchemaFieldEntity(urn))
+            .filter(urn -> !EntityAspectAuthorizationUtils.isQueryEntity(urn))
             .toList();
     if (!others.isEmpty() && !AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, others)) {
       return false;
@@ -92,9 +106,62 @@ public final class EntityAuthorizationUtils {
         && !isAPIAuthorizedSchemaFieldUrns(opContext, apiOperation, schemaFields)) {
       return false;
     }
+    if (!queries.isEmpty() && !isAPIAuthorizedQueryUrns(opContext, apiOperation, queries)) {
+      return false;
+    }
     return documents.isEmpty()
         || DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
             opContext, apiOperation, documents);
+  }
+
+  /**
+   * Authorizes query entity URNs for API surfaces. READ requires {@code VIEW_ENTITY_QUERIES} (or a
+   * privilege implying it) on the query's subject datasets via {@link
+   * EntityAspectAuthorizationUtils#filterViewableQueryEntities} — active only when REST API
+   * authorization is enabled AND query-read authorization is enabled (see {@link
+   * EntityAspectAuthorizationUtils#isQueryViewAuthorizationEnabled}); when inactive, no subject
+   * lookups are performed. System-auth requests bypass this filtering entirely, as the GraphQL
+   * query paths already do. Query entities with no subjects are fail-closed. Other operations use
+   * {@link AuthUtil} without inheritance.
+   */
+  private static boolean isAPIAuthorizedQueryUrns(
+      @Nonnull OperationContext opContext,
+      @Nonnull ApiOperation apiOperation,
+      @Nonnull Collection<Urn> queryUrns) {
+    if (queryUrns.isEmpty()) {
+      return true;
+    }
+    if (apiOperation != READ) {
+      return AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, queryUrns);
+    }
+    return filterAPIAuthorizedQueryUrns(opContext, queryUrns).containsAll(queryUrns);
+  }
+
+  /**
+   * Filters {@code queryUrns} down to the subset viewable by the actor, per {@link
+   * EntityAspectAuthorizationUtils#filterViewableQueryEntities} — same activation conditions as
+   * {@link #isAPIAuthorizedQueryUrns} (REST API authorization enabled, query-read authorization
+   * enabled, not system auth), returning every urn unfiltered when any of those are inactive. Used
+   * by result-set surfaces (search/scroll) that need to keep the queries the actor IS authorized to
+   * see rather than rejecting the whole result because it also contains one they aren't — the same
+   * all-or-nothing boolean above is correct for single-entity or batch existence-style checks,
+   * where a mixed outcome should reasonably deny the caller's specific request.
+   */
+  @Nonnull
+  public static Set<Urn> filterAPIAuthorizedQueryUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> queryUrns) {
+    if (queryUrns.isEmpty()
+        || !AuthUtil.isRestApiAuthorizationEnabled()
+        || !EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(opContext)
+        || opContext.isSystemAuth()) {
+      return new HashSet<>(queryUrns);
+    }
+    return EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+        opContext,
+        opContext,
+        opContext.getAspectRetriever(),
+        queryUrns,
+        EntityAspectAuthorizationUtils.requireAllQuerySubjects(opContext));
   }
 
   /**
@@ -295,6 +362,120 @@ public final class EntityAuthorizationUtils {
   }
 
   /**
+   * Whether {@code aspectName} on {@code entityUrn} carries SQL text ({@code viewProperties} on
+   * datasets, {@code dataTransformLogic} on data jobs, {@code chartQuery} on charts — the same
+   * fields GraphQL's {@code DatasetMapper}/{@code VersionedDatasetMapper}/{@code
+   * DataTransformLogicMapper}/{@code ChartMapper} withhold) that the actor lacks {@link
+   * EntityAspectAuthorizationUtils#canViewQueriesOnEntity} to see. OpenAPI (v1/v2/v3) and Rest.li
+   * entity-read surfaces serialize aspect content generically — there is no per-field mapper the
+   * way GraphQL has — so every one of them must consult this for these aspect names specifically
+   * before including them in a response, withholding the whole aspect (coarser than GraphQL's
+   * field-level redaction, which keeps non-SQL fields like {@code materialized}/{@code language} or
+   * {@code type} visible) rather than not at all.
+   */
+  public static boolean isQuerySqlAspectRestricted(
+      @Nonnull OperationContext opContext, @Nonnull Urn entityUrn, @Nonnull String aspectName) {
+    boolean isSqlBearingAspect =
+        (DATASET_ENTITY_NAME.equals(entityUrn.getEntityType())
+                && VIEW_PROPERTIES_ASPECT_NAME.equals(aspectName))
+            || (DATA_JOB_ENTITY_NAME.equals(entityUrn.getEntityType())
+                && DATA_TRANSFORM_LOGIC_ASPECT_NAME.equals(aspectName))
+            || (CHART_ENTITY_NAME.equals(entityUrn.getEntityType())
+                && CHART_QUERY_ASPECT_NAME.equals(aspectName));
+    return isSqlBearingAspect
+        && !EntityAspectAuthorizationUtils.canViewQueriesOnEntity(opContext, entityUrn);
+  }
+
+  /**
+   * Removes SQL-bearing aspects (per {@link #isQuerySqlAspectRestricted}) from {@code responses} in
+   * place — the shared redaction step for OpenAPI/Rest.li surfaces that fetch full {@link
+   * EntityResponse} objects (v1 {@code EntitiesController}, Rest.li {@code EntityV2Resource});
+   * surfaces that build a generic per-aspect map directly (v2/v3 {@code EntityController}) call
+   * {@link #isQuerySqlAspectRestricted} themselves against their own map shape.
+   */
+  public static void completelyRedactUnauthorizedQuerySqlAspects(
+      @Nonnull OperationContext opContext, @Nonnull Map<Urn, EntityResponse> responses) {
+    for (Map.Entry<Urn, EntityResponse> entry : responses.entrySet()) {
+      Urn urn = entry.getKey();
+      EnvelopedAspectMap aspects = entry.getValue().getAspects();
+      if (aspects == null) {
+        continue;
+      }
+      for (String aspectName :
+          List.of(
+              VIEW_PROPERTIES_ASPECT_NAME,
+              DATA_TRANSFORM_LOGIC_ASPECT_NAME,
+              CHART_QUERY_ASPECT_NAME)) {
+        if (aspects.containsKey(aspectName)
+            && isQuerySqlAspectRestricted(opContext, urn, aspectName)) {
+          aspects.remove(aspectName);
+        }
+      }
+    }
+  }
+
+  /**
+   * Whether {@code topSqlQueries} within a raw {@code datasetUsageStatistics} timeseries aspect for
+   * {@code entityUrn} must be withheld from the actor. Unlike {@link #isQuerySqlAspectRestricted},
+   * this only ever restricts one field within the aspect — the numeric usage counts alongside it
+   * are never privilege-gated — so callers strip just that field (via {@link
+   * #stripTopSqlQueriesFromRawAspect}) rather than dropping the whole aspect.
+   */
+  public static boolean isTopSqlQueriesFieldRestricted(
+      @Nonnull OperationContext opContext, @Nonnull Urn entityUrn, @Nonnull String aspectName) {
+    return DATASET_ENTITY_NAME.equals(entityUrn.getEntityType())
+        && DATASET_USAGE_STATISTICS_ASPECT_NAME.equals(aspectName)
+        && EntityAspectAuthorizationUtils.isTopSqlQueriesRestricted(opContext, entityUrn);
+  }
+
+  /**
+   * Removes {@code topSqlQueries} in place from a raw {@code datasetUsageStatistics} aspect map
+   * when {@link #isTopSqlQueriesFieldRestricted} — the generic-read counterpart to {@code
+   * UsageStats#stripTopSqlQueriesIfRestricted}, for surfaces (v3 {@code EntityController}'s
+   * timeseries branch, GraphQL's raw-aspect resolver, OpenAPI v2 {@code TimeseriesController}) that
+   * already hold the aspect as a live map — a Pegasus {@link DataMap} (itself a {@code Map<String,
+   * Object>}) or, for the Elasticsearch-backed OpenAPI v2 path, the plain {@code Map<String,
+   * Object>} parsed straight from the search hit's source — rather than {@link
+   * com.linkedin.mxe.GenericAspect}-serialized bytes.
+   */
+  public static void stripTopSqlQueriesFromRawAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull String aspectName,
+      @Nonnull Map<String, Object> aspectValue) {
+    if (isTopSqlQueriesFieldRestricted(opContext, entityUrn, aspectName)) {
+      aspectValue.remove("topSqlQueries");
+    }
+  }
+
+  /**
+   * {@link #stripTopSqlQueriesFromRawAspect}'s counterpart for surfaces (Rest.li {@code
+   * AspectResource#getTimeseriesAspectValues}, OpenAPI v2 {@code TimeseriesController}) that carry
+   * timeseries aspect values as {@link com.linkedin.mxe.GenericAspect}-serialized bytes rather than
+   * a live DataMap: deserializes, strips the field if restricted, and re-serializes back onto
+   * {@code envelopedAspect} in place. A no-op re-serialization when nothing was stripped is
+   * accepted for simplicity, since this only ever runs for {@code datasetUsageStatistics} values.
+   */
+  public static void stripTopSqlQueriesFromEnvelopedAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull String aspectName,
+      @Nonnull com.linkedin.metadata.aspect.EnvelopedAspect envelopedAspect) {
+    if (!isTopSqlQueriesFieldRestricted(opContext, entityUrn, aspectName)) {
+      return;
+    }
+    final com.linkedin.mxe.GenericAspect generic = envelopedAspect.getAspect();
+    final com.linkedin.dataset.DatasetUsageStatistics stats =
+        com.linkedin.metadata.utils.GenericRecordUtils.deserializeAspect(
+            generic.getValue(),
+            generic.getContentType(),
+            com.linkedin.dataset.DatasetUsageStatistics.class);
+    stats.data().remove("topSqlQueries");
+    envelopedAspect.setAspect(
+        com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect(stats));
+  }
+
+  /**
    * Shared entity VIEW privilege evaluator. Not gated by View Authorization or REST API
    * authorization flags — callers wrap this when they need those activation switches.
    *
@@ -304,7 +485,11 @@ public final class EntityAuthorizationUtils {
   public static boolean canViewEntity(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
     if (QUERY_ENTITY_NAME.equals(urn.getEntityType())) {
       return EntityAspectAuthorizationUtils.canViewQueryEntity(
-          opContext, opContext, opContext.getAspectRetriever(), urn);
+          opContext,
+          opContext,
+          opContext.getAspectRetriever(),
+          urn,
+          EntityAspectAuthorizationUtils.requireAllQuerySubjects(opContext));
     }
     if (DOCUMENT_ENTITY_NAME.equals(urn.getEntityType())) {
       return DocumentAuthorizationUtils.canViewDocumentEntity(opContext, urn);

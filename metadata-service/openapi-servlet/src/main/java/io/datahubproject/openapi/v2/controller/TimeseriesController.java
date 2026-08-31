@@ -8,6 +8,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -26,6 +27,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -123,22 +125,39 @@ public class TimeseriesController {
     return ResponseEntity.ok(
         GenericScrollResult.<GenericTimeseriesAspect>builder()
             .scrollId(result.getScrollId())
-            .results(toGenericTimeseriesAspect(result.getDocuments(), withSystemMetadata))
+            .results(
+                toGenericTimeseriesAspect(
+                    opContext, aspectName, result.getDocuments(), withSystemMetadata))
             .build());
   }
 
+  @SuppressWarnings("unchecked")
   private static List<GenericTimeseriesAspect> toGenericTimeseriesAspect(
-      List<GenericTimeseriesDocument> docs, boolean withSystemMetadata) {
+      OperationContext opContext,
+      String aspectName,
+      List<GenericTimeseriesDocument> docs,
+      boolean withSystemMetadata) {
     return docs.stream()
         .map(
-            doc ->
-                GenericTimeseriesAspect.builder()
-                    .urn(doc.getUrn())
-                    .messageId(doc.getMessageId())
-                    .timestampMillis(doc.getTimestampMillis())
-                    .systemMetadata(withSystemMetadata ? doc.getSystemMetadata() : null)
-                    .event(doc.getEvent())
-                    .build())
+            doc -> {
+              Object event = doc.getEvent();
+              // The event map is the same live object docs.getDocuments() returned, so stripping
+              // in place is safe: nothing else reads it before this response is built.
+              if (event instanceof Map) {
+                EntityAuthorizationUtils.stripTopSqlQueriesFromRawAspect(
+                    opContext,
+                    UrnUtils.getUrn(doc.getUrn()),
+                    aspectName,
+                    (Map<String, Object>) event);
+              }
+              return GenericTimeseriesAspect.builder()
+                  .urn(doc.getUrn())
+                  .messageId(doc.getMessageId())
+                  .timestampMillis(doc.getTimestampMillis())
+                  .systemMetadata(withSystemMetadata ? doc.getSystemMetadata() : null)
+                  .event(event)
+                  .build();
+            })
         .collect(Collectors.toList());
   }
 }

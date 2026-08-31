@@ -115,6 +115,10 @@ x-datahub-system-update-service: &datahub-system-update-service
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     USE_CONFLUENT_SCHEMA_REGISTRY: false
     DATAHUB_SQL_SETUP_ENABLED: ${DATAHUB_SQL_SETUP_ENABLED:-true}
+    # Same value GMS gets below (datahub-gms-env) — the VIEW_ALL_QUERIES backfill migration this
+    # container runs (BackfillViewAllQueriesPrivilegeStep) needs to know whether view authorization
+    # is enabled to restrict itself to system policies.
+    VIEW_AUTHORIZATION_ENABLED: ${VIEW_AUTHORIZATION_ENABLED:-false}
     # Optional log shipping to a Loki-push-compatible aggregator (dormant when empty)
     LOG_AGGREGATOR_ENDPOINT: ${LOG_AGGREGATOR_ENDPOINT:-}
     PARTITIONS: ${DATAHUB_PARTITIONS:-3}
@@ -170,6 +174,7 @@ x-datahub-gms-service: &datahub-gms-service
     SHOW_HOME_PAGE_REDESIGN: ${SHOW_HOME_PAGE_REDESIGN:-true}
     MCL_CONSUMER_BATCH_ENABLED: ${MCL_CONSUMER_BATCH_ENABLED:-true}
     MCP_CONSUMER_BATCH_ENABLED: ${MCP_CONSUMER_BATCH_ENABLED:-true}
+    VIEW_AUTHORIZATION_ENABLED: ${VIEW_AUTHORIZATION_ENABLED:-false}
     # Optional log shipping to a Loki-push-compatible aggregator (dormant when empty)
     LOG_AGGREGATOR_ENDPOINT: ${LOG_AGGREGATOR_ENDPOINT:-}
   healthcheck:

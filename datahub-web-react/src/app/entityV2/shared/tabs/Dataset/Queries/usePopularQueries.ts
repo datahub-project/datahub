@@ -19,9 +19,17 @@ interface Props {
     siblingUrn?: string;
     filterText: string;
     defaultSelectedColumns?: string[];
+    /** Skips the query rather than waiting on a result the actor can't see. */
+    canViewQueries: boolean;
 }
 
-export const usePopularQueries = ({ entityUrn, siblingUrn, filterText, defaultSelectedColumns }: Props) => {
+export const usePopularQueries = ({
+    entityUrn,
+    siblingUrn,
+    filterText,
+    defaultSelectedColumns,
+    canViewQueries,
+}: Props) => {
     const columnFromQueryParam = useQueryParamValue('column') as string | null;
     const siblingColumnFromQueryParam = useQueryParamValue('siblingColumn') as string | null;
     let columnsFromQueryParams = columnFromQueryParam ? [decodeURI(columnFromQueryParam)] : [];
@@ -53,7 +61,7 @@ export const usePopularQueries = ({ entityUrn, siblingUrn, filterText, defaultSe
                 orFilters: [{ and: andFilters }],
             },
         },
-        skip: !entityUrn,
+        skip: !entityUrn || !canViewQueries,
         fetchPolicy: 'cache-first',
     });
 

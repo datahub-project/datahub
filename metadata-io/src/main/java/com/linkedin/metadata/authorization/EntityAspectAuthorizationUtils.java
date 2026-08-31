@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.QUERY_SUBJECTS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -51,6 +52,17 @@ public final class EntityAspectAuthorizationUtils {
       new DisjunctivePrivilegeGroup(
           ImmutableList.of(
               ALL_ENTITY_PRIVILEGES,
+              new ConjunctivePrivilegeGroup(
+                  ImmutableList.of(PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType()))));
+
+  // Viewing a query requires the explicit view privilege (or the ability to edit queries,
+  // which implies viewing them).
+  private static final DisjunctivePrivilegeGroup VIEW_ENTITY_QUERIES_PRIVILEGES =
+      new DisjunctivePrivilegeGroup(
+          ImmutableList.of(
+              ALL_ENTITY_PRIVILEGES,
+              new ConjunctivePrivilegeGroup(
+                  ImmutableList.of(PoliciesConfig.VIEW_ENTITY_QUERIES_PRIVILEGE.getType())),
               new ConjunctivePrivilegeGroup(
                   ImmutableList.of(PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType()))));
 
@@ -445,18 +457,217 @@ public final class EntityAspectAuthorizationUtils {
   }
 
   /**
-   * Returns Query entity URNs viewable by the actor: every subject dataset must be readable via
-   * {@code VIEW_ENTITY_PAGE} or editable via {@code EDIT_ENTITY_QUERIES} (or {@code EDIT_ENTITY}).
-   * Query entities with no subjects are denied (fail-closed).
+   * Activation gate for query-read authorization: on by default via {@code
+   * authorization.view.queryEntities.enabled} (a missing config block means the default, enabled),
+   * and also active under the legacy view-authorization master switch (which carried the original,
+   * always-strict query filtering). Disabling the flag is the performance escape valve: query reads
+   * then perform no subject lookups at all. Does not override {@code authorization.view.enabled} if
+   * enabled.
    */
+  public static boolean isQueryViewAuthorizationEnabled(
+      @Nonnull io.datahubproject.metadata.context.OperationContext opContext) {
+    com.datahub.authorization.config.ViewAuthorizationConfiguration view =
+        opContext.getOperationContextConfig().getViewAuthorizationConfiguration();
+    return view.getQueryEntities() == null
+        || view.getQueryEntities().isEnabled()
+        || view.isEnabled();
+  }
+
+  /**
+   * Resolves the operator-configured {@code requireAllSubjects} mode. With the dedicated flag
+   * enabled (the default), the configured mode applies — default {@code COMPAT}. When active only
+   * via the legacy view-authorization switch (dedicated flag explicitly disabled), the original
+   * all-subjects behavior is preserved ({@code TRUE}, regardless of the configured mode). A missing
+   * {@code queryEntities} config block (should not occur outside tests — {@code application.yaml}
+   * always declares it) falls back to {@code COMPAT} too, matching the same default.
+   */
+  private static com.datahub.authorization.config.ViewAuthorizationConfiguration
+          .RequireAllSubjectsMode
+      requireAllSubjectsMode(
+          @Nonnull io.datahubproject.metadata.context.OperationContext opContext) {
+    com.datahub.authorization.config.ViewAuthorizationConfiguration view =
+        opContext.getOperationContextConfig().getViewAuthorizationConfiguration();
+    if (view.getQueryEntities() == null) {
+      return com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
+          .COMPAT;
+    }
+    if (view.getQueryEntities().isEnabled()) {
+      return view.getQueryEntities().getRequireAllSubjects();
+    }
+    return com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
+        .TRUE;
+  }
+
+  /**
+   * Subject-match mode for ordinary Query-entity-subject checks: direct Query entity reads, {@code
+   * listQueries}, REST/OpenAPI reads, and {@link
+   * com.linkedin.metadata.authorization.EntityAuthorizationUtils#canViewEntity}'s Query-entity
+   * branch (search-result masking, related-entity visibility) all share this one answer. {@code
+   * TRUE} and {@code FALSE} apply literally everywhere. {@code COMPAT} resolves to {@code
+   * VIEW_AUTHORIZATION_ENABLED}'s current state: require-all when it's on, any-subject when it's
+   * off — so turning on VBAC uniformly tightens every one of these paths, and COMPAT is a no-op
+   * relative to the old any-subject-everywhere default for deployments that never enable it.
+   *
+   * <p>Does NOT apply to {@code topSqlQueries} — see {@link
+   * #requireAllQuerySubjectsForTopSqlQueries} for that deliberate carve-out.
+   */
+  public static boolean requireAllQuerySubjects(
+      @Nonnull io.datahubproject.metadata.context.OperationContext opContext) {
+    com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode mode =
+        requireAllSubjectsMode(opContext);
+    if (mode
+        == com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
+            .COMPAT) {
+      return opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled();
+    }
+    return mode
+        == com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
+            .TRUE;
+  }
+
+  /**
+   * Subject-match mode for {@code topSqlQueries} specifically — deliberately carved out from {@link
+   * #requireAllQuerySubjects}. {@code topSqlQueries} entries are bare SQL strings with no recorded
+   * per-statement dataset association, unlike a Query entity's {@code querySubjects}, so there is
+   * nothing for a require-all check to verify beyond the one containing dataset. {@code TRUE} and
+   * {@code FALSE} still apply literally (see {@link #isTopSqlQueriesRestricted}'s use of this for
+   * what {@code TRUE} means here), but {@code COMPAT} always resolves to any-subject, regardless of
+   * {@code VIEW_AUTHORIZATION_ENABLED} — an actor with {@code VIEW_ENTITY_QUERIES} on a dataset
+   * keeps seeing that dataset's own top queries under COMPAT even once VBAC is turned on, without
+   * needing the platform-wide {@code VIEW_ALL_QUERIES}.
+   */
+  public static boolean requireAllQuerySubjectsForTopSqlQueries(
+      @Nonnull io.datahubproject.metadata.context.OperationContext opContext) {
+    return requireAllSubjectsMode(opContext)
+        == com.datahub.authorization.config.ViewAuthorizationConfiguration.RequireAllSubjectsMode
+            .TRUE;
+  }
+
+  /**
+   * Whether the actor holds {@code VIEW_ALL_QUERIES} — the platform-level bypass that grants
+   * visibility into every query regardless of subject datasets (see {@link
+   * PoliciesConfig#VIEW_ALL_QUERIES_PRIVILEGE}). Checked with no resource spec, since it is a
+   * platform privilege. Exposed for batch callers (like this class's own query-set filtering) that
+   * need the bypass alone; single-entity callers should prefer {@link
+   * #allowedToViewQueriesOnEntity}.
+   */
+  public static boolean hasViewAllQueriesPrivilege(@Nonnull AuthorizationSession session) {
+    return AuthUtil.isAuthorized(session, PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE);
+  }
+
+  /**
+   * Whether the actor is allowed to view queries associated with this single entity (typically a
+   * dataset): granted either via {@link #hasViewAllQueriesPrivilege} or the ordinary {@code
+   * VIEW_ENTITY_QUERIES}-family privilege group checked against this entity specifically. Any
+   * query-visibility decision keyed to one entity urn should call this rather than checking {@code
+   * VIEW_ENTITY_QUERIES} alone, so the {@code VIEW_ALL_QUERIES} bypass — easy to miss, since it's a
+   * separate privilege on a separate resource type — is never silently omitted at a future call
+   * site.
+   */
+  public static boolean allowedToViewQueriesOnEntity(
+      @Nonnull AuthorizationSession session, @Nonnull Urn entityUrn) {
+    if (hasViewAllQueriesPrivilege(session)) {
+      return true;
+    }
+    EntitySpec entitySpec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
+    return AuthUtil.isAuthorized(session, VIEW_ENTITY_QUERIES_PRIVILEGES, entitySpec);
+  }
+
+  /**
+   * Whether query-derived content (Query entities, {@code topSqlQueries}, view/transform-logic SQL
+   * text) tied to {@code entityUrn} may be shown to this actor: granted when query-view
+   * authorization is disabled entirely (the {@link #isQueryViewAuthorizationEnabled} escape valve),
+   * for system auth, or via {@link #allowedToViewQueriesOnEntity}. Every call site that decides
+   * whether to expose SQL for a specific entity should go through this rather than {@link
+   * #allowedToViewQueriesOnEntity} alone, so the escape valve and system-auth bypass — each easy to
+   * omit independently — are never accidentally missing from a new caller. Requires a full {@code
+   * OperationContext} rather than a bare {@link AuthorizationSession} because both bypasses need
+   * config/system-auth access the narrower interface doesn't expose.
+   */
+  public static boolean canViewQueriesOnEntity(
+      @Nonnull io.datahubproject.metadata.context.OperationContext opContext,
+      @Nonnull Urn entityUrn) {
+    return !isQueryViewAuthorizationEnabled(opContext)
+        || opContext.isSystemAuth()
+        || allowedToViewQueriesOnEntity(opContext, entityUrn);
+  }
+
+  /**
+   * Whether {@code topSqlQueries} (raw SQL embedded in dataset usage statistics) for {@code
+   * resourceUrn} must be withheld from this actor. {@code topSqlQueries} entries are bare strings
+   * with no recorded dataset associations, so unlike a Query entity's {@code querySubjects} they
+   * cannot be checked per-statement:
+   *
+   * <ul>
+   *   <li>{@link #hasViewAllQueriesPrivilege}: unrestricted in every mode — it grants visibility
+   *       into every query platform-wide regardless of subject datasets, so per-statement
+   *       association is moot for an actor who already holds it.
+   *   <li>Default (any-subject) mode, without {@code VIEW_ALL_QUERIES}: permitted iff the actor
+   *       holds {@code VIEW_ENTITY_QUERIES} on {@code resourceUrn} itself — consistent with the
+   *       any-subject rule, since every statement in the list ran against this dataset.
+   *   <li>Literal {@code TRUE} mode, without {@code VIEW_ALL_QUERIES}: ALWAYS restricted, even for
+   *       an actor holding {@code VIEW_ENTITY_QUERIES} on {@code resourceUrn} — a statement may
+   *       reference other datasets the actor cannot see, and bare strings carry no way to verify
+   *       that. Documented limitation of strict mode. {@code COMPAT} does NOT get this treatment —
+   *       see {@link #requireAllQuerySubjectsForTopSqlQueries} for why it stays any-subject here
+   *       even once {@code VIEW_AUTHORIZATION_ENABLED} is on.
+   * </ul>
+   *
+   * <p>Uses {@link #isQueryViewAuthorizationEnabled} (not a narrower, dedicated-flag-only check) so
+   * this and {@link #canViewQueriesOnEntity} agree on when enforcement is active — a caller with
+   * its own inline copy of the enabled-check previously drifted out of sync with the shared one by
+   * omitting the legacy {@code VIEW_AUTHORIZATION_ENABLED} activation path.
+   */
+  public static boolean isTopSqlQueriesRestricted(
+      @Nonnull io.datahubproject.metadata.context.OperationContext opContext,
+      @Nonnull Urn resourceUrn) {
+    if (!isQueryViewAuthorizationEnabled(opContext) || opContext.isSystemAuth()) {
+      return false;
+    }
+    if (requireAllQuerySubjectsForTopSqlQueries(opContext)) {
+      return !hasViewAllQueriesPrivilege(opContext);
+    }
+    return !allowedToViewQueriesOnEntity(opContext, resourceUrn);
+  }
+
+  /** Strict-mode overload: every subject dataset must grant the privilege. */
   @Nonnull
   public static Set<Urn> filterViewableQueryEntities(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull AuthorizationSession session,
       @Nonnull AspectRetriever aspectRetriever,
       @Nonnull Collection<Urn> queryEntityUrns) {
+    return filterViewableQueryEntities(
+        operationContext, session, aspectRetriever, queryEntityUrns, true);
+  }
+
+  /**
+   * Returns Query entity URNs viewable by the actor. In strict mode ({@code requireAllSubjects}),
+   * every subject dataset must grant {@code VIEW_ENTITY_QUERIES} (or {@code EDIT_QUERIES} / all
+   * privileges, which imply it); otherwise a grant on any single subject dataset suffices. Query
+   * entities with no subjects are fail-closed against {@code VIEW_ENTITY_QUERIES} in both modes:
+   * that privilege attaches to datasets, so a query with no subjects has nothing to grant against,
+   * and no resource-scoped policy — however broad — can satisfy a check against zero resources.
+   * {@link PoliciesConfig#VIEW_ALL_QUERIES_PRIVILEGE} is a deliberate, platform-level,
+   * unconditional bypass: an actor holding it is returned every query in {@code queryEntityUrns}
+   * as-is, subjects or not — it is checked first and short-circuits the per-subject logic entirely,
+   * for every query in the batch, not only orphans. Orphans are simply the one case {@code
+   * VIEW_ENTITY_QUERIES} could never reach on its own; an actor without {@code VIEW_ALL_QUERIES}
+   * still goes through the ordinary subject-derived check below for every query, orphan or not.
+   */
+  @Nonnull
+  public static Set<Urn> filterViewableQueryEntities(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AuthorizationSession session,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Collection<Urn> queryEntityUrns,
+      boolean requireAllSubjects) {
     if (queryEntityUrns.isEmpty()) {
       return Set.of();
+    }
+
+    if (hasViewAllQueriesPrivilege(session)) {
+      return new HashSet<>(queryEntityUrns);
     }
 
     Map<Urn, Map<String, Aspect>> subjectAspects =
@@ -487,20 +698,34 @@ public final class EntityAspectAuthorizationUtils {
       if (subjects.isEmpty()) {
         continue;
       }
-      if (readableSubjects.containsAll(subjects)) {
+      boolean viewable =
+          requireAllSubjects
+              ? readableSubjects.containsAll(subjects)
+              : subjects.stream().anyMatch(readableSubjects::contains);
+      if (viewable) {
         viewableQueries.add(queryUrn);
       }
     }
     return viewableQueries;
   }
 
+  /** Strict-mode overload: every subject dataset must grant the privilege. */
   public static boolean canViewQueryEntity(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull AuthorizationSession session,
       @Nonnull AspectRetriever aspectRetriever,
       @Nonnull Urn queryEntityUrn) {
+    return canViewQueryEntity(operationContext, session, aspectRetriever, queryEntityUrn, true);
+  }
+
+  public static boolean canViewQueryEntity(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AuthorizationSession session,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Urn queryEntityUrn,
+      boolean requireAllSubjects) {
     return filterViewableQueryEntities(
-            operationContext, session, aspectRetriever, List.of(queryEntityUrn))
+            operationContext, session, aspectRetriever, List.of(queryEntityUrn), requireAllSubjects)
         .contains(queryEntityUrn);
   }
 
@@ -539,12 +764,9 @@ public final class EntityAspectAuthorizationUtils {
 
   private static boolean canReadQueryViaSubjectDataset(
       @Nonnull AuthorizationSession session, @Nonnull Urn datasetUrn) {
-    if (com.datahub.authorization.AuthUtil.canViewEntity(session, datasetUrn)) {
-      return true;
-    }
     EntitySpec datasetSpec = new EntitySpec(datasetUrn.getEntityType(), datasetUrn.toString());
     return com.datahub.authorization.AuthUtil.isAuthorized(
-        session, EDIT_ENTITY_QUERIES_PRIVILEGES, datasetSpec);
+        session, VIEW_ENTITY_QUERIES_PRIVILEGES, datasetSpec);
   }
 
   public static boolean isQueryEntity(@Nonnull Urn urn) {

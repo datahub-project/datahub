@@ -38,6 +38,7 @@ export default function QueriesTab() {
     const isSeparateSiblings = useIsSeparateSiblingsMode();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const entityUrn = baseEntity?.dataset?.urn;
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? false;
     const canEditQueries = baseEntity?.dataset?.privileges?.canEditQueries || false;
     const siblingUrn = isSeparateSiblings
         ? undefined
@@ -58,23 +59,28 @@ export default function QueriesTab() {
         pagination: highlightedPagination,
         total: highlightedTotal,
         sorting: highlightedSorting,
-    } = useHighlightedQueries({ entityUrn, siblingUrn, filterText });
+    } = useHighlightedQueries({ entityUrn, siblingUrn, filterText, canViewQueries });
 
     /**
      * Fetch the List of Popular Queries
      */
     const { selectedUsersFilter, setSelectedUsersFilter, selectedColumnsFilter, setSelectedColumnsFilter } =
-        usePopularQueries({ entityUrn, siblingUrn, filterText });
+        usePopularQueries({ entityUrn, siblingUrn, filterText, canViewQueries });
 
     /**
      * Fetch the List of Downstream Queries
      */
-    const { downstreamQueries, loading: downstreamQueriesLoading } = useDownstreamQueries(filterText);
+    const { downstreamQueries, loading: downstreamQueriesLoading } = useDownstreamQueries(filterText, canViewQueries);
 
     /**
      * Fetch the List of Recent (auto-extracted) Queries
      */
-    const { recentQueries, loading: recentQueriesLoading } = useRecentQueries({ entityUrn, siblingUrn, filterText });
+    const { recentQueries, loading: recentQueriesLoading } = useRecentQueries({
+        entityUrn,
+        siblingUrn,
+        filterText,
+        canViewQueries,
+    });
 
     const onQueryCreated = (newQuery) => {
         addQueryToListQueriesCache(newQuery, client, highlightedPagination.count, entityUrn, siblingUrn);
@@ -120,7 +126,14 @@ export default function QueriesTab() {
         <>
             <Content $backgroundColor={showLoading || showEmptyView ? theme.colors.bg : theme.colors.bgSurface}>
                 {showLoading && <Loading />}
-                {!showLoading && (
+                {!showLoading && !canViewQueries && (
+                    <EmptyQueriesSection
+                        sectionName={t('queriesTab.queriesTitle')}
+                        emptyText={t('queriesTab.noViewPermission')}
+                        showButton={false}
+                    />
+                )}
+                {!showLoading && canViewQueries && (
                     <>
                         {(highlightedQueries.length > 0 || highlightedQueriesLoading) && (
                             <QueriesListSection

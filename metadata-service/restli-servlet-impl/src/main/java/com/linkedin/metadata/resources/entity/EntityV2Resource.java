@@ -12,7 +12,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.parseq.Task;
@@ -103,7 +103,22 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
                   ? opContext.getEntityAspectNames(entityName)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
-            return _entityService.getEntityV2(opContext, entityName, urn, projectedAspects, alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
+            EntityResponse response =
+                _entityService.getEntityV2(
+                    opContext,
+                    entityName,
+                    urn,
+                    projectedAspects,
+                    alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
+            // getEntityV2 returns null for some empty-projection requests (e.g. an explicit
+            // aspects=List()) rather than treating empty as "fetch everything" the way the legacy
+            // getEntity does. Map.of rejects null values, so this must be skipped for a null
+            // response instead of unconditionally redacting.
+            if (response != null) {
+              EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(
+                  opContext, Map.of(urn, response));
+            }
+            return response;
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(
@@ -149,7 +164,15 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
                   ? opContext.getEntityAspectNames(entityName)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
-            return _entityService.getEntitiesV2(opContext, entityName, urns, projectedAspects, alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
+            Map<Urn, EntityResponse> response =
+                _entityService.getEntitiesV2(
+                    opContext,
+                    entityName,
+                    urns,
+                    projectedAspects,
+                    alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
+            EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(opContext, response);
+            return response;
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(
@@ -162,33 +185,14 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
   }
 
   /**
-   * Query entities use subject-derived view authorization when view auth is enabled; all other
-   * entity types use standard Rest.li READ checks.
+   * Delegates to the shared {@link
+   * com.linkedin.metadata.authorization.EntityAuthorizationUtils#isAPIAuthorizedEntityUrns} check,
+   * which now partitions query entities and enforces subject-derived {@code VIEW_ENTITY_QUERIES}
+   * authorization for READ (governed by the REST API authorization setting), alongside the
+   * document/schema-field specializations and standard Rest.li READ checks for other types.
    */
   private static boolean isAuthorizedToReadEntities(
       @Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns) {
-    Map<Boolean, List<Urn>> partitioned =
-        urns.stream()
-            .collect(Collectors.partitioningBy(EntityAspectAuthorizationUtils::isQueryEntity));
-
-    List<Urn> queryUrns = partitioned.get(true);
-    List<Urn> otherUrns = partitioned.get(false);
-
-    if (opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled()
-        && !opContext.isSystemAuth()) {
-      if (!queryUrns.isEmpty()) {
-        Set<Urn> viewable =
-            EntityAspectAuthorizationUtils.filterViewableQueryEntities(
-                opContext, opContext, opContext.getAspectRetriever(), queryUrns);
-        if (!viewable.containsAll(queryUrns)) {
-          return false;
-        }
-      }
-    } else if (!queryUrns.isEmpty()
-        && !isAPIAuthorizedEntityUrns(opContext, READ, queryUrns)) {
-      return false;
-    }
-
-    return otherUrns.isEmpty() || isAPIAuthorizedEntityUrns(opContext, READ, otherUrns);
+    return isAPIAuthorizedEntityUrns(opContext, READ, urns);
   }
 }

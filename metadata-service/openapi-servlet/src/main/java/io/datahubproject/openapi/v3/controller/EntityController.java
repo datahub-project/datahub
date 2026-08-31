@@ -1,5 +1,7 @@
 package io.datahubproject.openapi.v3.controller;
 
+import static com.linkedin.metadata.Constants.DATASET_USAGE_STATISTICS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.PATCH_FIELD;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
@@ -277,15 +279,52 @@ public class EntityController
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
+    // This endpoint can scroll across multiple entity types at once, unlike
+    // GenericEntitiesController's single-type getEntities — so a result page can mix query and
+    // non-query entities. Query visibility varies per entity (subject-dataset scoped), so those
+    // must be filtered individually rather than folded into the uniform, type-level check the
+    // other entity types still get below.
+    List<Urn> otherUrns =
+        result.getEntities().stream()
+            .map(SearchEntity::getEntity)
+            .filter(urn -> !QUERY_ENTITY_NAME.equals(urn.getEntityType()))
+            .collect(Collectors.toList());
+    if (!otherUrns.isEmpty()
+        && !EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, otherUrns)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
 
+    List<Urn> queryUrns =
+        result.getEntities().stream()
+            .map(SearchEntity::getEntity)
+            .filter(urn -> QUERY_ENTITY_NAME.equals(urn.getEntityType()))
+            .collect(Collectors.toList());
+    Set<Urn> viewableQueryUrns =
+        EntityAuthorizationUtils.filterAPIAuthorizedQueryUrns(opContext, queryUrns);
+    SearchEntityArray authorizedEntities =
+        new SearchEntityArray(
+            result.getEntities().stream()
+                .filter(
+                    e ->
+                        !QUERY_ENTITY_NAME.equals(e.getEntity().getEntityType())
+                            || viewableQueryUrns.contains(e.getEntity()))
+                .collect(Collectors.toList()));
+
+    // Known limitations, accepted and documented rather than implemented (would require scrolling
+    // to exhaustion, authorizing per batch, and either recomputing an exact total or reimplementing
+    // facet bucketing in application code — the pattern ListQueriesResolver uses for GraphQL, out
+    // of scope for this REST surface):
+    //  - totalCount below is result.getNumEntities(), the raw, unfiltered candidate count; when
+    //    the page mixes query and non-query entities, authorizedEntities can be a strict subset of
+    //    result.getEntities() (denied queries dropped), so the total can include queries the actor
+    //    can't see and the returned page can be underfilled relative to `count`.
+    //  - result.getMetadata() (facets) is computed by the search backend over the same raw,
+    //    unfiltered candidate set and isn't recomputed against the authorized subset either.
     return ResponseEntity.ok(
         buildScrollResult(
             opContext,
-            result.getEntities(),
+            authorizedEntities,
             result.getMetadata(),
             entityAspectsBody.getAspects(),
             withSystemMetadata,
@@ -711,6 +750,19 @@ public class EntityController
                 if (timeseriesAspects.containsKey(u)) {
                   aspectItemMap.putAll(
                       toTimeseriesAspectItemMap(u, timeseriesAspects.get(u), withSystemMetadata));
+                }
+                aspectItemMap
+                    .keySet()
+                    .removeIf(
+                        aspectName ->
+                            EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+                                opContext, u, aspectName));
+                if (aspectItemMap.containsKey(DATASET_USAGE_STATISTICS_ASPECT_NAME)) {
+                  EntityAuthorizationUtils.stripTopSqlQueriesFromRawAspect(
+                      opContext,
+                      u,
+                      DATASET_USAGE_STATISTICS_ASPECT_NAME,
+                      aspectItemMap.get(DATASET_USAGE_STATISTICS_ASPECT_NAME).getAspect().data());
                 }
 
                 return GenericEntityV3.builder().build(objectMapper, u, aspectItemMap);

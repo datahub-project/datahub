@@ -239,12 +239,18 @@ public class EntityController
 
     return urnAspectVersions.keySet().stream()
         .map(
-            u ->
-                GenericEntityV2.builder()
-                    .urn(u.toString())
-                    .build(
-                        objectMapper,
-                        toAspectMap(u, aspects.getOrDefault(u, List.of()), withSystemMetadata)))
+            u -> {
+              List<EnvelopedAspect> urnAspects =
+                  aspects.getOrDefault(u, List.of()).stream()
+                      .filter(
+                          a ->
+                              !EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+                                  opContext, u, a.getName()))
+                      .collect(Collectors.toList());
+              return GenericEntityV2.builder()
+                  .urn(u.toString())
+                  .build(objectMapper, toAspectMap(u, urnAspects, withSystemMetadata));
+            })
         .collect(Collectors.toList());
   }
 

@@ -105,6 +105,25 @@ authorization:
     recommendations:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
+    queryEntities:
+      # Enforcement of VIEW_ENTITY_QUERIES on Query entity reads (GraphQL and REST), independent
+      # of the view-authorization switch above. Enabled by default so the privilege is actually
+      # enforced wherever it is granted. Disabling is the escape valve: query reads then perform
+      # no subject-dataset authorization lookups at all (e.g. if the added lookup ever regresses
+      # read performance). Does not override VIEW_AUTHORIZATION_ENABLED if enabled.
+      enabled: ${QUERY_ENTITY_AUTHORIZATION_ENABLED:true}
+      # Subject-match mode for query reads: TRUE, FALSE, or COMPAT.
+      # - TRUE: reading a query requires VIEW_ENTITY_QUERIES on ALL of its subject datasets
+      #   everywhere (a query's SQL reveals information about every dataset it touches).
+      # - FALSE: the privilege on any single subject dataset suffices everywhere.
+      # - COMPAT (the default): require-all only on the query-read path actually gated by
+      #   VIEW_AUTHORIZATION_ENABLED (the shared entity-VIEW evaluator's Query-entity branch, used
+      #   by search-result masking / related-entity visibility, unreachable when that switch is
+      #   off); any-subject on every other path (direct Query entity reads, listQueries,
+      #   REST/OpenAPI, topSqlQueries), which are gated by QUERY_ENTITY_AUTHORIZATION_ENABLED
+      #   instead. A no-op relative to the old any-subject-everywhere default for deployments that
+      #   never turn on VIEW_AUTHORIZATION_ENABLED.
+      requireAllSubjects: ${QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS:compat}
     # Entity types that bypass view authorization when enabled. All other types are restricted by
     # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`). Empty `value`
     # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
@@ -1431,6 +1450,20 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_POLICY_FIELDS:false}
+  viewEntityQueriesPrivilege:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ENTITY_QUERIES_PRIVILEGE_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ENTITY_QUERIES_PRIVILEGE_BATCH_SIZE:5000}
+    reprocess:
+      enabled: ${REPROCESS_VIEW_ENTITY_QUERIES_PRIVILEGE:false}
+  # VIEW_ALL_QUERIES is a distinct, platform-level privilege from VIEW_ENTITY_QUERIES above — see
+  # BackfillViewAllQueriesPrivilegeStep's javadoc. Disabling this leaves existing installs unable
+  # to view orphan queries (no recorded subject dataset) after upgrade; it does not affect
+  # VIEW_ENTITY_QUERIES or normal per-dataset query visibility in any way.
+  viewAllQueriesPrivilege:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_BATCH_SIZE:5000}
+    reprocess:
+      enabled: ${REPROCESS_VIEW_ALL_QUERIES_PRIVILEGE:false}
   ownershipTypes:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_BATCH_SIZE:1000}
