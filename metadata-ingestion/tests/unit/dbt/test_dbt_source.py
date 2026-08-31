@@ -3467,6 +3467,39 @@ def test_extract_catalog_stats_partial_only_row_count() -> None:
     assert node.size_in_bytes is None  # Not present in catalog
 
 
+def test_extract_dbt_entities_source_resolves_identifier() -> None:
+    """A dbt source's physical table name lives in `identifier` (sources carry no
+    `alias`). The connector must resolve to it so the warehouse URN/lineage points
+    at the real table, even with the default use_identifiers=False. Regression for
+    renamed sources (identifier != source name)."""
+    manifest_entities = {
+        "source.test.my_source.orders": {
+            "name": "orders",
+            "identifier": "orders_v2",
+            "database": "my_db",
+            "schema": "my_schema",
+            "resource_type": "source",
+            "original_file_path": "models/sources.yml",
+        },
+    }
+
+    report = DBTSourceReport()
+    nodes = extract_dbt_entities(
+        all_manifest_entities=manifest_entities,
+        all_catalog_entities=None,
+        sources_results=[],
+        manifest_adapter="postgres",
+        use_identifiers=False,
+        tag_prefix="dbt:",
+        only_include_if_in_catalog=False,
+        include_database_name=True,
+        report=report,
+    )
+
+    assert len(nodes) == 1
+    assert nodes[0].name == "orders_v2"
+
+
 # =============================================================================
 # Semantic Model Tests
 # =============================================================================

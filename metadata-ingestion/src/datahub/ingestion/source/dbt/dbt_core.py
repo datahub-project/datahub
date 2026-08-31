@@ -250,7 +250,14 @@ def extract_dbt_entities(
         try:
             name = manifest_node["name"]
 
-            if use_identifiers and manifest_node.get("identifier"):
+            # A dbt source's physical table name is carried in `identifier` (sources
+            # have no `alias`), so always resolve to it; without this a renamed source
+            # (identifier != name) yields a warehouse URN built from the logical name,
+            # so its lineage/siblings never link to the real table. The legacy
+            # `use_identifiers` flag additionally applies `identifier` to models.
+            if manifest_node.get("identifier") and (
+                use_identifiers or manifest_node.get("resource_type") == "source"
+            ):
                 name = manifest_node["identifier"]
 
             if (
