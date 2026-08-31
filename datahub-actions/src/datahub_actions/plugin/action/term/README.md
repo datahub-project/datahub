@@ -54,4 +54,5 @@ datahub:
 ## Caveats
 
 - Term Propagation is currently only supported for downstream datasets. Terms will not propagate to downstream dashboards or charts. Let us know if this is an important feature for you.
-- Propagation does not track provenance: a removal removes the term from every downstream dataset, and an addition adds it, regardless of whether the term was also applied to that dataset directly. A removal can therefore clear a term that a user set on a downstream dataset independently.
+- A term removal is only propagated once the source dataset no longer carries the term on any field or at the dataset level, so removing it from one field while another field still has it leaves downstream datasets untouched.
+- Propagation does not track provenance on downstream datasets: when a removal is propagated it clears the term from every downstream dataset, and an addition adds it, regardless of whether the term was also applied to that dataset directly. A propagated removal can therefore still clear a term that a user set on a downstream dataset independently.

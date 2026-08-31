@@ -201,6 +201,22 @@ class TermPropagationAction(Action):
                 )
                 return
 
+            # A removal fires per source association (e.g. one field). Only propagate
+            # the removal downstream once the source no longer carries the term
+            # anywhere -- otherwise removing it from one field would strip downstream
+            # datasets while another field (or the dataset itself) still has it.
+            if (
+                term_propagation_directive.operation == "REMOVE"
+                and self.ctx.graph.dataset_has_term(
+                    dataset_urn, term_propagation_directive.term
+                )
+            ):
+                logger.info(
+                    f"Source {dataset_urn} still carries term "
+                    f"{term_propagation_directive.term}; not propagating removal downstream"
+                )
+                return
+
             # find downstream lineage of the owning dataset. Downstream application is
             # only at the dataset level, so filter to datasets (a dataset-level
             # DownstreamOf query should only return datasets, but guard anyway).

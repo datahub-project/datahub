@@ -44,6 +44,8 @@ def _event(entity_urn: str, operation: str = "ADD") -> EventEnvelope:
 def _action(downstreams):
     graph = MagicMock()
     graph.get_downstreams.return_value = downstreams
+    # Default: source no longer carries the term (only relevant for REMOVE).
+    graph.dataset_has_term.return_value = False
     ctx = PipelineContext(pipeline_name="test", graph=graph)
     return TermPropagationAction.create({}, ctx), graph
 
@@ -74,6 +76,15 @@ def test_column_level_remove_propagates_to_downstream():
     assert graph.remove_terms_from_dataset.call_args.args[0] == DOWNSTREAM
     assert graph.remove_terms_from_dataset.call_args.args[1] == [TERM]
     graph.add_terms_to_dataset.assert_not_called()
+
+
+def test_remove_skipped_when_source_still_has_term():
+    # Removing the term from one field must not strip downstreams while the source
+    # still carries it elsewhere (another field or the dataset level).
+    action, graph = _action([DOWNSTREAM])
+    graph.dataset_has_term.return_value = True
+    action.act(_event(SCHEMA_FIELD, operation="REMOVE"))
+    graph.remove_terms_from_dataset.assert_not_called()
 
 
 def test_non_dataset_field_entity_is_skipped():
