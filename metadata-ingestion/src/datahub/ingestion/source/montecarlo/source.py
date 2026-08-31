@@ -104,8 +104,13 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
             items = fetch()
             for item in items:
                 scan()
+                # Materialize build() inside the try so a build failure for THIS
+                # item is demoted to a warning; yield OUTSIDE the try so an
+                # exception raised by the downstream consumer at the yield point
+                # (sink/processor error) propagates instead of being swallowed as
+                # a fake per-item build failure.
                 try:
-                    yield from build(item)
+                    built = list(build(item))
                 except _FATAL_RUN_ERRORS:
                     raise
                 except Exception as e:
@@ -115,6 +120,8 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
                         context=f"kind={kind}, uuid={item.uuid}",
                         exc=e,
                     )
+                    continue
+                yield from built
         except _FATAL_RUN_ERRORS:
             raise
         except Exception as e:
@@ -144,25 +151,30 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
             # below inspects them.
             yield from itertools.chain(monitor_wus, custom_rule_wus)
 
-            # Guard: if we scanned monitors/rules but emitted zero assertions,
-            # every build was skipped — most likely a misconfigured
-            # connection_to_platform_map or uniformly unresolved MCONs. Surface
-            # it as a distinct failure rather than a misleading 'successful'
-            # empty run. Not a hard abort: alerts (if enabled) still run, since
-            # they may attach to assertions from a prior stateful run.
+            # Guard: if we scanned monitors/rules and attempted to build some but
+            # emitted zero assertions, every attempted build was skipped — most
+            # likely a misconfigured connection_to_platform_map or uniformly
+            # unresolved MCONs. Items dropped by an intentional name/type
+            # pattern filter are excluded from "attempted", so a deny-all or
+            # tight pattern (scanned > 0, all dropped, emitted == 0) is not
+            # flagged as a failure. Not a hard abort: alerts (if enabled) still
+            # run, since they may attach to assertions from a prior stateful run.
             scanned = self.report.monitors_scanned + self.report.custom_rules_scanned
-            if scanned > 0 and self.report.assertions_emitted == 0:
+            attempted = scanned - self.report.dropped
+            if attempted > 0 and self.report.assertions_emitted == 0:
                 self.report.failure(
-                    title="No assertions emitted despite scanned monitors/rules",
+                    title="No assertions emitted despite attempted builds",
                     message=(
-                        "All monitors/custom rules were skipped during build "
-                        "(unresolved MCONs, bad connection_to_platform_map, or "
-                        "uniform per-item errors). Check the warnings above and "
-                        "your connection_to_platform_map / platform mapping."
+                        "All non-filtered monitors/custom rules were skipped "
+                        "during build (unresolved MCONs, bad "
+                        "connection_to_platform_map, or uniform per-item errors). "
+                        "Check the warnings above and your "
+                        "connection_to_platform_map / platform mapping."
                     ),
                     context=(
                         f"monitors_scanned={self.report.monitors_scanned}, "
                         f"custom_rules_scanned={self.report.custom_rules_scanned}, "
+                        f"dropped={self.report.dropped}, "
                         f"assertions_emitted=0"
                     ),
                 )

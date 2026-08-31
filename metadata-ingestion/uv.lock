@@ -184,7 +184,6 @@ all = [
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
     { name = "pycarlo" },
-    { name = "pydeequ" },
     { name = "pydruid" },
     { name = "pyiceberg", extra = ["adlfs", "dynamodb", "glue", "hive", "pyarrow", "s3fs", "snappy"] },
     { name = "pymetastore" },
@@ -2312,7 +2311,6 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.4.0,<3.0.0" },
     { name = "pydantic", marker = "extra == 'dev'", specifier = ">=2.4.0,<3.0.0" },
     { name = "pydantic", marker = "extra == 'docs'", specifier = ">=2.4.0,<3.0.0" },
-    { name = "pydeequ", marker = "extra == 'all'", specifier = ">=1.1.0,<2.0.0" },
     { name = "pydruid", marker = "extra == 'all'", specifier = ">=0.6.2,<=0.6.9" },
     { name = "pydruid", marker = "extra == 'dev'", specifier = ">=0.6.2,<=0.6.9" },
     { name = "pydruid", marker = "extra == 'docs'", specifier = ">=0.6.2,<=0.6.9" },
@@ -8805,19 +8803,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/75/c1/1c55272f49d761cec38ddb80be9817935b9c91ebd6a8988e10f532868d56/pydash-8.0.6.tar.gz", hash = "sha256:b2821547e9723f69cf3a986be4db64de41730be149b2641947ecd12e1e11025a", size = 164338, upload-time = "2026-01-17T16:42:56.576Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a5/b7/cc5e7974699db40014d58c7dd7c4ad4ffc244d36930dc9ec7d06ee67d7a9/pydash-8.0.6-py3-none-any.whl", hash = "sha256:ee70a81a5b292c007f28f03a4ee8e75c1f5d7576df5457b836ec7ab2839cc5d0", size = 101561, upload-time = "2026-01-17T16:42:55.448Z" },
-]
-
-[[package]]
-name = "pydeequ"
-version = "1.6.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "pandas" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/16/d9/3f17fec33f05be0c8b82dc9d113dde02d9cfa3966426ece28e0f68bca341/pydeequ-1.6.0.tar.gz", hash = "sha256:059773f2e3b7329f0a23e58548b24fbb7ca2f6b5c73b1032abb0f21129f72148", size = 36037, upload-time = "2026-07-08T16:57:42.889Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fd/ca/d1903266a6c218ddcfbfb81a8066628d46fdf89cd3c84400078cdb6a569e/pydeequ-1.6.0-py3-none-any.whl", hash = "sha256:45e2405357c321994d4163d96f05e2f81f15699efab3595139111970790ee273", size = 38022, upload-time = "2026-07-08T16:57:41.894Z" },
 ]
 
 [[package]]

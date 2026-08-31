@@ -489,7 +489,6 @@ googleapis-common-protos==1.73.0
 graphql-core==3.2.8
     # via
     #   acryl-datahub
-    #   gql
     #   sgqlc
 greenlet==3.3.2
     # via
@@ -1236,10 +1235,6 @@ responses==0.26.0
     #   acryl-datahub
     #   moto
     #   pycarlo
-rfc3339-validator==0.1.4
-    # via
-    #   jsonschema
-    #   jupyter-events
 rfc3986==2.0.0
     # via
     #   tableschema

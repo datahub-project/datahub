@@ -14,12 +14,18 @@ class MonteCarloSourceReport(StaleEntityRemovalSourceReport):
     alerts_scanned: int = 0
     run_events_emitted: int = 0
 
+    # Monitors/custom rules dropped by an intentional name/type pattern filter,
+    # distinct from per-item build failures. Used by the zero-assertion guard so
+    # a deny-all pattern (scanned > 0, emitted == 0, all dropped) is not flagged.
+    dropped: int = 0
+
     mcons_resolved: int = 0
     mcons_resolution_failed: int = 0
     mcons_unmapped_platform: LossyList[str] = field(default_factory=LossyList)
     filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, name: str) -> None:
+        self.dropped += 1
         self.filtered.append(name)
 
     def report_monitor_scanned(self) -> None:

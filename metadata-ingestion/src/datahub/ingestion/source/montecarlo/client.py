@@ -24,22 +24,54 @@ from datahub.utilities.ratelimiter import (
 logger = logging.getLogger(__name__)
 
 
+# Transient transport/network exception class names. Matched by name (not by
+# isinstance) so the connector depends only on ``pycarlo`` as its external
+# dependency — ``requests`` and ``gql`` are pycarlo's internal transport
+# choice and are not declared deps of this connector. Importing them directly
+# would couple us to pycarlo's transport internals and add undeclared deps.
+_TRANSIENT_NETWORK_ERROR_NAMES = frozenset(
+    {"ConnectionError", "ReadTimeout", "ConnectTimeout", "ReadTimeoutError"}
+)
+
+
+def _is_transient_network_error(exception: Optional[BaseException]) -> bool:
+    """True if ``exception`` is a transient transport/network failure, matched
+    by class name across its MRO (so subclasses also match) without importing
+    the underlying transport library."""
+    if exception is None:
+        return False
+    return any(
+        exc_type.__name__ in _TRANSIENT_NETWORK_ERROR_NAMES
+        for exc_type in type(exception).__mro__
+    )
+
+
 def _is_retryable(exception: BaseException) -> bool:
     """Predicate driving a retry loop applied on top of pycarlo.
 
     pycarlo only auto-retries its own ``GqlError`` when the `retryable` flag is set,
     which defaults to status_code >= 500 (see pycarlo.common.errors.GqlError) — a
     429 (rate limited) is raised immediately with no retry. We additionally retry
-    transient transport-level failures (``ConnectionError`` / ``ReadTimeout`` from
-    the underlying requests client, surfaced by gql as ``TransportQueryError``) so
-    a brief blip during pagination backs off instead of aborting the whole phase.
+    the underlying transient transport failures (``ConnectionError`` /
+    ``ReadTimeout`` from the requests client pycarlo uses) so a brief blip during
+    pagination backs off instead of aborting the whole phase.
+
+    Only those clearly-transient network errors are retried, matched by class name
+    so the connector depends solely on ``pycarlo`` (its only declared external
+    dependency) rather than importing ``requests``/``gql`` directly. A broader
+    transport/query-level exception is NOT retried blanketly: such types are also
+    raised for permanent GraphQL application errors (a 200 carrying an ``errors``
+    payload), and retrying those would burn up to 6 daily budget units per bad
+    query. A wrapped exception is retried only when its ``__cause__`` /
+    ``__context__`` is itself a transient network error.
     """
     if getattr(exception, "status_code", None) == 429:
         return True
-    if isinstance(exception, _TRANSIENT_NETWORK_ERRORS):
+    if _is_transient_network_error(exception):
         return True
-    cause = exception.__cause__
-    return isinstance(cause, _TRANSIENT_NETWORK_ERRORS) if cause else False
+    return _is_transient_network_error(
+        exception.__cause__
+    ) or _is_transient_network_error(exception.__context__)
 
 
 # 401/403 mean the API credentials are rejected/insufficient — a fatal, run-level
@@ -50,38 +82,6 @@ _AUTH_STATUS_CODES = frozenset({401, 403})
 
 def _is_auth_error(exception: BaseException) -> bool:
     return getattr(exception, "status_code", None) in _AUTH_STATUS_CODES
-
-
-def _import_transient_network_errors() -> tuple:
-    """Lazily resolve the transient transport/network exception types.
-
-    Imported lazily so the connector still loads if gql/requests is missing or
-    their exception hierarchy moves; a missing type is simply not matched.
-    Returns a tuple suitable for ``isinstance`` against an empty tuple (which
-    matches nothing) when an import fails.
-    """
-    types: list = []
-    try:
-        from gql.transport.exceptions import (
-            TransportQueryError,  # type: ignore[import-not-found]
-        )
-
-        types.append(TransportQueryError)
-    except ImportError:
-        pass
-    try:
-        from requests.exceptions import (
-            ConnectionError as RequestsConnectionError,
-            ReadTimeout as RequestsReadTimeout,
-        )
-
-        types.extend([RequestsConnectionError, RequestsReadTimeout])
-    except ImportError:
-        pass
-    return tuple(types)
-
-
-_TRANSIENT_NETWORK_ERRORS = _import_transient_network_errors()
 
 
 class MonteCarloAuthError(RuntimeError):
@@ -187,7 +187,7 @@ class MonteCarloAlert(BaseModel):
     priority: Optional[str] = None
     status: Optional[str] = None
     created_time: Optional[datetime] = None
-    monitor_uuid: Optional[str] = None
+    monitor_uuids: List[str] = Field(default_factory=list)
     asset_mcons: List[str] = Field(default_factory=list)
 
     @field_validator("created_time", mode="before")
@@ -534,7 +534,7 @@ class MonteCarloClient:
                     priority=raw.get("priority"),
                     status=raw.get("status"),
                     created_time=raw.get("created_time"),
-                    monitor_uuid=(raw.get("monitor_uuids") or [None])[0],
+                    monitor_uuids=list(raw.get("monitor_uuids") or []),
                     asset_mcons=[
                         a.get("mcon")
                         for a in (raw.get("assets") or [])

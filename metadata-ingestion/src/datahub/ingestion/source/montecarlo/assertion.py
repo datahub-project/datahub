@@ -397,11 +397,19 @@ class MonteCarloAssertionBuilder:
         ).as_workunit()
 
     def build_run_event(self, alert: MonteCarloAlert) -> Iterable[MetadataWorkUnit]:
-        if alert.monitor_uuid is None:
-            return
-        ingested = self._ingested_by_monitor.get(alert.monitor_uuid)
+        # An alert can reference multiple monitors; use the first one we actually
+        # ingested an assertion for. Storing only monitor_uuids[0] previously
+        # dropped incidents whose first listed monitor was filtered out /
+        # unresolved even when a later one was ingested.
+        ingested: Optional[_IngestedAssertion] = None
+        for monitor_uuid in alert.monitor_uuids:
+            candidate = self._ingested_by_monitor.get(monitor_uuid)
+            if candidate is not None:
+                ingested = candidate
+                break
         if ingested is None:
-            # Alert for a monitor we didn't ingest (filtered out, unresolved asset).
+            # Alert references no monitor we ingested (all filtered out or
+            # unresolved assets).
             return
         assertion_urn = ingested.assertion_urn
         dataset_urn = ingested.dataset_urn

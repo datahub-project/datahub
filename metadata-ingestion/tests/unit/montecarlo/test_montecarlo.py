@@ -782,7 +782,7 @@ def test_build_run_event_links_to_ingested_monitor() -> None:
 
     alert = MonteCarloAlert(
         uuid="alert-1",
-        monitor_uuid="mon-1",
+        monitor_uuids=["mon-1"],
         severity="SEV-2",
         created_time="2026-05-01T00:00:00+00:00",
     )
@@ -801,10 +801,51 @@ def test_build_run_event_skips_unknown_monitor() -> None:
     resolver = MconResolver(cfg, FakeResolverClient({}), report)
     builder = MonteCarloAssertionBuilder(cfg, report, resolver)
     alert = MonteCarloAlert(
-        uuid="alert-2", monitor_uuid="ghost", created_time="2026-05-01T00:00:00+00:00"
+        uuid="alert-2",
+        monitor_uuids=["ghost"],
+        created_time="2026-05-01T00:00:00+00:00",
     )
     assert list(builder.build_run_event(alert)) == []
     assert report.run_events_emitted == 0
+
+
+def test_build_run_event_uses_first_ingested_monitor_uuid() -> None:
+    """An alert listing several monitor UUIDs attaches a run event to the first
+    one we ingested an assertion for — not just monitor_uuids[0]. Previously an
+    incident whose first listed monitor was filtered out / unresolved was
+    silently dropped even when a later monitor was ingested."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config()
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+    # Ingest only "mon-2"; "mon-1" and "mon-3" are not ingested (filtered /
+    # unresolved).
+    _build_assertion_workunits(
+        builder, MonteCarloAssertionDef(uuid="mon-2", entity_mcons=[mcon])
+    )
+
+    alert = MonteCarloAlert(
+        uuid="alert-1",
+        monitor_uuids=["mon-1", "mon-2", "mon-3"],
+        severity="SEV-2",
+        created_time="2026-05-01T00:00:00+00:00",
+    )
+    wus = list(builder.build_run_event(alert))
+    assert len(wus) == 1
+    run_event = _aspect(wus[0])
+    assert isinstance(run_event, AssertionRunEventClass)
+    assert run_event.runId == "alert-1"
+    # The run event attaches to mon-2's assertion, proving the second UUID was used.
+    assert run_event.assertionUrn == builder._assertion_urn("mon-2")
+    assert report.run_events_emitted == 1
 
 
 # --- Client parsing / pagination (against recorded GraphQL dicts) ---
@@ -1522,6 +1563,46 @@ def test_get_workunits_no_guard_when_nothing_scanned() -> None:
     assert len(source.report.failures) == 0
 
 
+def test_get_workunits_no_guard_when_all_dropped_by_pattern() -> None:
+    """The all-failed guard must NOT fire when every scanned monitor was dropped
+    by an intentional name pattern (deny-all / tight filter): scanned > 0 and
+    emitted == 0, but the empty result is the user's intent, not a
+    misconfiguration. Only monitors that were actually *attempted* (not filtered)
+    count toward the guard."""
+    source = MonteCarloSource.__new__(MonteCarloSource)
+    # A deny-all monitor_pattern: every monitor is dropped during build.
+    source.config = make_config(
+        include_assertions=True, include_alerts=False, monitor_pattern={"deny": [".*"]}
+    )
+    source.report = MonteCarloSourceReport()
+
+    class StubClient:
+        def get_monitors(self):
+            yield MonteCarloAssertionDef(
+                uuid="m1", name="alpha", entity_mcons=["MCON++x"]
+            )
+            yield MonteCarloAssertionDef(
+                uuid="m2", name="beta", entity_mcons=["MCON++y"]
+            )
+
+        def get_custom_rules(self):
+            return iter(())
+
+    source.client = StubClient()  # type: ignore[assignment]
+    source.builder = MonteCarloAssertionBuilder(  # type: ignore[arg-type]
+        source.config,
+        source.report,
+        MconResolver(source.config, FakeResolverClient({}), source.report),
+    )
+    wus = list(source.get_workunits_internal())
+    assert wus == []
+    # Both scanned, both dropped by pattern, zero emitted — guard must NOT fire.
+    assert source.report.monitors_scanned == 2
+    assert source.report.dropped == 2
+    assert source.report.assertions_emitted == 0
+    assert len(source.report.failures) == 0
+
+
 @pytest.mark.parametrize(
     "fatal", [DailyCallBudgetExceeded("x"), MonteCarloAuthError("x")]
 )
@@ -1697,10 +1778,14 @@ def test_get_monitors_propagates_fatal_from_row_construction() -> None:
 def test_call_retries_on_transient_network_error_then_succeeds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A transient requests ConnectionError (surfaced via __cause__) must retry,
-    not abort the phase — the predicate inspects both the exception and its cause."""
+    """A transient network failure (a ConnectionError, as raised by the requests
+    transport pycarlo uses) is retried with backoff, not treated as a fatal
+    phase error. The predicate matches by class name so the connector depends
+    only on pycarlo — no direct requests/gql import here."""
     monkeypatch.setattr(time, "sleep", lambda _seconds: None)
-    from requests.exceptions import ConnectionError as RequestsConnectionError
+
+    class ConnectionError(OSError):
+        pass
 
     report = MonteCarloSourceReport()
     client = MonteCarloClient.__new__(MonteCarloClient)
@@ -1713,7 +1798,7 @@ def test_call_retries_on_transient_network_error_then_succeeds(
     def flaky(query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         attempts["n"] += 1
         if attempts["n"] < 2:
-            raise RequestsConnectionError("connection reset")
+            raise ConnectionError("connection reset")
         return {"ok": True}
 
     client._client = flaky  # type: ignore[assignment]
@@ -1724,14 +1809,51 @@ def test_call_retries_on_transient_network_error_then_succeeds(
     assert any("transient network error" in w.message for w in report.warnings)
 
 
-def test_call_retries_on_transport_query_error_directly(
+def test_call_retries_when_network_error_wrapped(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A gql TransportQueryError raised directly (not wrapped with a cause) is
-    also retried — the predicate matches the exception type itself."""
-    pytest.importorskip("gql")
+    """A non-network exception that wraps a transient network error (via
+    __cause__) is still retried — the predicate unwraps __cause__/__context__ to
+    distinguish a genuine transport blip from a permanent application error."""
     monkeypatch.setattr(time, "sleep", lambda _seconds: None)
-    from gql.transport.exceptions import TransportQueryError
+
+    class ConnectionError(OSError):
+        pass
+
+    class TransportLayerError(RuntimeError):
+        pass
+
+    report = MonteCarloSourceReport()
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.report = report
+    client.page_size = 100
+    client._token_bucket = None
+    client._daily_budget = None
+    attempts = {"n": 0}
+
+    def flaky(query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        attempts["n"] += 1
+        if attempts["n"] < 2:
+            try:
+                raise ConnectionError("connection reset")
+            except ConnectionError as exc:
+                raise TransportLayerError("transport failure") from exc
+        return {"ok": True}
+
+    client._client = flaky  # type: ignore[assignment]
+    result = client._call("query {ok}", {})
+    assert result == {"ok": True}
+    assert attempts["n"] == 2
+    assert any("transient network error" in w.message for w in report.warnings)
+
+
+def test_call_does_not_retry_permanent_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A permanent, non-network error (e.g. a malformed GraphQL application
+    error) is NOT retried — retrying would burn the daily call budget. It
+    propagates (wrapped as RuntimeError) on the first attempt."""
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
 
     client = MonteCarloClient.__new__(MonteCarloClient)
     client.report = None
@@ -1742,11 +1864,10 @@ def test_call_retries_on_transport_query_error_directly(
 
     def flaky(query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         attempts["n"] += 1
-        if attempts["n"] < 2:
-            raise TransportQueryError("read timeout", None)
-        return {"ok": True}
+        raise ValueError("permanent graphql application error")
 
     client._client = flaky  # type: ignore[assignment]
-    result = client._call("query {ok}", {})
-    assert result == {"ok": True}
-    assert attempts["n"] == 2
+    with pytest.raises(RuntimeError):
+        client._call("query {ok}", {})
+    # Not retryable → exactly one attempt, no backoff.
+    assert attempts["n"] == 1
