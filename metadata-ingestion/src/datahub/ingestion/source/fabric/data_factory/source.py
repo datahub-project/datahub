@@ -154,7 +154,7 @@ def _parse_iso_to_millis(iso_str: str) -> int:
 
 @platform_name("Fabric Data Factory")
 @config_class(FabricDataFactorySourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(

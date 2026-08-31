@@ -294,6 +294,20 @@ class MicroStrategyConfig(
             "metadata definition APIs."
         ),
     )
+    emit_semantic_model_entities: bool = Field(
+        default=False,
+        description=(
+            "If true, additionally emit one `semanticModel` entity per project "
+            "(logical datasets with subtype `Semantic Model Dataset`, one per "
+            "MicroStrategy logical table, plus a `metric` entity per project-wide "
+            "Base/Derived/Consolidated metric with lineage resolved from its "
+            "expression). This is additive: existing report/dashboard/dataset "
+            "emission is unaffected. Default is false. Requires a DataHub server "
+            "that registers semanticModel/metric (Cloud >= 2.1.0, or OSS with "
+            "`METRICS_ENABLED=true`) and `extract_model_lineage` access to the "
+            "MicroStrategy modeling APIs."
+        ),
+    )
     tag_measures_and_dimensions: bool = Field(
         default=True,
         description=(

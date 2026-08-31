@@ -837,7 +837,7 @@ Reference Links:
 | `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                                                                            | GMS        |
 | `THEME_V2_ENABLED`                      | `true`  | Allow theme v2 to be turned on                                                                                  | GMS        |
 | `THEME_V2_DEFAULT`                      | `true`  | Set default theme for users                                                                                     | GMS        |
-| `THEME_V2_TOGGLEABLE`                   | `false` | Allow theme v2 to be toggled (Acryl only)                                                                       | GMS        |
+| `THEME_V2_TOGGLEABLE`                   | `false` | Allow theme v2 to be toggled (DataHub Cloud only)                                                               | GMS        |
 | `SCHEMA_FIELD_CLL_ENABLED`              | `false` | Enable schema field-level lineage links                                                                         | GMS        |
 | `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`    | `true`  | Ignore schema field status in lineage                                                                           | GMS        |
 | `SHOW_SEPARATE_SIBLINGS`                | `false` | Separate siblings with no combined view                                                                         | GMS        |

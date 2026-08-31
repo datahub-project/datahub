@@ -157,6 +157,7 @@ import com.linkedin.datahub.graphql.resolvers.lineage.UpdateLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.load.DashboardStatsSummaryBatchLoader;
+import com.linkedin.datahub.graphql.resolvers.load.DashboardUsageBucketsBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.DatasetStatsSummaryBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.EntityHealthBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.EntityLineageResultResolver;
@@ -997,6 +998,10 @@ public class GmsGraphQLEngine {
             context ->
                 DashboardStatsSummaryBatchLoader.createDataLoader(timeseriesAspectService, context))
         .addDataLoader(
+            DashboardUsageBucketsBatchLoader.LOADER_NAME,
+            context ->
+                DashboardUsageBucketsBatchLoader.createDataLoader(timeseriesAspectService, context))
+        .addDataLoader(
             EntityHealthBatchLoader.LOADER_NAME,
             context ->
                 EntityHealthBatchLoader.createDataLoader(
@@ -1568,7 +1573,9 @@ public class GmsGraphQLEngine {
                   "batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
               .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
               .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
-              .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
+              .dataFetcher(
+                  "batchAssignRole",
+                  new BatchAssignRoleResolver(this.roleService, this.systemEntityClient))
               .dataFetcher(
                   "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
               .dataFetcher(
@@ -2581,8 +2588,13 @@ public class GmsGraphQLEngine {
                               : null;
                         }))
                 .dataFetcher(
+                    "usageStats",
+                    new DashboardUsageStatsResolver(
+                        timeseriesAspectService,
+                        featureFlags.isTimeseriesAspectBatchLoadEnabled(),
+                        featureFlags.isTimeseriesAspectAggBatchLoadEnabled()))
+                .dataFetcher(
                     "parentContainers", new ParentContainersResolver(entityClient, featureFlags))
-                .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
                 .dataFetcher(
                     "statsSummary",
                     new DashboardStatsSummaryResolver(timeseriesAspectService, featureFlags))
