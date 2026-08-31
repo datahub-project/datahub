@@ -1209,6 +1209,8 @@ def test_one_malformed_subscription_does_not_skip_the_rest() -> None:
         ],
     )
 
+    a = handler.get_info(CONSUMER_PROJECT, "linked_a")
+    assert a is not None and a.listing is None and a.subscription_state is None
     b = handler.get_info(CONSUMER_PROJECT, "linked_b")
     assert b is not None and b.listing == "L" and b.subscription_state == "ACTIVE"
     assert handler.report.warnings  # the malformed entry was surfaced
