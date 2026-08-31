@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
@@ -98,6 +99,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.common.Attributes;
@@ -1194,22 +1196,67 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     try (Stream<MCPItem> sideEffectStream =
         AspectsBatch.applyPostMCPSideEffects(opContext, batch, opContext.getRetrieverContext())) {
-      Iterable<List<MCPItem>> iterable =
-          () -> Iterators.partition(sideEffectStream.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
-      StreamSupport.stream(iterable.spliterator(), false)
-          .forEach(
-              sideEffects -> {
-                long count =
-                    ingestProposalAsync(
-                            opContext,
-                            AspectsBatchImpl.builder()
-                                .items(sideEffects)
-                                .retrieverContext(opContext.getRetrieverContext())
-                                .build(opContext))
-                        .count();
-                log.debug("Generated {} MCP SideEffects for async processing", count);
-              });
+      applyPostCommitMcpSideEffects(opContext, sideEffectStream.collect(Collectors.toList()));
     }
+  }
+
+  /**
+   * Applies post-commit MCP side effects. Upserts go through async MCP produce (consumed later).
+   * Deletes are applied synchronously via {@link #deleteAspect} — ChangeType.DELETE is not a valid
+   * async MCP ingest change type end-to-end ({@link MCPItem#CHANGE_TYPES} / consumer sync ingest).
+   */
+  @VisibleForTesting
+  void applyPostCommitMcpSideEffects(
+      @Nonnull OperationContext opContext, @Nonnull List<MCPItem> sideEffects) {
+    if (sideEffects.isEmpty()) {
+      return;
+    }
+
+    List<MCPItem> deletes = new ArrayList<>();
+    List<MCPItem> nonDeletes = new ArrayList<>();
+    for (MCPItem item : sideEffects) {
+      if (ChangeType.DELETE.equals(item.getChangeType())) {
+        deletes.add(item);
+      } else {
+        nonDeletes.add(item);
+      }
+    }
+
+    for (MCPItem delete : deletes) {
+      try {
+        boolean hardDelete =
+            EntityUtils.shouldHardDeleteAspect(opContext, delete.getUrn(), delete.getAspectName());
+        deleteAspect(
+            opContext, delete.getUrn().toString(), delete.getAspectName(), Map.of(), hardDelete);
+      } catch (Exception e) {
+        log.error(
+            "Failed post-commit side-effect delete for urn={} aspect={}: {}",
+            delete.getUrn(),
+            delete.getAspectName(),
+            e.getMessage(),
+            e);
+      }
+    }
+
+    if (nonDeletes.isEmpty()) {
+      return;
+    }
+
+    Iterable<List<MCPItem>> iterable =
+        () -> Iterators.partition(nonDeletes.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
+    StreamSupport.stream(iterable.spliterator(), false)
+        .forEach(
+            chunk -> {
+              long count =
+                  ingestProposalAsync(
+                          opContext,
+                          AspectsBatchImpl.builder()
+                              .items(chunk)
+                              .retrieverContext(opContext.getRetrieverContext())
+                              .build(opContext))
+                      .count();
+              log.debug("Generated {} MCP SideEffects for async processing", count);
+            });
   }
 
   /**
@@ -1353,6 +1400,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                 final Set<Pair<Urn, String>> committedKeys = new HashSet<>();
                                 committedKeys.addAll(committedKeysOf(attempt.batchWriteResult));
 
+                                // (urn, aspect) pairs already recorded as failed. Dedups failures
+                                // across scoped-retry passes: a terminally validation-failing
+                                // aspect
+                                // on a URN whose sibling also conflicts is re-included in every
+                                // URN-scoped retry sub-batch and re-fails each pass, so without
+                                // this
+                                // guard it would be dead-lettered once per pass on the consumer
+                                // path.
+                                // Seeded from the first pass's failures.
+                                final Set<Pair<Urn, String>> seenFailedKeys =
+                                    new HashSet<>(failedKeysOf(failedUpsertResults));
+
                                 int scopedAttempt = 0;
                                 while (batchWriteResult.hasConflicts()
                                     && scopedAttempt < SCOPED_RETRY_MAX_ATTEMPTS) {
@@ -1407,7 +1466,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                   // only
                                   // the newly resolved results are spliced in.
                                   upsertResults.addAll(retry.upsertResults);
-                                  failedUpsertResults.addAll(retry.failedUpsertResults);
+                                  appendNewFailedResults(
+                                      failedUpsertResults,
+                                      retry.failedUpsertResults,
+                                      seenFailedKeys);
                                   updatedLatestAspects =
                                       AspectsBatch.merge(
                                           updatedLatestAspects, retry.updatedLatestAspects);
@@ -3258,6 +3320,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     aspectDao.setWritable(canWrite);
   }
 
+  /**
+   * Why the shared delete primitive is being invoked. ORDINARY (API/UI/CLI deletion) enforces
+   * delete-time guards such as the structured-property soft-delete-first precondition; ROLLBACK
+   * (ingestion rollback via {@link #rollbackRun}/{@link #rollbackWithConditions}, including
+   * rollback --nuke) bypasses them so a run can always remove what it created.
+   */
+  enum DeletePurpose {
+    ORDINARY,
+    ROLLBACK
+  }
+
   @Override
   public RollbackRunResult rollbackRun(
       @Nonnull OperationContext opContext,
@@ -3275,6 +3348,42 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       Map<String, String> conditions,
       boolean hardDelete,
       boolean preProcessHooks) {
+    return rollbackWithConditions(
+        opContext, aspectRows, conditions, hardDelete, DeletePurpose.ROLLBACK);
+  }
+
+  /**
+   * Direct aspect deletion entrypoint (OpenAPI aspect delete, MCP ChangeType.DELETE, reference
+   * cleanup). Overrides the interface default so ordinary deletion is distinguished from ingestion
+   * rollback: the default delegates to {@link #rollbackWithConditions}, which bypasses the
+   * structured-property delete guard in {@link #deleteAspectWithoutMCL}.
+   *
+   * <p>{@code preProcessHooks} is inert: the rollback body it previously flowed into never read it,
+   * so the private overload does not carry it.
+   */
+  @Override
+  public Optional<RollbackResult> deleteAspect(
+      @Nonnull OperationContext opContext,
+      String urn,
+      String aspectName,
+      @Nonnull Map<String, String> conditions,
+      boolean hardDelete,
+      boolean preProcessHooks) {
+    final AspectRowSummary aspectRowSummary =
+        new AspectRowSummary().setUrn(urn).setAspectName(aspectName);
+    return rollbackWithConditions(
+            opContext, List.of(aspectRowSummary), conditions, hardDelete, DeletePurpose.ORDINARY)
+        .getRollbackResults()
+        .stream()
+        .findFirst();
+  }
+
+  private RollbackRunResult rollbackWithConditions(
+      @Nonnull OperationContext opContext,
+      List<AspectRowSummary> aspectRows,
+      Map<String, String> conditions,
+      boolean hardDelete,
+      DeletePurpose deletePurpose) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
     List<RollbackResult> removedAspectResults = new ArrayList<>();
     AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);
@@ -3289,7 +3398,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           aspectToRemove.getUrn(),
                           aspectToRemove.getAspectName(),
                           conditions,
-                          hardDelete);
+                          hardDelete,
+                          deletePurpose);
                   if (result != null) {
                     Optional<AspectSpec> aspectSpec =
                         opContext
@@ -3362,7 +3472,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     RollbackResult result =
         deleteAspectWithoutMCL(
-            opContext, urn.toString(), keyAspectName, Collections.emptyMap(), true);
+            opContext,
+            urn.toString(),
+            keyAspectName,
+            Collections.emptyMap(),
+            true,
+            DeletePurpose.ORDINARY);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();
@@ -3468,6 +3583,35 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
   }
 
+  /**
+   * Whether the entity's status aspect exists in primary storage with {@code removed=true}. A
+   * missing status aspect means the entity is active.
+   */
+  private boolean isSoftDeleted(@Nonnull OperationContext opContext, @Nonnull final String urn) {
+    try {
+      final SystemAspect statusAspect =
+          aspectDao.getLatestAspect(opContext, urn, STATUS_ASPECT_NAME, false);
+      if (statusAspect == null || statusAspect.getRecordTemplate() == null) {
+        return false;
+      }
+      return new Status(statusAspect.getRecordTemplate().data()).isRemoved();
+    } catch (EntityNotFoundException e) {
+      return false;
+    }
+  }
+
+  /** Whether the latest version of the given aspect exists in primary storage. */
+  private boolean latestAspectExists(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName) {
+    try {
+      return aspectDao.getLatestAspect(opContext, urn, aspectName, false) != null;
+    } catch (EntityNotFoundException e) {
+      return false;
+    }
+  }
+
   /** Does not emit MCL */
   @VisibleForTesting
   @Nullable
@@ -3477,6 +3621,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       String aspectName,
       @Nonnull Map<String, String> conditions,
       boolean hardDelete) {
+    return deleteAspectWithoutMCL(
+        opContext, urn, aspectName, conditions, hardDelete, DeletePurpose.ORDINARY);
+  }
+
+  /** Does not emit MCL */
+  @Nullable
+  RollbackResult deleteAspectWithoutMCL(
+      @Nonnull OperationContext opContext,
+      String urn,
+      String aspectName,
+      @Nonnull Map<String, String> conditions,
+      boolean hardDelete,
+      DeletePurpose deletePurpose) {
     final AuditStamp auditStamp =
         new AuditStamp()
             .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
@@ -3508,6 +3665,25 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final PropertyDefinitionBeforeHardDelete propertyDefinitionBeforeHardDelete =
         new PropertyDefinitionBeforeHardDelete();
 
+    // Ordinary destructive deletion of a structured property (hard-deleting the entity, or
+    // directly deleting its propertyDefinition aspect) is only permitted once the property is
+    // soft-deleted. Rollback-purpose deletion (ingestion rollback / nuke) and true system sessions
+    // are exempt; see the guard below.
+    final boolean entityWideHardDelete =
+        hardDelete && aspectName.equals(opContext.getKeyAspectName(entityUrn));
+    final boolean guardStructuredPropertyDelete =
+        STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())
+            && (entityWideHardDelete
+                || STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectName))
+            && deletePurpose == DeletePurpose.ORDINARY
+            && !opContext.isSystemAuth()
+            // Oversized-aspect remediation must be able to remove a poisoned propertyDefinition
+            // regardless of soft-delete state (same exemption as AspectSizePayloadValidator);
+            // its rejection would otherwise be swallowed by processPendingDeletions and the
+            // aspect would stay oversized forever.
+            && !(opContext.getValidationContext() != null
+                && opContext.getValidationContext().isRemediationDeletion());
+
     // Gate the shared DB-delete primitive at the (urn, aspect) conflict unit, off the DB
     // connection,
     // BEFORE opening the delete transaction; release after commit/rollback. (scoped mode only;
@@ -3519,14 +3695,44 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Delete↔upsert
     // safety is key-set overlap, not a permanent URN-wide lock on every ingest. The async MCL
     // emission callers run after this returns stays OUT from under the lock.
-    final Collection<String> gateKeys =
-        (hardDelete && aspectName.equals(opContext.getKeyAspectName(entityUrn)))
-            ? opContext.getEntityAspectNames(entityUrn).stream()
-                .map(a -> writeGateKey(urn, a))
-                .collect(Collectors.toList())
-            : List.of(writeGateKey(urn, aspectName));
+    final Collection<String> gateKeys;
+    if (entityWideHardDelete) {
+      gateKeys =
+          opContext.getEntityAspectNames(entityUrn).stream()
+              .map(a -> writeGateKey(urn, a))
+              .collect(Collectors.toList());
+    } else if (guardStructuredPropertyDelete) {
+      // A guarded propertyDefinition delete also locks the status key so the soft-delete
+      // precondition below cannot race a concurrent status write on this URN.
+      gateKeys = List.of(writeGateKey(urn, aspectName), writeGateKey(urn, STATUS_ASPECT_NAME));
+    } else {
+      gateKeys = List.of(writeGateKey(urn, aspectName));
+    }
     final RollbackResult result;
     try (EntityWriteLock.LockHandle writeGate = acquireWriteGate(opContext, gateKeys)) {
+      // Deleting a nonexistent target aspect is a no-op today and must stay one (idempotent
+      // cleanup), so the guard only fires when the aspect being deleted actually exists. Both
+      // precondition reads are pinned to PRIMARY: the documented two-step (soft-delete, then
+      // hard delete) is read-your-writes, and a lagging read replica could miss the
+      // just-committed status row and wrongly reject the hard delete. (The reverse staleness —
+      // missing the target aspect and skipping the guard — would be benign: the delete
+      // transaction's own primary read would find nothing and no-op.)
+      final OperationContext primaryReadOpContext =
+          guardStructuredPropertyDelete
+              ? opContext.withReadPreference(ReadPreference.PRIMARY)
+              : opContext;
+      if (guardStructuredPropertyDelete
+          && !isSoftDeleted(primaryReadOpContext, urn)
+          && latestAspectExists(primaryReadOpContext, urn, aspectName)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Hard delete rejected for structured property qualifiedName '%s'. Hard deletion "
+                    + "can leave a permanent entity-index mapping for this normalized name, "
+                    + "preventing reuse until the affected entity indices are reindexed with "
+                    + "SystemUpdate. Soft-delete the property first to confirm, or leave it "
+                    + "soft-deleted; soft deletion is reversible.",
+                entityUrn.getId()));
+      }
       result =
           aspectDao
               .runInTransactionWithRetry(
@@ -3672,16 +3878,28 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           // If Using CDCs, need to ensure key aspect is the deleted last.
                           if (STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())) {
                             try {
+                              // getLatestAspect returns null (rather than throwing) when the
+                              // entity row exists but this aspect does not — e.g. a status-only
+                              // structured property created via the aspect API. Nothing to
+                              // capture; the hard delete proceeds and the definition-delete side
+                              // effect simply has nothing to clean up.
                               SystemAspect definitionAspect =
                                   aspectDao.getLatestAspect(
                                       opContext,
                                       urn,
                                       STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                                       false);
-                              propertyDefinitionBeforeHardDelete.definition =
-                                  definitionAspect.getRecordTemplate();
-                              propertyDefinitionBeforeHardDelete.metadata =
-                                  definitionAspect.getSystemMetadata();
+                              if (definitionAspect != null) {
+                                propertyDefinitionBeforeHardDelete.definition =
+                                    definitionAspect.getRecordTemplate();
+                                propertyDefinitionBeforeHardDelete.metadata =
+                                    definitionAspect.getSystemMetadata();
+                              } else {
+                                log.debug(
+                                    "No {} aspect to capture before hard delete of {}",
+                                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                    urn);
+                              }
                             } catch (EntityNotFoundException e) {
                               log.debug(
                                   "No {} aspect to capture before hard delete of {}",
@@ -3993,6 +4211,51 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   /**
+   * (urn, aspect) keys of the given failed results, for cross-pass dedup of {@code
+   * failedUpsertResults} on the scoped-retry path. Package-private for unit testing.
+   */
+  @Nonnull
+  static Set<Pair<Urn, String>> failedKeysOf(
+      @Nonnull List<Pair<ChangeMCP, Set<AspectValidationException>>> failedResults) {
+    return failedResults.stream()
+        .map(failed -> Pair.of(failed.getFirst().getUrn(), failed.getFirst().getAspectName()))
+        .collect(Collectors.toUnmodifiableSet());
+  }
+
+  /**
+   * Append only the failed results whose (urn, aspect) has not been recorded yet. A scoped-retry
+   * sub-batch is scoped by URN, so an aspect that terminally fails validation is re-validated (and
+   * re-fails) on every pass while its conflicting sibling is retried; deduping by (urn, aspect)
+   * records that failure exactly once instead of once per pass (which on the consumer path would
+   * emit duplicate dead-letter events). Package-private for unit testing.
+   *
+   * <p>Mutates both {@code accumulator} (appends the new failures) and {@code seenFailedKeys}
+   * (records every incoming key).
+   */
+  static void appendNewFailedResults(
+      @Nonnull List<Pair<ChangeMCP, Set<AspectValidationException>>> accumulator, // mutated
+      @Nonnull List<Pair<ChangeMCP, Set<AspectValidationException>>> incoming,
+      @Nonnull Set<Pair<Urn, String>> seenFailedKeys) { // mutated
+    // Suppress only keys recorded in EARLIER passes. Snapshot seenFailedKeys before this pass so
+    // that two distinct items sharing a (urn, aspect) WITHIN this pass are both kept — matching the
+    // un-deduped first-pass behavior — while a key that already failed in a prior pass is dropped.
+    // Dedup is keyed on (urn, aspect), not item identity, because the retry stamps a fresh traceId
+    // each pass so a ChangeMCP's content/hashCode is not stable across passes; (urn, aspect) is the
+    // only stable cross-pass key for the same logical failure.
+    final Set<Pair<Urn, String>> priorPassKeys = new HashSet<>(seenFailedKeys);
+    for (Pair<ChangeMCP, Set<AspectValidationException>> failed : incoming) {
+      final Pair<Urn, String> key =
+          Pair.of(failed.getFirst().getUrn(), failed.getFirst().getAspectName());
+      if (!priorPassKeys.contains(key)) {
+        accumulator.add(failed);
+      }
+      // Record unconditionally (no-op if already present) so a later pass sees this key as
+      // prior-seen and suppresses a repeat of it.
+      seenFailedKeys.add(key);
+    }
+  }
+
+  /**
    * One compute+persist pass over {@code batch} within the already-open transaction: read latest ->
    * compute next versions -> run mutation / side-effect hooks (via {@code toUpsertBatchItems}) ->
    * CAS-persist each item. Conflicts are collected as data into the returned {@link
@@ -4158,6 +4421,41 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     final List<AspectWriteResult> writeResults = new ArrayList<>();
     final List<UpdateAspectResult> upsertResults = new ArrayList<>();
+
+    // OL CAS batching: when active, eligible version-0 CAS UPDATEs are planned (not executed)
+    // during
+    // the loop and flushed as one JDBC batch afterwards, WITHIN this pass (so per-item conflict
+    // results are known before scoped retry runs). Each processed item takes an ordered slot so the
+    // deferred flush never reorders writeResults / upsertResults vs the sequential path.
+    // Scoped retry is a hard prerequisite, not just OL: this method (and therefore the batch flush)
+    // only runs on the scoped-retry compute path, and batching relies on per-item CONFLICT results
+    // feeding scoped retry. With scoped retry off, batching stays disabled (writes go sequential).
+    final boolean casBatchActive =
+        aspectDao.isOptimisticLockingEnabled()
+            && aspectDao.isScopedRetryEnabled()
+            && aspectDao.isOptimisticWriteBatchEnabled();
+    final List<ChangeMCP> orderedItems = new ArrayList<>();
+    final List<AspectPersistResult> orderedResults = new ArrayList<>();
+    final List<PendingCasWrite> pendingBatch = new ArrayList<>();
+    // (urn, aspect) pairs that appear more than once in this pass must NOT be batched: today's
+    // sequential invariant is that an earlier write advances the in-memory latest state before a
+    // later write to the same pair computes its CAS. Batching defers the flush past the loop, which
+    // would invert that ordering — so detect duplicates up front and route ALL their occurrences
+    // through the sequential path.
+    final Set<Pair<Urn, String>> batchExcludedKeys =
+        casBatchActive
+            ? exceptions
+                .streamSuccessful(changeMCPs.stream())
+                .collect(
+                    Collectors.groupingBy(
+                        it -> Pair.of(it.getUrn(), it.getAspectName()), Collectors.counting()))
+                .entrySet()
+                .stream()
+                .filter(e -> e.getValue() > 1)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet())
+            : Set.of();
+
     for (ChangeMCP writeItem :
         exceptions.streamSuccessful(changeMCPs.stream()).collect(Collectors.toList())) {
 
@@ -4198,30 +4496,54 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       */
       if (overwrite || latestAspect == null || latestAspect.getDatabaseAspect().isEmpty()) {
         try {
-          AspectPersistResult persistResult =
-              ingestAspectToLocalDBScoped(opContext, txContext, writeItem, latestAspect);
-          switch (persistResult.getOutcome()) {
-            case COMMITTED:
-              UpdateAspectResult committed =
-                  persistResult.getResult().toBuilder().request(writeItem).build();
-              upsertResults.add(committed);
-              writeResults.add(
-                  AspectWriteResult.committed(
-                      writeItem.getUrn(),
-                      writeItem.getAspectName(),
-                      committed.getDatabaseAspectRowVersion() == null
-                          ? 0L
-                          : committed.getDatabaseAspectRowVersion()));
-              break;
-            case CONFLICT:
-              writeResults.add(
-                  AspectWriteResult.conflict(writeItem.getUrn(), writeItem.getAspectName()));
-              break;
-            case NOOP:
-            default:
-              writeResults.add(
-                  AspectWriteResult.noop(writeItem.getUrn(), writeItem.getAspectName()));
-              break;
+          final Pair<Urn, String> key = Pair.of(writeItem.getUrn(), writeItem.getAspectName());
+          if (casBatchActive
+              && latestAspect != null
+              && latestAspect.getDatabaseAspect().isPresent()
+              && !batchExcludedKeys.contains(key)) {
+            // Plan the version-0 write WITHOUT executing it, so eligible CAS UPDATEs flush as one
+            // batch after the loop. applyUpsert may still throw a size exception here, handled
+            // below
+            // exactly as the sequential path.
+            SystemAspect upsertAspect =
+                applyUpsert(
+                    writeItem,
+                    latestAspect,
+                    aspectDao.getSystemAspectValidators(),
+                    aspectDao.getValidationConfig(),
+                    opContext);
+            int maxVersionsToKeep = resolveMaxVersionsToKeep(opContext, writeItem);
+            ConditionalWritePlan plan =
+                aspectDao.planConditionalWrite(
+                    opContext, latestAspect, upsertAspect, maxVersionsToKeep);
+            if (plan.getKind() == ConditionalWritePlan.Kind.ELIGIBLE_CAS) {
+              pendingBatch.add(
+                  new PendingCasWrite(
+                      orderedItems.size(),
+                      writeItem,
+                      latestAspect,
+                      upsertAspect,
+                      plan,
+                      maxVersionsToKeep));
+              orderedItems.add(writeItem);
+              orderedResults.add(null); // filled after the batch flush
+            } else {
+              // NOOP / INSERT_NEW / LEGACY: execute inline through the shared execute path (no
+              // re-plan), producing a result identical to the sequential path.
+              ConditionalSaveResult cond =
+                  aspectDao.executePlannedWrite(
+                      opContext, txContext, latestAspect, upsertAspect, maxVersionsToKeep, plan);
+              orderedItems.add(writeItem);
+              orderedResults.add(
+                  toScopedPersistResult(opContext, writeItem, latestAspect, upsertAspect, cond));
+            }
+          } else {
+            // Sequential path: OL off, batching off, non-eligible latest (v0 insert), or a
+            // duplicate
+            // (urn, aspect) whose earlier write must advance in-memory state before this one's CAS.
+            orderedItems.add(writeItem);
+            orderedResults.add(
+                ingestAspectToLocalDBScoped(opContext, txContext, writeItem, latestAspect));
           }
         } catch (com.linkedin.metadata.entity.validation.AspectSizeExceededException e) {
           // Convert to AspectValidationException for uniform batch handling
@@ -4248,6 +4570,98 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       }
     }
 
+    // Flush the collected version-0 CAS batch once, WITHIN this pass, then fill each pending item's
+    // result so scoped retry sees per-item conflicts. A thrown PersistenceException (ambiguous /
+    // driver error) propagates to runInTransactionWithRetry -> whole-txn rollback + retry.
+    if (!pendingBatch.isEmpty()) {
+      if (pendingBatch.size() >= aspectDao.getOptimisticWriteBatchMinSize()) {
+        // Chunk so a single executeBatch never exceeds the driver packet / heap bound on a large
+        // ingest — each item carries full metadata + systemMetadata payloads (KB–MB), so the write
+        // batch is packet-limited, unlike the read-side IN-clause knob (queryKeysCountForBatch)
+        // which
+        // is optimizer-memory-limited on tiny keys. All chunks share this one transaction, so a
+        // thrown ambiguous/driver error still rolls back every chunk. Not operator-tunable by
+        // design.
+        for (List<PendingCasWrite> chunk : Lists.partition(pendingBatch, CAS_BATCH_MAX_CHUNK)) {
+          List<ConditionalUpdateResult> outcomes =
+              aspectDao.updateAspectsConditionalBatch(
+                  opContext,
+                  txContext,
+                  chunk.stream()
+                      .map(
+                          p ->
+                              new ConditionalAspectUpdate(
+                                  p.upsertAspect, p.plan.getExpectedVersion()))
+                      .collect(Collectors.toList()));
+          for (int i = 0; i < chunk.size(); i++) {
+            PendingCasWrite p = chunk.get(i);
+            if (outcomes.get(i) == ConditionalUpdateResult.UPDATED) {
+              // Winner: apply the deferred version-N history row, then build the committed result
+              // from the written content (version-0 row, databaseAspectRowVersion 0) — identical to
+              // what the sequential CAS produces.
+              Optional<EntityAspect> versionN =
+                  aspectDao.applyConditionalHistory(opContext, txContext, p.plan);
+              orderedResults.set(
+                  p.slot,
+                  buildScopedPersistResult(
+                      opContext,
+                      p.writeItem,
+                      p.latestAspect,
+                      p.upsertAspect,
+                      Optional.of(p.upsertAspect.asLatest()),
+                      versionN));
+            } else {
+              orderedResults.set(p.slot, AspectPersistResult.conflict());
+            }
+          }
+        }
+      } else {
+        // Below the batching threshold: run the collected eligible items sequentially through the
+        // same execute path, avoiding batch overhead for tiny batches.
+        for (PendingCasWrite p : pendingBatch) {
+          ConditionalSaveResult cond =
+              aspectDao.executePlannedWrite(
+                  opContext,
+                  txContext,
+                  p.latestAspect,
+                  p.upsertAspect,
+                  p.maxVersionsToKeep,
+                  p.plan);
+          orderedResults.set(
+              p.slot,
+              toScopedPersistResult(opContext, p.writeItem, p.latestAspect, p.upsertAspect, cond));
+        }
+      }
+    }
+
+    // Materialize writeResults / upsertResults in original item order (batched winners included).
+    for (int i = 0; i < orderedItems.size(); i++) {
+      ChangeMCP writeItem = orderedItems.get(i);
+      AspectPersistResult persistResult = orderedResults.get(i);
+      switch (persistResult.getOutcome()) {
+        case COMMITTED:
+          UpdateAspectResult committed =
+              persistResult.getResult().toBuilder().request(writeItem).build();
+          upsertResults.add(committed);
+          writeResults.add(
+              AspectWriteResult.committed(
+                  writeItem.getUrn(),
+                  writeItem.getAspectName(),
+                  committed.getDatabaseAspectRowVersion() == null
+                      ? 0L
+                      : committed.getDatabaseAspectRowVersion()));
+          break;
+        case CONFLICT:
+          writeResults.add(
+              AspectWriteResult.conflict(writeItem.getUrn(), writeItem.getAspectName()));
+          break;
+        case NOOP:
+        default:
+          writeResults.add(AspectWriteResult.noop(writeItem.getUrn(), writeItem.getAspectName()));
+          break;
+      }
+    }
+
     return new ScopedComputeResult(
         changeMCPs,
         upsertResults,
@@ -4255,6 +4669,45 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         updatedLatestAspects,
         new BatchWriteResult(writeResults),
         derivedToParents);
+  }
+
+  /**
+   * Max CAS updates per {@code executeBatch} call. Bounds the JDBC packet + driver param buffer on
+   * a large ingest (each item carries full metadata payloads). Hardcoded, not operator-tunable: the
+   * write batch is packet-limited, a different bound from the read-side {@code
+   * queryKeysCountForBatch} (optimizer memory on tiny keys), so reusing that knob would be wrong.
+   * 100 balances round-trip savings against packet size; revisit only if a deployment proves it
+   * needs tuning.
+   */
+  private static final int CAS_BATCH_MAX_CHUNK = 100;
+
+  /**
+   * A version-0 CAS write planned during the persist loop and deferred to the single batched flush.
+   * {@code slot} is the item's index in the ordered result list, so the per-row batch outcome fills
+   * the correct position and writeResults / upsertResults order matches the sequential path.
+   */
+  private static final class PendingCasWrite {
+    final int slot;
+    final ChangeMCP writeItem;
+    final SystemAspect latestAspect;
+    final SystemAspect upsertAspect;
+    final ConditionalWritePlan plan;
+    final int maxVersionsToKeep;
+
+    PendingCasWrite(
+        int slot,
+        ChangeMCP writeItem,
+        SystemAspect latestAspect,
+        SystemAspect upsertAspect,
+        ConditionalWritePlan plan,
+        int maxVersionsToKeep) {
+      this.slot = slot;
+      this.writeItem = writeItem;
+      this.latestAspect = latestAspect;
+      this.upsertAspect = upsertAspect;
+      this.plan = plan;
+      this.maxVersionsToKeep = maxVersionsToKeep;
+    }
   }
 
   /**
@@ -4318,9 +4771,30 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             aspectDao.getValidationConfig(),
             opContext);
 
-    // Resolve maxVersionsToKeep from retention policy (per aspect): <= 1 means do not write a new
-    // history row (version != 0); we still update the existing version 0 row. When retention
-    // service is not enabled, we retain only the current version (1).
+    int maxVersionsToKeep = resolveMaxVersionsToKeep(opContext, writeItem);
+
+    // save to database
+    if (aspectDao.isOptimisticLockingEnabled()) {
+      ConditionalSaveResult cond =
+          aspectDao.saveLatestAspectConditional(
+              opContext, txContext, latestAspect, upsertAspect, maxVersionsToKeep);
+      return toScopedPersistResult(opContext, writeItem, latestAspect, upsertAspect, cond);
+    }
+
+    Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
+        aspectDao.saveLatestAspect(
+            opContext, txContext, latestAspect, upsertAspect, maxVersionsToKeep);
+    return buildScopedPersistResult(
+        opContext, writeItem, latestAspect, upsertAspect, result.getSecond(), result.getFirst());
+  }
+
+  /**
+   * Resolve the retention-driven max version count for a write (per aspect): {@code <= 1} means do
+   * not write a new history row (version != 0); the version-0 row is still updated. When retention
+   * service is not enabled, retain only the current version (1).
+   */
+  private int resolveMaxVersionsToKeep(
+      @Nonnull OperationContext opContext, @Nonnull ChangeMCP writeItem) {
     int maxVersionsToKeep;
     if (retentionService != null) {
       try {
@@ -4345,39 +4819,57 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           writeItem.getAspectName(),
           maxVersionsToKeep);
     }
+    return maxVersionsToKeep;
+  }
 
-    // save to database
-    final Optional<EntityAspect> versionN;
-    final Optional<EntityAspect> version0;
-    if (aspectDao.isOptimisticLockingEnabled()) {
-      ConditionalSaveResult cond =
-          aspectDao.saveLatestAspectConditional(
-              opContext, txContext, latestAspect, upsertAspect, maxVersionsToKeep);
-      switch (cond.getOutcome()) {
-        case SKIPPED_NOOP:
-          // Aspect + system metadata unchanged: a legitimate no-op, never a conflict — do not
-          // retry.
-          return AspectPersistResult.noop();
-        case CONFLICT:
-          // Stage 2: conflict is data, not control flow. Return it so the batch persist loop can
-          // collect it into a BatchWriteResult and recompute only the conflicted URN's branch,
-          // instead of throwing and regenerating the whole batch. (The version-0 insert race still
-          // surfaces as OptimisticLockConflictException from the DAO, which aborts + re-drives the
-          // whole transaction — see saveLatestAspectConditional.)
-          return AspectPersistResult.conflict();
-        case UPDATED:
-        default:
-          versionN = cond.getInserted();
-          version0 = cond.getUpdated();
-      }
-    } else {
-      Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-          aspectDao.saveLatestAspect(
-              opContext, txContext, latestAspect, upsertAspect, maxVersionsToKeep);
-      versionN = result.getFirst();
-      version0 = result.getSecond();
+  /**
+   * Map an OL {@link ConditionalSaveResult} to an {@link AspectPersistResult}. Shared by the
+   * sequential persist path and the batched persist path's non-eligible (NOOP / INSERT / LEGACY)
+   * items, so both produce identical results.
+   */
+  @Nonnull
+  private AspectPersistResult toScopedPersistResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull ChangeMCP writeItem,
+      @Nullable SystemAspect latestAspect,
+      @Nonnull SystemAspect upsertAspect,
+      @Nonnull ConditionalSaveResult cond) {
+    switch (cond.getOutcome()) {
+      case SKIPPED_NOOP:
+        // Aspect + system metadata unchanged: a legitimate no-op, never a conflict — do not retry.
+        return AspectPersistResult.noop();
+      case CONFLICT:
+        // Conflict is data, not control flow: the persist loop collects it into a BatchWriteResult
+        // and recomputes only the conflicted URN's branch. (The version-0 insert race still
+        // surfaces
+        // as OptimisticLockConflictException from the DAO, aborting + re-driving the whole txn.)
+        return AspectPersistResult.conflict();
+      case UPDATED:
+      default:
+        return buildScopedPersistResult(
+            opContext,
+            writeItem,
+            latestAspect,
+            upsertAspect,
+            cond.getUpdated(),
+            cond.getInserted());
     }
+  }
 
+  /**
+   * Build the {@link AspectPersistResult} for a successful version-0 write from its {@code
+   * version0} (updated row) and optional {@code versionN} (history row). Shared by the sequential
+   * path, the OL non-batched path, and the batched winner path — only the inputs differ between
+   * them, so the result construction cannot drift.
+   */
+  @Nonnull
+  private AspectPersistResult buildScopedPersistResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull ChangeMCP writeItem,
+      @Nullable SystemAspect latestAspect,
+      @Nonnull SystemAspect upsertAspect,
+      @Nonnull Optional<EntityAspect> version0,
+      @Nonnull Optional<EntityAspect> versionN) {
     UpdateAspectResult updateResult =
         version0
             .map(
@@ -4413,7 +4905,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .orElse(null);
 
     // A legacy no-op (saveLatestAspect skipped the version-0 update) yields no UpdateAspectResult;
-    // surface it as NOOP so the batch loop treats it identically to today (excluded from upserts,
+    // surface it as NOOP so the persist loop treats it identically to today (excluded from upserts,
     // never retried) rather than as a committed write.
     return updateResult == null
         ? AspectPersistResult.noop()

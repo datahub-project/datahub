@@ -340,10 +340,10 @@ This section covers how to design access policies when **view-based access contr
 
 ### When this guidance applies
 
-| Deployment            | VBAC prerequisite                                                                      | What it enables                                                                                                                     |
-| --------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **DataHub Cloud**     | [Search Access Controls](../features/feature-guides/search-access-controls.md) enabled | **`View Entity`** privilege; search results filtered at query time                                                                  |
-| **Self-hosted (OSS)** | `VIEW_AUTHORIZATION_ENABLED=true` on GMS                                               | **`View Entity Page`** privilege; entity page gating and optional post-search result masking — **not** Elasticsearch query pushdown |
+| Deployment        | VBAC prerequisite                                                                      | What it enables                                                                                                                     |
+| ----------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **DataHub Cloud** | [Search Access Controls](../features/feature-guides/search-access-controls.md) enabled | **`View Entity`** privilege; search results filtered at query time                                                                  |
+| **DataHub Core**  | `VIEW_AUTHORIZATION_ENABLED=true` on GMS                                               | **`View Entity Page`** privilege; entity page gating and optional post-search result masking — **not** Elasticsearch query pushdown |
 
 When VBAC is enabled (`VIEW_AUTHORIZATION_ENABLED` on OSS, or Cloud Search Access Controls), entity types are
 **restricted by default**. Types marked `viewUnrestricted: true` in `entity-registry.yml`, plus optional
@@ -479,25 +479,25 @@ These privileges are for DataHub operators to access & manage the administrative
 
 #### Product Features
 
-| Platform Privileges             | Description                                                                                                        |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Manage Home Page Posts          | Allow actor to create and delete home page posts                                                                   |
-| Manage Business Attribute       | Allow actor to create, update, delete Business Attribute                                                           |
-| Manage Documentation Forms      | Allow actor to manage forms assigned to assets to assist in documentation efforts.                                 |
-| Manage Metadata Ingestion       | Allow actor to create, remove, and update Metadata Ingestion sources.                                              |
-| Manage Features                 | Umbrella privilege to manage all features.                                                                         |
-| View Analytics                  | Allow actor to view the DataHub analytics dashboard.                                                               |
-| Manage Public Views             | Allow actor to create, update, and delete any Public (shared) Views.                                               |
-| Manage Ownership Types          | Allow actor to create, update and delete Ownership Types.                                                          |
-| Create Business Attribute       | Allow actor to create new Business Attribute.                                                                      |
-| Manage Structured Properties    | Manage structured properties in your instance.                                                                     |
-| View Tests                      | View Asset Tests.                                                                                                  |
-| Manage Tests[^1]                | Allow actor to create and remove Asset Tests.                                                                      |
-| View Metadata Proposals[^1]     | Allow actor to view the requests tab for viewing metadata proposals.                                               |
-| Create metadata constraints[^2] | Allow actor to create metadata constraints.                                                                        |
-| Manage Platform Settings[^1]    | Allow actor to view and change platform-level settings, like integrations & notifications.                         |
-| Manage Monitors[^1]             | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
-| View Manage Tags                | Allow the actor to view the Manage Tags page.                                                                      |
+| Platform Privileges             | Description                                                                                                                                                                                                                           |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manage Home Page Posts          | Allow actor to create and delete home page posts                                                                                                                                                                                      |
+| Manage Business Attribute       | Allow actor to create, update, delete Business Attribute                                                                                                                                                                              |
+| Manage Documentation Forms      | Allow actor to manage forms assigned to assets to assist in documentation efforts.                                                                                                                                                    |
+| Manage Metadata Ingestion       | Allow actor to create, remove, and update Metadata Ingestion sources. Recipes run as Python on the ingestion executor — grant only to trusted operators. See [Ingestion executor security](../docker/ingestion-executor-security.md). |
+| Manage Features                 | Umbrella privilege to manage all features.                                                                                                                                                                                            |
+| View Analytics                  | Allow actor to view the DataHub analytics dashboard.                                                                                                                                                                                  |
+| Manage Public Views             | Allow actor to create, update, and delete any Public (shared) Views.                                                                                                                                                                  |
+| Manage Ownership Types          | Allow actor to create, update and delete Ownership Types.                                                                                                                                                                             |
+| Create Business Attribute       | Allow actor to create new Business Attribute.                                                                                                                                                                                         |
+| Manage Structured Properties    | Manage structured properties in your instance.                                                                                                                                                                                        |
+| View Tests                      | View Asset Tests.                                                                                                                                                                                                                     |
+| Manage Tests[^1]                | Allow actor to create and remove Asset Tests.                                                                                                                                                                                         |
+| View Metadata Proposals[^1]     | Allow actor to view the requests tab for viewing metadata proposals.                                                                                                                                                                  |
+| Create metadata constraints[^2] | Allow actor to create metadata constraints.                                                                                                                                                                                           |
+| Manage Platform Settings[^1]    | Allow actor to view and change platform-level settings, like integrations & notifications.                                                                                                                                            |
+| Manage Monitors[^1]             | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care.                                                                                                                    |
+| View Manage Tags                | Allow the actor to view the Manage Tags page.                                                                                                                                                                                         |
 
 #### Entity Management
 
@@ -509,18 +509,19 @@ These privileges are for DataHub operators to access & manage the administrative
 
 #### System Management
 
-| Platform Privileges                           | Description                                                                                              |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --- |
-| Restore Indices API[^3]                       | Allow actor to use the Restore Indices API.                                                              |     |
-| Get Timeseries index sizes API[^3]            | Allow actor to use the get Timeseries indices size API.                                                  |
-| Truncate timeseries aspect index size API[^3] | Allow actor to use the API to truncate a timeseries index.                                               |
-| Get ES task status API[^3]                    | Allow actor to use the get task status API for an ElasticSearch task.                                    |
-| Enable/Disable Writeability API[^3]           | Allow actor to enable or disable GMS writeability for data migrations.                                   |
-| Apply Retention API[^3]                       | Allow actor to apply retention using the API.                                                            |
-| Analytics API access[^3]                      | Allow actor to use API read access to raw analytics data.                                                |
-| Explain ElasticSearch Query API[^3]           | Allow actor to use the Operations API explain endpoint.                                                  |
-| Produce Platform Event API[^3]                | Allow actor to produce Platform Events using the API.                                                    |
-| Manage System Operations                      | Allow actor to manage system operation controls. This setting includes all System Management privileges. |
+| Platform Privileges                           | Description                                                                                                                                                                   |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| Restore Indices API[^3]                       | Allow actor to use the Restore Indices API.                                                                                                                                   |     |
+| Get Timeseries index sizes API[^3]            | Allow actor to use the get Timeseries indices size API.                                                                                                                       |
+| Truncate timeseries aspect index size API[^3] | Allow actor to use the API to truncate a timeseries index.                                                                                                                    |
+| Get ES task status API[^3]                    | Allow actor to use the get task status API for an ElasticSearch task.                                                                                                         |
+| Enable/Disable Writeability API[^3]           | Allow actor to enable or disable GMS writeability for data migrations.                                                                                                        |
+| Apply Retention API[^3]                       | Allow actor to apply retention using the API.                                                                                                                                 |
+| Analytics API access[^3]                      | Allow actor to use API read access to raw analytics data.                                                                                                                     |
+| Explain ElasticSearch Query API[^3]           | Allow actor to use the Operations API explain endpoint.                                                                                                                       |
+| Produce Platform Event API[^3]                | Allow actor to produce Platform Events using the API.                                                                                                                         |
+| Manage System Operations                      | Allow actor to manage system operation controls. This setting includes all System Management privileges.                                                                      |
+| View System Status                            | Allow actor to view non-sensitive system status (consumer lag, messaging transport). Does not include system information, full system configuration, or operational controls. |
 
 ### Common Metadata Privileges
 
@@ -535,7 +536,7 @@ These privileges are to view & modify any entity within DataHub.
 | Delete                             | Allow actor to delete this entity.                                                                                                                   |
 | Create Entity                      | Allow actor to create an entity if it doesn't exist.                                                                                                 |
 | Entity Exists                      | Allow actor to determine whether the entity exists.                                                                                                  |
-| Execute Entity                     | Allow actor to execute entity ingestion.                                                                                                             |
+| Execute Entity                     | Allow actor to run ingestion for an entity. Together with Edit on an ingestion source, this runs that source's recipe as Python on the executor.     |
 | Get Timeline API[^3]               | Allow actor to use the GET Timeline API.                                                                                                             |
 | Get Entity + Relationships API[^3] | Allow actor to use the GET Entity and Relationships API.                                                                                             |
 | Get Aspect/Entity Count APIs[^3]   | Allow actor to use the GET Aspect/Entity Count APIs.                                                                                                 |

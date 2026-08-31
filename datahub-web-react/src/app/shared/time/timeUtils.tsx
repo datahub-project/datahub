@@ -196,6 +196,47 @@ export const toRelativeTimeString = (timeMs: number | undefined) => {
     return rtf.format(diffInYears, 'year');
 };
 
+/** Compact relative time for stat cards — e.g. "20m ago" instead of "20 minutes ago". */
+export const toCompactRelativeTimeString = (timeMs: number | undefined | null): string | null => {
+    if (!timeMs) return null;
+
+    const diffMs = new Date().getTime() - timeMs;
+    const seconds = Math.floor(diffMs / INTERVAL_TO_MS[DateInterval.Second]);
+
+    if (seconds < 60) {
+        return i18next.t('shared.time:compactJustNow');
+    }
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) {
+        return i18next.t('shared.time:compactMinutesAgo', { count: minutes });
+    }
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+        return i18next.t('shared.time:compactHoursAgo', { count: hours });
+    }
+
+    const days = Math.floor(hours / 24);
+    if (days < 7) {
+        return i18next.t('shared.time:compactDaysAgo', { count: days });
+    }
+
+    const weeks = Math.floor(days / 7);
+    if (weeks < 5) {
+        return i18next.t('shared.time:compactWeeksAgo', { count: weeks });
+    }
+
+    // Compare against 365 days (not months < 12) — days 360–364 yield months === 12 and years === 0.
+    if (days < 365) {
+        const months = Math.max(1, Math.floor(days / 30));
+        return i18next.t('shared.time:compactMonthsAgo', { count: months });
+    }
+
+    const years = Math.floor(days / 365);
+    return i18next.t('shared.time:compactYearsAgo', { count: years });
+};
+
 export function getTimeFromNow(timestampMillis) {
     if (!timestampMillis) {
         return '';

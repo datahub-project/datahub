@@ -66,8 +66,8 @@ For service accounts, unattended agents, or DataHub Cloud versions prior to v1.0
 
 Include the `Bearer ` prefix in the API key value. Click **Create**, create the connection with your token, then **Add to agent**.
 
-:::note Self-Hosted DataHub
-For self-hosted instances, OAuth DCR for the managed MCP path is a DataHub Cloud capability. Expose the [MCP server](../../features/feature-guides/mcp.md#self-hosted-mcp-server-usage) via a publicly accessible URL, use that as the Server URL, and authenticate with a personal access token (API key · Header · `Authorization` · `Bearer <token>`).
+:::note DataHub Core
+For DataHub Core instances, OAuth DCR for the managed MCP path is a DataHub Cloud capability. Expose the [MCP server](../../features/feature-guides/mcp.md#self-hosted-mcp-server-usage) via a publicly accessible URL, use that as the Server URL, and authenticate with a personal access token (API key · Header · `Authorization` · `Bearer <token>`).
 :::
 
 ### 4. Enable Tools

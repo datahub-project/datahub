@@ -37,8 +37,8 @@ annotated-types==0.7.0
     # via pydantic
 anyio==4.12.1
     # via
+    #   acryl-datahub
     #   google-genai
-    #   gql
     #   httpx
     #   starlette
     #   watchfiles
@@ -119,7 +119,6 @@ babel==2.18.0
     # via python-liquid
 backoff==2.2.1
     # via
-    #   gql
     #   unstructured
     #   unstructured-ingest
 backports-asyncio-runner==1.2.0 ; python_full_version < '3.11'
@@ -176,7 +175,7 @@ cachetools==5.5.2
     #   confluent-kafka
     #   mlflow-skinny
     #   pyiceberg
-cassandra-driver==3.29.3
+cassandra-driver==3.30.1
     # via acryl-datahub
 cattrs==26.1.0
     # via looker-sdk
@@ -238,6 +237,7 @@ colorama==0.4.6
     #   build
     #   click
     #   feast
+    #   loguru
     #   pytest
     #   tqdm
     #   uvicorn
@@ -306,6 +306,7 @@ deepmerge==2.0
 defusedxml==0.7.1
     # via
     #   acryl-datahub
+    #   nltk
     #   python3-openid
     #   tableauserverclient
 deltalake==0.25.5
@@ -314,6 +315,7 @@ deprecated==1.3.1
     # via
     #   acryl-datahub
     #   atlassian-python-api
+    #   cassandra-driver
 dill==0.3.9
     # via feast
 distro==1.9.0
@@ -483,12 +485,8 @@ googleapis-common-protos==1.73.0
     #   google-cloud-audit-log
     #   grpc-google-iam-v1
     #   grpcio-status
-gql==4.0.0
-    # via acryl-datahub
 graphql-core==3.2.8
-    # via
-    #   acryl-datahub
-    #   gql
+    # via acryl-datahub
 greenlet==3.3.2
     # via
     #   acryl-datahub
@@ -664,6 +662,8 @@ lkml==1.3.7
     # via acryl-datahub
 locket==1.0.0
     # via partd
+loguru==0.7.3
+    # via acryl-datahub
 looker-sdk==25.20.0
     # via acryl-datahub
 lxml==6.1.1
@@ -769,7 +769,7 @@ networkx==3.6.1 ; python_full_version >= '3.11'
     # via acryl-datahub
 nh3==0.3.3
     # via readme-renderer
-nltk==3.9.3
+nltk==3.10.3
     # via
     #   acryl-datahub
     #   unstructured
@@ -1174,7 +1174,6 @@ requests==2.32.5
     #   google-cloud-bigquery
     #   google-cloud-storage
     #   google-genai
-    #   gql
     #   id
     #   looker-sdk
     #   mixpanel
@@ -1217,7 +1216,6 @@ requests-oauthlib==2.0.0
     # via atlassian-python-api
 requests-toolbelt==1.0.0
     # via
-    #   gql
     #   thoughtspot-rest-api
     #   twine
     #   unstructured-client
@@ -1312,8 +1310,6 @@ sortedcontainers==2.4.0
     #   snowflake-connector-python
 soupsieve==2.8.3
     # via beautifulsoup4
-sql-metadata==2.20.0
-    # via acryl-datahub
 sqlalchemy==1.4.44
     # via
     #   acryl-datahub
@@ -1356,11 +1352,10 @@ sqlglot==30.12.0
     #   sqlglotc
 sqlglotc==30.12.0
     # via sqlglot
-sqlparse==0.5.5
+sqlparse==0.6.0
     # via
     #   acryl-datahub
     #   mlflow-skinny
-    #   sql-metadata
 sspilib==0.5.0 ; sys_platform == 'win32'
     # via pyspnego
 starlette==0.52.1
@@ -1627,6 +1622,8 @@ werkzeug==3.1.6
     #   pytest-httpserver
 win-precise-time==1.4.2 ; (python_full_version < '3.13' and os_name == 'nt' and platform_machine != 'arm64') or (python_full_version < '3.13' and os_name == 'nt' and sys_platform != 'darwin')
     # via dlt
+win32-setctime==1.2.0 ; sys_platform == 'win32'
+    # via loguru
 wrapt==2.1.2
     # via
     #   aiobotocore
@@ -1643,7 +1640,6 @@ xmltodict==1.0.4
 yarl==1.23.0
     # via
     #   aiohttp
-    #   gql
     #   okta
 zeep==4.3.2
     # via simple-salesforce

@@ -1,3 +1,6 @@
+import pytest
+
+from tests.utilities.domains import Domain
 from tests.zdu.framework.log_monitor import (
     NonBlockingState,
     Phase1State,
@@ -7,6 +10,8 @@ from tests.zdu.framework.log_monitor import (
     _parse_nonblocking_line,
     _parse_phase1_line,
 )
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def test_parse_started():

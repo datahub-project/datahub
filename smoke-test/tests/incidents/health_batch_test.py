@@ -4,9 +4,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import pytest
 
 from conftest import _ingest_cleanup_data_impl
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, wait_for_writes_to_sync, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.OBSERVE)
 
 
 @pytest.fixture(scope="module", autouse=True)

@@ -40,6 +40,14 @@ def test_glue_and_athena_use_trino_dialect():
     assert is_dialect_instance(get_dialect("glue"), "trino")
 
 
+def test_informix_uses_postgres_dialect():
+    # sqlglot has no Informix dialect; Tableau / query lineage / aggregators
+    # resolve platform="informix" via get_dialect_str. Must map to postgres
+    # (same shape as HANA) or get_dialect("informix") raises.
+    assert get_dialect_str("informix") == "postgres"
+    assert is_dialect_instance(get_dialect("informix"), "postgres")
+
+
 def test_fabricspark_uses_spark_dialect():
     # dbt-fabricspark reports adapter_type "fabricspark", which sqlglot does
     # not know. Map to spark (Spark 3+), not spark2 or sqlglot's "fabric" (T-SQL).
