@@ -17,7 +17,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub.utilities.lossy_collections import LossyList
 
 _MAX_SAMPLE_MISMATCHES = 5
-_MAX_SKIP_DETAIL_CHARS = 200
 
 
 if TYPE_CHECKING:
@@ -61,11 +60,11 @@ class SkippedCell:
     #                              the platform (db2, vertica, synapse, ...) or the
     #                              tableName itself failed to parse
     reason: str
-    # Truncated "<ExceptionClass>: <message>" for reasons that come from a caught
-    # exception (currently "unparseable_table_name"). None for reasons derived
-    # purely from control flow. Bounded per entry by _MAX_SKIP_DETAIL_CHARS; the
-    # containing skipped_cells list is a LossyList so overall report size stays
-    # capped even under a flood of bad inputs.
+    # "<ExceptionClass>: <message>" for reasons that come from a caught exception
+    # (currently "unparseable_table_name"). None for reasons derived purely from
+    # control flow. Overall report size is bounded by the enclosing skipped_cells
+    # LossyList — no per-entry truncation, so operators see the full sqlglot
+    # error text on triage.
     detail: Optional[str] = None
 
 
@@ -215,7 +214,7 @@ class HexLineageBuilder:
                     cell_id="queriedTables",
                     cell_label=table_name,
                     reason="unparseable_table_name",
-                    detail=_format_skip_detail(e),
+                    detail=f"{type(e).__name__}: {e}",
                 )
                 continue
 
@@ -494,15 +493,3 @@ class HexLineageBuilder:
             f" [{detail}]" if detail else "",
             connection_id,
         )
-
-
-def _format_skip_detail(exc: BaseException) -> str:
-    """Compact, bounded exception summary for SkippedCell.detail.
-
-    Bounded per-entry so a pathological sqlglot error message can't blow up
-    the report; the enclosing skipped_cells LossyList caps total entries.
-    """
-    detail = f"{type(exc).__name__}: {exc}"
-    if len(detail) > _MAX_SKIP_DETAIL_CHARS:
-        detail = detail[: _MAX_SKIP_DETAIL_CHARS - 1] + "…"
-    return detail
