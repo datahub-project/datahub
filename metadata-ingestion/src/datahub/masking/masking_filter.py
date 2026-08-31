@@ -365,6 +365,9 @@ class SecretMaskingFilter(logging.Filter):
             record.args = None
             record.exc_info = None
             record.exc_text = None
+            record.stack_info = None
+            if hasattr(record, "message"):
+                record.message = MASKING_ERROR_MESSAGE
             try:
                 sys.stderr.write(f"WARNING: Secret masking filter failed: {e}\n")
                 sys.stderr.flush()

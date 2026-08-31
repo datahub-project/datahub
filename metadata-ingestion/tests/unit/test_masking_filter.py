@@ -1273,12 +1273,16 @@ class TestFailClosed:
         record = logging.LogRecord(
             "test", logging.INFO, "f.py", 1, "leaking somesecret123", None, None
         )
+        record.stack_info = "stack with somesecret123"
+        record.message = "leaking somesecret123"
         with patch.object(
             masking_filter, "mask_text", side_effect=RuntimeError("boom")
         ):
             assert masking_filter.filter(record) is True
         assert record.msg == MASKING_ERROR_MESSAGE
         assert record.args is None
+        assert record.stack_info is None
+        assert record.message == MASKING_ERROR_MESSAGE
 
 
 class TestMaskBeforeTruncate:
