@@ -799,3 +799,41 @@ class TestParseIntoDBTNodeFreshness:
         dbt_node = source._parse_into_dbt_node(node)
 
         assert dbt_node.freshness_info is None
+
+
+class TestParseIntoDBTNodeName:
+    """Tests for physical-name resolution in _parse_into_dbt_node."""
+
+    def _create_source(self) -> DBTCloudSource:
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            job_id=12345678,
+            target_platform="snowflake",
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        return DBTCloudSource(config, ctx)
+
+    def test_source_resolves_identifier(self) -> None:
+        """A dbt source's physical table name lives in `identifier` (sources have no
+        `alias`); it must resolve to it even with the default use_identifiers=False,
+        matching the dbt-core path. Regression for renamed sources."""
+        source = self._create_source()
+        node = {
+            "uniqueId": "source.my_project.my_source.orders",
+            "name": "orders",
+            "identifier": "orders_v2",
+            "resourceType": "source",
+            "database": "my_db",
+            "schema": "my_schema",
+            "meta": {},
+            "tags": [],
+            "description": "",
+            "maxLoadedAt": "",
+        }
+
+        dbt_node = source._parse_into_dbt_node(node)
+
+        assert dbt_node.name == "orders_v2"
