@@ -71,6 +71,15 @@ describe('detectBrowserLanguage', () => {
         expect(detectBrowserLanguage()).toBe('zh-CN');
     });
 
+    it('does not map Traditional Chinese tags to zh-CN', () => {
+        stubLanguages(['zh-TW']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+        stubLanguages(['zh-Hant']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+        stubLanguages(['zh-HK']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+    });
+
     it('returns undefined when the browser exposes no languages', () => {
         stubLanguages([]);
         expect(detectBrowserLanguage()).toBeUndefined();
