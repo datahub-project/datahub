@@ -16,7 +16,9 @@ from datahub.ingestion.source.montecarlo.client import (
     MonteCarloAssertionDef,
     MonteCarloAuthError,
     MonteCarloClient,
+    MonteCarloComparison,
     ResolvedTable,
+    _parse_comparisons,
 )
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
 from datahub.ingestion.source.montecarlo.mcon_resolver import (
@@ -28,8 +30,12 @@ from datahub.ingestion.source.montecarlo.source import MonteCarloSource
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionRunEventClass,
+    AssertionStdAggregationClass,
+    AssertionStdOperatorClass,
     AssertionTypeClass,
+    CustomAssertionInfoClass,
     DataPlatformInstanceClass,
+    DatasetAssertionScopeClass,
 )
 from datahub.utilities.ratelimiter import DailyCallBudget, DailyCallBudgetExceeded
 
@@ -437,6 +443,244 @@ def test_build_assertion_filtered_by_monitor_pattern() -> None:
     assert "Freshness on orders" in report.filtered
 
 
+# --- Structured CustomAssertionInfo fields ---
+
+
+def _builder_with_resolved_snowflake(
+    report: MonteCarloSourceReport, mcon: str
+) -> MonteCarloAssertionBuilder:
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config()
+    resolver = MconResolver(cfg, client, report)
+    return MonteCarloAssertionBuilder(cfg, report, resolver)
+
+
+def _custom_assertion(
+    builder: MonteCarloAssertionBuilder, definition: MonteCarloAssertionDef
+) -> CustomAssertionInfoClass:
+    """Return the CustomAssertionInfo aspect emitted for a definition."""
+    aspects = [_aspect(wu) for wu in _build_assertion_workunits(builder, definition)]
+    info = next(a for a in aspects if isinstance(a, AssertionInfoClass))
+    assert info.customAssertion is not None
+    return info.customAssertion
+
+
+def test_no_comparisons_keeps_only_monitor_uuid_in_custom_properties() -> None:
+    """Without comparisons, native fields move to nativeType/nativeParameters
+    and customProperties keeps only mc_monitor_uuid. The no-field case maps
+    to DATASET_ROWS with _NATIVE_ operator/aggregation — dbt's
+    unknown-test-no-column fallback — so the structured-rendering path
+    still fires."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    definition = MonteCarloAssertionDef(
+        uuid="mon-1",
+        monitor_type="FRESHNESS",
+        entity_mcons=[mcon],
+        resource_id="wh-2",
+        severity="SEV-2",
+        data_quality_dimension="FRESHNESS",
+    )
+    info = _custom_assertion(builder, definition)
+    assert info.scope == DatasetAssertionScopeClass.DATASET_ROWS
+    assert info.operator == AssertionStdOperatorClass._NATIVE_
+    assert info.aggregation == AssertionStdAggregationClass._NATIVE_
+    assert info.fields is None
+    assert info.parameters is None
+    assert info.nativeType == "FRESHNESS"
+    assert info.nativeParameters == {
+        "severity": "SEV-2",
+        "data_quality_dimension": "FRESHNESS",
+        "resource_id": "wh-2",
+    }
+    # customProperties is reduced to the single correlation key. (customProperties
+    # lives on AssertionInfo, not on CustomAssertionInfo.)
+    aspects = [_aspect(wu) for wu in _build_assertion_workunits(builder, definition)]
+    info_aspect = next(a for a in aspects if isinstance(a, AssertionInfoClass))
+    assert info_aspect.customProperties == {"mc_monitor_uuid": "mon-1"}
+
+
+def test_column_comparison_sets_dataset_column_scope_and_fields() -> None:
+    """A comparison with a field maps to DATASET_COLUMN scope with a schema-field URN."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    definition = MonteCarloAssertionDef(
+        uuid="mon-null-email",
+        monitor_type="METRIC",
+        entity_mcons=[mcon],
+        comparisons=[
+            MonteCarloComparison(
+                comparison_type="THRESHOLD",
+                operator="LTE",
+                metric="null_rate",
+                field="email",
+                threshold=0.05,
+            )
+        ],
+    )
+    info = _custom_assertion(builder, definition)
+    assert info.scope == DatasetAssertionScopeClass.DATASET_COLUMN
+    assert info.operator == AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO
+    assert info.aggregation == AssertionStdAggregationClass.NULL_PROPORTION
+    assert info.fields is not None and len(info.fields) == 1
+    assert info.fields[0].endswith(",email)")
+    assert info.field == info.fields[0]
+    assert info.parameters is not None
+    assert info.parameters.value is not None
+    assert info.parameters.value.value == "0.05"
+    assert info.nativeType == "METRIC"
+    assert info.nativeParameters is not None
+    assert info.nativeParameters["comparison_type"] == "THRESHOLD"
+    assert info.nativeParameters["metric"] == "null_rate"
+
+
+def test_multi_column_comparison_populates_fields_list() -> None:
+    """fields (multi-column) yields multiple schema-field URNs."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    definition = MonteCarloAssertionDef(
+        uuid="mon-multi",
+        monitor_type="METRIC",
+        entity_mcons=[mcon],
+        comparisons=[
+            MonteCarloComparison(
+                operator="IS_NOT_NULL",
+                fields=["col_a", "col_b"],
+            )
+        ],
+    )
+    info = _custom_assertion(builder, definition)
+    assert info.scope == DatasetAssertionScopeClass.DATASET_COLUMN
+    assert info.operator == AssertionStdOperatorClass.NOT_NULL
+    assert info.fields is not None and len(info.fields) == 2
+    assert info.fields[0].endswith(",col_a)") and info.fields[1].endswith(",col_b)")
+    # NOT_NULL takes no parameters.
+    assert info.parameters is None
+
+
+def test_no_field_comparison_falls_back_to_dataset_rows() -> None:
+    """A table-level comparison (no field/fields) maps to DATASET_ROWS."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    definition = MonteCarloAssertionDef(
+        uuid="mon-vol",
+        monitor_type="VOLUME",
+        entity_mcons=[mcon],
+        comparisons=[
+            MonteCarloComparison(
+                comparison_type="ABSOLUTE_VOLUME",
+                operator="GT",
+                metric="row_count",
+                threshold=1000,
+            )
+        ],
+    )
+    info = _custom_assertion(builder, definition)
+    assert info.scope == DatasetAssertionScopeClass.DATASET_ROWS
+    assert info.operator == AssertionStdOperatorClass.GREATER_THAN
+    assert info.aggregation == AssertionStdAggregationClass.ROW_COUNT
+    assert info.fields is None
+    assert info.parameters is not None and info.parameters.value is not None
+    assert info.parameters.value.value == "1000.0"
+
+
+def test_inside_range_operator_maps_to_between_with_min_max() -> None:
+    """INSIDE_RANGE → BETWEEN with minValue/maxValue from lower/upperThreshold."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    definition = MonteCarloAssertionDef(
+        uuid="mon-range",
+        monitor_type="METRIC",
+        entity_mcons=[mcon],
+        comparisons=[
+            MonteCarloComparison(
+                operator="INSIDE_RANGE",
+                metric="row_count",
+                lower_threshold=100,
+                upper_threshold=5000,
+            )
+        ],
+    )
+    info = _custom_assertion(builder, definition)
+    assert info.operator == AssertionStdOperatorClass.BETWEEN
+    assert info.parameters is not None
+    assert info.parameters.minValue is not None and info.parameters.maxValue is not None
+    assert info.parameters.minValue.value == "100.0"
+    assert info.parameters.maxValue.value == "5000.0"
+
+
+def test_unmapped_operator_falls_back_to_native() -> None:
+    """AUTO / OUTSIDE_RANGE / NOOP have no clean DataHub operator → _NATIVE_."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    definition = MonteCarloAssertionDef(
+        uuid="mon-auto",
+        monitor_type="ANOMALY",
+        entity_mcons=[mcon],
+        comparisons=[
+            MonteCarloComparison(operator="AUTO", metric="row_count"),
+        ],
+    )
+    info = _custom_assertion(builder, definition)
+    assert info.operator == AssertionStdOperatorClass._NATIVE_
+
+
+def test_unmapped_metric_falls_back_to_native_aggregation() -> None:
+    """An unknown metric string → _NATIVE_ aggregation (gaps are safe)."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    definition = MonteCarloAssertionDef(
+        uuid="mon-custom-metric",
+        monitor_type="METRIC",
+        entity_mcons=[mcon],
+        comparisons=[
+            MonteCarloComparison(operator="GT", metric="some_exotic_metric"),
+        ],
+    )
+    info = _custom_assertion(builder, definition)
+    assert info.aggregation == AssertionStdAggregationClass._NATIVE_
+    # operator is still mapped (GT → GREATER_THAN); only the aggregation is native.
+    assert info.operator == AssertionStdOperatorClass.GREATER_THAN
+
+
+def test_compound_rule_folds_remaining_comparisons_into_logic() -> None:
+    """A multi-comparison rule maps comparisons[0] structurally and folds the
+    rest into logic as JSON."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    definition = MonteCarloAssertionDef(
+        uuid="mon-compound",
+        monitor_type="METRIC",
+        entity_mcons=[mcon],
+        custom_sql="SELECT 1",
+        comparisons=[
+            MonteCarloComparison(operator="GT", metric="row_count", threshold=10),
+            MonteCarloComparison(operator="LT", metric="row_count", threshold=100),
+        ],
+    )
+    info = _custom_assertion(builder, definition)
+    # First comparison drives the structured fields.
+    assert info.operator == AssertionStdOperatorClass.GREATER_THAN
+    # logic carries custom_sql plus the JSON of the remaining comparison.
+    assert info.logic is not None
+    assert "SELECT 1" in info.logic
+    assert '"operator": "LT"' in info.logic or '"operator":"LT"' in info.logic
+
+
 def test_build_run_event_links_to_ingested_monitor() -> None:
     report = MonteCarloSourceReport()
     mcon = "MCON++acct++wh-2++table++db.sch.tbl"
@@ -521,6 +765,53 @@ def test_client_get_monitors_parses_list() -> None:
     assert len(monitors) == 1
     assert monitors[0].uuid == "m1"
     assert monitors[0].native_type == "FRESHNESS"
+
+
+def test_parse_comparisons_flattens_custom_metric_object() -> None:
+    """``customMetric`` is a ``CustomMetric`` object on the MCD schema (not a
+    scalar); the query selects ``{ uuid metricName }`` and pycarlo snake_cases
+    it to ``custom_metric: {uuid, metric_name}``. The parser must flatten that
+    to the human-readable ``metric_name`` string on ``MonteCarloComparison``."""
+    raw: List[Dict[str, Any]] = [
+        {
+            "comparison_type": "THRESHOLD",
+            "operator": "GT",
+            "metric": None,
+            "custom_metric": {"uuid": "cm-1", "metric_name": "revenue_per_order"},
+            "field": "total",
+            "fields": [],
+            "threshold": 100,
+            "upper_threshold": None,
+            "lower_threshold": None,
+        }
+    ]
+    parsed = _parse_comparisons(raw)
+    assert len(parsed) == 1
+    c = parsed[0]
+    assert c.custom_metric == "revenue_per_order"
+    assert c.operator == "GT"
+    assert c.field == "total"
+
+
+def test_parse_comparisons_tolerates_scalar_custom_metric() -> None:
+    """A scalar ``custom_metric`` (e.g. from an older fixture or a hand-built
+    dict) still validates, since ``MonteCarloComparison.custom_metric`` is
+    ``Optional[str]`` and the flattener only acts on dicts."""
+    parsed = _parse_comparisons([{"operator": "EQ", "custom_metric": "legacy"}])
+    assert len(parsed) == 1
+    assert parsed[0].custom_metric == "legacy"
+
+
+def test_parse_comparisons_drops_malformed_entry() -> None:
+    """A malformed comparison is dropped rather than aborting the whole list."""
+    parsed = _parse_comparisons(
+        [
+            "not-a-dict",  # dropped (not a dict)
+            {"operator": "EQ"},  # kept
+        ]
+    )
+    assert len(parsed) == 1
+    assert parsed[0].operator == "EQ"
 
 
 def test_client_get_monitors_forwards_domain_ids() -> None:

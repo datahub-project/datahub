@@ -14,6 +14,20 @@ query getMonitors($domainIds: [UUID!], $limit: Int, $offset: Int) {
     resourceId
     severity
     dataQualityDimension
+    comparisons {
+      comparisonType
+      operator
+      metric
+      customMetric {
+        uuid
+        metricName
+      }
+      field
+      fields
+      threshold
+      upperThreshold
+      lowerThreshold
+    }
   }
 }
 """
@@ -29,6 +43,20 @@ query getCustomRules($first: Int, $after: String) {
         customSql
         entityMcons
         severity
+        comparisons {
+          comparisonType
+          operator
+          metric
+          customMetric {
+            uuid
+            metricName
+          }
+          field
+          fields
+          threshold
+          upperThreshold
+          lowerThreshold
+        }
       }
     }
     pageInfo {

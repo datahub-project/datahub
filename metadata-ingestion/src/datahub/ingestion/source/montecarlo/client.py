@@ -53,6 +53,60 @@ class MonteCarloAuthError(RuntimeError):
 _RATE_LIMIT_MAX_ATTEMPTS = 6
 
 
+class MonteCarloComparison(BaseModel):
+    """A single comparison within a Monte Carlo monitor/rule.
+
+    MC monitors/rules carry a ``comparisons`` array; DataHub's assertion model is
+    single-comparison, so the builder maps ``comparisons[0]`` onto the structured
+    ``CustomAssertionInfo`` fields and folds the rest into ``logic`` /
+    ``nativeParameters``. All fields are optional — MC
+    leaves ``field``/``fields`` unset for table-level or row-predicate checks.
+    """
+
+    comparison_type: Optional[str] = None
+    operator: Optional[str] = None
+    metric: Optional[str] = None
+    custom_metric: Optional[str] = None
+    field: Optional[str] = None
+    fields: List[str] = Field(default_factory=list)
+    threshold: Optional[float] = None
+    upper_threshold: Optional[float] = None
+    lower_threshold: Optional[float] = None
+
+
+def _parse_comparisons(raw: Any) -> List[MonteCarloComparison]:
+    """Normalize the raw ``comparisons`` list (snake_cased by pycarlo's Box) into
+    ``MonteCarloComparison`` models, tolerating missing/malformed entries so one
+    bad comparison doesn't abort the whole monitor (matches the source's
+    continue-on-recoverable-error philosophy).
+
+    ``customMetric`` is a ``CustomMetric`` object on the MCD schema (not a
+    scalar), so the query selects ``{ uuid metricName }``; pycarlo snake_cases
+    that to ``custom_metric: {uuid, metric_name}``. We flatten it to the
+    human-readable ``metric_name`` string for ``MonteCarloComparison.custom_metric``
+    (carried on ``nativeParameters`` for rendering); ``uuid`` is dropped since
+    DataHub's assertion model has no slot for a per-comparison metric id.
+    """
+    if not raw:
+        return []
+    parsed: List[MonteCarloComparison] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            # Flatten the nested customMetric object before validation, since
+            # MonteCarloComparison.custom_metric is Optional[str].
+            cm = entry.get("custom_metric")
+            if isinstance(cm, dict):
+                entry = {**entry, "custom_metric": cm.get("metric_name")}
+            parsed.append(MonteCarloComparison.model_validate(entry))
+        except Exception:
+            # Drop a malformed comparison rather than failing the monitor; the
+            # builder's no-comparisons path still emits a valid assertion.
+            continue
+    return parsed
+
+
 class MonteCarloAssertionDef(BaseModel):
     """A monitor or custom rule, normalized into a single assertion definition."""
 
@@ -66,6 +120,7 @@ class MonteCarloAssertionDef(BaseModel):
     resource_id: Optional[str] = None
     severity: Optional[str] = None
     data_quality_dimension: Optional[str] = None
+    comparisons: List[MonteCarloComparison] = Field(default_factory=list)
 
     @property
     def native_type(self) -> str:
@@ -305,6 +360,7 @@ class MonteCarloClient:
                 resource_id=resource_id,
                 severity=raw.get("severity"),
                 data_quality_dimension=raw.get("data_quality_dimension"),
+                comparisons=_parse_comparisons(raw.get("comparisons")),
             )
 
     def _resolve_table_monitor_entity_mcons(
@@ -374,6 +430,7 @@ class MonteCarloClient:
                 custom_sql=raw.get("custom_sql"),
                 entity_mcons=raw.get("entity_mcons") or [],
                 severity=raw.get("severity"),
+                comparisons=_parse_comparisons(raw.get("comparisons")),
             )
 
     def get_alerts(self) -> Iterable[MonteCarloAlert]:

@@ -49,7 +49,7 @@ _UuidItem = TypeVar("_UuidItem", bound=_HasUuid)
 
 @platform_name("Monte Carlo", id=PLATFORM)
 @config_class(MonteCarloSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.ALPHA)
 @capability(
     SourceCapability.PLATFORM_INSTANCE, "Enabled via connection_to_platform_map"
 )

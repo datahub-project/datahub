@@ -53,6 +53,14 @@ MONITORS: List[Dict[str, Any]] = [
         "severity": "SEV-2",
         "is_paused": False,
         "data_quality_dimension": "FRESHNESS",
+        "comparisons": [
+            {
+                "comparison_type": "FRESHNESS",
+                "operator": "GT",
+                "metric": "freshness",
+                "threshold": 24,
+            }
+        ],
     },
     {
         "uuid": "mon-vol-orders",
@@ -64,6 +72,14 @@ MONITORS: List[Dict[str, Any]] = [
         "severity": "SEV-3",
         "is_paused": False,
         "data_quality_dimension": "VOLUME",
+        "comparisons": [
+            {
+                "comparison_type": "ABSOLUTE_VOLUME",
+                "operator": "GT",
+                "metric": "row_count",
+                "threshold": 1000,
+            }
+        ],
     },
     {
         "uuid": "mon-fresh-events",
@@ -75,8 +91,20 @@ MONITORS: List[Dict[str, Any]] = [
         "severity": "SEV-2",
         "is_paused": False,
         "data_quality_dimension": "FRESHNESS",
+        "comparisons": [
+            {
+                "comparison_type": "THRESHOLD",
+                "operator": "INSIDE_RANGE",
+                "metric": "row_count",
+                "lower_threshold": 100,
+                "upper_threshold": 5000,
+            }
+        ],
     },
     {
+        # A monitor with no comparisons exercises the fallback path: native fields
+        # move to nativeType/nativeParameters, customProperties keeps only
+        # mc_monitor_uuid, and no scope is set (structured rendering does not fire).
         "uuid": "mon-schema-customers",
         "name": "Schema - customers",
         "description": "customers schema should not drift",
@@ -97,6 +125,16 @@ CUSTOM_RULES: List[Dict[str, Any]] = [
         "custom_sql": "SELECT count(*) FROM analytics.public.orders WHERE total < 0",
         "entity_mcons": ["MCON++acct++wh-snow++table++ANALYTICS.PUBLIC.ORDERS"],
         "severity": "SEV-2",
+        "comparisons": [
+            {
+                "comparison_type": "THRESHOLD",
+                "operator": "LTE",
+                "metric": "max",
+                "field": "total",
+                "threshold": 0,
+                "custom_metric": {"uuid": "cm-max-total", "metric_name": "max_total"},
+            }
+        ],
     },
     {
         "uuid": "rule-events-freshness",
@@ -105,6 +143,14 @@ CUSTOM_RULES: List[Dict[str, Any]] = [
         "custom_sql": None,
         "entity_mcons": ["MCON++acct++wh-bq++table++proj.dataset.events"],
         "severity": "SEV-3",
+        "comparisons": [
+            {
+                "comparison_type": "FRESHNESS",
+                "operator": "GT",
+                "metric": "freshness",
+                "threshold": 24,
+            }
+        ],
     },
 ]
 

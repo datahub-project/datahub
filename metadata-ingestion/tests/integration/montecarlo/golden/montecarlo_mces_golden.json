@@ -7,21 +7,34 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "mc_monitor_uuid": "mon-fresh-orders",
-                "mc_monitor_type": "FRESHNESS",
-                "mc_resource_id": "wh-snow",
-                "mc_dq_dimension": "FRESHNESS",
-                "mc_severity": "SEV-2"
+                "mc_monitor_uuid": "mon-fresh-orders"
             },
             "type": "CUSTOM",
             "customAssertion": {
                 "type": "FRESHNESS",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD)"
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "_NATIVE_",
+                "operator": "GREATER_THAN",
+                "parameters": {
+                    "value": {
+                        "value": "24.0",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "FRESHNESS",
+                "nativeParameters": {
+                    "severity": "SEV-2",
+                    "data_quality_dimension": "FRESHNESS",
+                    "resource_id": "wh-snow",
+                    "comparison_type": "FRESHNESS",
+                    "metric": "freshness"
+                }
             },
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1780252200000,
+                    "time": 1780272000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
@@ -29,7 +42,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1780252200000,
+        "lastObserved": 1780272000000,
         "runId": "montecarlo-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -58,21 +71,34 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "mc_monitor_uuid": "mon-vol-orders",
-                "mc_monitor_type": "VOLUME",
-                "mc_resource_id": "wh-snow",
-                "mc_dq_dimension": "VOLUME",
-                "mc_severity": "SEV-3"
+                "mc_monitor_uuid": "mon-vol-orders"
             },
             "type": "CUSTOM",
             "customAssertion": {
                 "type": "VOLUME",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD)"
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "ROW_COUNT",
+                "operator": "GREATER_THAN",
+                "parameters": {
+                    "value": {
+                        "value": "1000.0",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "VOLUME",
+                "nativeParameters": {
+                    "severity": "SEV-3",
+                    "data_quality_dimension": "VOLUME",
+                    "resource_id": "wh-snow",
+                    "comparison_type": "ABSOLUTE_VOLUME",
+                    "metric": "row_count"
+                }
             },
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1780252200000,
+                    "time": 1780272000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
@@ -80,7 +106,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1780252200000,
+        "lastObserved": 1780272000000,
         "runId": "montecarlo-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -109,21 +135,38 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "mc_monitor_uuid": "mon-fresh-events",
-                "mc_monitor_type": "FRESHNESS",
-                "mc_resource_id": "wh-bq",
-                "mc_dq_dimension": "FRESHNESS",
-                "mc_severity": "SEV-2"
+                "mc_monitor_uuid": "mon-fresh-events"
             },
             "type": "CUSTOM",
             "customAssertion": {
                 "type": "FRESHNESS",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,proj.dataset.events,PROD)"
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,proj.dataset.events,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "ROW_COUNT",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "5000.0",
+                        "type": "NUMBER"
+                    },
+                    "minValue": {
+                        "value": "100.0",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "FRESHNESS",
+                "nativeParameters": {
+                    "severity": "SEV-2",
+                    "data_quality_dimension": "FRESHNESS",
+                    "resource_id": "wh-bq",
+                    "comparison_type": "THRESHOLD",
+                    "metric": "row_count"
+                }
             },
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1780252200000,
+                    "time": 1780272000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
@@ -131,7 +174,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1780252200000,
+        "lastObserved": 1780272000000,
         "runId": "montecarlo-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -160,21 +203,26 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "mc_monitor_uuid": "mon-schema-customers",
-                "mc_monitor_type": "SCHEMA_CHANGE",
-                "mc_resource_id": "wh-snow",
-                "mc_dq_dimension": "SCHEMA",
-                "mc_severity": "SEV-4"
+                "mc_monitor_uuid": "mon-schema-customers"
             },
             "type": "CUSTOM",
             "customAssertion": {
                 "type": "SCHEMA_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.customers,PROD)"
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.customers,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "SCHEMA_CHANGE",
+                "nativeParameters": {
+                    "severity": "SEV-4",
+                    "data_quality_dimension": "SCHEMA",
+                    "resource_id": "wh-snow"
+                }
             },
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1780252200000,
+                    "time": 1780272000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
@@ -182,7 +230,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1780252200000,
+        "lastObserved": 1780272000000,
         "runId": "montecarlo-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -211,20 +259,38 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "mc_monitor_uuid": "rule-orders-not-null",
-                "mc_monitor_type": "CUSTOM_SQL",
-                "mc_severity": "SEV-2"
+                "mc_monitor_uuid": "rule-orders-not-null"
             },
             "type": "CUSTOM",
             "customAssertion": {
                 "type": "CUSTOM_SQL",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD),total)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD),total)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "MAX",
+                "operator": "LESS_THAN_OR_EQUAL_TO",
+                "parameters": {
+                    "value": {
+                        "value": "0.0",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "CUSTOM_SQL",
+                "nativeParameters": {
+                    "severity": "SEV-2",
+                    "comparison_type": "THRESHOLD",
+                    "metric": "max",
+                    "custom_metric": "max_total"
+                },
                 "logic": "SELECT count(*) FROM analytics.public.orders WHERE total < 0"
             },
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1780252200000,
+                    "time": 1780272000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
@@ -232,7 +298,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1780252200000,
+        "lastObserved": 1780272000000,
         "runId": "montecarlo-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -261,19 +327,32 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "mc_monitor_uuid": "rule-events-freshness",
-                "mc_monitor_type": "FRESHNESS",
-                "mc_severity": "SEV-3"
+                "mc_monitor_uuid": "rule-events-freshness"
             },
             "type": "CUSTOM",
             "customAssertion": {
                 "type": "FRESHNESS",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,proj.dataset.events,PROD)"
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,proj.dataset.events,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "_NATIVE_",
+                "operator": "GREATER_THAN",
+                "parameters": {
+                    "value": {
+                        "value": "24.0",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "FRESHNESS",
+                "nativeParameters": {
+                    "severity": "SEV-3",
+                    "comparison_type": "FRESHNESS",
+                    "metric": "freshness"
+                }
             },
             "source": {
                 "type": "EXTERNAL",
                 "created": {
-                    "time": 1780252200000,
+                    "time": 1780272000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
@@ -281,7 +360,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1780252200000,
+        "lastObserved": 1780272000000,
         "runId": "montecarlo-test",
         "lastRunId": "no-run-id-provided"
     }

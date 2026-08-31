@@ -33,3 +33,41 @@ CONNECTION_TYPE_TO_PLATFORM: Dict[str, str] = {
 # Case-preserving platforms (e.g. BigQuery) keep the original case. The
 # convert_urns_to_lowercase config flag forces lowercase everywhere when set.
 LOWERCASE_URN_PLATFORMS: Set[str] = {"snowflake", "redshift"}
+
+# Monte Carlo comparison operators -> DataHub AssertionStdOperator. MC operators
+# not in this map (AUTO, AUTO_HIGH, AUTO_LOW, NOOP, OUTSIDE_RANGE) have no clean
+# DataHub equivalent and fall back to _NATIVE_ at the call site, matching dbt's
+# unknown-test handling. INSIDE_RANGE maps to BETWEEN (min/max value parameters);
+# OUTSIDE_RANGE is deliberately NOT mapped to NOT_IN — BETWEEN's negation isn't
+# NOT_IN's semantics, so _NATIVE_ is the honest choice.
+MC_OPERATOR_TO_STD_OPERATOR: Dict[str, str] = {
+    "EQ": "EQUAL_TO",
+    "GT": "GREATER_THAN",
+    "GTE": "GREATER_THAN_OR_EQUAL_TO",
+    "LT": "LESS_THAN",
+    "LTE": "LESS_THAN_OR_EQUAL_TO",
+    "NEQ": "NOT_EQUAL_TO",
+    "INSIDE_RANGE": "BETWEEN",
+    "IS_NULL": "NULL",
+    "IS_NOT_NULL": "NOT_NULL",
+}
+
+# Monte Carlo metric -> DataHub AssertionStdAggregation. Intentionally sparse:
+# only metrics with an unambiguous DataHub aggregation are mapped. Unmapped
+# metrics (the long tail of MC metric strings, plus customMetric) fall back to
+# _NATIVE_ at the call site, which still triggers the structured-rendering path
+# via scope+operator/nativeType. Add entries here only when a metric's DataHub
+# aggregation is certain; gaps are safe.
+MC_METRIC_TO_STD_AGGREGATION: Dict[str, str] = {
+    "row_count": "ROW_COUNT",
+    "count": "ROW_COUNT",
+    "distinct_count": "UNIQUE_COUNT",
+    "null_count": "NULL_COUNT",
+    "null_rate": "NULL_PROPORTION",
+    "min": "MIN",
+    "max": "MAX",
+    "mean": "MEAN",
+    "median": "MEDIAN",
+    "stddev": "STDDEV",
+    "sum": "SUM",
+}
