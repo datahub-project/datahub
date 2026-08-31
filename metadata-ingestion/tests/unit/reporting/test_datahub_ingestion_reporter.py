@@ -1,5 +1,6 @@
+import json
 from typing import Any, Dict, List, Set, Tuple, Union
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -10,6 +11,7 @@ from datahub.ingestion.reporting.datahub_ingestion_run_summary_provider import (
     DatahubIngestionRunSummaryProviderConfig,
 )
 from datahub.ingestion.run.pipeline_config import PipelineConfig
+from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.schema_classes import (
     DataHubIngestionSourceInfoClass,
     ExecutionRequestInputClass,
@@ -254,11 +256,6 @@ def test_non_execution_request_urn_as_run_id_does_not_crash() -> None:
 
 
 def test_on_completion_masks_report_and_summary() -> None:
-    import json
-    from unittest.mock import patch
-
-    from datahub.masking.secret_registry import SecretRegistry
-
     SecretRegistry.reset_instance()
     SecretRegistry.get_instance().register_secret("DB_PASS", "hunter2secret")
 

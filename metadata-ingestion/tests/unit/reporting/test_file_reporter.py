@@ -50,3 +50,14 @@ def test_secret_with_quotes_masked_despite_json_escaping(tmp_path):
         "failures": ["auth failed for ***REDACTED:DB_PASS***"]
     }
     SecretRegistry.reset_instance()
+
+
+def test_flag_disables_report_masking(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATAHUB_DISABLE_SECRET_MASKING", "true")
+    SecretRegistry.reset_instance()
+    SecretRegistry.get_instance().register_secret("DB_PASS", "hunter2secret")
+
+    content = _write_report(tmp_path, {"failures": ["pw=hunter2secret"]})
+
+    assert json.loads(content) == {"failures": ["pw=hunter2secret"]}
+    SecretRegistry.reset_instance()
