@@ -32,7 +32,6 @@ from tests.privileges.utils import (
     remove_group,
     remove_user,
 )
-from tests.utilities.domains import Domain
 from tests.utils import (
     get_frontend_session,
     get_frontend_url,
@@ -42,10 +41,7 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [
-    pytest.mark.no_cypress_suite1,
-    pytest.mark.domain(Domain.PLATFORM),
-]
+pytestmark = pytest.mark.no_cypress_suite1
 
 _UNIQUE = uuid.uuid4().hex[:8]
 ACTOR_EMAIL = f"grant.auth.actor.{_UNIQUE}@smoke.datahub.test"
