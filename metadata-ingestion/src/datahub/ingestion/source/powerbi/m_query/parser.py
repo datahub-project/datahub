@@ -26,6 +26,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
 )
 from datahub.ingestion.source.powerbi.m_query.shared_expressions import (
     SharedExpressions,
+    StopReason,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
@@ -214,15 +215,6 @@ def get_upstream_tables(
             if lineage.upstreams:
                 lineages.append(lineage)
 
-        if shared.failures:
-            reporter.warning(
-                title="Unable to parse a referenced query",
-                message="A query this table is built on could not be parsed, so "
-                'the lineage it holds is missing. Queries with "Enable load" '
-                "switched off are reached this way.",
-                context=f"table-full-name={table.full_name}, queries={shared.failures}",
-            )
-
         if lineages:
             reporter.m_query_resolver_successes += 1
         else:
@@ -250,3 +242,48 @@ def get_upstream_tables(
             exc=e,
         )
         return []
+    finally:
+        # In a finally because a handler raising must not discard the record of
+        # which referenced queries came up short -- that is the diagnostic the
+        # operator needs most when a table ends up with no lineage.
+        _report_referenced_query_stops(reporter, table, shared)
+
+
+# Failures get the report's failure counter; the rest are queries we understood
+# and chose not to walk, which is a different thing to tell an operator.
+_STOP_IS_FAILURE = {
+    StopReason.PARSE_ERROR,
+    StopReason.BRIDGE_ERROR,
+    StopReason.TIMEOUT,
+}
+
+
+def _report_referenced_query_stops(
+    reporter: PowerBiDashboardSourceReport,
+    table: Table,
+    shared: SharedExpressions,
+) -> None:
+    """Report each reason a referenced query yielded nothing under its own title.
+
+    One warning per reason rather than per query, so a dataset whose queries all
+    hit the same wall produces one entry naming them rather than dozens.
+    """
+    by_reason: Dict[StopReason, Dict[str, Optional[str]]] = {}
+    for name, (reason, detail) in shared.stops.items():
+        by_reason.setdefault(reason, {})[name] = detail
+
+    for reason, queries in by_reason.items():
+        if reason is StopReason.TIMEOUT:
+            # Same counter the table's own expression uses, so the total stays
+            # the number of timeouts rather than the number of tables.
+            reporter.m_query_parse_timeouts += len(queries)
+        if reason in _STOP_IS_FAILURE:
+            reporter.m_query_referenced_query_failures += len(queries)
+        else:
+            reporter.m_query_referenced_query_not_followed += len(queries)
+
+        reporter.warning(
+            title=reason.title,
+            message=reason.message,
+            context=f"table-full-name={table.full_name}, queries={queries}",
+        )

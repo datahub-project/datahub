@@ -264,6 +264,10 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     # Genuine M-Query expressions that the parser could not handle.
     m_query_parse_unknown_errors: int = 0
     m_query_resolver_errors: int = 0
+    # Referenced queries ("Enable load" off) that yielded no lineage, split by
+    # whether the M was bad or whether we understood it and declined to walk.
+    m_query_referenced_query_failures: int = 0
+    m_query_referenced_query_not_followed: int = 0
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
 

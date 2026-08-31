@@ -1,5 +1,7 @@
+import dataclasses
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Callable, Dict, Optional, Tuple
 
 from datahub.ingestion.source.powerbi.m_query._bridge import (
@@ -23,6 +25,63 @@ MAX_REFERENCE_DEPTH = 10
 PARAMETER_QUERY_MARKER = "IsParameterQuery=true"
 
 
+class StopReason(Enum):
+    """Why following a reference into another query produced no lineage.
+
+    Only the first three are failures. The rest are queries we understood and
+    declined to walk, which the operator has to be told apart from bad M --
+    reporting them all as "could not be parsed" sends people looking for a
+    malformed query that does not exist.
+    """
+
+    PARSE_ERROR = "parse_error"
+    BRIDGE_ERROR = "bridge_error"
+    TIMEOUT = "timeout"
+    NO_LET = "no_let"
+    CYCLE = "cycle"
+    TOO_DEEP = "too_deep"
+
+    @property
+    def title(self) -> str:
+        return _STOP_TITLES[self]
+
+    @property
+    def message(self) -> str:
+        return _STOP_MESSAGES[self]
+
+
+_REFERENCED = 'Queries with "Enable load" switched off are reached this way.'
+
+# TIMEOUT deliberately reuses the title the m_query_parse_timeout description
+# points operators at, so that instruction stays true on this path too.
+_STOP_TITLES: Dict["StopReason", str] = {
+    StopReason.PARSE_ERROR: "Unable to parse a referenced query",
+    StopReason.BRIDGE_ERROR: "Unable to parse a referenced query",
+    StopReason.TIMEOUT: "M-Query Parsing Timeout",
+    StopReason.NO_LET: "Referenced query is a bare expression",
+    StopReason.CYCLE: "Referenced queries form a loop",
+    StopReason.TOO_DEEP: "Reference chain is too long to be a real model",
+}
+
+_STOP_MESSAGES: Dict["StopReason", str] = {
+    StopReason.PARSE_ERROR: "A query this table is built on could not be parsed, so "
+    f"the lineage it holds is missing. {_REFERENCED}",
+    StopReason.BRIDGE_ERROR: "The M-Query parser failed on a query this table is "
+    f"built on, so the lineage it holds is missing. {_REFERENCED}",
+    StopReason.TIMEOUT: "Parsing a query this table is built on timed out, so the "
+    "lineage it holds is missing. Increase m_query_parse_timeout if this recurs. "
+    f"{_REFERENCED}",
+    StopReason.NO_LET: "A query this table is built on parsed cleanly but is a bare "
+    "expression with no `let` binding to walk, which is not followed -- the same as "
+    f"a table's own expression of that shape. {_REFERENCED}",
+    StopReason.CYCLE: "Queries this table is built on reference each other in a "
+    f"loop, so the chain was stopped and its lineage is missing. {_REFERENCED}",
+    StopReason.TOO_DEEP: "A chain of referenced queries ran past "
+    f"{MAX_REFERENCE_DEPTH} hops and was stopped, so its lineage is missing. "
+    f"{_REFERENCED}",
+}
+
+
 @dataclass(frozen=True)
 class SharedExpressions:
     """The dataset's shared expressions, and how far into them the walk has gone.
@@ -44,7 +103,10 @@ class SharedExpressions:
     # bridge once, and a query that failed should not be retried per route --
     # with a timeout, each retry costs the full timeout again.
     _parsed: Dict[str, Optional[NodeIdMap]] = field(default_factory=dict)
-    failures: Dict[str, str] = field(default_factory=dict)
+    # name -> (why we stopped, detail for the operator). Structured rather than
+    # free text so the caller can report each reason under its own title and
+    # counter instead of calling every one of them a parse failure.
+    stops: Dict[str, Tuple["StopReason", Optional[str]]] = field(default_factory=dict)
 
     def lookup(self, name: str) -> Optional[str]:
         """The M text bound to a name, or None if the dataset has no such query."""
@@ -70,11 +132,23 @@ class SharedExpressions:
 
         try:
             self._parsed[key] = self.parse(text)
-        except (MQueryParseError, MQueryBridgeError, TimeoutException) as e:
+        except MQueryParseError as e:
             self._parsed[key] = None
-            self.failures[name] = f"{type(e).__name__}: {e}"
+            self.stopped(name, StopReason.PARSE_ERROR, str(e))
+        except MQueryBridgeError as e:
+            self._parsed[key] = None
+            self.stopped(name, StopReason.BRIDGE_ERROR, str(e))
+        except TimeoutException as e:
+            self._parsed[key] = None
+            self.stopped(name, StopReason.TIMEOUT, str(e))
 
         return self._parsed[key]
+
+    def stopped(
+        self, name: str, reason: "StopReason", detail: Optional[str] = None
+    ) -> None:
+        """Record why a referenced query yielded nothing, for the caller to report."""
+        self.stops.setdefault(name, (reason, detail))
 
     def would_repeat(self, name: str) -> bool:
         return name.casefold() in self.chain
@@ -83,10 +157,6 @@ class SharedExpressions:
         return len(self.chain) >= MAX_REFERENCE_DEPTH
 
     def entered(self, name: str) -> "SharedExpressions":
-        return SharedExpressions(
-            texts=self.texts,
-            parse=self.parse,
-            chain=self.chain + (name.casefold(),),
-            _parsed=self._parsed,
-            failures=self.failures,
-        )
+        # replace() re-passes the caches by reference, so they stay shared while
+        # the chain forks -- and a field added later cannot be silently dropped.
+        return dataclasses.replace(self, chain=self.chain + (name.casefold(),))

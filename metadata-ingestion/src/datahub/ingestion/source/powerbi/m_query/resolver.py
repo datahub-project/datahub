@@ -18,6 +18,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
 )
 from datahub.ingestion.source.powerbi.m_query.shared_expressions import (
     SharedExpressions,
+    StopReason,
 )
 
 logger = logging.getLogger(__name__)
@@ -390,16 +391,11 @@ def _walk_shared_expression(
         return
 
     if shared.would_repeat(name):
-        logger.warning(
-            "Query '%s' appears twice in one reference chain, stopping", name
-        )
+        shared.stopped(name, StopReason.CYCLE, " -> ".join(shared.chain + (name,)))
         return
 
     if shared.exhausted():
-        logger.warning(
-            "Reference chain past '%s' is too long to be a real model, stopping",
-            name,
-        )
+        shared.stopped(name, StopReason.TOO_DEEP, " -> ".join(shared.chain + (name,)))
         return
 
     text = shared.lookup(name)
@@ -415,16 +411,16 @@ def _walk_shared_expression(
 
     sub_lets = [(k, v) for k, v in sub_map.items() if v.get("kind") == "LetExpression"]
     if not sub_lets:
-        # Recorded alongside parse failures so the caller's warning names the query.
-        # A bare expression is valid M that the root path also declines to walk, so
-        # the lineage outcome is unchanged -- this only stops it being silent.
-        shared.failures[name] = "no let expression to walk"
-        logger.debug("Query '%s' has no let expression to walk", name)
+        # Reported under its own reason: this query parsed cleanly, so calling it
+        # a parse failure would send the operator hunting for malformed M. The
+        # root path declines the same shape, so lineage is unchanged either way.
+        shared.stopped(name, StopReason.NO_LET)
         return
 
     sub_let_id, sub_let = min(sub_lets, key=lambda kv: kv[0])
     output_node = sub_let.get("expression")
     if output_node is None:
+        logger.debug("Referenced query '%s' has a let with no output expression", name)
         return
 
     # A fresh `seen` because let ids are only unique within one parsed

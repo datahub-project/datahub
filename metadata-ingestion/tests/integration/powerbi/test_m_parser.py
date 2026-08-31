@@ -1,7 +1,7 @@
 import logging
 import sys
 import time
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,7 +19,7 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser
+from datahub.ingestion.source.powerbi.m_query import parser, shared_expressions
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataPlatformTable,
     Lineage,
@@ -2305,7 +2305,11 @@ _DATABRICKS_EXPECTED_UPSTREAM: str = (
 )
 
 
-def _lineage_with_expressions(q: str, expressions: dict) -> List[Lineage]:
+def _lineage_and_report(
+    q: str, expressions: dict, parameters: Optional[dict] = None
+) -> Tuple[List[Lineage], PowerBiDashboardSourceReport]:
+    """Resolve `q` against `expressions`, returning the report as well so tests can
+    assert on what the operator is told, not only on the lineage."""
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         columns=[],
         measures=[],
@@ -2319,14 +2323,24 @@ def _lineage_with_expressions(q: str, expressions: dict) -> List[Lineage]:
         override_config={"enable_advance_lineage_sql_construct": True}
     )
 
-    return parser.get_upstream_tables(
+    lineages = parser.get_upstream_tables(
         table,
         reporter,
         ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
+        parameters=parameters or {},
         expressions=expressions,
     )
+    return lineages, reporter
+
+
+def _lineage_with_expressions(q: str, expressions: dict) -> List[Lineage]:
+    return _lineage_and_report(q, expressions)[0]
+
+
+def _warning_titles(reporter: PowerBiDashboardSourceReport) -> List[str]:
+    return [w.title or "" for w in reporter.warnings]
 
 
 @pytest.mark.integration
@@ -2402,7 +2416,7 @@ def test_shared_expression_cycle_does_not_recurse():
 def test_parameter_query_is_not_followed_as_a_source():
     """A shared expression holding a parameter value is not a query, so following
     it leads to a literal rather than a data source."""
-    lineages = _lineage_with_expressions(
+    lineages, reporter = _lineage_and_report(
         'let Source = #"Server Name" in Source',
         {
             "Server Name": '"adb-123.azuredatabricks.net"'
@@ -2412,6 +2426,10 @@ def test_parameter_query_is_not_followed_as_a_source():
     )
 
     assert combine_upstreams_from_lineage(lineages) == []
+    # Without the marker check the parameter is followed, found to be a bare
+    # literal, and reported as a query that came up short -- a false alarm on
+    # every dataset that has parameters, which is nearly all of them.
+    assert _warning_titles(reporter) == []
 
 
 @pytest.mark.integration
@@ -2529,4 +2547,86 @@ def test_unparseable_shared_expression_is_reported():
     titles = [entry.title for entry in reporter.warnings]
     assert any("referenced query" in (t or "") for t in titles), (
         f"Expected the unparseable query to be reported; got: {titles}"
+    )
+
+
+@pytest.mark.integration
+def test_reference_cycle_is_reported_as_a_loop_not_a_depth_limit():
+    """Two queries referencing each other stop at the cycle, and the operator is
+    told it was a loop. Asserting the reason distinguishes this guard from the
+    depth cap, which would otherwise absorb the same input ten hops later."""
+    lineages, reporter = _lineage_and_report(
+        'let Source = #"A" in Source',
+        {
+            "A": 'let s = #"B" in s',
+            "B": 'let s = #"A" in s',
+        },
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert "Referenced queries form a loop" in _warning_titles(reporter)
+    assert reporter.m_query_referenced_query_not_followed == 1
+
+
+@pytest.mark.integration
+def test_reference_chain_past_the_cap_is_reported_as_too_long():
+    """A linear chain longer than the cap stops and says so. Linear, so the cycle
+    guard cannot fire -- this pins the cap on its own."""
+    depth = shared_expressions.MAX_REFERENCE_DEPTH + 2
+    chain = {f"q{i}": f'let s = #"q{i + 1}" in s' for i in range(depth)}
+    chain[f"q{depth}"] = _HIDDEN_BASE_EXPRESSION
+
+    lineages, reporter = _lineage_and_report('let Source = #"q0" in Source', chain)
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert "Reference chain is too long to be a real model" in _warning_titles(reporter)
+
+
+@pytest.mark.integration
+def test_reference_chain_within_the_cap_still_resolves():
+    """The other side of the cap: a chain one hop short of the limit resolves, so
+    the limit is pinned from both directions rather than only 'deep things fail'."""
+    depth = shared_expressions.MAX_REFERENCE_DEPTH - 1
+    chain = {f"q{i}": f'let s = #"q{i + 1}" in s' for i in range(depth)}
+    chain[f"q{depth}"] = _HIDDEN_BASE_EXPRESSION
+
+    lineages, reporter = _lineage_and_report('let Source = #"q0" in Source', chain)
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_UPSTREAM
+    assert _warning_titles(reporter) == []
+
+
+@pytest.mark.integration
+def test_a_query_reached_by_two_routes_is_parsed_once():
+    """The parse cache is a cost guarantee, not a nicety -- a failing query would
+    otherwise re-pay the full m_query_parse_timeout per route. Count the parses."""
+    seen: List[str] = []
+    real = parser._parse_with_bridge
+
+    def counting(expression: str, timeout: int) -> Dict[int, dict]:
+        seen.append(expression)
+        return real(expression, timeout)
+
+    with patch.object(parser, "_parse_with_bridge", side_effect=counting):
+        lineages = _lineage_with_expressions(
+            'let Source = Table.Combine({#"Only", #"Excluded"}) in Source',
+            {
+                "Only": 'let s = #"Base Query",'
+                ' f = Table.SelectRows(s, each [c] = "x") in f',
+                "Excluded": 'let s = #"Base Query",'
+                ' f = Table.SelectRows(s, each [c] <> "x") in f',
+                "Base Query": _HIDDEN_BASE_EXPRESSION,
+            },
+        )
+
+    # Both routes legitimately reach the same table, so the parser reports it
+    # twice and the mapper dedupes; what matters here is the parse count.
+    assert {u.urn for u in combine_upstreams_from_lineage(lineages)} == {
+        _DATABRICKS_EXPECTED_UPSTREAM
+    }
+    assert seen.count(_HIDDEN_BASE_EXPRESSION) == 1, (
+        f"the shared base was parsed {seen.count(_HIDDEN_BASE_EXPRESSION)} times"
     )
