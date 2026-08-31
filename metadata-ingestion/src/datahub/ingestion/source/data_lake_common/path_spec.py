@@ -197,9 +197,13 @@ class PathSpec(ConfigModel):
         ext = os.path.splitext(path)[1].strip(".")
 
         if not ignore_ext:
-            if (ext == "" and self.default_extension is None) and (
-                ext != "*" and ext not in self.file_types
-            ):
+            if self.enable_compression and ext in SUPPORTED_COMPRESSIONS:
+                ext = os.path.splitext(os.path.splitext(path)[0])[1].strip(".")
+
+            if ext == "":
+                if self.default_extension is None:
+                    return False
+            elif ext != "*" and ext not in self.file_types:
                 return False
 
         return True

@@ -256,17 +256,25 @@ def test_allowed_with_exclude_patterns() -> None:
 
 def test_allowed_with_file_extension_filter() -> None:
     """Test allowed method with file extension filtering."""
-    path_spec = PathSpec(
-        include="s3://bucket/{table}/*.csv", file_types=["csv", "json"]
-    )
+    path_spec = PathSpec(include="s3://bucket/{table}/*", file_types=["csv", "json"])
 
-    assert path_spec.allowed("s3://bucket/table/file.csv") is True
-    # Test with different include pattern for json
-    path_spec_json = PathSpec(
-        include="s3://bucket/{table}/*.json", file_types=["csv", "json"]
+    assert path_spec.allowed("s3://bucket/table/file.csv")
+    assert path_spec.allowed("s3://bucket/table/file.json")
+    assert not path_spec.allowed("s3://bucket/table/file.htm")
+
+
+def test_allowed_with_compressed_file_extension_filter() -> None:
+    path_spec = PathSpec(include="s3://bucket/{table}/*", file_types=["csv"])
+
+    assert path_spec.allowed("s3://bucket/table/file.csv.gz")
+    assert not path_spec.allowed("s3://bucket/table/file.htm.gz")
+
+    compression_disabled_path_spec = PathSpec(
+        include="s3://bucket/{table}/*",
+        file_types=["csv"],
+        enable_compression=False,
     )
-    assert path_spec_json.allowed("s3://bucket/table/file.json") is True
-    assert path_spec.allowed("s3://bucket/table/file.parquet") is False
+    assert not compression_disabled_path_spec.allowed("s3://bucket/table/file.csv.gz")
 
 
 def test_allowed_with_default_extension() -> None:
