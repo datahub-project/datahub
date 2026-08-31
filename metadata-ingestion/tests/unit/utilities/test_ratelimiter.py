@@ -2,7 +2,7 @@ import logging
 import time
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 import pytest
 import time_machine
@@ -13,6 +13,20 @@ from datahub.utilities.ratelimiter import (
     RateLimiter,
     TokenBucket,
 )
+
+
+def _make_deterministic_sleep(
+    clock: List[float], sleep_calls: List[float]
+) -> Callable[[float], None]:
+    """Return a ``time.sleep`` replacement that records the requested sleep and
+    advances a deterministic ``time.monotonic`` clock by the same amount, so the
+    token-bucket wait math is exercised without real sleeping."""
+
+    def _sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+        clock[0] += seconds
+
+    return _sleep
 
 
 def test_rate_is_limited():
@@ -64,6 +78,64 @@ def test_token_bucket_rejects_non_positive_params() -> None:
         TokenBucket(rate=0, capacity=1)
     with pytest.raises(ValueError):
         TokenBucket(rate=1, capacity=0)
+
+
+def test_token_bucket_empty_branch_fires_under_burst(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When calls arrive faster than the refill rate, the bucket drains below 1
+    and the wait branch must fire (it is reachable, not dead code). Drains the
+    burst capacity, then the next acquire sees tokens < 1 and waits for the
+    missing token at the configured rate."""
+    sleep_calls: List[float] = []
+    # Deterministic clock: advance only when we say so.
+    clock = [0.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(time, "sleep", _make_deterministic_sleep(clock, sleep_calls))
+
+    bucket = TokenBucket(rate=2.0, capacity=2)
+    bucket.acquire()  # tokens 2 -> 1 (burst)
+    bucket.acquire()  # tokens 1 -> 0 (burst)
+    # Bucket empty; next acquire must enter the < 1 branch and wait for one token.
+    bucket.acquire()
+    # wait = (1 - 0) / 2.0 = 0.5s for the missing token.
+    assert sleep_calls[-1] == pytest.approx(0.5, abs=0.01)
+
+
+def test_token_bucket_resets_token_state_after_wait(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """After the wait branch fires, ``_tokens`` is reset to 0.0 (one token refilled
+    during the sleep and immediately consumed) and ``_last_refill`` is advanced to
+    post-sleep time, so the next acquire does not double-count the wait."""
+    clock = [0.0]
+    sleep_calls: List[float] = []
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(time, "sleep", _make_deterministic_sleep(clock, sleep_calls))
+
+    bucket = TokenBucket(rate=1.0, capacity=1)
+    bucket.acquire()  # burst token consumed, tokens -> 0
+    assert bucket._tokens == 0.0
+
+    bucket.acquire()  # empty -> waits 1.0s for one token, consumes it
+    assert sleep_calls[-1] == pytest.approx(1.0, abs=0.01)
+    assert bucket._tokens == 0.0  # refilled to 1 during sleep, then consumed
+
+
+def test_token_bucket_caps_at_capacity_no_overfill(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A long gap between calls cannot refill tokens above ``capacity`` — the
+    ``min(capacity, ...)`` cap bounds the bucket, so a burst after idle is at
+    most ``capacity`` tokens, not elapsed*rate."""
+    clock = [0.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+
+    bucket = TokenBucket(rate=1.0, capacity=2)
+    clock[0] = 100.0  # long idle gap; naive refill would be 100 tokens
+    bucket.acquire()  # capped at capacity=2, consumes one -> tokens=1
+    assert bucket._tokens == 1.0
 
 
 def test_daily_call_budget_raises_once_exhausted() -> None:
