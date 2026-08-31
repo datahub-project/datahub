@@ -189,6 +189,12 @@ public class RollbackService {
       int rowsDeletedFromEntityDeletion = rollbackRunResult.getRowsDeletedFromEntityDeletion();
       recordRollbackPage(metrics, rollbackRunResult);
 
+      // Count key aspects targeted per page. Soft delete does not return key aspects in
+      // rowsRolledBack, so deletedRows would report 0 entities — count from the input target
+      // list instead, accumulated across all pages (master only counted the last page).
+      long keyAspectsDeleted =
+          aspectRowsToDelete.stream().filter(AspectRowSummary::isKeyAspect).count();
+
       // since elastic limits how many rows we can access at once, we need to iteratively
       // delete
       while (aspectRowsToDelete.size()
@@ -207,6 +213,8 @@ public class RollbackService {
             entityService.rollbackRun(opContext, aspectRowsToDelete, runId, hardDelete);
         deletedRows.addAll(rollbackRunResult.getRowsRolledBack());
         rowsDeletedFromEntityDeletion += rollbackRunResult.getRowsDeletedFromEntityDeletion();
+        keyAspectsDeleted +=
+            aspectRowsToDelete.stream().filter(AspectRowSummary::isKeyAspect).count();
         recordRollbackPage(metrics, rollbackRunResult);
       }
 
@@ -229,8 +237,7 @@ public class RollbackService {
 
       final List<AspectRowSummary> keyAspects = aspectsSplitByIsKeyAspects.get(true);
 
-      final long entitiesDeleted =
-          deletedRows.stream().filter(AspectRowSummary::isKeyAspect).count();
+      final long entitiesDeleted = keyAspectsDeleted;
       final long affectedEntities =
           deletedRows.stream()
               .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
@@ -241,12 +248,10 @@ public class RollbackService {
           new AspectRowSummaryArray(
               aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size())));
 
-      // Soft delete does not remove key aspects — match dry-run response semantics. Count keys from
-      // deletedRows (all pages), not aspectRowsToDelete (last page only after the while-loop).
+      // Soft delete does not remove key aspects — match dry-run response semantics. Use the
+      // accumulated key-aspect count across all pages (master only subtracted the last page).
       if (!hardDelete) {
-        int keyAspectsReverted =
-            (int) deletedRows.stream().filter(AspectRowSummary::isKeyAspect).count();
-        aspectsReverted -= keyAspectsReverted;
+        aspectsReverted -= keyAspectsDeleted;
         rowSummaries.removeIf(AspectRowSummary::isKeyAspect);
       }
 
