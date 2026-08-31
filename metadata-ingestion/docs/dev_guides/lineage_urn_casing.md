@@ -194,15 +194,18 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   offline / file-only ingestion.
 - **Requires the dataset `aliases` backfill to have succeeded.** GMS derives the aspect from the dataset
   key aspect, written once at creation, so a dataset created before aliases shipped has none until the
-  `BackfillDatasetAliases` system update (default-on, non-blocking) reaches it. An entity with no alias
-  is invisible to the lookup, so a reference naming it exactly can be healed onto a lowercase-named
-  sibling instead — a wrong edge, not an `UNRESOLVED` one. The feature therefore stays off, with a
-  warning, until the completion marker on `urn:li:dataHubUpgrade:dataset-aliases-v1` reports
-  `SUCCEEDED`. That marker is written when the backfill's scroll is exhausted, and the alias writes
-  themselves land through the MCE consumer, so references resolved while that backlog drains can still
-  miss; they heal on the source's next run.
-- **Aliases are written asynchronously.** For a short window after a backfill or an ingestion, a
-  reference can still miss and be reported `UNRESOLVED`. It heals on the source's next run.
+  `BackfillDatasetAliases` system update (default-on, non-blocking) reaches it. Until then most datasets
+  are invisible to the lookup — see the next bullet for what that does to a reference — so the feature
+  stays off, with a warning, until the completion marker on `urn:li:dataHubUpgrade:dataset-aliases-v1`
+  reports `SUCCEEDED`.
+- **Aliases are written asynchronously, so an entity can be briefly invisible to the lookup.** The
+  marker is written when the backfill's scroll is exhausted, and alias writes — the backfill's and every
+  ingestion's alike — land through the MCE consumer. So this window is not a one-off after the backfill:
+  it reopens on every warehouse run that creates datasets, for as long as that run's writes take to
+  drain. An entity whose alias has not landed yet is invisible, and what that costs depends on what
+  _is_ visible: a reference naming it is reported `UNRESOLVED` if nothing else matches, but healed onto
+  a differently-cased sibling whose alias has landed if one exists — a wrong edge rather than a flagged
+  one. Either way the reference is corrected on the source's next run, once the alias is in place.
 - **Resolves only against entities that already exist at ingestion time.** This relies on the warehouse
   being ingested before the BI tool that references it (the normal order for scheduled pipelines). A
   reference whose target doesn't yet exist is left unchanged and self-heals once the warehouse is ingested
