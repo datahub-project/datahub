@@ -831,7 +831,7 @@ class TestParseIntoDBTNodeName:
             "meta": {},
             "tags": [],
             "description": "",
-            "maxLoadedAt": None,
+            "maxLoadedAt": "",
         }
 
         dbt_node = source._parse_into_dbt_node(node)
