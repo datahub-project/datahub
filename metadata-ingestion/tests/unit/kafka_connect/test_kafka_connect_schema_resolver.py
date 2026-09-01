@@ -894,6 +894,43 @@ class TestJavaRegexPatternMatching:
         assert "mydb.orders" not in result
         assert "otherdb.users" not in result
 
+    def test_mysql_table_only_pattern_preserves_database(self):
+        """Test MySQL table-only patterns retain the 2-tier dataset identity."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_expand_patterns=True,
+        )
+        report = KafkaConnectSourceReport()
+        connector_manifest = ConnectorManifest(
+            name="mysql-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+                "database.dbname": "mydb",
+                "table.include.list": "user.*",
+                "database.server.name": "mysqlserver",
+            },
+            tasks=[],
+        )
+        mock_resolver = MockSchemaResolver(
+            platform="mysql",
+            mock_urns=[
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.users,PROD)",
+            ],
+        )
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        result = connector._expand_table_patterns("user.*", "mysql", "mydb")
+
+        assert result == ["mydb.users"]
+
     def test_escaped_dots_vs_any_char(self):
         """Test that escaped dots (\\.) match literal dots, not any character."""
         config = KafkaConnectSourceConfig(
@@ -983,6 +1020,43 @@ class TestJavaRegexPatternMatching:
         assert "public.users" in result
         assert "public.orders" in result
         assert "private.secrets" not in result
+
+    def test_postgres_schema_pattern_without_configured_database(self):
+        """Test 3-tier schema patterns omit the discovered database."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_expand_patterns=True,
+        )
+        report = KafkaConnectSourceReport()
+        connector_manifest = ConnectorManifest(
+            name="postgres-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "table.include.list": "public\\..*",
+                "database.server.name": "testserver",
+            },
+            tasks=[],
+        )
+        mock_resolver = MockSchemaResolver(
+            platform="postgres",
+            mock_urns=[
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.users,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.private.secrets,PROD)",
+            ],
+        )
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        result = connector._expand_table_patterns("public\\..*", "postgres", None)
+
+        assert result == ["public.users"]
 
     def test_quantifier_patterns(self):
         """Test various quantifiers: +, *"""

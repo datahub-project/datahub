@@ -3393,10 +3393,9 @@ class DebeziumSourceConnector(BaseConnector):
                 return []
 
             matched_tables = []
+            is_three_level_hierarchy = has_three_level_hierarchy(platform)
             database_prefix = (
-                f"{database}."
-                if database and has_three_level_hierarchy(platform)
-                else None
+                f"{database}." if database and is_three_level_hierarchy else None
             )
 
             # Try to use Java regex for exact compatibility with Debezium
@@ -3457,7 +3456,11 @@ class DebeziumSourceConnector(BaseConnector):
                     )
 
                     if schema_name_matches:
-                        matched_tables.append(normalized_table_name)
+                        matched_tables.append(
+                            table_without_database
+                            if is_three_level_hierarchy
+                            else normalized_table_name
+                        )
 
             logger.debug(
                 f"Pattern '{pattern}' matched {len(matched_tables)} tables from DataHub"
