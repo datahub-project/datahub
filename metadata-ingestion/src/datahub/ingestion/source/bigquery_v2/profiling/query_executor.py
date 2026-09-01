@@ -74,7 +74,11 @@ class QueryExecutor:
             job_config.use_query_cache = False
 
             query_job = self._get_client().query(query, job_config=job_config)
-            results = list(query_job.result())
+            # job_timeout_ms bounds server-side execution, but result() with no client-side
+            # timeout can still block on queue delay, a slow cancel, or a hung result
+            # stream. Bound the wait so a stuck fetch can't stall sequential discovery or a
+            # deferred worker past the configured timeout.
+            results = list(query_job.result(timeout=timeout))
             logger.debug(
                 f"Query returned {len(results)} row(s){f' for {context}' if context else ''}"
             )

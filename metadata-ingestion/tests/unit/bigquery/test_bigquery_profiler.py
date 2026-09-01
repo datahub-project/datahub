@@ -472,6 +472,60 @@ def test_get_profile_request_partition_profiling_disabled_skips_partitioned_tabl
     )
 
 
+def test_get_profile_request_transient_error_reported_not_aborting():
+    # super().get_profile_request runs partition-discovery queries that can fail per-table
+    # in ways beyond the historically-caught set (here a transient TimeoutError). Such a
+    # failure must be reported and skipped, never propagated — one table cannot be allowed
+    # to abort the whole project's profiling loop.
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+    table = create_test_table()
+
+    with patch(
+        "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.get_profile_request",
+        side_effect=TimeoutError("deadline exceeded"),
+    ):
+        result = profiler.get_profile_request(table, "test_dataset", "proj-123456")
+
+    assert result is None
+    assert any("deadline exceeded" in str(w) for w in report.warnings)
+
+
+def test_single_partition_label_keeps_shard_id_for_sharded_table():
+    # A date-sharded table is a standalone shard: discovery correctly emits no partition
+    # WHERE, but scanning the shard table IS scanning exactly that shard, so the shard id
+    # stays as an honest label (matching the pre-rewrite profiler). A partitioned table
+    # with an empty predicate, by contrast, was full/sample-scanned and stays unlabeled.
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    sharded = create_test_table(name="events_20240115", max_shard_id="20240115")
+    assert profiler._single_partition_label("", sharded) == "20240115"
+
+    partitioned = create_test_table(partitioned=True, max_partition_id="20240115")
+    assert profiler._single_partition_label("", partitioned) is None
+
+
+def test_execute_query_safely_bounds_result_fetch_with_timeout():
+    # result() must receive a client-side timeout so a hung fetch / queue delay / slow
+    # cancel can't block past partition_fetch_timeout — job_timeout_ms only bounds the
+    # server-side execution.
+    config = create_test_config()
+    executor = QueryExecutor(config)
+    expected = config.profiling.partition_fetch_timeout
+
+    query_job = MagicMock()
+    query_job.result.return_value = []
+    client = MagicMock()
+    client.query.return_value = query_job
+
+    with patch.object(executor, "_get_client", return_value=client):
+        executor.execute_query_safely("SELECT 1 FROM `p.d.t` LIMIT 1")
+
+    query_job.result.assert_called_once_with(timeout=expected)
+
+
 def test_partition_metadata_cache_population_failure_reports_and_empties():
     config = create_test_config()
     report = BigQueryV2Report()
