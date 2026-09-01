@@ -20,6 +20,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     ContainerClass,
     DataPlatformInstanceClass,
+    DatasetPropertiesClass,
     MetadataChangeProposalClass,
 )
 
@@ -38,8 +39,9 @@ SCHEMA_CONTAINER_URN = "urn:li:container:schema456"
 def make_graph(
     browse_path: Optional[BrowsePathsV2Class] = None,
     containers: Optional[Dict[str, str]] = None,
+    dataset_properties: Optional[DatasetPropertiesClass] = None,
 ) -> mock.MagicMock:
-    """A graph that answers browse-path and container reads independently.
+    """A graph that answers each aspect read independently.
 
     ``containers`` maps an entity/container urn to its parent container urn.
     """
@@ -48,6 +50,8 @@ def make_graph(
     def get_aspect(urn: str, aspect_type: Type) -> Optional[object]:
         if aspect_type is BrowsePathsV2Class:
             return browse_path
+        if aspect_type is DatasetPropertiesClass:
+            return dataset_properties
         if aspect_type is ContainerClass:
             parent = parents.get(urn)
             return ContainerClass(container=parent) if parent else None
@@ -382,3 +386,55 @@ def test_no_display_name_when_browse_path_is_container_based() -> None:
         ),
     )
     assert dataset_properties_patch_ops(source, create_dbt_node()) == []
+
+
+def test_sets_display_name_when_stub_already_has_instance_only_path() -> None:
+    # The upgrade path for the default-off flag: an earlier run wrote the
+    # instance-only browse path, and enabling the flag later must still name the
+    # entity even though that path needs no rewrite.
+    source = create_dbt_source(
+        config_overrides=DISPLAY_NAME_ENABLED,
+        graph=make_graph(
+            browse_path=BrowsePathsV2Class(
+                path=[BrowsePathEntryClass(id=INSTANCE_URN, urn=INSTANCE_URN)]
+            )
+        ),
+    )
+    node = create_dbt_node()
+
+    assert dataset_properties_patch_ops(source, node) == [
+        {"op": "add", "path": "/name", "value": "my_table"}
+    ]
+    # ...and the unchanged path is not proposed again.
+    assert (
+        get_aspect(target_platform_workunit_aspects(source, node), BrowsePathsV2Class)
+        is None
+    )
+
+
+def test_no_display_name_when_one_is_already_set() -> None:
+    source = create_dbt_source(
+        config_overrides=DISPLAY_NAME_ENABLED,
+        graph=make_graph(dataset_properties=DatasetPropertiesClass(name="my_table")),
+    )
+    assert dataset_properties_patch_ops(source, create_dbt_node()) == []
+
+
+def test_upgrades_instance_only_path_once_containers_exist() -> None:
+    source = create_dbt_source(
+        graph=make_graph(
+            browse_path=BrowsePathsV2Class(
+                path=[BrowsePathEntryClass(id=INSTANCE_URN, urn=INSTANCE_URN)]
+            ),
+            containers={NODE_URN: SCHEMA_CONTAINER_URN},
+        )
+    )
+    browse = get_aspect(
+        target_platform_workunit_aspects(source, create_dbt_node()), BrowsePathsV2Class
+    )
+
+    assert browse is not None
+    assert browse.path == [
+        BrowsePathEntryClass(id=INSTANCE_URN, urn=INSTANCE_URN),
+        BrowsePathEntryClass(id=SCHEMA_CONTAINER_URN, urn=SCHEMA_CONTAINER_URN),
+    ]

@@ -3107,7 +3107,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ),
         ).as_workunit(is_primary_source=False)
 
-        if not self._should_write_target_browse_path(node_datahub_urn):
+        existing_entries = self._read_target_browse_path_entries(node_datahub_urn)
+        if existing_entries is None:
+            return
+        if self._is_container_based_path(existing_entries):
+            # The warehouse connector owns this entity's browse path, which means
+            # it ingested the entity and owns its properties too. Nothing to add,
+            # and no need to walk the container chain to find that out.
             return
 
         container_entries = self._resolve_container_browse_path_entries(
@@ -3116,20 +3122,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if container_entries is None:
             return
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=node_datahub_urn,
-            aspect=BrowsePathsV2Class(
-                path=[BrowsePathEntryClass(id=instance_urn, urn=instance_urn)]
-                + container_entries
-            ),
-        ).as_workunit(is_primary_source=False)
+        path = [
+            BrowsePathEntryClass(id=instance_urn, urn=instance_urn)
+        ] + container_entries
+        if path != existing_entries:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=node_datahub_urn,
+                aspect=BrowsePathsV2Class(path=path),
+            ).as_workunit(is_primary_source=False)
 
         if not container_entries and self.config.emit_target_platform_display_name:
             # No container means the warehouse connector has not ingested this
             # entity, so nothing has written datasetProperties for it either and
             # the UI falls back to the urn's name - the full dotted path rather
-            # than the table name. Patch that one field, leaving any other
-            # property the warehouse connector may later write untouched.
+            # than the table name.
             yield from self._create_target_display_name_workunits(
                 node, node_datahub_urn
             )
@@ -3144,7 +3150,28 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         node.name is the warehouse-side table name (identifier and alias already
         applied) and is the last segment of the entity's urn, so it matches what
         the warehouse connector would write for the same table.
+
+        An existing name is never replaced: the patch only fills a gap. That also
+        keeps re-runs quiet, since the name written by an earlier run is read back
+        here rather than proposed again.
         """
+        graph = self.ctx.graph
+        if graph is None:
+            return
+        try:
+            existing = graph.get_aspect(node_datahub_urn, DatasetPropertiesClass)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to read existing dataset properties",
+                message="Could not determine whether the target-platform entity "
+                "already has a display name; skipping the datasetProperties patch.",
+                context=node_datahub_urn,
+                exc=e,
+            )
+            return
+        if existing is not None and existing.name:
+            return
+
         patch = DatasetPatchBuilder(node_datahub_urn)
         patch.set_display_name(node.name)
         for mcp in patch.build():
@@ -3209,29 +3236,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         return [BrowsePathEntryClass(id=urn, urn=urn) for urn in container_urns]
 
-    def _should_write_target_browse_path(self, node_datahub_urn: str) -> bool:
-        """Whether it is safe to write a browsePathsV2 aspect for a target entity.
+    def _read_target_browse_path_entries(
+        self, node_datahub_urn: str
+    ) -> Optional[List[BrowsePathEntryClass]]:
+        """The target entity's current browsePathsV2 entries.
 
-        The warehouse connector is authoritative for browse paths of entities it
-        ingests. Those paths are container-based, so every entry below the root
-        carries a container URN. We replace only paths built from plain-name
-        segments, which are never authoritative:
-
-        - a pre-datahub-project/datahub#17263 server default, plain-name all the
-          way down;
-        - a post-#17263 server default, whose first segment is resolved to a
-          dataPlatformInstance URN but whose remaining segments come from
-          splitting the dataset name;
-        - the database/schema guess this source itself wrote before it resolved
-          real containers (datahub-project/datahub#18539) - rewriting it is what
-          lets already-affected entities recover on the next run.
-
-        Without a graph connection we cannot tell these apart from a real
-        container path, so we skip the write.
+        Returns None when the graph is unavailable or unreadable, and an empty
+        list when the entity has no browse path yet.
         """
         graph = self.ctx.graph
         if graph is None:
-            return False
+            return None
         try:
             existing = graph.get_aspect(node_datahub_urn, BrowsePathsV2Class)
         except Exception as e:
@@ -3242,12 +3257,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 context=node_datahub_urn,
                 exc=e,
             )
-            return False
+            return None
         if existing is None or not existing.path:
-            return True
-        if not existing.path[0].id.startswith("urn:"):
-            return True
-        return any(entry.urn is None for entry in existing.path[1:])
+            return []
+        return list(existing.path)
+
+    @staticmethod
+    def _is_container_based_path(entries: List[BrowsePathEntryClass]) -> bool:
+        """Whether a browse path was written by the connector that owns the entity.
+
+        Container-based paths carry a container urn on every entry below the root,
+        and only the warehouse connector produces them. Everything else is built
+        from plain names - a server-generated default, or the database/schema guess
+        this source wrote before it resolved real containers
+        (datahub-project/datahub#18539) - and is ours to replace.
+        """
+        return len(entries) > 1 and all(entry.urn is not None for entry in entries[1:])
 
     def extract_query_tag_aspects(
         self,
