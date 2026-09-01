@@ -58,6 +58,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
 
     List<String> groupAliases = new ArrayList<>();
     List<String> groupSql = new ArrayList<>();
+    List<String> groupKeyExprs = new ArrayList<>();
     List<String> stringGroupPathExprs = new ArrayList<>();
     int bi = 0;
     for (GroupingBucket b : buckets) {
@@ -66,12 +67,15 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       if (b.getType() == GroupingBucketType.DATE_GROUPING_BUCKET) {
         ZoneId z = zoneForBucket(b);
         String millisExpr = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(b.getKey());
-        groupSql.add(postgresDateBucketSql(b.getTimeWindowSize(), millisExpr, z) + " AS " + alias);
+        String keyExpr = postgresDateBucketSql(b.getTimeWindowSize(), millisExpr, z);
+        groupKeyExprs.add(keyExpr);
+        groupSql.add(keyExpr + " AS " + alias);
       } else if (b.getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
         String pathExpr = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(b.getKey());
         // ES terms buckets omit missing values; parent (non-exploded) rows lack collection fields
         // such as userCounts.user, so exclude NULL/empty keys to avoid a phantom NULL group.
         stringGroupPathExprs.add(pathExpr);
+        groupKeyExprs.add(pathExpr);
         groupSql.add(pathExpr + " AS " + alias);
       } else {
         throw new UnsupportedOperationException("Unsupported grouping bucket type: " + b.getType());
@@ -132,6 +136,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
         buildAggregatedStatsSql(
             qualifiedTable,
             groupSql,
+            groupKeyExprs,
             groupAliases,
             metricSql,
             metricColumnNames,
@@ -400,6 +405,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
   static String buildAggregatedStatsSql(
       @Nonnull String qualifiedTable,
       @Nonnull List<String> groupSql,
+      @Nonnull List<String> groupKeyExprs,
       @Nonnull List<String> groupAliases,
       @Nonnull List<String> metricSql,
       @Nonnull List<String> metricColumnNames,
@@ -431,7 +437,8 @@ public final class PostgresTimeseriesAggregatedStatsDao {
     inner.append(" GROUP BY ");
     inner.append(String.join(", ", groupAliases));
     String orderBy =
-        buildGroupOrderBy(buckets, groupAliases, metricColumnNames, aggregationSpecs, aspectSpec);
+        buildGroupOrderBy(
+            buckets, groupKeyExprs, groupAliases, metricColumnNames, aggregationSpecs, aspectSpec);
     inner.append(" ORDER BY ");
     inner.append(orderBy);
 
@@ -451,7 +458,14 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       int idx = stringIdxs.get(s);
       List<String> parentAliases = groupAliases.subList(0, idx);
       int limit = groupingSize(buckets[idx]);
-      sql = wrapStringGroupLimit(sql, selectList, parentAliases, orderBy, limit);
+      sql =
+          wrapStringGroupLimit(
+              sql,
+              selectList,
+              parentAliases,
+              groupAliases.get(idx),
+              orderBy,
+              limit);
     }
     return sql + " ORDER BY " + orderBy;
   }
@@ -461,16 +475,43 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       @Nonnull String innerSql,
       @Nonnull String selectList,
       @Nonnull List<String> parentAliases,
+      @Nonnull String limitedKeyAlias,
       @Nonnull String orderBy,
       int limit) {
+    if (parentAliases.isEmpty()) {
+      // Top-N distinct parent keys at this STRING level (ES terms size on the outer bucket).
+      return "SELECT "
+          + selectList
+          + " FROM ("
+          + innerSql
+          + ") _g WHERE "
+          + limitedKeyAlias
+          + " IN (SELECT "
+          + limitedKeyAlias
+          + " FROM (SELECT "
+          + limitedKeyAlias
+          + ", ROW_NUMBER() OVER (ORDER BY "
+          + orderBy
+          + ") AS _rn FROM (SELECT DISTINCT ON ("
+          + limitedKeyAlias
+          + ") "
+          + selectList
+          + " FROM ("
+          + innerSql
+          + ") _inner ORDER BY "
+          + limitedKeyAlias
+          + ", "
+          + orderBy
+          + ") _distinct) _top WHERE _rn <= "
+          + limit
+          + ")";
+    }
     StringBuilder ranked = new StringBuilder("SELECT ");
     ranked.append(selectList);
     ranked.append(" FROM (SELECT ");
     ranked.append(selectList);
     ranked.append(", ROW_NUMBER() OVER (");
-    if (!parentAliases.isEmpty()) {
-      ranked.append("PARTITION BY ").append(String.join(", ", parentAliases)).append(" ");
-    }
+    ranked.append("PARTITION BY ").append(String.join(", ", parentAliases)).append(" ");
     ranked.append("ORDER BY ").append(orderBy);
     ranked.append(") AS _rn FROM (");
     ranked.append(innerSql);
@@ -485,6 +526,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
   @Nonnull
   static String buildGroupOrderBy(
       @Nonnull GroupingBucket[] buckets,
+      @Nonnull List<String> groupKeyExprs,
       @Nonnull List<String> groupAliases,
       @Nonnull List<String> metricColumnNames,
       @Nonnull AggregationSpec[] aggregationSpecs,
@@ -506,7 +548,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
           && !metricColumnNames.isEmpty()) {
         orderParts.add(sqlSafeAlias(metricColumnNames.get(0)) + dir);
       } else {
-        orderParts.add(numericOrderExpr(groupAliases.get(i), buckets[i], aspectSpec) + dir);
+        orderParts.add(numericOrderExpr(groupKeyExprs.get(i), buckets[i], aspectSpec) + dir);
       }
     }
     if (!anyString) {
@@ -517,20 +559,20 @@ public final class PostgresTimeseriesAggregatedStatsDao {
 
   @Nonnull
   private static String numericOrderExpr(
-      @Nonnull String alias, @Nonnull GroupingBucket bucket, @Nullable AspectSpec aspectSpec) {
+      @Nonnull String keyExpr, @Nonnull GroupingBucket bucket, @Nullable AspectSpec aspectSpec) {
     if (aspectSpec == null) {
-      return alias;
+      return keyExpr;
     }
     DataSchema.Type t = getTimeseriesFieldType(aspectSpec, bucket.getKey());
     switch (t) {
       case INT:
       case LONG:
-        return "(" + alias + ")::bigint";
+        return "(" + keyExpr + ")::bigint";
       case DOUBLE:
       case FLOAT:
-        return "(" + alias + ")::double precision";
+        return "(" + keyExpr + ")::double precision";
       default:
-        return alias;
+        return keyExpr;
     }
   }
 
