@@ -101,13 +101,13 @@ authorization:
     # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`). Empty `value`
     # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
     # Default `add` is the previous unrestricted CSV minus (1) types already flagged in the
-    # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Trim further
-    # with VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE, e.g. schemaField. Re-add document via
-    # VIEW_UNRESTRICTED_ENTITY_TYPES_ADD=document if needed.
+    # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Document,
+    # schemaField, and container are intentionally absent from stock unrestricted overlays when
+    # view authorization is on (container is no longer viewUnrestricted in the registry). Re-add
+    # via VIEW_UNRESTRICTED_ENTITY_TYPES_ADD if needed (not recommended).
     #
     # Registry baseline (entity-registry.yml viewUnrestricted: true):
     #   identity: corpuser, corpGroup
-    #   browse: container
     #   platforms: dataPlatform, dataPlatformInstance
     #   metadata model: ownershipType, lifecycleStageType, entityType, dataType, structuredProperty, form, role, dataHubRole
     #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post
@@ -1729,6 +1729,8 @@ cache:
           roleMembership: 20
           groupMembership: 20
           nativeGroupMembership: 20
+        corpGroup:
+          roleMembership: 20
         structuredProperty:
           status: 300 # 5 min
           propertyDefinition: 300 # 5 min
@@ -1873,6 +1875,9 @@ metadataChangeProposal:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}
     privilegeConstraints:
       enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
+    aspectAuthorization:
+      privilegeGrant:
+        enabled: ${MCP_VALIDATION_PRIVILEGE_GRANT:true}
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
     urlValidation:

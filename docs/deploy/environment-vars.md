@@ -49,8 +49,8 @@ Reference Links:
 | `VIEW_AUTHORIZATION_ENABLED`                            | `false`                | Enable View-Based Access Control (VBAC) — restrict entity visibility based on policies (core; search access-control pushdown is Cloud-only)                                                                                                                                                                                                                   | GMS        |
 | `VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED` | `true`                 | Enable peer group recommendations for view authorization                                                                                                                                                                                                                                                                                                      | GMS        |
 | `VIEW_UNRESTRICTED_ENTITY_TYPES`                        | _(empty)_              | Optional full override of view-unrestricted entity types when `VIEW_AUTHORIZATION_ENABLED=true`. Empty keeps the `entity-registry.yml` `viewUnrestricted: true` baseline. Shared GMS config for Cloud [Search Access Controls](../features/feature-guides/search-access-controls.md) and OSS entity-page VBAC — query-time search pushdown remains Cloud-only | GMS        |
-| `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD`                    | see `application.yaml` | Comma-separated registry names to append after the registry baseline (or after `VIEW_UNRESTRICTED_ENTITY_TYPES` when set). Stock default is the previous unrestricted CSV minus registry-flagged types and non-OSS entity names                                                                                                                               | GMS        |
-| `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE`                 | _(empty)_              | Comma-separated registry names to remove from the effective view-unrestricted list (e.g. `schemaField,document`)                                                                                                                                                                                                                                              | GMS        |
+| `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD`                    | see `application.yaml` | Comma-separated registry names to append after the registry baseline (or after `VIEW_UNRESTRICTED_ENTITY_TYPES` when set). Stock default excludes `document`, `schemaField`, and `container` (those are view-restricted when view auth is on; `container` is also no longer `viewUnrestricted` in the registry)                                               | GMS        |
+| `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE`                 | _(empty)_              | Comma-separated registry names to remove from the effective view-unrestricted list. Stock `_ADD` already omits `document` and `schemaField`; keep them (and `container`) out of unrestricted overlays unless you intentionally want view bypass                                                                                                               | GMS        |
 
 ## Ingestion Configuration
 
@@ -764,6 +764,8 @@ Per-graph refresh timing (`population.intervalSeconds`) and graph bounds (`bound
   }
 }
 ```
+
+The same overlay can disable a bundled graph (`{"graphs":{"domain":{"enabled":false}}}`) or switch FULL known graphs to `buildSource: graph`. See [Known graphs and bindings](./gms-entity-graph-cache.md#known-graphs-and-bindings).
 
 When a FULL build exceeds `maxVertices`, the cache key enters **`OVER_LIMIT`** (no automatic rebuild). Recovery: delete domains to reduce vertex count, or raise bounds and manually drop the graph in Hazelcast. See [Invalidation (sync writes)](./gms-entity-graph-cache.md#invalidation-sync-writes).
 

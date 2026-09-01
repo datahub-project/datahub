@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.load;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
-import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATAHUB_ROLE_ENTITY_NAME;
@@ -42,6 +41,7 @@ import io.datahubproject.metadata.context.ActorContext;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -60,9 +60,6 @@ public class EntityRelationshipsResultResolver
       Set.of(IS_PART_OF_RELATIONSHIP_NAME);
 
   private static final Set<String> GLOSSARY_CHILD_RELATIONSHIP_TYPES =
-      Set.of(IS_PART_OF_RELATIONSHIP_NAME);
-
-  private static final Set<String> CONTAINER_CHILD_RELATIONSHIP_TYPES =
       Set.of(IS_PART_OF_RELATIONSHIP_NAME);
 
   private static final Set<String> GROUP_MEMBERSHIP_RELATIONSHIP_TYPES =
@@ -115,8 +112,14 @@ public class EntityRelationshipsResultResolver
     final RelationshipDirection resolvedDirection =
         RelationshipDirection.valueOf(relationshipDirection.toString());
     final boolean includeSoftDelete = input.getIncludeSoftDelete();
+    // Normalize case so callers may pass entity types in the GraphQL enum form ("DATASET") or
+    // the entity-registry form ("dataset", "dataHubPolicy"); Urn.getEntityType() is lowercase.
     final Set<String> relatedEntityTypes =
-        input.getRelatedEntityTypes() == null ? null : new HashSet<>(input.getRelatedEntityTypes());
+        input.getRelatedEntityTypes() == null
+            ? null
+            : input.getRelatedEntityTypes().stream()
+                .map(type -> type.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
 
     if (isDomainDirectChildDomainsQuery(urn, relationshipTypes, resolvedDirection)) {
       return GraphQLConcurrencyUtils.supplyAsync(
@@ -136,14 +139,9 @@ public class EntityRelationshipsResultResolver
           "getGlossaryChildRelationships");
     }
 
-    if (isContainerDirectChildrenQuery(urn, relationshipTypes, resolvedDirection)) {
-      return GraphQLConcurrencyUtils.supplyAsync(
-          () ->
-              mapContainerChildRelationships(
-                  context, urn, start, count, relationshipDirection, includeSoftDelete),
-          this.getClass().getSimpleName(),
-          "getContainerChildRelationships");
-    }
+    // Container IsPartOf INCOMING stays on GraphClient: the entity-graph cache models
+    // container→container nesting only, while this API historically returns all contained
+    // assets (datasets, charts, etc.). parentContainers / VBAC still use the cache.
 
     if (isSessionUserOutgoingMembershipQuery(context, urn, relationshipTypes, resolvedDirection)) {
       return GraphQLConcurrencyUtils.supplyAsync(
@@ -155,7 +153,8 @@ public class EntityRelationshipsResultResolver
                   start,
                   count,
                   relationshipDirection,
-                  includeSoftDelete),
+                  includeSoftDelete,
+                  relatedEntityTypes),
           this.getClass().getSimpleName(),
           "getSessionUserMembershipRelationships");
     }
@@ -171,7 +170,8 @@ public class EntityRelationshipsResultResolver
                   start,
                   count,
                   relationshipDirection,
-                  includeSoftDelete),
+                  includeSoftDelete,
+                  relatedEntityTypes),
           this.getClass().getSimpleName(),
           "getMembershipRelationships");
     }
@@ -204,15 +204,6 @@ public class EntityRelationshipsResultResolver
       @Nonnull RelationshipDirection direction) {
     return GLOSSARY_NODE_ENTITY_NAME.equals(UrnUtils.getUrn(urn).getEntityType())
         && relationshipTypes.equals(GLOSSARY_CHILD_RELATIONSHIP_TYPES)
-        && direction == RelationshipDirection.INCOMING;
-  }
-
-  private static boolean isContainerDirectChildrenQuery(
-      @Nonnull String urn,
-      @Nonnull Set<String> relationshipTypes,
-      @Nonnull RelationshipDirection direction) {
-    return CONTAINER_ENTITY_NAME.equals(UrnUtils.getUrn(urn).getEntityType())
-        && relationshipTypes.equals(CONTAINER_CHILD_RELATIONSHIP_TYPES)
         && direction == RelationshipDirection.INCOMING;
   }
 
@@ -262,6 +253,7 @@ public class EntityRelationshipsResultResolver
         && relationshipTypes.equals(ROLE_MEMBERSHIP_RELATIONSHIP_TYPES)) {
       return true;
     }
+    // Role members are users and groups (both IsMemberOfRole edges in the membership snapshot).
     return DATAHUB_ROLE_ENTITY_NAME.equals(entityType)
         && direction == RelationshipDirection.INCOMING
         && relationshipTypes.equals(ROLE_MEMBERSHIP_RELATIONSHIP_TYPES);
@@ -279,7 +271,8 @@ public class EntityRelationshipsResultResolver
       @Nullable final Integer count,
       @Nonnull
           final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection,
-      final boolean includeSoftDelete) {
+      final boolean includeSoftDelete,
+      @Nullable final Set<String> relatedEntityTypes) {
     ActorContext sessionActor = context.getOperationContext().getSessionActorContext();
     List<EntityRelationship> relationships = new ArrayList<>();
 
@@ -303,10 +296,11 @@ public class EntityRelationshipsResultResolver
       }
     }
 
+    relationships = filterByRelatedEntityTypes(relationships, relatedEntityTypes);
     List<EntityRelationship> page = paginateRelationships(relationships, start, count);
     EntityRelationshipsResult result =
         mapEntityRelationshipsFromList(
-            context, page, relationshipDirection, includeSoftDelete, 0, page.size());
+            context, page, relationshipDirection, includeSoftDelete, 0, page.size(), null);
     result.setStart(start != null ? start : 0);
     result.setTotal(relationships.size());
     result.setCount(page.size());
@@ -362,10 +356,12 @@ public class EntityRelationshipsResultResolver
       @Nullable final Integer count,
       @Nonnull
           final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection,
-      final boolean includeSoftDelete) {
+      final boolean includeSoftDelete,
+      @Nullable final Set<String> relatedEntityTypes) {
     MembershipReadSpec spec = MembershipBindings.membershipSpec(context.getOperationContext());
     Urn seedUrn = UrnUtils.getUrn(urn);
     TraversalDirection traversalDirection = toTraversalDirection(direction);
+    boolean filterByRelatedType = relatedEntityTypes != null && !relatedEntityTypes.isEmpty();
 
     List<EntityRelationship> relationships;
     int total;
@@ -379,9 +375,16 @@ public class EntityRelationshipsResultResolver
           roleUrns.stream()
               .map(role -> new EntityRelationship().setEntity(role).setType("IsMemberOfRole"))
               .collect(Collectors.toList());
+      relationships = filterByRelatedEntityTypes(relationships, relatedEntityTypes);
       total = relationships.size();
       relationships = paginateRelationships(relationships, start, count);
     } else {
+      // When filtering by relatedEntityTypes, page after filter so totals/pages match the
+      // filtered set (same as the live-graph mapper). Cap the pre-filter fetch at the membership
+      // graph's bounds.maxEdges (via MembershipReadSpec) and fail closed if truncated.
+      int fetchCap = spec.getRelatedTypeFilterFetchCap();
+      int fetchStart = filterByRelatedType ? 0 : (start != null ? start : 0);
+      int fetchCount = filterByRelatedType ? fetchCap : (count != null ? count : Integer.MAX_VALUE);
       MembershipNeighborResult result =
           BoundMembershipAccess.listRelated(
               context.getOperationContext(),
@@ -389,8 +392,8 @@ public class EntityRelationshipsResultResolver
               seedUrn,
               traversalDirection,
               relationshipTypes,
-              start != null ? start : 0,
-              count != null ? count : Integer.MAX_VALUE,
+              fetchStart,
+              fetchCount,
               includeSoftDelete);
       relationships =
           result.neighborsOrEmpty().stream()
@@ -400,8 +403,23 @@ public class EntityRelationshipsResultResolver
                           .setEntity(UrnUtils.getUrn(neighbor.neighborUrn()))
                           .setType(neighbor.relationshipType()))
               .collect(Collectors.toList());
-      total =
-          result instanceof MembershipNeighborResult.Hit hit ? hit.total() : relationships.size();
+      if (filterByRelatedType) {
+        if (result instanceof MembershipNeighborResult.Hit hit
+            && hit.total() > relationships.size()) {
+          throw new IllegalStateException(
+              "Membership listing for "
+                  + urn
+                  + " exceeds relatedEntityTypes fetch cap ("
+                  + fetchCap
+                  + " from membership bounds.maxEdges); refusing truncated filter+page results");
+        }
+        relationships = filterByRelatedEntityTypes(relationships, relatedEntityTypes);
+        total = relationships.size();
+        relationships = paginateRelationships(relationships, start, count);
+      } else {
+        total =
+            result instanceof MembershipNeighborResult.Hit hit ? hit.total() : relationships.size();
+      }
     }
 
     EntityRelationshipsResult mapped =
@@ -411,11 +429,30 @@ public class EntityRelationshipsResultResolver
             relationshipDirection,
             includeSoftDelete,
             0,
-            relationships.size());
+            relationships.size(),
+            null);
     mapped.setStart(start != null ? start : 0);
     mapped.setTotal(total);
     mapped.setCount(mapped.getRelationships().size());
     return mapped;
+  }
+
+  @Nonnull
+  private static List<EntityRelationship> filterByRelatedEntityTypes(
+      @Nonnull final List<EntityRelationship> relationships,
+      @Nullable final Set<String> relatedEntityTypes) {
+    if (relatedEntityTypes == null || relatedEntityTypes.isEmpty()) {
+      return relationships;
+    }
+    Set<String> normalizedTypes =
+        relatedEntityTypes.stream()
+            .map(type -> type.toLowerCase(Locale.ROOT))
+            .collect(Collectors.toSet());
+    return relationships.stream()
+        .filter(
+            rel ->
+                normalizedTypes.contains(rel.getEntity().getEntityType().toLowerCase(Locale.ROOT)))
+        .collect(Collectors.toList());
   }
 
   private static TraversalDirection toTraversalDirection(@Nonnull RelationshipDirection direction) {
@@ -446,7 +483,8 @@ public class EntityRelationshipsResultResolver
           final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection,
       final boolean includeSoftDelete,
       @Nullable final Integer start,
-      @Nullable final Integer count) {
+      @Nullable final Integer count,
+      @Nullable final Set<String> relatedEntityTypes) {
     EntityRelationships entityRelationships =
         new EntityRelationships()
             .setStart(start != null ? start : 0)
@@ -458,7 +496,7 @@ public class EntityRelationshipsResultResolver
         entityRelationships,
         RelationshipDirection.valueOf(relationshipDirection.toString()),
         includeSoftDelete,
-        null);
+        relatedEntityTypes);
   }
 
   private EntityRelationshipsResult mapDomainChildRelationships(
@@ -495,24 +533,6 @@ public class EntityRelationshipsResultResolver
         relationshipDirection,
         includeSoftDelete,
         HierarchyBindings.glossarySpec(context.getOperationContext()));
-  }
-
-  private EntityRelationshipsResult mapContainerChildRelationships(
-      @Nonnull final QueryContext context,
-      @Nonnull final String urn,
-      @Nullable final Integer start,
-      @Nullable final Integer count,
-      @Nonnull
-          final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection,
-      final boolean includeSoftDelete) {
-    return mapDirectChildRelationships(
-        context,
-        urn,
-        start,
-        count,
-        relationshipDirection,
-        includeSoftDelete,
-        HierarchyBindings.containerSpec(context.getOperationContext()));
   }
 
   private EntityRelationshipsResult mapDirectChildRelationships(
@@ -614,7 +634,8 @@ public class EntityRelationshipsResultResolver
                 rel ->
                     (existentUrns == null || existentUrns.contains(rel.getEntity()))
                         && (relatedEntityTypes == null
-                            || relatedEntityTypes.contains(rel.getEntity().getEntityType()))
+                            || relatedEntityTypes.contains(
+                                rel.getEntity().getEntityType().toLowerCase(Locale.ROOT)))
                         && (context == null
                             || canView(context.getOperationContext(), rel.getEntity())))
             .collect(Collectors.toList());

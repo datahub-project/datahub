@@ -213,17 +213,15 @@ This section covers how to design access policies when **view-based access contr
 | **DataHub Cloud**     | [Search Access Controls](../features/feature-guides/search-access-controls.md) enabled | **`View Entity`** privilege; search results filtered at query time                                                                  |
 | **Self-hosted (OSS)** | `VIEW_AUTHORIZATION_ENABLED=true` on GMS                                               | **`View Entity Page`** privilege; entity page gating and optional post-search result masking — **not** Elasticsearch query pushdown |
 
-When VBAC is enabled (Cloud Search Access Controls **or** OSS `VIEW_AUTHORIZATION_ENABLED`), entity types are
+When VBAC is enabled (`VIEW_AUTHORIZATION_ENABLED` on OSS, or Cloud Search Access Controls), entity types are
 **restricted by default**. Types marked `viewUnrestricted: true` in `entity-registry.yml`, plus optional
 `VIEW_UNRESTRICTED_ENTITY_TYPES` / `_ADD` / `_REMOVE` overlays (see
-[Environment Variables](../deploy/environment-vars.md)), bypass view checks. Stock `_ADD` covers the previous
-unrestricted set minus registry-flagged types; trim with `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE` (for example
-`schemaField,document`) when you want those types under view policy. Once `schemaField` is restricted,
-**View Entity Page** inherits from the parent dataset encoded in the schemaField URN (then a direct
-column grant). **Search Access Controls** (query-time search
-filtering) remain **DataHub Cloud–only**; on OSS the unrestricted list only affects entity-page / masking behavior.
-Cloud operators: see also
-[Entity types that bypass view checks](../features/feature-guides/search-access-controls.md#entity-types-that-bypass-view-checks).
+[Environment Variables](../deploy/environment-vars.md)), bypass view checks. Stock `_ADD` does **not** include
+`document`, `schemaField`, or `container` — those types are under view policy by default (`container` is no longer
+`viewUnrestricted` in the registry). For `schemaField`, **View Entity Page** inherits from the parent dataset
+encoded in the schemaField URN (then a direct column grant). GraphQL container loads use field-strip redaction.
+On OSS the unrestricted list only affects entity-page / masking behavior — query-time search pushdown remains
+**DataHub Cloud–only**.
 
 ### Performance considerations
 
@@ -414,21 +412,21 @@ These privileges are to view & modify any entity within DataHub.
 
 #### Aspect Privileges
 
-| Aspect Privileges             | Description                                                                                                                                                                                                                                                                                        |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Edit Tags                     | Allow actor to add and remove tags to an asset.                                                                                                                                                                                                                                                    |
-| Edit Glossary Terms           | Allow actor to add and remove glossary terms to an asset.                                                                                                                                                                                                                                          |
-| Edit Description              | Allow actor to edit the description (documentation) of an entity.                                                                                                                                                                                                                                  |
-| Edit Links                    | Allow actor to edit links associated with an entity.                                                                                                                                                                                                                                               |
-| Edit Status                   | Allow actor to edit the status of an entity (soft deleted or not).                                                                                                                                                                                                                                 |
-| Edit Domain                   | Allow actor to edit the Domain of an entity.                                                                                                                                                                                                                                                       |
-| Edit Data Product             | Allow actor to add or remove Data Product membership **from an asset** (asset profile / `batchAddToDataProducts`, `batchRemoveFromDataProducts`, unset via `batchSetDataProduct`). Does not authorize editing a Data Product's `assets` list from the product page — see **Manage Data Products**. |
-| Edit Deprecation              | Allow actor to edit the Deprecation status of an entity.                                                                                                                                                                                                                                           |
-| Edit Incidents                | Allow actor to create and remove incidents for an entity.                                                                                                                                                                                                                                          |
-| Edit Lineage                  | Allow actor to add and remove lineage edges for this entity.                                                                                                                                                                                                                                       |
-| Edit Properties               | Allow actor to edit the properties for an entity.                                                                                                                                                                                                                                                  |
-| Edit Owners                   | Allow actor to add and remove owners of an entity.                                                                                                                                                                                                                                                 |
-| Get Timeseries Aspect API[^3] | Allow actor to use the GET Timeseries Aspect API.                                                                                                                                                                                                                                                  |
+| Aspect Privileges             | Description                                                                                                                                                                                                                                                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Edit Tags                     | Allow actor to add and remove tags to an asset.                                                                                                                                                                                                                                                               |
+| Edit Glossary Terms           | Allow actor to add and remove glossary terms to an asset.                                                                                                                                                                                                                                                     |
+| Edit Description              | Allow actor to edit the description (documentation) of an entity.                                                                                                                                                                                                                                             |
+| Edit Links                    | Allow actor to edit links associated with an entity.                                                                                                                                                                                                                                                          |
+| Edit Status                   | Allow actor to edit the status of an entity (soft deleted or not).                                                                                                                                                                                                                                            |
+| Edit Domain                   | Allow actor to edit the Domain of an entity.                                                                                                                                                                                                                                                                  |
+| Edit Data Product             | Allow actor to add or remove Data Product membership **from an asset** (asset profile / `batchAddToDataProducts`, `batchRemoveFromDataProducts`, unset via `batchSetDataProduct`). Does not authorize editing a Data Product's `assets` list from the product page — see **Manage Data Products**.            |
+| Edit Deprecation              | Allow actor to edit the Deprecation status of an entity.                                                                                                                                                                                                                                                      |
+| Edit Incidents                | Allow actor to create and remove incidents for an entity.                                                                                                                                                                                                                                                     |
+| Edit Lineage                  | Allow actor to add and remove lineage edges for this entity.                                                                                                                                                                                                                                                  |
+| Edit Properties               | Allow actor to edit the properties for an entity.                                                                                                                                                                                                                                                             |
+| Edit Owners                   | Allow actor to add and remove owners of an entity.                                                                                                                                                                                                                                                            |
+| Get Timeseries Aspect API[^3] | Allow actor to use dedicated timeseries GET APIs (Rest.li `getTimeseriesAspectValues`, OpenAPI timeseries scroll, and `getTimeseriesStats` when REST API authorization is enabled). Profile, usage, and operation aspects also require the matching **View Dataset Profile / Usage / Operations** privileges. |
 
 #### Proposals
 
@@ -492,11 +490,8 @@ When `schemaField` is view-restricted, **View Entity Page** on a schema field su
 can view the containing parent URN in the schemaField key (typically a dataset) **or** has a direct
 grant on the schemaField URN. This uses the same parent-candidate order as logical-parent writes.
 
-On **DataHub Cloud** with Search Access Controls, query-time filters for columns are narrower than
-entity-page inheritance: domain / container / resource-owner criteria do not match schemaField docs,
-and `TYPE = dataset` policies exclude them. URN dataset grants can match columns via a Cloud-only
-prefix. Details:
-[Columns (`schemaField`) after you restrict them](../features/feature-guides/search-access-controls.md#columns-schemafield-after-you-restrict-them).
+Entity-page VIEW for schema fields uses parent-dataset inheritance (then a direct column grant). Query-time
+search filtering of columns is a **DataHub Cloud** Search Access Controls concern and is not part of OSS VBAC.
 
 View authorization is controlled by `VIEW_AUTHORIZATION_ENABLED` (see [Environment Variables](../deploy/environment-vars.md)).
 
@@ -541,8 +536,8 @@ These privileges are not generalizable.
 
 | Entity       | Privilege                                 | Description                                                                                                                                                                                                                                |
 | ------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Dataset      | View Dataset Usage                        | Allow actor to access dataset usage information (includes usage statistics and queries).                                                                                                                                                   |
-| Dataset      | View Dataset Profile                      | Allow actor to access dataset profile (snapshot statistics)                                                                                                                                                                                |
+| Dataset      | View Dataset Usage                        | Allow actor to access dataset usage information (includes usage statistics and queries). Also required to read dashboard `dashboardUsageStatistics` timeseries data.                                                                       |
+| Dataset      | View Dataset Profile                      | Allow actor to access dataset profile (snapshot statistics) on GraphQL, Rest.li, and OpenAPI.                                                                                                                                              |
 | Dataset      | Edit Dataset Column Descriptions          | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                                                                                      |
 | Dataset      | Edit Dataset Column Tags                  | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                                                                                              |
 | Dataset      | Edit Dataset Column Glossary Terms        | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                                                                                    |
@@ -554,7 +549,7 @@ These privileges are not generalizable.
 | Dataset      | Manage Dataset Column Tag Proposals[^1]   | Allow actor to manage column (field) tag proposals associated with a dataset schema.                                                                                                                                                       |
 | Dataset      | Edit Assertions                           | Allow actor to add and remove assertions from an entity.                                                                                                                                                                                   |
 | Dataset      | Edit Dataset Queries                      | Allow actor to edit the Queries for a Dataset. Query entity **read** visibility is derived from **View Entity Page** or **Edit Dataset Queries** (or **Edit Entity**) on all subject datasets linked via `querySubjects`.                  |
-| Dataset      | View Dataset Operations                   | Allow actor to view operations on a Dataset.                                                                                                                                                                                               |
+| Dataset      | View Dataset Operations                   | Allow actor to view operations on a Dataset, including the `operation` timeseries aspect on GraphQL, Rest.li, and OpenAPI.                                                                                                                 |
 | Dataset      | Create erModelRelationship                | Allow actor to add erModelRelationship on a dataset.                                                                                                                                                                                       |
 | Dataset      | Edit Monitors[^1]                         | Allow actor to edit monitors for the entity.                                                                                                                                                                                               |
 | Dataset      | Edit SQL Assertion Monitors[^1]           | Allow actor to edit custom SQL assertion monitors for the entity. Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care.                                                          |
