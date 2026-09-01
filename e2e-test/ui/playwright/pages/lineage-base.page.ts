@@ -146,13 +146,39 @@ export class LineageBasePage extends BasePage {
     });
   }
 
+  /** Column-level lineage edge between two rendered columns, e.g. drawn on column hover/select. */
+  getColumnEdge(node1Urn: string, col1Name: string, node2Urn: string, col2Name: string): Locator {
+    return this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`);
+  }
+
+  /**
+   * The upstream segment of a column edge routed through a displayed operation node — a query or
+   * data job: `column -> operation`. The operation side of the edge id uses the operation node's
+   * urn as its "field" (see addEdge in useColumnHighlighting + parseColumnRef truncation of the
+   * fine-grained operation ref).
+   */
+  getColumnToOperationEdge(nodeUrn: string, colName: string, operationUrn: string): Locator {
+    return this.page.getByTestId(`rf__edge-${nodeUrn}::${colName}-${operationUrn}::${operationUrn}`);
+  }
+
+  /** The downstream segment of a column edge routed through a displayed operation node: `operation -> column`. */
+  getOperationToColumnEdge(operationUrn: string, nodeUrn: string, colName: string): Locator {
+    return this.page.getByTestId(`rf__edge-${operationUrn}::${operationUrn}-${nodeUrn}::${colName}`);
+  }
+
+  /** Assert a rendered edge is drawn with the lineage arrowhead marker (i.e. it's a real arrow). */
+  async checkEdgeHasArrowMarker(edge: Locator): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- ReactFlow edge path has no test id of its own
+    await expect(edge.locator('path.react-flow__edge-path')).toHaveAttribute('marker-end', /lineage-arrow/);
+  }
+
   async checkEdgeBetweenColumnsExists(
     node1Urn: string,
     col1Name: string,
     node2Urn: string,
     col2Name: string,
   ): Promise<void> {
-    await expect(this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`)).toBeAttached({
+    await expect(this.getColumnEdge(node1Urn, col1Name, node2Urn, col2Name)).toBeAttached({
       timeout: 10000,
     });
   }
@@ -163,7 +189,7 @@ export class LineageBasePage extends BasePage {
     node2Urn: string,
     col2Name: string,
   ): Promise<void> {
-    await expect(this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`)).not.toBeAttached({
+    await expect(this.getColumnEdge(node1Urn, col1Name, node2Urn, col2Name)).not.toBeAttached({
       timeout: 5000,
     });
   }
