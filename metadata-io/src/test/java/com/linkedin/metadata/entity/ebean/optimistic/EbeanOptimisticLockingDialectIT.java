@@ -328,6 +328,10 @@ abstract class EbeanOptimisticLockingDialectIT {
         null,
         statusAspect(urn, new Status().setRemoved(false), seed),
         ASPECT_LATEST_VERSION);
+    // Same seed-then-submit shape as concurrentWritersConvergeWithVersionBump: a writer whose
+    // transaction begins before the seed commit is visible NPEs on the chained get and fails the
+    // test spuriously via firstError.
+    awaitSeedVisible(dao, urn);
 
     final int writers = 8;
     final HazelcastInstance hz = isolatedHazelcast();
@@ -534,6 +538,11 @@ abstract class EbeanOptimisticLockingDialectIT {
         null,
         statusAspect(urn, new Status().setRemoved(false), seed),
         ASPECT_LATEST_VERSION);
+    // Same race as concurrentWritersConvergeWithVersionBump, and this test shares its failure
+    // mode: a writer that NPEs on the missing seed never counts down bothRead, so the test stalls
+    // on the latch for its full timeout. Visibility is per commit, so either dao can perform the
+    // read-back.
+    awaitSeedVisible(legacy, urn);
 
     AtomicInteger successes = new AtomicInteger();
     AtomicReference<Throwable> firstError = new AtomicReference<>();
