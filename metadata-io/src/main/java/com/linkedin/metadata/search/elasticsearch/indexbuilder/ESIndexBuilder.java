@@ -446,11 +446,35 @@ public class ESIndexBuilder {
     builder.currentMappings(currentMappings);
 
     if (shouldPreserveStructuredPropertyMappings(copyStructuredPropertyMappings)) {
+      // The merge writes into the target map, its "properties" entry, and the
+      // structuredProperties entry beneath it. Callers may supply immutable maps
+      // (V2SemanticSearchMappingsBuilder builds the semantic index target from
+      // ImmutableMaps, where an in-place merge throws UnsupportedOperationException),
+      // so merge into a mutable copy of those levels instead of the caller's maps.
+      mappings = copyForStructuredPropertyMerge(mappings);
       mergeStructuredPropertyMappings(mappings, currentMappings);
     }
 
     builder.targetMappings(mappings);
     return builder.build();
+  }
+
+  @SuppressWarnings("unchecked")
+  @VisibleForTesting
+  static Map<String, Object> copyForStructuredPropertyMerge(Map<String, Object> mappings) {
+    Map<String, Object> mutableMappings = new HashMap<>(mappings);
+    Object properties = mutableMappings.get(PROPERTIES);
+    if (properties instanceof Map) {
+      Map<String, Object> mutableProperties = new HashMap<>((Map<String, Object>) properties);
+      Object structuredProperties = mutableProperties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+      if (structuredProperties instanceof Map) {
+        mutableProperties.put(
+            STRUCTURED_PROPERTY_MAPPING_FIELD,
+            new HashMap<>((Map<String, Object>) structuredProperties));
+      }
+      mutableMappings.put(PROPERTIES, mutableProperties);
+    }
+    return mutableMappings;
   }
 
   /**
@@ -474,7 +498,8 @@ public class ESIndexBuilder {
   }
 
   @SuppressWarnings("unchecked")
-  private void mergeStructuredPropertyMappings(
+  @VisibleForTesting
+  void mergeStructuredPropertyMappings(
       Map<String, Object> targetMappings, Map<String, Object> currentMappings) {
     // Extract current structured property mapping (entire object, not just properties)
     Map<String, Object> currentStructuredPropertyMapping =
