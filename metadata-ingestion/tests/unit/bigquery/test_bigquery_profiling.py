@@ -4,11 +4,15 @@ from typing import Any, Optional
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    RANGE_PARTITION_NAME,
     BigqueryTable,
     PartitionInfo,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
+)
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.info_schema import (
+    InfoSchemaQueries,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_and_filter_expressions,
@@ -286,3 +290,40 @@ def test_partition_discovery_strategic_dates():
     descriptions = [d for _, d in dates]
     assert any("today" in d.lower() for d in descriptions)
     assert any("yesterday" in d.lower() for d in descriptions)
+
+
+def test_range_partition_uses_max_bucket_not_most_recently_modified():
+    """INFORMATION_SCHEMA.PARTITIONS is ordered by last-modified, not bucket value. For a
+    RANGE partition the lower-bound scan `col >= floor` must anchor on the MAX bucket floor
+    (nothing exists above it, so it can't over-select) rather than the most-recently
+    modified mid-range bucket, whose `>=` would also pull in every higher bucket.
+    """
+    info = InfoSchemaQueries(report=None)
+    table = make_table(
+        name="ranged",
+        partition_info=PartitionInfo(fields=("bucket",), type=RANGE_PARTITION_NAME),
+    )
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        # Rows in last-modified order: the mid bucket (100) was touched most recently,
+        # but 300 is the true maximum populated bucket.
+        return [
+            SimpleNamespace(partition_id="100"),
+            SimpleNamespace(partition_id="300"),
+            SimpleNamespace(partition_id="200"),
+        ]
+
+    def verify(*args: Any, **kwargs: Any) -> bool:
+        return True
+
+    filters = info.get_partition_filters_from_information_schema(
+        table,
+        "test-project-123456",
+        "ds",
+        ["bucket"],
+        execute,
+        verify,
+        {"bucket": "INT64"},
+    )
+
+    assert filters == ["`bucket` >= 300"]
