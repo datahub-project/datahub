@@ -10,6 +10,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     FILTER_COLUMN_REF_RE,
     FILTER_DANGEROUS_PATTERNS,
     FILTER_OPERATOR_RE,
+    FLEXIBLE_COLUMN_NAME_PATTERN,
     PROJECT_ID_RE,
     SQL_ALLOWED_START_PATTERNS,
     SQL_DANGEROUS_PATTERNS,
@@ -34,24 +35,62 @@ def mask_string_literals(sql: str) -> str:
     everything outside literals — gives the denylists a quote-aware view that satisfies
     both: injection tokens outside literals survive, data tokens inside literals do not.
 
-    Backtick identifiers are intentionally left untouched (they are validated separately
-    by ``validate_bigquery_identifier``). BigQuery backslash escapes (``\\'``, ``\\\\``)
-    and ANSI doubled-quote (``''``) escaping are both honoured so an escaped quote does
-    not prematurely close the literal.
+    SQL comments are recognised *before* a quote can open a literal and are copied
+    through verbatim: a lone quote inside a ``--``/``#`` line comment or a ``/* */`` block
+    comment is comment text, not a literal opener, so masking must not let it swallow the
+    executable SQL (a ``;`` and a second statement) that follows the comment. Leaving the
+    comment body visible also keeps it available to the denylist scans.
+
+    Backtick identifiers are likewise skipped verbatim (they are validated separately by
+    ``validate_bigquery_identifier``) so a quote inside a quoted identifier cannot open a
+    literal. BigQuery backslash escapes (``\\'``, ``\\\\``) and ANSI doubled-quote (``''``)
+    escaping are both honoured so an escaped quote does not prematurely close a literal.
     """
     out: List[str] = []
     i = 0
     n = len(sql)
-    quote = None  # opening quote char of the literal we are inside, or None
+    quote = None  # opening quote char of the string literal we are inside, or None
     while i < n:
         ch = sql[i]
         if quote is None:
+            # Line comment (`--` or `#`): copy to end of line verbatim. A quote here is
+            # comment text, so it must not open a literal and hide the SQL after the
+            # newline (e.g. `-- it's fine\n; DROP TABLE t`).
+            if ch == "#" or (ch == "-" and i + 1 < n and sql[i + 1] == "-"):
+                while i < n and sql[i] != "\n":
+                    out.append(sql[i])
+                    i += 1
+                continue
+            # Block comment (`/* ... */`): copy verbatim, including a quote inside it.
+            if ch == "/" and i + 1 < n and sql[i + 1] == "*":
+                out.append(ch)
+                out.append(sql[i + 1])
+                i += 2
+                while i < n and not (sql[i] == "*" and i + 1 < n and sql[i + 1] == "/"):
+                    out.append(sql[i])
+                    i += 1
+                if i + 1 < n:  # emit the closing */
+                    out.append(sql[i])
+                    out.append(sql[i + 1])
+                    i += 2
+                continue
+            # Backtick identifier: copy verbatim so a quote inside it can't open a literal.
+            if ch == "`":
+                out.append(ch)
+                i += 1
+                while i < n and sql[i] != "`":
+                    out.append(sql[i])
+                    i += 1
+                if i < n:
+                    out.append(sql[i])
+                    i += 1
+                continue
             out.append(ch)
             if ch in ("'", '"'):
                 quote = ch
             i += 1
             continue
-        # Inside a literal.
+        # Inside a string literal.
         if ch == "\\" and i + 1 < n:
             # Backslash escape: mask both the backslash and the escaped char.
             out.append("x")
@@ -78,7 +117,9 @@ def mask_string_literals(sql: str) -> str:
 
 def _validate_identifier_format(identifier_type: str, clean_identifier: str) -> None:
     if identifier_type == "project":
-        if not PROJECT_ID_RE.match(clean_identifier):
+        # fullmatch (not match): a trailing '\n' satisfies the `$` anchor under match, so
+        # anchor the whole string even though newlines are already rejected upstream.
+        if not PROJECT_ID_RE.fullmatch(clean_identifier):
             raise ValueError(f"Invalid project ID format: {clean_identifier}")
         if len(clean_identifier) < 6 or len(clean_identifier) > 30:
             raise ValueError(f"Project ID must be 6-30 characters: {clean_identifier}")
@@ -87,8 +128,9 @@ def _validate_identifier_format(identifier_type: str, clean_identifier: str) -> 
                 f"Project ID cannot contain consecutive hyphens: {clean_identifier}"
             )
     elif identifier_type == "table":
-        # BigQuery allows hyphens in table names when backtick-escaped.
-        if not TABLE_IDENTIFIER_RE.match(clean_identifier):
+        # BigQuery allows hyphens in table names when backtick-escaped. fullmatch so a
+        # trailing newline cannot satisfy the `$` anchor.
+        if not TABLE_IDENTIFIER_RE.fullmatch(clean_identifier):
             raise ValueError(
                 f"Invalid {identifier_type} identifier format: {clean_identifier}"
             )
@@ -125,19 +167,21 @@ def validate_bigquery_identifier(
         )
 
     identifier = identifier.strip()
+    upper_identifier = identifier.upper()
 
     if identifier_type in ("general", "table") and (
-        identifier == "INFORMATION_SCHEMA"
-        or identifier.startswith("INFORMATION_SCHEMA.")
+        upper_identifier == "INFORMATION_SCHEMA"
+        or upper_identifier.startswith("INFORMATION_SCHEMA.")
     ):
         # INFORMATION_SCHEMA views are referenced by their bare dotted name
         # (project.dataset.INFORMATION_SCHEMA.VIEW). Wrapping "INFORMATION_SCHEMA.VIEW"
         # in a single backtick pair makes BigQuery treat the whole dotted string as one
         # identifier — it then looks for a table literally named "INFORMATION_SCHEMA.VIEW"
         # and the query fails. Validate the view suffix so this branch still rejects
-        # injection, then return the reference unquoted. The fast path is limited to
+        # injection, then return the reference unquoted. Matched case-insensitively
+        # because BigQuery accepts `information_schema`. The fast path is limited to
         # table/general references; a project/dataset must never be INFORMATION_SCHEMA.
-        if identifier != "INFORMATION_SCHEMA":
+        if upper_identifier != "INFORMATION_SCHEMA":
             view_suffix = identifier[len("INFORMATION_SCHEMA.") :]
             if not VALID_COLUMN_NAME_PATTERN.fullmatch(view_suffix):
                 raise ValueError(f"Invalid INFORMATION_SCHEMA view name: {identifier}")
@@ -152,7 +196,9 @@ def validate_bigquery_identifier(
                 f"Invalid {identifier_type} identifier contains dangerous character '{pattern}': {identifier}"
             )
 
-    clean_identifier = identifier.replace("`", "")
+    # No backtick strip needed: the dangerous-patterns loop above already rejects any
+    # identifier containing a backtick.
+    clean_identifier = identifier
 
     if any(ord(c) < 32 or ord(c) > 126 for c in clean_identifier):
         raise ValueError(
@@ -161,10 +207,10 @@ def validate_bigquery_identifier(
 
     _validate_identifier_format(identifier_type, clean_identifier)
 
+    # Dataset/column identifiers starting with "__" are already rejected in
+    # _validate_identifier_format, so only the reserved literals need noting here (and
+    # only for the table/general types, where they are allowed once backticked).
     truly_problematic = {
-        "__null__",
-        "__unpartitioned__",
-        "__temp__",
         "null",
         "true",
         "false",
@@ -179,19 +225,20 @@ def validate_bigquery_identifier(
 
 
 def build_safe_table_reference(project: str, dataset: str, table: str) -> str:
-    if table.startswith("INFORMATION_SCHEMA"):
-        safe_project = validate_bigquery_identifier(project, "project")
-        safe_dataset = validate_bigquery_identifier(dataset, "dataset")
+    safe_project = validate_bigquery_identifier(project, "project")
+    safe_dataset = validate_bigquery_identifier(dataset, "dataset")
+
+    # Strip + case-fold the branch test so ` information_schema.tables ` reaches the
+    # INFORMATION_SCHEMA path the same way validate_bigquery_identifier does internally,
+    # rather than falling through to the table validator and failing on the dot.
+    if table.strip().upper().startswith("INFORMATION_SCHEMA"):
         # validate_bigquery_identifier returns the INFORMATION_SCHEMA view as a bare
         # (validated) dotted name, so the canonical `project`.`dataset`.INFORMATION_SCHEMA.VIEW
         # form is produced rather than a single backtick-quoted third component.
         safe_view = validate_bigquery_identifier(table, "general")
         return f"{safe_project}.{safe_dataset}.{safe_view}"
 
-    safe_project = validate_bigquery_identifier(project, "project")
-    safe_dataset = validate_bigquery_identifier(dataset, "dataset")
     safe_table = validate_bigquery_identifier(table, "table")
-
     return f"{safe_project}.{safe_dataset}.{safe_table}"
 
 
@@ -202,7 +249,11 @@ def validate_column_name(col_name: str, context: str = "") -> bool:
         )
         return False
 
-    if not VALID_COLUMN_NAME_PATTERN.fullmatch(col_name):
+    # Flexible (not strict) pattern: a column is always backtick-quoted downstream, so a
+    # leading digit or an international character is a legitimate BigQuery column name and
+    # must not be dropped. fullmatch keeps a trailing newline (and any other injection
+    # character) from slipping through.
+    if not FLEXIBLE_COLUMN_NAME_PATTERN.fullmatch(col_name):
         logger.warning(
             f"Column name fails validation{' in ' + context if context else ''}: {col_name}"
         )

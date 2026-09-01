@@ -2,6 +2,14 @@ import re
 
 VALID_COLUMN_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
+# Column names are always emitted backtick-quoted, so they can be far more permissive
+# than the strict identifier pattern above: BigQuery flexible column names allow a
+# leading digit and international (non-ASCII) letters. `\w` (Unicode) accepts letters,
+# digits and underscore while still rejecting the characters that could break out of the
+# backtick quoting or inject SQL — backtick, quotes, backslash, ';', whitespace, comment
+# markers — so it stays injection-safe without silently dropping legitimate columns.
+FLEXIBLE_COLUMN_NAME_PATTERN = re.compile(r"\w+", re.UNICODE)
+
 # BigQuery project ID: lowercase letters, numbers, hyphens; 6-30 chars.
 PROJECT_ID_RE = re.compile(r"^[a-z][a-z0-9-]*[a-z0-9]$")
 
@@ -34,16 +42,13 @@ SQL_DANGEROUS_PATTERNS = [
         r"\bEXPORT\s+DATA\b",
         r"\bLOAD\s+DATA\b",
         r";\s*(?:CREATE|DROP|ALTER|INSERT|UPDATE|DELETE|GRANT|REVOKE|TRUNCATE|MERGE|EXEC(?:UTE)?|CALL|EXPORT|LOAD)",
-        r"<script[^>]*>",
-        r"javascript:",
-        r"vbscript:",
-        # URI-scheme markers. These are only scanned against the literal-masked query
-        # (see security.mask_string_literals), so a `data:`/`javascript:` substring
-        # inside a quoted value such as a GCS URI is inert and no longer rejected; only
-        # an occurrence outside any string literal is flagged.
-        r"data:",
-        r"/\*.*(?:union|select|insert|update|delete|drop|create|alter).*\*/",
-        r"--.*(?:union|select|insert|update|delete|drop|create|alter)",
+        # NOTE: script/URI-scheme markers (<script>, javascript:, vbscript:, data:) are
+        # intentionally not listed — they are meaningless in BigQuery SQL and outside a
+        # string literal would not parse anyway. Nor are we scanning comment *bodies*
+        # (`-- ... union`, `/* ... select */`): a line/block comment cannot introduce an
+        # executable statement, so those patterns only produced false positives (a benign
+        # `-- summary of columns\nSELECT ...` matched `--.*select`). Injection via a real
+        # second statement is caught by the single-statement guard in validate_sql_structure.
     ]
 ]
 
