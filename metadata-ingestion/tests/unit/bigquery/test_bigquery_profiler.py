@@ -3433,10 +3433,21 @@ def test_mask_string_literals_blanks_interior_keeps_structure():
     assert mask_string_literals("`c` = 'a; DROP'") == "`c` = 'xxxxxxx'"
     # Backslash-escaped quote does not close the literal.
     assert mask_string_literals(r"`c` = 'a\'b'") == "`c` = 'xxxx'"
-    # Doubled-quote escape stays inside the literal.
+    # Doubled-quote escape stays inside the literal. NB: BigQuery has no '' escape (it uses
+    # backslash), so 'a''b' is really two literals there; masking it as one only ever
+    # over-masks (a BigQuery syntax error either way), never hides executable SQL. Pinned
+    # here so a future rewrite of this branch is a deliberate, tested change.
     assert mask_string_literals("`c` = 'a''b'") == "`c` = 'xxxx'"
     # A comment delimiter is preserved but its body is masked (kept out of denylist scans).
     assert mask_string_literals("SELECT 1 -- x") == "SELECT 1 --xx"
+
+
+def test_mask_string_literals_triple_quoted_body_is_masked():
+    # Triple-quoted strings are masked correctly even though nothing handles ''' explicitly
+    # (the doubled-quote branch happens to cover it). Pinned so a cleanup can't silently
+    # regress it and let a ';' inside a triple-quoted value escape the mask.
+    assert mask_string_literals("`c` = '''a;b'''") == "`c` = 'xxxxxxx'"
+    assert validate_filter_expression("`c` = '''a;b'''") is True
 
 
 @pytest.mark.parametrize(
@@ -3461,6 +3472,24 @@ def test_validate_filter_expression_still_blocks_tokens_outside_literal():
     # The same tokens outside a literal are genuine injection and must be rejected.
     assert validate_filter_expression("`c` = '2023-01-01' -- drop") is False
     assert validate_filter_expression("`c` = 1 # ") is False
+
+
+def test_validate_filter_expression_blocks_parenthesized_union():
+    # A parenthesized set-query must be caught too, not just `UNION SELECT` / `UNION ALL
+    # SELECT` — the '(' between UNION and SELECT used to slip past the denylist.
+    assert (
+        validate_filter_expression("`c` = 1 UNION ALL (SELECT secret FROM t)") is False
+    )
+    assert validate_filter_expression("`c` = 1 UNION ((SELECT secret FROM t))") is False
+
+
+def test_validate_filter_expression_blocks_stacked_statement():
+    # A ';' outside a literal stacks a statement regardless of the following keyword
+    # (SELECT was previously absent from the keyword list); a WHERE predicate never has one.
+    assert validate_filter_expression("`c` = 1; SELECT secret FROM t") is False
+    assert validate_filter_expression("`c` = 1; DROP TABLE t") is False
+    # But a ';' inside a quoted partition value is inert and must still pass.
+    assert validate_filter_expression("`uri` = 'gs://b/a;b'") is True
 
 
 def test_validate_sql_structure_allows_uri_literal_with_scheme():
