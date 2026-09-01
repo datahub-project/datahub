@@ -38,11 +38,9 @@ import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.client.EntityClientCache;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
-import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -55,7 +53,6 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
-import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.dao.throttle.APIThrottle;
@@ -1055,9 +1052,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       // retention ran before MCL work; post-commit must not regress that). applyRetentionPostCommit
       // never throws (its own outer try/catch), so it cannot mask an in-flight exception here.
       applyRetentionPostCommit(opContext, ingestResults.getUpdateAspectResults());
-      // Same rationale: evict written aspects from the same-node client cache post-commit so a
-      // failure emitting MCLs / running side effects above cannot leave reads stale until TTL.
-      invalidateEntityClientCacheOnSyncIngest(opContext, ingestResults.getUpdateAspectResults());
     }
 
     return updateAspectResults;
@@ -1072,47 +1066,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             opContext, preProcessHooks, aspectsBatch, updateResults);
     if (!batch.isEmpty()) {
       opContext.getEntityGraphCache().invalidateOnSyncBatch(batch);
-    }
-  }
-
-  /**
-   * Evict written aspects from the per-process {@link EntityClientCache} on the same GMS node.
-   *
-   * <p>The caching aspect retriever (used e.g. for usage-aggregation actor classification) serves
-   * {@code corpUserInfo} and other entityClient-cached aspects from a TTL cache that is otherwise
-   * only refreshed on expiry. Without eviction, a read that follows a write on the same node
-   * returns stale data for up to the aspect TTL — a read-your-writes gap. Mirrors {@link
-   * #invalidateEntityGraphCacheOnSyncIngest} so both caches drop stale entries at commit.
-   *
-   * <p>Eviction keys come from the committed {@link UpdateAspectResult}s — not the input batch — so
-   * default/derived aspects written as a side effect (e.g. {@code corpUserKey}) are evicted too.
-   * Best effort: a caching retriever that is not the entity-client-backed one (e.g. EMPTY in tests)
-   * is skipped, and any failure here must never fail the write that already committed.
-   */
-  private void invalidateEntityClientCacheOnSyncIngest(
-      @Nonnull OperationContext opContext, @Nonnull List<UpdateAspectResult> updateResults) {
-    try {
-      CachingAspectRetriever cachingAspectRetriever =
-          opContext.getRetrieverContext().getCachingAspectRetriever();
-      if (!(cachingAspectRetriever instanceof EntityClientAspectRetriever entityClientRetriever)) {
-        return;
-      }
-      EntityClientCache cache = entityClientRetriever.getEntityClient().getEntityClientCache();
-
-      Map<Urn, Set<String>> aspectNamesByUrn = new HashMap<>();
-      for (UpdateAspectResult result : updateResults) {
-        ChangeMCP request = result.getRequest();
-        if (result.getUrn() == null || request == null || request.getAspectName() == null) {
-          continue;
-        }
-        aspectNamesByUrn
-            .computeIfAbsent(result.getUrn(), urn -> new HashSet<>())
-            .add(request.getAspectName());
-      }
-      // Single keyset pass for the whole batch — O(cacheSize), not O(urns × cacheSize).
-      cache.invalidate(aspectNamesByUrn);
-    } catch (Exception e) {
-      log.warn("Failed to invalidate entity client cache after sync ingest", e);
     }
   }
 
