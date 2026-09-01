@@ -493,8 +493,8 @@ def test_mask_string_literals_blanks_interior_keeps_structure():
     assert mask_string_literals(r"`c` = 'a\'b'") == "`c` = 'xxxx'"
     # Doubled-quote escape stays inside the literal.
     assert mask_string_literals("`c` = 'a''b'") == "`c` = 'xxxx'"
-    # A token outside any literal is preserved verbatim.
-    assert mask_string_literals("SELECT 1 -- x") == "SELECT 1 -- x"
+    # A comment delimiter is preserved but its body is masked (kept out of denylist scans).
+    assert mask_string_literals("SELECT 1 -- x") == "SELECT 1 --xx"
 
 
 @pytest.mark.parametrize(
@@ -536,3 +536,85 @@ def test_validate_sql_structure_rejects_second_statement():
     assert validate_sql_structure("SELECT 1 FROM `p.d.t`;") is True
     with pytest.raises(ValueError):
         validate_sql_structure("SELECT 1 FROM `p.d.t`; SELECT 2 FROM `p.d.t2`")
+
+
+def test_mask_string_literals_quote_in_comment_does_not_hide_sql():
+    # A quote inside a line comment must NOT open a literal and swallow the SQL that
+    # follows the comment newline — otherwise a stacked statement stays hidden from the
+    # single-statement guard.
+    masked = mask_string_literals("SELECT 1 -- it's fine\n; DROP TABLE t")
+    assert "; DROP TABLE t" in masked
+    # The comment delimiter survives but the body is masked (so a quote in it cannot open
+    # a literal and the body stays out of the denylist scans).
+    assert "--" in masked
+    assert "it's fine" not in masked
+
+
+def test_validate_sql_structure_rejects_stacked_statement_after_quoted_comment():
+    # The concrete P0: a stacked DROP after a comment containing an apostrophe must still
+    # be caught rather than masked away as literal content.
+    with pytest.raises(ValueError):
+        validate_sql_structure("SELECT 1 FROM `p.d.t` -- it's fine\n; DROP TABLE t")
+
+
+def test_validate_sql_structure_allows_inline_comment_mentioning_keywords():
+    # A benign comment that mentions SQL keywords is inert and must not be rejected:
+    # comment bodies are no longer scanned for keyword substrings.
+    assert (
+        validate_sql_structure("SELECT * FROM `p.d.t` -- select everything, no union")
+        is True
+    )
+    assert (
+        validate_sql_structure("SELECT * FROM `p.d.t` /* drop/update note */") is True
+    )
+
+
+def test_validate_column_name_allows_flexible_names():
+    # BigQuery flexible column names: a leading digit and international characters are
+    # legitimate and must not be silently dropped.
+    assert validate_column_name("123col") is True
+    assert validate_column_name("café") is True
+    # Injection / structural characters are still rejected.
+    assert validate_column_name("bad col") is False
+    assert validate_column_name("col`inject") is False
+
+
+def test_validate_filter_expression_allows_flexible_column_ref():
+    # FILTER_COLUMN_REF_RE must accept the same flexible names validate_column_name does,
+    # or filters on a leading-digit / international column would be dropped after the
+    # column itself validated (the consistency bug flagged in review).
+    assert validate_filter_expression("`123col` = '2023-12-25'") is True
+    assert validate_filter_expression("`café` = 1") is True
+
+
+def test_mask_string_literals_masks_comment_body_keywords():
+    # A benign comment mentioning a DDL keyword / ';' must have its body masked so it does
+    # not trip the DROP-TABLE denylist or the single-statement guard (a false positive),
+    # while the delimiter and surrounding SQL are preserved.
+    line_masked = mask_string_literals("SELECT 1 -- DROP TABLE cleanup")
+    assert line_masked.startswith("SELECT 1 --")
+    assert "DROP" not in line_masked.upper()
+    block_masked = mask_string_literals("SELECT 1 /* id ; DROP */ FROM t")
+    assert block_masked.startswith("SELECT 1 /*")
+    assert block_masked.endswith("*/ FROM t")
+    assert "DROP" not in block_masked.upper() and ";" not in block_masked
+    # And such queries are accepted rather than rejected.
+    assert validate_sql_structure("SELECT 1 FROM `p.d.t` -- DROP TABLE cleanup") is True
+    assert validate_sql_structure("SELECT 1 FROM `p.d.t` /* note ; DROP */") is True
+
+
+def test_build_safe_table_reference_information_schema_case_insensitive():
+    # A lower-case / space-padded INFORMATION_SCHEMA reference must reach the dotted-name
+    # branch rather than falling through to the table validator and failing on the dot.
+    assert (
+        build_safe_table_reference(
+            "my-project", "my_dataset", "information_schema.tables"
+        )
+        == "`my-project`.`my_dataset`.information_schema.tables"
+    )
+    assert (
+        build_safe_table_reference(
+            "my-project", "my_dataset", " INFORMATION_SCHEMA.TABLES "
+        )
+        == "`my-project`.`my_dataset`.INFORMATION_SCHEMA.TABLES"
+    )
