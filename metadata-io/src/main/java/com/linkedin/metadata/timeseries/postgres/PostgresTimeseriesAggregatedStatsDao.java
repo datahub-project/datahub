@@ -138,6 +138,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
             stringGroupPathExprs,
             buckets,
             aggregationSpecs,
+            aspectSpec,
             filterSql.getExpression());
 
     List<Object> params = new ArrayList<>();
@@ -405,6 +406,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       @Nonnull List<String> stringGroupPathExprs,
       @Nonnull GroupingBucket[] buckets,
       @Nonnull AggregationSpec[] aggregationSpecs,
+      @Nullable AspectSpec aspectSpec,
       @Nonnull String filterExpression) {
     StringBuilder inner = new StringBuilder("SELECT ");
     inner.append(String.join(", ", groupSql));
@@ -428,24 +430,39 @@ public final class PostgresTimeseriesAggregatedStatsDao {
     }
     inner.append(" GROUP BY ");
     inner.append(String.join(", ", groupAliases));
-    String orderBy = buildGroupOrderBy(buckets, groupAliases, metricColumnNames, aggregationSpecs);
+    String orderBy =
+        buildGroupOrderBy(buckets, groupAliases, metricColumnNames, aggregationSpecs, aspectSpec);
     inner.append(" ORDER BY ");
     inner.append(orderBy);
 
-    Integer stringGroupLimit = stringGroupingLimit(buckets);
-    if (stringGroupLimit == null) {
+    List<Integer> stringIdxs = stringGroupingIndexes(buckets);
+    if (stringIdxs.isEmpty()) {
       return inner.toString();
     }
 
-    // ES applies terms size per parent bucket; wrap with ROW_NUMBER partitioned by parents of the
-    // innermost STRING grouping (date→string production path).
-    int lastStringIdx = lastStringGroupingIndex(buckets);
-    List<String> parentAliases = groupAliases.subList(0, Math.max(0, lastStringIdx));
     List<String> selectCols = new ArrayList<>(groupAliases);
     for (String metricCol : metricColumnNames) {
       selectCols.add(sqlSafeAlias(metricCol));
     }
     String selectList = String.join(", ", selectCols);
+    String sql = inner.toString();
+    // ES applies terms size at every STRING grouping level (not only the innermost).
+    for (int s = stringIdxs.size() - 1; s >= 0; s--) {
+      int idx = stringIdxs.get(s);
+      List<String> parentAliases = groupAliases.subList(0, idx);
+      int limit = groupingSize(buckets[idx]);
+      sql = wrapStringGroupLimit(sql, selectList, parentAliases, orderBy, limit);
+    }
+    return sql + " ORDER BY " + orderBy;
+  }
+
+  @Nonnull
+  private static String wrapStringGroupLimit(
+      @Nonnull String innerSql,
+      @Nonnull String selectList,
+      @Nonnull List<String> parentAliases,
+      @Nonnull String orderBy,
+      int limit) {
     StringBuilder ranked = new StringBuilder("SELECT ");
     ranked.append(selectList);
     ranked.append(" FROM (SELECT ");
@@ -456,9 +473,8 @@ public final class PostgresTimeseriesAggregatedStatsDao {
     }
     ranked.append("ORDER BY ").append(orderBy);
     ranked.append(") AS _rn FROM (");
-    ranked.append(inner);
-    ranked.append(") _g) _r WHERE _rn <= ").append(stringGroupLimit);
-    ranked.append(" ORDER BY ").append(orderBy);
+    ranked.append(innerSql);
+    ranked.append(") _g) _r WHERE _rn <= ").append(limit);
     return ranked.toString();
   }
 
@@ -471,7 +487,8 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       @Nonnull GroupingBucket[] buckets,
       @Nonnull List<String> groupAliases,
       @Nonnull List<String> metricColumnNames,
-      @Nonnull AggregationSpec[] aggregationSpecs) {
+      @Nonnull AggregationSpec[] aggregationSpecs,
+      @Nullable AspectSpec aspectSpec) {
     List<String> orderParts = new ArrayList<>();
     boolean anyString = false;
     for (int i = 0; i < buckets.length; i++) {
@@ -489,13 +506,32 @@ public final class PostgresTimeseriesAggregatedStatsDao {
           && !metricColumnNames.isEmpty()) {
         orderParts.add(sqlSafeAlias(metricColumnNames.get(0)) + dir);
       } else {
-        orderParts.add(groupAliases.get(i) + dir);
+        orderParts.add(numericOrderExpr(groupAliases.get(i), buckets[i], aspectSpec) + dir);
       }
     }
     if (!anyString) {
       return String.join(", ", groupAliases);
     }
     return String.join(", ", orderParts);
+  }
+
+  @Nonnull
+  private static String numericOrderExpr(
+      @Nonnull String alias, @Nonnull GroupingBucket bucket, @Nullable AspectSpec aspectSpec) {
+    if (aspectSpec == null) {
+      return alias;
+    }
+    DataSchema.Type t = getTimeseriesFieldType(aspectSpec, bucket.getKey());
+    switch (t) {
+      case INT:
+      case LONG:
+        return "(" + alias + ")::bigint";
+      case DOUBLE:
+      case FLOAT:
+        return "(" + alias + ")::double precision";
+      default:
+        return alias;
+    }
   }
 
   /**
@@ -509,10 +545,25 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       return null;
     }
     GroupingBucket b = buckets[lastStringIdx];
+    return groupingSize(b);
+  }
+
+  private static int groupingSize(@Nonnull GroupingBucket b) {
     if (b.hasSize() && b.getSize() > 0) {
       return b.getSize();
     }
     return MAX_TERM_BUCKETS;
+  }
+
+  @Nonnull
+  private static List<Integer> stringGroupingIndexes(@Nonnull GroupingBucket[] buckets) {
+    List<Integer> idxs = new ArrayList<>();
+    for (int i = 0; i < buckets.length; i++) {
+      if (buckets[i].getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
+        idxs.add(i);
+      }
+    }
+    return idxs;
   }
 
   private static int lastStringGroupingIndex(@Nonnull GroupingBucket[] buckets) {

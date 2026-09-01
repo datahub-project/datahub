@@ -115,7 +115,10 @@ public final class TimeseriesFilterSqlBuilder {
       List<Object> params,
       @Nullable AspectSpec aspectSpec) {
 
-    if (filter.getOr() != null && !filter.getOr().isEmpty()) {
+    if (filter.getOr() != null) {
+      if (filter.getOr().isEmpty()) {
+        return "TRUE";
+      }
       List<String> disjuncts = new ArrayList<>();
       for (ConjunctiveCriterion cc : filter.getOr()) {
         disjuncts.add(
@@ -227,7 +230,7 @@ public final class TimeseriesFilterSqlBuilder {
       }
       String combined =
           String.join(" OR ", ors.stream().map(s -> "(" + s + ")").collect(Collectors.toList()));
-      return negated ? "NOT (" + combined + ")" : combined;
+      return applyComparisonNegation(combined, negated);
     }
 
     String fieldName =
@@ -259,7 +262,7 @@ public final class TimeseriesFilterSqlBuilder {
             || condition == Condition.IEQUAL
             || ESUtils.RANGE_QUERY_CONDITIONS.contains(condition))) {
       String eventTimeCore = buildEventTimeCriterion(criterion, condition, params);
-      return negated ? "NOT (" + eventTimeCore + ")" : eventTimeCore;
+      return applyComparisonNegation(eventTimeCore, negated);
     }
 
     String core;
@@ -298,7 +301,17 @@ public final class TimeseriesFilterSqlBuilder {
           "Timeseries PostgreSQL filter: unsupported condition " + condition);
     }
 
-    return negated ? "NOT (" + core + ")" : core;
+    return applyComparisonNegation(core, negated);
+  }
+
+  /**
+   * Elasticsearch {@code must_not} matches documents that lack the field. PostgreSQL {@code NOT
+   * (jsonb->>'x' = ?)} is UNKNOWN when the key is missing, which drops the row. COALESCE to TRUE
+   * restores ES semantics for comparison predicates.
+   */
+  @Nonnull
+  private static String applyComparisonNegation(@Nonnull String core, boolean negated) {
+    return negated ? "COALESCE(NOT (" + core + "), TRUE)" : core;
   }
 
   static boolean isEventTimeField(@Nonnull String fieldName) {

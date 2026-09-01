@@ -38,8 +38,8 @@ public final class PostgresPartmanSqlSetupSupport {
     if (partmanRetentionIntervalText == null || partmanRetentionIntervalText.isEmpty()) {
       return "";
     }
-    String escRetention = partmanRetentionIntervalText.replace("'", "''");
-    String escSchema = schema.replace("'", "''");
+    String escRetention = escapeSqlStringLiteral(partmanRetentionIntervalText);
+    String parentTable = parentTableLiteral(schema, parentTableSuffix);
     return "  UPDATE "
         + PostgresSqlUtils.quotePgIdentifier(partmanExtensionSchema)
         + ".part_config\n"
@@ -49,9 +49,7 @@ public final class PostgresPartmanSqlSetupSupport {
         + "      retention_keep_table = false,\n"
         + "      retention_keep_index = false\n"
         + "  WHERE parent_table = '"
-        + escSchema
-        + "."
-        + parentTableSuffix
+        + parentTable
         + "';\n";
   }
 
@@ -61,21 +59,29 @@ public final class PostgresPartmanSqlSetupSupport {
       @Nonnull String partmanExtensionSchema,
       @Nonnull String schema,
       @Nonnull String parentTableSuffix) {
-    String escSchema = schema.replace("'", "''");
+    String parentTable = parentTableLiteral(schema, parentTableSuffix);
     return "  UPDATE "
         + PostgresSqlUtils.quotePgIdentifier(partmanExtensionSchema)
         + ".part_config\n"
         + "  SET retention = NULL\n"
         + "  WHERE parent_table = '"
-        + escSchema
-        + "."
-        + parentTableSuffix
+        + parentTable
         + "';\n";
   }
 
   @Nonnull
   public static String sanitizePartmanIntervalLiteral(@Nonnull String partmanPartitionInterval) {
     return partmanPartitionInterval.replace("'", "''");
+  }
+
+  @Nonnull
+  static String escapeSqlStringLiteral(@Nonnull String value) {
+    return value.replace("'", "''");
+  }
+
+  @Nonnull
+  static String parentTableLiteral(@Nonnull String schema, @Nonnull String parentTableSuffix) {
+    return escapeSqlStringLiteral(schema) + "." + escapeSqlStringLiteral(parentTableSuffix);
   }
 
   @Nonnull
@@ -86,9 +92,7 @@ public final class PostgresPartmanSqlSetupSupport {
     return "    PERFORM "
         + PostgresSqlUtils.quotePgIdentifier(partmanExtensionSchema)
         + ".run_maintenance('"
-        + schema.replace("'", "''")
-        + "."
-        + parentTableSuffix
+        + parentTableLiteral(schema, parentTableSuffix)
         + "');\n";
   }
 
@@ -96,21 +100,22 @@ public final class PostgresPartmanSqlSetupSupport {
    * Maps intervalSeconds to a pg_cron schedule (minute/hour/day granularity).
    *
    * <p>Only intervals that map cleanly are accepted: multiples of 60 seconds up to 59 minutes,
-   * multiples of 3600 up to 23 hours, or multiples of 86400 up to 31 days. Values below 60 are
-   * treated as 60 seconds ({@code every minute}). Non-representable values (e.g. 90 minutes) throw.
+   * multiples of 3600 up to 23 hours, or exactly 1 day (86400 seconds). Multi-day day-of-month cron
+   * schedules skip or bunch at month boundaries, so they are rejected. Values below 60 are treated
+   * as 60 seconds ({@code every minute}).
    */
   @Nonnull
   public static String toPgCronSchedule(int intervalSeconds) {
     int sec = Math.max(60, intervalSeconds);
     if (sec % 86400 == 0) {
       int days = sec / 86400;
-      if (days < 1 || days > 31) {
-        throw new IllegalArgumentException(
-            "intervalSeconds="
-                + intervalSeconds
-                + " day cadence must be between 1 and 31 days inclusive");
+      if (days == 1) {
+        return "0 0 * * *";
       }
-      return days == 1 ? "0 0 * * *" : ("0 0 */" + days + " * *");
+      throw new IllegalArgumentException(
+          "intervalSeconds="
+              + intervalSeconds
+              + " multi-day cadences cannot be represented as a pg_cron day-of-month schedule");
     }
     if (sec % 3600 == 0) {
       int hours = sec / 3600;
@@ -132,6 +137,6 @@ public final class PostgresPartmanSqlSetupSupport {
         "intervalSeconds="
             + intervalSeconds
             + " cannot be represented as a pg_cron schedule; use a multiple of 60 (1–59 min),"
-            + " 3600 (1–23 h), or 86400 (1–31 d)");
+            + " 3600 (1–23 h), or 86400 (1 day)");
   }
 }

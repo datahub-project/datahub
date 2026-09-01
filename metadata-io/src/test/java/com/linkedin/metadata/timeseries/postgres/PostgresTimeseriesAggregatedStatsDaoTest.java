@@ -158,6 +158,7 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
             List.of("document #>> ARRAY['user']"),
             buckets,
             specs,
+            null,
             "true");
     assertTrue(sql.contains("ROW_NUMBER() OVER (PARTITION BY g0 "));
     assertTrue(sql.contains("WHERE _rn <= 5 ORDER BY"));
@@ -183,6 +184,7 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
             List.of("document #>> ARRAY['user']"),
             buckets,
             specs,
+            null,
             "true");
     assertTrue(sql.contains("ROW_NUMBER() OVER (ORDER BY"));
     assertFalse(sql.contains("PARTITION BY"));
@@ -190,11 +192,36 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
   }
 
   @Test
+  public void buildAggregatedStatsSql_twoStringGroups_ranksEachLevel() {
+    GroupingBucket[] buckets =
+        new GroupingBucket[] {stringBucket("user", 5), stringBucket("status", 3)};
+    AggregationSpec[] specs =
+        new AggregationSpec[] {
+          new AggregationSpec().setFieldPath("count").setAggregationType(AggregationType.SUM)
+        };
+    String sql =
+        PostgresTimeseriesAggregatedStatsDao.buildAggregatedStatsSql(
+            "public.ts_aspect",
+            List.of("u AS g0", "s AS g1"),
+            List.of("g0", "g1"),
+            List.of("SUM(...) AS \"sum_count\""),
+            List.of("sum_count"),
+            List.of("u", "s"),
+            buckets,
+            specs,
+            null,
+            "true");
+    assertTrue(sql.contains("PARTITION BY g0"));
+    assertTrue(sql.contains("WHERE _rn <= 3"));
+    assertTrue(sql.contains("WHERE _rn <= 5"));
+  }
+
+  @Test
   public void buildGroupOrderBy_stringDefaultAscending() {
     GroupingBucket[] buckets = new GroupingBucket[] {stringBucket("user", 10)};
     String order =
         PostgresTimeseriesAggregatedStatsDao.buildGroupOrderBy(
-            buckets, List.of("g0"), List.of("sum_count"), new AggregationSpec[0]);
+            buckets, List.of("g0"), List.of("sum_count"), new AggregationSpec[0], null);
     assertEquals(order, "g0 ASC");
   }
 

@@ -16,11 +16,15 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.Database;
 import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
@@ -37,7 +41,7 @@ import org.springframework.core.env.Environment;
 @Slf4j
 @Configuration
 @Conditional(PgTimeseriesRuntimePoolEnabledCondition.class)
-public class PgTimeseriesEbeanConfigFactory {
+public class PgTimeseriesEbeanConfigFactory implements DisposableBean {
 
   @Value("${ebean.postgresUseIamAuth:false}")
   private Boolean postgresUseIamAuth;
@@ -80,6 +84,8 @@ public class PgTimeseriesEbeanConfigFactory {
 
   @Value("${ebean.password:}")
   private String ebeanPassword;
+
+  @Nullable private volatile PgTimeseriesStoreRegistry activeRegistry;
 
   @Bean
   @Nonnull
@@ -131,7 +137,35 @@ public class PgTimeseriesEbeanConfigFactory {
           store.getName(),
           new StoreHandle(store, database, new PostgresTimeseriesAspectDao(database, store)));
     }
-    return new PgTimeseriesStoreRegistry(options, handles);
+    PgTimeseriesStoreRegistry registry = new PgTimeseriesStoreRegistry(options, handles);
+    this.activeRegistry = registry;
+    return registry;
+  }
+
+  @Override
+  public void destroy() {
+    shutdownRegistry(activeRegistry);
+  }
+
+  static void shutdownRegistry(@Nullable PgTimeseriesStoreRegistry registry) {
+    if (registry == null) {
+      return;
+    }
+    Set<Database> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+    for (StoreHandle handle : registry.allStores().values()) {
+      Database database = handle.getDatabase();
+      if (!seen.add(database)) {
+        continue;
+      }
+      try {
+        database.shutdown();
+      } catch (RuntimeException e) {
+        log.warn(
+            "Failed to shut down pgTimeseries pool for store '{}'",
+            handle.getOptions().getName(),
+            e);
+      }
+    }
   }
 
   /** Same URL may be reused only when effective credentials and pool sizing match. */

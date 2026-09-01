@@ -5,6 +5,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -75,8 +76,10 @@ public class PostgresTimeseriesScrollKeysetTest {
         where, params, keys, List.of(1000L, "msg-a"));
 
     String sql = where.toString();
-    assertTrue(sql.contains("event_time < ?"));
-    assertTrue(sql.contains("event_time IS NOT DISTINCT FROM ? AND message_id > ?"));
+    assertTrue(sql.contains("event_time < ? OR event_time IS NULL"));
+    assertTrue(
+        sql.contains(
+            "event_time IS NOT DISTINCT FROM ? AND (message_id > ? OR message_id IS NULL)"));
     assertEquals(params.size(), 3);
     assertTrue(params.get(0) instanceof java.sql.Timestamp);
     assertEquals(params.get(1), new java.sql.Timestamp(1000L));
@@ -180,5 +183,13 @@ public class PostgresTimeseriesScrollKeysetTest {
     assertEquals(values.get(1), 1.5d);
     assertEquals(values.get(2), true);
     assertEquals(values.get(3), "abc");
+  }
+
+  @Test
+  public void decodeScrollCursor_malformed_throws() {
+    List<SortKey> keys = PostgresTimeseriesAspectService.resolveSortKeys(Collections.emptyList());
+    expectThrows(
+        IllegalArgumentException.class,
+        () -> PostgresTimeseriesAspectService.decodeScrollCursor("not-a-cursor", keys));
   }
 }
