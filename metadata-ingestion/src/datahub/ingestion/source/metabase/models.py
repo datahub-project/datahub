@@ -154,6 +154,12 @@ class MetabaseCard(MetabaseBaseModel):
         return [] if value is None else value
 
     @property
+    def effective_query_type(self) -> str:
+        # query_type is an optional convenience field Metabase may omit; dataset_query.type
+        # is always populated and is the authoritative native-vs-query-builder signal.
+        return self.dataset_query.type
+
+    @property
     def custom_properties(self) -> Dict[str, str]:
         metrics, dimensions = [], []
         for meta in self.result_metadata:

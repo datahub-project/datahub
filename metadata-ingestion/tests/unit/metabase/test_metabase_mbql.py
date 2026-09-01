@@ -820,6 +820,20 @@ def test_cll_filtered_source_table_resolves_from_result_metadata(
         fg.downstreams[0] for fg in result.fineGrainedLineages if fg.downstreams
     }
     assert downstreams == {_sf(MODEL_6_URN, "rating"), _sf(MODEL_6_URN, "title")}
+
+    # The point of CLL is the downstream->upstream mapping: each output column must
+    # resolve to the matching source column, not merely to some source column.
+    upstream_by_downstream = {
+        fg.downstreams[0]: fg.upstreams
+        for fg in result.fineGrainedLineages
+        if fg.downstreams
+    }
+    assert upstream_by_downstream[_sf(MODEL_6_URN, "rating")] == [
+        _sf(FILM_TABLE_URN, "rating")
+    ]
+    assert upstream_by_downstream[_sf(MODEL_6_URN, "title")] == [
+        _sf(FILM_TABLE_URN, "title")
+    ]
     src.close()
 
 

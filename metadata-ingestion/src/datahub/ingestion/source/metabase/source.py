@@ -65,7 +65,10 @@ from datahub.ingestion.source.metabase.constants import (
     METABASE_ENGINE_TO_DATAHUB_PLATFORM,
     METABASE_TYPE_TO_DATAHUB_TYPE,
 )
-from datahub.ingestion.source.metabase.mbql import _extract_field_ids_from_mbql
+from datahub.ingestion.source.metabase.mbql import (
+    _extract_field_ids_from_mbql,
+    extract_mbql_field_refs,
+)
 from datahub.ingestion.source.metabase.models import (
     DatasourceInfo,
     MetabaseBaseModel,
@@ -779,12 +782,16 @@ class MetabaseSource(StatefulIngestionSourceBase):
         query = card.dataset_query.query
         field_refs = query.collect_field_refs()
 
-        # Implicit-select models (source-table + filter, no `fields` clause) expose
-        # their columns only via result_metadata, so resolve those field refs too.
+        # Implicit-select cards (source-table + filter, no `fields` clause) expose their
+        # output columns only via result_metadata. Collect both ref kinds: id-based refs
+        # feed resolution below; name-based refs cannot map to an upstream column.
         output_field_ids: List[int] = []
+        output_named_refs: List[str] = []
         for meta in card.result_metadata:
             if isinstance(meta.field_ref, list):
-                output_field_ids.extend(_extract_field_ids_from_mbql(meta.field_ref))
+                meta_refs = extract_mbql_field_refs(meta.field_ref)
+                output_field_ids.extend(meta_refs.ids)
+                output_named_refs.extend(meta_refs.named)
 
         resolved = {}
         for fid in set(field_refs.ids) | set(output_field_ids):
@@ -792,14 +799,19 @@ class MetabaseSource(StatefulIngestionSourceBase):
             if f is not None:
                 resolved[fid] = f
 
-        if field_refs.named:
-            # Name-based MBQL refs cannot be resolved to a concrete upstream
-            # column, so their column-level lineage is dropped. Surface it.
-            self.report.mbql_field_refs_by_name_dropped += len(field_refs.named)
+        # Name-based refs have no resolvable upstream column, so their CLL is dropped.
+        # Pass-through cards recover result-metadata names 1:1 in _get_passthrough_cll,
+        # so only count those names as dropped when the card is not pass-through. Dedupe:
+        # a column named in both the query clause and result_metadata is one dropped column.
+        named_dropped: Set[str] = set(field_refs.named)
+        if not query.is_passthrough():
+            named_dropped.update(output_named_refs)
+        if named_dropped:
+            self.report.mbql_field_refs_by_name_dropped += len(named_dropped)
             self.report.warning(
                 title="MBQL Column Lineage Dropped",
                 message="Query-builder card references columns by name; column-level lineage for those columns was dropped.",
-                context=f"Card ID: {card.id}, Named refs: {field_refs.named}",
+                context=f"Card ID: {card.id}, Named refs: {sorted(named_dropped)}",
                 log=False,
             )
 
@@ -1296,7 +1308,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                         )
             return input_fields
 
-        if card.dataset_query and card.dataset_query.type == _QUERY_TYPE_NATIVE:
+        if card.effective_query_type == _QUERY_TYPE_NATIVE:
             return self._get_input_fields_from_native_sql(card)
 
         return input_fields
@@ -1349,7 +1361,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
-        if card_details.query_type == _QUERY_TYPE_NATIVE:
+        if card_details.effective_query_type == _QUERY_TYPE_NATIVE:
             raw_query = self._extract_native_query(card_details)
             if raw_query:
                 yield MetadataChangeProposalWrapper(
@@ -1608,8 +1620,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
     def _get_model_view_properties(
         self, card: MetabaseCard
     ) -> Optional[ViewPropertiesClass]:
-        # query_type is optional; a native model may only set dataset_query.type.
-        if card.dataset_query and card.dataset_query.type == _QUERY_TYPE_NATIVE:
+        if card.effective_query_type == _QUERY_TYPE_NATIVE:
             raw_query = self._extract_native_query(card)
             if raw_query:
                 return ViewPropertiesClass(
@@ -1633,7 +1644,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
     def _get_model_lineage(
         self, card: MetabaseCard, model_urn: str
     ) -> Optional[UpstreamLineageClass]:
-        if card.dataset_query and card.dataset_query.type == _QUERY_TYPE_QUERY:
+        if card.effective_query_type == _QUERY_TYPE_QUERY:
             cll = self._get_cll_from_query_builder(card=card, entity_urn=model_urn)
 
             if cll and not cll.fineGrainedLineages:
@@ -1650,7 +1661,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                         cll = passthrough_cll
 
             return cll
-        elif card.dataset_query and card.dataset_query.type == _QUERY_TYPE_NATIVE:
+        elif card.effective_query_type == _QUERY_TYPE_NATIVE:
             return self._get_cll_from_native_sql(card=card, entity_urn=model_urn)
         else:
             table_urns = self._get_table_urns_from_card(card)
@@ -1675,14 +1686,14 @@ class MetabaseSource(StatefulIngestionSourceBase):
             "model_id": str(card.id),
             "display_type": card.display or "",
             "metabase_url": f"{self.config.display_uri}/model/{card.id}",
-            "query_type": card.query_type or "unknown",
+            "query_type": card.effective_query_type or "unknown",
         }
 
-        if card.query_type == _QUERY_TYPE_NATIVE:
+        if card.effective_query_type == _QUERY_TYPE_NATIVE:
             raw_query = self._extract_native_query(card)
             if raw_query:
                 custom_properties["query"] = raw_query
-        elif card.query_type == _QUERY_TYPE_QUERY:
+        elif card.effective_query_type == _QUERY_TYPE_QUERY:
             custom_properties["query_type"] = "query_builder"
             if card.dataset_query and card.dataset_query.query:
                 custom_properties["mbql_query"] = json.dumps(
