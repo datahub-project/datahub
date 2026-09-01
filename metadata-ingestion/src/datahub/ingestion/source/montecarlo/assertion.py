@@ -412,7 +412,19 @@ class MonteCarloAssertionBuilder:
                 break
         if ingested is None:
             # Alert references no monitor we ingested (all filtered out or
-            # unresolved assets).
+            # unresolved assets). Report it so the drop is visible in the
+            # run report rather than silently lost. An alert with only
+            # asset_mcons (no monitor_uuids) cannot be wired today — the run
+            # event needs an assertion URN, which is keyed by monitor.
+            self.report.warning(
+                title="Alert skipped: no ingested monitor",
+                message="Alert references no monitor that was ingested this run "
+                "(all filtered out, had unresolved assets, or the alert carried "
+                "only asset_mcons with no monitor_uuids).",
+                context=f"alert_uuid={alert.uuid}, "
+                f"monitor_uuids={alert.monitor_uuids}, "
+                f"asset_mcons={alert.asset_mcons}",
+            )
             return
         assertion_urn = ingested.assertion_urn
         dataset_urn = ingested.dataset_urn

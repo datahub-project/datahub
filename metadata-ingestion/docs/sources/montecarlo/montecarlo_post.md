@@ -42,8 +42,8 @@ shared path and carry their native fields on `nativeType`/`nativeParameters`.
 #### Alert and incident ingestion
 
 Monte Carlo alerts and incidents are ingested as `AssertionRunEvent` failures on their
-corresponding assertion. Each event carries a timestamp, the Monte Carlo alert ID, and a link back
-to the Monte Carlo UI via `externalUrl`.
+corresponding assertion. Each event carries a timestamp, the Monte Carlo alert ID, and the
+alert's native severity/priority/sub-type on `nativeResults`.
 
 ### Limitations
 

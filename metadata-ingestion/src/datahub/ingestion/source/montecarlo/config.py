@@ -157,6 +157,17 @@ class MonteCarloSourceConfig(
         return self
 
     @pydantic.model_validator(mode="after")
+    def _require_auto_map_for_default_platform(self) -> "MonteCarloSourceConfig":
+        # default_platform is only consulted on the auto-mapping fallback path
+        # (see MconResolver._platform_detail); set alone, it would be silently
+        # ignored and warehouses would still be skipped with a warning.
+        if self.default_platform is not None and not self.auto_map_connection_types:
+            raise ValueError(
+                "default_platform requires auto_map_connection_types to be set."
+            )
+        return self
+
+    @pydantic.model_validator(mode="after")
     def _require_assertions_for_alerts(self) -> "MonteCarloSourceConfig":
         # Alert run events attach to the assertions built from monitors, so ingesting
         # alerts without assertions would silently produce no run events.

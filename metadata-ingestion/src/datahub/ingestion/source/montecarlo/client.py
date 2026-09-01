@@ -466,7 +466,9 @@ class MonteCarloClient:
         full_table_ids = [
             f.get("full_table_id")
             for f in ((monitor or {}).get("asset_selection") or {}).get("filters") or []
-            if f.get("type") == "FULL_TABLE_ID" and f.get("full_table_id")
+            if isinstance(f, dict)
+            and f.get("type") == "FULL_TABLE_ID"
+            and f.get("full_table_id")
         ]
         mcons = []
         for full_table_id in full_table_ids:

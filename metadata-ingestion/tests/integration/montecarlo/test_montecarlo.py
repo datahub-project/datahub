@@ -280,6 +280,10 @@ CONFIG_DICT: Dict[str, Any] = {
 
 IGNORE_PATHS = [
     r"root\[\d+\]\['aspect'\]\['json'\]\['source'\]\['created'\]\['time'\]",
+    # lastObserved is set per workunit from the emit timestamp, which varies
+    # with wall-clock timing under time_machine; the golden pins FROZEN_TIME
+    # but the per-emit stamp drifts by a few seconds across the run.
+    r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
 ]
 
 

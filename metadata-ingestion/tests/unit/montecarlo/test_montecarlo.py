@@ -170,21 +170,15 @@ def test_resolver_uses_default_platform_when_auto_mapping_enabled() -> None:
 
 
 def test_resolver_default_platform_ignored_when_auto_mapping_disabled() -> None:
-    """default_platform alone does nothing without auto_map_connection_types —
-    explicit mapping is required, so the asset is skipped despite default_platform."""
-    report = MonteCarloSourceReport()
-    mcon = "MCON++acct++wh-x++table++db.sch.tbl"
-    client = FakeResolverClient(
-        {
-            mcon: ResolvedTable(
-                mcon=mcon, full_table_id="db.sch.tbl", connection_type="exotic-db"
-            )
-        }
-    )
-    cfg = make_config(default_platform="postgres")
-    resolver = MconResolver(cfg, client, report)
-    assert resolver.dataset_urn_for_mcon(mcon) is None
-    assert mcon in report.mcons_unmapped_platform
+    """default_platform alone (without auto_map_connection_types) is now rejected
+    at config-validation time by the _require_auto_map_for_default_platform
+    validator, so it can never silently no-op at resolution time. The resolver-
+    level behavior here is therefore unreachable; see
+    test_default_platform_requires_auto_map for the validator check."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="default_platform requires"):
+        make_config(default_platform="postgres")
 
 
 def test_resolver_warns_on_unmapped_platform() -> None:
@@ -939,7 +933,35 @@ def test_build_assertion_failed_emit_does_not_register_monitor() -> None:
     assert report.run_events_emitted == 0
 
 
-# --- Client parsing / pagination (against recorded GraphQL dicts) ---
+def test_build_run_event_warns_on_unmatched_alert() -> None:
+    """An alert whose monitors were not ingested must produce no run event AND
+    emit a report warning (not silently drop), so the operator can see the
+    skipped alert in the run report."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+
+    # Alert for a monitor we never ingested, with only asset_mcons.
+    alert = MonteCarloAlert(
+        uuid="alert-y",
+        monitor_uuids=[],
+        asset_mcons=[mcon],
+        created_time="2026-05-01T00:00:00+00:00",
+    )
+    assert list(builder.build_run_event(alert)) == []
+    assert report.run_events_emitted == 0
+    # The drop must be visible in the report, not silent.
+    titles = [w.title for w in report.warnings]
+    assert any("no ingested monitor" in (t or "") for t in titles)
 
 
 def _client_with_responses(responses: List[Dict[str, Any]]) -> MonteCarloClient:

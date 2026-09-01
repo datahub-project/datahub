@@ -102,6 +102,65 @@ def test_token_bucket_empty_branch_fires_under_burst(
     assert sleep_calls[-1] == pytest.approx(0.5, abs=0.01)
 
 
+def test_token_bucket_releases_lock_during_sleep(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The lock must NOT be held while time.sleep runs — holding it serializes
+    concurrent callers and defeats the point of a token bucket (bursts would
+    serialize rather than pace). Catches the sleep-under-lock regression."""
+    clock = [0.0]
+    sleep_calls: List[float] = []
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(time, "sleep", _make_deterministic_sleep(clock, sleep_calls))
+
+    bucket = TokenBucket(rate=2.0, capacity=1)
+    bucket.acquire()  # consume the single burst token
+
+    lock_held_during_sleep = []
+
+    def _checking_sleep(seconds: float) -> None:
+        lock_held_during_sleep.append(bucket._lock.locked())
+        _make_deterministic_sleep(clock, sleep_calls)(seconds)
+
+    monkeypatch.setattr(time, "sleep", _checking_sleep)
+    bucket.acquire()  # empty -> waits 0.5s
+    assert sleep_calls[-1] == pytest.approx(0.5, abs=0.01)
+    assert lock_held_during_sleep == [False], "lock must be released before sleep"
+
+
+def test_token_bucket_does_not_overshoot_when_sleep_overruns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If time.sleep takes longer than the computed wait (scheduler latency,
+    GC pause, etc.), the bucket must recompute tokens from the ACTUAL elapsed
+    time on wake — not credit exactly wait*rate and risk overshooting
+    capacity. Catches the overshoot regression where the old code set
+    tokens=0.0 unconditionally after sleep."""
+    clock = [0.0]
+    sleep_calls: List[float] = []
+
+    # Sleep advances the clock by MORE than requested (simulating scheduler lag).
+    def _laggy_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+        clock[0] += seconds * 3  # 3x the requested wait
+
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(time, "sleep", _laggy_sleep)
+
+    bucket = TokenBucket(rate=2.0, capacity=2)
+    bucket.acquire()  # tokens 2 -> 1
+    bucket.acquire()  # tokens 1 -> 0
+    # Empty -> wait = (1-0)/2.0 = 0.5s, but sleep advances clock by 1.5s.
+    bucket.acquire()
+    assert sleep_calls[-1] == pytest.approx(0.5, abs=0.01)
+    # On wake, elapsed=1.5s -> refill = 1.5*2.0 = 3.0, capped at capacity=2,
+    # then one consumed -> tokens=1.0. The old code set tokens=0.0 (ignoring
+    # the overrun), which would under-credit and pace too slowly.
+    assert bucket._tokens == 1.0
+
+    assert bucket._tokens == 1.0
+
+
 def test_token_bucket_resets_token_state_after_wait(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -77,18 +77,28 @@ class TokenBucket:
         self._lock = threading.Lock()
 
     def acquire(self) -> None:
+        # Compute the wait under the lock, then sleep outside it: holding the
+        # lock across time.sleep serializes concurrent callers and defeats the
+        # point of a token bucket (bursts would serialize rather than pace).
         with self._lock:
             now = time.monotonic()
             elapsed = now - self._last_refill
             self._last_refill = now
             self._tokens = min(self.capacity, self._tokens + elapsed * self.rate)
-            if self._tokens < 1:
-                wait = (1 - self._tokens) / self.rate
-                time.sleep(wait)
-                self._tokens = 0.0
-                self._last_refill = time.monotonic()
-            else:
+            if self._tokens >= 1:
                 self._tokens -= 1
+                return
+            wait = (1 - self._tokens) / self.rate
+        time.sleep(wait)
+        # Recompute from the actual wake time so the bucket reflects the real
+        # elapsed interval (which may exceed `wait` if the scheduler was late),
+        # rather than crediting exactly `wait * rate` and overshooting capacity.
+        with self._lock:
+            now = time.monotonic()
+            elapsed = now - self._last_refill
+            self._last_refill = now
+            self._tokens = min(self.capacity, elapsed * self.rate)
+            self._tokens -= 1
 
 
 class DailyCallBudgetExceeded(RuntimeError):
