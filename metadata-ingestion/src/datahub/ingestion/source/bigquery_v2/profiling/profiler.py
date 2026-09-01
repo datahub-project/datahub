@@ -1,0 +1,1059 @@
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
+
+import requests
+from google.api_core.exceptions import GoogleAPICallError
+from google.cloud import bigquery
+from google.cloud.bigquery import QueryJobConfig
+from sqlalchemy import create_engine, inspect
+from typing_extensions import TypeGuard
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
+    )
+
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.common import BQ_SPECIAL_PARTITION_IDS
+from datahub.ingestion.source.bigquery_v2.profiling import queries
+from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+    BACKTICK_COLUMN_NAME_RE,
+    BQ_SAFETY_ROW_LIMIT,
+    BQ_SAFETY_ROW_LIMIT_THRESHOLD,
+    CUSTOM_SQL_KWARG,
+    DATE_FORMAT_YYYY_MM_DD,
+    DATE_LIKE_COLUMN_NAMES,
+    DATE_LITERAL_SHAPES,
+    DATE_WRAPPER_RE,
+    PARTITION_EQ_LITERAL_RE,
+    PARTITION_GE_BOUND_RE,
+    PARTITION_HANDLING_ENABLED,
+    PARTITION_HANDLING_KWARG,
+    PARTITION_LE_BOUND_RE,
+    PARTITION_RANGE_OPERATOR_RE,
+    PARTITIONING_COLUMN_FLAG,
+    STRFTIME_FORMATS,
+)
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
+    PartitionDiscovery,
+)
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types import (
+    CachedPartitionMetadata,
+)
+from datahub.ingestion.source.bigquery_v2.profiling.query_executor import QueryExecutor
+from datahub.ingestion.source.bigquery_v2.profiling.security import (
+    build_safe_table_reference,
+    validate_and_filter_expressions,
+    validate_bigquery_identifier,
+)
+from datahub.ingestion.source.sql.sql_generic import BaseTable
+from datahub.ingestion.source.sql.sql_generic_profiler import (
+    GenericProfiler,
+    TableProfilerRequest,
+)
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DeferredExternalTable:
+    # Carries an external table's context with its request for deferred partition
+    # discovery, instead of monkey-patching fields onto TableProfilerRequest.
+    request: TableProfilerRequest
+    bq_table: BigqueryTable
+    db_name: str
+    schema_name: str
+
+
+@dataclass
+class DateLiteralSpec:
+    # A parsed partition equality literal: the strftime format key, whether it was
+    # quoted, any DATE()/TIMESTAMP() wrapper, and the resolved moment. This is a full
+    # datetime (not a date) so an hourly YYYYMMDDHH partition keeps its hour through
+    # windowing and rendering; date-only formats simply carry hour 0.
+    fmt: str
+    quoted: bool
+    wrapper: Optional[str]
+    moment: datetime
+
+
+def _widen_client_connection_pool(client: bigquery.Client, size: int) -> None:
+    # The client's urllib3 pool defaults to maxsize 10; profiling threads share it,
+    # so above 10 workers connections are discarded and reopened. Match it to size.
+    session = getattr(client, "_http", None)
+    if session is None or not hasattr(session, "mount"):
+        return
+    adapter = requests.adapters.HTTPAdapter(pool_connections=size, pool_maxsize=size)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+
+
+class BigqueryProfiler(GenericProfiler):
+    """Profiler for BigQuery tables.
+
+    Extends GenericProfiler to add partition-aware query generation: tables that
+    require a partition filter get a custom SQL SELECT with a WHERE clause derived
+    from the latest real partition values, preventing expensive full-table scans.
+    External tables use deferred parallel discovery so they don't block the main loop.
+    """
+
+    config: BigQueryV2Config
+    report: BigQueryV2Report
+
+    def __init__(
+        self,
+        config: BigQueryV2Config,
+        report: BigQueryV2Report,
+        state_handler: Optional[ProfilingHandler] = None,
+    ) -> None:
+        super().__init__(config, report, "bigquery", state_handler)
+        self.config = config
+        self.report = report
+        self.partition_discovery = PartitionDiscovery(config, report)
+        self.query_executor = QueryExecutor(config)
+        self._tables_profiled = 0
+        self._external_tables_processed = 0
+        self._partition_discovery_calls = 0
+        # {(project, dataset): {table_name: {partition_columns: [...], column_types: {...}}}}
+        self._partition_metadata_cache: Dict[
+            Tuple[str, str], Dict[str, CachedPartitionMetadata]
+        ] = {}
+        self._cache_hits = 0
+        self._cache_misses = 0
+
+    def get_profiler_instance(
+        self, db_name: Optional[str] = None
+    ) -> "SQLAlchemyProfiler":
+        # Override the parent so the SQLAlchemy engine reuses our in-memory
+        # bigquery.Client (built with explicit credentials) instead of letting
+        # the dialect fall back to google.auth.default() — which would require
+        # the GOOGLE_APPLICATION_CREDENTIALS env var to be set and would leak
+        # the service account key through the process environment.
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
+        )
+
+        logger.debug(f"Getting profiler instance from {self.platform}")
+        url = self.config.get_sql_alchemy_url()
+        connect_args: Dict[str, object] = {}
+        if self.config.has_explicit_credentials():
+            # user_supplied_client=true tells the BigQuery dialect to short
+            # circuit its own client construction and use the one we pass via
+            # connect_args. Requires sqlalchemy-bigquery>=1.5.0.
+            # Covers both the service-account and WIF paths — anywhere we hold
+            # an in-memory credential, we pass it through explicitly rather
+            # than leaking the key via GOOGLE_APPLICATION_CREDENTIALS.
+            separator = "&" if "?" in url else "?"
+            url = f"{url}{separator}user_supplied_client=true"
+            client = self.config.get_bigquery_client()
+            _widen_client_connection_pool(
+                client, max(self.config.profiling.max_workers, 10)
+            )
+            connect_args["client"] = client
+        logger.debug(f"sql_alchemy_url={url}")
+
+        engine = create_engine(url, connect_args=connect_args, **self.config.options)
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+
+        logger.info(
+            f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+        )
+        return SQLAlchemyProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+        )
+
+    def _populate_partition_metadata_cache(self, project: str, dataset: str) -> None:
+        """Pre-fetch partition metadata for all tables in a dataset in one query.
+
+        A single INFORMATION_SCHEMA.COLUMNS query per dataset is far cheaper than
+        issuing one query per table during get_batch_kwargs, which is called for
+        every table and runs in the same thread.
+        """
+        cache_key = (project, dataset)
+
+        if cache_key in self._partition_metadata_cache:
+            return
+
+        try:
+            safe_info_schema_ref = build_safe_table_reference(
+                project, dataset, "INFORMATION_SCHEMA.COLUMNS"
+            )
+
+            query = queries.PARTITION_METADATA_CACHE.format(
+                info_schema_ref=safe_info_schema_ref, flag=PARTITIONING_COLUMN_FLAG
+            )
+
+            job_config = QueryJobConfig()
+
+            rows = self.query_executor.execute_query_safely(
+                query, job_config, f"partition metadata cache for {project}.{dataset}"
+            )
+
+            dataset_cache: Dict[str, CachedPartitionMetadata] = {}
+
+            for row in rows:
+                table_name = row.table_name
+                if table_name not in dataset_cache:
+                    dataset_cache[table_name] = {
+                        "partition_columns": [],
+                        "column_types": {},
+                    }
+                dataset_cache[table_name]["partition_columns"].append(row.column_name)
+                dataset_cache[table_name]["column_types"][row.column_name] = (
+                    row.data_type
+                )
+
+            self._partition_metadata_cache[cache_key] = dataset_cache
+
+        except Exception as e:
+            # Caching {} here means every table in this dataset is subsequently treated
+            # as unpartitioned (partition discovery falls back to per-table probing).
+            # Surface it in the report so operators know why partition filters may be
+            # missing across a whole dataset (commonly an IAM/permissions issue).
+            self.report.warning(
+                title="Partition metadata cache population failed",
+                message="Failed to pre-fetch partition columns from "
+                "INFORMATION_SCHEMA.COLUMNS for a dataset; tables in it will fall back "
+                "to per-table partition probing and may be full-scanned or skipped",
+                context=f"{project}.{dataset}: {e}",
+            )
+            self._partition_metadata_cache[cache_key] = {}
+
+    def _get_cached_partition_metadata(
+        self, project: str, dataset: str, table_name: str
+    ) -> Optional[CachedPartitionMetadata]:
+        cache_key = (project, dataset)
+
+        if cache_key not in self._partition_metadata_cache:
+            self._populate_partition_metadata_cache(project, dataset)
+
+        dataset_cache = self._partition_metadata_cache.get(cache_key, {})
+        table_metadata = dataset_cache.get(table_name)
+
+        if table_metadata:
+            self._cache_hits += 1
+        else:
+            self._cache_misses += 1
+
+        return table_metadata
+
+    def log_cache_statistics(self) -> None:
+        total_requests = self._cache_hits + self._cache_misses
+        if total_requests > 0:
+            hit_rate = (self._cache_hits / total_requests) * 100
+            logger.info(
+                f"Partition metadata cache: "
+                f"{self._cache_hits} hits, {self._cache_misses} misses, "
+                f"{hit_rate:.1f}% hit rate, "
+                f"{len(self._partition_metadata_cache)} datasets cached"
+            )
+
+    @staticmethod
+    def get_partition_range_from_partition_id(
+        partition_id: str, partition_datetime: Optional[datetime]
+    ) -> Tuple[datetime, datetime]:
+        return PartitionDiscovery.get_partition_range_from_partition_id(
+            partition_id, partition_datetime
+        )
+
+    def _sample_percent(self, rows_count: int) -> float:
+        # A zero/non-positive sample size (or empty table) would produce a
+        # `TABLESAMPLE SYSTEM (0 PERCENT)`, which BigQuery rejects. Fall back to no
+        # downsampling rather than emitting an invalid percentage.
+        if rows_count <= 0 or self.config.profiling.sample_size <= 0:
+            return 100.0
+        sample_pc = self.config.profiling.sample_size / rows_count
+        return min(100 * sample_pc, 100.0)
+
+    def _should_sample(self, rows_count: Optional[int]) -> TypeGuard[int]:
+        return bool(
+            self.config.profiling.use_sampling
+            and self.config.profiling.sample_size > 0
+            and rows_count
+            and rows_count > self.config.profiling.sample_size
+        )
+
+    def _build_partition_profiling_sql(
+        self, safe_table_ref: str, partition_where: str, bq_table: BigqueryTable
+    ) -> str:
+        """Build the profiling SELECT for a table that has a partition filter.
+
+        Applies TABLESAMPLE when sampling is enabled and the table is large enough,
+        otherwise the configured row limit. Shared by the inline (internal table) and
+        deferred (external table) code paths so their SQL cannot drift.
+        """
+        select_all = queries.SELECT_ALL.format(table_ref=safe_table_ref)
+        where_clause = queries.WHERE_CLAUSE.format(where=partition_where)
+
+        rows_count = getattr(bq_table, "rows_count", None)
+        if self._should_sample(rows_count):
+            tablesample = queries.TABLESAMPLE_SYSTEM.format(
+                sample_percent=self._sample_percent(rows_count)
+            )
+            return f"{select_all}\n{tablesample}\n{where_clause}"
+
+        if self.config.profiling.profiling_row_limit > 0:
+            row_limit = max(1, int(self.config.profiling.profiling_row_limit))
+            limit_clause = queries.LIMIT_CLAUSE.format(limit=row_limit)
+            return f"{select_all}\n{where_clause}\n{limit_clause}"
+
+        return f"{select_all}\n{where_clause}"
+
+    @staticmethod
+    def _row_count_unavailable(bq_table: BigqueryTable) -> bool:
+        # A row count of 0 is a genuinely empty native table, but for external tables
+        # BigQuery's legacy `__TABLES__` reports row_count as 0 even when data exists,
+        # so 0 there means "unknown", not "empty". Treat unknown as unavailable.
+        rows_count = getattr(bq_table, "rows_count", None)
+        return rows_count is None or (bq_table.external and not rows_count)
+
+    def _build_custom_sql(
+        self, safe_table_ref: str, table_ref: str, bq_table: BigqueryTable
+    ) -> Optional[str]:
+        # Custom SQL for a table without a partition filter: sample, cap at the row
+        # limit, or apply the safety cap for very large tables. Returns None when the
+        # table fits within limits so GE profiles it normally (FULL_TABLE partitionSpec).
+        rows_count = getattr(bq_table, "rows_count", None)
+        select_all = queries.SELECT_ALL.format(table_ref=safe_table_ref)
+
+        if self._should_sample(rows_count):
+            sample_percent = self._sample_percent(rows_count)
+            logger.info(
+                f"Applied {sample_percent:.4f}% sampling to {table_ref} "
+                f"({rows_count:,} rows)"
+            )
+            return (
+                f"{select_all}\n"
+                f"{queries.TABLESAMPLE_SYSTEM.format(sample_percent=sample_percent)}"
+            )
+
+        row_limit = self.config.profiling.profiling_row_limit
+
+        if self._row_count_unavailable(bq_table):
+            # Row count unavailable: we can neither size a sample nor decide whether the
+            # table fits under the limit, so apply a bounded cap rather than leaving the
+            # scan unbounded — a full scan of a large external table is exactly the
+            # runaway cost we avoid. A known-empty native table (rows_count == 0) is not
+            # unavailable: it falls through to normal full-table profiling below.
+            limit = max(1, int(row_limit)) if row_limit > 0 else BQ_SAFETY_ROW_LIMIT
+            logger.info(
+                f"Row count unavailable for {table_ref}; applying bounded limit "
+                f"({limit:,}) instead of an unbounded scan"
+            )
+            return f"{select_all} {queries.LIMIT_CLAUSE.format(limit=limit)}"
+
+        # The unavailable guard above returns for any None row count, so the remaining
+        # comparisons operate on a known integer.
+        assert rows_count is not None
+        if row_limit > 0 and rows_count > row_limit:
+            limit = max(1, int(row_limit))
+            logger.info(
+                f"Applied row limit ({limit:,}) to non-partitioned table "
+                f"{table_ref} ({rows_count:,} rows)"
+            )
+            return f"{select_all} {queries.LIMIT_CLAUSE.format(limit=limit)}"
+
+        if row_limit == 0 and rows_count > BQ_SAFETY_ROW_LIMIT_THRESHOLD:
+            logger.info(
+                f"Applied safety limit of {BQ_SAFETY_ROW_LIMIT:,} rows to large table "
+                f"{table_ref} ({rows_count:,} rows)"
+            )
+            return (
+                f"{select_all} {queries.LIMIT_CLAUSE.format(limit=BQ_SAFETY_ROW_LIMIT)}"
+            )
+
+        return None
+
+    @staticmethod
+    def _as_bq_table(table: BaseTable) -> BigqueryTable:
+        if not isinstance(table, BigqueryTable):
+            raise TypeError(f"Expected BigqueryTable, got {type(table).__name__}")
+        return table
+
+    def get_batch_kwargs(
+        self, table: BaseTable, schema_name: str, db_name: str
+    ) -> dict:
+        bq_table = self._as_bq_table(table)
+        table_ref = f"{db_name}.{schema_name}.{bq_table.name}"
+
+        # Raises ValueError for invalid identifiers; callers should catch and skip the table.
+        safe_project = validate_bigquery_identifier(db_name, "project")
+        safe_schema = validate_bigquery_identifier(schema_name, "dataset")
+        safe_table = validate_bigquery_identifier(bq_table.name, "table")
+
+        base_kwargs = {
+            "schema": db_name,
+            "table": f"{schema_name}.{table.name}",
+            "project": db_name,
+            "dataset": schema_name,
+            "table_name": bq_table.name,
+            # Pass the row count the crawl already collected so the SQLAlchemy
+            # profiler's sampling decision avoids a COUNT(*). The GE profiler
+            # ignores it (it has **kwargs and recomputes rowCount itself).
+            "row_count": bq_table.rows_count,
+        }
+
+        if bq_table.external:
+            base_kwargs["is_external"] = "true"
+            # Partition discovery for external tables is deferred to parallel threads in
+            # generate_profile_workunits_with_deferred_partitions to avoid blocking.
+            return base_kwargs
+
+        logger.debug(f"Starting partition discovery for {table_ref}")
+        self._partition_discovery_calls += 1
+
+        cached_metadata = self._get_cached_partition_metadata(
+            db_name, schema_name, bq_table.name
+        )
+
+        partition_filters = self.partition_discovery.get_required_partition_filters(
+            bq_table,
+            db_name,
+            schema_name,
+            self.query_executor.execute_query_safely,
+            cached_partition_metadata=cached_metadata,
+        )
+
+        if partition_filters is None:
+            # Table requires a partition filter but one couldn't be constructed.
+            # Callers should catch ValueError and skip the table.
+            raise ValueError(
+                f"Could not construct required partition filters for {table_ref}"
+            )
+
+        validated_filters: List[str] = []
+        partition_where = ""
+
+        if partition_filters:
+            validated_filters = validate_and_filter_expressions(
+                partition_filters, "batch kwargs"
+            )
+
+            # Apply partition date windowing once here so it isn't duplicated in
+            # get_profile_request. Only None disables windowing (per the config docs); a
+            # 0-day window is a valid same-day window, so test `is not None` rather than
+            # truthiness.
+            if (
+                validated_filters
+                and self.config.profiling.partition_datetime_window_days is not None
+            ):
+                validated_filters = self._apply_partition_date_windowing(
+                    validated_filters, bq_table
+                )
+
+            if validated_filters:
+                partition_where = " AND ".join(validated_filters)
+                logger.info(
+                    f"Applied partition filters for {table_ref}: {partition_where}"
+                )
+            else:
+                # Discovery produced filters but all failed validation, so partition_where
+                # stays empty and the table is profiled unfiltered (a full scan, or an
+                # error if it has require_partition_filter=true). Surface it, don't just log.
+                self.report.warning(
+                    title="Partition filters rejected during profiling",
+                    message="Discovered partition filters failed validation; profiling "
+                    "will proceed without a partition filter (full scan), or fail if the "
+                    "table requires a partition filter.",
+                    context=table_ref,
+                )
+
+        safe_table_ref = f"{safe_project}.{safe_schema}.{safe_table}"
+
+        # A partitioned table gets the partition-filtered SELECT; otherwise fall back to
+        # sampling / row-limit SQL (or None, so GE profiles the full table normally).
+        if partition_where:
+            custom_sql: Optional[str] = self._build_partition_profiling_sql(
+                safe_table_ref, partition_where, bq_table
+            )
+            logger.info(f"Applied partition profiling SQL for {table_ref}")
+        else:
+            custom_sql = self._build_custom_sql(safe_table_ref, table_ref, bq_table)
+
+        if custom_sql:
+            base_kwargs.update(
+                {
+                    CUSTOM_SQL_KWARG: custom_sql,
+                    PARTITION_HANDLING_KWARG: PARTITION_HANDLING_ENABLED,
+                }
+            )
+            logger.debug(
+                f"Generated batch kwargs for {table_ref} with custom_sql: {custom_sql[:100]}..."
+            )
+        else:
+            logger.debug(f"Generated batch kwargs for {table_ref} without custom_sql")
+
+        partition_label = self._single_partition_label(partition_where, bq_table)
+        if partition_label is not None:
+            base_kwargs["partition"] = partition_label
+
+        return base_kwargs
+
+    def _single_partition_label(
+        self, partition_where: str, bq_table: BigqueryTable
+    ) -> Optional[str]:
+        # The profile is labeled with the real partition ID (type=PARTITION rather than
+        # type=QUERY) only when the generated predicate actually scanned exactly that
+        # one partition. The decision is derived from the predicate itself, not from
+        # config flags, so a windowing config that didn't widen anything (no date
+        # column) or a zero-day window (same-day range) is still labeled, while a
+        # genuine multi-partition scan is not.
+        partition_id = bq_table.max_partition_id or getattr(
+            bq_table, "max_shard_id", None
+        )
+        # No usable ID or a synthetic partition has no honest single-partition label.
+        if not partition_id or partition_id in BQ_SPECIAL_PARTITION_IDS:
+            return None
+        # A multi-column partition is described by several dimensions, but
+        # max_partition_id is a single time ID that silently drops the others.
+        if (
+            bq_table.partition_info
+            and bq_table.partition_info.fields
+            and len(bq_table.partition_info.fields) > 1
+        ):
+            return None
+        # An empty predicate means no partition WHERE was derived, so the table is
+        # profiled with a full-table / sample / row-limit scan rather than a single
+        # partition. Labeling that with max_partition_id would misdescribe the data
+        # scanned, so drop the label.
+        if not partition_where:
+            return None
+        # A non-empty predicate only keeps the label when it actually scanned that
+        # one partition — a widened multi-partition range drops it.
+        if not self._predicate_scans_single_partition(partition_where):
+            return None
+        return partition_id
+
+    @staticmethod
+    def _predicate_scans_single_partition(partition_where: str) -> bool:
+        # Pure equality predicates each pin one partition value.
+        if not PARTITION_RANGE_OPERATOR_RE.search(partition_where):
+            return True
+        # A range that collapses to a single value per column (a zero-day window's
+        # `col >= X AND col <= X`) still scans one partition. Any other range — a
+        # multi-day window, or a full-year range using a strict `<` upper bound —
+        # spans several partitions, so it is not a single-partition scan.
+        lows = {
+            m.group(1): m.group(2).strip()
+            for m in PARTITION_GE_BOUND_RE.finditer(partition_where)
+        }
+        highs = {
+            m.group(1): m.group(2).strip()
+            for m in PARTITION_LE_BOUND_RE.finditer(partition_where)
+        }
+        if not lows or lows.keys() != highs.keys():
+            return False
+        return all(highs.get(col) == low for col, low in lows.items())
+
+    def get_profile_request(
+        self, table: BaseTable, schema_name: str, db_name: str
+    ) -> Optional[TableProfilerRequest]:
+        bq_table = self._as_bq_table(table)
+        table_ref = f"{db_name}.{schema_name}.{bq_table.name}"
+
+        # Check staleness before super().get_profile_request(), which runs partition
+        # discovery (issuing BigQuery queries). last_altered is already available, so
+        # there's no need to discover partitions for a table we're about to skip.
+        if self._should_skip_profiling_due_to_staleness(bq_table):
+            # Surface in the report, not just the log: skip_stale_tables defaults to True,
+            # so without this operators silently lose profiling on long-idle tables.
+            self.report.warning(
+                title="Profiling skipped for stale table",
+                message="Table was not modified within profiling.staleness_threshold_days; "
+                "profiling was skipped. Set profiling.skip_stale_tables=false to profile it anyway.",
+                context=table_ref,
+            )
+            return None
+
+        # Skip partitioned tables up front when partition profiling is disabled, before
+        # super().get_profile_request() runs partition metadata/value discovery (issuing
+        # BigQuery queries) only for the result to be discarded below. bq_table already
+        # carries enough to tell whether the table is partitioned. Non-partitioned tables
+        # still fall through and profile normally.
+        if not self.config.profiling.partition_profiling_enabled:
+            is_partitioned = (
+                bq_table.max_partition_id
+                or getattr(bq_table, "max_shard_id", None)
+                or (hasattr(bq_table, "partition_info") and bq_table.partition_info)
+            )
+            if is_partitioned:
+                logger.info(f"Skipping partition profiling (disabled): {table_ref}")
+                self.report.profiling_skipped_partition_profiling_disabled.append(
+                    table_ref
+                )
+                return None
+
+        try:
+            profile_request = super().get_profile_request(table, schema_name, db_name)
+        except (ValueError, AttributeError, KeyError, GoogleAPICallError) as e:
+            # get_batch_kwargs raises ValueError for identifiers that fail security
+            # validation or partitioned tables whose filter couldn't be built; the other
+            # types cover BigQuery API/IAM/quota errors escaping discovery. Kept symmetric
+            # with the external deferred path so neither aborts the whole project.
+            self.report.warning(
+                title="Table skipped during profiling",
+                message=str(e),
+                context=table_ref,
+            )
+            return None
+
+        if not profile_request:
+            return None
+
+        if bq_table.external and not self.config.profiling.profile_external_tables:
+            logger.info(
+                f"Skipping profiling for external table {profile_request.pretty_name} (profiling.profile_external_tables is disabled)"
+            )
+            return None
+
+        # External-table partition discovery is deferred to a worker pool by get_workunits.
+        logger.info(f"Successfully created profile request for {table_ref}")
+        return profile_request
+
+    def get_workunits(
+        self, project_id: str, tables: Dict[str, List[BigqueryTable]]
+    ) -> Iterable[MetadataWorkUnit]:
+        profile_requests: List[TableProfilerRequest] = []
+        deferred_external: List[DeferredExternalTable] = []
+        total_tables = sum(len(dataset_tables) for dataset_tables in tables.values())
+
+        self._tables_profiled = 0
+        self._external_tables_processed = 0
+        self._partition_discovery_calls = 0
+
+        for dataset in tables:
+            dataset_tables = tables[dataset]
+            logger.info(
+                f"Processing dataset {project_id}.{dataset} ({len(dataset_tables)} tables)"
+            )
+
+            for table in dataset_tables:
+                normalized_table_name = BigqueryTableIdentifier(
+                    project_id=project_id, dataset=dataset, table=table.name
+                ).get_table_name()
+
+                if table.external and not self.config.profiling.profile_external_tables:
+                    self.report.profiling_skipped_other[f"{project_id}.{dataset}"] += 1
+                    continue
+
+                profile_request = self.get_profile_request(table, dataset, project_id)
+
+                if profile_request is not None:
+                    if table.external:
+                        # External tables still need partition discovery in a worker
+                        # pool, which can drop the table. Defer the profiled/accepted
+                        # accounting to generate_profile_workunits_with_deferred_partitions
+                        # so a table that discovery later skips is not counted as profiled.
+                        deferred_external.append(
+                            DeferredExternalTable(
+                                request=profile_request,
+                                bq_table=table,
+                                db_name=project_id,
+                                schema_name=dataset,
+                            )
+                        )
+                        self._external_tables_processed += 1
+                    else:
+                        self.report.report_entity_profiled(profile_request.pretty_name)
+                        profile_requests.append(profile_request)
+                        self._tables_profiled += 1
+                    logger.info(
+                        f"Accepted table for profiling: {normalized_table_name}"
+                    )
+                else:
+                    logger.debug(
+                        f"Table not eligible for profiling: {normalized_table_name}"
+                    )
+
+        eligible_tables = len(profile_requests) + len(deferred_external)
+        self._log_profiling_statistics(project_id, total_tables, eligible_tables)
+
+        if eligible_tables == 0:
+            logger.warning(f"No tables eligible for profiling in project {project_id}")
+            return
+
+        yield from self.generate_profile_workunits_with_deferred_partitions(
+            profile_requests,
+            deferred_external,
+            max_workers=self.config.profiling.max_workers,
+            platform=self.platform,
+            profiler_args=self.get_profile_args(),
+        )
+
+    def _log_profiling_statistics(
+        self, project_id: str, total_tables: int, eligible_tables: int
+    ) -> None:
+        skipped_tables = total_tables - eligible_tables
+        acceptance_rate = (
+            (eligible_tables / total_tables * 100) if total_tables > 0 else 0.0
+        )
+
+        logger.info(
+            f"Profiling statistics for {project_id}: "
+            f"{eligible_tables}/{total_tables} tables accepted, "
+            f"{skipped_tables} skipped, "
+            f"{self._external_tables_processed} external, "
+            f"{self._partition_discovery_calls} partition discovery calls, "
+            f"{acceptance_rate:.1f}% acceptance rate"
+        )
+
+        self.report.profile_table_selection_criteria[project_id] = (
+            f"{eligible_tables}/{total_tables} tables accepted for profiling "
+            f"({acceptance_rate:.1f}% acceptance rate)"
+        )
+
+    def _discover_external_partition_filter(
+        self, deferred: DeferredExternalTable
+    ) -> Optional[TableProfilerRequest]:
+        request = deferred.request
+        bq_table = deferred.bq_table
+        table_ref = f"{deferred.db_name}.{deferred.schema_name}.{bq_table.name}"
+
+        try:
+            logger.info(
+                f"Starting parallel partition discovery for external table: {table_ref}"
+            )
+
+            partition_filters = self.partition_discovery.get_required_partition_filters(
+                bq_table,
+                deferred.db_name,
+                deferred.schema_name,
+                self.query_executor.execute_query_safely,
+            )
+
+            if partition_filters is None:
+                # Mirror the internal path (get_profile_request) which reports skips
+                # via the report: an external table that requires a filter we can't
+                # build is dropped from output, and operators need to see why.
+                self.report.warning(
+                    title="External table skipped during profiling",
+                    message="Could not construct required partition filters for this "
+                    "external table; profiling was skipped to avoid a full scan.",
+                    context=table_ref,
+                )
+                return None
+
+            partition_where = ""
+            if partition_filters:
+                validated_filters = validate_and_filter_expressions(
+                    partition_filters, "external table profile request"
+                )
+
+                if validated_filters:
+                    windowed_filters = self._apply_partition_date_windowing(
+                        validated_filters, bq_table
+                    )
+                    partition_where = " AND ".join(windowed_filters)
+                else:
+                    # Mirror the internal path: discovery produced filters but all
+                    # failed validation, so this external table is profiled unfiltered.
+                    self.report.warning(
+                        title="Partition filters rejected during profiling",
+                        message="Discovered partition filters for this external table "
+                        "failed validation; profiling will proceed without a partition "
+                        "filter (full scan), or fail if the table requires one.",
+                        context=table_ref,
+                    )
+
+            safe_table_ref = build_safe_table_reference(
+                deferred.db_name, deferred.schema_name, bq_table.name
+            )
+            # A partition-filtered SELECT when we have a filter; otherwise fall back to the
+            # sampling / row-limit SQL like the internal path (get_profile_request), so a
+            # large unpartitioned external table is sampled instead of fully scanned.
+            if partition_where:
+                custom_sql: Optional[str] = self._build_partition_profiling_sql(
+                    safe_table_ref, partition_where, bq_table
+                )
+            else:
+                custom_sql = self._build_custom_sql(safe_table_ref, table_ref, bq_table)
+
+            if custom_sql:
+                if self._row_count_unavailable(bq_table):
+                    # Either a partition scan or the bounded fallback gives the profile a
+                    # non-FULL_TABLE partitionSpec, which makes the shared profiler
+                    # overwrite the measured rowCount with request.table.rows_count. For an
+                    # external table that stale value is an unreliable 0 (legacy
+                    # __TABLES__), so it would publish rowCount=0 for a table (or partition)
+                    # that actually holds data. Clear it so rowCount is reported as unknown
+                    # rather than a false "empty table".
+                    request.table.rows_count = None
+                request.batch_kwargs.update(
+                    {
+                        CUSTOM_SQL_KWARG: custom_sql,
+                        PARTITION_HANDLING_KWARG: PARTITION_HANDLING_ENABLED,
+                    }
+                )
+
+            return request
+
+        except (
+            ValueError,
+            AttributeError,
+            KeyError,
+            GoogleAPICallError,
+        ) as e:
+            # Same reporting as the internal path. Catch only the failures partition
+            # discovery / validation realistically raises (bad identifiers, missing
+            # request plumbing, BigQuery API/IAM/quota errors) — an unexpected error
+            # should surface loudly rather than silently drop the table.
+            self.report.warning(
+                title="External table skipped during profiling",
+                message="Partition discovery failed for this external table; "
+                "profiling was skipped.",
+                context=f"{table_ref}: {e}",
+            )
+            return None
+
+    def generate_profile_workunits_with_deferred_partitions(
+        self,
+        profile_requests: List[TableProfilerRequest],
+        deferred_external: List[DeferredExternalTable],
+        max_workers: int,
+        platform: str,
+        profiler_args: Dict,
+    ) -> Iterable[MetadataWorkUnit]:
+        processed_requests = list(profile_requests)
+
+        # Normalize once so both the partition-discovery executor below and the parent
+        # generate_profile_workunits flow get a valid worker count; a misconfigured
+        # max_workers <= 0 would otherwise make ThreadPoolExecutor raise ValueError.
+        max_workers = max(1, max_workers)
+
+        if deferred_external:
+            logger.info(
+                f"Processing partition discovery for {len(deferred_external)} external table(s) in parallel"
+            )
+
+            with ThreadPoolExecutor(
+                max_workers=min(max_workers, len(deferred_external))
+            ) as executor:
+                future_to_deferred = {
+                    executor.submit(self._discover_external_partition_filter, d): d
+                    for d in deferred_external
+                }
+
+                for future in as_completed(future_to_deferred):
+                    deferred = future_to_deferred[future]
+                    try:
+                        result = future.result()
+                    except Exception as e:
+                        # The worker only catches the errors partition discovery
+                        # realistically raises; anything else (RetryError, token
+                        # RefreshError, TimeoutError, connection drops) would otherwise
+                        # propagate out of as_completed and abort profiling for every
+                        # remaining table. Report and continue instead.
+                        self.report.warning(
+                            title="External table skipped during profiling",
+                            message="Partition discovery worker failed with an "
+                            "unexpected error; profiling was skipped for this table.",
+                            context=f"{deferred.request.pretty_name}: {e}",
+                        )
+                        continue
+                    if result is not None:
+                        # Account external tables as profiled only now that partition
+                        # discovery has returned a usable request (see get_workunits,
+                        # which defers this for external tables).
+                        self.report.report_entity_profiled(result.pretty_name)
+                        self._tables_profiled += 1
+                        processed_requests.append(result)
+
+        if processed_requests:
+            yield from super().generate_profile_workunits(
+                processed_requests,
+                max_workers=max_workers,
+                platform=platform,
+                profiler_args=profiler_args,
+            )
+
+        self.log_cache_statistics()
+
+    def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
+        return BigqueryTableIdentifier(
+            project_id=db_name, dataset=schema_name, table=table_name
+        ).get_table_name()
+
+    def _should_skip_profiling_due_to_staleness(self, table: BigqueryTable) -> bool:
+        if not self.config.profiling.skip_stale_tables:
+            return False
+
+        now = datetime.now(timezone.utc)
+        threshold_date = now - timedelta(
+            days=self.config.profiling.staleness_threshold_days
+        )
+
+        if table.last_altered:
+            last_modified = table.last_altered
+        else:
+            logger.debug(
+                f"Table {table.name} has no last_altered time, will not skip profiling"
+            )
+            return False
+
+        if last_modified.tzinfo is None:
+            last_modified = last_modified.replace(tzinfo=timezone.utc)
+
+        is_stale = last_modified < threshold_date
+
+        if is_stale:
+            days_since_modified = (now - last_modified).days
+            logger.debug(
+                f"Table {table.name} is stale - "
+                f"last modified {days_since_modified} days ago ({last_modified.strftime('%Y-%m-%d')})"
+            )
+            return True
+
+        return False
+
+    def _apply_partition_date_windowing(
+        self, partition_filters: List[str], table: BigqueryTable
+    ) -> List[str]:
+        # Only None disables windowing (per the config docs); a 0-day window is valid
+        # (a same-day range), so guard on None rather than truthiness.
+        if self.config.profiling.partition_datetime_window_days is None:
+            return partition_filters
+
+        window_days = self.config.profiling.partition_datetime_window_days
+
+        date_columns = self._extract_date_columns_from_filters(partition_filters)
+
+        if not date_columns:
+            logger.debug(
+                f"No date columns found in partition filters for {table.name}, skipping date windowing"
+            )
+            return partition_filters
+
+        # Build one range per date column, reproducing the exact shape (format,
+        # quoting, and any DATE()/TIMESTAMP() wrapper) of that column's equality
+        # literal so the comparison keeps the column's type — a STRING column
+        # must not be compared against an unquoted integer, which BigQuery
+        # rejects with "No matching signature for operator >=".
+        ranges: Dict[str, str] = {}
+        for col_name in date_columns:
+            literal = self._find_equality_literal(partition_filters, col_name)
+            if literal is None:
+                # No pinned date (e.g. an IS NOT NULL fallback): window from today
+                # using a quoted ISO literal, which BigQuery coerces for
+                # STRING/DATE/TIMESTAMP columns.
+                spec = DateLiteralSpec(
+                    DATE_FORMAT_YYYY_MM_DD,
+                    True,
+                    None,
+                    datetime.now(timezone.utc),
+                )
+            else:
+                parsed = self._parse_date_literal(literal)
+                if parsed is None:
+                    # Unrecognised literal shape: leave the equality untouched
+                    # rather than risk a type-mismatched range.
+                    continue
+                spec = parsed
+
+            start_moment = spec.moment - timedelta(days=window_days)
+            start_str = self._render_date_bound(
+                start_moment, spec.fmt, spec.quoted, spec.wrapper
+            )
+            end_str = self._render_date_bound(
+                spec.moment, spec.fmt, spec.quoted, spec.wrapper
+            )
+            ranges[col_name] = (
+                f"`{col_name}` >= {start_str} AND `{col_name}` <= {end_str}"
+            )
+
+        if not ranges:
+            return partition_filters
+
+        # Drop each windowed column's single-date equality; the range replaces it.
+        # Keeping `col = X` would AND-collapse the range back to `col = X`.
+        windowed_filters = [
+            f
+            for f in partition_filters
+            if not any(f"`{col}` = " in f for col in ranges)
+        ]
+        windowed_filters.extend(ranges.values())
+
+        logger.debug(
+            f"Applied {window_days}-day partition window for {table.name}: "
+            f"windowed columns {sorted(ranges)}"
+        )
+
+        return windowed_filters
+
+    def _find_equality_literal(
+        self, partition_filters: List[str], col_name: str
+    ) -> Optional[str]:
+        for filter_expr in partition_filters:
+            match = PARTITION_EQ_LITERAL_RE.search(filter_expr)
+            if match and match.group(1) == col_name:
+                return match.group(2).strip()
+        return None
+
+    def _parse_date_literal(self, literal: str) -> Optional[DateLiteralSpec]:
+        # Recognises bare and quoted YYYYMMDD / YYYY-MM-DD / YYYYMMDDHH literals,
+        # optionally wrapped in DATE()/DATETIME()/TIMESTAMP(). Returns None for
+        # anything else so the caller can leave that filter unchanged.
+        text = literal.strip()
+        wrapper: Optional[str] = None
+        wrapper_match = DATE_WRAPPER_RE.fullmatch(text)
+        if wrapper_match:
+            wrapper = wrapper_match.group(1).upper()
+            text = wrapper_match.group(2).strip()
+
+        quoted = len(text) >= 2 and text[0] == "'" and text[-1] == "'"
+        inner = text[1:-1] if quoted else text
+
+        for fmt, pattern in DATE_LITERAL_SHAPES:
+            if pattern.fullmatch(inner):
+                try:
+                    # Parse to a full datetime (no .date()) so an hourly YYYYMMDDHH
+                    # literal keeps its hour; date-only shapes get hour 0.
+                    parsed = datetime.strptime(inner, STRFTIME_FORMATS[fmt])
+                except ValueError:
+                    return None
+                return DateLiteralSpec(fmt, quoted, wrapper, parsed)
+        return None
+
+    @staticmethod
+    def _render_date_bound(
+        value: datetime, fmt: str, quoted: bool, wrapper: Optional[str]
+    ) -> str:
+        rendered = value.strftime(STRFTIME_FORMATS[fmt])
+        if quoted:
+            rendered = f"'{rendered}'"
+        if wrapper:
+            rendered = f"{wrapper}({rendered})"
+        return rendered
+
+    def _extract_date_columns_from_filters(
+        self, partition_filters: List[str]
+    ) -> List[str]:
+        """Heuristic: partition filters are built without full schema metadata, so a
+        column is treated as a date column when its full name or any underscore-separated
+        token is a known date-like name (so ``event_ts`` matches via ``ts``)."""
+        date_columns: List[str] = []
+
+        for filter_expr in partition_filters:
+            for col_name in BACKTICK_COLUMN_NAME_RE.findall(filter_expr):
+                if col_name in date_columns:
+                    continue
+                name_lower = col_name.lower()
+                tokens = set(name_lower.split("_"))
+                if name_lower in DATE_LIKE_COLUMN_NAMES or (
+                    tokens & DATE_LIKE_COLUMN_NAMES
+                ):
+                    date_columns.append(col_name)
+
+        return date_columns

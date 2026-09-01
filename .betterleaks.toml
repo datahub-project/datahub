@@ -8,6 +8,8 @@ title = "DataHub betterleaks config"
 #   MIIEvQIBADAN...HjpPX     -> archive.py documented public RSA test key (mocked replay tests)
 #   suppproject-id-1234567  -> dataplex docs sample GCP service account
 #   YOUR_ACCESS_TOKEN       -> curl "Bearer" placeholder in managed-datahub docs
+#   c3VwZXJzZWNyZXQ=        -> abs unit-test dummy AccountKey (base64 "supersecret")
+#   Eby8vdM02xNOcqFl...     -> well-known Azurite/emulator AccountKey in abs unit tests
 #
 # matchesAny (regex) is used rather than containsAny: containsAny misses multi-line
 # matches (e.g. the multi-line RSA key block in archive.py).
@@ -17,6 +19,8 @@ filter.matchesAny(finding["match"], [
   "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDHjpPX",
   "suppproject-id-1234567",
   "YOUR_ACCESS_TOKEN",
+  "c3VwZXJzZWNyZXQ=",
+  "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==",
 ])
 '''
 
