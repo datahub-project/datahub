@@ -539,6 +539,7 @@ def test_cll_emits_table_level_when_no_result_metadata(
     )
     assert result is not None
     assert len(result.upstreams) == 1
+    assert result.upstreams[0].dataset == FILM_TABLE_URN
     assert not result.fineGrainedLineages
     src.close()
 

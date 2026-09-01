@@ -861,49 +861,68 @@ class MetabaseSource(StatefulIngestionSourceBase):
     def _get_passthrough_cll(
         self, card: MetabaseCard, entity_urn: str
     ) -> Optional[UpstreamLineageClass]:
-        if not card.result_metadata:
+        table_urns = self._get_table_urns_from_query_builder(card)
+        if not table_urns:
             return None
 
-        table_urns = self._get_table_urns_from_query_builder(card)
-        if not table_urns or len(table_urns) != 1:
-            # A pass-through over zero or several (joined) tables has no clean 1:1
-            # mapping, so column-level lineage is dropped despite result metadata.
+        # A pass-through is a table-level COPY of its source(s). The 1:1 column copy
+        # below is only sound when result_metadata names are genuine columns of a
+        # single source: a physical source-table, or a card__N that resolved to that
+        # card's model dataset (extract_models on). A card__N flattened to physical
+        # table(s) exposes the nested question's computed outputs (aggregations,
+        # expressions) as result_metadata, so copying them 1:1 would invent physical
+        # columns like film.count — keep those coarse (table-level COPY only).
+        fine_grained: List[FineGrainedLineageClass] = []
+        if (
+            card.result_metadata
+            and len(table_urns) == 1
+            and self._passthrough_columns_map_1to1(card, table_urns[0])
+        ):
+            source_table_urn = table_urns[0]
+            for meta in card.result_metadata:
+                if not meta.name:
+                    continue
+                fine_grained.append(
+                    self._fine_grained_field(
+                        upstreams=[
+                            builder.make_schema_field_urn(
+                                parent_urn=source_table_urn,
+                                field_path=meta.name,
+                            )
+                        ],
+                        downstream=builder.make_schema_field_urn(
+                            parent_urn=entity_urn,
+                            field_path=meta.name,
+                        ),
+                    )
+                )
+        elif card.result_metadata:
             self.report.query_builder_cll_dropped += 1
             self.report.warning(
                 title="Query-Builder Column Lineage Dropped",
-                message="Pass-through card does not resolve to a single source table; column-level lineage was not emitted.",
+                message="Pass-through card does not map 1:1 to a single physical source table; emitting table-level COPY only.",
                 context=f"Card ID: {card.id}, Source tables: {len(table_urns)}",
                 log=False,
             )
-            return None
-
-        source_table_urn = table_urns[0]
-        fine_grained: List[FineGrainedLineageClass] = []
-
-        for meta in card.result_metadata:
-            if not meta.name:
-                continue
-
-            fine_grained.append(
-                self._fine_grained_field(
-                    upstreams=[
-                        builder.make_schema_field_urn(
-                            parent_urn=source_table_urn,
-                            field_path=meta.name,
-                        )
-                    ],
-                    downstream=builder.make_schema_field_urn(
-                        parent_urn=entity_urn,
-                        field_path=meta.name,
-                    ),
-                )
-            )
 
         return self._upstream_lineage(
-            [source_table_urn],
+            table_urns,
             DatasetLineageTypeClass.COPY,
             fine_grained,
         )
+
+    def _passthrough_columns_map_1to1(
+        self, card: MetabaseCard, source_table_urn: str
+    ) -> bool:
+        query = card.dataset_query.query if card.dataset_query else None
+        source_table = query.source_table if query else None
+        if isinstance(source_table, int):
+            return True
+        source_table_str = str(source_table)
+        if source_table_str.startswith(_CARD_REF_PREFIX):
+            referenced_card_id = source_table_str.replace(_CARD_REF_PREFIX, "")
+            return source_table_urn == self._model_urn(referenced_card_id)
+        return False
 
     def _get_cll_from_query_builder(
         self,
@@ -1705,13 +1724,14 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 if card.dataset_query and card.dataset_query.query
                 else False
             )
-            # A pass-through model is a 1:1 COPY; try that first, else its id-based
-            # refs resolve via the query-builder path and mislabel it TRANSFORMED.
+            # A pass-through model is a table-level COPY of its source(s), even when
+            # column metadata is missing. Take that path first so its id-based refs
+            # don't resolve via the query-builder path and mislabel it TRANSFORMED.
             if is_passthrough:
                 passthrough_cll = self._get_passthrough_cll(
                     card=card, entity_urn=model_urn
                 )
-                if passthrough_cll and passthrough_cll.fineGrainedLineages:
+                if passthrough_cll:
                     return passthrough_cll
 
             return self._get_cll_from_query_builder(card=card, entity_urn=model_urn)

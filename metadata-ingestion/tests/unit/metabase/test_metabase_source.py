@@ -1382,6 +1382,99 @@ def test_passthrough_cll_emits_copy_1to1_lineage():
     assert downstream_cols == {"order_id", "amount"}
 
 
+def test_passthrough_over_card_flattened_to_physical_does_not_invent_columns():
+    """A pass-through model wrapping a question (card__N) that flattens to a physical
+    table exposes the nested question's computed outputs in result_metadata. Copying
+    those 1:1 would invent physical columns (e.g. orders.count), so only coarse
+    table-level COPY must be emitted."""
+    ctx = PipelineContext(run_id="metabase-test")
+    config = MetabaseConfig(
+        username="un", password=SecretStr("pwd"), extract_models=False
+    )
+    metabase = FakeMetabaseSource(ctx, config)
+
+    metabase.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
+    )
+    metabase.get_source_table_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=("public", "orders")
+    )
+    # The wrapped question aggregates orders into a `count`; it flattens to the
+    # physical orders table (not a model dataset) since it is not a model.
+    referenced = MetabaseCard(
+        id=2,
+        name="Orders Count",
+        type="question",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="query", query={"source-table": 42}),
+    )
+    metabase.get_card_details_by_id = MagicMock(return_value=referenced)  # type: ignore[method-assign]
+
+    card = MetabaseCard(
+        id=1,
+        name="Passthrough of Count",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="query", query={"source-table": "card__2"}
+        ),
+        result_metadata=[{"name": "count", "field_ref": ["field", "count", None]}],
+    )
+
+    model_urn = metabase._model_urn(card.id)
+    lineage = metabase._get_passthrough_cll(card, model_urn)
+
+    assert lineage is not None
+    source_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
+    assert [u.dataset for u in lineage.upstreams] == [source_urn]
+    assert lineage.upstreams[0].type == DatasetLineageTypeClass.COPY
+    assert not lineage.fineGrainedLineages
+    assert metabase.report.query_builder_cll_dropped == 1
+
+
+def test_passthrough_over_model_card_maps_columns_1to1():
+    """A pass-through wrapping a model (card__N, extract_models on) resolves to that
+    model's dataset URN, whose columns share the result_metadata names, so the 1:1
+    column COPY is sound."""
+    ctx = PipelineContext(run_id="metabase-test")
+    config = MetabaseConfig(
+        username="un", password=SecretStr("pwd"), extract_models=True
+    )
+    metabase = FakeMetabaseSource(ctx, config)
+
+    referenced = MetabaseCard(
+        id=2,
+        name="Upstream Model",
+        type="model",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="query", query={"source-table": 42}),
+    )
+    metabase.get_card_details_by_id = MagicMock(return_value=referenced)  # type: ignore[method-assign]
+
+    card = MetabaseCard(
+        id=1,
+        name="Passthrough of Model",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="query", query={"source-table": "card__2"}
+        ),
+        result_metadata=[{"name": "revenue", "field_ref": ["field", "revenue", None]}],
+    )
+
+    model_urn = metabase._model_urn(card.id)
+    lineage = metabase._get_passthrough_cll(card, model_urn)
+
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [metabase._model_urn(2)]
+    assert lineage.upstreams[0].type == DatasetLineageTypeClass.COPY
+    assert lineage.fineGrainedLineages is not None
+    assert len(lineage.fineGrainedLineages) == 1
+
+
 def test_model_lineage_passthrough_prefers_copy_over_transformed():
     """A pass-through model whose result metadata carries id-based field refs would
     resolve via the query-builder path as TRANSFORMED; _get_model_lineage must route
