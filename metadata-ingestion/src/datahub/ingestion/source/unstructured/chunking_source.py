@@ -16,7 +16,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator, Iterable, Optional
 
@@ -49,6 +49,17 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
+
+
+def compute_source_text_sha256(text: str) -> str:
+    """Fingerprint of the exact resolved source text that was embedded.
+
+    Lowercase SHA-256 hex over the UTF-8 bytes, byte-identical to the server-side
+    resolvedTextSha256 stamp (UpdateIndicesV2Strategy.sha256Hex) that coverage
+    reporting compares it against. Any change here is a change to the staleness
+    contract on both sides.
+    """
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 @dataclass
@@ -289,6 +300,14 @@ class DocumentChunkingSource(Source):
             yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
             return
 
+        # All-blank chunk text is deterministic for this document: _generate_embeddings
+        # would filter every chunk before calling the provider, so treat it as a
+        # deliberate skip rather than an embedding failure that would retry forever.
+        if not any((chunk.get("text") or "").strip() for chunk in chunks):
+            logger.warning(f"Only blank chunk text for document {document_urn}")
+            yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
+            return
+
         # Generate embeddings (only if configured).
         # Failures are raised directly so the caller can decide how to handle them.
         embeddings = []
@@ -299,6 +318,15 @@ class DocumentChunkingSource(Source):
                         embeddings = self._generate_embeddings(chunks)
                 else:
                     embeddings = self._generate_embeddings(chunks)
+                # A configured provider returning zero vectors for non-blank chunks is
+                # an anomaly, not a legitimate skip: raise before success accounting so
+                # the document is reported as failed (and retried next run) instead of
+                # counted as successfully embedded with no semanticContent.
+                if not embeddings:
+                    raise RuntimeError(
+                        f"Embedding provider returned no vectors for {document_urn} "
+                        f"({len(chunks)} chunks)"
+                    )
                 self.report.report_embedding_success()
             except Exception as e:
                 short_error = str(e).split("\n")[0][:200]
@@ -307,15 +335,6 @@ class DocumentChunkingSource(Source):
         else:
             logger.debug(
                 f"Skipping embedding generation for {document_urn} - no embedding provider configured"
-            )
-
-        # A configured provider returning zero vectors for non-empty chunks is an anomaly,
-        # not a legitimate skip: raise so the caller treats the document as failed and
-        # retries it next run instead of checkpointing it with no semanticContent.
-        if self.embedding_model and not embeddings:
-            raise RuntimeError(
-                f"Embedding provider returned no vectors for {document_urn} "
-                f"({len(chunks)} chunks)"
             )
 
         # Emit SemanticContent aspect (only if embeddings were generated)
@@ -854,7 +873,9 @@ class DocumentChunkingSource(Source):
             aspect=SemanticContentClass(
                 embeddings={},
                 skipReason=reason,
-                skippedAt=int(datetime.utcnow().timestamp() * 1000),
+                # Timezone-aware: .timestamp() on a naive utcnow() reinterprets the
+                # value as local time, skewing skippedAt on non-UTC hosts.
+                skippedAt=int(datetime.now(timezone.utc).timestamp() * 1000),
             ),
         )
         # Non-primary so AutoStatusAspectProcessor does not emit a Status UPSERT for the

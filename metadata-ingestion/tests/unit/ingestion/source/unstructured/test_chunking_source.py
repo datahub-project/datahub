@@ -16,6 +16,7 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 )
 from datahub.ingestion.source.unstructured.chunking_source import (
     DocumentChunkingSource,
+    compute_source_text_sha256,
 )
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingResult,
@@ -1225,3 +1226,106 @@ def test_malformed_elements_json_not_recorded_in_state(
         list(source._process_batch())
 
     assert doc["urn"] not in source.document_state
+
+
+class TestSkipMarkersAndEmbedAccounting:
+    """Skip-marker paths and success/failure accounting in process_elements_inline."""
+
+    def _source(self, pipeline_context, chunking_config):
+        return DocumentChunkingSource(
+            ctx=pipeline_context,
+            config=chunking_config,
+            standalone=False,
+            graph=None,
+        )
+
+    def test_no_elements_emits_no_indexable_content_marker(
+        self, pipeline_context, chunking_config
+    ):
+        source = self._source(pipeline_context, chunking_config)
+        wus = list(source.process_elements_inline("urn:li:document:no-elements", []))
+
+        assert len(wus) == 1
+        aspect = wus[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.embeddings == {}
+        assert aspect.skipReason == "NO_INDEXABLE_CONTENT"
+        assert isinstance(aspect.skippedAt, int)
+
+    def test_blank_chunk_text_emits_skip_marker_not_failure(
+        self, pipeline_context, chunking_config
+    ):
+        """All-blank chunk text is deterministic: it must become a deliberate skip,
+        not an embedding failure that retries forever (the provider is never called
+        because _generate_embeddings filters blank texts)."""
+        source = self._source(pipeline_context, chunking_config)
+        elements = [{"type": "NarrativeText", "text": "   "}]
+
+        with patch.object(
+            source, "_chunk_elements", return_value=[{"text": "   "}, {"text": "\n"}]
+        ):
+            wus = list(
+                source.process_elements_inline("urn:li:document:blank", elements)
+            )
+
+        assert len(wus) == 1
+        aspect = wus[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.skipReason == "NO_INDEXABLE_CONTENT"
+        assert source.report.num_embedding_failures == 0
+
+    def test_provider_returning_no_vectors_is_failure_not_success(
+        self, pipeline_context, chunking_config
+    ):
+        """A configured provider returning zero vectors for non-blank chunks must be
+        accounted as a failure (and raise), never as a successful embed."""
+        source = self._source(pipeline_context, chunking_config)
+        elements = [{"type": "NarrativeText", "text": "real content here"}]
+
+        with (
+            patch.object(source, "_generate_embeddings", return_value=[]),
+            pytest.raises(RuntimeError, match="no vectors"),
+        ):
+            list(source.process_elements_inline("urn:li:document:anomaly", elements))
+
+        assert source.report.num_embedding_failures == 1
+        assert source.report.num_documents_with_embeddings == 0
+
+    def test_embed_emission_carries_no_skip_marker(
+        self, pipeline_context, chunking_config
+    ):
+        """A real embed must emit an aspect without skipReason/skippedAt, so it
+        replaces (clears) any previous skip marker for the document."""
+        source = self._source(pipeline_context, chunking_config)
+        elements = [
+            {"type": "Title", "text": "Test Title"},
+            {"type": "NarrativeText", "text": "Test content"},
+        ]
+
+        with patch.object(
+            source, "_generate_embeddings", return_value=[[0.1, 0.2], [0.3, 0.4]]
+        ):
+            wus = list(
+                source.process_elements_inline("urn:li:document:embedded", elements)
+            )
+
+        semantic = [
+            wu
+            for wu in wus
+            if isinstance(wu.metadata.aspect, SemanticContentClass)  # type: ignore[union-attr]
+        ]
+        assert len(semantic) == 1
+        aspect = semantic[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.embeddings
+        assert aspect.skipReason is None
+        assert aspect.skippedAt is None
+
+    def test_compute_source_text_sha256_cross_language_vector(self):
+        """Pinned vector shared with the Java projection test
+        (UpdateIndicesV2StrategyTest): the production helper must produce a digest
+        byte-identical to the server-side resolvedTextSha256 stamp."""
+        assert (
+            compute_source_text_sha256("héllo \U0001f680\r\nworld")
+            == "f319ae6318b99bf8c83d79fe08bdcbc42928dc83c0d9e23145440c83141321a9"
+        )

@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -600,7 +601,8 @@ public class SearchDocumentTransformer {
   }
 
   /** Sets semantic content (embeddings + skip marker) in the search document for vector search. */
-  private void setSemanticContentSearchValue(
+  @VisibleForTesting
+  void setSemanticContentSearchValue(
       final RecordTemplate aspect, final ObjectNode searchDocument, final Boolean forDelete) {
     if (forDelete || aspect == null) {
       searchDocument.set("embeddings", JsonNodeFactory.instance.nullNode());
@@ -611,8 +613,17 @@ public class SearchDocumentTransformer {
     try {
       // Direct pass-through - PDL camelCase matches OpenSearch camelCase
       ObjectMapper mapper = new ObjectMapper();
-      JsonNode embeddingsNode = mapper.valueToTree(aspect.data().get("embeddings"));
-      searchDocument.set("embeddings", embeddingsNode);
+      Object embeddings = aspect.data().get("embeddings");
+      // An empty embeddings map (skip marker) must project as an explicit null: under
+      // doc_as_upsert an empty object is a merge no-op, so {} could not clear a previous
+      // model entry on an embedded -> skipped transition when the diff-mode removal pass
+      // is unavailable (e.g. FORCE_INDEXING / restore), leaving the document permanently
+      // misclassified as embedded-and-stale.
+      if (embeddings instanceof Map && ((Map<?, ?>) embeddings).isEmpty()) {
+        searchDocument.set("embeddings", JsonNodeFactory.instance.nullNode());
+      } else {
+        searchDocument.set("embeddings", mapper.valueToTree(embeddings));
+      }
       // Skip marker fields are ALWAYS set (value or explicit null): index updates merge via
       // doc_as_upsert, so omitting them after a real embed would leave a previous skip marker
       // in place and misclassify an embedded document as deliberately skipped.

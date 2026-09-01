@@ -2572,6 +2572,10 @@ class TestSkipMarkersAndProvenance:
         assert aspect.skipReason == "BELOW_MIN_TEXT_LENGTH"
 
     def test_source_text_sha256_passed_to_chunking(self, ctx, config, mock_graph):
+        from datahub.ingestion.source.unstructured.chunking_source import (
+            compute_source_text_sha256,
+        )
+
         text = "This document has enough content to be partitioned and embedded."
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
@@ -2585,10 +2589,75 @@ class TestSkipMarkersAndProvenance:
 
         assert result is True
         kwargs = source.chunking_source.process_elements_inline.call_args.kwargs
-        assert (
-            kwargs["source_text_sha256"]
-            == hashlib.sha256(text.encode("utf-8")).hexdigest()
+        assert kwargs["source_text_sha256"] == compute_source_text_sha256(text)
+
+    def test_skip_marker_emitted_when_no_elements(self, ctx, config, mock_graph):
+        from datahub.metadata.schema_classes import SemanticContentClass
+
+        text = "long enough text that still partitions into nothing"
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            with patch.object(
+                source.text_partitioner, "partition_text", return_value=[]
+            ):
+                wus, result = self._drain(
+                    source._process_single_document(
+                        {"urn": "urn:li:document:no-elements", "text": text}
+                    )
+                )
+
+        assert result is True
+        assert len(wus) == 1
+        aspect = wus[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.embeddings == {}
+        assert aspect.skipReason == "NO_INDEXABLE_CONTENT"
+
+    def test_skip_empty_text_false_embeds_short_documents(self, ctx, mock_graph):
+        """skip_empty_text=False keeps short-but-non-empty documents embeddable
+        (its pre-existing semantics); empty documents are always skipped."""
+        from datahub.metadata.schema_classes import SemanticContentClass
+
+        cfg = DataHubDocumentsSourceConfig(
+            platform_filter=None,
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            min_text_length=10,
+            skip_empty_text=False,
+            stateful_ingestion={"enabled": False},
         )
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, cfg)
+            source.chunking_source = Mock()
+            source.chunking_source.process_elements_inline.return_value = iter([])
+
+            wus, result = self._drain(
+                source._process_single_document(
+                    {"urn": "urn:li:document:short-but-wanted", "text": "tiny"}
+                )
+            )
+            assert result is True
+            source.chunking_source.process_elements_inline.assert_called_once()
+
+            # Fresh source (real chunking_source) for the marker path: the marker is
+            # built by chunking_source, which is mocked out above.
+            marker_source = DataHubDocumentsSource(ctx, cfg)
+            wus_empty, result_empty = self._drain(
+                marker_source._process_single_document(
+                    {"urn": "urn:li:document:still-empty", "text": ""}
+                )
+            )
+
+        assert result_empty is True
+        assert len(wus_empty) == 1
+        aspect = wus_empty[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.skipReason == "EMPTY_TEXT"
 
     def test_empty_override_event_with_null_contents_skips_silently(
         self, ctx, config, mock_graph
@@ -2648,12 +2717,42 @@ class TestSkipMarkersAndProvenance:
             long_text
         )
 
-    def test_source_text_sha256_cross_language_vector(self):
+        # End to end: the same short document is marker-skipped at 50 and reaches the
+        # embed path at 0 (the state-hash difference above is what re-triggers it).
+        from datahub.metadata.schema_classes import SemanticContentClass
+
+        doc = {"urn": "urn:li:document:threshold", "text": short_text}
+        wus_50, result_50 = self._drain(at_50._process_single_document(doc))
+        assert result_50 is True
+        aspect = wus_50[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.skipReason == "BELOW_MIN_TEXT_LENGTH"
+
+        at_0.chunking_source = Mock()
+        at_0.chunking_source.process_elements_inline.return_value = iter([])
+        wus_0, result_0 = self._drain(at_0._process_single_document(doc))
+        assert result_0 is True
+        at_0.chunking_source.process_elements_inline.assert_called_once()
+
+    def test_source_text_sha256_cross_language_vector(self, ctx, config, mock_graph):
         """Pinned vector shared with the Java projection test (UpdateIndicesV2Strategy):
-        both sides must produce identical digests for identical unicode text."""
+        the digest the connector actually passes to the chunking source must be
+        byte-identical to the server-side resolvedTextSha256 stamp."""
         text = "héllo \U0001f680\r\nworld"
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.chunking_source = Mock()
+            source.chunking_source.process_elements_inline.return_value = iter([])
+            wus, result = self._drain(
+                source._process_single_document(
+                    {"urn": "urn:li:document:unicode", "text": text}
+                )
+            )
+
+        assert result is True
+        kwargs = source.chunking_source.process_elements_inline.call_args.kwargs
         assert (
-            hashlib.sha256(text.encode("utf-8")).hexdigest()
+            kwargs["source_text_sha256"]
             == "f319ae6318b99bf8c83d79fe08bdcbc42928dc83c0d9e23145440c83141321a9"
         )
 

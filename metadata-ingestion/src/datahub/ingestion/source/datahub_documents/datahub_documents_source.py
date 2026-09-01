@@ -53,7 +53,10 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     DataHubConnectionConfig,
     DocumentChunkingSourceConfig,
 )
-from datahub.ingestion.source.unstructured.chunking_source import DocumentChunkingSource
+from datahub.ingestion.source.unstructured.chunking_source import (
+    DocumentChunkingSource,
+    compute_source_text_sha256,
+)
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
 
 logger = logging.getLogger(__name__)
@@ -1444,8 +1447,14 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         Used both by _process_single_document (to emit the skip marker) and by
         _calculate_text_hash (to make recorded state threshold-aware) -- keep them in
         lockstep through this helper.
+
+        skip_empty_text gates only the length check (its pre-existing semantics):
+        empty documents are always skipped, but skip_empty_text=False keeps
+        short-but-non-empty documents embeddable regardless of min_text_length.
         """
-        return not text or len(text) < self.config.min_text_length
+        return not text or (
+            self.config.skip_empty_text and len(text) < self.config.min_text_length
+        )
 
     def _update_document_state(self, document_urn: str, text: str) -> None:
         """Update state after processing document."""
@@ -1524,12 +1533,6 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             return False
         return bool(aspect and aspect.embeddings and model_key in aspect.embeddings)
 
-    def _build_skip_marker_workunit(
-        self, document_urn: str, reason: str
-    ) -> MetadataWorkUnit:
-        """See DocumentChunkingSource.build_skip_marker_workunit (single implementation)."""
-        return self.chunking_source.build_skip_marker_workunit(document_urn, reason)
-
     def _throttle_after_indexing(self) -> None:
         """Pause after indexing a document to smooth write load to GMS."""
         if self.config.index_delay_seconds > 0:
@@ -1587,7 +1590,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     f"Skipping document {document_urn} (text too short: {len(text)} chars)"
                 )
                 self.report.report_document_skipped_empty()
-                yield self._build_skip_marker_workunit(
+                yield self.chunking_source.build_skip_marker_workunit(
                     document_urn,
                     "EMPTY_TEXT" if not text else "BELOW_MIN_TEXT_LENGTH",
                 )
@@ -1602,7 +1605,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     f"No elements created from text for document {document_urn}"
                 )
                 self.report.report_document_skipped()
-                yield self._build_skip_marker_workunit(
+                yield self.chunking_source.build_skip_marker_workunit(
                     document_urn, "NO_INDEXABLE_CONTENT"
                 )
                 return True
@@ -1615,7 +1618,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             yield from self.chunking_source.process_elements_inline(
                 document_urn=document_urn,
                 elements=elements,
-                source_text_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                source_text_sha256=compute_source_text_sha256(text),
             )
 
         except Exception as e:
