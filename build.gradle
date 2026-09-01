@@ -344,7 +344,8 @@ project.ext.externalDependency = [
     'mockServer': 'org.mock-server:mockserver-netty:5.15.0',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.15.0',
     'mysqlConnector': 'com.mysql:mysql-connector-j:9.4.0',
-    'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.7.12',
+    // CVE-2026-55856, CVE-2026-55857, CVE-2026-55858: fixed in 2.7.14+
+    'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.7.14',
     'gcpCloudSqlConnector': 'com.google.cloud.sql:mysql-socket-factory-connector-j-8:1.25.3',
     'testContainersNeo4j': 'org.testcontainers:neo4j:' + testContainersVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
