@@ -366,26 +366,14 @@ public class RollbackServiceTest {
     // what makes the URN "unsafe". Use a distinct runId so the filter (!runId.equals(runId))
     // keeps it.
     when(mockSystemMetadataService.findByUrn(
-            any(OperationContext.class),
-            eq(TEST_URN_1),
-            eq(false),
-            eq(0),
-            eq(MAX_SEARCH_RESULTS)))
+            any(OperationContext.class), eq(TEST_URN_1), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(unsafeRow(TEST_URN_1, "other-run"));
     when(mockSystemMetadataService.findByUrn(
-            any(OperationContext.class),
-            eq(TEST_URN_2),
-            eq(false),
-            eq(0),
-            eq(MAX_SEARCH_RESULTS)))
+            any(OperationContext.class), eq(TEST_URN_2), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(unsafeRow(TEST_URN_2, "other-run"));
     String testUrn3 = "urn:li:dataset:(urn:li:dataPlatform:hive,test-dataset-3,PROD)";
     when(mockSystemMetadataService.findByUrn(
-            any(OperationContext.class),
-            eq(testUrn3),
-            eq(false),
-            eq(0),
-            eq(MAX_SEARCH_RESULTS)))
+            any(OperationContext.class), eq(testUrn3), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(unsafeRow(testUrn3, "other-run"));
 
     RollbackResponse response =
