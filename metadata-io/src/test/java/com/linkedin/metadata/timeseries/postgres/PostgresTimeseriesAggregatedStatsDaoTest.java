@@ -193,8 +193,12 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
     assertFalse(sql.contains("PARTITION BY"));
     assertTrue(sql.contains("DISTINCT ON (g0)"));
     assertTrue(sql.contains("WHERE _rn <= 3"));
-    assertTrue(sql.contains(" ORDER BY document #>> ARRAY['user'] ASC"));
     assertTrue(sql.contains("WITH _ts_agg AS ("));
+    assertTrue(sql.contains("ORDER BY g0 ASC"));
+    assertFalse(sql.contains("ORDER BY document"));
+    int afterCte = sql.indexOf(") SELECT ", sql.indexOf("WITH _ts_agg AS ("));
+    assertTrue(afterCte > 0);
+    assertFalse(sql.substring(afterCte).contains("document"));
     assertEquals(countSqlPlaceholders(sql), 2);
   }
 
