@@ -61,10 +61,10 @@
     "links.updated": "Länk uppdaterad",
     "links.urlInvalid": "Det här fältet måste vara en giltig URL.",
     "links.urlRequired": "En URL krävs.",
-    "owner.removeConfirmText": "Är du säker på att du vill ta bort {{name}} som owner av typen {{ownershipType}}?",
+    "owner.removeConfirmText": "Är du säker på att du vill ta bort {{name}} som ägare av typen {{ownershipType}}?",
     "owner.removeConfirmTitle": "Vill du ta bort {{name}}?",
-    "owner.removeError": "Det gick inte att ta bort owner: \n {{message}}",
-    "owner.removedSuccess": "Owner borttagen",
+    "owner.removeError": "Det gick inte att ta bort ägare: \n {{message}}",
+    "owner.removedSuccess": "Ägaren har tagits bort",
     "search.matched_one": "{{matchResultCount}} {{entityType}} av {{numRows}} matchade",
     "search.matched_other": "{{matchResultCount}} {{entityType}} av {{numRows}} matchade",
     "search.searchPlaceholder": "Sök...",
@@ -97,8 +97,8 @@
     "searchActions.glossaryTerms.name": "Termer",
     "searchActions.glossaryTerms.removeTitle": "Ta bort termer",
     "searchActions.notSupported": "Den här åtgärden stöds inte för de valda typerna.",
-    "searchActions.owners.addTitle": "Lägg till owners",
-    "searchActions.owners.removeTitle": "Ta bort owners",
-    "searchActions.tags.addTitle": "Lägg till Tags",
-    "searchActions.tags.removeTitle": "Ta bort Tags"
+    "searchActions.owners.addTitle": "Lägg till ägare",
+    "searchActions.owners.removeTitle": "Ta bort ägare",
+    "searchActions.tags.addTitle": "Lägg till taggar",
+    "searchActions.tags.removeTitle": "Ta bort taggar"
 }

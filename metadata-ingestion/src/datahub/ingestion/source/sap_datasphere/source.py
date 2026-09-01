@@ -204,7 +204,7 @@ _JOB_SUBTYPE_BY_FLOW: Dict[DataFlowSubTypes, DataJobSubTypes] = {
 
 @platform_name("SAP Datasphere")
 @config_class(SapDatasphereConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.ALPHA)
 @capability(
     SourceCapability.TEST_CONNECTION, "Validates OAuth credentials and tenant URL"
 )

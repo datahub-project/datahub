@@ -18,8 +18,25 @@ import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
 export const TRANSITION_DURATION_MS = 250;
 export const LINEAGE_FILTER_PAGINATION = 4;
 
-// Page size for fetching/displaying a data product's members, and the initial home member limit.
-export const DATA_PRODUCT_MEMBER_PAGE_SIZE = 50;
+// Page size for fetching/displaying a bounding box's members, and the initial home member limit.
+export const BOUNDING_BOX_MEMBER_PAGE_SIZE = 20;
+
+/** Entity types rendered as a bounding-box lineage graph (DataProduct, SemanticModel). */
+export const BOUNDING_BOX_ENTITY_TYPES: ReadonlySet<EntityType> = new Set([
+    EntityType.DataProduct,
+    EntityType.SemanticModel,
+]);
+
+/**
+ * Root types whose non-home node membership is populated by a real bulk lookup hook
+ * (see useBulkBoundingBoxMemberships). Nodes are hidden by the shared bounding-box filter
+ * until their membership is known. Types not listed here treat unknown membership as
+ * "free" and render outside all boxes.
+ *
+ * To add neighbor SemanticModel boxes later: implement useBulkSemanticModelMemberships,
+ * call it from useBulkBoundingBoxMemberships, and add EntityType.SemanticModel here.
+ */
+export const BOUNDING_BOX_MEMBERSHIP_RESOLVED_ROOT_TYPES: ReadonlySet<EntityType> = new Set([EntityType.DataProduct]);
 
 export const LINEAGE_NODE_WIDTH = 320; // Fixed width
 export const LINEAGE_NODE_HEIGHT = 90; // Maximum height
@@ -62,13 +79,19 @@ export interface LineageEntity extends NodeBase {
     fetchStatus: Record<LineageDirection, FetchStatus>;
     filters: Record<LineageDirection, Filters>;
     parentDataJob?: Urn;
-    /** Data products containing this entity, with whether it is an output port of each. Undefined
-     * means membership is not yet known; fetched for the data product graph by `useBulkDataProductMemberships`.
-     * Not fetched as part of `entity` because data product lookup requires querying the graph index. */
-    dataProducts?: { urn: Urn; isOutputPort: boolean }[];
-    /** For a data product rendered as a bounding box: how many of its members to fetch and display,
-     * raised a page at a time by the box header's "Show more" control. Currently set on the home
-     * product only; other boxes show all their connected members. */
+    /** Bounding boxes (DataProducts, SemanticModels) this entity belongs to, with whether it is
+     * an output port of each (DataProduct-only concept; SemanticModel members always set false).
+     * - `undefined` — membership not resolved yet (hidden for
+     *   {@link BOUNDING_BOX_MEMBERSHIP_RESOLVED_ROOT_TYPES}, shown as free otherwise)
+     * - `[]` — known free (not in any box)
+     * - populated — known member of those boxes
+     * Home members are stamped at init; for resolved root types, non-home membership is filled
+     * by `useBulkBoundingBoxMemberships`. Not fetched as part of `entity` because membership
+     * lookup requires querying the graph index. */
+    boundingBoxes?: { urn: Urn; isOutputPort: boolean }[];
+    /** For a DataProduct or SemanticModel rendered as a bounding box: how many of its members to
+     * fetch and display, raised a page at a time by the box header's "Show more" control.
+     * Currently set on the home box only; other boxes show all their connected members. */
     boundingBoxLimit?: number;
 }
 
@@ -307,8 +330,8 @@ export interface NodeContext {
     setShowDataProcessInstances: (hide: boolean) => void;
     showGhostEntities: boolean;
     setShowGhostEntities: (hide: boolean) => void;
-    /** Data Product Lineage */
-    dataProductEntities: Map<Urn, FetchedEntityV2>;
+    /** Display entities (DataProduct or SemanticModel) keyed by urn, for rendering bounding boxes. */
+    boundingBoxEntities: Map<Urn, FetchedEntityV2>;
     outputPortsOnly: boolean; // Restrict the graph to the home product's output ports and their adjacent nodes
     setOutputPortsOnly: (only: boolean) => void;
 }
@@ -322,7 +345,7 @@ export const LineageNodesContext = React.createContext<NodeContext>({
         [LineageDirection.Upstream]: new Map(),
         [LineageDirection.Downstream]: new Map(),
     },
-    dataProductEntities: new Map(),
+    boundingBoxEntities: new Map(),
     nodeVersion: 0,
     setNodeVersion: () => {},
     dataVersion: 0,
@@ -342,21 +365,6 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     outputPortsOnly: false,
     setOutputPortsOnly: () => {},
 });
-
-/**
- * Urns of the entities drawn as a single node with `urn`, i.e. its siblings -- a dbt model and the
- * warehouse table it produces, say. Both shapes are read, as the lineage query populates
- * `siblingsSearch` for a combined entity and `siblings` for a separated one.
- */
-export function getSiblingUrns(urn: Urn, nodes: NodeContext['nodes']): Urn[] {
-    const properties = nodes.get(urn)?.entity?.genericEntityProperties;
-    return [
-        ...(properties?.siblings?.siblings ?? []),
-        ...(properties?.siblingsSearch?.searchResults?.map((result) => result?.entity) ?? []),
-    ]
-        .map((sibling) => sibling?.urn)
-        .filter((siblingUrn): siblingUrn is Urn => !!siblingUrn);
-}
 
 export function getParents(node: LineageNode, adjacencyList: NodeContext['adjacencyList']): string[] {
     if (node.type === LINEAGE_FILTER_TYPE) return [node.parent];
@@ -382,6 +390,19 @@ export function removeFromAdjacencyList(
 ): void {
     adjacencyList[direction].get(parent)?.delete(child);
     adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
+}
+
+/** Deep copies an adjacency list, so that it can be modified without affecting the original. */
+export function cloneAdjacencyList(adjacencyList: NodeContext['adjacencyList']): NodeContext['adjacencyList'] {
+    return {
+        [LineageDirection.Upstream]: cloneNeighbors(adjacencyList[LineageDirection.Upstream]),
+        [LineageDirection.Downstream]: cloneNeighbors(adjacencyList[LineageDirection.Downstream]),
+    };
+}
+
+/** Deep copies one direction of an adjacency list. */
+export function cloneNeighbors(neighbors: NeighborMap): NeighborMap {
+    return new Map(Array.from(neighbors, ([urn, children]) => [urn, new Set(children)]));
 }
 
 /**

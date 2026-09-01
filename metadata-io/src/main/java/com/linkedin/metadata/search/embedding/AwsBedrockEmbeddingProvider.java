@@ -10,7 +10,7 @@ import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
@@ -21,16 +21,11 @@ import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
  * Implementation of {@link EmbeddingProvider} that directly calls AWS Bedrock to generate query
  * embeddings using Cohere Embed models.
  *
- * <p>This provider uses the AWS SDK for Java v2 with the default credential provider chain, which
- * supports:
- *
- * <ul>
- *   <li>Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
- *   <li>System properties
- *   <li>AWS_PROFILE environment variable (reads from ~/.aws/credentials)
- *   <li>EC2 instance profile credentials (for production deployments)
- *   <li>Container credentials (ECS tasks)
- * </ul>
+ * <p>This provider uses credentials from a shared {@link AwsCredentialsProvider} (typically the
+ * {@code defaultAwsCredentialsProvider} bean in GMS). The {@link BedrockRuntimeClient} region is
+ * set independently (typically via {@code embeddingProvider.bedrock.awsRegion}), so Bedrock can be
+ * called in a different region than the pod's {@code AWS_REGION} without creating additional
+ * credential providers.
  *
  * <p>Supports Cohere Embed v3 models with proper input_type and truncation handling.
  *
@@ -50,36 +45,38 @@ public class AwsBedrockEmbeddingProvider implements EmbeddingProvider {
   private final int maxCharacterLength;
 
   /**
-   * Creates a new AwsBedrockEmbeddingProvider with default settings.
+   * Creates a provider using an injected shared credentials provider (required in GMS).
    *
    * @param awsRegion AWS region where Bedrock is available (e.g., "us-west-2", "us-east-1")
+   * @param credentialsProvider shared process-wide provider from {@code AwsClientFactory}
    */
-  public AwsBedrockEmbeddingProvider(@Nonnull String awsRegion) {
-    this(awsRegion, DEFAULT_MODEL, DEFAULT_MAX_CHARACTER_LENGTH);
+  public AwsBedrockEmbeddingProvider(
+      @Nonnull String awsRegion, @Nonnull AwsCredentialsProvider credentialsProvider) {
+    this(awsRegion, DEFAULT_MODEL, DEFAULT_MAX_CHARACTER_LENGTH, credentialsProvider);
   }
 
   /**
-   * Creates a new AwsBedrockEmbeddingProvider with custom configuration.
+   * Creates a provider using an injected shared credentials provider (required in GMS).
    *
-   * @param awsRegion AWS region where Bedrock is available
-   * @param defaultModel Default embedding model (e.g., "cohere.embed-english-v3")
-   * @param maxCharacterLength Maximum text length before truncation (Cohere enforces 2048)
+   * @param credentialsProvider shared process-wide provider from {@code AwsClientFactory}
    */
   public AwsBedrockEmbeddingProvider(
-      @Nonnull String awsRegion, @Nonnull String defaultModel, int maxCharacterLength) {
+      @Nonnull String awsRegion,
+      @Nonnull String defaultModel,
+      int maxCharacterLength,
+      @Nonnull AwsCredentialsProvider credentialsProvider) {
     Objects.requireNonNull(awsRegion, "awsRegion cannot be null");
     Objects.requireNonNull(defaultModel, "defaultModel cannot be null");
+    Objects.requireNonNull(credentialsProvider, "credentialsProvider cannot be null");
 
     this.defaultModel = defaultModel;
     this.maxCharacterLength = maxCharacterLength;
     this.objectMapper = new ObjectMapper();
 
-    // Create Bedrock Runtime client with default credential chain
-    // This automatically supports AWS_PROFILE, EC2 instance roles, etc.
     this.bedrockClient =
         BedrockRuntimeClient.builder()
             .region(Region.of(awsRegion))
-            .credentialsProvider(DefaultCredentialsProvider.create())
+            .credentialsProvider(credentialsProvider)
             .build();
 
     log.info(

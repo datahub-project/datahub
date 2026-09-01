@@ -1,8 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from gql import gql
-
 from datahub.api.graphql.base import BaseApi
 
 logger = logging.getLogger(__name__)
@@ -42,10 +40,6 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
   }
 }"""
 
-    # Parsed GraphQL documents for type-safe execution.
-    _REPORT_OPERATION_MUTATION_DOC = gql(REPORT_OPERATION_MUTATION)
-    _QUERY_OPERATIONS_DOC = gql(QUERY_OPERATIONS)
-
     def report_operation(
         self,
         urn: str,
@@ -83,8 +77,8 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
         if custom_properties is not None:
             variable_values["customProperties"] = custom_properties
 
-        result = self.client.execute(
-            Operation._REPORT_OPERATION_MUTATION_DOC, variable_values=variable_values
+        result = self.graph.execute_graphql(
+            Operation.REPORT_OPERATION_MUTATION, variables=variable_values
         )
 
         return result["reportOperation"]
@@ -113,9 +107,9 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
         :param partition: The partition to check the operation.
         """
 
-        result = self.client.execute(
-            Operation._QUERY_OPERATIONS_DOC,
-            variable_values={
+        result = self.graph.execute_graphql(
+            Operation.QUERY_OPERATIONS,
+            variables={
                 "urn": urn,
                 "startTimeMillis": start_time_millis,
                 "endTimeMillis": end_time_millis,

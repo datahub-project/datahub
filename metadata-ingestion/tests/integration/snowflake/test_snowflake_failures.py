@@ -10,9 +10,15 @@ from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.snowflake import snowflake_query
-from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
+from datahub.ingestion.source.snowflake.constants import (
+    SnowflakeEdition,
+    SnowflakeShowKind,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
-from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    SHOW_STREAM_MAX_PAGE_SIZE,
+    SnowflakeQuery,
+)
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from tests.integration.snowflake.common import (
@@ -162,12 +168,22 @@ def test_snowflake_no_tables_causes_pipeline_failure(
         )
         no_views_fn = query_permission_response_override(
             no_tables_fn,
-            [SnowflakeQuery.show_views_for_database("TEST_DB")],
+            [
+                SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.VIEWS, "TEST_DB"
+                )
+            ],
             [],
         )
         sf_cursor.execute.side_effect = query_permission_response_override(
             no_views_fn,
-            [SnowflakeQuery.streams_for_database("TEST_DB")],
+            [
+                SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.STREAMS,
+                    "TEST_DB",
+                    limit=SHOW_STREAM_MAX_PAGE_SIZE,
+                )
+            ],
             [],
         )
 
@@ -208,12 +224,22 @@ def test_snowflake_no_tables_warns_on_no_datasets(
         )
         no_views_fn = query_permission_response_override(
             no_tables_fn,
-            [SnowflakeQuery.show_views_for_database("TEST_DB")],
+            [
+                SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.VIEWS, "TEST_DB"
+                )
+            ],
             [],
         )
         sf_cursor.execute.side_effect = query_permission_response_override(
             no_views_fn,
-            [SnowflakeQuery.streams_for_database("TEST_DB")],
+            [
+                SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.STREAMS,
+                    "TEST_DB",
+                    limit=SHOW_STREAM_MAX_PAGE_SIZE,
+                )
+            ],
             [],
         )
 
@@ -415,8 +441,8 @@ def test_snowflake_dynamic_table_missing_monitor_privilege_raises_pipeline_warni
         sf_cursor.execute.side_effect = query_permission_response_override(
             default_query_results,
             [
-                snowflake_query.SnowflakeQuery.show_dynamic_tables_for_database(
-                    "TEST_DB"
+                snowflake_query.SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.DYNAMIC_TABLES, "TEST_DB"
                 )
             ],
             [
@@ -471,7 +497,12 @@ def test_snowflake_dynamic_table_inputs_lineage_without_ddl(
             [snowflake_query.SnowflakeQuery.get_dynamic_table_graph_history("TEST_DB")],
             [
                 {
-                    "NAME": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                    # DYNAMIC_TABLE_GRAPH_HISTORY reports NAME unqualified, with
+                    # DATABASE_NAME and SCHEMA_NAME as separate columns. A fully qualified
+                    # NAME here used to look right while leaving the row unmatched.
+                    "NAME": "TABLE_2",
+                    "SCHEMA_NAME": "TEST_SCHEMA",
+                    "DATABASE_NAME": "TEST_DB",
                     "INPUTS": [
                         {"name": "TEST_DB.TEST_SCHEMA.TABLE_1", "kind": "TABLE"}
                     ],
@@ -485,8 +516,8 @@ def test_snowflake_dynamic_table_inputs_lineage_without_ddl(
         sf_cursor.execute.side_effect = query_permission_response_override(
             base,
             [
-                snowflake_query.SnowflakeQuery.show_dynamic_tables_for_database(
-                    "TEST_DB"
+                snowflake_query.SnowflakeQuery.show_objects_for_database(
+                    SnowflakeShowKind.DYNAMIC_TABLES, "TEST_DB"
                 )
             ],
             [
@@ -518,6 +549,13 @@ def test_snowflake_dynamic_table_inputs_lineage_without_ddl(
         assert report.num_dynamic_tables_missing_definition == 1
         assert report.sql_aggregator is not None
         assert report.sql_aggregator.num_known_mapping_lineage >= 1
+        # `>= 1` on a global counter is satisfied by lineage from anywhere in the fixtures,
+        # so it kept passing when a stale graph-history row stopped matching. Assert the
+        # graph history was actually read: a KeyError on a missing column is swallowed into
+        # this warning, leaving the INPUTS path silently untested.
+        assert not [
+            w for w in report.warnings if "dynamic table graph history" in str(w)
+        ], "graph history failed to load, so INPUTS lineage was never exercised"
 
 
 # Tests for known_snowflake_edition config option

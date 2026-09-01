@@ -2032,5 +2032,14 @@ class SQLAlchemyProfiler:
                 )
                 return None
             finally:
+                # Record elapsed for every table, including failures: the most expensive
+                # tables are precisely those that OOM/timeout/raise — which exit via the
+                # except branches above and would otherwise never be recorded. `timer`
+                # started at the top of this `with PerfTimer()` block, so elapsed here
+                # covers the full attempt regardless of exit path. Recorded before
+                # adapter.cleanup so a raising cleanup cannot lose the entry.
+                self.report.profiling_time_taken_per_table_secs[pretty_name] = (
+                    timer.elapsed_seconds()
+                )
                 # Cleanup temp resources using adapter
                 adapter.cleanup(context)
