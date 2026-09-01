@@ -41,6 +41,7 @@ ACTOR_TABLE_URN = (
 )
 MODEL_6_URN = "urn:li:dataset:(urn:li:dataPlatform:metabase,model.6,PROD)"
 MODEL_55_URN = "urn:li:dataset:(urn:li:dataPlatform:metabase,model.55,PROD)"
+MODEL_99_URN = "urn:li:dataset:(urn:li:dataPlatform:metabase,model.99,PROD)"
 
 
 def _sf(dataset_urn: str, column: str) -> str:
@@ -773,4 +774,193 @@ def test_emit_model_uses_plain_lineage_for_native_sql(mock_post, mock_get, mock_
     )
     assert rating_fgl is not None
     assert rating_fgl.upstreams == [_sf(FILM_TABLE_URN, "rating")]
+    src.close()
+
+
+# ---------------------------------------------------------------------------
+# _get_mbql_context — filtered source-table model resolves CLL from result_metadata
+# ---------------------------------------------------------------------------
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_cll_filtered_source_table_resolves_from_result_metadata(
+    mock_post, mock_get, mock_delete
+):
+    """A source-table + filter model has no explicit `fields` clause, so its output
+    columns live only in result_metadata; CLL must still resolve from those refs."""
+    fields = {131: _field(131, "rating"), 140: _field(140, "title")}
+    src = _make_source(mock_post, mock_get, mock_delete)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
+    src.get_field_from_id = MagicMock(side_effect=lambda fid: fields.get(fid))  # type: ignore[method-assign]
+    src.get_source_table_from_id = MagicMock(return_value=("default", "film"))  # type: ignore[method-assign]
+
+    card = MetabaseCard(
+        id=6,
+        name="Filtered Model",
+        database_id=5,
+        dataset_query=MetabaseDatasetQuery(
+            type="query",
+            query={
+                "source-table": 21,
+                "filter": [">", ["field", 131, None], 3],
+            },
+        ),
+        result_metadata=[
+            MetabaseResultMetadata(name="rating", field_ref=["field", 131, None]),
+            MetabaseResultMetadata(name="title", field_ref=["field", 140, None]),
+        ],
+    )
+
+    result = src._get_cll_from_query_builder(card, MODEL_6_URN)
+    assert result is not None
+    assert result.fineGrainedLineages is not None
+    downstreams = {
+        fg.downstreams[0] for fg in result.fineGrainedLineages if fg.downstreams
+    }
+    assert downstreams == {_sf(MODEL_6_URN, "rating"), _sf(MODEL_6_URN, "title")}
+    src.close()
+
+
+# ---------------------------------------------------------------------------
+# _get_input_fields_from_card — unresolved column attribution
+# ---------------------------------------------------------------------------
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_input_fields_skip_unresolved_column_across_joined_tables(
+    mock_post, mock_get, mock_delete
+):
+    """An unresolved column on a multi-source card is skipped (not pinned to the
+    first table) and a warning is raised, mirroring the native SQL path."""
+    src = _make_source(mock_post, mock_get, mock_delete)
+    src._get_mbql_context = MagicMock(return_value=MagicMock())  # type: ignore[method-assign]
+    src.get_datasource_urn = MagicMock(  # type: ignore[method-assign]
+        return_value=[FILM_TABLE_URN, ACTOR_TABLE_URN]
+    )
+
+    card = MetabaseCard(
+        id=7,
+        name="Joined",
+        database_id=5,
+        dataset_query=MetabaseDatasetQuery(type="query", query={"source-table": 21}),
+        result_metadata=[
+            MetabaseResultMetadata(name="ambiguous_col", base_type="type/Text")
+        ],
+    )
+
+    fields = src._get_input_fields_from_card(card)
+    assert fields == []
+    assert any(
+        "Query-Builder Input Field Unresolved" in str(warning)
+        for warning in src.report.warnings
+    )
+    src.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_input_fields_attribute_unresolved_column_for_single_source(
+    mock_post, mock_get, mock_delete
+):
+    """With a single source table, an unresolved column is safely attributed to it."""
+    src = _make_source(mock_post, mock_get, mock_delete)
+    src._get_mbql_context = MagicMock(return_value=MagicMock())  # type: ignore[method-assign]
+    src.get_datasource_urn = MagicMock(return_value=[FILM_TABLE_URN])  # type: ignore[method-assign]
+
+    card = MetabaseCard(
+        id=8,
+        name="Single",
+        database_id=5,
+        dataset_query=MetabaseDatasetQuery(type="query", query={"source-table": 21}),
+        result_metadata=[MetabaseResultMetadata(name="rating", base_type="type/Text")],
+    )
+
+    fields = src._get_input_fields_from_card(card)
+    assert len(fields) == 1
+    assert fields[0].schemaFieldUrn == _sf(FILM_TABLE_URN, "rating")
+    src.close()
+
+
+# ---------------------------------------------------------------------------
+# native model gating on dataset_query.type (not the optional query_type)
+# ---------------------------------------------------------------------------
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_native_model_view_and_lineage_gate_on_dataset_query_type(
+    mock_post, mock_get, mock_delete
+):
+    """A native model that only sets dataset_query.type == 'native' (query_type unset)
+    must still get view SQL and be routed to the native column-lineage path."""
+    src = _make_source(mock_post, mock_get, mock_delete)
+    src._extract_native_query = MagicMock(return_value="SELECT rating FROM film")  # type: ignore[method-assign]
+
+    card = MetabaseCard(
+        id=55,
+        name="Native Model",
+        database_id=5,
+        dataset_query=MetabaseDatasetQuery(
+            type="native", native={"query": "SELECT rating FROM film"}
+        ),
+    )
+    assert card.query_type is None
+
+    view = src._get_model_view_properties(card)
+    assert view is not None
+    assert view.viewLogic == "SELECT rating FROM film"
+    assert view.viewLanguage == "SQL"
+
+    sentinel = MagicMock()
+    src._get_cll_from_native_sql = MagicMock(return_value=sentinel)  # type: ignore[method-assign]
+    assert src._get_model_lineage(card, MODEL_55_URN) is sentinel
+    src.close()
+
+
+# ---------------------------------------------------------------------------
+# query-builder model refs respect extract_models
+# ---------------------------------------------------------------------------
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_query_builder_model_ref_respects_extract_models(
+    mock_post, mock_get, mock_delete
+):
+    """A card__id ref to a model emits the model dataset URN only when extract_models
+    is enabled; otherwise it flattens through to the model's own upstream tables."""
+    src = _make_source(mock_post, mock_get, mock_delete)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
+    src.get_source_table_from_id = MagicMock(return_value=("default", "film"))  # type: ignore[method-assign]
+
+    referenced_model = MetabaseCard(
+        id=99,
+        name="A Model",
+        type="model",
+        database_id=5,
+        dataset_query=MetabaseDatasetQuery(type="query", query={"source-table": 21}),
+    )
+    src.get_card_details_by_id = MagicMock(return_value=referenced_model)  # type: ignore[method-assign]
+
+    card = MetabaseCard(
+        id=10,
+        name="Consumer",
+        database_id=5,
+        dataset_query=MetabaseDatasetQuery(
+            type="query", query={"source-table": "card__99"}
+        ),
+    )
+
+    src.config.extract_models = True
+    assert src._get_table_urns_from_query_builder(card) == [MODEL_99_URN]
+
+    src.config.extract_models = False
+    assert src._get_table_urns_from_query_builder(card) == [FILM_TABLE_URN]
     src.close()

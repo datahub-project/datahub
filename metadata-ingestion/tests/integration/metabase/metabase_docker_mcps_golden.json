@@ -478,6 +478,50 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,38)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "",
+                "Dimensions": "",
+                "database_id": "2"
+            },
+            "title": "All Products",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1788261160033,
+                    "actor": "urn:li:corpuser:admin@test.com"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/38",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.PUBLIC.PEOPLE,PROD)",
+                    "lastModified": {
+                        "time": 1788261160033,
+                        "actor": "urn:li:corpuser:admin@test.com"
+                    }
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000982,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
     "changeType": "UPSERT",
@@ -492,6 +536,52 @@
     "systemMetadata": {
         "lastObserved": 1705752000470,
         "runId": "metabase-2024_01_20-12_00_00-23ltbj",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,38)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:metabase_collection_sales_analytics"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000983,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,38)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:admin@test.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000983,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -528,6 +618,22 @@
     "systemMetadata": {
         "lastObserved": 1705752001565,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,38)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000983,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -705,6 +811,27 @@
     "systemMetadata": {
         "lastObserved": 1705752001518,
         "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,38)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
+                    "urn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752000983,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1153,6 +1280,55 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,21)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),CATEGORY)",
+                    "schemaField": {
+                        "fieldPath": "CATEGORY",
+                        "nullable": true,
+                        "description": "Product \u2192 Category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),TITLE)",
+                    "schemaField": {
+                        "fieldPath": "TITLE",
+                        "nullable": true,
+                        "description": "Product \u2192 Title",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001234,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,3)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -1285,6 +1461,39 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,6)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ANALYTIC_EVENTS,PROD),BUTTON_LABEL)",
+                    "schemaField": {
+                        "fieldPath": "BUTTON_LABEL",
+                        "nullable": true,
+                        "description": "Button Label",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001274,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,25)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
@@ -1411,6 +1620,39 @@
     "systemMetadata": {
         "lastObserved": 1705752001888,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,31)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ANALYTIC_EVENTS,PROD),BUTTON_LABEL)",
+                    "schemaField": {
+                        "fieldPath": "BUTTON_LABEL",
+                        "nullable": true,
+                        "description": "Button Label",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001304,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2875,6 +3117,55 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,16)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ANALYTIC_EVENTS,PROD),BUTTON_LABEL)",
+                    "schemaField": {
+                        "fieldPath": "BUTTON_LABEL",
+                        "nullable": true,
+                        "description": "Button Label",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ANALYTIC_EVENTS,PROD),TIMESTAMP)",
+                    "schemaField": {
+                        "fieldPath": "TIMESTAMP",
+                        "nullable": true,
+                        "description": "Timestamp: Month",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001740,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,10)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -3716,29 +4007,13 @@
                         "recursive": false,
                         "isPartOfKey": false
                     }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),Age)",
-                    "schemaField": {
-                        "fieldPath": "Age",
-                        "nullable": true,
-                        "description": "Age",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/BigInteger",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752005696,
-        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
+        "lastObserved": 1705752001978,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3865,29 +4140,13 @@
                         "recursive": false,
                         "isPartOfKey": false
                     }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),Age)",
-                    "schemaField": {
-                        "fieldPath": "Age",
-                        "nullable": true,
-                        "description": "Age",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Decimal",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752005672,
-        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
+        "lastObserved": 1705752001955,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4362,6 +4621,55 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,7)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),CATEGORY)",
+                    "schemaField": {
+                        "fieldPath": "CATEGORY",
+                        "nullable": true,
+                        "description": "Product \u2192 Category",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),TITLE)",
+                    "schemaField": {
+                        "fieldPath": "TITLE",
+                        "nullable": true,
+                        "description": "Product \u2192 Title",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002086,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,18)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
@@ -4399,29 +4707,13 @@
                         "recursive": false,
                         "isPartOfKey": false
                     }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),Age)",
-                    "schemaField": {
-                        "fieldPath": "Age",
-                        "nullable": true,
-                        "description": "Age",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Decimal",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752005873,
-        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
+        "lastObserved": 1705752002102,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4887,29 +5179,13 @@
                         "recursive": false,
                         "isPartOfKey": false
                     }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),Age)",
-                    "schemaField": {
-                        "fieldPath": "Age",
-                        "nullable": true,
-                        "description": "Age",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Decimal",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752005918,
-        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
+        "lastObserved": 1705752002122,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7241,6 +7517,39 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,14)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ACCOUNTS,PROD),CREATED_AT)",
+                    "schemaField": {
+                        "fieldPath": "CREATED_AT",
+                        "nullable": true,
+                        "description": "Created At: Year",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "type/DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002405,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
     "changeType": "UPSERT",
@@ -7582,12 +7891,135 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PEOPLE,PROD)",
                     "type": "TRANSFORMED"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),ID)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),ID)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),USER_ID)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),USER_ID)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),PRODUCT_ID)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),PRODUCT_ID)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),SUBTOTAL)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),SUBTOTAL)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),TAX)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),TAX)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),TOTAL)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),TOTAL)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),DISCOUNT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),DISCOUNT)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),CREATED_AT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),CREATED_AT)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),QUANTITY)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),QUANTITY)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PEOPLE,PROD),EMAIL)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),EMAIL)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PEOPLE,PROD),STATE)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),STATE)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752003609,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752002826,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7929,6 +8361,55 @@
     "systemMetadata": {
         "lastObserved": 1705752004311,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,11)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ANALYTIC_EVENTS,PROD),BUTTON_LABEL)",
+                    "schemaField": {
+                        "fieldPath": "BUTTON_LABEL",
+                        "nullable": true,
+                        "description": "Button Label",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ANALYTIC_EVENTS,PROD),EVENT)",
+                    "schemaField": {
+                        "fieldPath": "EVENT",
+                        "nullable": true,
+                        "description": "Event",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "type/Text",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002736,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -9087,6 +9568,22 @@
     "systemMetadata": {
         "lastObserved": 1705752002447,
         "runId": "metabase-2024_01_20-12_00_00-23ltbj",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,38)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002838,
+        "runId": "metabase-2024_01_20-12_00_00-gq6cjd",
         "lastRunId": "no-run-id-provided"
     }
 },

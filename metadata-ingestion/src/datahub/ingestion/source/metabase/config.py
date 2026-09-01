@@ -86,8 +86,10 @@ class MetabaseConfig(
         description="Extract Metabase collections as tags on dashboards and charts",
     )
     extract_models: bool = Field(
-        default=True,
-        description="Extract Metabase models (saved questions used as data sources) as datasets",
+        default=False,
+        description="Extract Metabase models (saved questions used as data sources) as datasets. "
+        "Off by default: enabling it ingests models as `dataset` entities (and dashboards link "
+        "to them as dataset edges) instead of charts, which changes their URNs.",
     )
     convert_lineage_urns_to_lowercase: bool = Field(
         default=False,

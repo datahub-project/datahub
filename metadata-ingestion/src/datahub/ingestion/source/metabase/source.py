@@ -645,7 +645,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 referenced_card_id = source_table_str.replace(_CARD_REF_PREFIX, "")
                 referenced_card = self.get_card_details_by_id(referenced_card_id)
                 if referenced_card:
-                    if referenced_card.type == _CARD_TYPE_MODEL:
+                    # A model dataset URN only exists when extract_models is on;
+                    # otherwise flatten through the model card to its own tables.
+                    if (
+                        referenced_card.type == _CARD_TYPE_MODEL
+                        and self.config.extract_models
+                    ):
                         table_urns.append(self._model_urn(referenced_card.id))
                     else:
                         table_urns.extend(
@@ -773,8 +778,16 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         query = card.dataset_query.query
         field_refs = query.collect_field_refs()
+
+        # Implicit-select models (source-table + filter, no `fields` clause) expose
+        # their columns only via result_metadata, so resolve those field refs too.
+        output_field_ids: List[int] = []
+        for meta in card.result_metadata:
+            if isinstance(meta.field_ref, list):
+                output_field_ids.extend(_extract_field_ids_from_mbql(meta.field_ref))
+
         resolved = {}
-        for fid in set(field_refs.ids):
+        for fid in set(field_refs.ids) | set(output_field_ids):
             f = self.get_field_from_id(fid)
             if f is not None:
                 resolved[fid] = f
@@ -1261,8 +1274,10 @@ class MetabaseSource(StatefulIngestionSourceBase):
                             self._create_input_field(upstream_urn, meta)
                         )
                 else:
+                    # Unresolved column: only attribute it when there's a single
+                    # source table; pinning it across joined tables would misattribute.
                     datasource_urns = self.get_datasource_urn(card)
-                    if datasource_urns:
+                    if datasource_urns and len(datasource_urns) == 1:
                         input_fields.append(
                             self._create_input_field(
                                 builder.make_schema_field_urn(
@@ -1271,6 +1286,13 @@ class MetabaseSource(StatefulIngestionSourceBase):
                                 ),
                                 meta,
                             )
+                        )
+                    else:
+                        self.report.warning(
+                            title="Query-Builder Input Field Unresolved",
+                            message="Could not resolve a query-builder column to an upstream schema field; skipped to avoid misattributing it across joined tables.",
+                            context=f"Card ID: {card.id}, Column: {meta.name}",
+                            log=False,
                         )
             return input_fields
 
@@ -1586,7 +1608,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
     def _get_model_view_properties(
         self, card: MetabaseCard
     ) -> Optional[ViewPropertiesClass]:
-        if card.dataset_query and card.query_type == _QUERY_TYPE_NATIVE:
+        # query_type is optional; a native model may only set dataset_query.type.
+        if card.dataset_query and card.dataset_query.type == _QUERY_TYPE_NATIVE:
             raw_query = self._extract_native_query(card)
             if raw_query:
                 return ViewPropertiesClass(
@@ -1627,7 +1650,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                         cll = passthrough_cll
 
             return cll
-        elif card.query_type == _QUERY_TYPE_NATIVE:
+        elif card.dataset_query and card.dataset_query.type == _QUERY_TYPE_NATIVE:
             return self._get_cll_from_native_sql(card=card, entity_urn=model_urn)
         else:
             table_urns = self._get_table_urns_from_card(card)
