@@ -475,11 +475,13 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       int limit) {
     if (parentAliases.isEmpty()) {
       // Top-N distinct parent keys at this STRING level (ES terms size on the outer bucket).
-      return "SELECT "
-          + selectList
-          + " FROM ("
+      // Reference the grouped rows via a CTE so JDBC bind placeholders in innerSql are not
+      // duplicated.
+      return "WITH _ts_agg AS ("
           + innerSql
-          + ") _g WHERE "
+          + ") SELECT "
+          + selectList
+          + " FROM _ts_agg _g WHERE "
           + limitedKeyAlias
           + " IN (SELECT "
           + limitedKeyAlias
@@ -491,9 +493,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
           + limitedKeyAlias
           + ") "
           + selectList
-          + " FROM ("
-          + innerSql
-          + ") _inner ORDER BY "
+          + " FROM _ts_agg _inner ORDER BY "
           + limitedKeyAlias
           + ", "
           + orderBy
