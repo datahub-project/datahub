@@ -275,10 +275,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             except Exception as e:
                 self.report.warning(
                     title="Failed to get subject schema from schema registry",
-                    message=f"Failed to get {kafka_entity} {schema_type_str or ''} schema from schema registry",
-                    context=(
-                        f"{topic}: {topic_subject}" if not is_subject else topic_subject
-                    ),
+                    message="Failed to get schema from schema registry",
+                    context=f"entity={kafka_entity}, schema_type={schema_type_str or ''}, "
+                    f"subject={topic_subject if is_subject else f'{topic}: {topic_subject}'}",
                     exc=e,
                     log=False,
                 )
@@ -291,10 +290,10 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 if not self.source_config.schema_resolution.enabled:
                     self.report.warning(
                         title="Unable to find a matching subject name for the topic in the schema registry",
-                        message=f"The {kafka_entity} {schema_type_str or ''} is either schema-less, or no messages have been written to the {kafka_entity} yet. "
+                        message="The entity is either schema-less, or no messages have been written yet. "
                         "If this is unexpected, check the topic_subject_map and topic_naming related configs. "
                         "Consider enabling 'schema_resolution.enabled' to automatically infer schema from message data.",
-                        context=topic,
+                        context=f"entity={kafka_entity}, schema_type={schema_type_str or ''}, topic={topic}",
                     )
 
         # Obtain the schema fields from schema for the topic.
@@ -433,8 +432,8 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
         elif not self.source_config.ignore_warnings_on_schema_type:
             self.report.warning(
-                topic,
-                f"Parsing kafka schema type {schema.schema_type} is currently not implemented",
+                message="Parsing kafka schema type is currently not implemented",
+                context=f"schema_type={schema.schema_type}, topic={topic}",
                 log=False,
             )
         return fields

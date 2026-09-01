@@ -34,6 +34,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -62,7 +63,7 @@ public class DatasetType
         BrowsableEntityType<Dataset, String>,
         BatchMutableType<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> {
 
-  private static final Set<String> ASPECTS_TO_RESOLVE =
+  static final Set<String> ASPECTS_TO_RESOLVE =
       ImmutableSet.of(
           DATASET_KEY_ASPECT_NAME,
           DATASET_PROPERTIES_ASPECT_NAME,
@@ -73,6 +74,7 @@ public class DatasetType
           UPSTREAM_LINEAGE_ASPECT_NAME,
           EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
           VIEW_PROPERTIES_ASPECT_NAME,
+          SEMANTIC_MODEL_PROPERTIES_ASPECT_NAME,
           OWNERSHIP_ASPECT_NAME,
           INSTITUTIONAL_MEMORY_ASPECT_NAME,
           GLOBAL_TAGS_ASPECT_NAME,
@@ -135,12 +137,16 @@ public class DatasetType
     try {
       final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_RESOLVE, Constants.DATASET_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> datasetMap =
           entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.DATASET_ENTITY_NAME,
               new HashSet<>(urns),
-              ASPECTS_TO_RESOLVE);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
       for (Urn urn : urns) {
@@ -255,6 +261,10 @@ public class DatasetType
       throw new RuntimeException(String.format("Failed to write entity with urn %s", urns), e);
     }
 
+    // Direct batchLoad bypasses the DataLoader resolvers that contribute a selection, so widen to
+    // fetch-all first: a narrow Dataset aspect union accumulated earlier in this request would
+    // otherwise under-hydrate the mutation response. update() gets this via LoadableType.load.
+    AspectUtils.ensureFetchAllForDirectLoad(context, name());
     return batchLoad(urns, context).stream()
         .map(DataFetcherResult::getData)
         .collect(Collectors.toList());

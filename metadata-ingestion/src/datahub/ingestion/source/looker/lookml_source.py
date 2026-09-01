@@ -264,7 +264,7 @@ class LookerManifest:
 
 @platform_name("Looker")
 @config_class(LookMLSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
     "Use the `platform_instance` and `connection_to_platform_map` fields",
@@ -583,8 +583,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             if not self.report.events_produced and not self.report.failures:
                 # Don't pass if we didn't produce any events.
                 self.report.failure(
-                    "No Metadata Produced",
-                    "No metadata was produced. Check the logs for more details.",
+                    message="No metadata was produced. Check the logs for more details.",
                 )
 
     def _recursively_check_manifests(

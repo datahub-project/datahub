@@ -182,7 +182,7 @@ class TableData:
 
 @platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
@@ -341,14 +341,15 @@ class S3Source(StatefulIngestionSourceBase):
                 logger.debug(f"Extracted fields in schema: {fields}")
             except Exception as e:
                 self.report.warning(
-                    table_data.full_path,
-                    f"could not infer schema for file {table_data.full_path}: {e}",
+                    message="Could not infer schema for file",
+                    context=table_data.full_path,
+                    exc=e,
                     log=False,
                 )
         else:
             self.report.warning(
-                table_data.full_path,
-                f"file {table_data.full_path} has unsupported extension",
+                message="File has unsupported extension",
+                context=table_data.full_path,
                 log=False,
             )
         file.close()
@@ -373,7 +374,7 @@ class S3Source(StatefulIngestionSourceBase):
         elif content_type == "text/tab-separated-values":
             return csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
         elif content_type == "application/json":
-            return json.JsonInferrer()
+            return json.JsonInferrer(max_rows=self.source_config.max_rows)
         elif content_type == "application/avro":
             return avro.AvroInferrer()
         elif extension == ".parquet":
@@ -387,7 +388,7 @@ class S3Source(StatefulIngestionSourceBase):
                 max_rows=self.source_config.max_rows, format="jsonl"
             )
         elif extension == ".json":
-            return json.JsonInferrer()
+            return json.JsonInferrer(max_rows=self.source_config.max_rows)
         elif extension == ".avro":
             return avro.AvroInferrer()
         else:

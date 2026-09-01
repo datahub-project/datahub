@@ -9,11 +9,31 @@ from datahub.ingestion.source.openapi import APISource, OpenApiConfig
 from datahub.ingestion.source.openapi_parser import (
     flatten2list,
     get_endpoints,
+    get_url_basepath,
     guessing_url_name,
     maybe_theres_simple_id,
     resolve_schema_references,
     try_guessing,
 )
+
+
+class TestGetUrlBasepath:
+    def test_base_path_v2(self):
+        assert get_url_basepath({"swagger": "2.0", "basePath": "/api/v2"}) == "/api/v2"
+
+    def test_servers_v3(self):
+        sw_dict = {"openapi": "3.0.0", "servers": [{"url": "/api/v3"}]}
+        assert get_url_basepath(sw_dict) == "/api/v3"
+
+    def test_empty_servers_list(self):
+        assert get_url_basepath({"openapi": "3.0.0", "servers": []}) == ""
+
+    def test_server_entry_without_url(self):
+        sw_dict = {"openapi": "3.0.0", "servers": [{"description": "prod"}]}
+        assert get_url_basepath(sw_dict) == ""
+
+    def test_no_base_path_or_servers(self):
+        assert get_url_basepath({"openapi": "3.0.0"}) == ""
 
 
 class TestGetEndpoints(unittest.TestCase):

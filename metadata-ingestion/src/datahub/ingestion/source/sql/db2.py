@@ -26,7 +26,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ def _quote_identifier(value: str) -> str:
 
 @platform_name("IBM Db2", id="db2")
 @config_class(Db2Config)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")

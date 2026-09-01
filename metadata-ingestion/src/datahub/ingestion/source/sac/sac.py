@@ -170,7 +170,7 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("SAP Analytics Cloud", id="sac")
 @config_class(SACSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
@@ -496,14 +496,14 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 yield mcp.as_workunit()
             else:
                 self.report.warning(
-                    "unknown-upstream-dataset",
-                    f"Unknown upstream dataset for model with id {model.namespace}:{model.model_id} and external id {model.external_id}",
+                    message="Unknown upstream dataset for model",
+                    context=f"{model.namespace}:{model.model_id} (external_id={model.external_id})",
                     log=False,
                 )
         elif model.system_type is not None:
             self.report.warning(
-                "unknown-system-type",
-                f"Unknown system type {model.system_type} for model with id {model.namespace}:{model.model_id} and external id {model.external_id}",
+                message="Unknown system type for model",
+                context=f"{model.namespace}:{model.model_id} (external_id={model.external_id}, system_type={model.system_type})",
                 log=False,
             )
 
@@ -795,8 +795,8 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 return SchemaFieldDataTypeClass(type=NumberTypeClass())
             else:
                 self.report.warning(
-                    "unknown-data-type",
-                    f"Unknown data type {column.data_type} found",
+                    message="Unknown data type found",
+                    context=f"data_type={column.data_type}",
                     log=False,
                 )
 

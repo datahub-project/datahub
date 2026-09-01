@@ -2141,7 +2141,7 @@
             "type" : {
               "type" : "enum",
               "name" : "LineageMatchType",
-              "doc" : "How an upstream lineage reference's URN was resolved against the entities stored\nin DataHub. Populated by the lineage URN casing normalization processor for\nreferences on a configured upstream platform; absent when the reference is out of\nscope (platform not configured, feature disabled) or was ingested before the\nfeature was enabled.",
+              "doc" : "How an upstream lineage reference's URN was resolved against the entities stored\nin DataHub. Populated by the lineage URN casing normalization processor for\nreferences on a configured upstream platform; absent when the reference is out of\nscope (platform not configured, feature disabled) or was ingested before the\nfeature was enabled.\n\nThis verdict reflects DataHub's knowledge AT THE TIME THE LINEAGE EDGE WAS\nINGESTED, not the current state of the graph. It is a point-in-time record and is\nnot re-evaluated automatically: e.g. a reference recorded as UNRESOLVED (its target\ndid not exist yet) keeps that value even after the target is later ingested and the\nedge in fact resolves exactly — the verdict only refreshes when the referencing\nsource is re-ingested.",
               "symbols" : [ "EXACT", "NORMALIZED", "UNRESOLVED" ],
               "symbolDocs" : {
                 "EXACT" : "The reference matched an existing entity exactly, including URN casing.",
@@ -2149,7 +2149,7 @@
                 "UNRESOLVED" : "The reference is on a configured upstream platform but could not be resolved to\na single existing entity — either no entity matched (under any casing), or the\ncasing was ambiguous (multiple entities share the case-insensitive form). The\nreference was left unchanged; this flags potentially broken lineage."
               }
             },
-            "doc" : "How the upstream field references' URNs were resolved against the entities stored\nin DataHub. Set by the lineage URN casing normalization processor (EXACT when the\nreferences already matched existing entities, NORMALIZED when any were rewritten to\nheal a casing mismatch). Absent when no reconciliation was performed.",
+            "doc" : "Aggregate of how the upstream field references' URNs were resolved against the\nentities stored in DataHub. Set by the lineage URN casing normalization processor:\nNORMALIZED if any field was rewritten to heal a casing mismatch, else UNRESOLVED if\nany could not be resolved, else EXACT. Absent when no reconciliation was performed\n(out of scope). Reflects DataHub's knowledge at ingestion time and is not\nre-evaluated later; see LineageMatchType.",
             "optional" : true
           } ]
         }
@@ -2600,7 +2600,7 @@
     }, {
       "name" : "matchType",
       "type" : "LineageMatchType",
-      "doc" : "How this upstream reference's URN was resolved against the entities stored in\nDataHub. Set by the lineage URN casing normalization processor (EXACT when the\nreference already matched an existing entity, NORMALIZED when it was rewritten\nto heal a casing mismatch). Absent when no reconciliation was performed.",
+      "doc" : "How this upstream reference's URN was resolved against the entities stored in\nDataHub. Set by the lineage URN casing normalization processor: EXACT when the\nreference already matched an existing entity, NORMALIZED when it was rewritten to\nheal a casing mismatch, UNRESOLVED when it could not be resolved to a single\nexisting entity. Absent when no reconciliation was performed (out of scope).\nReflects DataHub's knowledge at ingestion time and is not re-evaluated later; see\nLineageMatchType.",
       "optional" : true
     } ]
   }, {
@@ -2797,13 +2797,7 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.CorpuserUrn"
                     },
-                    "doc" : "owners of this group\nDeprecated! Replaced by Ownership aspect.",
-                    "Relationship" : {
-                      "/*" : {
-                        "entityTypes" : [ "corpuser" ],
-                        "name" : "OwnedBy"
-                      }
-                    },
+                    "doc" : "owners of this group\nDeprecated! Replaced by Ownership aspect.\nRelationship annotation intentionally omitted so OwnedBy edges are owned solely by the ownership aspect.",
                     "deprecated" : true
                   }, {
                     "name" : "members",
@@ -2862,7 +2856,8 @@
                   } ],
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
-                    "name" : "corpGroupInfo"
+                    "name" : "corpGroupInfo",
+                    "schemaVersion" : 2
                   }
                 }, "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
               }
@@ -6404,6 +6399,14 @@
       "doc" : "Include mentioned fields inside elastic highlighting query",
       "optional" : true
     }, {
+      "name" : "fetchExtraFields",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "Elasticsearch _source field names to include on each SearchEntity as extraFields.\nNames are passed through as-is (nested paths and wildcards allowed). Empty or absent\nfetches no extra document fields — only the default urn include.",
+      "optional" : true
+    }, {
       "name" : "rewriteQuery",
       "type" : "boolean",
       "doc" : "invoke query rewrite chain for filters based on configured rewriters",
@@ -6440,6 +6443,11 @@
         } ]
       },
       "doc" : "Sets slice parameter for elasticsearch query,\nto allow multiple clients to scroll the same query at once.\nOnly supported by the ElasticSearchService",
+      "optional" : true
+    }, {
+      "name" : "minScore",
+      "type" : "float",
+      "doc" : "Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring\nbelow this floor are dropped, letting an agent abstain instead of returning weak matches. When\nnull/unset, no floor is applied. Currently honored only by the semantic search path.\n\nThe value is compared against the engine's raw kNN relevance score (cosine-derived), which is\nnot a normalized 0..1 value; its scale depends on the embedding model and search engine, so a\nsuitable floor must be calibrated per deployment rather than assumed.",
       "optional" : true
     } ]
   }, "com.linkedin.metadata.query.SliceOptions", {
@@ -7226,7 +7234,7 @@
           "name" : "aspectName",
           "type" : "string",
           "optional" : true,
-          "doc" : "- the optional aspect name if only want to delete the aspect (applicable only\n     for timeseries aspects)."
+          "doc" : "- the optional aspect name if only want to delete the aspect (applicable only\n    for timeseries aspects)."
         }, {
           "name" : "startTimeMillis",
           "type" : "long",

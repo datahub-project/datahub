@@ -125,8 +125,9 @@ class HiveMetastoreProxy(Closeable):
             return [row.tableName for row in rows]
         except Exception as e:
             self.report.warning(
-                "Failed to get tables for schema",
-                f"{HIVE_METASTORE}.{schema_name}",
+                message="Failed to get tables for schema",
+                context=f"{HIVE_METASTORE}.{schema_name}",
+                exc=e,
                 log=False,
             )
             logger.warning(
@@ -141,7 +142,10 @@ class HiveMetastoreProxy(Closeable):
             return [row.viewName for row in rows]
         except Exception as e:
             self.report.warning(
-                "Failed to get views for schema", schema_name, log=False
+                message="Failed to get views for schema",
+                context=schema_name,
+                exc=e,
+                log=False,
             )
             logger.warning(
                 f"Failed to get views {schema_name} due to {e}", exc_info=True
@@ -291,8 +295,9 @@ class HiveMetastoreProxy(Closeable):
                 return row[0]
         except Exception as e:
             self.report.warning(
-                "Failed to get view definition for table",
-                f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+                message="Failed to get view definition for table",
+                context=f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+                exc=e,
                 log=False,
             )
             logger.debug(
@@ -341,8 +346,9 @@ class HiveMetastoreProxy(Closeable):
                     properties[prop_name] = value.rstrip()
         except Exception as e:
             self.report.warning(
-                "Failed to get detailed info for table",
-                f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+                message="Failed to get detailed info for table",
+                context=f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+                exc=e,
                 log=False,
             )
             logger.debug(
@@ -380,8 +386,9 @@ class HiveMetastoreProxy(Closeable):
                 )
         except Exception as e:
             self.report.warning(
-                "Failed to get columns for table",
-                f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+                message="Failed to get columns for table",
+                context=f"{HIVE_METASTORE}.{schema_name}.{table_name}",
+                exc=e,
                 log=False,
             )
             logger.debug(

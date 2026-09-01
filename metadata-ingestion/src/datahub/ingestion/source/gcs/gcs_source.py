@@ -150,7 +150,8 @@ class GCSSourceConfig(
 
     max_rows: int = Field(
         default=100,
-        description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
+        ge=1,
+        description="Maximum number of rows to use when inferring schemas for TSV and CSV files. Also caps JSON and JSONL schema inference: at most this many records of a top-level array are read, and arrays inside a single JSON object are truncated to this many elements, so fields that only appear later are not reported.",
     )
 
     number_of_files_to_sample: int = Field(
@@ -227,7 +228,7 @@ class GCSSourceReport(DataLakeSourceReport):
 
 @platform_name("Google Cloud Storage", id=PLATFORM_GCS)
 @config_class(GCSSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",

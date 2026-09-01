@@ -316,16 +316,12 @@ class StaleEntityRemovalHandler(
             # Log the failure. This would prevent the current state from getting committed.
             self.report.failure(
                 title="Skipping stateful ingestion / stale entity removal",
-                message=f"\
-The previous run produced {last_checkpoint_state.urn_count()} entities, whereas this run produced {cur_checkpoint_state.urn_count()} entities. \
-Comparing the entities produced this run vs the previous run, we would be deleting {entity_difference_percent:.1f}% of the entities produced by the previous run. \
-This percentage is above the threshold (currently {self.stateful_ingestion_config.fail_safe_threshold}), so we will skip soft-deleting stale entities.\
-\
-To update this threshold, add this to your recipe: \
-\
-stateful_ingestion:\
-  fail_safe_threshold: <new value>\
-",
+                message="Entity difference exceeds fail_safe_threshold; skipping stale entity removal. "
+                "To update, set stateful_ingestion.fail_safe_threshold in your recipe.",
+                context=f"previous_run={last_checkpoint_state.urn_count()} entities, "
+                f"current_run={cur_checkpoint_state.urn_count()} entities, "
+                f"change={entity_difference_percent:.1f}%, "
+                f"threshold={self.stateful_ingestion_config.fail_safe_threshold}",
             )
             copy_previous_state_and_exit = True
 

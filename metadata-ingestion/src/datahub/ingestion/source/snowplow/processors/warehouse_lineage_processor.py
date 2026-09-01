@@ -97,8 +97,10 @@ class WarehouseLineageProcessor(EntityProcessor):
                     )
                     self.report.warning(
                         title="Failed to fetch data models for tracking plan",
-                        message=f"Skipping tracking plan '{plan.name}': {e}. "
+                        message="Skipping tracking plan. "
                         "Lineage from remaining tracking plans will still be processed.",
+                        context=plan.name,
+                        exc=e,
                         log=False,
                     )
                     continue

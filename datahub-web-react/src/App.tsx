@@ -21,6 +21,7 @@ import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
+import { buildGraphqlHttpUri } from '@src/graphqlHttpUri';
 import { otelOperationLink } from '@src/otelApollo';
 import possibleTypesResult from '@src/possibleTypes.generated';
 import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
@@ -29,7 +30,7 @@ import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@util
     Construct Apollo Client
 */
 const httpLink = createHttpLink({
-    uri: resolveRuntimePath(`/api/v2/graphql`),
+    uri: ({ operationName }) => buildGraphqlHttpUri(operationName),
 });
 
 const errorLink = onError((error) => {

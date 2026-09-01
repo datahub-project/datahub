@@ -20,7 +20,9 @@ See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
 
 ```bash
 ./gradlew build           # Build entire project
-./gradlew check           # Run all tests and linting
+./gradlew check           # Run all tests (Python/JS lint lives in lint-jobs.yml / :module:lint)
+./gradlew lintCheck       # Run all lint checks (Python, JS, GraphQL, markdown, Java)
+./gradlew lintFix         # Auto-fix all lint issues
 ./gradlew format          # Format all code (Java, Markdown, GraphQL, YAML)
 
 # Note that each directory typically has a build.gradle file, but the available tasks follow similar conventions.
@@ -56,6 +58,8 @@ See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
 **Format everything:**
 
 ```bash
+./gradlew lintCheck           # Run all lint checks (Python, JS, GraphQL, markdown, Java)
+./gradlew lintFix             # Auto-fix all lint issues
 ./gradlew format              # Format all code (Java, Markdown, GraphQL, YAML)
 ./gradlew formatChanged       # Format only changed files (faster)
 ```
@@ -89,7 +93,7 @@ If you see CI failures like:
 
 - `markdown_format / markdown_format_check (pull_request)` - Use `./gradlew :datahub-web-react:mdPrettierWrite`
 - `graphql_prettier_check` - Use `./gradlew :datahub-web-react:graphqlPrettierWrite`
-- `spotlessJavaCheck` - Use `./gradlew spotlessApply`
+- `spotless-check` - Use `./gradlew spotlessApply`
 - Python linting failures - Use `./gradlew :metadata-ingestion:lintFix`
 
 **Never do this:**
@@ -165,6 +169,17 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 - **Register as Spring beans** in `SpringStandardPluginConfiguration.java`
 - **Follow existing patterns**: See `SystemPolicyValidator.java` and `PolicyFieldTypeValidator.java` as examples
 
+### Authorization Architecture
+
+When adding an entity or API:
+
+- Enforce authorization across GraphQL, OpenAPI, and Rest.li
+- Keep basic entity CRUD permissions alongside any higher-level, entity-specific permissions
+- Use `AuthorizationUtils` for GraphQL and `AuthUtil.isAPIAuthorized*` for REST APIs
+- Put shared aspect rules in an `AbstractAspectAuthorizationValidator`
+- Apply view-based access controls by default; only set `viewUnrestricted: true` for intentionally public entities
+- Add allowed and denied access tests
+
 ## Development Flow
 
 1. **Schema changes** in `metadata-models/` trigger code generation across all languages
@@ -188,15 +203,8 @@ Or via Gradle directly: `./gradlew :docs-website:yarnStart` (always does a full 
 
 ### How the docs site is assembled
 
-The final site is served from `docs-website/genDocs/` (gitignored). It is assembled at build time
-from multiple hand-authored sources plus several generation steps:
-
-1. **Gradle generation tasks** produce `docs/generated/` (connector docs, entity reference, schemas)
-2. **`generateDocsDir.ts`** discovers all markdown in the repo, applies transformations (frontmatter,
-   link rewriting, `{{ inline }}` directives), and writes the result to `genDocs/`
-3. **Docusaurus** serves from `genDocs/`, additionally generating GraphQL API docs and Python SDK docs
-
-See `docs-website/AGENTS.md` for full pipeline details.
+The final site is assembled at build time into `docs-website/genDocs/` (gitignored) —
+see `docs-website/AGENTS.md` for the full pipeline.
 
 ### Where docs live
 
@@ -249,34 +257,9 @@ Forgetting step 2 means the release note is published but never appears in the s
   - **Code Quality**: Avoid global state, use named arguments, don't re-export in `__init__.py`, refactor repetitive code
   - **Error Handling**: Robust error handling with layers of protection for known failure points
   - **Security**: Never pass credentials to third-party SDKs via `os.environ`. Use the SDK's programmatic injection mechanism (a settings object, client constructor argument, or credential provider). Writing secrets to the process environment exposes them via `/proc/<pid>/environ` and to any code in the same process. See [`looker_lib_wrapper.py`](metadata-ingestion/src/datahub/ingestion/source/looker/looker_lib_wrapper.py) (`_DataHubLookerApiSettings`) for the canonical pattern.
+  - **Connectors**: File layout, lineage, reporting, and PR-scope conventions for ingestion connectors live in `metadata-ingestion/AGENTS.md`
 - **TypeScript**: Use Prettier formatting, strict types (no `any`), React Testing Library
-
-### Frontend Theming (Colors)
-
-**Always use semantic color tokens** from `datahub-web-react/src/conf/theme/colorThemes/types.ts`. Never use hardcoded hex values, `REDESIGN_COLORS`, `ANTD_GRAY`, or direct alchemy `colors.gray[X]` imports.
-
-**In styled-components** (no import needed — `theme` is available via props):
-
-```typescript
-background: ${(props) => props.theme.colors.bg};
-color: ${(props) => props.theme.colors.text};
-border: 1px solid ${(props) => props.theme.colors.border};
-```
-
-**In React component bodies:**
-
-```typescript
-import { useTheme } from 'styled-components';
-const theme = useTheme();
-<Icon color={theme.colors.icon} />
-```
-
-**For alchemy components** (`<Text>`, `<Icon>`, etc.) — do not pass `color`/`colorLevel` props. Let them inherit from themed parent styled-components.
-
-**Do not import from:**
-
-- `datahub-web-react/src/alchemy-components/theme/foundations/colors.ts` (raw palette, only used internally by the theme)
-- `REDESIGN_COLORS` or `ANTD_GRAY` from `entityV2/shared/constants.ts`
+  - **Frontend**: Component conventions, theming/color tokens, file layout, and the frontend CI checklist live in `datahub-web-react/AGENTS.md`
 
 ### Code Comments
 
@@ -468,7 +451,6 @@ messages, or PRs:
   being tested, not the customer's actual identifiers.
 - Vendor/system built-ins (e.g. a platform's standard system tables) are fine,
   but prefer generic names when in doubt.
-- **Never bypass git hook failures with `--no-verify`** (or any equivalent skip flag) on commit or push. A failing hook is a signal that something needs attention — stop, report the failure to the user, and confirm how to proceed. Only use `--no-verify` if the user explicitly tells you to for that specific action.
 
 ## Starting / Operating DataHub
 
@@ -721,48 +703,10 @@ datahub graphql --agent-context
 - https://docs.datahub.com/docs/developers - Official developer guide
 - https://demo.datahub.com/ - Live demo environment
 
-## Cypress Tests (Deprecated)
-
-Cypress UI tests in `smoke-test/tests/cypress/` are **deprecated as of 2026-06-30**.
-
-- **Do not write new Cypress tests.** All new UI automation must use Playwright (see below).
-- **Do not fix failing Cypress tests.** Migrate them to Playwright instead.
-- The Cypress test code is retained temporarily for reference; all CI jobs running Cypress have been removed.
-
 ## Playwright UI E2E Tests
 
-Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/README.md).
-
-### Seeding
-
-`test.use({ featureName: 'my-feature' })` at the `describe` level auto-loads
-`tests/my-feature/fixtures/data.json` via `seeding.fixture.ts` — once per worker per
-feature per run. Do **not** set `featureName` for suites that create their own data
-via `apiMock` or direct API calls.
-
-## Frontend CI Checklist
-
-This checklist is for **commit- or PR-ready** frontend work — i.e. when you're about to
-commit, push, or hand off changes that are going into a PR. It is **not** required for
-every intermediate edit: work that is part of a larger task, a work-in-progress branch,
-or scratch experimentation that won't be committed yet can skip it. Run the relevant
-commands when the change is ready to ship:
-
-```bash
-# Full lint (eslint + prettier src + type-check) for datahub-web-react
-./gradlew :datahub-web-react:yarnLint
-
-# Targeted lint-fix on a single file
-./gradlew -x yarnInstall -x yarnGenerate yarnLintFix -Pfile=src/path/to/file.tsx
-
-# Vitest unit tests (requires icon stubs — run once per clone)
-node datahub-web-react/scripts/generate-lazy-icon-stubs.js
-cd datahub-web-react && yarn test src/path/to/file.test.ts --run
-```
-
-`yarn type-check` in CI runs repo-wide and will surface pre-existing errors in
-unrelated files. Focus on errors in files **you touched** — in particular, optional
-prop calls (`prop?.(arg)`) and import aliases.
+Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/README.md) —
+including test-data seeding via `test.use({ featureName: ... })`.
 
 ## Python Virtual Environments
 
@@ -773,25 +717,3 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 - Entity Registry is defined in YAML, not code (`entity-registry.yml`)
 - All metadata changes flow through the event streaming system
 - GraphQL schema is generated from backend GMS APIs
-
-## Learned User Preferences
-
-- In `metadata-ingestion` connector code, avoid double-quoted string literals: hoist magic strings into module-level constants, and keep all regex in the constants file pre-compiled.
-- Use Pydantic models for structured/internal data; never pass data around as tuples (hard to track).
-- Split connector files by duty (`constants.py`, `models.py`, `config.py`, `client.py`, `source.py`, plus `lineage.py`/`mapper.py`/`usage.py` as needed) and match the quality/patterns of existing connectors (Power BI, Airbyte, Redshift, BigID, Grafana).
-- No "AI slop": no top-of-file docstrings, and keep docstrings/comments only where strictly needed.
-- Never use `TYPE_CHECKING` in connector code since the connector controls its own deps (lazy imports are fine only for opt-in features), and don't use the walrus operator.
-- Prefer `self.report.warning(...)` and report counters over bare `logger` for skips and edge cases — the report also writes to the log and surfaces to operators (e.g. warn when `verify_ssl=False`, or when a referenced object is inaccessible).
-- For SQL lineage, use the central `SqlParsingAggregator` (`create_lineage_from_sql_statements`) with a platform map instead of setting sqlglot dialects per-connector; mirror existing connectors for cross-platform known-URN and platform_instance/env/casing mapping, two- vs three-part names, and temp-table handling.
-- For column-level lineage, don't leave edges coarse: resolve upstream/downstream schemas from the DataHub graph when available (as airbyte/bigid/matillion/informatica do), load known URNs from the platform/platform_instance/env mapping, and match columns case-insensitively. Best-effort is fine, but try everything.
-- In connector code, use explicit type annotations rather than `from typing import Any` (Unions are fine when a value genuinely has multiple types), and prefer `Dict`/`List` from `typing` over the builtin `dict`/`list`.
-- Connectors should surface progress during ingestion and use explicit ingestion stages (as in the dremio and snowflake connectors).
-- Before committing a new connector, run its ingestion locally in debug mode to a local file to capture full logs and catch bugs; when testing against a customer environment, push secrets only to a tmp path (e.g. `/tmp/*.env`).
-- When drafting prose or review comments on the user's behalf (e.g. Notion), write in his own direct, human voice — avoid AI tells like "confirmed these are real gaps".
-
-## Learned Workspace Facts
-
-- The user is a contributor to the public `datahub-project/datahub` repo and can create and push branches directly on `datahub-public-repo`.
-- A new ingestion connector needs more than Python code: a source logo plus an integrations-page logo, UI form pieces, a `datahub.json` update, entry-point registration (`setup.py`/`pyproject.toml`), a refreshed `uv.lock`, and subtypes added to the shared subtypes module rather than defined locally.
-- Avoid Python's stdlib `xml` parser due to a known vulnerability; use a safe XML library (as the HANA-related code does).
-- Keep each connector in its own PR and split shared/framework changes (e.g. sqlglot helpers) into a separate PR; a connector PR's title and description must reference only that connector, not any other connector worked on in the same session.

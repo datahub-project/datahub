@@ -21,6 +21,8 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
     const [builderState, updateBuilderState] = useState<DataProductBuilderState>({
         name: dataProduct.properties?.name || '',
         description: dataProduct.properties?.description || '',
+        parentDataProductUrn: dataProduct.properties?.parentDataProduct?.urn || undefined,
+        parentDataProductName: dataProduct.properties?.parentDataProduct?.properties?.name || undefined,
     });
     const [updateDataProductMutation] = useUpdateDataProductMutation();
 
@@ -31,6 +33,7 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
                 input: {
                     name: builderState.name,
                     description: builderState.description || undefined,
+                    parentDataProduct: builderState.parentDataProductUrn || undefined,
                 },
             },
         })
@@ -71,7 +74,11 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
                 },
             ]}
         >
-            <DataProductBuilderForm builderState={builderState} updateBuilderState={updateBuilderState} />
+            <DataProductBuilderForm
+                builderState={builderState}
+                updateBuilderState={updateBuilderState}
+                excludeUrn={dataProduct.urn}
+            />
         </Modal>
     );
 }

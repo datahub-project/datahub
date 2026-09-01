@@ -29,6 +29,12 @@ how to disable replication.
 - ODCS v3.0 and v3.1 are supported (any `3.0.x` patch level validates against the same
   v3.0.2 JSON Schema; `3.1.0` against the v3.1 schema). Contracts whose `apiVersion` reports
   v2.x — or any value outside `odcs_versions` — are skipped with a warning.
+- **Filter which datasets are ingested with `dataset_pattern`.** The allow/deny regexes
+  match the composed logical dataset name (`{contract_id}.{schema_name}`, per
+  `logical_dataset_name_template`). A non-matching `schema[]` entry is skipped along with its
+  assertions and `logicalParent` link, and recorded under `report.filtered`. Deny takes
+  precedence over allow. This is orthogonal to `path` globs, which filter by file location
+  rather than contract content.
 - **Assertions always attach to the logical dataset.** Quality rules and the
   schema-compliance assertion are emitted whether or not a physical table exists yet, so
   contract-first workflows keep their expectations. Propagation of those expectations onto
@@ -73,6 +79,10 @@ how to disable replication.
   local paths, `path` accepts `s3://` / `gs://` object-store URIs (single file or glob),
   `http(s)://` URLs to a single file, and any mix of these in a list. S3 URIs require an
   `aws_connection` block and GCS URIs a `gcs_connection` block (both validated up front).
+  For authenticated `http(s)://` URLs, set an `http_connection` block with either a bearer
+  `token` or basic-auth `username`/`password` (the two are mutually exclusive), plus an
+  optional `verify_ssl: false` toggle for trusted hosts with self-signed certificates
+  (disabling it emits a warning). Public URLs need no `http_connection`.
   Set `git_info` to shallow-clone a repository (using an SSH deploy key) and
   scan it; each non-URI `path` entry is then resolved relative to the checkout (e.g.
   `path: contracts/` or `path: '**/*.odcs.yaml'`). Install the extra dependencies with

@@ -469,7 +469,7 @@ The agent shadow jar is compiled to **Java 17 bytecode**, so it requires a Spark
 **Java 17 or newer**. This matches the current defaults of the major managed Spark platforms:
 
 - Amazon EMR 7.x (Java 17)
-- Databricks Runtime 16.4 LTS / 17.3 LTS and newer (Java 17; 18+ is Java 21)
+- Databricks Runtime 16.4 LTS / 17.3 LTS and newer (Java 17; 18.x/19.x run Java 21)
 - Dataproc Serverless 2.x / 3.0 and Dataproc on GCE image 3.0
 - Microsoft Fabric runtime 2.0
 
@@ -478,7 +478,7 @@ Java 8 and Java 11 runtimes are **not supported** (e.g. EMR 6.x, Databricks ≤ 
 
 ## How to build
 
-The build uses Gradle (the JDK 21 toolchain is provisioned automatically) and produces the Java
+The build uses Gradle (the JDK 25 toolchain is provisioned automatically) and produces the Java
 17-bytecode shadow jar:
 
 ```shell
@@ -499,6 +499,7 @@ The build uses Gradle (the JDK 21 toolchain is provisioned automatically) and pr
   - **OpenLineage dataset-name trimmers auto-disabled when DataHub path trimming is configured**: OpenLineage 1.39+ enables built-in partition trimmers by default, which run before — and thus collide with — DataHub's own path handling. The plugin now disables them automatically when a `path_spec_list` or `file_partition_regexp` is set (otherwise they stay on, matching upstream). Override with `spark.datahub.metadata.dataset.openLineageTrimmersEnabled` (`true`/`false`).
   - Map jdbc sqlserver dialect to mssql platform otherwise OpenLineage fails to parse the sql
 - _Fixes_:
+  - **Scala 2.13 artifact shipped Scala 2.12-compiled classes** ([#19289](https://github.com/datahub-project/datahub/issues/19289)): the agent's own sources were compiled once, against the Scala 2.12 Spark API, and that same output went into both artifacts. Spark returns `scala.collection.Seq` on Scala 2.12 and `scala.collection.immutable.Seq` on 2.13, and the JVM resolves methods on the full descriptor including the return type — so on a Spark 4 / Scala 2.13 cluster a plain Parquet scan hit `NoSuchMethodError: FileScanRDD.filePartitions()`. That is an `Error` rather than an exception, so it escaped the listener's guards and Spark's `tryOrStopSparkContext` shut the SparkContext down and failed the application. Two further sites (`LogicalPlan.output()` in the JDBC/Delta write path, `TreeNode.children()` in the Delta MERGE traversal) instead dropped output schemas and column-level lineage silently. The sources are now compiled once per Scala binary version, and each artifact carries only its own.
   - **Listener Null-Safety Fix**: the underlying OpenLineage listener is created lazily and can remain uninitialized (listener disabled, no active `SparkContext`/`SparkEnv` yet, or config parse failure). The event handlers now no-op in those cases instead of throwing a `NullPointerException` back into Spark's listener bus.
   - **Dependency Relocation Fix** ([#14989](https://github.com/datahub-project/datahub/issues/14989)): Fixed shadow JAR packaging to properly relocate all transitive dependencies, preventing classloading conflicts with other Spark extensions. All dependencies except `io.openlineage` (which contains customized classes) and `datahub.spark` (the public API) are now properly relocated under `io.acryl.shaded` namespace. This resolves conflicts with libraries like ANTLR, Apache Avro, and others that could clash with Delta Lake and other Spark components.
   - **Missing Output Lineage Fix**: Fixed an issue where `outputDatasetEdges` in the `dataJobInputOutput` aspect could be empty when using coalesced emission with the REST emitter. Early coalesced emissions (e.g., on START events) sent an UPSERT with empty edge arrays, which clobbered later PATCH emissions that contained actual output edges. The fix skips emitting `dataJobInputOutput` when all edges are empty.

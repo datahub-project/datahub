@@ -23,6 +23,8 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 export const LINEAGE_BOUNDING_BOX_NODE_NAME = 'lineage-bounding-box';
 export const BOUNDING_BOX_PADDING = 50;
+/** The box's label card renders above its top edge, so layout must leave room for it there. */
+export const BOUNDING_BOX_LABEL_HEIGHT = 54;
 
 const StyledNodeWrapper = styled(NodeWrapper)<{ $colorHex?: string }>`
     background-color: ${({ $colorHex, theme }) => ($colorHex ? `${$colorHex}30` : `${theme.colors.bgSurfaceBrand}50`)};

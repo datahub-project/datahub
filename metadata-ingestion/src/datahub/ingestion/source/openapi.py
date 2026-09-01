@@ -227,7 +227,7 @@ class ApiWorkUnit(MetadataWorkUnit):
 
 @platform_name("OpenAPI", id="openapi")
 @config_class(OpenApiConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(
     SourceCapability.SCHEMA_METADATA,
     "Extracts schemas from OpenAPI specifications for GET, POST, PUT, and PATCH methods",
@@ -885,8 +885,8 @@ class APISource(Source, ABC):
                 if method != "get":
                     self.report.warning(
                         title="Failed to Extract Endpoint Metadata",
-                        message=f"No schema found in OpenAPI spec for {endpoint_dets.get('method', 'unknown')} method (API calls only made for GET methods with credentials)",
-                        context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                        message="No schema found in OpenAPI spec for non-GET method (API calls only made for GET methods with credentials)",
+                        context=f"method={endpoint_dets.get('method', 'unknown')}, endpoint={endpoint_k}, name={dataset_name}",
                         log=False,
                     )
                     continue

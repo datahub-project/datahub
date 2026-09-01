@@ -142,8 +142,8 @@ class FeatureGroupProcessor:
 
         if mapped_type is None:
             self.report.warning(
-                feature_name,
-                f"unable to map type {aws_type} to metadata schema",
+                message="Unable to map feature type to metadata schema",
+                context=f"{feature_name}: {aws_type}",
                 log=False,
             )
             mapped_type = MLFeatureDataType.UNKNOWN

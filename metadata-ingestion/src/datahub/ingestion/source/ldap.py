@@ -114,6 +114,20 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     ldap_user: str = Field(description="LDAP user.")
     ldap_password: TransparentSecretStr = Field(description="LDAP password.")
 
+    # python-ldap waits forever by default, so a server that accepts the connection but
+    # never answers will hang the whole ingestion run with no diagnostic. Both bounds are
+    # deliberately generous: they exist to turn an indefinite hang into a reported error,
+    # not to police slow-but-working servers.
+    connect_timeout: float = Field(
+        default=30.0,
+        description="Seconds to wait for the initial network connection to the LDAP server.",
+    )
+    request_timeout: float = Field(
+        default=300.0,
+        description="Seconds to wait for a response to any single LDAP operation. "
+        "With pagination enabled this applies per page, not to the whole extraction.",
+    )
+
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
@@ -207,7 +221,7 @@ def guess_person_ldap(
 
 @platform_name("LDAP")
 @config_class(LDAPSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @dataclasses.dataclass
 class LDAPSource(StatefulIngestionSourceBase):
     """
@@ -252,6 +266,14 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         self.ldap_client = ldap.initialize(self.config.ldap_server)
         self.ldap_client.protocol_version = 3
+        # Set per-connection rather than via the module-level ldap.set_option used above,
+        # so these bounds cannot leak into other LDAP clients in the same process.
+        # initialize() does not open the socket, so OPT_NETWORK_TIMEOUT still covers the
+        # connect performed by the bind below.
+        self.ldap_client.set_option(
+            ldap.OPT_NETWORK_TIMEOUT, self.config.connect_timeout
+        )
+        self.ldap_client.set_option(ldap.OPT_TIMEOUT, self.config.request_timeout)
 
         try:
             self.ldap_client.simple_bind_s(
@@ -285,7 +307,9 @@ class LDAPSource(StatefulIngestionSourceBase):
                 )
                 _rtype, rdata, _rmsgid, serverctrls = self.ldap_client.result3(msgid)
             except ldap.LDAPError as e:
-                self.report.failure("ldap-control", f"LDAP search failed: {e}")
+                self.report.failure(
+                    message="LDAP search failed", context="ldap-control", exc=e
+                )
                 break
 
             for dn, attrs in rdata:
@@ -294,9 +318,9 @@ class LDAPSource(StatefulIngestionSourceBase):
 
                 if not attrs or "objectClass" not in attrs:
                     self.report.warning(
-                        "<general>",
-                        f"skipping {dn} because attrs ({attrs}) does not contain expected data; "
-                        f"check your permissions if this is unexpected",
+                        message="Skipping entry because attrs do not contain expected data; "
+                        "check your permissions if this is unexpected",
+                        context=dn,
                         log=False,
                     )
                     continue
@@ -321,7 +345,8 @@ class LDAPSource(StatefulIngestionSourceBase):
                 pctrls = get_pctrls(serverctrls)
                 if not pctrls:
                     self.report.failure(
-                        "ldap-control", "Server ignores RFC 2696 control."
+                        message="Server ignores RFC 2696 control",
+                        context="ldap-control",
                     )
                     break
                 cookie = set_cookie(self.lc, pctrls)
@@ -364,7 +389,12 @@ class LDAPSource(StatefulIngestionSourceBase):
                     )
 
             except ldap.LDAPError as e:
-                self.report.warning(dn, f"manager LDAP search failed: {e}", log=False)
+                self.report.warning(
+                    message="Manager LDAP search failed",
+                    context=dn,
+                    exc=e,
+                    log=False,
+                )
         mce = self.build_corp_user_mce(dn, attrs, make_manager_urn)
         if mce:
             yield MetadataWorkUnit(dn, mce)

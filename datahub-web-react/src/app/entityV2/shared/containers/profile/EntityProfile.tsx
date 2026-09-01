@@ -31,14 +31,14 @@ import {
 } from '@app/entityV2/shared/containers/profile/utils';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
+import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
 import DynamicTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicTab';
 import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
-import LineageExplorer from '@app/lineage/LineageExplorer';
 import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
-import LineageGraph from '@app/lineageV2/LineageGraph';
-import { useLineageV2 } from '@app/lineageV2/useLineageV2';
+import LineageGraph from '@app/lineageV3/LineageGraph';
+import { useUpdateMarketplaceEntityDataOnChange } from '@app/marketplace/useUpdateMarketplaceEntityDataOnChange';
 import { useUpdateMetricsEntityDataOnChange } from '@app/metrics/useUpdateMetricsEntityDataOnChange';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
@@ -123,9 +123,7 @@ const HeaderAndTabsFlex = styled.div`
 `;
 
 const Header = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    /* padding: ${(props) => (props.$isShowNavBarRedesign ? '4px 8px 4px 4px' : '0px 16px 0px 16px')}; */
-    padding: ${(props) => (props.$isShowNavBarRedesign ? '5px 9px 4px 5px' : '0px 16px 0px 16px')};
-    ${(props) => props.$isShowNavBarRedesign && 'margin-right: 0px;'}
+    padding: ${(props) => (props.$isShowNavBarRedesign ? '0' : '0px 16px 0px 16px')};
     display: flex;
     align-items: center;
 `;
@@ -142,7 +140,7 @@ const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    padding: ${(props) => (props.$isShowNavBarRedesign ? '12px 8px 4px 4px' : '12px 16px 12px 16px')};
+    padding: ${(props) => (props.$isShowNavBarRedesign ? '8px 0 0 0' : '12px 16px 12px 16px')};
     height: 100%;
     overflow: hidden;
     display: flex;
@@ -198,7 +196,6 @@ export const EntityProfile = <T, U>({
 }: Props<T, U>): JSX.Element => {
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizeContext);
     const isLineageMode = useIsLineageMode();
-    const isLineageV2 = useLineageV2();
     const { t } = useTranslation('entity.shared.containers');
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
@@ -262,6 +259,7 @@ export const EntityProfile = <T, U>({
     useUpdateGlossaryEntityDataOnChange(entityData, entityType);
     useUpdateDomainEntityDataOnChangeV2(entityData, entityType);
     useUpdateMetricsEntityDataOnChange(entityData, entityType);
+    useUpdateMarketplaceEntityDataOnChange(entityData, entityType);
 
     const maybeUpdateEntity = useUpdateQuery?.({
         onCompleted: () => refetch(),
@@ -359,8 +357,7 @@ export const EntityProfile = <T, U>({
     }
 
     const showError = error;
-    const showFullScreen = !error && isLineageMode && isLineageV2;
-    const showExplorer = isLineageMode && !isLineageV2;
+    const showFullScreen = !error && isLineageMode;
 
     return (
         <EntityContext.Provider
@@ -397,7 +394,6 @@ export const EntityProfile = <T, U>({
                 {showFullScreen && <LineageGraph isFullscreen />}
                 {!showFullScreen && (
                     <ContentContainer>
-                        {showExplorer && <LineageExplorer type={entityType} urn={urn} />}
                         {!isLineageMode && (
                             <>
                                 <HeaderAndTabsFlex>
@@ -429,6 +425,7 @@ export const EntityProfile = <T, U>({
                                         width={width}
                                         contextType={TabContextType.PROFILE_SIDEBAR}
                                         headerDropdownItems={headerDropdownItems}
+                                        flushOuterMargin={isShowNavBarRedesign}
                                         $isShowNavBarRedesign={isShowNavBarRedesign}
                                     />
                                 )}
@@ -441,6 +438,19 @@ export const EntityProfile = <T, U>({
                 <VersionsDrawer
                     versionSetUrn={entityData.versionProperties?.versionSet.urn}
                     open={drawer === DrawerType.VERSIONS}
+                />
+            )}
+            {drawer === DrawerType.CHANGE_HISTORY && (
+                <HistorySidebar
+                    open
+                    onClose={() => setDrawer(undefined)}
+                    urn={urn}
+                    versionList={[]}
+                    hideSemanticVersions
+                    entityType={entityType}
+                    versionSetUrn={entityData?.versionProperties?.versionSet?.urn}
+                    currentVersionUrn={entityData?.versionProperties?.versionSet?.urn ? urn : undefined}
+                    defaultShowAllVersions={!!entityData?.versionProperties?.versionSet?.urn}
                 />
             )}
         </EntityContext.Provider>

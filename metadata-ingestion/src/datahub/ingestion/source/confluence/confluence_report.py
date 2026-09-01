@@ -58,7 +58,11 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
         """Record space processing failure."""
         self.spaces_failed += 1
         self.failed_spaces.append(space_key)
-        self.warning(space_key, f"Failed to process space: {error}", log=False)
+        self.warning(
+            message="Failed to process space",
+            context=f"{space_key}: {error}",
+            log=False,
+        )
 
     def report_page_scanned(self) -> None:
         """Record that a page was scanned."""
@@ -77,13 +81,13 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
     def report_page_skipped(self, page_id: str, reason: str) -> None:
         """Record that a page was skipped."""
         self.pages_skipped += 1
-        self.warning(page_id, f"Skipped page: {reason}", log=False)
+        self.warning(message="Skipped page", context=f"{page_id}: {reason}", log=False)
 
     def report_page_failed(self, page_id: str, space_key: str, error: str) -> None:
         """Record page processing failure."""
         self.pages_failed += 1
         self.failed_pages.append((space_key, page_id))
-        self.failure(page_id, f"Failed to process page: {error}")
+        self.failure(message="Failed to process page", context=f"{page_id}: {error}")
 
     def report_folder_failed(self, folder_id: str, error: str) -> None:
         """Record a folder discovery/emission failure.
@@ -93,7 +97,11 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
         rather than a hard failure — it must never sink the ingestion job.
         """
         self.folders_failed += 1
-        self.warning(folder_id, f"Failed to process folder: {error}", log=False)
+        self.warning(
+            message="Failed to process folder",
+            context=f"{folder_id}: {error}",
+            log=False,
+        )
 
     def report_text_extracted(self, num_bytes: int) -> None:
         """Record text extraction metrics."""

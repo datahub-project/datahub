@@ -2,6 +2,7 @@ import dataclasses
 import io
 from pathlib import Path
 from typing import Optional
+from unittest.mock import MagicMock, patch
 
 import boto3
 import fastavro
@@ -57,6 +58,14 @@ def get_profile(work_unit: MetadataWorkUnit) -> DatasetProfileClass:
     profile = work_unit.metadata.aspect
     assert isinstance(profile, DatasetProfileClass)
     return profile
+
+
+def report_of(profiler: FileProfiler) -> DataLakeSourceReport:
+    # FileProfiler.report is typed as the narrow ProfilingReport Protocol; these
+    # tests build a concrete DataLakeSourceReport, so narrow it back to inspect
+    # read-side fields like `warnings`.
+    assert isinstance(profiler.report, DataLakeSourceReport)
+    return profiler.report
 
 
 def parquet_bytes() -> bytes:
@@ -185,7 +194,7 @@ def test_unreadable_file_reports_warning_and_yields_nothing(tmp_path: Path) -> N
     )
 
     assert work_units == []
-    assert profiler.report.warnings.total_elements > 0
+    assert report_of(profiler).warnings.total_elements > 0
 
 
 def test_max_number_of_fields_to_profile_drops_extra_columns(tmp_path: Path) -> None:
@@ -209,7 +218,7 @@ def test_max_number_of_fields_to_profile_drops_extra_columns(tmp_path: Path) -> 
     profile = get_profile(work_units[0])
     field_profiles = profile.fieldProfiles or []
     assert len(field_profiles) == 2
-    assert profiler.report.number_of_files_filtered == 1
+    assert report_of(profiler).number_of_files_filtered == 1
 
 
 def test_profiles_local_tsv_and_json_files(tmp_path: Path) -> None:
@@ -240,7 +249,7 @@ def test_corrupt_file_with_valid_extension_reports_warning(tmp_path: Path) -> No
     )
 
     assert work_units == []
-    assert profiler.report.warnings.total_elements > 0
+    assert report_of(profiler).warnings.total_elements > 0
 
 
 @mock_aws
@@ -260,7 +269,7 @@ def test_profiles_single_s3_parquet_file() -> None:
 
     profile = get_profile(work_units[0])
     assert profile.rowCount == 200
-    assert profiler.report.warnings.total_elements == 0
+    assert report_of(profiler).warnings.total_elements == 0
 
 
 @mock_aws
@@ -299,7 +308,7 @@ def test_s3_path_without_aws_config_reports_warning() -> None:
     work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
 
     assert work_units == []
-    assert profiler.report.warnings.total_elements > 0
+    assert report_of(profiler).warnings.total_elements > 0
 
 
 def test_partitioned_s3_without_aws_config_warns_and_skips() -> None:
@@ -316,7 +325,7 @@ def test_partitioned_s3_without_aws_config_warns_and_skips() -> None:
     work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
 
     assert work_units == []
-    assert profiler.report.warnings.total_elements > 0
+    assert report_of(profiler).warnings.total_elements > 0
 
 
 def test_profiles_partitioned_local_directory(tmp_path: Path) -> None:
@@ -400,4 +409,105 @@ def test_partial_table_read_failure_skips_emission(tmp_path: Path) -> None:
     work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
 
     assert work_units == []
-    assert profiler.report.warnings.total_elements > 0
+    assert report_of(profiler).warnings.total_elements > 0
+
+
+def test_profiles_abs_file_via_azure_branch() -> None:
+    # abs (Azure Blob Storage) files are profiled through the FileProfiler's
+    # Azure branch: an https blob URI is opened via smart_open's azure://
+    # transport with the blob-service client. We mock the client + smart_open
+    # (no azurite in tests) and feed real parquet bytes to exercise the full
+    # path-parsing + profiling pipeline.
+    azure_config = MagicMock()
+
+    profiler = FileProfiler(
+        aws_config=None,
+        verify_ssl=None,
+        report=DataLakeSourceReport(),
+        profiling_times_taken=[],
+        profiling_config=DataLakeProfilerConfig(enabled=True),
+        azure_config=azure_config,
+    )
+
+    abs_path = "https://acct.blob.core.windows.net/my-container/data/demo.parquet"
+    table_data = StubTableData(
+        display_name="demo",
+        full_path=abs_path,
+        table_path=abs_path,
+        partitions=None,
+    )
+
+    with patch(
+        "datahub.ingestion.source.data_lake_common.profiling.profiler.smart_open",
+        return_value=io.BytesIO(parquet_bytes()),
+    ) as mock_open:
+        work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
+
+    # Opened via the azure:// path (container/rel parsed from the https URI)
+    # with the blob-service client passed as the smart_open transport.
+    mock_open.assert_called_once()
+    args, kwargs = mock_open.call_args
+    assert args[0] == "azure://my-container/data/demo.parquet"
+    assert "client" in kwargs["transport_params"]
+
+    profile = get_profile(work_units[0])
+    assert profile.rowCount == 200
+    assert report_of(profiler).warnings.total_elements == 0
+
+
+def test_profiles_partitioned_abs_table_lists_blobs() -> None:
+    # Partitioned abs table: the FileProfiler lists blobs under the container
+    # prefix (Azure branch of _iter_table_paths) and profiles each. Mock the
+    # container client's list_blobs + smart_open (no azurite in tests).
+    azure_config = MagicMock()
+    container_client = azure_config.get_blob_service_client.return_value.get_container_client.return_value
+    blob1 = MagicMock()
+    blob1.name = "data/year=2023/part.parquet"
+    blob2 = MagicMock()
+    blob2.name = "data/year=2024/part.parquet"
+    container_client.list_blobs.return_value = [blob1, blob2]
+
+    profiler = FileProfiler(
+        aws_config=None,
+        verify_ssl=None,
+        report=DataLakeSourceReport(),
+        profiling_times_taken=[],
+        profiling_config=DataLakeProfilerConfig(enabled=True),
+        azure_config=azure_config,
+    )
+
+    base = "https://acct.blob.core.windows.net/my-container"
+    table_data = StubTableData(
+        display_name="events",
+        full_path=f"{base}/data/year=2023/part.parquet",
+        table_path=f"{base}/data",
+        partitions=["year=2023", "year=2024"],  # truthy -> enumerate the prefix
+    )
+
+    with patch(
+        "datahub.ingestion.source.data_lake_common.profiling.profiler.smart_open",
+        side_effect=lambda *a, **k: io.BytesIO(parquet_bytes()),
+    ):
+        work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
+
+    # Listed under the container-relative prefix parsed from the https URI.
+    container_client.list_blobs.assert_called_once()
+    assert container_client.list_blobs.call_args.kwargs["name_starts_with"] == "data"
+    # Both partition files (200 rows each) streamed into one profile.
+    assert get_profile(work_units[0]).rowCount == 400
+
+
+def test_abs_path_without_azure_config_reports_warning() -> None:
+    profiler = make_profiler()  # azure_config=None
+    abs_path = "https://acct.blob.core.windows.net/my-container/data/demo.parquet"
+    table_data = StubTableData(
+        display_name="demo",
+        full_path=abs_path,
+        table_path=abs_path,
+        partitions=None,
+    )
+
+    work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
+
+    assert work_units == []
+    assert report_of(profiler).warnings.total_elements > 0

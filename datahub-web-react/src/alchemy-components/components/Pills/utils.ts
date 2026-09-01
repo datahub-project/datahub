@@ -4,7 +4,7 @@ import { PillStyleProps } from '@components/components/Pills/types';
 import { ColorOptions, PillVariantOptions, SizeOptions } from '@components/theme/config';
 
 import { Theme } from '@conf/theme/types';
-import { typography } from '@src/alchemy-components/theme';
+import { radius, typography } from '@src/alchemy-components/theme';
 import { getColor, getFontSize } from '@src/alchemy-components/theme/utils';
 
 interface ColorStyles {
@@ -93,28 +93,40 @@ function getPillColorStyles(variant: PillVariantOptions, color: ColorOptions, th
     };
 }
 
+const getFilledStyles = (colorStyles: ColorStyles): CSSObject => ({
+    backgroundColor: colorStyles.bgColor,
+    border: `1px solid transparent`,
+    color: colorStyles.primaryColor,
+    '&:hover': {
+        backgroundColor: colorStyles.hoverColor,
+    },
+});
+
+const getOutlineStyles = (colorStyles: ColorStyles): CSSObject => ({
+    backgroundColor: 'transparent',
+    border: `1px solid ${colorStyles.bgColor}`,
+    color: colorStyles.primaryColor,
+    '&:hover': {
+        backgroundColor: colorStyles.hoverColor,
+        border: `1px solid transparent`,
+    },
+    '&:disabled': {
+        border: `1px solid transparent`,
+    },
+});
+
 // Generate variant styles for pill
 const getPillVariantStyles = (variant: PillVariantOptions, colorStyles: ColorStyles): CSSObject =>
     ({
-        filled: {
-            backgroundColor: colorStyles.bgColor,
-            border: `1px solid transparent`,
-            color: colorStyles.primaryColor,
-            '&:hover': {
-                backgroundColor: colorStyles.hoverColor,
-            },
+        filled: getFilledStyles(colorStyles),
+        outline: getOutlineStyles(colorStyles),
+        squareFilled: {
+            ...getFilledStyles(colorStyles),
+            borderRadius: radius.sm,
         },
-        outline: {
-            backgroundColor: 'transparent',
-            border: `1px solid ${colorStyles.bgColor}`,
-            color: colorStyles.primaryColor,
-            '&:hover': {
-                backgroundColor: colorStyles.hoverColor,
-                border: `1px solid transparent`,
-            },
-            '&:disabled': {
-                border: `1px solid transparent`,
-            },
+        squareOutline: {
+            ...getOutlineStyles(colorStyles),
+            borderRadius: radius.sm,
         },
         text: {
             color: colorStyles.primaryColor,
@@ -126,7 +138,7 @@ const getPillVariantStyles = (variant: PillVariantOptions, colorStyles: ColorSty
             '&:hover': {
                 backgroundColor: colorStyles.hoverColor,
             },
-            borderRadius: '4px',
+            borderRadius: radius.sm,
         },
     })[variant];
 
@@ -160,8 +172,10 @@ const getPillFontStyles = (variant: PillVariantOptions, size: SizeOptions): CSSO
     };
 };
 
+const ACTIVE_BORDER_VARIANTS: PillVariantOptions[] = ['filled', 'outline', 'squareFilled', 'squareOutline'];
+
 const getPillActiveStyles = (variant: PillVariantOptions, colorStyles: ColorStyles): CSSObject => ({
-    borderColor: variant === 'filled' || variant === 'outline' ? colorStyles.primaryColor : '',
+    borderColor: ACTIVE_BORDER_VARIANTS.includes(variant) ? colorStyles.primaryColor : '',
 });
 
 export function getPillStyle(props: PillStyleProps): CSSObject {

@@ -165,8 +165,8 @@ class ModelProcessor:
 
         if endpoint_status is None:
             self.report.warning(
-                endpoint_arn,
-                f"Unknown status for {endpoint_name} ({endpoint_arn}): {sagemaker_status}",
+                message="Unknown SageMaker endpoint status",
+                context=f"{endpoint_name} ({endpoint_arn}): {sagemaker_status}",
                 log=False,
             )
 

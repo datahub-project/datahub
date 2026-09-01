@@ -14,6 +14,8 @@ import com.linkedin.datahub.graphql.generated.AcceptRoleInput;
 import com.linkedin.entity.client.EntityClientCache;
 import com.linkedin.entity.client.SystemEntityClient;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.List;
 import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -28,6 +30,7 @@ public class AcceptRoleResolverTest {
   private RoleService _roleService;
   private InviteTokenService _inviteTokenService;
   private SystemEntityClient _systemEntityClient;
+  private OperationContext _systemOperationContext;
   private AcceptRoleResolver _resolver;
   private DataFetchingEnvironment _dataFetchingEnvironment;
   private Authentication _authentication;
@@ -39,10 +42,13 @@ public class AcceptRoleResolverTest {
     _roleService = mock(RoleService.class);
     _inviteTokenService = mock(InviteTokenService.class);
     _systemEntityClient = mock(SystemEntityClient.class);
+    _systemOperationContext = mock(OperationContext.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
     _authentication = mock(Authentication.class);
 
-    _resolver = new AcceptRoleResolver(_roleService, _inviteTokenService, _systemEntityClient);
+    _resolver =
+        new AcceptRoleResolver(
+            _roleService, _inviteTokenService, _systemEntityClient, _systemOperationContext);
   }
 
   @Test
@@ -104,7 +110,11 @@ public class AcceptRoleResolverTest {
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
-    verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any());
+    // The accepting user holds no privileges, so the grant must be issued on the system context -
+    // a user-context write is rejected by PrivilegeGrantAuthorizationValidator.
+    verify(_roleService, times(1))
+        .batchAssignRoleToActors(
+            eq(_systemOperationContext), eq(List.of(ACTOR_URN_STRING)), eq(roleUrn));
   }
 
   @Test

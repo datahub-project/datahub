@@ -122,7 +122,7 @@ class TableData:
 
 @platform_name("ABS Data Lake", id="abs")
 @config_class(DataLakeSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(
     SourceCapability.OPERATION_CAPTURE,
@@ -161,6 +161,27 @@ class ABSSource(StatefulIngestionSourceBase):
             "data_lake_config",
             config_report,
         )
+
+        if config.is_profiling_enabled():
+            try:
+                from datahub.ingestion.source.data_lake_common.profiling.profiler import (
+                    FileProfiler,
+                )
+
+                self.profiler = FileProfiler(
+                    aws_config=None,
+                    verify_ssl=None,
+                    report=self.report,
+                    profiling_times_taken=self.profiling_times_taken,
+                    profiling_config=config.profiling,
+                    azure_config=config.azure_config,
+                )
+            except (ImportError, ModuleNotFoundError) as e:
+                raise RuntimeError(
+                    "Profiling dependencies are not installed but are required for "
+                    "ABS profiling. Please install with profiling support: "
+                    "pip install 'acryl-datahub[abs]'"
+                ) from e
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -209,7 +230,9 @@ class ABSSource(StatefulIngestionSourceBase):
                     max_rows=self.source_config.max_rows
                 ).infer_schema(file)
             elif extension == ".json":
-                fields = json.JsonInferrer().infer_schema(file)
+                fields = json.JsonInferrer(
+                    max_rows=self.source_config.max_rows
+                ).infer_schema(file)
             elif extension == ".jsonl":
                 fields = json.JsonInferrer(
                     max_rows=self.source_config.max_rows, format="jsonl"
@@ -218,15 +241,16 @@ class ABSSource(StatefulIngestionSourceBase):
                 fields = avro.AvroInferrer().infer_schema(file)
             else:
                 self.report.warning(
-                    table_data.full_path,
-                    f"file {table_data.full_path} has unsupported extension",
+                    message="File has unsupported extension",
+                    context=table_data.full_path,
                     log=False,
                 )
             file.close()
         except Exception as e:
             self.report.warning(
-                table_data.full_path,
-                f"could not infer schema for file {table_data.full_path}: {e}",
+                message="Could not infer schema for file",
+                context=table_data.full_path,
+                exc=e,
                 log=False,
             )
             file.close()
@@ -353,6 +377,9 @@ class ABSSource(StatefulIngestionSourceBase):
         yield from self.container_WU_creator.create_container_hierarchy(
             table_data.table_path, dataset_urn
         )
+
+        if self.source_config.is_profiling_enabled():
+            yield from self.profiler.get_table_profile(table_data, dataset_urn)
 
     def get_prefix(self, relative_path: str) -> str:
         index = re.search(r"[\*|\{]", relative_path)

@@ -63,6 +63,7 @@ test.describe('Application Management Page', () => {
 
     // Wait for async create operation to complete before checking table
     logger?.info('Waiting for refetch after create');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.SHORT);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
@@ -73,6 +74,7 @@ test.describe('Application Management Page', () => {
 
     // Wait for async delete operation to complete before checking table
     logger?.info('Waiting for refetch after delete');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.SHORT);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 

@@ -3,8 +3,8 @@ import org.gradle.api.artifacts.DependencySubstitutions
 
 
 buildscript {
-  ext.jdkVersionDefault = 21
-  ext.javaClassVersionDefault = 21
+  ext.jdkVersionDefault = 25
+  ext.javaClassVersionDefault = 25
 
   def springModules = ['mae-consumer', 'mce-consumer', 'pe-consumer']
 
@@ -18,7 +18,7 @@ buildscript {
   // A per-module ext.javaClassVersionOverride takes precedence over the global default: it lets the
   // modules bundled into the acryl-spark-lineage agent shadow jar pin Java 17 bytecode so the agent
   // runs on managed Spark whose default JVM is Java 17 (Amazon EMR 7.x, Databricks Runtime 16-17),
-  // while the rest of the repo targets 21. (javaClassVersionDefault is always present via
+  // while the rest of the repo targets 25. (javaClassVersionDefault is always present via
   // gradle.properties, so the override must be checked first.)
   ext.javaClassVersion = { p ->
     if (p.hasProperty('javaClassVersionOverride')) {
@@ -33,9 +33,9 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.9.15'
-  ext.versionGradle = '8.14.3'
-  // CVE-2026-22745 (spring-webmvc): fixed in 7.0.7+ / 6.2.18+
-  ext.springVersion = '7.0.7'
+  ext.versionGradle = '9.5.0'
+  // CVE-2026-41842, CVE-2026-41845 (spring-webmvc), CVE-2026-41850 (spring-expression): fixed in 7.0.8+ / 6.2.19+
+  ext.springVersion = '7.0.8'
   // CVE-2026-40976 / GHSA (spring-boot 4.0.6+); BOM manages spring-security at 7.0.5
   ext.springBootVersion = '4.0.6'
   // CVE-2026-22748 (oauth2-jose), CVE-2026-22751: fixed in 7.0.5+; explicit pins were 7.0.4 — use latest 7.0.x patch
@@ -52,7 +52,8 @@ buildscript {
   ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
   // CVE-2026-5795 (JASPIAuthenticator ThreadLocal): fixed in 12.0.34+
-  ext.jettyVersion = '12.1.7'
+  // CVE-2026-10050 (Digest Auth bypass via ISO-8859-1 encoding): fixed in 12.1.10+
+  ext.jettyVersion = '12.1.10'
   // see also datahub-frontend/play.gradle (Play 3 + Apache Pekko)
   ext.playVersion = '3.0.10'
   ext.playScalaVersion = '2.13'
@@ -62,7 +63,8 @@ buildscript {
   ext.commonsCompressVersion = '1.27.1' // CVE-2024-25710, CVE-2024-26308; min safe 1.26.0
   ext.hiveLlapCommonVersion = '4.0.0' // LlapSignerImpl signature comparison; upgrade from 2.3.x
   // CVE-2026-34477: Ssl verifyHostName ignored for SMTP/Socket/Syslog appenders; fixed in 2.25.4+
-  ext.log4jVersion = '2.25.4'
+  // CVE-2026-49844: MapMessage.asJson() emits invalid JSON for NaN/Infinity; fixed in 2.25.5+
+  ext.log4jVersion = '2.25.5'
   ext.minaCoreVersion = '2.2.4' // CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE
   ext.rhinoVersion = '1.7.15.1' // CVE-2025-66453 (NativeNumber.toFixed / DToA DoS); also 1.8.1, 1.7.14.1
   // Spark-lineage only (acryl-spark-lineage) – CVE-pinned versions for Spark/Hadoop stack
@@ -74,7 +76,9 @@ buildscript {
   ext.commonsConfiguration2Version = '2.15.1' // CVE-2024-29131, CVE-2024-29133; CVE-2026-45205 (fixed in 2.15.0+)
   ext.slf4jVersion = '1.7.36'
   // CVE-2026-1225 / GHSA-qqpg-mvqg-649v: logback-core fixed in 1.5.25+
-  ext.logbackClassic = '1.5.32'
+  // CVE-2026-9828 (HardenedObjectInputStream java.lang/java.util allowlist bypass): fixed in 1.5.33+
+  // CVE-2026-10532 (HardenedObjectInputStream Proxy deserialization): fixed in 1.5.38
+  ext.logbackClassic = '1.5.38'
   // Janino evaluates the <if> conditionals in logback.xml (e.g. gating the optional log-shipping appender).
   ext.janinoVersion = '3.0.12'
   // Loki4j appender for optional log shipping. Pinned to 1.x: 2.x changes the XML config format.
@@ -84,24 +88,41 @@ buildscript {
   ext.hadoopShadedProtobuf_3_25_Version = '1.5.0'
   // CVE-2024-23454 (RunJar temp dir permissions) is fixed in hadoop-common 3.4.0+; pin thirdparty jar beyond Hadoop’s transitive 1.3.0 for scanner hygiene.
   ext.hadoopShadedGuavaVersion = '1.5.0'
-  ext.kafkaVersion = '8.1.0'
-  // at.yawk.lz4 fork (CVE-2025-12183); single version for externalDependency.lz4Java + resolutionStrategy
-  ext.lz4JavaVersion = '1.11.0'
+  // kafka-clients + broker images: CP 8.2 / Kafka 4.2 (share groups production-ready).
+  // Confluent Avro SerDe / schema-registry-client stay on 8.1 — 8.2+ needs Avro 1.12
+  // (NameValidator), which breaks LinkedIn avro-util / Pegasus (Avro 1.4–1.11 only).
+  ext.kafkaVersion = '8.2.2'
+  ext.confluentSerdeVersion = '8.1.0'
+  // at.yawk.lz4 fork (CVE-2025-12183, CVE-2026-59949); single version for externalDependency.lz4Java + resolutionStrategy
+  ext.lz4JavaVersion = '1.11.1'
   // Hazelcast shades Jackson 2.x/3.x inside hazelcast-*.jar (v5.7.0: jackson-databind 2.21.2, 3.1.2).
   // CVE-2026-54512/54513 require jackson-databind 2.21.4+ / 3.1.4+; ext.jacksonVersion does not replace
   // shaded copies — bump when Hazelcast publishes a fix (https://github.com/hazelcast/hazelcast/issues/26597).
   ext.hazelcastVersion = '5.7.0'
   ext.bucket4jVersion = '8.14.0'
-  ext.ebeanVersion = '15.5.2'
-  ext.googleJavaFormatVersion = '1.18.1'
+  // 16.1.0 upgraded the enhancer's shaded ASM to 9.8 (Java 25 / class-file major 69). Earlier
+  // versions cap at V24 and fail entity enhancement on Java 25 bytecode with BeanNotEnhancedException.
+  ext.ebeanVersion = '16.2.0'
+  ext.googleJavaFormatVersion = '1.28.0'  // 1.28.0 = first google-java-format supporting JDK 25 javac (Log.getDiagnostics Queue->List)
+  // Mockito inline mocks need byte-buddy + byte-buddy-agent matched and >= 1.17.5 (ASM 9.8) to
+  // instrument Java 25 runtime classes; forced in the resolutionStrategy block below.
+  ext.byteBuddyVersion = '1.18.11'
   ext.openLineageVersion = '1.50.0'
   ext.awsSdk2Version = '2.30.33'
-  ext.micrometerVersion = '1.16.4'
+  ext.micrometerVersion = '1.16.6'
   // CVE-2026-1002; CVE-2026-6860 / GHSA-3g76-f9xq-8vp6 (SNI cache growth); fabric8 kubernetes-httpclient-vertx
   ext.vertxVersion = '4.5.27'
   // CVE-2026-41417 (netty-codec-http): 4.1.133+ or 4.2.13+; CVE-2026-42577 (netty-transport-native-epoll): 4.2.13+
   // CVE-2026-47691 (netty-resolver-dns): 4.1.135+ or 4.2.15+; CVE-2026-48059/50560 fixed in 4.2.15+
-  ext.nettyVersion = '4.2.15.Final' // align all io.netty modules (excl. netty-tcnative line)
+  // CVE-2026-55831/55833/56745 (netty-codec-http); CVE-2026-55851 (netty-codec-haproxy);
+  // CVE-2026-56816 (netty-codec-http3); CVE-2026-56817 (netty-codec-xml);
+  // CVE-2026-56820/56821/56822 (netty-handler-ssl-ocsp); CVE-2026-59901 (netty-codec-compression):
+  // all fixed in 4.2.16+
+  // CVE-2026-59902 (netty-transport-sctp): 4.2.17+
+  ext.nettyVersion = '4.2.17.Final' // align all io.netty modules (excl. netty-tcnative line)
+  // CVE-2026-45799: wire-runtime skipGroup() negative-length crash (fixed in 6.3.0+);
+  // transitive via schema-registry-serde → wire-compiler → wire-runtime-jvm
+  ext.wireVersion = '6.3.0'
   // CVE-2026-40542 / GHSA: SCRAM-SHA-256 authentication verification (httpclient5 5.6 → 5.6.1+)
   ext.httpClient5Version = '5.6.1'
   // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil); CVE-2026-0636 (bcprov fixed in 1.84+)
@@ -109,7 +130,7 @@ buildscript {
   // gRPC protobuf/stub line from Pegasus/Rest.li transitives (not gRPC transport — grpc-netty-shaded is excluded repo-wide).
   ext.grpcVersion = '1.81.0'
   // Align with Spring Boot 4.0.6 / reactor-bom 2025.0.5; io.netty transitives aligned via eachDependency + nettyVersion.
-  ext.reactorNettyVersion = '1.3.5'
+  ext.reactorNettyVersion = '1.3.6'
 
   ext.nodeVersion = '22.16.0'
   ext.yarnVersion = '1.22.22'
@@ -118,24 +139,49 @@ buildscript {
 
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
+
+  // Supply-chain guard: the vendor/rest-li-fork jars are Gradle plugins that run at configuration
+  // time with full project access. Verify their SHA-256 BEFORE they are placed on the buildscript
+  // classpath below. When intentionally rebuilding a fork jar, update the hash here AND in
+  // vendor/rest-li-fork/README.md. (Also exposed as the `verifyVendorJars` task for explicit CI.)
+  def vendorJarSha256 = [
+    ("vendor/rest-li-fork/gradle-plugins-${pegasusVersion}-gradle9.jar".toString()):
+      'a6f48cbb9f4889d274f725ea85db4e818b975d720f03daa80737f7531a5b15f8',
+    ('vendor/rest-li-fork/gradle-swagger-generator-plugin-2.19.2-gradle9.jar'):
+      'aa732dc7363f69bcd15c026cee697e5527ac8e1db80e7181e734d859b891ff0a',
+  ]
+  vendorJarSha256.each { rel, expected ->
+    def f = new File(rootDir, rel)
+    if (!f.exists()) {
+      throw new GradleException("Vendor jar missing (supply-chain check): ${rel}")
+    }
+    def actual = java.security.MessageDigest.getInstance('SHA-256').digest(f.bytes).encodeHex().toString()
+    if (actual != expected) {
+      throw new GradleException(
+        "Vendor jar SHA-256 mismatch (supply-chain check) for ${rel}:\n" +
+        "  expected ${expected}\n  actual   ${actual}\n" +
+        "If you intentionally rebuilt the fork jar, update the hash in build.gradle (ext.vendorJarSha256) and vendor/rest-li-fork/README.md.")
+    }
+  }
+
   dependencies {
-    classpath 'com.linkedin.pegasus:gradle-plugins:' + pegasusVersion
+    classpath files("vendor/rest-li-fork/gradle-plugins-${pegasusVersion}-gradle9.jar")  // in-repo fork jar (no publishing)
     classpath 'com.github.node-gradle:gradle-node-plugin:7.0.2'
     classpath 'io.acryl.gradle.plugin:gradle-avro-plugin:0.2.0'
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:' + springBootVersion
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
     classpath "com.palantir.gradle.gitversion:gradle-git-version:3.0.0"
     classpath "org.gradle.playframework:gradle-playframework:0.14"
-    classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.19.2"
+    classpath files("vendor/rest-li-fork/gradle-swagger-generator-plugin-2.19.2-gradle9.jar")  // in-repo fork jar (no publishing)
   }
 }
 
 plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.5.3'
-  id 'com.gradleup.shadow' version '8.3.5' apply false
+  id 'com.gradleup.shadow' version '9.3.0' apply false
   id 'com.palantir.docker' version '0.35.0' apply false
-  id 'com.avast.gradle.docker-compose' version '0.17.12'
-  id "com.diffplug.spotless" version "6.23.3"
+  id 'com.avast.gradle.docker-compose' version '0.17.21'
+  id "com.diffplug.spotless" version "7.0.4"
   id 'com.adarshr.test-logger' version '4.0.0'
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
@@ -144,11 +190,12 @@ plugins {
 apply from: "gradle/docker/docker-utils.gradle"
 
 // Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
-ext.jacksonVersion = '2.21.4'
-// Parquet stack: parquet-jackson shades Jackson under shaded/parquet/ (1.17.1 bundles jackson-databind 2.21.3).
-// CVE-2026-54512/54513 require 2.21.4+; CVE-2026-54515 requires 2.21.5+ (not on Maven Central yet); ext.jacksonVersion does not replace shaded copies — bump when Apache
-// releases parquet-java with jackson 2.21.4+ (https://github.com/apache/parquet-java/pull/3594, target 1.18.0).
-ext.parquetVersion = '1.17.1'
+ext.jacksonVersion = '2.21.5'
+// Parquet stack: parquet-jackson shades Jackson under shaded/parquet/.
+// 1.18.0+ bundles jackson-databind 2.22.1 (CVE-2026-54512/54513 and related jackson-databind CVEs
+// fixed in 2.21.4+; https://github.com/apache/parquet-java/pull/3594).
+// App-classpath jackson-databind remains ext.jacksonVersion (2.21.5); that pin does not replace the shade.
+ext.parquetVersion = '1.18.0'
 // Minor-only annotation line matches jackson-bom (e.g. 2.21 for jackson 2.21.x patch releases).
 ext.jacksonMinorRelease = jacksonVersion.contains('.')
     ? jacksonVersion.substring(0, jacksonVersion.lastIndexOf('.'))
@@ -272,10 +319,13 @@ project.ext.externalDependency = [
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
-    // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
-    'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$kafkaVersion",
-    'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$kafkaVersion",
+    // Avro SerDe / SR client: pin separately from kafka-clients (see confluentSerdeVersion).
+    'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$confluentSerdeVersion",
+    'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$confluentSerdeVersion",
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
+    // kafka-clients OAUTHBEARER JWT validation is compileOnly upstream (KAFKA-20184).
+    // 0.9.6 is latest on Maven Central, Kafka-aligned, and patches CVE-2024-29371.
+    'jose4j': 'org.bitbucket.b_c:jose4j:0.9.6',
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.7',
     'janino': "org.codehaus.janino:janino:$janinoVersion",
     'lokiLogbackAppender': "com.github.loki4j:loki-logback-appender:$lokiLogbackAppenderVersion",
@@ -332,10 +382,10 @@ project.ext.externalDependency = [
     'playServer': "org.playframework:play-server_$playScalaVersion",
     'playTest': "org.playframework:play-test_$playScalaVersion",
     'playFilters': "org.playframework:play-filters-helpers_$playScalaVersion",
-    'pac4j': 'org.pac4j:pac4j-oidc:6.4.1',
+    'pac4j': 'org.pac4j:pac4j-oidc:6.4.2',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.2-PLAY3.0",
-    // CVE-2026-42198: SCRAM iteration DoS fixed in 42.7.11+
-    'postgresql': 'org.postgresql:postgresql:42.7.11',
+    // CVE-2026-54291: channel-binding auth downgrade fixed in 42.7.12+
+    'postgresql': 'org.postgresql:postgresql:42.7.12',
     'protobuf': 'com.google.protobuf:protobuf-java:4.32.0',
     'grpcProtobuf': "io.grpc:grpc-protobuf:$grpcVersion",
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
@@ -387,6 +437,7 @@ project.ext.externalDependency = [
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,
     'testContainersJunit': 'org.testcontainers:junit-jupiter:' + testContainersVersion,
     'testContainersPostgresql':'org.testcontainers:postgresql:' + testContainersVersion,
+    'testContainersMysql': 'org.testcontainers:mysql:' + testContainersVersion,
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:' + testContainersVersion,
     'testContainersCassandra': 'org.testcontainers:cassandra:' + testContainersVersion,
     'testContainersKafka': 'org.testcontainers:kafka:' + testContainersVersion,
@@ -395,7 +446,7 @@ project.ext.externalDependency = [
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.6',
-    'wire': 'com.squareup.wire:wire-compiler:3.7.1',
+    'wire': "com.squareup.wire:wire-compiler:${wireVersion}",
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0',
@@ -409,6 +460,10 @@ project.ext.externalDependency = [
 ]
 
 allprojects {
+  // Gradle 9 removed Project.exec/javaexec; route build-script exec/javaexec through the injected
+  // ExecOperations service exposed here as `execOps` (see buildSrc InjectedExecOps).
+  ext.execOps = objects.newInstance(io.datahubproject.InjectedExecOps).execOperations
+
   apply plugin: 'idea'
   apply plugin: 'eclipse'
   // apply plugin: 'org.gradlex.java-ecosystem-capabilities'
@@ -432,7 +487,13 @@ allprojects {
     showFailedStandardStreams = true
   }
 
-  tasks.withType(Test).configureEach { task -> if (task.project.name != "metadata-io") {
+  tasks.withType(Test).configureEach { task ->
+    environment "DATAHUB_SYSTEM_CLIENT_SECRET", "TestOnlyNotASecret"
+    // Gradle 9 flips failOnNoDiscoveredTests to true: a test task with sources but zero discovered
+    // tests now fails (Gradle 8 passed silently). Some modules legitimately have only helper/support
+    // test sources, so restore the Gradle-8 behaviour globally.
+    failOnNoDiscoveredTests = false
+    if (task.project.name != "metadata-io") {
       // https://docs.gradle.org/current/userguide/performance.html
       maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
 
@@ -544,6 +605,11 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
     exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
 
+    // Pin the datasource impl to the version ebean-core 16.2.0 is built/tested against
+    // (ebean-parent-16.2.0 sets ebean-datasource.version=10.2). ebean-core pulls
+    // ebean-datasource-api:10.2 at compile scope, so leaving the old 9.1 impl force in place
+    // split api(10.2)/impl(9.1) across a major bump -> AbstractMethodError/NoSuchMethodError risk.
+    resolutionStrategy.force 'io.ebean:ebean-datasource:10.2'
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
     resolutionStrategy.force externalDependency.gson // Gson before 2.8.9: deserialization DoS; single version across all configs
@@ -554,6 +620,12 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "io.vertx:vertx-core:${rootProject.ext.vertxVersion}"
     resolutionStrategy.force "io.vertx:vertx-auth-common:${rootProject.ext.vertxVersion}"
     resolutionStrategy.force "io.vertx:vertx-web-client:${rootProject.ext.vertxVersion}"
+    // Mockito's inline mock maker needs byte-buddy and byte-buddy-agent at the SAME version, and
+    // >= 1.17.5 (ASM 9.8) to instrument Java 25 (class-file major 69) runtime classes such as
+    // java.lang.Object. Transitive resolution otherwise skews them (core 1.18.3 vs agent 1.17.7),
+    // producing "Byte Buddy could not instrument all classes" on JDK 25 (e.g. scim-api tests). Pin both, matched.
+    resolutionStrategy.force "net.bytebuddy:byte-buddy:${rootProject.ext.byteBuddyVersion}"
+    resolutionStrategy.force "net.bytebuddy:byte-buddy-agent:${rootProject.ext.byteBuddyVersion}"
     resolutionStrategy.force "io.vertx:vertx-web-common:${rootProject.ext.vertxVersion}"
     resolutionStrategy.force "org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}"
     resolutionStrategy.force "org.apache.hive:hive-llap-common:${rootProject.ext.hiveLlapCommonVersion}"
@@ -563,14 +635,24 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "org.bouncycastle:bcprov-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
     resolutionStrategy.force "org.bouncycastle:bcutil-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
     resolutionStrategy.force "org.springframework.kafka:spring-kafka:${rootProject.ext.springKafkaVersion}"
+    // Keep Confluent Avro SerDe / SR client on 8.1 while kafka-clients is 8.2 (see confluentSerdeVersion).
+    // Force kafka-clients up so SerDe 8.1 cannot downgrade it via its transitive 8.1.0-ccs dep.
+    resolutionStrategy.force "org.apache.kafka:kafka-clients:${rootProject.ext.kafkaVersion}-ccs"
+    resolutionStrategy.force "io.confluent:kafka-avro-serializer:${rootProject.ext.confluentSerdeVersion}"
+    resolutionStrategy.force "io.confluent:kafka-streams-avro-serde:${rootProject.ext.confluentSerdeVersion}"
+    resolutionStrategy.force "io.confluent:kafka-schema-registry-client:${rootProject.ext.confluentSerdeVersion}"
+    resolutionStrategy.force "io.confluent:kafka-schema-serializer:${rootProject.ext.confluentSerdeVersion}"
+    resolutionStrategy.force "io.confluent:kafka-avro-types:${rootProject.ext.confluentSerdeVersion}"
+    resolutionStrategy.force "io.confluent:kafka-schema-types:${rootProject.ext.confluentSerdeVersion}"
     resolutionStrategy.force "org.jline:jline:${rootProject.ext.jlineVersion}"
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981; overrides d2's 3.6.3
+    resolutionStrategy.force 'org.apache.thrift:libthrift:0.23.0' // CVE-2026-43869; transitive via jena-arq
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
       if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
         details.useTarget(rootProject.ext.externalDependency.lz4Java)
-        details.because("CVE-2025-12183; align org.lz4:lz4-java to at.yawk fork (${rootProject.ext.lz4JavaVersion})")
+        details.because("CVE-2025-12183, CVE-2026-59949; align org.lz4:lz4-java to at.yawk fork (${rootProject.ext.lz4JavaVersion})")
       }
       if (details.requested.group == 'org.apache.mina' && details.requested.name == 'mina-core') {
         details.useTarget("org.apache.mina:mina-core:${rootProject.ext.minaCoreVersion}")
@@ -599,6 +681,10 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
       if (details.requested.group == 'io.netty' && !details.requested.name.startsWith('netty-tcnative')) {
         details.useVersion(rootProject.ext.nettyVersion)
         details.because("Netty aligned to ${rootProject.ext.nettyVersion} for CVE fixes")
+      }
+      if (details.requested.group == 'com.squareup.wire') {
+        details.useVersion(rootProject.ext.wireVersion)
+        details.because("CVE-2026-45799; wire-runtime skipGroup() negative-length crash (fixed ${rootProject.ext.wireVersion}+)")
       }
       if (details.requested.group == 'io.grpc') {
         details.useVersion(rootProject.ext.grpcVersion)
@@ -629,7 +715,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force rootProject.ext.externalDependency.lz4Java
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast); Pegasus plugin classpath (CVE-2025-52999)
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonMinorRelease}"
-    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"  // CVE-2026-54512, CVE-2026-54513 (54515 pending jackson 2.21.5 release)
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"  // CVE-2026-54512/54513/54514/54516/54517/54518/59888 (2.21.4); CVE-2026-54515/59889, GHSA-mhm7-754m-9p8w (2.21.5)
     resolutionStrategy.force "org.springframework.security:spring-security-oauth2-jose:${rootProject.ext.springSecurityVersion}"  // CVE-2026-22748
     resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.force rootProject.ext.externalDependency.get('parquetJackson')
@@ -693,11 +779,11 @@ configure(subprojects.findAll { it.name == 'acryl-spark-lineage' }) {
 // Also align any other Jetty 12 modules (e.g. future BOM additions). Exclude legacy Jetty 9.x websocket
 // artifacts (websocket-api, websocket-client, websocket-common) used by Hadoop etc.; no 12.x for those.
 allprojects {
-  if (project == rootProject) return
+  if (project == rootProject || project.name == 'acryl-spark-lineage') return
   configurations.all {
     resolutionStrategy.eachDependency { details ->
       if (details.requested.group.startsWith('org.eclipse.jetty') &&
-          !details.requested.name in ['websocket-api', 'websocket-client', 'websocket-common']) {
+          !(details.requested.name in ['websocket-api', 'websocket-client', 'websocket-common'])) {
         details.useVersion(rootProject.ext.jettyVersion)
         details.because("Align all Jetty modules to ${rootProject.ext.jettyVersion}")
       }
@@ -804,6 +890,12 @@ subprojects {
         implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:$jacksonVersion")
         implementation('com.squareup.okhttp3:okhttp:4.12.0')
         implementation("org.apache.httpcomponents.client5:httpclient5:${rootProject.ext.httpClient5Version}") // CVE-2026-40542
+        implementation('org.apache.httpcomponents.core5:httpcore5:5.4.3') // CVE-2026-54399
+        implementation('org.apache.httpcomponents.core5:httpcore5-h2:5.4.3') // CVE-2026-54399
+        implementation("ch.qos.logback:logback-classic:${rootProject.ext.logbackClassic}") // CVE-2026-9828, CVE-2026-10532
+        implementation("ch.qos.logback:logback-core:${rootProject.ext.logbackClassic}") // CVE-2026-9828, CVE-2026-10532
+        implementation('org.playframework.netty:netty-reactive-streams:3.0.9')
+        implementation('org.playframework.netty:netty-reactive-streams-http:3.0.9')
         implementation(externalDependency.commonsIo)
         implementation(externalDependency.protobuf)
         implementation(externalDependency.xercesImpl) // Xerces CVEs (2 high, 1 medium)
@@ -812,8 +904,11 @@ subprojects {
     }
 
     spotless {
+      // Format checks run in lint-jobs.yml (spotless-check) and ./gradlew lintCheck,
+      // not as part of check/build.
+      enforceCheck false
       java {
-        googleJavaFormat()
+        googleJavaFormat(googleJavaFormatVersion)
         target project.fileTree(project.projectDir) {
           include 'src/**/*.java'
           include 'app/**/*.java'
@@ -888,14 +983,17 @@ subprojects {
 wrapper {
   gradleVersion = project.versionGradle
   distributionType = Wrapper.DistributionType.ALL
-  distributionSha256Sum = 'ed1a8d686605fd7c23bdf62c7fc7add1c5b23b2bbc3721e661934ef4a4911d7c'
+  distributionSha256Sum = 'a3c4ba4aca8f0075688b9c5b18939fd28e8cb4357c227da5c1d9f38343791439'
 }
+
+def spotlessApplyTasks = subprojects.collect { "${it.path}:spotlessApply" }
+def spotlessCheckTasks = subprojects.collect { "${it.path}:spotlessCheck" }
 
 tasks.register('format') {
   dependsOn(':datahub-web-react:graphqlPrettierWrite')
   dependsOn(':datahub-web-react:githubActionsPrettierWrite')
   dependsOn(':datahub-web-react:mdPrettierWrite')
-  dependsOn('spotlessApply')
+  dependsOn(spotlessApplyTasks)
   dependsOn(':scripts:dev:lintFix')
 }
 
@@ -903,23 +1001,152 @@ tasks.register('formatChanged') {
   dependsOn(':datahub-web-react:graphqlPrettierWriteChanged')
   dependsOn(':datahub-web-react:githubActionsPrettierWriteChanged')
   dependsOn(':datahub-web-react:mdPrettierWriteChanged')
-  dependsOn('spotlessApply')
+  dependsOn(spotlessApplyTasks)
   dependsOn(':scripts:dev:lintFix')
 }
 
-tasks.register('resolveAndLockAll') {
-  description = 'Resolves all configurations to generate complete dependency lock files'
-  group = 'dependency locking'
-  doLast {
-    allprojects.each { project ->
-      project.configurations.findAll { config ->
+tasks.register('lintCheck') {
+  group = 'verification'
+  description = 'Run all lint checks (Python, JS, GraphQL, markdown, Java)'
+  dependsOn(':metadata-ingestion:lint')
+  dependsOn(':datahub-actions:lint')
+  dependsOn(':datahub-agent-context:lint')
+  dependsOn(':metadata-ingestion-modules:airflow-plugin:lint')
+  dependsOn(':metadata-ingestion-modules:gx-plugin:lint')
+  dependsOn(':metadata-ingestion-modules:dagster-plugin:lint')
+  dependsOn(':metadata-ingestion-modules:prefect-plugin:lint')
+  dependsOn(':smoke-test:lint')
+  dependsOn(':scripts:dev:lint')
+  dependsOn(':datahub-web-react:lint')
+  dependsOn(':datahub-web-react:graphqlPrettierCheck')
+  dependsOn(':datahub-web-react:mdPrettierCheck')
+  dependsOn(':datahub-web-react:githubActionsPrettierCheck')
+  dependsOn(':datahub-web-react:docusaurusMarkdownLint')
+  dependsOn(':docs-website:yarnLint')
+  dependsOn(spotlessCheckTasks)
+}
+
+tasks.register('lintFix') {
+  group = 'formatting'
+  description = 'Auto-fix all lint issues'
+  dependsOn('format')
+  dependsOn(':metadata-ingestion:lintFix')
+  dependsOn(':datahub-actions:lintFix')
+  dependsOn(':datahub-agent-context:lintFix')
+  dependsOn(':metadata-ingestion-modules:airflow-plugin:lintFix')
+  dependsOn(':metadata-ingestion-modules:gx-plugin:lintFix')
+  dependsOn(':metadata-ingestion-modules:dagster-plugin:lintFix')
+  dependsOn(':metadata-ingestion-modules:prefect-plugin:lintFix')
+  dependsOn(':datahub-web-react:lintFix')
+  dependsOn(':docs-website:yarnLintFix')
+  dependsOn(':smoke-test:lintFix')
+  dependsOn(':e2e-test:ui:playwright:lintFix')
+  dependsOn(':e2e-test:ui:playwright:prettierWrite')
+  dependsOn(':metadata-service:iceberg-catalog:lintFix')
+}
+
+// Gradle 9 forbids resolving one project's configurations from another project's task
+// (a root doLast looping over allprojects throws "attempted without an exclusive lock").
+// Register a per-project resolver instead: each runs inside its OWN project's context, which
+// holds that project's state lock, so resolving its configurations is legal. The aggregate
+// task just fans out to them. Run with --write-locks to (re)generate every gradle.lockfile.
+def perProjectLockResolvers = allprojects.collect { proj ->
+  proj.tasks.register('resolveAndLockAllForProject') {
+    description = "Resolves ${proj.path}'s configurations so --write-locks can persist them"
+    group = 'dependency locking'
+    notCompatibleWithConfigurationCache('Resolves configurations at execution time')
+    doLast {
+      proj.configurations.findAll { config ->
         config.canBeResolved && !config.name.toLowerCase().contains('detached')
       }.each { config ->
         try {
           config.resolve()
         } catch (Exception e) {
-          logger.warn("Could not resolve configuration ${project.path}:${config.name}: ${e.message}")
+          logger.warn("Could not resolve configuration ${proj.path}:${config.name}: ${e.message}")
         }
+      }
+    }
+  }
+}
+
+tasks.register('resolveAndLockAll') {
+  description = 'Resolves all configurations across all projects to generate complete dependency lock files'
+  group = 'dependency locking'
+  dependsOn perProjectLockResolvers
+}
+
+// Explicit, CI-runnable SHA-256 check for the committed vendor build-plugin jars (they run at
+// configuration time with full project access). The buildscript block above already verifies these
+// on every build BEFORE loading them; this task exists so CI/devs can assert integrity on demand
+// (./gradlew verifyVendorJars). Keep the hashes in sync with vendor/rest-li-fork/README.md.
+tasks.register('verifyVendorJars') {
+  description = 'Verify SHA-256 integrity of committed vendor build-plugin jars (supply-chain guard).'
+  group = 'verification'
+  def expected = [
+    ("vendor/rest-li-fork/gradle-plugins-${pegasusVersion}-gradle9.jar".toString()):
+      'a6f48cbb9f4889d274f725ea85db4e818b975d720f03daa80737f7531a5b15f8',
+    ('vendor/rest-li-fork/gradle-swagger-generator-plugin-2.19.2-gradle9.jar'):
+      'aa732dc7363f69bcd15c026cee697e5527ac8e1db80e7181e734d859b891ff0a',
+  ]
+  doLast {
+    expected.each { rel, want ->
+      def f = rootProject.file(rel)
+      if (!f.exists()) throw new GradleException("Vendor jar missing: ${rel}")
+      def got = java.security.MessageDigest.getInstance('SHA-256').digest(f.bytes).encodeHex().toString()
+      if (got != want) {
+        throw new GradleException("Vendor jar SHA-256 mismatch for ${rel}:\n  expected ${want}\n  actual   ${got}")
+      }
+    }
+    logger.lifecycle("Vendor JAR integrity OK (${expected.size()} jars).")
+  }
+}
+
+// Spring 7 JDK-25 Class-File-reader OOM workaround (gradle/spring-jdk25-shim). Spring 7's
+// multi-release jar selects a JDK-Class-File-API metadata reader on JDK 24+ whose annotation
+// delegate retains the parsed class model -> jdk.internal.classfile heap flood -> OOM during
+// classpath scanning (spring-projects/spring-framework#37111). The shim shadows spring-core's
+// versions/24 MetadataReaderFactoryDelegate to force the lean ASM SimpleMetadataReaderFactory.
+// Centralized here so it isn't repeated per module. It must land in each Spring runtime app's OWN
+// classes (BOOT-INF/classes / WEB-INF/classes, ahead of spring-core.jar), so it goes on src/main
+// for the runtime apps and src/test for the Spring-Boot-test modules that OOM.
+// TEMP: fix merged upstream (PR #37112) for Spring 7.0.9 — delete this block + gradle/spring-jdk25-shim
+// once on spring-framework >= 7.0.9.
+// Auto-applied so new Spring modules are covered without editing a list:
+//  - TEST source set of ANY module that declares a Spring dependency (that's where the OOM bites),
+//  - MAIN source set of deployable Spring runtime apps (Boot plugin apps auto-detected; plus the
+//    non-Boot war deployables listed below) so the shim lands in their own BOOT-INF/classes /
+//    WEB-INF/classes ahead of spring-core.jar.
+// Obsolescence guard: the shim is only needed until the upstream fix ships (Spring 7.0.9). Fail the
+// build the moment we bump Spring >= 7.0.9 so the workaround gets deleted instead of lingering.
+def springVerMatcher = (springVersion =~ /(\d+)\.(\d+)\.(\d+)/)
+if (springVerMatcher.find()) {
+  def cur = [springVerMatcher.group(1), springVerMatcher.group(2), springVerMatcher.group(3)]*.toInteger()
+  def min = [7, 0, 9]
+  int cmp = 0
+  for (int i = 0; i < 3 && cmp == 0; i++) { cmp = cur[i] <=> min[i] }
+  if (cmp >= 0) {
+    throw new GradleException(
+      "spring-framework ${springVersion} >= 7.0.9: the ClassFile-reader fix (spring-projects/spring-framework#37112) " +
+      "is released. Delete the gradle/spring-jdk25-shim/ directory and this whole shim block in build.gradle.")
+  }
+}
+def springJdk25ShimDir = "$rootDir/gradle/spring-jdk25-shim"
+// Non-Boot Spring runtime deployables that still package their own classes first (war/GMS).
+def springRuntimeWarApps = [':metadata-service:war']
+// Only configs that reach the TEST compile classpath — so we never add the shim to a module where
+// spring-core isn't compilable there (e.g. Spring declared only in main compileOnly/runtimeOnly).
+def springTestCompileCfgs = ['api', 'implementation', 'testImplementation', 'testCompileOnly']
+subprojects { sp ->
+  plugins.withType(JavaPlugin) {
+    afterEvaluate {
+      boolean springOnTestCompile = springTestCompileCfgs.any { n ->
+        sp.configurations.findByName(n)?.allDependencies?.any { it.group?.startsWith('org.springframework') }
+      }
+      if (springOnTestCompile && sp.sourceSets.findByName('test')) {
+        sp.sourceSets.test.java.srcDir(springJdk25ShimDir)
+      }
+      if (sp.plugins.hasPlugin('org.springframework.boot') || sp.path in springRuntimeWarApps) {
+        sp.sourceSets.main.java.srcDir(springJdk25ShimDir)
       }
     }
   }

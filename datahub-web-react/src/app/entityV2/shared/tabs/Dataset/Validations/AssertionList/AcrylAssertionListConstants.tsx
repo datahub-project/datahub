@@ -1,4 +1,4 @@
-import { CheckOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { CheckOutlined, ClockCircleOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
@@ -44,6 +44,18 @@ export const ASSERTION_TYPE_TO_HEADER_SUBTITLE: Record<AssertionType, string> = 
 };
 
 export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
+    initializing: {
+        color: colors.textInformation,
+        backgroundColor: colors.bgSurfaceInfo,
+        resultType: AssertionResultType.Init,
+        icon: <ClockCircleOutlined />,
+        text: i18next.t('entity.profile.validations:status.initializing'),
+        headerComponent: (
+            <StyledCardTitle background={colors.bgSurfaceInfo} color={colors.textInformation}>
+                <ClockCircleOutlined /> {i18next.t('entity.profile.validations:status.initializing')}
+            </StyledCardTitle>
+        ),
+    },
     passing: {
         color: colors.textSuccess,
         backgroundColor: colors.bgSurfaceSuccess,

@@ -18,6 +18,7 @@ import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
@@ -1057,5 +1058,75 @@ public class StructuredPropertiesValidatorTest {
             .size(),
         0,
         "REMOVE ops should not produce assignments for value validation");
+  }
+
+  /**
+   * With alternate MCP validation (the quickstart/docker default, {@code
+   * ALTERNATE_MCP_VALIDATION=true}) a patch reaches the proposed hook as a {@link ProposedItem}
+   * carrying the raw proposal — not a {@link PatchItemImpl} — so the serialized patch must be read
+   * from the MCP payload itself. Routing on the item class silently skips patch validation on every
+   * such deployment.
+   */
+  @Test
+  public void testValidateProposedRejectsPatchAddViaProposedItem() throws Exception {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.retentionTime");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"))
+            .setAllowedValues(
+                new PropertyValueArray(
+                    List.of(
+                        new PropertyValue().setValue(PrimitivePropertyValue.create("a")),
+                        new PropertyValue().setValue(PrimitivePropertyValue.create("b")))));
+
+    GenericJsonPatch.PatchOp addOp = new GenericJsonPatch.PatchOp();
+    addOp.setOp("add");
+    addOp.setPath("/properties/" + propertyUrn + "/");
+    addOp.setValue(
+        Map.of("propertyUrn", propertyUrn.toString(), "values", List.of(Map.of("string", "c"))));
+
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder()
+            .arrayPrimaryKeys(Map.of("properties", List.of("propertyUrn", "attribution␟source")))
+            .patch(List.of(addOp))
+            .build();
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(TEST_DATASET_URN);
+    mcp.setEntityType("dataset");
+    mcp.setAspectName(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.PATCH);
+    mcp.setAspect(
+        GenericRecordUtils.serializePatch(genericJsonPatch, TEST_OP_CONTEXT.getObjectMapper()));
+
+    ProposedItem proposedItem =
+        ProposedItem.builder()
+            .build(
+                mcp,
+                new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(0L),
+                TEST_REGISTRY);
+
+    RetrieverContext retrieverContext = mock(RetrieverContext.class);
+    MockAspectRetriever aspectRetriever = new MockAspectRetriever(propertyUrn, stringPropertyDef);
+    aspectRetriever.setEntityRegistry(TEST_REGISTRY);
+    when(retrieverContext.getAspectRetriever()).thenReturn(aspectRetriever);
+
+    StructuredPropertiesValidator validator =
+        new StructuredPropertiesValidator()
+            .setConfig(
+                AspectPluginConfig.builder()
+                    .className(StructuredPropertiesValidator.class.getName())
+                    .enabled(true)
+                    .supportedOperations(List.of("UPSERT", "PATCH"))
+                    .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+                    .build());
+
+    assertEquals(
+        validator
+            .validateProposed(TEST_OP_CONTEXT, List.of(proposedItem), retrieverContext, null)
+            .count(),
+        1,
+        "A ProposedItem patch ADD with a disallowed value must be rejected at request time");
   }
 }

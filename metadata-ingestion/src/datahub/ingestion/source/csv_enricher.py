@@ -102,7 +102,7 @@ class CSVEnricherReport(SourceReport):
 
 @platform_name("CSV Enricher")
 @config_class(CSVEnricherConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DOMAINS, "Supported by default")
 @capability(SourceCapability.TAGS, "Supported by default")
 @capability(SourceCapability.DESCRIPTIONS, "Supported by default")
@@ -698,8 +698,8 @@ class CSVEnricherSource(Source):
         ):
             resource_urn = row["resource"]
             self.report.warning(
-                f"{resource_urn}-invalid-ownership-type",
-                "Ownership type URN is set but ownership type is not CUSTOM. Setting ownership_type to CUSTOM.",
+                message="Ownership type URN is set but ownership type is not CUSTOM. Setting ownership_type to CUSTOM.",
+                context=resource_urn,
                 log=False,
             )
             ownership_type = OwnershipTypeClass.CUSTOM

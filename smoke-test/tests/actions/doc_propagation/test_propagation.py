@@ -22,6 +22,7 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.utilities.urns.urn import Urn
 from tests.utilities import env_vars
+from tests.utilities.domains import Domain
 from tests.utils import (
     delete_urns_from_file,
     get_gms_url,
@@ -30,6 +31,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 DELETE_AFTER_TEST = env_vars.get_delete_after_test()
 
@@ -211,7 +214,7 @@ def ingest_cleanup_data_function(
             )
             ingest_file_via_rest(auth_session=auth_session, filename=filename)
             # Wait for ingestion to complete
-            wait_for_writes_to_sync()
+            wait_for_writes_to_sync(mcp_only=True)
             yield all_urns
         finally:
             if DELETE_AFTER_TEST:
@@ -324,7 +327,7 @@ def large_fanout_graph_function(graph_client: DataHubGraph):
                     graph_client.emit(mcp)
                 all_urns.append(dataset_i)
 
-            wait_for_writes_to_sync()
+            wait_for_writes_to_sync(mcp_only=True)
             yield (dataset_1, all_urns)
         finally:
             if DELETE_AFTER_TEST:
@@ -364,7 +367,7 @@ def add_col_col_lineage(
             )
         )
         field_pairs.append((downstream_field, upstream_field))
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
     return field_pairs
 
 
@@ -399,7 +402,7 @@ def add_col_col_cycle_lineage(
             )
         )
         field_pairs.append((downstream_field, upstream_field))
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
     return field_pairs
 
 
@@ -412,7 +415,7 @@ def add_field_description(f1, description, graph_client):
     graph_client.emit(
         MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=schema_metadata)
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
 
 @tenacity.retry(
@@ -509,7 +512,7 @@ def test_col_col_propagation_cycles(
             )
         )
         # Wait for sibling relationships to be established
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         # create field level lineage
         add_col_col_cycle_lineage(
@@ -571,7 +574,7 @@ def test_col_col_propagation_large_fanout(
                 entityUrn=dataset_1, aspect=editable_schema_metadata
             )
         )
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         # Wait a bit for the action framework to start processing
         time.sleep(3)

@@ -318,9 +318,10 @@ class PipelineProcessor(EntityProcessor):
 
             except Exception as e:
                 self.report.warning(
-                    "warehouse_destination",
-                    f"Failed to get warehouse destination from destinations API: {e}. "
+                    message="Failed to get warehouse destination from destinations API. "
                     "Enrichment-to-warehouse lineage will be unavailable.",
+                    context="warehouse_destination",
+                    exc=e,
                     log=False,
                 )
                 logger.warning(

@@ -2,6 +2,7 @@ import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import styled, { DefaultTheme, useTheme } from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
@@ -16,6 +17,7 @@ import { NAV_SIDEBAR_COLLAPSE_TRANSITION_MS } from '@app/shared/constants';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageRoutes } from '@conf/Global';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AutoCompleteResultForEntity } from '@types';
@@ -160,6 +162,10 @@ export const SearchHeader = ({
     // On the redesigned home page the toggler is rendered inside the home
     // hero container (homeV3/header/Header.tsx), not in the global header.
     const hideNavToggler = showHomepageRedesign && isHomePage;
+    const location = useLocation();
+
+    // Hide recommendations on analytics page since they are not displayed
+    const isAnalyticsPage = location.pathname === PageRoutes.ANALYTICS;
     const themeConfig = useTheme();
     const styles = getStyles(isShowNavBarRedesign, themeConfig);
 
@@ -193,6 +199,7 @@ export const SearchHeader = ({
                                 setIsSearchBarFocused={setIsSearchBarFocused}
                                 viewsEnabled={viewsEnabled}
                                 isShowNavBarRedesign={isShowNavBarRedesign}
+                                hideRecommendations={isAnalyticsPage}
                                 combineSiblings
                                 fixAutoComplete
                                 showQuickFilters
