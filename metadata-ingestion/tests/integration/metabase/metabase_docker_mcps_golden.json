@@ -3724,22 +3724,6 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),SOURCE)",
-                    "schemaField": {
-                        "fieldPath": "SOURCE",
-                        "nullable": true,
-                        "description": "pivot-grouping",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Integer",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PEOPLE,PROD),SOURCE)",
                     "schemaField": {
                         "fieldPath": "SOURCE",
@@ -3759,8 +3743,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752005538,
-        "runId": "metabase-2024_01_20-12_00_00-bg70yb",
+        "lastObserved": 1705752001989,
+        "runId": "metabase-2024_01_20-12_00_00-zfuo6d",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -6299,39 +6283,6 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,17)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),sum)",
-                    "schemaField": {
-                        "fieldPath": "sum",
-                        "nullable": true,
-                        "description": "Sum of Total",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Float",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752002931,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,8)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -6559,29 +6510,13 @@
                         "recursive": false,
                         "isPartOfKey": false
                     }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),sum)",
-                    "schemaField": {
-                        "fieldPath": "sum",
-                        "nullable": true,
-                        "description": "Sum of Total",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Float",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002080,
-        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastObserved": 1705752002798,
+        "runId": "metabase-2024_01_20-12_00_00-zfuo6d",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -6687,29 +6622,13 @@
                         "recursive": false,
                         "isPartOfKey": false
                     }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),sum)",
-                    "schemaField": {
-                        "fieldPath": "sum",
-                        "nullable": true,
-                        "description": "Sum of Total",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Float",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002248,
-        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastObserved": 1705752003111,
+        "runId": "metabase-2024_01_20-12_00_00-zfuo6d",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7020,29 +6939,13 @@
                         "recursive": false,
                         "isPartOfKey": false
                     }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),sum)",
-                    "schemaField": {
-                        "fieldPath": "sum",
-                        "nullable": true,
-                        "description": "Sum of Total",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Float",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002195,
-        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastObserved": 1705752003007,
+        "runId": "metabase-2024_01_20-12_00_00-zfuo6d",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8322,29 +8225,13 @@
                         "recursive": false,
                         "isPartOfKey": false
                     }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD),count)",
-                    "schemaField": {
-                        "fieldPath": "count",
-                        "nullable": true,
-                        "description": "Distinct values of Customer Email",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/BigInteger",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002410,
-        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastObserved": 1705752003470,
+        "runId": "metabase-2024_01_20-12_00_00-zfuo6d",
         "lastRunId": "no-run-id-provided"
     }
 },
