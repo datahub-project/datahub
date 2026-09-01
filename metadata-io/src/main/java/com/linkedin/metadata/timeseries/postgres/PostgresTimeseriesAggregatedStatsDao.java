@@ -460,12 +460,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       int limit = groupingSize(buckets[idx]);
       sql =
           wrapStringGroupLimit(
-              sql,
-              selectList,
-              parentAliases,
-              groupAliases.get(idx),
-              orderBy,
-              limit);
+              sql, selectList, parentAliases, groupAliases.get(idx), orderBy, limit);
     }
     return sql + " ORDER BY " + orderBy;
   }
