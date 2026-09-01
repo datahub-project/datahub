@@ -187,15 +187,27 @@ public class PlatformEntityCountsTest {
   }
 
   @Test
-  public void nullAggregationsReturnsEmpty() throws Exception {
+  public void nullAggregationsFailsRequest() throws Exception {
     SearchResponse response = mock(SearchResponse.class);
     when(response.getAggregations()).thenReturn(null);
     when(searchClient.search(any(), any(), any())).thenReturn(response);
 
-    PlatformEntityCountResult result =
-        v2Counts().getCountsByPlatform(opContext, List.of("dataset"));
+    assertThrows(
+        RuntimeException.class,
+        () -> v2Counts().getCountsByPlatform(opContext, List.of("dataset")));
+  }
 
-    assertTrue(result.getCounts().isEmpty());
+  @Test
+  public void missingByPlatformAggregationFailsRequest() throws Exception {
+    Aggregations aggregations = mock(Aggregations.class);
+    when(aggregations.get("by_platform")).thenReturn(null);
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getAggregations()).thenReturn(aggregations);
+    when(searchClient.search(any(), any(), any())).thenReturn(response);
+
+    assertThrows(
+        RuntimeException.class,
+        () -> v2Counts().getCountsByPlatform(opContext, List.of("dataset")));
   }
 
   @Test

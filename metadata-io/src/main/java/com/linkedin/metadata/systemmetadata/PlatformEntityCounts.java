@@ -156,11 +156,15 @@ public class PlatformEntityCounts {
 
     Aggregations aggregations = response.getAggregations();
     if (aggregations == null) {
-      return List.of();
+      throw new RuntimeException(
+          "Platform count query for entity type " + entityType + " returned no aggregations");
     }
     Terms platformTerms = aggregations.get(PLATFORM_AGG_NAME);
     if (platformTerms == null) {
-      return List.of();
+      throw new RuntimeException(
+          "Platform count query for entity type "
+              + entityType
+              + " omitted the by_platform aggregation");
     }
     long otherDocCount = platformTerms.getSumOfOtherDocCounts();
     if (otherDocCount > 0) {
