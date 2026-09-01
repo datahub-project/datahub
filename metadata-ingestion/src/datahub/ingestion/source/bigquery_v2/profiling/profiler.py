@@ -528,12 +528,17 @@ class BigqueryProfiler(GenericProfiler):
             and len(bq_table.partition_info.fields) > 1
         ):
             return None
-        # An empty predicate means no partition WHERE was derived, so the table is
-        # profiled with a full-table / sample / row-limit scan rather than a single
-        # partition. Labeling that with max_partition_id would misdescribe the data
-        # scanned, so drop the label.
+        # An empty predicate on a *partitioned* table means no partition WHERE was derived,
+        # so the table was full/sample/row-limit scanned — labeling that with
+        # max_partition_id would misdescribe the data, so drop the label. A date-*sharded*
+        # table is the exception: each shard is a standalone table, so discovery correctly
+        # emits no WHERE and scanning the shard table IS scanning exactly that shard —
+        # keep the shard id as an honest label (matching the pre-rewrite profiler).
         if not partition_where:
-            return None
+            is_sharded = (
+                getattr(bq_table, "max_shard_id", None) and not bq_table.partition_info
+            )
+            return partition_id if is_sharded else None
         # A non-empty predicate only keeps the label when it actually scanned that
         # one partition — a widened multi-partition range drops it.
         if not self._predicate_scans_single_partition(partition_where):
@@ -602,11 +607,14 @@ class BigqueryProfiler(GenericProfiler):
 
         try:
             profile_request = super().get_profile_request(table, schema_name, db_name)
-        except (ValueError, AttributeError, KeyError, GoogleAPICallError) as e:
-            # get_batch_kwargs raises ValueError for identifiers that fail security
-            # validation or partitioned tables whose filter couldn't be built; the other
-            # types cover BigQuery API/IAM/quota errors escaping discovery. Kept symmetric
-            # with the external deferred path so neither aborts the whole project.
+        except Exception as e:
+            # super().get_profile_request runs partition discovery (BigQuery queries), which
+            # can fail for one table in many ways — bad identifiers / unbuildable filters
+            # (ValueError), API/IAM/quota (GoogleAPICallError), plus transient
+            # RetryError / auth RefreshError / TimeoutError / connection drops. A single
+            # table's failure must never abort the whole project's loop, so catch broadly,
+            # report it, and skip — matching the deferred external worker, which also
+            # treats any per-table error as a skip.
             self.report.warning(
                 title="Table skipped during profiling",
                 message=str(e),
@@ -682,11 +690,10 @@ class BigqueryProfiler(GenericProfiler):
                         f"Table not eligible for profiling: {normalized_table_name}"
                     )
 
-        eligible_tables = len(profile_requests) + len(deferred_external)
-        self._log_profiling_statistics(project_id, total_tables, eligible_tables)
-
-        if eligible_tables == 0:
+        candidate_tables = len(profile_requests) + len(deferred_external)
+        if candidate_tables == 0:
             logger.warning(f"No tables eligible for profiling in project {project_id}")
+            self._log_profiling_statistics(project_id, total_tables, 0)
             return
 
         yield from self.generate_profile_workunits_with_deferred_partitions(
@@ -696,6 +703,13 @@ class BigqueryProfiler(GenericProfiler):
             platform=self.platform,
             profiler_args=self.get_profile_args(),
         )
+
+        # Log statistics only after deferred external discovery has run: an external table
+        # counted as a candidate above can still be dropped by partition discovery in the
+        # worker pool. self._tables_profiled is the authoritative accepted count (internal
+        # tables + external tables that discovery actually produced a request for), so the
+        # reported acceptance rate reflects reality rather than the optimistic candidate set.
+        self._log_profiling_statistics(project_id, total_tables, self._tables_profiled)
 
     def _log_profiling_statistics(
         self, project_id: str, total_tables: int, eligible_tables: int
