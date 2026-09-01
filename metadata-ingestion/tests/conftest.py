@@ -16,9 +16,8 @@ import time_machine
 os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 os.environ["DATAHUB_TEST_MODE"] = "1"
 
-# Enable debug logging.
-logging.getLogger().setLevel(logging.DEBUG)
-os.environ["DATAHUB_DEBUG"] = "1"
+# Pytest log_file in setup.cfg is relative to cwd (metadata-ingestion/).
+pathlib.Path("test-results").mkdir(exist_ok=True)
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"

@@ -50,6 +50,34 @@ def is_responsive(container_name: str, port: int, hostname: Optional[str]) -> bo
     return ret.returncode == 0
 
 
+def _dump_container_logs(container_name: str) -> None:
+    """Log ``docker logs`` after a wait failure (never on the happy path).
+
+    Spark/NiFi/Hadoop logs filled CI disks when every successful wait dumped to
+    stdout and pytest captured it. Capture subprocess output so a dump error
+    cannot replace the original wait exception.
+    """
+    result = subprocess.run(
+        ["docker", "logs", container_name],
+        capture_output=True,
+        text=True,
+    )
+    output = "\n".join(part for part in (result.stdout, result.stderr) if part)
+    if result.returncode != 0:
+        logger.error(
+            "Failed to fetch logs for container %s (exit %s): %s",
+            container_name,
+            result.returncode,
+            output or "(no output)",
+        )
+        return
+    logger.error(
+        "Logs for container %s:\n%s",
+        container_name,
+        output or "(empty)",
+    )
+
+
 def wait_for_port(
     docker_services: pytest_docker.plugin.Services,
     container_name: str,
@@ -69,10 +97,10 @@ def wait_for_port(
                 else lambda: is_responsive(container_name, container_port, hostname)
             ),
         )
-        logger.info(f"Container {container_name} is ready!")
-    finally:
-        # use check=True to raise an error if command gave bad exit code
-        subprocess.run(f"docker logs {container_name}", shell=True, check=True)
+    except Exception:
+        _dump_container_logs(container_name)
+        raise
+    logger.info("Container %s is ready!", container_name)
 
 
 DOCKER_DEFAULT_UNLIMITED_PARALLELISM = -1

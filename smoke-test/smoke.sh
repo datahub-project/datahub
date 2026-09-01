@@ -63,7 +63,7 @@ run_pytest_policy_phases() {
   echo "SMOKE POLICY PHASE 1: non-mutator tests"
   echo "=========================================="
   set +e
-  SMOKE_POLICY_PHASE=1 pytest -rP --durations=20 -vv --continue-on-collection-errors \
+  SMOKE_POLICY_PHASE=1 pytest -ra -v --continue-on-collection-errors \
     ${xdist_args[@]+"${xdist_args[@]}"} \
     --junit-xml="${junit_prefix}-phase1.xml" \
     ${extra_args[@]+"${extra_args[@]}"}
@@ -78,7 +78,7 @@ run_pytest_policy_phases() {
   echo "=========================================="
   set +e
   # No xdist: mutators must not run concurrently against shared policy state.
-  SMOKE_POLICY_PHASE=2 pytest -rP --durations=20 -vv --continue-on-collection-errors \
+  SMOKE_POLICY_PHASE=2 pytest -ra -v --continue-on-collection-errors \
     --reruns 1 --reruns-delay 1 \
     --junit-xml="${junit_prefix}-phase2.xml" \
     ${extra_args[@]+"${extra_args[@]}"}
