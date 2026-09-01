@@ -428,6 +428,45 @@ Requirements:
 
 - **(Spark lineage)** The `acryl-spark-lineage` agent now shades its bundled OpenLineage under `io.acryl.shaded.io.openlineage` instead of exposing it at `io.openlineage`. This lets the agent run alongside environments that ship their own OpenLineage on the Spark classpath — notably **Amazon EMR 7.12+ / SageMaker Unified Studio (DataZone)**, whose built-in `/usr/share/aws/datazone-openlineage-spark/lib/` jars previously collided with the agent's copy and failed the Spark job. The destructive workaround (`rm -rf /usr/share/aws/datazone-openlineage-spark/lib/`) is no longer needed; both DataHub and DataZone lineage can be captured on the same cluster. The user-facing listener (`datahub.spark.DatahubSparkListener`) and all `spark.datahub.*` / `spark.openlineage.*` config are unchanged — no recipe changes required. The OpenLineage extension SPI (`io.openlineage.spark.extension.*`), which data-source connectors implement at its canonical name, is intentionally left unrelocated. **Action:** only required if you depended on the agent transitively exposing `io.openlineage.*` classes to your own code (rare) — reference the shaded coordinates instead.
 
+## v1.6.0.2
+
+Patch release for v1.6.0 — security and authorization hardening plus CVE dependency bumps. No new features; no schema or model changes.
+
+Requirements:
+
+- CLI / Python SDK: 1.6.0.17, 1.7.0.3
+- Helm Chart: 1.1.2
+
+### Breaking Changes
+
+- #18886 **(GMS / Auth)** The hardcoded `systemClientSecret` default (`JohnSnowKnowsNothing`) has been removed from the server configs. **Action:** set `DATAHUB_SYSTEM_CLIENT_SECRET` on GMS, MAE/MCE/PE consumers, the frontend, and Actions before upgrading — services relying on the built-in default will fail to authenticate.
+
+- #19508 **(GMS / Timeseries read authorization)** Dataset profile, usage, and operations timeseries (and dashboard usage statistics) now require the matching **View Dataset Profile / Usage / Operations** privileges on Rest.li and OpenAPI as well as GraphQL. Dedicated timeseries APIs (`getTimeseriesAspectValues`, OpenAPI timeseries scroll, `getTimeseriesStats` with a URN filter) also require **Get Timeseries Aspect API** when REST API authorization is enabled. **Action:** grant those privileges (or rely on the default `view-dataset-sensitive` policy) to API clients that previously read these aspects with only entity GET. Chart usage statistics are unchanged.
+
+- #19360 **(GMS / Role and group membership writes)** Writes to aspects that grant privileges are now authorized at the aspect layer across GraphQL, OpenAPI, and Rest.li. Adding a role (`roleMembership`) requires **Manage Policies**; adding a user to a group (`groupMembership` / `nativeGroupMembership`) requires **Edit Group Members**; adding a corpGroup owner (`ownership`) requires **Edit Owners** — or **Manage Users & Groups** when the actor is adding themselves. Only additions are checked; removals, unchanged re-ingestion, and system writes pass. Previously **Edit Entity** on a user was enough to grant that user the Admin role. **Action:** grant **Manage Policies** to automation that writes `roleMembership` outside the UI; membership-only sync (LDAP, Okta, Azure AD, `datahub user upsert`) needs **Edit Group Members** or **Manage Users & Groups**. Toggle via `metadataChangeProposal.validation.aspectAuthorization.privilegeGrant.enabled` (default `true`).
+
+- #18740 **(GMS / Documents)** Document authorization is now enforced across GraphQL, OpenAPI, and Rest.li: CREATE accepts `CREATE_ENTITY` / `EDIT_ENTITY` / `MANAGE_DOCUMENTS`, UPDATE accepts `EDIT_ENTITY` / `MANAGE_DOCUMENTS`, DELETE accepts `DELETE_ENTITY` / `MANAGE_DOCUMENTS`. `document` is also added to `VIEW_RESTRICTED_ENTITY_TYPES`, so with `VIEW_AUTHORIZATION_ENABLED=true` documents are gated like other catalog entities. **Action:** grant the document privileges (or `MANAGE_DOCUMENTS`) as needed and ensure readers have View Entity / Get Entity.
+
+### Known Issues
+
+### Potential Downtime
+
+### Other Notable Changes
+
+**Security fixes:**
+
+- #19297 **(Auth)** The built-in self policy granted to every actor on their own entity was flattening the full ENTITY READ privilege map, which also handed out edit privileges on your own corpuser entity. It is now limited to `VIEW_ENTITY_PAGE` and `GET_ENTITY`.
+- #19316 **(Auth)** `POST /auth/signUp`, `/auth/resetNativeUserCredentials`, `/auth/verifyNativeUserCredentials`, and `/auth/getSsoSettings` now require GMS **system client** credentials, matching `/auth/generateSessionTokenForUser`. A user session token calling these GMS helpers directly gets **401**; frontend login, signup, password reset, and SSO are unaffected.
+- #19384 **(Auth)** Aspect authorization no longer trusts client-supplied `appSource` system metadata to identify system writes.
+- #19405 **(Auth)** Incidents raised on a schema field are now authorized against the parent entity.
+- #19298, #19299, #19300 **(UI)** Stored XSS fixes: query and incident descriptions are sanitized (the legacy `MarkdownViewer` is removed), the documentation editor's PDF preview iframe `src` is sanitized, and dangerous `renderUrl` schemes on embeds are rejected.
+
+**Dependency CVE bumps:**
+
+- Logback 1.5.38 (CVE-2026-9828, CVE-2026-10532), Log4j 2.25.5 (CVE-2026-49844), Netty 4.2.17.Final (CVE-2026-59902), libthrift 0.23.0 (CVE-2026-43869), Jetty 12.1.10 (CVE-2026-10050), httpcore5 5.4.3 (CVE-2026-54399), micrometer-core 1.16.6 (CVE-2026-40983, CVE-2026-40984), reactor-netty-core 1.3.6, netty-reactive-streams 3.0.9.
+- Apache Parquet 1.18.0, which refreshes its shaded Jackson to jackson-databind 2.22.1 (CVE-2026-54512, CVE-2026-54513).
+- Python ingestion: nltk 3.10.3 (CVE-2026-12075).
+
 ## v1.6.0.1
 
 Patch release for v1.6.0 — security patches, bug fixes, and stability improvements. No new features; no schema or model changes.
