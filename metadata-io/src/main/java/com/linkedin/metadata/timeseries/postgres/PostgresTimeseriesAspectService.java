@@ -857,10 +857,17 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nonnull List<SortKey> sortKeys,
       @Nonnull List<Object> cursorValues) {
     where.append(" AND (");
+    boolean firstArm = true;
     for (int i = 0; i < sortKeys.size(); i++) {
-      if (i > 0) {
+      Object bound = toBindValue(sortKeys.get(i), cursorValues.get(i));
+      if (bound == null) {
+        // NULLS LAST: skip this OR arm; a later arm carries null through IS NOT DISTINCT FROM.
+        continue;
+      }
+      if (!firstArm) {
         where.append(" OR ");
       }
+      firstArm = false;
       where.append("(");
       for (int j = 0; j < i; j++) {
         where.append(sortKeys.get(j).sqlExpr()).append(" IS NOT DISTINCT FROM ? AND ");
@@ -868,23 +875,20 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       }
       String op = sortKeys.get(i).ascending() ? ">" : "<";
       String expr = sortKeys.get(i).sqlExpr();
-      Object bound = toBindValue(sortKeys.get(i), cursorValues.get(i));
-      if (bound == null) {
-        // NULLS LAST: a null cursor is already in the nulls partition; only later keys apply.
-        where.append(expr).append(" IS NULL");
-      } else {
-        // Include remaining nulls after every non-null key (NULLS LAST for ASC and DESC).
-        where
-            .append("(")
-            .append(expr)
-            .append(" ")
-            .append(op)
-            .append(" ? OR ")
-            .append(expr)
-            .append(" IS NULL)");
-        params.add(bound);
-      }
+      // Include remaining nulls after every non-null key (NULLS LAST for ASC and DESC).
+      where
+          .append("(")
+          .append(expr)
+          .append(" ")
+          .append(op)
+          .append(" ? OR ")
+          .append(expr)
+          .append(" IS NULL)");
+      params.add(bound);
       where.append(")");
+    }
+    if (firstArm) {
+      where.append("1=0");
     }
     where.append(")");
   }

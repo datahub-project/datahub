@@ -65,6 +65,44 @@ public class PostgresTimeseriesScrollKeysetTest {
   }
 
   @Test
+  public void appendKeysetPredicate_nullCursorValue_skipsKeyArm() {
+    List<SortKey> keys =
+        List.of(
+            new SortKey("event_time", false, SortValueKind.EVENT_TIME),
+            new SortKey("message_id", true, SortValueKind.MESSAGE_ID));
+    StringBuilder where = new StringBuilder("WHERE 1=1");
+    List<Object> params = new ArrayList<>();
+    List<Object> cursor = new ArrayList<>();
+    cursor.add(1000L);
+    cursor.add(null);
+    PostgresTimeseriesAspectService.appendKeysetPredicate(
+        where, params, keys, cursor);
+
+    String sql = where.toString();
+    assertFalse(sql.contains("message_id IS NULL"));
+    assertTrue(sql.contains("event_time < ? OR event_time IS NULL"));
+    assertEquals(params.size(), 1);
+  }
+
+  @Test
+  public void appendKeysetPredicate_allNullCursorValues_matchesNothing() {
+    List<SortKey> keys =
+        List.of(
+            new SortKey("event_time", false, SortValueKind.EVENT_TIME),
+            new SortKey("message_id", true, SortValueKind.MESSAGE_ID));
+    StringBuilder where = new StringBuilder("WHERE 1=1");
+    List<Object> params = new ArrayList<>();
+    List<Object> cursor = new ArrayList<>();
+    cursor.add(null);
+    cursor.add(null);
+    PostgresTimeseriesAspectService.appendKeysetPredicate(
+        where, params, keys, cursor);
+
+    assertTrue(where.toString().contains("1=0"));
+    assertTrue(params.isEmpty());
+  }
+
+  @Test
   public void appendKeysetPredicate_mixedDirections_expandsOrChain() {
     List<SortKey> keys =
         List.of(

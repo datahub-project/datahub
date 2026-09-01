@@ -152,6 +152,7 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
         PostgresTimeseriesAggregatedStatsDao.buildAggregatedStatsSql(
             "public.ts_aspect",
             List.of("date_trunc('day', ...) AS g0", "document #>> ARRAY['user'] AS g1"),
+            List.of("date_trunc('day', ...)", "document #>> ARRAY['user']"),
             List.of("g0", "g1"),
             List.of("SUM(...) AS \"sum_count\""),
             List.of("sum_count"),
@@ -178,6 +179,7 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
         PostgresTimeseriesAggregatedStatsDao.buildAggregatedStatsSql(
             "public.ts_aspect",
             List.of("document #>> ARRAY['user'] AS g0"),
+            List.of("document #>> ARRAY['user']"),
             List.of("g0"),
             List.of("SUM(...) AS \"sum_count\""),
             List.of("sum_count"),
@@ -188,7 +190,9 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
             "true");
     assertTrue(sql.contains("ROW_NUMBER() OVER (ORDER BY"));
     assertFalse(sql.contains("PARTITION BY"));
-    assertTrue(sql.contains("WHERE _rn <= 3 ORDER BY"));
+    assertTrue(sql.contains("DISTINCT ON (g0)"));
+    assertTrue(sql.contains("WHERE _rn <= 3"));
+    assertTrue(sql.contains(" ORDER BY document #>> ARRAY['user'] ASC"));
   }
 
   @Test
@@ -203,6 +207,7 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
         PostgresTimeseriesAggregatedStatsDao.buildAggregatedStatsSql(
             "public.ts_aspect",
             List.of("u AS g0", "s AS g1"),
+            List.of("u", "s"),
             List.of("g0", "g1"),
             List.of("SUM(...) AS \"sum_count\""),
             List.of("sum_count"),
@@ -213,6 +218,7 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
             "true");
     assertTrue(sql.contains("PARTITION BY g0"));
     assertTrue(sql.contains("WHERE _rn <= 3"));
+    assertTrue(sql.contains("DISTINCT ON (g0)"));
     assertTrue(sql.contains("WHERE _rn <= 5"));
   }
 
@@ -221,7 +227,7 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
     GroupingBucket[] buckets = new GroupingBucket[] {stringBucket("user", 10)};
     String order =
         PostgresTimeseriesAggregatedStatsDao.buildGroupOrderBy(
-            buckets, List.of("g0"), List.of("sum_count"), new AggregationSpec[0], null);
+            buckets, List.of("g0"), List.of("g0"), List.of("sum_count"), new AggregationSpec[0], null);
     assertEquals(order, "g0 ASC");
   }
 
