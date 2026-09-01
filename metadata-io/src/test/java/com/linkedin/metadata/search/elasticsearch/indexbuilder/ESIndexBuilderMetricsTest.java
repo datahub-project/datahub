@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
@@ -153,6 +154,40 @@ public class ESIndexBuilderMetricsTest {
             .tag("error_type", "timeout")
             .counter();
     assertNotNull(errors);
+    assertEquals(errors.count(), 1.0);
+
+    Timer duration =
+        meterRegistry
+            .find(ESIndexBuilder.METRIC_PREFIX + ".duration")
+            .tag("status", "failed")
+            .timer();
+    assertNotNull(duration);
+    assertEquals(duration.count(), 1L);
+  }
+
+  @Test
+  public void testPollUnexpectedExceptionRecordsUnexpectedError() throws Throwable {
+    ESIndexBuilder builder = setupPollBuilder(1000L);
+    // Force the poll loop to throw on the first count lookup — exercises the catch(Throwable)
+    // -> failed("unexpected") path that completion/timeout tests do not cover.
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+        .thenThrow(new RuntimeException("boom"));
+
+    try {
+      builder.pollReindexCompletion(
+          opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:1");
+      fail("expected RuntimeException");
+    } catch (RuntimeException expected) {
+      assertEquals(expected.getMessage(), "boom");
+    }
+
+    Counter errors =
+        meterRegistry
+            .find(ESIndexBuilder.METRIC_PREFIX + ".errors")
+            .tag("error_type", "unexpected")
+            .counter();
+    assertNotNull(errors, "unexpected error counter must be emitted before rethrow");
     assertEquals(errors.count(), 1.0);
 
     Timer duration =

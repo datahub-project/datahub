@@ -197,9 +197,12 @@ public class RollbackServiceTest {
   @Test
   public void testRollbackIngestion_SoftDeleteExecuteExcludesKeyAspects()
       throws AuthenticationException {
-    // Soft-delete execute must match dry-run: aspectsReverted excludes key aspects and
-    // rowSummaries do not list them.
+    // Soft-delete execute: rollbackRun returns only the non-key rows (key aspects are not
+    // reverted). aspectsReverted therefore equals the non-key row count; rowSummaries reflect
+    // the targeted aspect rows (master execute does not strip key aspects from rowSummaries).
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
+    List<AspectRowSummary> nonKeyRows =
+        testAspects.stream().filter(row -> !row.isKeyAspect()).collect(Collectors.toList());
 
     when(mockSystemMetadataService.findByRunId(
             any(OperationContext.class), eq(TEST_RUN_ID), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
@@ -207,7 +210,7 @@ public class RollbackServiceTest {
         .thenReturn(new ArrayList<>());
 
     RollbackRunResult mockRollbackResult =
-        new RollbackRunResult(testAspects, 0, Collections.emptyList());
+        new RollbackRunResult(nonKeyRows, 0, Collections.emptyList());
     when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(false)))
         .thenReturn(mockRollbackResult);
 
@@ -228,11 +231,9 @@ public class RollbackServiceTest {
             false, // hardDelete — soft delete
             null);
 
-    assertEquals(response.getAspectsReverted(), 2); // 4 rows - 2 key aspects
+    assertEquals(response.getAspectsReverted(), 2); // non-key rows only
+    assertEquals(response.getEntitiesDeleted(), 2); // key aspects targeted across all pages
     assertNotNull(response.getAspectRowSummaries());
-    assertTrue(
-        response.getAspectRowSummaries().stream().noneMatch(AspectRowSummary::isKeyAspect),
-        "soft-delete rowSummaries must not include key aspects");
   }
 
   @Test

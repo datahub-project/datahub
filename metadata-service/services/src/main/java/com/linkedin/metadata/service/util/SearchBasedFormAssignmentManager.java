@@ -90,19 +90,12 @@ public class SearchBasedFormAssignmentManager {
                 .map(SearchEntity::getEntity)
                 .collect(Collectors.toList());
 
-        // Defensive against malformed scroll responses that return a scrollId with no entities.
-        if (entityUrns.isEmpty()) {
-          break;
-        }
-
         formService.batchAssignFormToEntities(opContext, entityUrns, formUrn);
 
         metrics.recordEntities(entityUrns.size());
         metrics.recordPage();
 
-        if (!entityUrns.isEmpty()) {
-          log.info("Batch assign {} entities to form {}.", entityUrns.size(), formUrn);
-        }
+        log.info("Batch assign {} entities to form {}.", entityUrns.size(), formUrn);
 
         totalResults += results.getEntities().size();
         scrollId = results.getScrollId();

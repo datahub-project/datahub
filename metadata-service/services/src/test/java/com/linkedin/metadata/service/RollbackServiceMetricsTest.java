@@ -130,8 +130,9 @@ public class RollbackServiceMetricsTest {
             any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
 
-    // Capture before rollbackIngestion: execute path mutates the list returned by
-    // RollbackRunResult.getRowsRolledBack() (same instance as firstPage) via addAll.
+    // Capture before rollbackIngestion: the execute path mutates the list returned by
+    // RollbackRunResult.getRowsRolledBack() (a distinct copy of firstPage via new ArrayList<>),
+    // so firstPage itself is unchanged — but the captured expected value documents the intent.
     final int expectedRows = firstPage.size() + secondPage.size();
 
     rollbackService.rollbackIngestion(opContext, TEST_RUN_ID, false, true, null);

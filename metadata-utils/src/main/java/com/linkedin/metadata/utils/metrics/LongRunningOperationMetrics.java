@@ -64,6 +64,7 @@ public final class LongRunningOperationMetrics {
   private final long startNanos;
 
   private String status = STATUS_COMPLETED;
+  private boolean finished;
 
   private LongRunningOperationMetrics(
       @Nullable final MeterRegistry registry, final String prefix, final Tags tags) {
@@ -130,6 +131,10 @@ public final class LongRunningOperationMetrics {
 
   /** Records duration. Call from a {@code finally} so a failed run still lands. */
   public void finish() {
+    if (finished) {
+      return;
+    }
+    finished = true;
     emit(
         () ->
             Timer.builder(prefix + ".duration")

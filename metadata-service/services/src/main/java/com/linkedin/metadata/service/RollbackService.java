@@ -189,11 +189,10 @@ public class RollbackService {
       int rowsDeletedFromEntityDeletion = rollbackRunResult.getRowsDeletedFromEntityDeletion();
       recordRollbackPage(metrics, rollbackRunResult);
 
-      // Count key aspects targeted per page. Soft delete does not return key aspects in
-      // rowsRolledBack, so deletedRows would report 0 entities — count from the input target
-      // list instead, accumulated across all pages (master only counted the last page).
-      long keyAspectsDeleted =
-          aspectRowsToDelete.stream().filter(AspectRowSummary::isKeyAspect).count();
+      // Accumulate key aspects across all pages. Master only kept the last page, which undercounted
+      // entitiesDeleted and made affected/unsafe entity math depend on the final page only.
+      final List<AspectRowSummary> allKeyAspects = new ArrayList<>();
+      aspectRowsToDelete.stream().filter(AspectRowSummary::isKeyAspect).forEach(allKeyAspects::add);
 
       // since elastic limits how many rows we can access at once, we need to iteratively
       // delete
@@ -213,8 +212,9 @@ public class RollbackService {
             entityService.rollbackRun(opContext, aspectRowsToDelete, runId, hardDelete);
         deletedRows.addAll(rollbackRunResult.getRowsRolledBack());
         rowsDeletedFromEntityDeletion += rollbackRunResult.getRowsDeletedFromEntityDeletion();
-        keyAspectsDeleted +=
-            aspectRowsToDelete.stream().filter(AspectRowSummary::isKeyAspect).count();
+        aspectRowsToDelete.stream()
+            .filter(AspectRowSummary::isKeyAspect)
+            .forEach(allKeyAspects::add);
         recordRollbackPage(metrics, rollbackRunResult);
       }
 
@@ -229,15 +229,12 @@ public class RollbackService {
       }
 
       log.info("finished deleting {} rows", deletedRows.size());
+      // Execute path: aspectsReverted counts what rollbackRun actually reverted. Master did not
+      // subtract key aspects here (soft delete already excludes them from rowsRolledBack), and
+      // subtracting again would double-count to 0. Dry-run keeps the subtract below.
       int aspectsReverted = deletedRows.size() + rowsDeletedFromEntityDeletion;
 
-      final Map<Boolean, List<AspectRowSummary>> aspectsSplitByIsKeyAspects =
-          aspectRowsToDelete.stream()
-              .collect(Collectors.partitioningBy(AspectRowSummary::isKeyAspect));
-
-      final List<AspectRowSummary> keyAspects = aspectsSplitByIsKeyAspects.get(true);
-
-      final long entitiesDeleted = keyAspectsDeleted;
+      final long entitiesDeleted = allKeyAspects.size();
       final long affectedEntities =
           deletedRows.stream()
               .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
@@ -248,17 +245,11 @@ public class RollbackService {
           new AspectRowSummaryArray(
               aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size())));
 
-      // Soft delete does not remove key aspects — match dry-run response semantics. Use the
-      // accumulated key-aspect count across all pages (master only subtracted the last page).
-      if (!hardDelete) {
-        aspectsReverted -= keyAspectsDeleted;
-        rowSummaries.removeIf(AspectRowSummary::isKeyAspect);
-      }
-
       log.info("computing aspects affected by this rollback...");
-      // Compute the aspects that exist referencing the key aspects we are deleting
+      // Compute the aspects that exist referencing the key aspects we are deleting, across all
+      // pages visited.
       final List<AspectRowSummary> affectedAspectsList =
-          keyAspects.stream()
+          allKeyAspects.stream()
               .map(
                   (AspectRowSummary urn) ->
                       systemMetadataService.findByUrn(
@@ -322,9 +313,11 @@ public class RollbackService {
   private static void recordRollbackPage(
       final LongRunningOperationMetrics metrics, final RollbackRunResult result) {
     int processed = result.getRowsRolledBack().size() + result.getRowsDeletedFromEntityDeletion();
+    // Always count the page — it completed regardless of whether rows were deleted. Volume is
+    // conditional so a zero-row page does not inflate entities_processed / rows_processed.
+    metrics.recordPage();
     if (processed > 0) {
       metrics.recordRows(processed);
-      metrics.recordPage();
     }
   }
 
