@@ -140,7 +140,10 @@ class RegexRouterPlugin(TransformPlugin):
             try:
                 pattern = JavaPattern.compile(regex_pattern)
                 matcher = pattern.matcher(topic)
-                if not isinstance(self, DebeziumLogicalTopicRouterPlugin) or matcher.matches():
+                if (
+                    not isinstance(self, DebeziumLogicalTopicRouterPlugin)
+                    or matcher.matches()
+                ):
                     transformed_topic = str(matcher.replaceFirst(replacement))
                 else:
                     transformed_topic = topic
