@@ -421,6 +421,11 @@ class TestMultiLineFragments:
         assert secrets["first-cr-line-material"] == "LEGACY_KEY"
         assert secrets["second-cr-line-material"] == "LEGACY_KEY"
 
+    def test_trailing_newline_registers_stripped_fragment(self):
+        registry = SecretRegistry()
+        registry.register_secret("TOKEN", "trailing-newline-token\n")
+        assert "trailing-newline-token" in registry.get_all_secrets()
+
     def test_structural_short_lines_are_skipped(self):
         value = '{\n  "k": "longsecretbody123"\n}'
         registry = SecretRegistry()

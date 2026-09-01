@@ -1282,6 +1282,10 @@ class TestFailClosed:
             masking_filter.mask_text("text containing secret-value-number-2")
             == CAPACITY_EXCEEDED_MESSAGE
         )
+        assert (
+            masking_filter.mask_text("ordinary text with no secrets at all")
+            == CAPACITY_EXCEEDED_MESSAGE
+        )
 
     def test_pattern_build_failure_withholds_output(self, registry):
         registry.register_secret("S", "somesecret123")

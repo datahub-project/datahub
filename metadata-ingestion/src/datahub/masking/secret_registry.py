@@ -49,7 +49,7 @@ def _url_encoded_rendering(value: str) -> Optional[str]:
 
 def _line_fragments(value: str) -> List[str]:
     lines = value.splitlines()
-    if len(lines) <= 1:
+    if lines == [value]:
         return []
     fragments = []
     for line in lines:
