@@ -19,6 +19,7 @@ import threading
 from typing import Any, Dict, Optional, TextIO, Tuple
 
 from datahub.masking.constants import (
+    CAPACITY_EXCEEDED_MESSAGE,
     CIRCUIT_OPEN_MESSAGE,
     MASKING_ERROR_MESSAGE,
     REDACTED_FORMAT,
@@ -196,6 +197,9 @@ class SecretMaskingFilter(logging.Filter):
             return text
 
         try:
+            if self._registry.is_capacity_exceeded():
+                return CAPACITY_EXCEEDED_MESSAGE
+
             with self._pattern_lock:
                 self._check_and_rebuild_pattern()
                 pattern = self._pattern

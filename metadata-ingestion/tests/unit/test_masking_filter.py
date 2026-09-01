@@ -19,7 +19,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datahub.masking.constants import MASKING_ERROR_MESSAGE
+from datahub.masking.constants import (
+    CAPACITY_EXCEEDED_MESSAGE,
+    MASKING_ERROR_MESSAGE,
+)
 from datahub.masking.masking_filter import (
     SecretMaskingFilter,
     StreamMaskingWrapper,
@@ -1239,6 +1242,18 @@ class TestMultiLineFragmentMasking:
 
 
 class TestFailClosed:
+    def test_capacity_exceeded_suppresses_all_output(self, monkeypatch):
+        monkeypatch.setattr(SecretRegistry, "MAX_SECRETS", 2)
+        registry = SecretRegistry()
+        registry.register_secrets_batch(
+            {f"KEY_{i}": f"secret-value-number-{i}" for i in range(3)}
+        )
+        masking_filter = SecretMaskingFilter(registry)
+        assert (
+            masking_filter.mask_text("text containing secret-value-number-2")
+            == CAPACITY_EXCEEDED_MESSAGE
+        )
+
     def test_pattern_build_failure_withholds_output(self, registry):
         registry.register_secret("S", "somesecret123")
         masking_filter = SecretMaskingFilter(registry)

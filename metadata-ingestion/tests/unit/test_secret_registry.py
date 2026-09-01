@@ -5,7 +5,12 @@ from unittest.mock import patch
 import pytest
 
 from datahub.masking import secret_registry as registry_module
-from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
+from datahub.masking.secret_registry import (
+    LARGE_SECRET_RENDERING_COUNT,
+    MAX_SECRET_VERSIONS,
+    SecretRegistry,
+    is_masking_enabled,
+)
 
 
 class TestSecretRegistrySingleton:
@@ -196,28 +201,77 @@ class TestSecretRegistryInvalidInputs:
         assert secrets["P#!ss%40word"] == "password"
 
 
-class TestSecretRegistryMaxSecrets:
-    """Test max secrets limit."""
-
-    def test_register_stops_at_max_secrets(self):
-        """Registry should stop accepting secrets after MAX_SECRETS."""
+class TestCapacityFailClosed:
+    def test_overflow_marks_registry_capacity_exceeded(self, monkeypatch):
+        monkeypatch.setattr(SecretRegistry, "MAX_SECRETS", 3)
         registry = SecretRegistry()
+        registry.register_secrets_batch(
+            {f"KEY_{i}": f"secret-value-number-{i}" for i in range(5)}
+        )
+        assert registry.is_capacity_exceeded()
+        assert len(registry.get_all_secrets()) == 3
+
+    def test_clear_resets_capacity_exceeded(self, monkeypatch):
+        monkeypatch.setattr(SecretRegistry, "MAX_SECRETS", 1)
+        registry = SecretRegistry()
+        registry.register_secrets_batch(
+            {"KEY_A": "secret-value-alpha", "KEY_B": "secret-value-beta"}
+        )
+        assert registry.is_capacity_exceeded()
         registry.clear()
+        assert not registry.is_capacity_exceeded()
 
-        # Register MAX_SECRETS
-        for i in range(SecretRegistry.MAX_SECRETS):
-            registry.register_secret(f"KEY_{i}", f"value_{i}")
 
-        secrets_at_max = registry.get_all_secrets()
-        count_at_max = len(secrets_at_max)
+class TestVersionCap:
+    def test_only_last_max_versions_stay_maskable(self):
+        registry = SecretRegistry()
+        for generation in range(MAX_SECRET_VERSIONS + 1):
+            registry.register_secret("API_KEY", f"api-key-value-gen{generation}")
+        secrets = registry.get_all_secrets()
+        assert "api-key-value-gen0" not in secrets
+        for generation in range(1, MAX_SECRET_VERSIONS + 1):
+            assert secrets[f"api-key-value-gen{generation}"] == "API_KEY"
+        assert registry.get_registered_secrets() == {
+            "API_KEY": f"api-key-value-gen{MAX_SECRET_VERSIONS}"
+        }
 
-        # Try to register one more
-        registry.register_secret("EXTRA_KEY", "extra_value")
+    def test_eviction_spares_value_retained_under_another_name(self):
+        registry = SecretRegistry()
+        registry.register_secret("NAME_A", "shared-secret-material")
+        registry.register_secret("NAME_B", "shared-secret-material")
+        for generation in range(MAX_SECRET_VERSIONS):
+            registry.register_secret("NAME_A", f"name-a-value-gen{generation}")
+        assert "shared-secret-material" in registry.get_all_secrets()
 
-        secrets_after = registry.get_all_secrets()
+    def test_eviction_without_additions_still_bumps_version(self):
+        registry = SecretRegistry()
+        registry.register_secret("NAME_B", "duplicate-value-material")
+        for generation in range(MAX_SECRET_VERSIONS):
+            registry.register_secret("NAME_A", f"name-a-value-gen{generation}")
+        version_before = registry.get_version()
+        registry.register_secret("NAME_A", "duplicate-value-material")
+        assert registry.get_version() > version_before
+        assert "name-a-value-gen0" not in registry.get_all_secrets()
 
-        # Should not have increased
-        assert len(secrets_after) == count_at_max
+    def test_reregistered_historical_value_becomes_current(self):
+        registry = SecretRegistry()
+        registry.register_secret("TOKEN", "token-value-first")
+        registry.register_secret("TOKEN", "token-value-second")
+        registry.register_secret("TOKEN", "token-value-first")
+        assert registry.get_registered_secrets() == {"TOKEN": "token-value-first"}
+        assert "token-value-second" in registry.get_all_secrets()
+
+
+class TestLargeSecretWarning:
+    def test_large_secret_warns_but_is_still_masked(self):
+        registry = SecretRegistry()
+        big_value = "\n".join(
+            f"line-number-{i:04d}-material" for i in range(LARGE_SECRET_RENDERING_COUNT)
+        )
+        with patch.object(registry_module.logger, "warning") as warning:
+            registry.register_secret("BIG_KEY", big_value)
+        assert any("unusually large" in str(call) for call in warning.call_args_list)
+        assert big_value in registry.get_all_secrets()
 
 
 class TestRegisterSecretsBatch:

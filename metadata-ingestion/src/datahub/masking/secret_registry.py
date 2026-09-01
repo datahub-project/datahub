@@ -1,6 +1,6 @@
 import os
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from datahub.masking.constants import REDACTED_PREFIX
 from datahub.masking.logging_utils import get_masking_safe_logger
@@ -9,6 +9,8 @@ logger = get_masking_safe_logger(__name__)
 
 MIN_SECRET_LENGTH = 3
 MIN_FRAGMENT_LENGTH = 8
+MAX_SECRET_VERSIONS = 3
+LARGE_SECRET_RENDERING_COUNT = 200
 
 _UNMASKABLE_LITERALS = frozenset({"true", "false", "yes", "no", "none", "null"})
 _ESCAPABLE_CHARACTERS = ("\n", "\r", "\t", "\\", '"', "'")
@@ -75,11 +77,36 @@ def maskable_renderings(value: str) -> List[str]:
     return renderings
 
 
-class SecretRegistry:
-    """Thread-safe, append-only store of secret values to mask.
+def _evict_renderings(
+    secrets: Dict[str, str],
+    history: Dict[str, List[str]],
+    evicted_values: List[str],
+) -> int:
+    """Remove renderings of evicted values, sparing any rendering still
+    produced by a value retained under some name."""
+    if not evicted_values:
+        return 0
+    retained: Set[str] = set()
+    for values in history.values():
+        for value in values:
+            retained.update(maskable_renderings(value))
+    removed = 0
+    for value in evicted_values:
+        for rendering in maskable_renderings(value):
+            if rendering not in retained and rendering in secrets:
+                del secrets[rendering]
+                removed += 1
+    return removed
 
-    Keyed by value: re-registering a name with a new value keeps the old
-    value maskable, so rotated secrets stay covered for the process lifetime.
+
+class SecretRegistry:
+    """Thread-safe store of secret values to mask.
+
+    Keyed by value: re-registering a name with a new value keeps the last
+    MAX_SECRET_VERSIONS values maskable, so recently rotated secrets stay
+    covered while the registry stays bounded. Exceeding MAX_SECRETS total
+    renderings fails closed: filters suppress all output instead of letting
+    an unregistered secret through.
     """
 
     _instance: Optional["SecretRegistry"] = None
@@ -89,8 +116,9 @@ class SecretRegistry:
 
     def __init__(self) -> None:
         self._secrets: Dict[str, str] = {}
-        self._name_to_value: Dict[str, str] = {}
+        self._name_history: Dict[str, List[str]] = {}
         self._version = 0
+        self._capacity_exceeded = False
         self._registry_lock = threading.RLock()
 
     @classmethod
@@ -125,46 +153,81 @@ class SecretRegistry:
         if not accepted:
             return
 
-        if all(
-            self._name_to_value.get(name) == value and value in self._secrets
-            for name, value in accepted.items()
-        ):
+        if all(self._is_current(name, value) for name, value in accepted.items()):
             return
 
         with self._registry_lock:
             new_secrets = self._secrets.copy()
-            new_name_to_value = self._name_to_value.copy()
+            new_history = {
+                name: list(values) for name, values in self._name_history.items()
+            }
 
-            added_count = 0
+            new_values: List[Tuple[str, str]] = []
+            evicted_values: List[str] = []
             for name, value in accepted.items():
-                if len(new_secrets) >= self.MAX_SECRETS:
-                    logger.warning(
-                        f"Secret registry at capacity ({self.MAX_SECRETS}). "
-                        f"Skipping registration of {name}"
-                    )
-                    break
-                for rendering in maskable_renderings(value):
-                    if rendering in new_secrets:
-                        continue
-                    if len(new_secrets) >= self.MAX_SECRETS:
-                        logger.warning(
-                            f"Secret registry at capacity ({self.MAX_SECRETS}). "
-                            f"Some renderings of {name} were not registered"
-                        )
-                        break
-                    new_secrets[rendering] = name
-                    added_count += 1
-                new_name_to_value[name] = value
+                history = new_history.setdefault(name, [])
+                if value in history:
+                    if history[-1] != value:
+                        history.remove(value)
+                        history.append(value)
+                    continue
+                history.append(value)
+                evicted_values.extend(history[:-MAX_SECRET_VERSIONS])
+                del history[:-MAX_SECRET_VERSIONS]
+                new_values.append((name, value))
 
-            if added_count > 0:
+            removed_count = _evict_renderings(new_secrets, new_history, evicted_values)
+            added_count = self._add_renderings(new_secrets, new_values)
+
+            if added_count or removed_count:
                 self._secrets = new_secrets
                 self._version += 1
                 logger.debug(
-                    f"Registered {added_count} maskable value(s) "
-                    f"(version {self._version})"
+                    f"Registered {added_count} and evicted {removed_count} "
+                    f"maskable value(s) (version {self._version})"
                 )
-            if new_name_to_value != self._name_to_value:
-                self._name_to_value = new_name_to_value
+            if new_history != self._name_history:
+                self._name_history = new_history
+
+    def _is_current(self, name: str, value: str) -> bool:
+        history = self._name_history.get(name)
+        return history is not None and history[-1] == value and value in self._secrets
+
+    def _add_renderings(
+        self, secrets: Dict[str, str], new_values: List[Tuple[str, str]]
+    ) -> int:
+        added = 0
+        for name, value in new_values:
+            renderings = maskable_renderings(value)
+            if len(renderings) >= LARGE_SECRET_RENDERING_COUNT:
+                logger.warning(
+                    f"Secret '{name}' is unusually large: {len(value)} characters "
+                    f"producing {len(renderings)} maskable renderings "
+                    f"(registry at {len(secrets)}/{self.MAX_SECRETS})"
+                )
+            for rendering in renderings:
+                if rendering in secrets:
+                    continue
+                if len(secrets) >= self.MAX_SECRETS:
+                    self._declare_capacity_exceeded(name)
+                    return added
+                secrets[rendering] = name
+                added += 1
+        return added
+
+    def _declare_capacity_exceeded(self, name: str) -> None:
+        if self._capacity_exceeded:
+            return
+        self._capacity_exceeded = True
+        logger.critical(
+            f"CRITICAL: Secret registry capacity ({self.MAX_SECRETS}) exceeded "
+            f"while registering '{name}'. All maskable output will be suppressed "
+            f"to avoid leaking unprotected secrets; reduce the number or size of "
+            f"configured secrets and restart the process to recover."
+        )
+
+    def is_capacity_exceeded(self) -> bool:
+        return self._capacity_exceeded
 
     def get_all_secrets(self) -> Dict[str, str]:
         with self._registry_lock:
@@ -172,7 +235,7 @@ class SecretRegistry:
 
     def get_registered_secrets(self) -> Dict[str, str]:
         with self._registry_lock:
-            return self._name_to_value.copy()
+            return {name: values[-1] for name, values in self._name_history.items()}
 
     def get_version(self) -> int:
         with self._registry_lock:
@@ -184,13 +247,15 @@ class SecretRegistry:
     def clear(self) -> None:
         with self._registry_lock:
             self._secrets = {}
-            self._name_to_value = {}
+            self._name_history = {}
+            self._capacity_exceeded = False
             self._version += 1
             logger.debug("Cleared all secrets from registry")
 
     def has_secret(self, variable_name: str) -> bool:
         with self._registry_lock:
-            return variable_name in self._name_to_value
+            return variable_name in self._name_history
 
     def get_secret_value(self, variable_name: str) -> Optional[str]:
-        return self._name_to_value.get(variable_name)
+        history = self._name_history.get(variable_name)
+        return history[-1] if history else None
