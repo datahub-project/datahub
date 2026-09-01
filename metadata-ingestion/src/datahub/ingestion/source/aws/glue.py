@@ -213,10 +213,13 @@ DYNAMODB_OUTPUT_TABLE_NAME = "dynamodb.output.tableName"
 DYNAMODB_TABLE_ARN = "dynamodb.tableArn"
 DYNAMODB_REGION = "dynamodb.region"
 DYNAMODB_STS_REGION = "dynamodb.sts.region"
+DYNAMODB_STS_ROLE_ARN = "dynamodb.sts.roleArn"
 # arn:{partition}:dynamodb:{region}:{account}:table/{table}
 DYNAMODB_TABLE_ARN_PATTERN = re.compile(
     r"^arn:aws[a-z-]*:dynamodb:([^:\s]+):(\d{12}):table/([^/\s]+)$"
 )
+# arn:{partition}:iam::{account}:role/{name}
+DYNAMODB_STS_ROLE_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:iam::(\d{12}):role/.+$")
 
 
 def _sanitize_jdbc_url(jdbc_url: str) -> str:
@@ -1463,7 +1466,14 @@ class GlueSource(StatefulIngestionSourceBase):
             ]
 
         # Mirror DynamoDB source: default platform_instance to AWS account id.
-        # ETL connector nodes often omit tableArn; fall back to catalog_id then STS.
+        # ETL connector nodes often omit tableArn; priority: ARN account > cross-account
+        # role ARN account > catalog_id > caller STS identity.
+        if not account_id:
+            role_arn = connection_options.get(DYNAMODB_STS_ROLE_ARN)
+            if role_arn:
+                role_match = DYNAMODB_STS_ROLE_ARN_PATTERN.match(str(role_arn))
+                if role_match:
+                    account_id = role_match.group(1)
         platform_instance = (
             account_id or self.source_config.catalog_id or self._get_aws_account_id()
         )

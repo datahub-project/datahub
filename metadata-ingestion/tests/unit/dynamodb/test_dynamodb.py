@@ -593,7 +593,15 @@ class TestDynamoDBS3ExportLineage:
         assert len(mcp.aspect.upstreams) == 1
         # Column lineage falls back to inferred identity mapping.
         assert mcp.aspect.fineGrainedLineages is not None
+        assert len(mcp.aspect.fineGrainedLineages) == 1
+        fgl = mcp.aspect.fineGrainedLineages[0]
+        assert fgl.upstreams == [f"urn:li:schemaField:({dataset_urn},orderId)"]
+        s3_urn = "urn:li:dataset:(urn:li:dataPlatform:s3,b/p,PROD)"
+        assert fgl.downstreams == [f"urn:li:schemaField:({s3_urn},orderId)"]
         assert source.report.s3_export_column_lineage_inferred == 1
         assert source.report.s3_export_column_lineage_resolved == 0
-        # A warning must be recorded for the graph error.
-        assert len(source.report.warnings) >= 1
+        # A warning must be recorded for the graph error, with the correct title.
+        assert any(
+            w.title == "Failed to read S3 export schema from DataHub"
+            for w in source.report.warnings
+        )

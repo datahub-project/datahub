@@ -3086,6 +3086,29 @@ def test_process_dataflow_node_dynamodb_target_platform_config() -> None:
     )
 
 
+def test_process_dataflow_node_dynamodb_cross_account_role_arn() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.input.tableName": "orders",
+            "dynamodb.sts.region": "us-east-1",
+            "dynamodb.sts.roleArn": "arn:aws:iam::111222333444:role/GlueCrossAccountRole",
+        },
+    )
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is not None
+    # Account must come from the role ARN, not the caller STS identity.
+    assert result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
+        "111222333444.us-east-1.orders,PROD)"
+    )
+
+
 def test_process_dataflow_node_dynamodb_missing_table() -> None:
     source = glue_source()
     flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"

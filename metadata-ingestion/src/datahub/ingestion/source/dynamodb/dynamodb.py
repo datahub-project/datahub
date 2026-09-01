@@ -892,10 +892,12 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                         )
                     )
             self.report.s3_export_lineage_edges += len(upstreams)
+            # is_primary_source=False keeps S3 export datasets out of stateful ingestion
+            # tracking so the DynamoDB source can't soft-delete S3 entities it doesn't own.
             yield MetadataChangeProposalWrapper(
                 entityUrn=s3_urn,
                 aspect=UpstreamLineageClass(
                     upstreams=upstreams,
                     fineGrainedLineages=fine_grained or None,
                 ),
-            ).as_workunit()
+            ).as_workunit(is_primary_source=False)
