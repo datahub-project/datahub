@@ -907,11 +907,14 @@ class PartitionDiscovery:
         column_names = []
 
         try:
-            expressions = []
-            if hasattr(partition_expr, "expressions") and partition_expr.expressions:
-                expressions = partition_expr.expressions
-            elif partition_expr:
-                expressions = [partition_expr]
+            # BigQuery PARTITION BY is always a single expression (a column, or a
+            # function of one column), never a comma-separated list. Treat the whole
+            # node as one expression and let the per-node handling below pull the column
+            # out. Do NOT expand `.expressions`: on a function such as
+            # RANGE_BUCKET(user_id, GENERATE_ARRAY(0, 100, 10)) or TIMESTAMP_TRUNC(ts, DAY)
+            # those entries are the call's arguments, so walking them invents fake
+            # partition columns (the unit, or a GENERATE_ARRAY bound like `0`).
+            expressions = [partition_expr] if partition_expr else []
 
             for expr in expressions:
                 column_name = None
