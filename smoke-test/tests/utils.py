@@ -818,6 +818,10 @@ def materialize_unique_dataset(
 
 
 def delete_urn(graph_client, urn: str) -> None:
+    # GMS rejects hard deletion of an active structured property; soft-delete first so
+    # cleanup helpers stay idempotent. Deleting a nonexistent property is still a no-op.
+    if urn.startswith("urn:li:structuredProperty:") and graph_client.exists(urn):
+        graph_client.soft_delete_entity(urn=urn)
     graph_client.hard_delete_entity(urn)
 
 

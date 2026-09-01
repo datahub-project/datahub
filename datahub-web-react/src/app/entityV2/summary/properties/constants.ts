@@ -81,3 +81,7 @@ export const SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES = [
     URN_TYPE_URN,
     DATE_TYPE_URN,
 ];
+
+/** Domain pill icon sizing in the summary properties row (Created / Owners / Domain / …). */
+export const SUMMARY_DOMAIN_ICON_SIZE = 20;
+export const SUMMARY_DOMAIN_ICON_FONT_SIZE = 12;
