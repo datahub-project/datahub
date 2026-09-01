@@ -80,31 +80,25 @@ class TokenBucket:
         self._lock = threading.Lock()
 
     def acquire(self) -> None:
-        # Compute the wait under the lock, then sleep outside it: holding the
-        # lock across time.sleep serializes concurrent callers and defeats the
-        # point of a token bucket (bursts would serialize rather than pace).
-        with self._lock:
-            now = time.monotonic()
-            elapsed = now - self._last_refill
-            self._last_refill = now
-            self._tokens = min(self.capacity, self._tokens + elapsed * self.rate)
-            if self._tokens >= 1:
-                self._tokens -= 1
-                return
-            wait = (1 - self._tokens) / self.rate
-        time.sleep(wait)
-        # Recompute from the actual wake time so the bucket reflects the real
-        # elapsed interval (which may exceed `wait` if the scheduler was late),
-        # rather than crediting exactly `wait * rate` and overshooting capacity.
-        with self._lock:
-            now = time.monotonic()
-            elapsed = now - self._last_refill
-            self._last_refill = now
-            # Preserve the fractional balance carried into the sleep rather than
-            # resetting to ``elapsed * rate``: crediting only the post-sleep
-            # interval would discard the leftover and drive ``_tokens`` negative,
-            # making the next caller over-wait.
-            self._tokens = min(self.capacity, self._tokens + elapsed * self.rate) - 1
+        # Loop so a concurrent caller that consumes the token we waited for
+        # forces a re-wait rather than driving ``_tokens`` negative: compute
+        # the wait under the lock, sleep OUTSIDE it (holding it across
+        # time.sleep serializes callers and defeats the bucket's burst
+        # behaviour), then re-acquire the lock and recheck. ``_last_refill``
+        # is advanced on every lock acquisition, so each iteration refills
+        # from the real elapsed interval (which may exceed ``wait`` if the
+        # scheduler was late), never crediting more than ``capacity``.
+        while True:
+            with self._lock:
+                now = time.monotonic()
+                elapsed = now - self._last_refill
+                self._last_refill = now
+                self._tokens = min(self.capacity, self._tokens + elapsed * self.rate)
+                if self._tokens >= 1:
+                    self._tokens -= 1
+                    return
+                wait = (1 - self._tokens) / self.rate
+            time.sleep(wait)
 
 
 class DailyCallBudgetExceeded(RuntimeError):

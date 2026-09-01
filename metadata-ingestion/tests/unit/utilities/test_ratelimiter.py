@@ -62,13 +62,16 @@ def test_token_bucket_wait_duration_matches_deficit(
 ) -> None:
     """Once the bucket is empty, the wait must be exactly the time needed to
     accumulate the missing token at the configured rate — not a fixed or
-    arbitrary backoff."""
+    arbitrary backoff. Uses a deterministic clock that advances on sleep so
+    the recheck-loop terminates after one wait."""
     sleep_calls: List[float] = []
-    monkeypatch.setattr(time, "sleep", sleep_calls.append)
+    clock = [0.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(time, "sleep", _make_deterministic_sleep(clock, sleep_calls))
 
     bucket = TokenBucket(rate=2.0, capacity=1)
     bucket.acquire()  # consumes the single burst token, no wait
-    bucket.acquire()  # empty -> waits (1 - 0) / 2.0 = 0.5s
+    bucket.acquire()  # empty -> waits (1 - 0) / 2.0 = 0.5s, then recheck + consume
 
     assert sleep_calls == [pytest.approx(0.5, abs=0.01)]
 
@@ -134,6 +137,42 @@ def test_token_bucket_preserves_fractional_leftover_across_wait(
     # On wake, elapsed=0.5 -> refill 0.5*1.0=0.5; tokens = min(2, 0.5 + 0.5) - 1 = 0.0.
     # The buggy version (discarding the leftover) would compute min(2, 0.5) - 1 = -0.5.
     assert bucket._tokens == 0.0
+
+
+def test_token_bucket_rechecks_and_rewaits_when_refill_insufficient(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The recheck-loop must not consume a token until a full token is
+    available. If the first sleep returns before a full token has accrued
+    (e.g. the scheduler woke us early, or a concurrent caller consumed the
+    refill), acquire must recompute and re-wait rather than consuming and
+    driving ``_tokens`` negative — the bug cubic flagged. The pre-loop code
+    consumed unconditionally after one sleep, so a short sleep left
+    ``_tokens`` negative."""
+    clock = [0.0]
+    sleep_calls: List[float] = []
+    # First sleep advances the clock by only 0.5s (less than the 1.0s wait),
+    # so the bucket is still < 1 on wake and must re-wait.
+    advances = [0.5, 1.0]
+
+    def _partial_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+        clock[0] += (
+            advances[len(sleep_calls) - 1]
+            if len(sleep_calls) <= len(advances)
+            else seconds
+        )
+
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(time, "sleep", _partial_sleep)
+
+    bucket = TokenBucket(rate=1.0, capacity=1)
+    bucket.acquire()  # burst token -> 0
+    bucket.acquire()  # empty: wait 1.0s, sleep advances 0.5 -> recheck -> re-wait 0.5s
+    # Two sleeps: the 1.0s wait, then a 0.5s re-wait after the short refill.
+    assert sleep_calls == [pytest.approx(1.0, abs=0.01), pytest.approx(0.5, abs=0.01)]
+    # Consumed exactly one token; never went negative.
+    assert bucket._tokens >= 0.0
 
 
 def test_token_bucket_releases_lock_during_sleep(
