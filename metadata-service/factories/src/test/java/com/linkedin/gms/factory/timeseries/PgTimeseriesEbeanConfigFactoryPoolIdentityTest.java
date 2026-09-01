@@ -44,6 +44,15 @@ public class PgTimeseriesEbeanConfigFactoryPoolIdentityTest {
   }
 
   @Test
+  public void shutdownDatabases_shutsDownEachDistinctDatabaseOnce() {
+    Database shared = mock(Database.class);
+    Database other = mock(Database.class);
+    PgTimeseriesEbeanConfigFactory.shutdownDatabases(java.util.List.of(shared, shared, other));
+    verify(shared, times(1)).shutdown();
+    verify(other, times(1)).shutdown();
+  }
+
+  @Test
   public void shutdownRegistry_shutsDownEachDistinctDatabaseOnce() {
     PgTimeseriesStoreOptions a = baseStore("a");
     PgTimeseriesStoreOptions b = baseStore("b").toBuilder().poolUrl(a.getPoolUrl()).build();

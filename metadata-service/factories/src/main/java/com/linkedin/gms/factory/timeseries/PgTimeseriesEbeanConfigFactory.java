@@ -104,42 +104,47 @@ public class PgTimeseriesEbeanConfigFactory implements DisposableBean {
     Map<String, Database> databasesByUrl = new LinkedHashMap<>();
     Map<String, PgTimeseriesStoreOptions> storeByUrl = new LinkedHashMap<>();
     Map<String, StoreHandle> handles = new LinkedHashMap<>();
-    for (PgTimeseriesStoreOptions store : options.getStores().values()) {
-      String url = resolvePoolUrl(store);
-      if (url == null || url.isBlank()) {
-        throw new IllegalStateException(
-            "pgTimeseries store '"
-                + store.getName()
-                + "' has an empty pool URL (set postgres.pgTimeseries.pool.url or the store's"
-                + " pool.url, or ebean.url)");
+    try {
+      for (PgTimeseriesStoreOptions store : options.getStores().values()) {
+        String url = resolvePoolUrl(store);
+        if (url == null || url.isBlank()) {
+          throw new IllegalStateException(
+              "pgTimeseries store '"
+                  + store.getName()
+                  + "' has an empty pool URL (set postgres.pgTimeseries.pool.url or the store's"
+                  + " pool.url, or ebean.url)");
+        }
+        String urlKey = url.trim();
+        JdbcUrlParser.JdbcInfo info = JdbcUrlParser.parseJdbcUrl(urlKey);
+        if (info.databaseType != DatabaseType.POSTGRES) {
+          throw new IllegalStateException(
+              "pgTimeseries store '" + store.getName() + "' pool URL is not PostgreSQL: " + url);
+        }
+        PgTimeseriesStoreOptions existing = storeByUrl.putIfAbsent(urlKey, store);
+        if (existing != null && !poolIdentityEquals(existing, store)) {
+          throw new IllegalStateException(
+              "pgTimeseries stores '"
+                  + existing.getName()
+                  + "' and '"
+                  + store.getName()
+                  + "' share JDBC URL "
+                  + urlKey
+                  + " but differ in credentials or pool settings; use distinct URLs or identical"
+                  + " pool configuration");
+        }
+        Database database =
+            databasesByUrl.computeIfAbsent(urlKey, u -> createDatabase(store, u, metricUtils));
+        handles.put(
+            store.getName(),
+            new StoreHandle(store, database, new PostgresTimeseriesAspectDao(database, store)));
       }
-      String urlKey = url.trim();
-      JdbcUrlParser.JdbcInfo info = JdbcUrlParser.parseJdbcUrl(urlKey);
-      if (info.databaseType != DatabaseType.POSTGRES) {
-        throw new IllegalStateException(
-            "pgTimeseries store '" + store.getName() + "' pool URL is not PostgreSQL: " + url);
-      }
-      PgTimeseriesStoreOptions existing = storeByUrl.putIfAbsent(urlKey, store);
-      if (existing != null && !poolIdentityEquals(existing, store)) {
-        throw new IllegalStateException(
-            "pgTimeseries stores '"
-                + existing.getName()
-                + "' and '"
-                + store.getName()
-                + "' share JDBC URL "
-                + urlKey
-                + " but differ in credentials or pool settings; use distinct URLs or identical"
-                + " pool configuration");
-      }
-      Database database =
-          databasesByUrl.computeIfAbsent(urlKey, u -> createDatabase(store, u, metricUtils));
-      handles.put(
-          store.getName(),
-          new StoreHandle(store, database, new PostgresTimeseriesAspectDao(database, store)));
+      PgTimeseriesStoreRegistry registry = new PgTimeseriesStoreRegistry(options, handles);
+      this.activeRegistry = registry;
+      return registry;
+    } catch (RuntimeException e) {
+      shutdownDatabases(databasesByUrl.values());
+      throw e;
     }
-    PgTimeseriesStoreRegistry registry = new PgTimeseriesStoreRegistry(options, handles);
-    this.activeRegistry = registry;
-    return registry;
   }
 
   @Override
@@ -157,14 +162,27 @@ public class PgTimeseriesEbeanConfigFactory implements DisposableBean {
       if (!seen.add(database)) {
         continue;
       }
-      try {
-        database.shutdown();
-      } catch (RuntimeException e) {
-        log.warn(
-            "Failed to shut down pgTimeseries pool for store '{}'",
-            handle.getOptions().getName(),
-            e);
+      shutdownDatabase(database, handle.getOptions().getName());
+    }
+  }
+
+  static void shutdownDatabases(@Nonnull java.util.Collection<Database> databases) {
+    Set<Database> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+    for (Database database : databases) {
+      if (seen.add(database)) {
+        shutdownDatabase(database, null);
       }
+    }
+  }
+
+  private static void shutdownDatabase(@Nonnull Database database, @Nullable String storeName) {
+    try {
+      database.shutdown();
+    } catch (RuntimeException e) {
+      log.warn(
+          "Failed to shut down pgTimeseries pool{}",
+          storeName == null ? "" : " for store '" + storeName + "'",
+          e);
     }
   }
 
