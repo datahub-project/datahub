@@ -50,6 +50,19 @@ AND total_rows > 0
 ORDER BY last_modified_time DESC
 LIMIT @max_partitions"""
 
+# The single highest populated RANGE bucket, ordered by the numeric bucket value (not by
+# last-modified). A `col >= floor` lower-bound scan is only exact at the *global* max
+# bucket; PARTITIONS_BY_MODIFIED can omit it (a rarely-modified top bucket falls outside
+# its modified-ordered LIMIT), so the range path resolves the floor with this instead.
+MAX_RANGE_PARTITION_ID = """SELECT partition_id
+FROM {info_schema_ref}
+WHERE table_name = @table_name
+AND partition_id NOT IN ('{null_id}', '{unpartitioned_id}', '{streaming_id}')
+AND total_rows > 0
+AND SAFE_CAST(partition_id AS INT64) IS NOT NULL
+ORDER BY SAFE_CAST(partition_id AS INT64) DESC
+LIMIT 1"""
+
 # Cheap probe: succeeds on an unpartitioned table, raises "requires filter over
 # column(s) ..." on a partitioned one so callers can parse the required columns.
 # Uses `SELECT 1 ... LIMIT n` rather than `SELECT COUNT(*)`: BigQuery raises the

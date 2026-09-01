@@ -713,8 +713,11 @@ def test_range_partition_uses_max_bucket_not_most_recently_modified():
     )
 
     def execute(query: str, job_config: Any, context: str) -> list:
-        # Rows in last-modified order: the mid bucket (100) was touched most recently,
-        # but 300 is the true maximum populated bucket.
+        # The numeric-max query orders by SAFE_CAST(partition_id AS INT64) DESC and returns
+        # the true top bucket (300), even though the modified-ordered fetch would surface
+        # the recently-touched mid bucket (100) first.
+        if "SAFE_CAST(partition_id AS INT64) DESC" in query:
+            return [SimpleNamespace(partition_id="300")]
         return [
             SimpleNamespace(partition_id="100"),
             SimpleNamespace(partition_id="300"),
