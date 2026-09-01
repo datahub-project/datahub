@@ -118,6 +118,12 @@ PARTITION_GRANULARITY_YEAR = "YEAR"
 
 VALID_COLUMN_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
+# Columns are always backtick-quoted, so this is looser than the strict pattern above to
+# keep leading-digit / international BigQuery names. `\w` (Unicode) still rejects space,
+# hyphen and dot: legal in a quoted name but they can smuggle comment markers past
+# FILTER_COLUMN_REF_RE, so such rare names are skipped rather than profiled.
+FLEXIBLE_COLUMN_NAME_PATTERN = re.compile(r"\w+", re.UNICODE)
+
 # BigQuery project ID: lowercase letters, numbers, hyphens; 6-30 chars.
 PROJECT_ID_RE = re.compile(r"^[a-z][a-z0-9-]*[a-z0-9]$")
 
@@ -150,16 +156,9 @@ SQL_DANGEROUS_PATTERNS = [
         r"\bEXPORT\s+DATA\b",
         r"\bLOAD\s+DATA\b",
         r";\s*(?:CREATE|DROP|ALTER|INSERT|UPDATE|DELETE|GRANT|REVOKE|TRUNCATE|MERGE|EXEC(?:UTE)?|CALL|EXPORT|LOAD)",
-        r"<script[^>]*>",
-        r"javascript:",
-        r"vbscript:",
-        # URI-scheme markers. These are only scanned against the literal-masked query
-        # (see security.mask_string_literals), so a `data:`/`javascript:` substring
-        # inside a quoted value such as a GCS URI is inert and no longer rejected; only
-        # an occurrence outside any string literal is flagged.
-        r"data:",
-        r"/\*.*(?:union|select|insert|update|delete|drop|create|alter).*\*/",
-        r"--.*(?:union|select|insert|update|delete|drop|create|alter)",
+        # No XSS/URI-scheme markers or comment-body keyword scans: they don't parse as
+        # BigQuery SQL and only produced false positives. Stacked statements are caught by
+        # the single-statement guard in validate_sql_structure.
     ]
 ]
 
@@ -180,24 +179,21 @@ FILTER_DANGEROUS_PATTERNS = [
         r";\s*(?:DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|TRUNCATE|MERGE|GRANT|REVOKE|EXEC(?:UTE)?|CALL|EXPORT|LOAD)\s+",
         r"UNION\s+(?:(?:ALL|DISTINCT)\s+)?SELECT",
         r"--",
-        # BigQuery '#' line comment. Scanned only against the literal-masked filter
-        # (see security.mask_string_literals), so a '#' inside a quoted STRING/Hive
-        # partition value is inert and no longer rejected. A '#' outside a literal — a
-        # value that managed to close its quote and append '# ...' — is still caught,
-        # though FilterBuilder's literal encoder escapes quotes so that cannot happen.
+        # '#' / '--' / '/*' are scanned on the literal-masked filter, so a comment marker
+        # inside a quoted STRING/Hive value is inert; only one outside a literal is caught.
         r"#",
         r"/\*",
-        # xp_cmdshell / sp_executesql intentionally omitted: they are SQL Server
-        # builtins with no meaning in BigQuery and are valid STRING/Hive partition
-        # values, so matching them here would reject legitimate partition filters.
+        # xp_cmdshell / sp_executesql omitted: SQL Server builtins that are valid partition
+        # values in BigQuery, so matching them would reject legitimate filters.
         r"<script",
         r"javascript:",
         r"eval\s*\(",
     ]
 ]
 
-# A valid backtick-quoted column reference inside a filter expression.
-FILTER_COLUMN_REF_RE = re.compile(r"`[a-zA-Z_][a-zA-Z0-9_]*`")
+# Backtick-quoted column reference in a filter. Must share FLEXIBLE_COLUMN_NAME_PATTERN's
+# `\w+` grammar so a column that passed validation isn't rejected here.
+FILTER_COLUMN_REF_RE = re.compile(r"`\w+`", re.UNICODE)
 
 # Same, but captures the column name (without backticks).
 BACKTICK_COLUMN_NAME_RE = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*)`")
