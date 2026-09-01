@@ -2054,3 +2054,45 @@ combine-as-imports = true
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "src/datahub/configuration/pydantic_migration_helpers.py" = ["TID251"]  # Intentional V1 imports for backward compatibility
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "-ra -v --continue-on-collection-errors --strict-markers -p no:faker --junit-xml=test-results/junit.full.xml"
+junit_suite_name = "metadata-ingestion-pytest"
+testpaths = [
+    "tests/unit",
+    "tests/integration",
+    "tests/performance",
+]
+markers = [
+    "slow: marks tests that are slow to run, including all docker-based tests (deselect with '-m not slow')",
+    "integration: marks all integration tests, across all batches (deselect with '-m \"not integration\"')",
+    "integration_batch_0: mark tests to run in batch 0 of integration tests. This is done mainly for parallelization in CI. Batch 0 is the default batch.",
+    "integration_batch_1: mark tests to run in batch 1 of integration tests",
+    "integration_batch_2: mark tests to run in batch 2 of integration tests",
+    "integration_batch_3: mark tests to run in batch 3 of integration tests",
+    "integration_batch_4: mark tests to run in batch 4 of integration tests",
+    "integration_batch_5: mark tests to run in batch 5 of integration tests",
+    "integration_batch_recording: mark recording/replay tests that require isolated execution to avoid module patching interference from other tests",
+    "integration_no_balance: pin a connector/test to its existing integration_batch_N marker so it is excluded from weight-based rebalancing (rare; use only when a connector cannot move batches). Batch assignment for non-pinned tests is dynamic via conftest.py bin-packing.",
+    "perf: marks performance benchmarks (deselect with '-m \"not perf\"')",
+    "degraded: marks tests covering graceful-fallback behaviour for undesired but possible failure scenarios (deselect with '-m \"not degraded\"')",
+]
+filterwarnings = [
+    # Ignore some warnings that come from dependencies.
+    "ignore:Deprecated call to `pkg_resources.declare_namespace:DeprecationWarning",
+    "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
+    "ignore:Did not recognize type:sqlalchemy.exc.SAWarning",
+    "ignore::datahub.configuration.common.ConfigurationWarning",
+    "ignore:The new datahub SDK:datahub.errors.ExperimentalWarning",
+    # We should not be unexpectedly seeing API tracing warnings.
+    "error::datahub.errors.APITracingWarning",
+]
+# Captured logs (shown on failure) stay at INFO. DEBUG goes to the file under
+# test-results/, which Metadata Ingestion CI uploads as an artifact.
+# log_cli is intentionally off so passing tests do not stream INFO into CI job logs.
+log_level = "INFO"
+log_file = "test-results/pytest-debug.log"
+log_file_level = "DEBUG"
+log_format = "[%(asctime)s] %(levelname)-8s {%(name)s:%(lineno)d} - %(message)s"
+

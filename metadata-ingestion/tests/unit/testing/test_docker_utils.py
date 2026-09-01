@@ -40,6 +40,7 @@ def test_wait_for_port_dumps_logs_when_not_ready(mock_run: MagicMock) -> None:
     assert mock_run.call_args.args[0] == ["docker", "logs", "nifi1"]
     assert mock_run.call_args.kwargs["capture_output"] is True
     assert mock_run.call_args.kwargs["text"] is True
+    assert mock_run.call_args.kwargs["timeout"] == 10
 
 
 @patch("datahub.testing.docker_utils.subprocess.run")
@@ -49,6 +50,22 @@ def test_wait_for_port_still_raises_original_when_log_dump_fails(
     mock_run.return_value = MagicMock(
         returncode=1, stdout="", stderr="No such container"
     )
+
+    with pytest.raises(RuntimeError, match="timeout"):
+        wait_for_port(
+            docker_services=_unready_services(),
+            container_name="nifi1",
+            container_port=8080,
+        )
+
+    mock_run.assert_called_once()
+
+
+@patch("datahub.testing.docker_utils.subprocess.run")
+def test_wait_for_port_still_raises_original_when_log_dump_raises(
+    mock_run: MagicMock,
+) -> None:
+    mock_run.side_effect = UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid")
 
     with pytest.raises(RuntimeError, match="timeout"):
         wait_for_port(

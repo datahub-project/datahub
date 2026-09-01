@@ -16,7 +16,7 @@ import time_machine
 os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 os.environ["DATAHUB_TEST_MODE"] = "1"
 
-# Pytest log_file in setup.cfg is relative to cwd (metadata-ingestion/).
+# Pytest log_file in pyproject.toml is relative to cwd (metadata-ingestion/).
 pathlib.Path("test-results").mkdir(exist_ok=True)
 
 # Disable telemetry
