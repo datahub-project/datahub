@@ -158,24 +158,9 @@ public final class PgTimeseriesStoreConnections {
   @Nullable
   static String inferCloudProvider(
       @Nullable DataSourceBuilder.Settings cfg, @Nullable String jdbcUrl) {
-    if (cfg != null) {
-      Map<String, String> custom = cfg.getCustomProperties();
-      if (custom != null) {
-        String wrapperPlugins = custom.get("wrapperPlugins");
-        if (wrapperPlugins != null
-            && Arrays.stream(wrapperPlugins.split(","))
-                .map(String::trim)
-                .anyMatch("iam"::equalsIgnoreCase)) {
-          return "aws";
-        }
-        if ("true".equalsIgnoreCase(custom.get("enableIamAuth"))) {
-          return "gcp";
-        }
-      }
-      String driver = cfg.getDriver();
-      if (driver != null && driver.contains("cloud.sql")) {
-        return "gcp";
-      }
+    String fromEbean = inferCloudProviderFromEbeanSettings(cfg);
+    if (fromEbean != null) {
+      return fromEbean;
     }
     if (jdbcUrl != null) {
       if (jdbcUrl.contains("rds.amazonaws.com") || jdbcUrl.contains("amazonaws.com")) {
@@ -184,6 +169,32 @@ public final class PgTimeseriesStoreConnections {
       if (jdbcUrl.contains("googleapis.com") || jdbcUrl.contains("cloudsql")) {
         return "gcp";
       }
+    }
+    return null;
+  }
+
+  @Nullable
+  private static String inferCloudProviderFromEbeanSettings(
+      @Nullable DataSourceBuilder.Settings cfg) {
+    if (cfg == null) {
+      return null;
+    }
+    Map<String, String> custom = cfg.getCustomProperties();
+    if (custom != null) {
+      String wrapperPlugins = custom.get("wrapperPlugins");
+      if (wrapperPlugins != null
+          && Arrays.stream(wrapperPlugins.split(","))
+              .map(String::trim)
+              .anyMatch("iam"::equalsIgnoreCase)) {
+        return "aws";
+      }
+      if ("true".equalsIgnoreCase(custom.get("enableIamAuth"))) {
+        return "gcp";
+      }
+    }
+    String driver = cfg.getDriver();
+    if (driver != null && driver.contains("cloud.sql")) {
+      return "gcp";
     }
     return null;
   }
@@ -224,21 +235,7 @@ public final class PgTimeseriesStoreConnections {
     if (cfg == null) {
       return false;
     }
-    Map<String, String> custom = cfg.getCustomProperties();
-    if (custom != null) {
-      String wrapperPlugins = custom.get("wrapperPlugins");
-      if (wrapperPlugins != null
-          && Arrays.stream(wrapperPlugins.split(","))
-              .map(String::trim)
-              .anyMatch("iam"::equalsIgnoreCase)) {
-        return true;
-      }
-      if ("true".equalsIgnoreCase(custom.get("enableIamAuth"))) {
-        return true;
-      }
-    }
-    String driver = cfg.getDriver();
-    if (driver != null && driver.contains("cloud.sql")) {
+    if (inferCloudProviderFromEbeanSettings(cfg) != null) {
       return true;
     }
     String dsUrl = cfg.getUrl();

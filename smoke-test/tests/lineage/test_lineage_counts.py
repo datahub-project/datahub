@@ -111,6 +111,7 @@ def _wait_for_upstream_column_count(
     """Poll until fine-grained column lineage is visible in the graph index."""
     sleep_sec, sleep_times = get_sleep_info()
     last_count = 0
+    last_exc: Optional[GraphError] = None
     for attempt in range(sleep_times):
         try:
             last_count = count_upstream_columns(
@@ -121,17 +122,20 @@ def _wait_for_upstream_column_count(
                 or_filters=or_filters,
                 lineage_flags=lineage_flags,
             )
+            last_exc = None
         except GraphError as exc:
             logger.warning("Lineage counts query failed during wait; retrying: %s", exc)
             last_count = 0
+            last_exc = exc
         if last_count >= min_count:
             return
         if attempt < sleep_times - 1:
             time.sleep(sleep_sec)
 
-    raise AssertionError(
-        f"Lineage count for {urn} did not reach {min_count} (last count={last_count})"
-    )
+    msg = f"Lineage count for {urn} did not reach {min_count} (last count={last_count})"
+    if last_exc is not None:
+        msg = f"{msg}; last error: {last_exc}"
+    raise AssertionError(msg)
 
 
 @pytest.fixture(scope="module")

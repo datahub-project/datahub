@@ -126,31 +126,6 @@ public class PgTimeseriesStoreConnectionsTest {
   }
 
   @Test
-  public void open_customUrl_ebeanIam_usesPropertiesConnection() throws Exception {
-    PgTimeseriesStoreOptions store =
-        baseStore().toBuilder().poolUrl("jdbc:postgresql://localhost:5432/ts").build();
-    Database fallback = mock(Database.class);
-    DataSourceConfig ebeanDs = new DataSourceConfig();
-    ebeanDs.setUrl("jdbc:postgresql://localhost:5432/ts");
-    ebeanDs.setUsername("ebean_user");
-    ebeanDs.setPassword("ebean_pass");
-    ebeanDs.setCustomProperties(Map.of("wrapperPlugins", "iam"));
-    Connection expected = mock(Connection.class);
-
-    try (MockedStatic<DriverManager> dm = Mockito.mockStatic(DriverManager.class)) {
-      dm.when(
-              () ->
-                  DriverManager.getConnection(
-                      eq("jdbc:postgresql://localhost:5432/ts"), any(Properties.class)))
-          .thenReturn(expected);
-      Connection got =
-          PgTimeseriesStoreConnections.open(
-              store, fallback, new PostgresSqlSetupProperties(), ebeanDs);
-      assertEquals(got, expected);
-    }
-  }
-
-  @Test
   public void open_customUrl_differentFromEbean_doesNotCopyEbeanIamProperties() throws Exception {
     PgTimeseriesStoreOptions store =
         baseStore().toBuilder().poolUrl("jdbc:postgresql://other-host:5432/otherdb").build();

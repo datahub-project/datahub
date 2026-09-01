@@ -1341,6 +1341,51 @@ public class UpdateIndicesV2StrategyTest {
   }
 
   @Test
+  public void testThrottle_TimeseriesDeleteSuppressesTimeseriesWriteWhenThrottled()
+      throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(false, true, false);
+    TimeseriesAspectWriteSink sink = mock(TimeseriesAspectWriteSink.class);
+    UpdateIndicesV2Strategy throttledStrategy =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            null,
+            mock(IndexConvention.class),
+            true,
+            mockMappingsBuilder,
+            cache);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(false);
+
+    MCLItem deleteEvent = mock(MCLItem.class);
+    when(deleteEvent.getUrn()).thenReturn(testUrn);
+    when(deleteEvent.getEntitySpec()).thenReturn(mockEntitySpec);
+    when(deleteEvent.getAspectSpec()).thenReturn(mockAspectSpec);
+    when(deleteEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(deleteEvent.getPreviousRecordTemplate()).thenReturn(null);
+    when(deleteEvent.getAspectName()).thenReturn("datasetProfile");
+    when(deleteEvent.getAuditStamp()).thenReturn(mockAuditStamp);
+    MetadataChangeLog deleteMcl = mock(MetadataChangeLog.class);
+    when(deleteMcl.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(deleteEvent.getMetadataChangeLog()).thenReturn(deleteMcl);
+
+    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+
+    throttledStrategy.processBatch(operationContext, groupedFor(List.of(deleteEvent)), false);
+
+    verify(sink, never())
+        .deleteByUrn(
+            eq(operationContext), eq("dataset"), eq("datasetProfile"), eq(testUrn.toString()));
+  }
+
+  @Test
   public void testThrottle_ObserveModeDoesNotSuppressWrites() throws Exception {
     TimeseriesWriteThrottleCache cache = buildThrottleCache(false, false, true);
     UpdateIndicesV2Strategy throttledStrategy = strategyWithThrottle(cache);

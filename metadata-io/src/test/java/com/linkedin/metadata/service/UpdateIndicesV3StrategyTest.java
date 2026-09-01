@@ -1232,14 +1232,6 @@ public class UpdateIndicesV3StrategyTest {
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
     when(mockEvent.getAspectName()).thenReturn("datasetProfile");
     when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
-    when(searchDocumentTransformer.transformAspect(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(RecordTemplate.class),
-            any(AspectSpec.class),
-            anyBoolean(),
-            any(AuditStamp.class)))
-        .thenReturn(Optional.of(mockSearchDocument));
 
     try (var transformer = mockStatic(TimeseriesAspectTransformer.class);
         var util = mockStatic(UpdateIndicesUtil.class)) {
@@ -1278,14 +1270,6 @@ public class UpdateIndicesV3StrategyTest {
     when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
     when(mockEvent.getPreviousRecordTemplate()).thenReturn(mockAspect);
     when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(true);
-    when(searchDocumentTransformer.transformAspect(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(RecordTemplate.class),
-            any(AspectSpec.class),
-            anyBoolean(),
-            any(AuditStamp.class)))
-        .thenReturn(Optional.of(mockSearchDocument));
 
     try (var transformer = mockStatic(TimeseriesAspectTransformer.class);
         var util = mockStatic(UpdateIndicesUtil.class)) {
@@ -1302,5 +1286,41 @@ public class UpdateIndicesV3StrategyTest {
     }
     verify(sink, never())
         .deleteDocument(any(), anyString(), anyString(), anyString(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testProcessBatch_timeseriesJsonFailure_continuesWhenSoftMode() throws Exception {
+    TimeseriesAspectWriteSink sink = mock(TimeseriesAspectWriteSink.class);
+    when(sink.failOnError()).thenReturn(false);
+    when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(false);
+    UpdateIndicesV3Strategy softStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            false,
+            null);
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+
+    try (var transformer = mockStatic(TimeseriesAspectTransformer.class);
+        var util = mockStatic(UpdateIndicesUtil.class)) {
+      util.when(() -> UpdateIndicesUtil.extractSpecPair(any()))
+          .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
+      transformer
+          .when(() -> TimeseriesAspectTransformer.transform(any(), any(), any(), any(), any()))
+          .thenThrow(new JsonProcessingException("boom") {});
+      Map<Urn, List<MCLItem>> groupedEvents =
+          Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+      softStrategy.processBatch(operationContext, groupedEvents, true);
+    }
+    verify(sink, never()).upsertDocument(any(), anyString(), anyString(), anyString(), any());
+    verify(timeseriesAspectService, never())
+        .upsertDocument(any(), anyString(), anyString(), anyString(), any());
   }
 }
