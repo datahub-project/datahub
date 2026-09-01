@@ -13,6 +13,7 @@ import {
     OptionContainer,
     OptionLabel,
     OptionList,
+    Required,
     SelectBase,
     SelectLabel,
     SelectLabelContainer,
@@ -197,7 +198,11 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
 
     return (
         <Container ref={selectRef} size={size || 'md'} width={props.width} $minWidth={props.minWidth}>
-            {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
+            {label && (
+                <SelectLabel onClick={handleSelectClick}>
+                    {label} {isRequired && <Required>*</Required>}
+                </SelectLabel>
+            )}
             {isVisible && (
                 <Dropdown
                     open={isOpen}

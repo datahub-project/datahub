@@ -227,6 +227,10 @@ export const HighlightedLabel = styled.span`
     color: ${(props) => props.theme?.colors?.textSecondary};
 `;
 
+export const Required = styled.span(({ theme }) => ({
+    color: theme.colors.textError,
+}));
+
 export const StyledBubbleButton = styled(Button)(({ theme }) => ({
     backgroundColor: theme?.colors?.bgHover,
     border: `1px solid ${theme?.colors?.bgHover}`,
