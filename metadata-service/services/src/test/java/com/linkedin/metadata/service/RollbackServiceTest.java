@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -317,6 +318,98 @@ public class RollbackServiceTest {
 
     // Verify we processed all rollback results
     assertEquals(firstRollbackResults.size() + secondRollbackResults.size(), 3);
+  }
+
+  @Test
+  public void testRollbackIngestion_MultiPageUnsafeEntitiesCoverAllPages()
+      throws AuthenticationException {
+    // Prove affected/unsafe entity math spans every page, not just the last. First page carries
+    // a key aspect for urn1; second page carries a key aspect for urn3. After the while-loop the
+    // last aspectRowsToDelete is empty, so a last-page-only keyAspects derivation would miss
+    // both — unsafeEntitiesCount would be 0. allKeyAspects must accumulate across pages.
+    List<AspectRowSummary> firstPageAspects = createTestAspectRows(true); // keys for urn1, urn2
+    AspectRowSummary extra = new AspectRowSummary();
+    extra.setUrn(TEST_URN_2);
+    extra.setAspectName("datasetProperties");
+    extra.setRunId(TEST_RUN_ID);
+    extra.setKeyAspect(false);
+    firstPageAspects.add(extra);
+
+    List<AspectRowSummary> secondPageAspects = createMoreTestAspectRows(); // key for urn3
+
+    when(mockSystemMetadataService.findByRunId(
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            anyInt(),
+            eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(firstPageAspects)
+        .thenReturn(secondPageAspects)
+        .thenReturn(new ArrayList<>());
+
+    RollbackRunResult firstRunResult =
+        new RollbackRunResult(firstPageAspects, 0, Collections.emptyList());
+    RollbackRunResult secondRunResult =
+        new RollbackRunResult(secondPageAspects, 0, Collections.emptyList());
+    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+        .thenReturn(firstRunResult)
+        .thenReturn(secondRunResult)
+        .thenReturn(new RollbackRunResult(Collections.emptyList(), 0, Collections.emptyList()));
+
+    DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
+    timeseriesResult.setNumDocsDeleted(0L);
+    when(mockTimeseriesAspectService.rollbackTimeseriesAspects(
+            eq(operationContext), eq(TEST_RUN_ID)))
+        .thenReturn(timeseriesResult);
+
+    // For each key-aspect URN, return one referencing aspect from a different run — this is
+    // what makes the URN "unsafe". Use a distinct runId so the filter (!runId.equals(runId))
+    // keeps it.
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class),
+            eq(TEST_URN_1),
+            eq(false),
+            eq(0),
+            eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(unsafeRow(TEST_URN_1, "other-run"));
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class),
+            eq(TEST_URN_2),
+            eq(false),
+            eq(0),
+            eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(unsafeRow(TEST_URN_2, "other-run"));
+    String testUrn3 = "urn:li:dataset:(urn:li:dataPlatform:hive,test-dataset-3,PROD)";
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class),
+            eq(testUrn3),
+            eq(false),
+            eq(0),
+            eq(MAX_SEARCH_RESULTS)))
+        .thenReturn(unsafeRow(testUrn3, "other-run"));
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(
+            operationContext,
+            TEST_RUN_ID,
+            false, // dryRun
+            true, // hardDelete
+            null);
+
+    // urn1 (page 1 only) and urn3 (page 2 only) must both show up as unsafe. A last-page-only
+    // derivation would miss urn1 entirely.
+    assertEquals(response.getUnsafeEntitiesCount(), 3);
+    assertTrue(response.getUnsafeEntities().stream().anyMatch(u -> u.getUrn().equals(TEST_URN_1)));
+    assertTrue(response.getUnsafeEntities().stream().anyMatch(u -> u.getUrn().equals(testUrn3)));
+  }
+
+  private static List<AspectRowSummary> unsafeRow(String urn, String runId) {
+    AspectRowSummary row = new AspectRowSummary();
+    row.setUrn(urn);
+    row.setAspectName("datasetProperties");
+    row.setRunId(runId);
+    row.setKeyAspect(false);
+    return new ArrayList<>(Collections.singletonList(row));
   }
 
   @Test
