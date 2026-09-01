@@ -142,6 +142,13 @@ public class MultiEntityMappingsBuilderTest {
     assertTrue(
         mappingProperties.containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD),
         "Should include structured properties field");
+    Map<String, Object> structuredPropsMapping =
+        (Map<String, Object>) mappingProperties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    assertEquals(
+        structuredPropsMapping.get("dynamic"),
+        false,
+        "structuredProperties root must have dynamic=false so unmapped property values stay"
+            + " unindexed instead of being dynamic-mapped as text");
   }
 
   @Test
