@@ -818,7 +818,18 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         """
         if not self.ctx.graph:
             return None
-        schema_metadata = self.ctx.graph.get_schema_metadata(s3_urn)
+        try:
+            schema_metadata = self.ctx.graph.get_schema_metadata(s3_urn)
+        except Exception as e:
+            # A GMS/network error must not abort lineage emit — fall back to inferred mapping.
+            self.report.warning(
+                title="Failed to read S3 export schema from DataHub",
+                message="Could not fetch the S3 export dataset's schema from DataHub; will fall "
+                "back to inferred identity column mapping.",
+                context=s3_urn,
+                exc=e,
+            )
+            return None
         if not schema_metadata:
             return None
         resolved: Dict[str, str] = {}

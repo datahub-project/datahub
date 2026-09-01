@@ -554,3 +554,46 @@ class TestDynamoDBS3ExportLineage:
         assert fgl.downstreams == [
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,b/p,PROD),OrderId)"
         ]
+
+    def test_column_lineage_graph_error_falls_back_to_inferred(
+        self, mock_context, lineage_config
+    ):
+        # When get_schema_metadata raises (e.g. GMS network error), _emit_s3_export_lineage
+        # must still emit the table-level COPY edge and fall back to inferred identity mapping
+        # rather than aborting.
+        lineage_config.include_s3_export_column_lineage = True
+        mock_context.graph = MagicMock()
+        mock_context.graph.get_schema_metadata.side_effect = Exception("GMS error")
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [
+                {"ExportArn": "arn:export/1", "ExportStatus": "COMPLETED"}
+            ]
+        }
+        mock_client.describe_export.return_value = {
+            "ExportDescription": {"S3Bucket": "b", "S3Prefix": "p"}
+        }
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)"
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/x",
+            dataset_urn=dataset_urn,
+            dataset_name="us-west-2.x",
+            field_paths=["orderId"],
+        )
+        workunits = list(source._emit_s3_export_lineage())
+        # Table-level COPY edge must be present.
+        assert len(workunits) == 1
+        mcp = workunits[0].metadata
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
+        assert isinstance(mcp.aspect, UpstreamLineageClass)
+        assert len(mcp.aspect.upstreams) == 1
+        # Column lineage falls back to inferred identity mapping.
+        assert mcp.aspect.fineGrainedLineages is not None
+        assert source.report.s3_export_column_lineage_inferred == 1
+        assert source.report.s3_export_column_lineage_resolved == 0
+        # A warning must be recorded for the graph error.
+        assert len(source.report.warnings) >= 1
