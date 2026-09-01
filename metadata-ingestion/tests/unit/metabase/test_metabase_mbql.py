@@ -884,25 +884,106 @@ def test_input_fields_skip_unresolved_column_across_joined_tables(
 @patch("requests.delete")
 @patch("requests.Session.get")
 @patch("requests.post")
-def test_input_fields_attribute_unresolved_column_for_single_source(
+def test_input_fields_recover_name_based_column_but_not_computed(
     mock_post, mock_get, mock_delete
 ):
-    """With a single source table, an unresolved column is safely attributed to it."""
+    """On a single-source card an unresolved name-based field ref is recovered by name,
+    but a computed output (aggregation) is not invented as a same-name source column."""
     src = _make_source(mock_post, mock_get, mock_delete)
-    src._get_mbql_context = MagicMock(return_value=MagicMock())  # type: ignore[method-assign]
-    src.get_datasource_urn = MagicMock(return_value=[FILM_TABLE_URN])  # type: ignore[method-assign]
+    ctx_mock = MagicMock()
+    ctx_mock.single_source_urn = FILM_TABLE_URN
+    src._get_mbql_context = MagicMock(return_value=ctx_mock)  # type: ignore[method-assign]
+    src._resolve_field_ref_upstream_urns = MagicMock(return_value=[])  # type: ignore[method-assign]
 
     card = MetabaseCard(
         id=8,
         name="Single",
         database_id=5,
         dataset_query=MetabaseDatasetQuery(type="query", query={"source-table": 21}),
-        result_metadata=[MetabaseResultMetadata(name="rating", base_type="type/Text")],
+        result_metadata=[
+            MetabaseResultMetadata(
+                name="rating", field_ref=["field", "rating", {"base-type": "type/Text"}]
+            ),
+            MetabaseResultMetadata(name="count", field_ref=["aggregation", 0]),
+        ],
     )
 
     fields = src._get_input_fields_from_card(card)
     assert len(fields) == 1
     assert fields[0].schemaFieldUrn == _sf(FILM_TABLE_URN, "rating")
+    src.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_mbql_context_multi_table_drops_named_refs(mock_post, mock_get, mock_delete):
+    """A join card that references a column only by name cannot pin it to one of the
+    joined tables, so it is counted as dropped and a warning is emitted."""
+    src = _make_source(mock_post, mock_get, mock_delete)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
+    src.get_field_from_id = MagicMock(return_value=None)  # type: ignore[method-assign]
+
+    card = MetabaseCard(
+        id=9,
+        name="Joined",
+        database_id=5,
+        dataset_query=MetabaseDatasetQuery(
+            type="query",
+            query={
+                "source-table": 21,
+                "joins": [{"source-table": 22, "alias": "c"}],
+                "fields": [["field", "region", None]],
+            },
+        ),
+        result_metadata=[
+            MetabaseResultMetadata(name="region", field_ref=["field", "region", None])
+        ],
+    )
+
+    ctx = src._get_mbql_context(card)
+    assert ctx is not None
+    assert ctx.single_source_urn is None
+    assert src.report.mbql_field_refs_by_name_dropped > 0
+    src.close()
+
+
+@patch("requests.delete")
+@patch("requests.Session.get")
+@patch("requests.post")
+def test_mbql_context_failed_join_not_treated_as_single_source(
+    mock_post, mock_get, mock_delete
+):
+    """A card declaring a join whose table lookup fails must not look single-source:
+    single_source_urn stays unset even though only one URN resolves."""
+    src = _make_source(mock_post, mock_get, mock_delete)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
+    src.get_field_from_id = MagicMock(return_value=None)  # type: ignore[method-assign]
+    # Only table 21 resolves; the joined table 22 lookup fails.
+    src.get_source_table_from_id = MagicMock(  # type: ignore[method-assign]
+        side_effect=lambda tid: ("public", "film") if tid == 21 else (None, None)
+    )
+
+    card = MetabaseCard(
+        id=10,
+        name="FailedJoin",
+        database_id=5,
+        dataset_query=MetabaseDatasetQuery(
+            type="query",
+            query={
+                "source-table": 21,
+                "joins": [{"source-table": 22, "alias": "c"}],
+                "fields": [["field", "amount", None]],
+            },
+        ),
+        result_metadata=[
+            MetabaseResultMetadata(name="amount", field_ref=["field", "amount", None])
+        ],
+    )
+
+    ctx = src._get_mbql_context(card)
+    assert ctx is not None
+    assert ctx.single_source_urn is None
     src.close()
 
 

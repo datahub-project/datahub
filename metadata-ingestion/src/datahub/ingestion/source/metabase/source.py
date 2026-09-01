@@ -68,6 +68,7 @@ from datahub.ingestion.source.metabase.constants import (
 from datahub.ingestion.source.metabase.mbql import (
     _extract_field_ids_from_mbql,
     extract_mbql_field_refs,
+    name_based_field_name,
 )
 from datahub.ingestion.source.metabase.models import (
     DatasourceInfo,
@@ -836,10 +837,15 @@ class MetabaseSource(StatefulIngestionSourceBase):
         # Leave single_source_urn unset for pass-through cards so their recovery stays on
         # the _get_passthrough_cll path (COPY semantics); the by-name fallback that uses
         # this only applies to non-pass-through single-source query-builder cards.
+        # Gate on the number of *declared* source tables (source-table + joins), not the
+        # count of successfully resolved URNs: a card that declares a join whose table
+        # lookup fails would otherwise look single-source and get name-only columns
+        # misattributed to the one table that did resolve.
         single_source_urn = (
             datasource_urns[0]
             if not query.is_passthrough()
-            and datasource_urns
+            and datasource_urns is not None
+            and len(query.source_table_refs) == 1
             and len(datasource_urns) == 1
             else None
         )
@@ -941,11 +947,13 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     meta.field_ref, ctx
                 )
                 if not upstream_urns and single_source_urn:
-                    upstream_urns = [
-                        builder.make_schema_field_urn(
-                            parent_urn=single_source_urn, field_path=meta.name
-                        )
-                    ]
+                    name_ref = name_based_field_name(meta.field_ref)
+                    if name_ref:
+                        upstream_urns = [
+                            builder.make_schema_field_urn(
+                                parent_urn=single_source_urn, field_path=name_ref
+                            )
+                        ]
                 if upstream_urns:
                     fine_grained.append(
                         self._fine_grained_field(
@@ -1347,15 +1355,17 @@ class MetabaseSource(StatefulIngestionSourceBase):
                             self._create_input_field(upstream_urn, meta)
                         )
                 else:
-                    # Unresolved column: only attribute it when there's a single
-                    # source table; pinning it across joined tables would misattribute.
-                    datasource_urns = self.get_datasource_urn(card)
-                    if datasource_urns and len(datasource_urns) == 1:
+                    # Unresolved column: only recover a genuine name-based field ref,
+                    # and only on a single declared source table (ctx.single_source_urn).
+                    # Aggregation/expression outputs carry no such source column, and a
+                    # card with joins would misattribute the name across tables.
+                    name_ref = name_based_field_name(meta.field_ref)
+                    if ctx.single_source_urn and name_ref:
                         input_fields.append(
                             self._create_input_field(
                                 builder.make_schema_field_urn(
-                                    parent_urn=datasource_urns[0],
-                                    field_path=meta.name,
+                                    parent_urn=ctx.single_source_urn,
+                                    field_path=name_ref,
                                 ),
                                 meta,
                             )

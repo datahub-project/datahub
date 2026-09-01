@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 from datahub.ingestion.source.metabase.constants import _MBQL_REF_FIELD
 
@@ -38,3 +38,18 @@ def extract_mbql_field_refs(clause: object) -> MBQLFieldRefs:
 def _extract_field_ids_from_mbql(clause: object) -> List[int]:
     """Return only the id-based field refs from an MBQL clause."""
     return extract_mbql_field_refs(clause).ids
+
+
+def name_based_field_name(field_ref: object) -> Optional[str]:
+    # A name-only recovery is only valid for a top-level name-based field ref
+    # (["field", "col", {...}]). Aggregation/expression outputs (["aggregation", 0],
+    # ["expression", "x"]) and unknown ref shapes carry no source column of that
+    # name, so returning None keeps callers from inventing lineage like film.count.
+    if (
+        isinstance(field_ref, list)
+        and len(field_ref) >= 2
+        and field_ref[0] == _MBQL_REF_FIELD
+        and isinstance(field_ref[1], str)
+    ):
+        return field_ref[1]
+    return None
