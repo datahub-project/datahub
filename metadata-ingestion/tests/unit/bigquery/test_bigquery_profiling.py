@@ -8,11 +8,15 @@ import pytest
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    RANGE_PARTITION_NAME,
     BigqueryTable,
     PartitionInfo,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
+)
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.info_schema import (
+    InfoSchemaQueries,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
@@ -871,3 +875,79 @@ def test_sampling_uses_known_columns_when_info_schema_unavailable():
     assert filters is not None and len(filters) == 1
     assert "event_date" in filters[0]
     assert "2024-11-20" in filters[0]
+
+
+def test_strategic_candidate_path_emits_half_open_range_for_timestamp():
+    """The strategic-candidate discovery path (_test_date_candidate) must delegate a
+    TIMESTAMP partition column to the same half-open range logic as direct discovery, so
+    a candidate date yields a full-day range rather than an equality to a single instant.
+    """
+
+    class NoEnhanceDiscovery(PartitionDiscovery):
+        def _verify_partition_has_data(self, *args: Any, **kwargs: Any) -> bool:
+            return True
+
+        def _enhance_partition_filters_with_actual_values(
+            self, table, project, schema, required_columns, filters, *args, **kwargs
+        ):
+            # Isolate the candidate-filter construction from the co-occurrence enhancement.
+            return filters
+
+    discovery = NoEnhanceDiscovery(make_config())
+    table = make_table(partition_info=PartitionInfo(fields=("event_ts",), type="DAY"))
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return []
+
+    result = discovery._test_date_candidate(
+        table,
+        "test-project-123456",
+        "ds",
+        datetime(2025, 1, 15, 8, 30, 0, tzinfo=timezone.utc),
+        "today",
+        ["event_ts"],
+        {"event_ts": "TIMESTAMP"},
+        execute,
+    )
+
+    assert result == [
+        "`event_ts` >= TIMESTAMP('2025-01-15 00:00:00+00:00') "
+        "AND `event_ts` < TIMESTAMP('2025-01-16 00:00:00+00:00')"
+    ]
+
+
+def test_range_partition_uses_max_bucket_not_most_recently_modified():
+    """INFORMATION_SCHEMA.PARTITIONS is ordered by last-modified, not bucket value. For a
+    RANGE partition the lower-bound scan `col >= floor` must anchor on the MAX bucket floor
+    (nothing exists above it, so it can't over-select) rather than the most-recently
+    modified mid-range bucket, whose `>=` would also pull in every higher bucket.
+    """
+    info = InfoSchemaQueries(report=None)
+    table = make_table(
+        name="ranged",
+        partition_info=PartitionInfo(fields=("bucket",), type=RANGE_PARTITION_NAME),
+    )
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        # Rows in last-modified order: the mid bucket (100) was touched most recently,
+        # but 300 is the true maximum populated bucket.
+        return [
+            SimpleNamespace(partition_id="100"),
+            SimpleNamespace(partition_id="300"),
+            SimpleNamespace(partition_id="200"),
+        ]
+
+    def verify(*args: Any, **kwargs: Any) -> bool:
+        return True
+
+    filters = info.get_partition_filters_from_information_schema(
+        table,
+        "test-project-123456",
+        "ds",
+        ["bucket"],
+        execute,
+        verify,
+        {"bucket": "INT64"},
+    )
+
+    assert filters == ["`bucket` >= 300"]
