@@ -41,10 +41,9 @@ def _extract_field_ids_from_mbql(clause: object) -> List[int]:
 
 
 def name_based_field_name(field_ref: object) -> Optional[str]:
-    # A name-only recovery is only valid for a top-level name-based field ref
-    # (["field", "col", {...}]). Aggregation/expression outputs (["aggregation", 0],
-    # ["expression", "x"]) and unknown ref shapes carry no source column of that
-    # name, so returning None keeps callers from inventing lineage like film.count.
+    # Only a top-level name-based field ref (["field", "col", ...]) names a real
+    # source column; aggregation/expression outputs return None so callers don't
+    # invent lineage like film.count.
     if (
         isinstance(field_ref, list)
         and len(field_ref) >= 2

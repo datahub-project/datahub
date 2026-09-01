@@ -206,9 +206,8 @@ class MetabaseCardInfo(MetabaseBaseModel):
 
 class MetabaseDashCard(MetabaseBaseModel):
     id: int
-    # Virtual dashcards (text, heading, iframe, action) carry `card: null` and may
-    # omit dashboard_id. Keep them optional so one virtual card does not fail
-    # validation for the whole dashboard; the emitter skips cards with no `card`.
+    # Virtual dashcards (text/heading/iframe/action) carry `card: null`; keep it
+    # optional so one such card doesn't fail validation for the whole dashboard.
     card: Optional[MetabaseCardInfo] = None
     dashboard_id: Optional[int] = None
 

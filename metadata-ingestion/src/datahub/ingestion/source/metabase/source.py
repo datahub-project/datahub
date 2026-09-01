@@ -171,9 +171,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
         self.setup_session()
 
     def _normalize(self, value: str) -> str:
-        # Honor both the connector-specific flag and the standard mixin flag
-        # (convert_urns_to_lowercase) that appears in generated recipe docs, so
-        # setting either one lowercases lineage table URNs.
+        # Honor the standard convert_urns_to_lowercase mixin flag as well as the
+        # connector-specific one, since both appear in generated recipe docs.
         lowercase = (
             self.config.convert_lineage_urns_to_lowercase
             or self.config.convert_urns_to_lowercase
@@ -393,9 +392,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     timeout=self.config.request_timeout_sec,
                 )
                 if response.status_code not in (200, 204):
-                    # Teardown only: a non-2xx logout (e.g. 401 after the session
-                    # already expired) must not fail an otherwise-successful run,
-                    # matching how a network error on this same call is handled.
+                    # A non-2xx logout during teardown (e.g. 401 after expiry) must not
+                    # fail an otherwise-successful run; a warning like the network path.
                     self.report.warning(
                         title="Unable to Log User Out",
                         message="Unable to log the ingestion user out of Metabase.",
@@ -782,10 +780,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
         return []
 
     def _name_ref_cll_hint(self) -> str:
-        # Columns a card references only by name (no upstream field id) are typically
-        # aggregate outputs or columns projected from an upstream Model/saved question.
-        # Only suggest extract_models when it is off, since that is the lever that lets
-        # Model-backed cards resolve those names to the Model dataset's columns.
+        # extract_models is the lever that lets Model-backed cards resolve name-only
+        # columns to the Model dataset's columns, so only suggest it when it's off.
         hint = (
             " These are typically aggregate outputs (e.g. count, sum) or columns "
             "projected from an upstream Model or saved question, which carry no upstream "
@@ -828,19 +824,10 @@ class MetabaseSource(StatefulIngestionSourceBase):
             if f is not None:
                 resolved[fid] = f
 
-        # A name-only ref carries no upstream field id. When the card draws on a single
-        # upstream table we attribute such columns to it by name (below and in the chart
-        # inputFields path); pass-through cards recover them 1:1 in _get_passthrough_cll.
-        # Only a multi-table (join) card genuinely drops them, since attributing a bare
-        # name to one of several joined tables would risk misattribution.
         datasource_urns = self.get_datasource_urn(card)
-        # Leave single_source_urn unset for pass-through cards so their recovery stays on
-        # the _get_passthrough_cll path (COPY semantics); the by-name fallback that uses
-        # this only applies to non-pass-through single-source query-builder cards.
-        # Gate on the number of *declared* source tables (source-table + joins), not the
-        # count of successfully resolved URNs: a card that declares a join whose table
-        # lookup fails would otherwise look single-source and get name-only columns
-        # misattributed to the one table that did resolve.
+        # Gate on the count of *declared* source tables (source-table + joins), not
+        # resolved URNs, so a card with a failed join lookup isn't mistaken for
+        # single-source. Unset for pass-through cards, which recover via _get_passthrough_cll.
         single_source_urn = (
             datasource_urns[0]
             if not query.is_passthrough()
@@ -923,15 +910,10 @@ class MetabaseSource(StatefulIngestionSourceBase):
         card: MetabaseCard,
         entity_urn: str,
     ) -> Optional[UpstreamLineageClass]:
-        # Resolve source tables first so we always emit at least table-level lineage
-        # (matching the chart path) even when result_metadata is missing or the MBQL
-        # context cannot be built and no column mapping can be derived.
+        # Resolve tables first so table-level lineage is always emitted (like the chart
+        # path) even when result_metadata / MBQL context yield no column mapping.
         table_urns = self._get_table_urns_from_query_builder(card)
 
-        # Mirror the chart inputFields fallback: a name-only column (aggregate output
-        # or a column projected from an upstream Model) has no field id to resolve, but
-        # when the card draws on a single upstream table (ctx.single_source_urn, unset
-        # for pass-through and multi-table joins) we attribute it to that table by name.
         fine_grained: List[FineGrainedLineageClass] = []
         ctx = self._get_mbql_context(card) if card.result_metadata else None
         if ctx:
@@ -975,8 +957,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             return None
 
         if not fine_grained:
-            # Table-level lineage still emitted below, but no column mapping could
-            # be resolved from the result metadata; surface the gap to operators.
+            # Table-level lineage is still emitted below; only the column mapping is lost.
             self.report.query_builder_cll_dropped += 1
             self.report.warning(
                 title="Query-Builder Column Lineage Dropped",
@@ -1007,8 +988,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         fine_grained: List[FineGrainedLineageClass] = []
 
-        # Skip column mapping when table parsing errored (it is unreliable), but
-        # still emit the coarse table-level lineage the parser did resolve.
+        # On a table parse error, skip the unreliable column mapping but keep the
+        # coarse table-level lineage the parser did resolve.
         if not table_error and result.column_lineage:
             for col_lineage in result.column_lineage:
                 if not col_lineage.downstream.column:
@@ -1114,8 +1095,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 logger.debug("Collections endpoint not found: %s", str(req_error))
                 return {}
             # Dashboards are discovered only by iterating collections, so a hard
-            # failure here silently drops every dashboard while charts still emit.
-            # Escalate to a failure rather than exiting "success" with no dashboards.
+            # failure here would silently drop every dashboard; escalate to a failure
+            # instead of exiting "success" with none.
             self.report.failure(
                 title="Failed to retrieve collections",
                 message="Unable to fetch collections from Metabase API; dashboards cannot be discovered.",
@@ -1355,10 +1336,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
                             self._create_input_field(upstream_urn, meta)
                         )
                 else:
-                    # Unresolved column: only recover a genuine name-based field ref,
-                    # and only on a single declared source table (ctx.single_source_urn).
-                    # Aggregation/expression outputs carry no such source column, and a
-                    # card with joins would misattribute the name across tables.
+                    # Recover only a genuine name-based ref on a single declared source
+                    # table; computed outputs or joins would misattribute the column.
                     name_ref = name_based_field_name(meta.field_ref)
                     if ctx.single_source_urn and name_ref:
                         input_fields.append(
@@ -1624,8 +1603,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
         NullTypeClass,
     ]:
         """Map Metabase base_type (e.g. "type/Integer") to DataHub type."""
-        # Match the longest keyword first so a more specific type wins over a
-        # substring of it (e.g. "type/JSONB" -> Bytes, not "JSON" -> String).
+        # Longest keyword first so a specific type wins over a substring of it
+        # (e.g. "type/JSONB" -> Bytes, not "JSON" -> String).
         for type_keyword in sorted(
             METABASE_TYPE_TO_DATAHUB_TYPE, key=len, reverse=True
         ):
@@ -1726,9 +1705,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 if card.dataset_query and card.dataset_query.query
                 else False
             )
-            # A pass-through model (source-table only) is a 1:1 COPY of its source.
-            # Try that first: its id-based field refs would otherwise resolve via the
-            # query-builder path and mislabel the model as TRANSFORMED.
+            # A pass-through model is a 1:1 COPY; try that first, else its id-based
+            # refs resolve via the query-builder path and mislabel it TRANSFORMED.
             if is_passthrough:
                 passthrough_cll = self._get_passthrough_cll(
                     card=card, entity_urn=model_urn
