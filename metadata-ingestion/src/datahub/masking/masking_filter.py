@@ -378,29 +378,21 @@ class StreamMaskingWrapper:
 
     def write(self, text: str) -> int:
         """Write text to stream with secrets masked."""
-        # Type validation - text streams require strings
         if not isinstance(text, str):
             raise TypeError(f"write() argument must be str, not {type(text).__name__}")
 
         try:
-            # Mask text (filter handles locking internally)
-            masked = self._filter.mask_text(text)
-
-            # Write WITHOUT holding any locks (prevents deadlock)
-            self._original.write(masked)
-
-            # Return length of MASKED text (contract compliance)
-            return len(masked)
-
+            self._original.write(self._filter.mask_text(text))
         except TypeError:
             raise
-
         except Exception:
             try:
                 self._original.write(MASKING_ERROR_MESSAGE + "\n")
-                return len(text)
             except Exception:
                 return 0
+        # "Input fully consumed": reporting fewer characters than were passed
+        # would make a partial-write retry loop re-send raw unmasked text.
+        return len(text)
 
     def flush(self):
         """Flush the underlying stream."""

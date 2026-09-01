@@ -731,15 +731,9 @@ class TestEdgeCases:
 class TestP1Fixes:
     """Test P1 critical fixes from production hardening review."""
 
-    def test_stream_wrapper_return_value(self):
-        """
-        P1 FIX #2: Verify write() returns correct character count.
-
-        The wrapper should return len(masked_text), not the original
-        stream's return value.
-        """
-        from io import StringIO
-
+    def test_stream_wrapper_reports_input_fully_consumed(self):
+        """write() reports the input length so partial-write retry loops
+        never re-send a suffix of the raw text."""
         registry = SecretRegistry()
         registry.register_secret("PASSWORD", "secret123")
 
@@ -747,22 +741,11 @@ class TestP1Fixes:
         stream = StringIO()
         wrapper = StreamMaskingWrapper(stream, masking_filter)
 
-        # Write text with secret
         text = "Password is secret123"
         chars_written = wrapper.write(text)
 
-        # Should return length of MASKED text, not original
-        masked_text = stream.getvalue()
-        assert masked_text == "Password is ***REDACTED:PASSWORD***", (
-            f"Expected masked text, got: {masked_text}"
-        )
-        assert chars_written == len(masked_text), (
-            f"Expected {len(masked_text)} chars, got {chars_written}"
-        )
-        # "Password is ***REDACTED:PASSWORD***" = 12 + 23 = 35 chars
-        assert chars_written == 35, (
-            f"Expected 35 chars for 'Password is ***REDACTED:PASSWORD***', got {chars_written}"
-        )
+        assert stream.getvalue() == "Password is ***REDACTED:PASSWORD***"
+        assert chars_written == len(text)
 
     def test_stream_wrapper_type_validation(self):
         """
@@ -771,8 +754,6 @@ class TestP1Fixes:
         The wrapper should raise TypeError for non-string input
         to maintain contract compliance.
         """
-        from io import StringIO
-
         registry = SecretRegistry()
         masking_filter = SecretMaskingFilter(registry)
         stream = StringIO()
