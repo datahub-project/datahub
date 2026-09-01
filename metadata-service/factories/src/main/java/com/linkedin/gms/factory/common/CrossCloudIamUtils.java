@@ -147,7 +147,9 @@ public class CrossCloudIamUtils {
       String gcpProject,
       String instanceConnectionName) {
 
-    if (!"auto".equalsIgnoreCase(cloudProvider)) {
+    if (cloudProvider != null
+        && !cloudProvider.isBlank()
+        && !"auto".equalsIgnoreCase(cloudProvider)) {
       return cloudProvider;
     }
 

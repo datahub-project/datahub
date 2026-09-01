@@ -949,7 +949,7 @@ public class PostgresSqlSetupProperties {
               + "="
               + intervalSeconds
               + " cannot be represented as a pg_cron schedule; use a multiple of 60 (1–59 min),"
-              + " 3600 (1–23 h), or 86400 (1–31 d)");
+              + " 3600 (1–23 h), or 86400 (1 day)");
     }
   }
 
@@ -957,8 +957,7 @@ public class PostgresSqlSetupProperties {
   private static boolean isRepresentablePgCronInterval(int intervalSeconds) {
     int sec = Math.max(60, intervalSeconds);
     if (sec % 86400 == 0) {
-      int days = sec / 86400;
-      return days >= 1 && days <= 31;
+      return sec / 86400 == 1;
     }
     if (sec % 3600 == 0) {
       int hours = sec / 3600;

@@ -10,6 +10,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
@@ -17,6 +19,7 @@ import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
@@ -137,6 +140,52 @@ public class TimeseriesFilterGraphExpansionTest {
         () ->
             TimeseriesFilterGraphExpansion.expandForLineageCondition(
                 opContext, Condition.EQUAL, List.of(SEED)));
+  }
+
+  @Test
+  public void expandUrns_multipleSeeds_doesNotStopBeforeRelatedPages() {
+    String extra1 = "urn:li:container:extra1";
+    String extra2 = "urn:li:container:extra2";
+    doAnswer(
+            inv -> {
+              @SuppressWarnings("unchecked")
+              Function<RelatedEntitiesScrollResult, Boolean> consumer = inv.getArgument(0);
+              RelatedEntities first =
+                  new RelatedEntities(
+                      "IsPartOf", SEED, extra1, RelationshipDirection.OUTGOING, null);
+              Boolean stop =
+                  consumer.apply(
+                      RelatedEntitiesScrollResult.builder()
+                          .numResults(1)
+                          .pageSize(1)
+                          .entities(List.of(first))
+                          .build());
+              if (Boolean.TRUE.equals(stop)) {
+                return null;
+              }
+              RelatedEntities second =
+                  new RelatedEntities(
+                      "IsPartOf", SEED, extra2, RelationshipDirection.OUTGOING, null);
+              consumer.apply(
+                  RelatedEntitiesScrollResult.builder()
+                      .numResults(1)
+                      .pageSize(1)
+                      .entities(List.of(second))
+                      .build());
+              return null;
+            })
+        .when(graphRetriever)
+        .consumeRelatedEntities(
+            any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), isNull(), isNull());
+
+    Set<Urn> seeds =
+        new HashSet<>(
+            List.of(UrnUtils.getUrn(SEED), UrnUtils.getUrn(CHILD), UrnUtils.getUrn(PARENT)));
+    Set<Urn> expanded =
+        TimeseriesFilterGraphExpansion.expandUrns(
+            graphRetriever, seeds, Set.of("IsPartOf"), RelationshipDirection.OUTGOING, 1, 5);
+
+    assertTrue(expanded.contains(UrnUtils.getUrn(extra2)));
   }
 
   private void stubConsumeRelated(RelationshipDirection direction, String relatedUrn) {

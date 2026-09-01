@@ -30,7 +30,12 @@ public class PgQueueSchemaStepTest {
   @Test
   public void testToPgCronScheduleDaily() {
     assertEquals(PgQueueSchemaStep.toPgCronSchedule(86400), "0 0 * * *");
-    assertEquals(PgQueueSchemaStep.toPgCronSchedule(172800), "0 0 */2 * *");
+    try {
+      PgQueueSchemaStep.toPgCronSchedule(172800);
+      throw new AssertionError("expected IllegalArgumentException");
+    } catch (IllegalArgumentException expected) {
+      assertEquals(expected.getMessage().contains("multi-day"), true, expected.getMessage());
+    }
   }
 
   @Test

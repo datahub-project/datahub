@@ -8,10 +8,12 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -54,6 +56,9 @@ public final class TimeseriesFilterGraphExpansion {
 
     Set<Urn> seeds = seedUrnStrings.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
     Set<String> relationshipTypes = Set.of("IsPartOf");
+    int[] bounds = expansionBounds(opContext);
+    int pageSize = bounds[0];
+    int limit = bounds[1];
 
     switch (condition) {
       case ANCESTORS_INCL:
@@ -63,8 +68,8 @@ public final class TimeseriesFilterGraphExpansion {
                 seeds,
                 relationshipTypes,
                 RelationshipDirection.OUTGOING,
-                DEFAULT_PAGE_SIZE,
-                DEFAULT_LIMIT));
+                pageSize,
+                limit));
       case DESCENDANTS_INCL:
         return toStrings(
             expandUrns(
@@ -72,8 +77,8 @@ public final class TimeseriesFilterGraphExpansion {
                 seeds,
                 relationshipTypes,
                 RelationshipDirection.INCOMING,
-                DEFAULT_PAGE_SIZE,
-                DEFAULT_LIMIT));
+                pageSize,
+                limit));
       case RELATED_INCL:
         {
           // Match ES Container/DocumentExpansionRewriter: INCOMING from seeds, then OUTGOING
@@ -84,16 +89,16 @@ public final class TimeseriesFilterGraphExpansion {
                   seeds,
                   relationshipTypes,
                   RelationshipDirection.INCOMING,
-                  DEFAULT_PAGE_SIZE,
-                  DEFAULT_LIMIT);
+                  pageSize,
+                  limit);
           return toStrings(
               expandUrns(
                   graphRetriever,
                   descendants,
                   relationshipTypes,
                   RelationshipDirection.OUTGOING,
-                  DEFAULT_PAGE_SIZE,
-                  DEFAULT_LIMIT));
+                  pageSize,
+                  limit));
         }
       default:
         throw new IllegalArgumentException("Not a lineage expansion condition: " + condition);
@@ -109,7 +114,7 @@ public final class TimeseriesFilterGraphExpansion {
    * scrollGraph expansion into a flat URN set (including seeds).
    */
   @Nonnull
-  private static Set<Urn> expandUrns(
+  static Set<Urn> expandUrns(
       @Nonnull GraphRetriever graphRetriever,
       @Nonnull Set<Urn> queryUrns,
       @Nonnull Set<String> relationshipTypes,
@@ -145,8 +150,12 @@ public final class TimeseriesFilterGraphExpansion {
 
     Set<Urn> nextUrns = new HashSet<>();
 
-    Supplier<Boolean> earlyExitCriteria =
-        () -> (queryUrns.size() + visitedUrns.size() + nextUrns.size()) >= limit;
+    // Match BaseQueryFilterRewriter: count each URN once. queryUrns is already in visited
+    // (expandUrns copies seeds into the visited set); adding queryUrns.size() double-counted
+    // multi-seed filters and exhausted the limit before related entities were collected.
+    visitedUrns.addAll(queryUrns);
+
+    Supplier<Boolean> earlyExitCriteria = () -> (visitedUrns.size() + nextUrns.size()) >= limit;
 
     Function<RelatedEntitiesScrollResult, Boolean> consumer =
         result -> {
@@ -173,8 +182,6 @@ public final class TimeseriesFilterGraphExpansion {
         null,
         null);
 
-    visitedUrns.addAll(queryUrns);
-
     if (earlyExitCriteria.get()) {
       visitedUrns.addAll(nextUrns);
     } else if (!nextUrns.isEmpty()) {
@@ -188,5 +195,27 @@ public final class TimeseriesFilterGraphExpansion {
           limit,
           ignoredCascade);
     }
+  }
+
+  /**
+   * Prefer the operator-set lineage expansion bound on {@link OperationContext} when present;
+   * otherwise the rewriter defaults (100/100).
+   */
+  @Nonnull
+  static int[] expansionBounds(@Nonnull OperationContext opContext) {
+    int pageSize = DEFAULT_PAGE_SIZE;
+    int limit = DEFAULT_LIMIT;
+    SearchContext searchContext = opContext.getSearchContext();
+    if (searchContext != null) {
+      LineageFlags lineageFlags = searchContext.getLineageFlags();
+      if (lineageFlags != null && lineageFlags.hasEntitiesExploredPerHopLimit()) {
+        int n = lineageFlags.getEntitiesExploredPerHopLimit();
+        if (n > 0) {
+          pageSize = n;
+          limit = n;
+        }
+      }
+    }
+    return new int[] {pageSize, limit};
   }
 }

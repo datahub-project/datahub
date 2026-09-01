@@ -191,7 +191,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
                 sort,
                 opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
                 opContext.getEntityRegistry().getEntitySpec(entityName).getAspectSpec(aspectName))
-            : "event_time DESC, message_id DESC";
+            : "event_time DESC NULLS LAST, message_id DESC NULLS LAST";
 
     int lim = ConfigUtils.applyLimit(timeseriesAspectServiceConfig, limit);
     String sql =
@@ -226,7 +226,9 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nullable AspectSpec aspectSpec) {
     String f = TimeseriesPgJsonPaths.stripKeywordSuffix(sort.getField());
     if (MappingsBuilder.TIMESTAMP_MILLIS_FIELD.equals(f) || "@timestamp".equals(f)) {
-      return "event_time " + (sort.getOrder() == SortOrder.ASCENDING ? "ASC" : "DESC");
+      return "event_time "
+          + (sort.getOrder() == SortOrder.ASCENDING ? "ASC" : "DESC")
+          + " NULLS LAST";
     }
     String path = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(f);
     String cast = orderByCastSuffix(f, searchableFieldTypes, aspectSpec);
@@ -235,7 +237,8 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
         + ")"
         + cast
         + " "
-        + (sort.getOrder() == SortOrder.ASCENDING ? "ASC" : "DESC");
+        + (sort.getOrder() == SortOrder.ASCENDING ? "ASC" : "DESC")
+        + " NULLS LAST";
   }
 
   @Nonnull
@@ -655,9 +658,9 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
 
     String orderBy =
         sortKeys.stream()
-            .map(k -> k.sqlExpr() + (k.ascending() ? " ASC" : " DESC"))
+            .map(k -> k.sqlExpr() + (k.ascending() ? " ASC" : " DESC") + " NULLS LAST")
             .reduce((a, b) -> a + ", " + b)
-            .orElse("event_time DESC, message_id DESC");
+            .orElse("event_time DESC NULLS LAST, message_id DESC NULLS LAST");
 
     StringBuilder selectKeys = new StringBuilder();
     for (int i = 0; i < sortKeys.size(); i++) {
@@ -864,8 +867,23 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
         params.add(toBindValue(sortKeys.get(j), cursorValues.get(j)));
       }
       String op = sortKeys.get(i).ascending() ? ">" : "<";
-      where.append(sortKeys.get(i).sqlExpr()).append(" ").append(op).append(" ?");
-      params.add(toBindValue(sortKeys.get(i), cursorValues.get(i)));
+      String expr = sortKeys.get(i).sqlExpr();
+      Object bound = toBindValue(sortKeys.get(i), cursorValues.get(i));
+      if (bound == null) {
+        // NULLS LAST: a null cursor is already in the nulls partition; only later keys apply.
+        where.append(expr).append(" IS NULL");
+      } else {
+        // Include remaining nulls after every non-null key (NULLS LAST for ASC and DESC).
+        where
+            .append("(")
+            .append(expr)
+            .append(" ")
+            .append(op)
+            .append(" ? OR ")
+            .append(expr)
+            .append(" IS NULL)");
+        params.add(bound);
+      }
       where.append(")");
     }
     where.append(")");
@@ -1020,7 +1038,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
         JsonNode n = om.readTree(json);
         JsonNode v = n.get("v");
         if (v == null || !v.isArray() || v.size() != sortKeys.size()) {
-          return null;
+          throw new IllegalArgumentException("Malformed timeseries scroll cursor");
         }
         List<Object> values = new ArrayList<>(sortKeys.size());
         for (int i = 0; i < sortKeys.size(); i++) {
@@ -1046,8 +1064,10 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
           }
         }
         return values;
+      } catch (IllegalArgumentException e) {
+        throw e;
       } catch (Exception e) {
-        return null;
+        throw new IllegalArgumentException("Malformed timeseries scroll cursor", e);
       }
     }
 
@@ -1093,6 +1113,9 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   @Override
   public Map<Urn, Map<String, Map<String, Object>>> raw(
       OperationContext opContext, Map<String, Set<String>> urnAspects) {
+    if (urnAspects == null || urnAspects.isEmpty()) {
+      return java.util.Collections.emptyMap();
+    }
     Map<Urn, Map<String, Map<String, Object>>> result = new HashMap<>();
     ObjectMapper mapper = opContext.getObjectMapper();
     for (Map.Entry<String, Set<String>> e : urnAspects.entrySet()) {

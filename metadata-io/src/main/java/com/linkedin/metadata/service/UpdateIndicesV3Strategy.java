@@ -218,11 +218,12 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       documents =
           TimeseriesAspectTransformer.transform(urn, previous, aspectSpec, prevSys, idHashAlgo);
     } catch (JsonProcessingException e) {
-      log.error(
-          "Failed to resolve timeseries documents for delete event for urn {} aspect {}: {}",
-          urn,
-          aspectName,
-          e.toString());
+      handleTimeseriesWriteFailure(
+          opContext,
+          deleteEvent,
+          new IllegalStateException("Failed to resolve timeseries documents for delete event", e),
+          "timeseries_delete_failed",
+          "delete");
       return;
     }
     for (Map.Entry<String, JsonNode> entry : documents.entrySet()) {
@@ -262,7 +263,12 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
           TimeseriesAspectTransformer.transform(
               urn, (RecordTemplate) aspect, aspectSpec, systemMetadata, idHashAlgo);
     } catch (JsonProcessingException e) {
-      log.error("Failed to generate V3 timeseries document from aspect: {}", e.toString());
+      handleTimeseriesWriteFailure(
+          opContext,
+          event,
+          new IllegalStateException("Failed to generate timeseries document from aspect", e),
+          "timeseries_update_failed",
+          "update");
       return;
     }
 

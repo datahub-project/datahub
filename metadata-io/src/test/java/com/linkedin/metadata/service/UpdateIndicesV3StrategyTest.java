@@ -20,6 +20,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
@@ -38,6 +39,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -1210,5 +1212,95 @@ public class UpdateIndicesV3StrategyTest {
         .verify(timeseriesAspectService)
         .upsertDocument(any(), anyString(), anyString(), anyString(), any());
     inOrder.verify(sink).upsertDocument(any(), anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void testProcessBatch_timeseriesJsonFailure_propagatesWhenFailLoud() throws Exception {
+    TimeseriesAspectWriteSink sink = mock(TimeseriesAspectWriteSink.class);
+    when(sink.failOnError()).thenReturn(true);
+    UpdateIndicesV3Strategy failLoud =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            false,
+            null);
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    try (var transformer = mockStatic(TimeseriesAspectTransformer.class);
+        var util = mockStatic(UpdateIndicesUtil.class)) {
+      util.when(() -> UpdateIndicesUtil.extractSpecPair(any()))
+          .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
+      transformer
+          .when(() -> TimeseriesAspectTransformer.transform(any(), any(), any(), any(), any()))
+          .thenThrow(new JsonProcessingException("boom") {});
+      Map<Urn, List<MCLItem>> groupedEvents =
+          Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+      expectThrows(
+          IllegalStateException.class,
+          () -> failLoud.processBatch(operationContext, groupedEvents, true));
+    }
+    verify(sink, never()).upsertDocument(any(), anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void testProcessBatch_timeseriesDeleteJsonFailure_propagatesWhenFailLoud()
+      throws Exception {
+    TimeseriesAspectWriteSink sink = mock(TimeseriesAspectWriteSink.class);
+    when(sink.failOnError()).thenReturn(true);
+    UpdateIndicesV3Strategy failLoud =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            false,
+            null);
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(mockAspect);
+    when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(true);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    try (var transformer = mockStatic(TimeseriesAspectTransformer.class);
+        var util = mockStatic(UpdateIndicesUtil.class)) {
+      util.when(() -> UpdateIndicesUtil.extractSpecPair(any()))
+          .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
+      transformer
+          .when(() -> TimeseriesAspectTransformer.transform(any(), any(), any(), any(), any()))
+          .thenThrow(new JsonProcessingException("boom") {});
+      Map<Urn, List<MCLItem>> groupedEvents =
+          Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+      expectThrows(
+          IllegalStateException.class,
+          () -> failLoud.processBatch(operationContext, groupedEvents, true));
+    }
+    verify(sink, never())
+        .deleteDocument(any(), anyString(), anyString(), anyString(), any(), anyBoolean());
   }
 }

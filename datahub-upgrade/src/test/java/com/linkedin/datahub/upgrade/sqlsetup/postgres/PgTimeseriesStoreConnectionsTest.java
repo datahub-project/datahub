@@ -77,6 +77,54 @@ public class PgTimeseriesStoreConnectionsTest {
   }
 
   @Test
+  public void inferCloudProvider_wrapperPluginsIam_isAws() {
+    DataSourceConfig ebeanDs = new DataSourceConfig();
+    ebeanDs.setCustomProperties(Map.of("wrapperPlugins", "failover, iam"));
+    assertEquals(
+        PgTimeseriesStoreConnections.inferCloudProvider(ebeanDs, "jdbc:postgresql://localhost/ts"),
+        "aws");
+  }
+
+  @Test
+  public void open_customUrl_ebeanIam_setsWrapperPluginsOnConnection() throws Exception {
+    PgTimeseriesStoreOptions store =
+        baseStore().toBuilder().poolUrl("jdbc:postgresql://localhost:5432/ts").build();
+    Database fallback = mock(Database.class);
+    DataSourceConfig ebeanDs = new DataSourceConfig();
+    ebeanDs.setUsername("ebean_user");
+    ebeanDs.setPassword("ebean_pass");
+    ebeanDs.setCustomProperties(Map.of("wrapperPlugins", "iam"));
+    Connection expected = mock(Connection.class);
+
+    try (MockedStatic<DriverManager> dm = Mockito.mockStatic(DriverManager.class)) {
+      dm.when(
+              () ->
+                  DriverManager.getConnection(
+                      eq("jdbc:postgresql://localhost:5432/ts"), any(Properties.class)))
+          .thenAnswer(
+              inv -> {
+                Properties props = inv.getArgument(1);
+                assertEquals(props.getProperty("wrapperPlugins"), "iam");
+                assertEquals(props.getProperty("user"), "ebean_user");
+                return expected;
+              });
+      Connection got =
+          PgTimeseriesStoreConnections.open(
+              store, fallback, new PostgresSqlSetupProperties(), ebeanDs);
+      assertEquals(got, expected);
+    }
+  }
+
+  @Test
+  public void inferCloudProvider_enableIamAuth_isGcp() {
+    DataSourceConfig ebeanDs = new DataSourceConfig();
+    ebeanDs.setCustomProperties(Map.of("enableIamAuth", "true"));
+    assertEquals(
+        PgTimeseriesStoreConnections.inferCloudProvider(ebeanDs, "jdbc:postgresql://localhost/ts"),
+        "gcp");
+  }
+
+  @Test
   public void open_customUrl_ebeanIam_usesPropertiesConnection() throws Exception {
     PgTimeseriesStoreOptions store =
         baseStore().toBuilder().poolUrl("jdbc:postgresql://localhost:5432/ts").build();
