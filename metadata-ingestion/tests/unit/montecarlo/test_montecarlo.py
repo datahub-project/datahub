@@ -1834,6 +1834,41 @@ def test_paginate_raises_on_malformed_connection() -> None:
         list(client.get_custom_rules())
 
 
+def test_paginate_raises_on_non_list_edges() -> None:
+    # A non-list `edges` value (e.g. a dict or string) is a contract violation:
+    # iterating it would silently produce wrong records or drop the page, so
+    # the client must raise rather than treat it as an empty page.
+    client = _client_with_responses(
+        [
+            {
+                "get_custom_rules": {
+                    "edges": "not-a-list",
+                    "page_info": {"has_next_page": False},
+                }
+            }
+        ]
+    )
+    with pytest.raises(RuntimeError, match="expected a list for 'edges'"):
+        list(client.get_custom_rules())
+
+
+def test_paginate_raises_on_malformed_edge() -> None:
+    # An edge whose `node` isn't a dict must raise: silently skipping it would
+    # drop records and let pagination succeed, risking stale deletion.
+    client = _client_with_responses(
+        [
+            {
+                "get_custom_rules": {
+                    "edges": [{"node": "not-a-dict"}],
+                    "page_info": {"has_next_page": False},
+                }
+            }
+        ]
+    )
+    with pytest.raises(RuntimeError, match="malformed edge"):
+        list(client.get_custom_rules())
+
+
 def test_paginate_offset_raises_on_non_list_root() -> None:
     # getMonitors must return a list; a non-list (e.g. null) is a contract
     # violation and must raise rather than be treated as an empty page.

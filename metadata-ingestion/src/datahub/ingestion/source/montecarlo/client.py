@@ -377,15 +377,23 @@ class MonteCarloClient:
                     f"{type(connection).__name__}); aborting pagination."
                 )
             edges = connection.get("edges")
-            if edges is None:
+            if not isinstance(edges, list):
                 raise RuntimeError(
                     f"Monte Carlo API returned a malformed response for "
-                    f"{root_field} (missing 'edges'); aborting pagination."
+                    f"{root_field} (expected a list for 'edges', got "
+                    f"{type(edges).__name__}); aborting pagination."
                 )
-            for edge in edges or []:
-                node = edge.get("node") if isinstance(edge, dict) else None
-                if node:
-                    yield node
+            for edge in edges:
+                # A non-dict edge, or an edge whose `node` isn't a dict, is a
+                # malformed page: silently skipping it would drop records and
+                # let pagination succeed, risking stale deletion of prior
+                # assertions. Raise so _emit surfaces a phase failure instead.
+                if not isinstance(edge, dict) or not isinstance(edge.get("node"), dict):
+                    raise RuntimeError(
+                        f"Monte Carlo API returned a malformed edge for "
+                        f"{root_field}; aborting pagination."
+                    )
+                yield edge["node"]
             page_info = connection.get("page_info") or {}
             if not page_info.get("has_next_page"):
                 break
