@@ -58,6 +58,18 @@ _DEPRECATED_USAGE_TOP_LEVEL_FIELDS: Tuple[str, ...] = (
     "max_query_duration",
 )
 
+# Emitted both at config-validation time and into the ingestion report, so it lives here
+# rather than being duplicated at the two call sites.
+EXTRACT_COLUMN_LINEAGE_IGNORED_MESSAGE: str = (
+    "`extract_column_lineage` is only supported with the legacy extraction path "
+    "(`use_queries_v2: False`) and is ignored under queries-v2, where column-level "
+    "lineage comes from the SQL parsing aggregator instead. There is no queries-v2 "
+    "equivalent: aggregator-derived column-level lineage cannot be disabled "
+    "independently of `include_table_lineage`. Column-level lineage for "
+    "BigQuery-to-GCS external tables is separate, and is controlled by "
+    "`include_column_lineage_with_gcs`."
+)
+
 # Regexp for sharded tables.
 # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
 # The regexp checks for valid dates in the suffix (e.g. 20200101, 20200229, 20201231) and if the date is not valid
@@ -451,8 +463,13 @@ class BigQueryV2Config(
 
     extract_column_lineage: bool = Field(
         default=False,
-        description="If enabled, generate column level lineage. "
-        "Requires lineage_use_sql_parser to be enabled.",
+        description="Generate column-level lineage. Only honoured by the legacy audit-log "
+        "extractor, i.e. when `use_queries_v2` is disabled, and additionally requires "
+        "`lineage_use_sql_parser` to be enabled. Under the default `use_queries_v2: True` "
+        "this option has no effect: column-level lineage then comes from the SQL parsing "
+        "aggregator, and cannot be disabled independently of `include_table_lineage`. "
+        "Column-level lineage for BigQuery-to-GCS external tables is separate, and is "
+        "controlled by `include_column_lineage_with_gcs`.",
     )
 
     extract_lineage_from_catalog: bool = Field(
@@ -701,12 +718,13 @@ class BigQueryV2Config(
 
     @model_validator(mode="after")
     def warn_legacy_only_usage_fields_under_queries_v2(self) -> "BigQueryV2Config":
-        # `include_read_operational_stats`, `apply_view_usage_to_tables`, and
-        # `max_query_duration` are only read by the legacy (non-queries-v2) extraction
-        # path; qv2 either has no equivalent mechanism (the first two) or simply never
-        # references the field (`max_query_duration` - see queries_extractor.py). We
-        # can't tell whether the user "explicitly" set a field post-validation, so we
-        # pragmatically warn whenever it differs from its default.
+        # `include_read_operational_stats`, `apply_view_usage_to_tables`,
+        # `max_query_duration` and `extract_column_lineage` are only read by the legacy
+        # (non-queries-v2) extraction path; qv2 either has no equivalent mechanism or
+        # simply never references the field (`max_query_duration` - see
+        # queries_extractor.py). `extract_column_lineage` defaults to False and column
+        # lineage is emitted under queries-v2 either way, so an explicit False is only
+        # detectable via `model_fields_set`.
         if self.use_queries_v2:
             if self.usage.include_read_operational_stats:
                 logger.warning(
@@ -723,6 +741,8 @@ class BigQueryV2Config(
                     "`max_query_duration` is only supported with the legacy extraction path "
                     "(`use_queries_v2: False`) and is ignored under queries-v2."
                 )
+            if "extract_column_lineage" in self.model_fields_set:
+                logger.warning(EXTRACT_COLUMN_LINEAGE_IGNORED_MESSAGE)
         return self
 
     @field_validator(

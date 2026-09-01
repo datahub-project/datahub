@@ -293,6 +293,9 @@ export default class EntityRegistry {
             return new Map(
                 fields.map((field) => {
                     const name = downgradeV2FieldPath(field.fieldPath);
+                    // Note: counts are not seeded from `lineageFeatures` -- they are rarely
+                    // computed for schema fields and go stale; `useFetchColumnCounts` fetches
+                    // live counts on hover instead
                     const value: LineageAsset = {
                         name,
                         type: LineageAssetType.Column,

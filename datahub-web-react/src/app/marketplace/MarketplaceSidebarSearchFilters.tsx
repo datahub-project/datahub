@@ -49,80 +49,87 @@ export default function MarketplaceSidebarSearchFilters({
 }: Props) {
     const { t } = useTranslation('misc');
 
+    const showDomainFilter = domainOptions.length > 0 || selectedDomainUrns.length > 0;
+    const showOwnerFilter = ownerOptions.length > 0 || selectedOwnerUrns.length > 0;
+    const showTagFilter = tagOptions.length > 0 || selectedTagUrns.length > 0;
+
     return (
         <>
-            <SimpleSelect<FacetSelectOption>
-                size="sm"
-                width="fit-content"
-                isMultiSelect
-                showSearch
-                filterResultsByQuery
-                isDisabled={domainOptions.length === 0 && selectedDomainUrns.length === 0}
-                placeholder={t('context.domainFilter.placeholder')}
-                selectLabelProps={{ variant: 'labeled', label: t('context.domainFilter.label') }}
-                options={domainOptions}
-                values={selectedDomainUrns}
-                onUpdate={onDomainsChange}
-                renderCustomOptionText={(option) => {
-                    if (!isDomain(option.entity)) return option.label;
-                    return (
-                        <DomainLink
-                            domain={option.entity}
-                            readOnly
-                            enableTooltip={false}
-                            iconSize={20}
-                            iconFontSize={12}
-                        />
-                    );
-                }}
-                dataTestId="marketplace-sidebar-domain-filter"
-            />
-            <SimpleSelect
-                size="sm"
-                width="fit-content"
-                isMultiSelect
-                showSearch
-                filterResultsByQuery
-                isDisabled={ownerOptions.length === 0 && selectedOwnerUrns.length === 0}
-                placeholder={t('metrics.ownersFilter.placeholder')}
-                selectLabelProps={{ variant: 'labeled', label: t('metrics.ownersFilter.label') }}
-                options={ownerOptions}
-                values={selectedOwnerUrns}
-                onUpdate={onOwnersChange}
-                renderCustomOptionText={(option) => {
-                    const { creator } = option as AuthorFacetOption;
-                    return (
-                        <OwnerOptionRow>
-                            <Avatar
-                                name={creator.displayName}
-                                imageUrl={creator.pictureLink ?? undefined}
-                                type={creator.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user}
-                                showInPill
-                                size="sm"
+            {showDomainFilter && (
+                <SimpleSelect<FacetSelectOption>
+                    size="sm"
+                    width="fit-content"
+                    isMultiSelect
+                    showSearch
+                    filterResultsByQuery
+                    placeholder={t('context.domainFilter.placeholder')}
+                    selectLabelProps={{ variant: 'labeled', label: t('context.domainFilter.label') }}
+                    options={domainOptions}
+                    values={selectedDomainUrns}
+                    onUpdate={onDomainsChange}
+                    renderCustomOptionText={(option) => {
+                        if (!isDomain(option.entity)) return option.label;
+                        return (
+                            <DomainLink
+                                domain={option.entity}
+                                readOnly
+                                enableTooltip={false}
+                                iconSize={20}
+                                iconFontSize={12}
                             />
-                        </OwnerOptionRow>
-                    );
-                }}
-                dataTestId="marketplace-sidebar-owners-filter"
-            />
-            <SimpleSelect<FacetSelectOption>
-                size="sm"
-                width="fit-content"
-                isMultiSelect
-                showSearch
-                filterResultsByQuery
-                isDisabled={tagOptions.length === 0 && selectedTagUrns.length === 0}
-                placeholder={t('context.tagFilter.placeholder')}
-                selectLabelProps={{ variant: 'labeled', label: t('context.tagFilter.label') }}
-                options={tagOptions}
-                values={selectedTagUrns}
-                onUpdate={onTagsChange}
-                renderCustomOptionText={(option) => {
-                    if (!isTag(option.entity)) return option.label;
-                    return <TagLink tag={option.entity} enableTooltip={false} enableDrawer={false} />;
-                }}
-                dataTestId="marketplace-sidebar-tag-filter"
-            />
+                        );
+                    }}
+                    dataTestId="marketplace-sidebar-domain-filter"
+                />
+            )}
+            {showOwnerFilter && (
+                <SimpleSelect
+                    size="sm"
+                    width="fit-content"
+                    isMultiSelect
+                    showSearch
+                    filterResultsByQuery
+                    placeholder={t('metrics.ownersFilter.placeholder')}
+                    selectLabelProps={{ variant: 'labeled', label: t('metrics.ownersFilter.label') }}
+                    options={ownerOptions}
+                    values={selectedOwnerUrns}
+                    onUpdate={onOwnersChange}
+                    renderCustomOptionText={(option) => {
+                        const { creator } = option as AuthorFacetOption;
+                        return (
+                            <OwnerOptionRow>
+                                <Avatar
+                                    name={creator.displayName}
+                                    imageUrl={creator.pictureLink ?? undefined}
+                                    type={creator.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user}
+                                    showInPill
+                                    size="sm"
+                                />
+                            </OwnerOptionRow>
+                        );
+                    }}
+                    dataTestId="marketplace-sidebar-owners-filter"
+                />
+            )}
+            {showTagFilter && (
+                <SimpleSelect<FacetSelectOption>
+                    size="sm"
+                    width="fit-content"
+                    isMultiSelect
+                    showSearch
+                    filterResultsByQuery
+                    placeholder={t('context.tagFilter.placeholder')}
+                    selectLabelProps={{ variant: 'labeled', label: t('context.tagFilter.label') }}
+                    options={tagOptions}
+                    values={selectedTagUrns}
+                    onUpdate={onTagsChange}
+                    renderCustomOptionText={(option) => {
+                        if (!isTag(option.entity)) return option.label;
+                        return <TagLink tag={option.entity} enableTooltip={false} enableDrawer={false} />;
+                    }}
+                    dataTestId="marketplace-sidebar-tag-filter"
+                />
+            )}
         </>
     );
 }
