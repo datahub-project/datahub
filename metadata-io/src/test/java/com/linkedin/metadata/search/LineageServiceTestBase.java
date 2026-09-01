@@ -622,6 +622,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     // scrollAcrossLineage must clamp a caller-supplied maxHops the same way searchAcrossLineage
     // does. Previously the scroll path defaulted to 1000 without clamping, so a caller could
     // request an unbounded deep traversal.
+    Mockito.reset(graphService);
+    when(graphService.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
     when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
@@ -666,6 +668,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   public void testScrollAcrossLineageDefaultsNullMaxHopsToConfiguredLimit() throws Exception {
     // A null maxHops must resolve to the finite configured impact hop limit, not pass through as an
     // unbounded (or null) deep traversal.
+    Mockito.reset(graphService);
+    when(graphService.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
     when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
