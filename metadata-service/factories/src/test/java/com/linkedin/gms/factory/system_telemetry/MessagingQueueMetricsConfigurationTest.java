@@ -101,8 +101,7 @@ public class MessagingQueueMetricsConfigurationTest {
     MeterRegistryCustomizer<MeterRegistry> customizer =
         configuration.messagingQueueMetricsCustomizer(configurationProvider);
 
-    PrometheusMeterRegistry registry =
-        new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+    PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     customizer.customize(registry);
 
     Timer timer = registry.timer(MESSAGING_QUEUE_TIME);
