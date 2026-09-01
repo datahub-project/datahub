@@ -91,6 +91,7 @@ public class PgTimeseriesStoreConnectionsTest {
         baseStore().toBuilder().poolUrl("jdbc:postgresql://localhost:5432/ts").build();
     Database fallback = mock(Database.class);
     DataSourceConfig ebeanDs = new DataSourceConfig();
+    ebeanDs.setUrl("jdbc:postgresql://localhost:5432/ts");
     ebeanDs.setUsername("ebean_user");
     ebeanDs.setPassword("ebean_pass");
     ebeanDs.setCustomProperties(Map.of("wrapperPlugins", "iam"));
@@ -130,6 +131,7 @@ public class PgTimeseriesStoreConnectionsTest {
         baseStore().toBuilder().poolUrl("jdbc:postgresql://localhost:5432/ts").build();
     Database fallback = mock(Database.class);
     DataSourceConfig ebeanDs = new DataSourceConfig();
+    ebeanDs.setUrl("jdbc:postgresql://localhost:5432/ts");
     ebeanDs.setUsername("ebean_user");
     ebeanDs.setPassword("ebean_pass");
     ebeanDs.setCustomProperties(Map.of("wrapperPlugins", "iam"));
@@ -146,6 +148,52 @@ public class PgTimeseriesStoreConnectionsTest {
               store, fallback, new PostgresSqlSetupProperties(), ebeanDs);
       assertEquals(got, expected);
     }
+  }
+
+  @Test
+  public void open_customUrl_differentFromEbean_doesNotCopyEbeanIamProperties() throws Exception {
+    PgTimeseriesStoreOptions store =
+        baseStore()
+            .toBuilder()
+            .poolUrl("jdbc:postgresql://other-host:5432/otherdb")
+            .build();
+    Database fallback = mock(Database.class);
+    DataSourceConfig ebeanDs = new DataSourceConfig();
+    ebeanDs.setUrl("jdbc:postgresql://localhost:5432/ts");
+    ebeanDs.setCustomProperties(
+        Map.of(
+            "wrapperPlugins", "iam",
+            "cloudSqlInstance", "proj:region:primary"));
+    Connection expected = mock(Connection.class);
+
+    try (MockedStatic<DriverManager> dm = Mockito.mockStatic(DriverManager.class)) {
+      dm.when(
+              () ->
+                  DriverManager.getConnection(
+                      eq("jdbc:postgresql://other-host:5432/otherdb"), any(Properties.class)))
+          .thenAnswer(
+              inv -> {
+                Properties props = inv.getArgument(1);
+                assertFalse(props.containsKey("cloudSqlInstance"));
+                return expected;
+              });
+      Connection got =
+          PgTimeseriesStoreConnections.open(
+              store, fallback, new PostgresSqlSetupProperties(), ebeanDs);
+      assertEquals(got, expected);
+    }
+  }
+
+  @Test
+  public void sharesEbeanPoolUrl_requiresExactMatch() {
+    DataSourceConfig ebeanDs = new DataSourceConfig();
+    ebeanDs.setUrl("jdbc:postgresql://localhost:5432/ts");
+    assertTrue(
+        PgTimeseriesStoreConnections.sharesEbeanPoolUrl(
+            "jdbc:postgresql://localhost:5432/ts", ebeanDs));
+    assertFalse(
+        PgTimeseriesStoreConnections.sharesEbeanPoolUrl(
+            "jdbc:postgresql://other:5432/ts", ebeanDs));
   }
 
   @Test
