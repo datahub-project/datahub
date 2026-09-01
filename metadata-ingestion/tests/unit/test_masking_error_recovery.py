@@ -364,7 +364,7 @@ class TestBootstrapErrorHandling:
         registry = SecretRegistry.get_instance()
 
         # Install exception hook
-        _install_exception_hook(registry)
+        _install_exception_hook(SecretMaskingFilter(registry))
 
         # Mock traceback.format_exception to test error path
         def mock_format_fail(*args, **kwargs):

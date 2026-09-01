@@ -347,7 +347,7 @@ class TestDoubleInitialization:
         registry.register_secret("NEW_SECRET", "new_value")
 
         # Force reinitialization
-        initialize_secret_masking(force=True)
+        initialize_secret_masking()
 
         # Registry should still have the secret
         new_count = registry.get_count()
