@@ -1,3 +1,4 @@
+import time
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, List, Optional
@@ -314,6 +315,38 @@ def test_date_named_string_column_reaches_strategic_dates():
     )
 
     assert filters == ["`event_date` = '2025-01-15'"]
+
+
+def test_strategic_candidates_prefer_latest_over_completion_order():
+    # Both today and yesterday have data, but the yesterday probe finishes first. The
+    # results must be consumed in candidate preference order (today first), so today
+    # wins. Completion-order (as_completed) selection would wrongly return yesterday.
+    class OrderingDiscovery(PartitionDiscovery):
+        def _get_partition_column_types(self, *args: Any, **kwargs: Any):
+            return {"event_date": "DATE"}
+
+        def _get_partition_info_from_table_query(self, *args: Any, **kwargs: Any):
+            return None
+
+        def _test_date_candidate(self, *args: Any, **kwargs: Any):
+            description = args[4]
+            if description == "today":
+                # Make today deliberately finish *after* yesterday.
+                time.sleep(0.1)
+                return ["`event_date` = '2025-01-16'"]
+            return ["`event_date` = '2025-01-15'"]
+
+        def _get_partitions_with_sampling(self, *args: Any, **kwargs: Any):
+            return None
+
+    discovery = OrderingDiscovery(make_config())
+    table = make_table(name="date_tbl")
+
+    filters = discovery._find_real_partition_values(
+        table, "test-project-123456", "ds", ["event_date"], lambda *a, **k: []
+    )
+
+    assert filters == ["`event_date` = '2025-01-16'"]
 
 
 def test_compound_partition_date_plus_string():

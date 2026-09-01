@@ -1,5 +1,5 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
@@ -1458,30 +1458,35 @@ class PartitionDiscovery:
             f"Testing {len(candidate_dates)} date candidates in parallel for table {table.name}"
         )
         with ThreadPoolExecutor(max_workers=min(len(candidate_dates), 5)) as executor:
-            future_to_date = {
-                executor.submit(
-                    self._test_date_candidate,
-                    table,
-                    project,
-                    schema,
-                    test_date,
+            # Submit every candidate in parallel, but consume the results in the
+            # candidate preference order (today before yesterday) rather than in
+            # completion order: with as_completed, an older day that happens to finish
+            # first would win over today even when both partitions have data.
+            # Future.cancel() can't stop an already-running BigQuery job, so we don't
+            # bother — the executor simply waits for any stragglers as it shuts down.
+            ordered_futures = [
+                (
                     description,
-                    required_columns,
-                    column_types,
-                    execute_query_func,
-                    cached_metadata,
-                ): (test_date, description)
+                    executor.submit(
+                        self._test_date_candidate,
+                        table,
+                        project,
+                        schema,
+                        test_date,
+                        description,
+                        required_columns,
+                        column_types,
+                        execute_query_func,
+                        cached_metadata,
+                    ),
+                )
                 for test_date, description in candidate_dates
-            }
+            ]
 
-            for future in as_completed(future_to_date):
-                test_date, description = future_to_date[future]
+            for description, future in ordered_futures:
                 try:
                     result = future.result()
                     if result:
-                        for remaining_future in future_to_date:
-                            if remaining_future != future:
-                                remaining_future.cancel()
                         return result
                 except Exception as e:
                     logger.debug(
