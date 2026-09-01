@@ -1409,9 +1409,10 @@ def test_model_subtypes_passthrough_vs_transformed():
     ]
 
 
-def test_query_builder_cll_drops_named_refs():
-    """A query-builder card that selects one column by numeric id and one by name
-    emits CLL only for the resolvable column and counts the dropped named ref."""
+def test_query_builder_cll_recovers_named_ref_on_single_source():
+    """A single-source query-builder card that selects one column by numeric id and one
+    by name emits CLL for both: the id column resolves directly, and the name-only column
+    is attributed to the sole upstream table by name (not dropped)."""
     ctx = PipelineContext(run_id="metabase-test")
     config = MetabaseConfig(username="un", password=SecretStr("pwd"))
     metabase = FakeMetabaseSource(ctx, config)
@@ -1464,12 +1465,20 @@ def test_query_builder_cll_drops_named_refs():
 
     assert lineage is not None
     assert lineage.fineGrainedLineages is not None
-    # Only the numeric-id column resolves to an upstream; the named ref is dropped.
-    assert len(lineage.fineGrainedLineages) == 1
-    downstream = (lineage.fineGrainedLineages[0].downstreams or [""])[0]
-    assert downstream.rsplit(",", 1)[-1].rstrip(")") == "col_a"
+    # Both columns map upstream: col_a by field id, computed_col by name to the single
+    # source table. Downstream field path -> upstream field path.
+    downstreams = {
+        (fg.downstreams or [""])[0].rsplit(",", 1)[-1].rstrip(")"): (
+            fg.upstreams or [""]
+        )[0]
+        .rsplit(",", 1)[-1]
+        .rstrip(")")
+        for fg in lineage.fineGrainedLineages
+    }
+    assert downstreams == {"col_a": "col_a", "computed_col": "computed_col"}
 
-    assert metabase.report.mbql_field_refs_by_name_dropped == 1
+    # Single-source cards recover name-only columns, so nothing is genuinely dropped.
+    assert metabase.report.mbql_field_refs_by_name_dropped == 0
     assert metabase.report.query_builder_cll_dropped == 0
 
 

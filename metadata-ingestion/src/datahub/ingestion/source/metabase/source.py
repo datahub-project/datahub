@@ -769,6 +769,23 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return []
 
+    def _name_ref_cll_hint(self) -> str:
+        # Columns a card references only by name (no upstream field id) are typically
+        # aggregate outputs or columns projected from an upstream Model/saved question.
+        # Only suggest extract_models when it is off, since that is the lever that lets
+        # Model-backed cards resolve those names to the Model dataset's columns.
+        hint = (
+            " These are typically aggregate outputs (e.g. count, sum) or columns "
+            "projected from an upstream Model or saved question, which carry no upstream "
+            "field id to map to a specific source column."
+        )
+        if not self.config.extract_models:
+            hint += (
+                " Enable `extract_models` so cards built on a Model can attribute these "
+                "columns to the Model dataset."
+            )
+        return hint
+
     def _get_mbql_context(self, card: MetabaseCard) -> Optional[_MBQLContext]:
         if not card.dataset_query or not card.dataset_query.query:
             return None
@@ -799,23 +816,43 @@ class MetabaseSource(StatefulIngestionSourceBase):
             if f is not None:
                 resolved[fid] = f
 
-        # Name-based refs have no resolvable upstream column, so their CLL is dropped.
-        # Pass-through cards recover result-metadata names 1:1 in _get_passthrough_cll,
-        # so only count those names as dropped when the card is not pass-through. Dedupe:
-        # a column named in both the query clause and result_metadata is one dropped column.
+        # A name-only ref carries no upstream field id. When the card draws on a single
+        # upstream table we attribute such columns to it by name (below and in the chart
+        # inputFields path); pass-through cards recover them 1:1 in _get_passthrough_cll.
+        # Only a multi-table (join) card genuinely drops them, since attributing a bare
+        # name to one of several joined tables would risk misattribution.
+        datasource_urns = self.get_datasource_urn(card)
+        # Leave single_source_urn unset for pass-through cards so their recovery stays on
+        # the _get_passthrough_cll path (COPY semantics); the by-name fallback that uses
+        # this only applies to non-pass-through single-source query-builder cards.
+        single_source_urn = (
+            datasource_urns[0]
+            if not query.is_passthrough()
+            and datasource_urns
+            and len(datasource_urns) == 1
+            else None
+        )
+        recovers_by_name = query.is_passthrough() or single_source_urn is not None
+
         named_dropped: Set[str] = set(field_refs.named)
         if not query.is_passthrough():
             named_dropped.update(output_named_refs)
-        if named_dropped:
+        if named_dropped and not recovers_by_name:
             self.report.mbql_field_refs_by_name_dropped += len(named_dropped)
             self.report.warning(
                 title="MBQL Column Lineage Dropped",
-                message="Query-builder card references columns by name; column-level lineage for those columns was dropped.",
+                message="Column-level lineage was not emitted for columns a query-builder card references only by name."
+                + self._name_ref_cll_hint(),
                 context=f"Card ID: {card.id}, Named refs: {sorted(named_dropped)}",
                 log=False,
             )
 
-        return _MBQLContext(query=query, datasource=datasource, resolved=resolved)
+        return _MBQLContext(
+            query=query,
+            datasource=datasource,
+            resolved=resolved,
+            single_source_urn=single_source_urn,
+        )
 
     def _get_passthrough_cll(
         self, card: MetabaseCard, entity_urn: str
@@ -876,6 +913,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
         if not ctx:
             return None
 
+        # Mirror the chart inputFields fallback: a name-only column (aggregate output
+        # or a column projected from an upstream Model) has no field id to resolve, but
+        # when the card draws on a single upstream table (ctx.single_source_urn, unset
+        # for pass-through and multi-table joins) we attribute it to that table by name.
+        single_source_urn = ctx.single_source_urn
+
         fine_grained: List[FineGrainedLineageClass] = []
         for meta in card.result_metadata:
             if (
@@ -885,6 +928,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
             ):
                 continue
             upstream_urns = self._resolve_field_ref_upstream_urns(meta.field_ref, ctx)
+            if not upstream_urns and single_source_urn:
+                upstream_urns = [
+                    builder.make_schema_field_urn(
+                        parent_urn=single_source_urn, field_path=meta.name
+                    )
+                ]
             if upstream_urns:
                 fine_grained.append(
                     self._fine_grained_field(
@@ -1302,7 +1351,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     else:
                         self.report.warning(
                             title="Query-Builder Input Field Unresolved",
-                            message="Could not resolve a query-builder column to an upstream schema field; skipped to avoid misattributing it across joined tables.",
+                            message="A query-builder column could not be attributed to a single upstream and was skipped to avoid misattributing it across joined source tables (single-source cards are attributed automatically)."
+                            + self._name_ref_cll_hint(),
                             context=f"Card ID: {card.id}, Column: {meta.name}",
                             log=False,
                         )

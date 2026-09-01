@@ -359,6 +359,9 @@ class _MBQLContext(MetabaseBaseModel):
     query: MetabaseQuery
     datasource: DatasourceInfo
     resolved: Dict[int, MetabaseField] = Field(default_factory=dict)
+    # Set only when the card draws on exactly one upstream table, so name-only columns
+    # can be attributed to it by name without risking misattribution across joins.
+    single_source_urn: Optional[str] = None
 
 
 class MetabaseCollectionKey(ContainerKey):
