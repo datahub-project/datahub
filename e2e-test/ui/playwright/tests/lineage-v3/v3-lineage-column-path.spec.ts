@@ -37,6 +37,11 @@ test.describe('column-level lineage and impact analysis path V3', () => {
       themeV2Enabled: true,
       themeV2Default: true,
       showNavBarRedesign: true,
+      // These tests navigate to a bare /dataset/<urn> URL before clicking into Lineage; with
+      // datasetSummaryPageV1 on, that lands on the new Summary tab first (mounting its own
+      // module/data fetches) before the Lineage tab is selected, adding load racing against
+      // the lineage graph's own render.
+      datasetSummaryPageV1: false,
     });
   });
 
