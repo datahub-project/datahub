@@ -178,7 +178,7 @@ FILTER_DANGEROUS_PATTERNS = [
     for p in [
         # Any ';' in a filter is a stacked statement (a WHERE predicate never contains one);
         # validate_filter_expression rejects it directly, so no keyword list is needed here.
-        r"UNION\s+(?:(?:ALL|DISTINCT)\s+)?\(*\s*SELECT",
+        r"UNION\s+(?:(?:ALL|DISTINCT)\s+)?(?:\(\s*)*SELECT",
         r"--",
         # '#' / '--' / '/*' are scanned on the literal-masked filter, so a comment marker
         # inside a quoted STRING/Hive value is inert; only one outside a literal is caught.

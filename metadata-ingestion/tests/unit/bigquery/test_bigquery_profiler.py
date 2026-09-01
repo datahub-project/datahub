@@ -5,8 +5,10 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import requests
+import sqlglot
 import time_machine
 from google.cloud import bigquery
+from sqlglot.expressions import PartitionedByProperty
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
@@ -543,6 +545,35 @@ def test_partition_metadata_cache_population_failure_reports_and_empties():
     assert result is None
     assert profiler._partition_metadata_cache[("proj-123456", "test_dataset")] == {}
     assert any("cache" in str(w).lower() for w in report.warnings)
+
+
+def test_cached_metadata_absent_table_after_success_is_authoritative_unpartitioned():
+    # The dataset cache query only returns partitioning columns, so a table missing from
+    # a *successfully* populated cache has none. It must count as a hit and return an
+    # empty entry (not None) so discovery skips a redundant per-table COLUMNS query;
+    # only a failed population leaves a missing table unknown (a miss -> probe).
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    rows = [
+        SimpleNamespace(
+            table_name="partitioned_tbl", column_name="dt", data_type="DATE"
+        )
+    ]
+    with patch.object(
+        profiler.query_executor, "execute_query_safely", return_value=rows
+    ):
+        partitioned = profiler._get_cached_partition_metadata(
+            "proj-123456", "ds", "partitioned_tbl"
+        )
+        unpartitioned = profiler._get_cached_partition_metadata(
+            "proj-123456", "ds", "some_plain_tbl"
+        )
+
+    assert partitioned == {"partition_columns": ["dt"], "column_types": {"dt": "DATE"}}
+    assert unpartitioned == {"partition_columns": [], "column_types": {}}
+    assert profiler._cache_hits == 2
+    assert profiler._cache_misses == 0
 
 
 def test_external_table_with_no_columns_reaches_external_discovery():
@@ -3642,6 +3673,32 @@ def test_build_safe_table_reference_information_schema_case_insensitive():
             "my-project", "my_dataset", " INFORMATION_SCHEMA.TABLES "
         )
         == "`my-project`.`my_dataset`.INFORMATION_SCHEMA.TABLES"
+    )
+
+
+@pytest.mark.parametrize(
+    "ddl,expected",
+    [
+        # RANGE_BUCKET / GENERATE_ARRAY bounds are function arguments, not partition
+        # columns: only the bucketed column is real. Walking the call's expressions used
+        # to also emit `0` (the first GENERATE_ARRAY bound).
+        ("PARTITION BY RANGE_BUCKET(user_id, GENERATE_ARRAY(0, 100, 10))", ["user_id"]),
+        # A truncation function's unit (DAY/HOUR) must not become a second column.
+        ("PARTITION BY TIMESTAMP_TRUNC(created_at, HOUR)", ["created_at"]),
+        ("PARTITION BY DATETIME_TRUNC(event_time, DAY)", ["event_time"]),
+        ("PARTITION BY DATE(timestamp_column)", ["timestamp_column"]),
+        ("PARTITION BY date", ["date"]),
+    ],
+)
+def test_extract_column_names_from_ddl_does_not_flatten_function_args(ddl, expected):
+    discovery = PartitionDiscovery(BigQueryV2Config())
+    parsed = sqlglot.parse_one(
+        f"CREATE TABLE `p.d.t` {ddl} AS SELECT * FROM src", dialect="bigquery"
+    )
+    partition_expr = next(p.this for p in parsed.find_all(PartitionedByProperty))
+    assert (
+        discovery._extract_column_names_from_sqlglot_partition(partition_expr)
+        == expected
     )
 
 
