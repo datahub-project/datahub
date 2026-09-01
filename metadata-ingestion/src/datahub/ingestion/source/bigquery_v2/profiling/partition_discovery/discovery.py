@@ -1,5 +1,5 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
@@ -915,11 +915,14 @@ class PartitionDiscovery:
         column_names = []
 
         try:
-            expressions = []
-            if hasattr(partition_expr, "expressions") and partition_expr.expressions:
-                expressions = partition_expr.expressions
-            elif partition_expr:
-                expressions = [partition_expr]
+            # BigQuery PARTITION BY is always a single expression (a column, or a
+            # function of one column), never a comma-separated list. Treat the whole
+            # node as one expression and let the per-node handling below pull the column
+            # out. Do NOT expand `.expressions`: on a function such as
+            # RANGE_BUCKET(user_id, GENERATE_ARRAY(0, 100, 10)) or TIMESTAMP_TRUNC(ts, DAY)
+            # those entries are the call's arguments, so walking them invents fake
+            # partition columns (the unit, or a GENERATE_ARRAY bound like `0`).
+            expressions = [partition_expr] if partition_expr else []
 
             for expr in expressions:
                 column_name = None
@@ -1466,30 +1469,35 @@ class PartitionDiscovery:
             f"Testing {len(candidate_dates)} date candidates in parallel for table {table.name}"
         )
         with ThreadPoolExecutor(max_workers=min(len(candidate_dates), 5)) as executor:
-            future_to_date = {
-                executor.submit(
-                    self._test_date_candidate,
-                    table,
-                    project,
-                    schema,
-                    test_date,
+            # Submit every candidate in parallel, but consume the results in the
+            # candidate preference order (today before yesterday) rather than in
+            # completion order: with as_completed, an older day that happens to finish
+            # first would win over today even when both partitions have data.
+            # Future.cancel() can't stop an already-running BigQuery job, so we don't
+            # bother — the executor simply waits for any stragglers as it shuts down.
+            ordered_futures = [
+                (
                     description,
-                    required_columns,
-                    column_types,
-                    execute_query_func,
-                    cached_metadata,
-                ): (test_date, description)
+                    executor.submit(
+                        self._test_date_candidate,
+                        table,
+                        project,
+                        schema,
+                        test_date,
+                        description,
+                        required_columns,
+                        column_types,
+                        execute_query_func,
+                        cached_metadata,
+                    ),
+                )
                 for test_date, description in candidate_dates
-            }
+            ]
 
-            for future in as_completed(future_to_date):
-                test_date, description = future_to_date[future]
+            for description, future in ordered_futures:
                 try:
                     result = future.result()
                     if result:
-                        for remaining_future in future_to_date:
-                            if remaining_future != future:
-                                remaining_future.cancel()
                         return result
                 except Exception as e:
                     logger.debug(
