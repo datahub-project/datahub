@@ -1,6 +1,19 @@
-"""Unit tests for pagination in OneLakeClient and BaseFabricClient."""
+"""Unit tests for pagination in OneLakeClient and BaseFabricClient.
 
-from typing import Any, Dict
+Design notes shared across these tests:
+
+- The repeated-token guard tests use a *bounded* ``side_effect`` list rather
+  than ``return_value``: if the guard ever regresses, the mock runs dry and
+  the test fails fast with ``StopIteration`` instead of hanging the CI job in
+  an infinite pagination loop.
+- A fetched page is never dropped: when an endpoint repeats a pagination
+  token, the page is yielded *before* the guard breaks the loop. Re-emitting
+  a page at worst duplicates idempotent-per-URN metadata, while dropping one
+  loses entities — so the guard tests deliberately assert the duplicate
+  emission, and assert the truncation is recorded on the client report.
+"""
+
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -76,15 +89,132 @@ class TestPaginateFabricApi:
             items = list(client._paginate("workspaces"))
         assert items == [{"id": "a"}, {"id": "b"}, {"id": "c"}]
         assert mock_get.call_count == 3
-        # Second call must include the continuation token
-        mock_get.assert_any_call("workspaces", params={"continuationToken": "tok1"})
-        mock_get.assert_any_call("workspaces", params={"continuationToken": "tok2"})
+        # Later calls must carry the continuation token — full-dict equality
+        # so a rebuilt/lost params dict cannot slip through.
+        assert mock_get.call_args_list[1].kwargs["params"] == {
+            "continuationToken": "tok1"
+        }
+        assert mock_get.call_args_list[2].kwargs["params"] == {
+            "continuationToken": "tok2"
+        }
 
-    def test_empty_page(self, client: OneLakeClient) -> None:
+    def test_multi_page_preserves_initial_params(self, client: OneLakeClient) -> None:
+        """Page 2+ must carry the caller's original filters alongside the token.
+
+        A regression that rebuilt the params dict instead of extending it would
+        page against the wrong filter — plausible-but-wrong results, which is
+        worse than truncation.
+        """
+        page1 = {"value": [{"id": "a"}], "continuationToken": "tok1"}
+        page2 = {"value": [{"id": "b"}]}
+        with patch.object(
+            client, "get", side_effect=[_make_response(page1), _make_response(page2)]
+        ) as mock_get:
+            items = list(
+                client._paginate(
+                    "workspaces/ws-1/items", params={"type": "DataPipeline"}
+                )
+            )
+        assert [i["id"] for i in items] == ["a", "b"]
+        assert mock_get.call_args_list[0].kwargs["params"] == {"type": "DataPipeline"}
+        assert mock_get.call_args_list[1].kwargs["params"] == {
+            "type": "DataPipeline",
+            "continuationToken": "tok1",
+        }
+
+    def test_caller_params_not_mutated(self, client: OneLakeClient) -> None:
+        params = {"type": "DataPipeline"}
+        page1 = {"value": [{"id": "a"}], "continuationToken": "tok1"}
+        page2 = {"value": [{"id": "b"}]}
+        with patch.object(
+            client, "get", side_effect=[_make_response(page1), _make_response(page2)]
+        ):
+            list(client._paginate("endpoint", params=params))
+        assert params == {"type": "DataPipeline"}
+
+    def test_empty_page_is_not_a_parse_failure(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """A legitimately-empty page ({"value": []}) yields nothing quietly."""
         page: Dict[str, Any] = {"value": []}
         with patch.object(client, "get", return_value=_make_response(page)):
             items = list(client._paginate("workspaces"))
         assert items == []
+        mock_report.report_parse_failure.assert_not_called()
+
+    def test_null_items_value_treated_as_empty(self, client: OneLakeClient) -> None:
+        """{"value": null} must be an empty page, not a TypeError."""
+        page = {"value": None}
+        with patch.object(client, "get", return_value=_make_response(page)):
+            items = list(client._paginate("workspaces"))
+        assert items == []
+
+    def test_token_only_terminal_page_is_not_a_parse_failure(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """A terminal page carrying only the pagination envelope (items array
+        omitted entirely) is a legitimate empty page — e.g.
+        {"continuationToken": null} — not a malformed response."""
+        page1 = {"value": [{"id": "a"}], "continuationToken": "tok1"}
+        page2: Dict[str, Any] = {"continuationToken": None, "continuationUri": None}
+        with patch.object(
+            client, "get", side_effect=[_make_response(page1), _make_response(page2)]
+        ):
+            items = list(client._paginate("workspaces"))
+        assert items == [{"id": "a"}]
+        mock_report.report_parse_failure.assert_not_called()
+
+    def test_fallback_warning_fires_once_per_run(
+        self, client: OneLakeClient, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A multi-page listing served entirely under the fallback key warns
+        once, not once per page."""
+        page1 = {"value": [{"name": "t1"}], "continuationToken": "ct1"}
+        page2 = {"value": [{"name": "t2"}]}
+        with (
+            caplog.at_level("WARNING"),
+            patch.object(
+                client,
+                "get",
+                side_effect=[_make_response(page1), _make_response(page2)],
+            ),
+        ):
+            items = list(
+                client._paginate(
+                    "endpoint", items_key="data", fallback_items_keys=("value",)
+                )
+            )
+        assert [i["name"] for i in items] == ["t1", "t2"]
+        fallback_warnings = [
+            r for r in caplog.records if "fallback key" in r.getMessage()
+        ]
+        assert len(fallback_warnings) == 1
+
+    def test_missing_items_key_reports_parse_failure(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """A non-empty response without the expected items key must be loud:
+        it would otherwise ingest zero items with no signal."""
+        page = {"unexpected": [{"id": "a"}]}
+        with patch.object(client, "get", return_value=_make_response(page)):
+            items = list(client._paginate("workspaces"))
+        assert items == []
+        mock_report.report_parse_failure.assert_called_once()
+
+    def test_fallback_items_key_used(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """When the primary key is absent, a configured fallback key still
+        serves the items (and is not a parse failure)."""
+        page = {"value": [{"name": "tbl1"}]}
+        with patch.object(client, "get", return_value=_make_response(page)):
+            items = list(
+                client._paginate(
+                    "endpoint", items_key="data", fallback_items_keys=("value",)
+                )
+            )
+        assert items == [{"name": "tbl1"}]
+        mock_report.report_parse_failure.assert_not_called()
 
     def test_custom_items_key(self, client: OneLakeClient) -> None:
         page = {"data": [{"name": "tbl1"}, {"name": "tbl2"}]}
@@ -101,23 +231,97 @@ class TestPaginateFabricApi:
             items = list(client._paginate("endpoint", items_key="data"))
         assert [i["name"] for i in items] == ["tbl1", "tbl2"]
 
-    def test_default_items_key_unchanged(self, client: OneLakeClient) -> None:
-        """Default items_key="value" must keep existing behaviour for workspaces."""
-        page = {"value": [{"id": "ws-1"}]}
-        with patch.object(client, "get", return_value=_make_response(page)):
-            items = list(client._paginate("workspaces"))
-        assert items == [{"id": "ws-1"}]
-
-    def test_repeated_continuation_token_breaks(self, client: OneLakeClient) -> None:
-        """A non-advancing continuationToken must stop pagination without emitting
-        the repeated page twice."""
+    def test_repeated_continuation_token_breaks(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """A non-advancing continuationToken stops pagination after the second
+        request. The second page is yielded before the guard fires (never drop
+        a fetched page; the duplicate is tolerated), and the truncation is
+        recorded on the client report."""
         page: Dict[str, Any] = {"value": [{"id": "a"}], "continuationToken": "stuck"}
-        with patch.object(client, "get", return_value=_make_response(page)) as mock_get:
+        responses = [_make_response(page) for _ in range(5)]
+        with patch.object(client, "get", side_effect=responses) as mock_get:
             items = list(client._paginate("workspaces"))
-        # Page 1 yields and records the token; page 2 detects the repeat before
-        # yielding and breaks, so the item is emitted once.
         assert mock_get.call_count == 2
-        assert items == [{"id": "a"}]
+        assert items == [{"id": "a"}, {"id": "a"}]
+        mock_report.report_pagination_truncated.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# TestPaginatePostFabricApi — _paginate_post() on BaseFabricClient
+#
+# The only production caller is query_activity_runs (data_factory/client.py),
+# whose integration tests patch the method out wholesale — so the paginator
+# body is pinned here.
+# ---------------------------------------------------------------------------
+
+
+class TestPaginatePostFabricApi:
+    BODY: Dict[str, Any] = {
+        "filters": [],
+        "orderBy": [{"orderBy": "ActivityRunStart", "order": "DESC"}],
+    }
+
+    def test_single_page(self, client: OneLakeClient) -> None:
+        page1 = {"value": [{"activityName": "a"}]}
+        with patch.object(
+            client, "post", return_value=_make_response(page1)
+        ) as mock_post:
+            items = list(client._paginate_post("runs", dict(self.BODY)))
+        assert items == [{"activityName": "a"}]
+        mock_post.assert_called_once_with("runs", json=self.BODY)
+
+    def test_multi_page_body_carries_token_and_original_fields(
+        self, client: OneLakeClient
+    ) -> None:
+        """Page 2's body must be the original body plus the token — full-dict
+        equality so a rebuilt/lost body cannot slip through."""
+        page1 = {"value": [{"activityName": "a"}], "continuationToken": "ct1"}
+        page2 = {"value": [{"activityName": "b"}]}
+        with patch.object(
+            client, "post", side_effect=[_make_response(page1), _make_response(page2)]
+        ) as mock_post:
+            items = list(client._paginate_post("runs", dict(self.BODY)))
+        assert [i["activityName"] for i in items] == ["a", "b"]
+        assert mock_post.call_args_list[0].kwargs["json"] == self.BODY
+        assert mock_post.call_args_list[1].kwargs["json"] == {
+            **self.BODY,
+            "continuationToken": "ct1",
+        }
+
+    def test_caller_body_not_mutated(self, client: OneLakeClient) -> None:
+        """Pagination state must never be written into the caller's dict —
+        a reused body would otherwise carry a stale token into an unrelated
+        request."""
+        body = dict(self.BODY)
+        page1 = {"value": [{"activityName": "a"}], "continuationToken": "ct1"}
+        page2 = {"value": [{"activityName": "b"}]}
+        with patch.object(
+            client, "post", side_effect=[_make_response(page1), _make_response(page2)]
+        ):
+            list(client._paginate_post("runs", body))
+        assert body == self.BODY
+
+    def test_list_shaped_response(self, client: OneLakeClient) -> None:
+        """A bare-array response is yielded as-is and stops after one page."""
+        page: List[Dict[str, str]] = [{"activityName": "a"}, {"activityName": "b"}]
+        with patch.object(
+            client, "post", return_value=_make_response(page)
+        ) as mock_post:
+            items = list(client._paginate_post("runs", dict(self.BODY)))
+        assert items == page
+        assert mock_post.call_count == 1
+
+    def test_repeated_continuation_token_breaks(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        page = {"value": [{"activityName": "a"}], "continuationToken": "stuck"}
+        responses = [_make_response(page) for _ in range(5)]
+        with patch.object(client, "post", side_effect=responses) as mock_post:
+            items = list(client._paginate_post("runs", dict(self.BODY)))
+        assert mock_post.call_count == 2
+        assert items == [{"activityName": "a"}, {"activityName": "a"}]
+        mock_report.report_pagination_truncated.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +372,8 @@ class TestListItemsPagination:
 
 
 # ---------------------------------------------------------------------------
-# TestListLakehouseTablesPagination — non-schema branch ("data" key)
+# TestListLakehouseTablesPagination — non-schema branch ("data" key, with a
+# loud "value" fallback)
 # ---------------------------------------------------------------------------
 
 
@@ -201,6 +406,46 @@ class TestListLakehouseTablesPagination:
             tables = list(client.list_lakehouse_tables("ws-1", "lh-1"))
         assert [t.name for t in tables] == ["tbl1", "tbl2", "tbl3"]
 
+    def test_value_key_fallback_still_ingests(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """A response serving tables under "value" (the pre-pagination code
+        read both keys) must still ingest every table, not silently zero."""
+        self._setup_schemas_disabled(client)
+        page = {"value": [self._table_item("tbl1"), self._table_item("tbl2")]}
+        with patch.object(client, "get", return_value=_make_response(page)):
+            tables = list(client.list_lakehouse_tables("ws-1", "lh-1"))
+        assert [t.name for t in tables] == ["tbl1", "tbl2"]
+        mock_report.report_parse_failure.assert_not_called()
+
+    def test_unrecognized_items_key_reports_parse_failure(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """A non-empty response under neither "data" nor "value" must surface
+        as a parse failure instead of quietly ingesting nothing."""
+        self._setup_schemas_disabled(client)
+        page = {"tables": [self._table_item("tbl1")]}
+        with patch.object(client, "get", return_value=_make_response(page)):
+            tables = list(client.list_lakehouse_tables("ws-1", "lh-1"))
+        assert tables == []
+        mock_report.report_parse_failure.assert_called_once()
+
+    def test_http_error_after_first_page_records_truncation(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """A failure on page 2+ means earlier pages were already consumed —
+        record the truncation before propagating."""
+        self._setup_schemas_disabled(client)
+        page1 = _make_response(
+            {"data": [self._table_item("tbl1")], "continuationToken": "ct"}
+        )
+        with patch.object(
+            client, "get", side_effect=[page1, _make_http_error(500, "boom")]
+        ):
+            with pytest.raises(requests.exceptions.HTTPError):
+                list(client.list_lakehouse_tables("ws-1", "lh-1"))
+        mock_report.report_pagination_truncated.assert_called_once()
+
     def test_400_schemas_enabled_fallback_still_works(
         self, client: OneLakeClient, mock_auth: MagicMock
     ) -> None:
@@ -224,6 +469,24 @@ class TestListLakehouseTablesPagination:
         assert len(tables) == 1
         assert tables[0].name == "t1"
         assert tables[0].schema_name == "dbo"
+
+    def test_400_after_first_page_is_truncation_not_fallback(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """The schema fallback re-lists the whole lakehouse, so it is only
+        taken from a clean start; after a page has been yielded a 400 is a
+        truncated listing and propagates."""
+        self._setup_schemas_disabled(client)
+        page1 = _make_response(
+            {"data": [self._table_item("tbl1")], "continuationToken": "ct"}
+        )
+        http_err = _make_http_error(
+            400, "UnsupportedOperationForSchemasEnabledLakehouse"
+        )
+        with patch.object(client, "get", side_effect=[page1, http_err]):
+            with pytest.raises(requests.exceptions.HTTPError):
+                list(client.list_lakehouse_tables("ws-1", "lh-1"))
+        mock_report.report_pagination_truncated.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -256,12 +519,29 @@ class TestListWarehouseTablesPagination:
         assert [t.name for t in tables] == ["t1", "t2", "t3"]
         assert tables[2].schema_name == "sales"
 
-    def test_404_returns_empty(self, client: OneLakeClient) -> None:
-        """Staging warehouses return 404 — must yield nothing, not raise."""
+    def test_404_returns_empty(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """Staging warehouses return 404 on the first request — must yield
+        nothing, not raise, and is not a truncation."""
         http_err = _make_http_error(404)
         with patch.object(client, "get", side_effect=http_err):
             tables = list(client.list_warehouse_tables("ws-1", "staging-wh"))
         assert tables == []
+        mock_report.report_pagination_truncated.assert_not_called()
+
+    def test_404_after_first_page_keeps_tables_and_records_truncation(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """A 404 on page 2+ is a listing cut short, not a staging warehouse:
+        the tables already yielded are kept and the truncation is recorded."""
+        page1 = _make_response(
+            {"value": [self._table_item("dbo", "t1")], "continuationToken": "ct"}
+        )
+        with patch.object(client, "get", side_effect=[page1, _make_http_error(404)]):
+            tables = list(client.list_warehouse_tables("ws-1", "wh-1"))
+        assert [t.name for t in tables] == ["t1"]
+        mock_report.report_pagination_truncated.assert_called_once()
 
     def test_non_404_http_error_propagates(self, client: OneLakeClient) -> None:
         http_err = _make_http_error(500, "internal server error")
@@ -294,7 +574,8 @@ class TestOneLakeTableApiPagination:
     def test_schemas_multi_page(
         self, client: OneLakeClient, mock_auth: MagicMock
     ) -> None:
-        """Validate that next_page_token drives a second request."""
+        """Validate that next_page_token drives a second request that carries
+        both the original catalog filter and the token."""
         resp1 = _make_response({"schemas": [{"name": "s1"}], "next_page_token": "pt1"})
         resp2 = _make_response({"schemas": [{"name": "s2"}]})
         with patch.object(
@@ -304,9 +585,13 @@ class TestOneLakeTableApiPagination:
 
         assert schemas == ["s1", "s2"]
         assert mock_get.call_count == 2
-        # Second call must include page_token
-        second_call_kwargs = mock_get.call_args_list[1]
-        assert second_call_kwargs.kwargs.get("params", {}).get("page_token") == "pt1"
+        # Full-dict equality: a rebuilt params dict that lost catalog_name
+        # would page against the wrong lakehouse with the suite still green.
+        second_call = mock_get.call_args_list[1]
+        assert second_call.kwargs["params"] == {
+            "catalog_name": "lh-1",
+            "page_token": "pt1",
+        }
 
     def test_tables_single_page(
         self, client: OneLakeClient, mock_auth: MagicMock
@@ -355,8 +640,32 @@ class TestOneLakeTableApiPagination:
             scope=ONELAKE_STORAGE_SCOPE
         )
 
-    def test_http_error_propagates(
+    def test_auth_header_fetched_per_page(
         self, client: OneLakeClient, mock_auth: MagicMock
+    ) -> None:
+        """The Authorization header is fetched once per page (the helper
+        caches, so this is cheap) — a single fetch hoisted above the loop
+        could expire during a long pagination run."""
+        resp1 = _make_response({"schemas": [{"name": "s1"}], "next_page_token": "pt1"})
+        resp2 = _make_response({"schemas": [{"name": "s2"}], "next_page_token": "pt2"})
+        resp3 = _make_response({"schemas": [{"name": "s3"}]})
+        with patch.object(client._session, "get", side_effect=[resp1, resp2, resp3]):
+            list(client._list_schemas_via_onelake_api("ws-1", "lh-1"))
+        assert mock_auth.get_authorization_header.call_count == 3
+
+    def test_requests_counted_on_report(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """Every page fetched via the OneLake Table API counts toward
+        request_count — this path cannot go through _request()."""
+        resp1 = _make_response({"schemas": [{"name": "s1"}], "next_page_token": "pt1"})
+        resp2 = _make_response({"schemas": [{"name": "s2"}]})
+        with patch.object(client._session, "get", side_effect=[resp1, resp2]):
+            list(client._list_schemas_via_onelake_api("ws-1", "lh-1"))
+        assert mock_report.report_request.call_count == 2
+
+    def test_http_error_propagates_and_counts_once(
+        self, client: OneLakeClient, mock_report: MagicMock
     ) -> None:
         err_resp = Mock()
         err_resp.status_code = 403
@@ -366,41 +675,62 @@ class TestOneLakeTableApiPagination:
         with patch.object(client._session, "get", side_effect=http_err):
             with pytest.raises(requests.exceptions.HTTPError):
                 list(client._list_schemas_via_onelake_api("ws-1", "lh-1"))
+        # Counted at the request layer inside the paginator, and only there.
+        assert mock_report.report_error.call_count == 1
 
     def test_no_next_page_token_stops_after_one_page(
         self, client: OneLakeClient, mock_auth: MagicMock
     ) -> None:
-        """When next_page_token is absent, exactly one request is made."""
-        resp = _make_response({"schemas": [{"name": "dbo"}]})
-        with patch.object(client._session, "get", return_value=resp) as mock_get:
-            schemas = list(client._list_schemas_via_onelake_api("ws-1", "lh-1"))
-        assert schemas == ["dbo"]
-        assert mock_get.call_count == 1
-
-    def test_null_next_page_token_stops_after_one_page(
-        self, client: OneLakeClient, mock_auth: MagicMock
-    ) -> None:
-        """next_page_token=null (None) must also stop pagination."""
+        """When next_page_token is absent (or null), exactly one request is made."""
         resp = _make_response({"schemas": [{"name": "dbo"}], "next_page_token": None})
         with patch.object(client._session, "get", return_value=resp) as mock_get:
             schemas = list(client._list_schemas_via_onelake_api("ws-1", "lh-1"))
         assert schemas == ["dbo"]
         assert mock_get.call_count == 1
 
-    def test_repeated_page_token_breaks(
-        self, client: OneLakeClient, mock_auth: MagicMock
+    def test_token_only_terminal_page_is_not_a_parse_failure(
+        self, client: OneLakeClient, mock_report: MagicMock
     ) -> None:
-        """An endpoint that ignores page_token repeats next_page_token; the guard
-        must stop pagination instead of looping forever."""
-        resp = _make_response(
-            {"schemas": [{"name": "dbo"}], "next_page_token": "stuck"}
-        )
-        with patch.object(client._session, "get", return_value=resp) as mock_get:
+        """Unity Catalog-style APIs may omit the items array on an empty/terminal
+        page and serialize only {"next_page_token": null} — that page is empty,
+        not malformed."""
+        resp1 = _make_response({"schemas": [{"name": "s1"}], "next_page_token": "pt1"})
+        resp2 = _make_response({"next_page_token": None})
+        with patch.object(client._session, "get", side_effect=[resp1, resp2]):
             schemas = list(client._list_schemas_via_onelake_api("ws-1", "lh-1"))
-        # Page 1 yields and records the token; page 2 detects the repeat before
-        # yielding and breaks, so the schema is emitted once.
+        assert schemas == ["s1"]
+        mock_report.report_parse_failure.assert_not_called()
+
+    def test_malformed_json_body_counts_as_error(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """A 200 whose body fails JSON decoding is a failed request: it must
+        count on the report and propagate."""
+        resp = Mock(spec=requests.Response)
+        resp.status_code = 200
+        resp.raise_for_status = Mock()
+        resp.json.side_effect = requests.exceptions.JSONDecodeError(
+            "Expecting value", "not json", 0
+        )
+        with patch.object(client._session, "get", return_value=resp):
+            with pytest.raises(requests.exceptions.JSONDecodeError):
+                list(client._list_schemas_via_onelake_api("ws-1", "lh-1"))
+        assert mock_report.report_error.call_count == 1
+
+    def test_repeated_page_token_breaks(
+        self, client: OneLakeClient, mock_report: MagicMock
+    ) -> None:
+        """An endpoint that ignores page_token repeats next_page_token; the
+        guard stops pagination after the second request. The second page is
+        yielded before the guard fires (never drop a fetched page), and the
+        truncation is recorded on the client report."""
+        resp_data = {"schemas": [{"name": "dbo"}], "next_page_token": "stuck"}
+        responses = [_make_response(resp_data) for _ in range(5)]
+        with patch.object(client._session, "get", side_effect=responses) as mock_get:
+            schemas = list(client._list_schemas_via_onelake_api("ws-1", "lh-1"))
         assert mock_get.call_count == 2
-        assert schemas == ["dbo"]
+        assert schemas == ["dbo", "dbo"]
+        mock_report.report_pagination_truncated.assert_called_once()
 
     def test_url_construction_schemas(
         self, client: OneLakeClient, mock_auth: MagicMock

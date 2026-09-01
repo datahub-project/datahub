@@ -23,6 +23,13 @@ logger = logging.getLogger(__name__)
 # OneLake Delta Table APIs base URL
 ONELAKE_TABLE_API_BASE_URL = "https://onelake.table.fabric.microsoft.com"
 
+# OneLake Table API (Unity Catalog-compatible) pagination fields. The names
+# are asymmetric — the response carries "next_page_token" and the request
+# sends it back as "page_token" — so a transposition is easy and silently
+# degrades pagination to a single page; both sites go through these constants.
+PAGE_TOKEN_PARAM = "page_token"
+NEXT_PAGE_TOKEN_FIELD = "next_page_token"
+
 
 def _parse_table_name(full_name: str) -> tuple[str, str]:
     """Parse schema and table name from fully qualified name.
@@ -198,63 +205,92 @@ class OneLakeClient(BaseFabricClient):
     ) -> Iterator[dict]:
         """Yield all items from a paginated OneLake Table API endpoint.
 
-        The OneLake Table API for Delta exposes a Unity Catalog-compatible surface,
-        so it uses page_token / next_page_token pagination rather than the
-        continuationToken used by the Fabric REST API. The request parameter
-        "page_token" and response field "next_page_token" are both defined by the
-        Unity Catalog API spec that the OneLake Table API implements (listSchemas /
-        listTables), and next_page_token is shown in Microsoft's docs:
+        The OneLake Table API for Delta exposes a Unity Catalog-compatible
+        surface, so it uses page_token / next_page_token pagination rather than
+        the continuationToken used by the Fabric REST API. Both names are
+        defined by the Unity Catalog API spec that the OneLake Table API
+        implements (listSchemas / listTables), and next_page_token is shown in
+        Microsoft's docs:
         https://learn.microsoft.com/en-us/fabric/onelake/table-apis/delta-table-apis-get-started
 
         Should an endpoint ignore page_token, it would return the same
-        next_page_token on every call; the seen-token guard below breaks the loop
-        (with a warning) as soon as a token repeats, so a misbehaving endpoint
-        truncates loudly instead of looping forever.
+        next_page_token on every call; the seen-token guard breaks the loop as
+        soon as a token repeats, *after* yielding the page (a fetched page is
+        never dropped), and records the truncation on the client report so it
+        is visible in the run summary.
+
+        The Authorization header is fetched per page: the auth helper caches
+        the token with a pre-expiry margin, so this is a timestamp check in
+        the common case — and it is the only chance a near-expiry token has to
+        refresh during a long pagination run instead of failing with a 401
+        partway through. Requests on this path are also counted on the client
+        report (this URL is absolute, so it cannot go through ``_request``).
 
         Args:
             url: Full URL for the API endpoint
-            params: Initial query parameters
+            params: Initial query parameters (never mutated)
             items_key: Response JSON key holding the items array (e.g. "schemas", "tables")
 
         Yields:
             Item dictionaries
         """
-        headers: Dict[str, str] = {}
-        try:
-            headers["Authorization"] = self.auth_helper.get_authorization_header(
-                scope=ONELAKE_STORAGE_SCOPE
-            )
-        except Exception as e:
-            logger.error(f"Failed to get authorization header: {e}")
-            raise
-
-        request_params = dict(params)
+        context = f"OneLake Table API '{url}'"
+        base_params = dict(params)
         seen_page_tokens: Set[str] = set()
-        page = 1
+        warned_fallback_keys: Set[str] = set()
+        next_token: Optional[str] = None
+        page = 0
+        total = 0
         while True:
-            response = self._session.get(
-                url, headers=headers, params=dict(request_params), timeout=self.timeout
+            request_params = (
+                base_params
+                if next_token is None
+                else {**base_params, PAGE_TOKEN_PARAM: next_token}
             )
-            response.raise_for_status()
-            data = response.json()
+            try:
+                headers = {
+                    "Authorization": self.auth_helper.get_authorization_header(
+                        scope=ONELAKE_STORAGE_SCOPE
+                    )
+                }
+            except Exception as e:
+                logger.error(f"Failed to get authorization header: {e}")
+                raise
 
-            next_page_token = data.get("next_page_token")
-            # Check for a repeated token before yielding, so an endpoint that
-            # ignores page_token doesn't emit the same page twice.
-            if self._is_repeated_pagination_token(
-                next_page_token, seen_page_tokens, f"OneLake Table API '{url}'"
-            ):
-                break
+            self.report.report_request()
+            try:
+                response = self._session.get(
+                    url, headers=headers, params=request_params, timeout=self.timeout
+                )
+                response.raise_for_status()
+                # Inside the counted try: requests raises its own
+                # JSONDecodeError (a RequestException) for a malformed body,
+                # which is a failed request like any other.
+                data = response.json()
+            except requests.exceptions.RequestException:
+                self.report.report_error()
+                raise
+            page += 1
 
-            items = data.get(items_key, [])
+            items = self._extract_page_items(
+                data, items_key, (), context, warned_fallback_keys
+            )
             logger.debug(f"Page {page}: got {len(items)} item(s) from {url}")
+            total += len(items)
             yield from items
 
-            if not next_page_token:
+            next_token = data.get(NEXT_PAGE_TOKEN_FIELD)
+            if not next_token:
                 break
-            seen_page_tokens.add(next_page_token)
-            request_params["page_token"] = next_page_token
-            page += 1
+            if self._is_repeated_pagination_token(
+                next_token, seen_page_tokens, context
+            ):
+                break
+            seen_page_tokens.add(next_token)
+
+        # Not reached when the consumer stops iterating early or a request
+        # raises — the absence of this line in a log is not itself a bug.
+        logger.info(f"{url}: fetched {total} item(s) across {page} page(s)")
 
     def _list_schemas_via_onelake_api(
         self, workspace_id: str, lakehouse_id: str
@@ -286,13 +322,13 @@ class OneLakeClient(BaseFabricClient):
                     yield schema_name
 
         except requests.exceptions.HTTPError as e:
-            self.report.report_error()
+            # Request errors are counted on the client report inside
+            # _paginate_onelake_table_api; only log context here.
             logger.error(
                 f"HTTP error {e.response.status_code} listing schemas for lakehouse {lakehouse_id}: {e.response.text}"
             )
             raise
         except Exception as e:
-            self.report.report_error()
             logger.error(f"Failed to list schemas for lakehouse {lakehouse_id}: {e}")
             raise
 
@@ -337,13 +373,13 @@ class OneLakeClient(BaseFabricClient):
                     )
 
         except requests.exceptions.HTTPError as e:
-            self.report.report_error()
+            # Request errors are counted on the client report inside
+            # _paginate_onelake_table_api; only log context here.
             logger.error(
                 f"HTTP error {e.response.status_code} listing tables in schema {schema_name} for lakehouse {lakehouse_id}: {e.response.text}"
             )
             raise
         except Exception as e:
-            self.report.report_error()
             logger.error(
                 f"Failed to list tables in schema {schema_name} for lakehouse {lakehouse_id}: {e}"
             )
@@ -379,24 +415,37 @@ class OneLakeClient(BaseFabricClient):
                 f"Lakehouse {lakehouse_id} has schemas enabled, using OneLake Delta Table APIs"
             )
             # List schemas, then tables per schema
+            yielded_any = False
             try:
                 for schema_name in self._list_schemas_via_onelake_api(
                     workspace_id, lakehouse_id
                 ):
-                    yield from self._list_tables_per_schema_via_onelake_api(
+                    for table in self._list_tables_per_schema_via_onelake_api(
                         workspace_id, lakehouse_id, schema_name
-                    )
+                    ):
+                        yielded_any = True
+                        yield table
             except requests.exceptions.HTTPError as e:
                 # If OneLake APIs fail with 401/403, it might be an authentication/permission issue
                 # Log warning and return empty (don't fail the entire ingestion)
                 if e.response.status_code in (401, 403):
+                    if yielded_any:
+                        # A permission error after tables have already been
+                        # emitted is not "no access" — it is a listing cut
+                        # short (e.g. a token that expired mid-run). Record
+                        # it as truncation so the run report shows the
+                        # results for this lakehouse are incomplete.
+                        self.report.report_pagination_truncated(
+                            f"lakehouse {lakehouse_id}: OneLake Table API listing "
+                            f"stopped early on HTTP {e.response.status_code}"
+                        )
                     logger.warning(
                         f"OneLake Delta Table APIs require additional permissions or different authentication. "
                         f"Unable to list tables for schemas-enabled lakehouse {lakehouse_id}. "
                         f"Error: {e.response.text}. "
                         f"Please ensure your identity has 'Lakehouse.Read.All' or 'Lakehouse.ReadWrite.All' permissions."
                     )
-                    # Return empty iterator instead of raising
+                    # Return the tables already yielded instead of raising
                     return
                 else:
                     logger.error(
@@ -413,11 +462,20 @@ class OneLakeClient(BaseFabricClient):
                 f"Lakehouse {lakehouse_id} does not have schemas enabled, using Fabric REST API"
             )
             # Use standard REST API endpoint
-            # Tables are in "data" key for schemas-disabled lakehouses, not "value".
-            # Reference: https://learn.microsoft.com/en-us/rest/api/fabric/lakehouse/tables/list-tables
+            # Tables are in the "data" key for schemas-disabled lakehouses per
+            # the documented contract:
+            # https://learn.microsoft.com/en-us/rest/api/fabric/lakehouse/tables/list-tables
+            # "value" is kept as a fallback because the pre-pagination code
+            # read both keys and we cannot rule out a tenant/API version that
+            # serves "value"; the fallback warns when it fires (and a response
+            # with neither key is reported as a parse failure) instead of
+            # silently ingesting zero tables.
+            yielded_any = False
             try:
                 endpoint = f"workspaces/{workspace_id}/lakehouses/{lakehouse_id}/tables"
-                for table_data in self._paginate(endpoint, items_key="data"):
+                for table_data in self._paginate(
+                    endpoint, items_key="data", fallback_items_keys=("value",)
+                ):
                     full_name = table_data.get("name", "")
                     # For schemas-disabled lakehouses, table names don't include schema prefix
                     # Use empty string for schema_name so URN generation can skip it
@@ -433,6 +491,7 @@ class OneLakeClient(BaseFabricClient):
                         else f"Processing table: {table_name}"
                     )
 
+                    yielded_any = True
                     yield FabricTable(
                         name=table_name,
                         schema_name=schema_name,
@@ -443,8 +502,15 @@ class OneLakeClient(BaseFabricClient):
 
             except requests.exceptions.HTTPError as e:
                 # Check if error is due to schemas being enabled (but detection failed)
+                # The fallback is only taken from a clean start: this 400
+                # rejects the whole route (schemas-enabled lakehouse), so in
+                # practice it fires on the first request. If it ever fired
+                # after a page was yielded, re-listing via the fallback would
+                # duplicate everything already emitted — treat that as a
+                # truncated listing instead (else branch below).
                 if (
-                    e.response.status_code == 400
+                    not yielded_any
+                    and e.response.status_code == 400
                     and "UnsupportedOperationForSchemasEnabledLakehouse"
                     in e.response.text
                 ):
@@ -466,6 +532,15 @@ class OneLakeClient(BaseFabricClient):
                         )
                         raise
                 else:
+                    if yielded_any:
+                        # The failure happened after earlier pages were
+                        # consumed — the tables already yielded are being
+                        # discarded by whoever catches this, so record that
+                        # the listing was cut short.
+                        self.report.report_pagination_truncated(
+                            f"lakehouse {lakehouse_id}: tables listing stopped "
+                            f"early on HTTP {e.response.status_code}"
+                        )
                     self.report.report_error()
                     logger.error(
                         f"HTTP error {e.response.status_code} listing tables for lakehouse {lakehouse_id}: {e.response.text}"
@@ -494,6 +569,7 @@ class OneLakeClient(BaseFabricClient):
             FabricTable objects
         """
         logger.info(f"Listing tables for warehouse {warehouse_id}")
+        yielded_any = False
         try:
             endpoint = f"workspaces/{workspace_id}/warehouses/{warehouse_id}/tables"
             for table_data in self._paginate(endpoint):
@@ -501,6 +577,7 @@ class OneLakeClient(BaseFabricClient):
                 schema_name, table_name = _parse_table_name(full_name)
                 logger.debug(f"Processing table: {schema_name}.{table_name}")
 
+                yielded_any = True
                 yield FabricTable(
                     name=table_name,
                     schema_name=schema_name,
@@ -511,6 +588,20 @@ class OneLakeClient(BaseFabricClient):
 
         except requests.exceptions.HTTPError as e:
             if e.response is not None and e.response.status_code == 404:
+                if yielded_any:
+                    # A 404 after pages have been emitted is a listing cut
+                    # short, not a staging warehouse with no tables endpoint.
+                    # Keep the tables already yielded (dropping them loses
+                    # entities) and record the truncation on the report.
+                    self.report.report_pagination_truncated(
+                        f"warehouse {warehouse_id}: tables listing stopped "
+                        f"early on HTTP 404"
+                    )
+                    logger.warning(
+                        f"Warehouse {warehouse_id} tables endpoint returned 404 "
+                        "after earlier pages were fetched; results are incomplete."
+                    )
+                    return
                 logger.warning(
                     f"Warehouse {warehouse_id} tables endpoint returned 404 (Not Found). "
                     "Some warehouse types (e.g. staging) do not expose tables via API. "

@@ -293,6 +293,19 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         finally:
             self.client.close()
 
+        # Promote client-level pagination truncations into the run summary: a
+        # truncated listing means the emitted metadata is incomplete, which
+        # must be visible in the report's Warnings section, not only in the
+        # nested client report. (Same promotion as the OneLake source.)
+        for truncation_context in self.client_report.pagination_truncations:
+            self.report.warning(
+                title="Listing Truncated",
+                message="A Fabric API listing stopped before all pages were "
+                "fetched; the ingested metadata is incomplete.",
+                context=truncation_context,
+                log=False,
+            )
+
     def _fetch_pipeline_activities(self, workspace_id: str) -> list[FabricItem]:
         """Fetch pipelines and their activities for a workspace into cache.
 
