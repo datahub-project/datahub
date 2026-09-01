@@ -1044,6 +1044,7 @@ class TestJavaRegexPatternMatching:
             platform="postgres",
             mock_urns=[
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.users,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,otherdb.public.users,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.private.secrets,PROD)",
             ],
         )

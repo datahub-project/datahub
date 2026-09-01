@@ -3462,6 +3462,7 @@ class DebeziumSourceConnector(BaseConnector):
                             else normalized_table_name
                         )
 
+            matched_tables = list(dict.fromkeys(matched_tables))
             logger.debug(
                 f"Pattern '{pattern}' matched {len(matched_tables)} tables from DataHub"
             )
