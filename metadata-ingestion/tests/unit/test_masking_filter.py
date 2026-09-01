@@ -1243,6 +1243,52 @@ class TestMultiLineFragmentMasking:
             assert "***REDACTED:GCP_KEY***" in masked
 
 
+class TestMarkerSmuggling:
+    def test_marker_shaped_span_does_not_shield_a_secret(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("DB_PASS", "super-secret-value")
+        masked = masking_filter.mask_text("***REDACTED:super-secret-value***")
+        assert "super-secret-value" not in masked
+
+    def test_truncated_marker_does_not_shield_a_secret(self, registry, masking_filter):
+        registry.register_secret("DB_PASS", "super-secret-value")
+        masked = masking_filter.mask_text(
+            "log ***REDACTED:DB_ then super-secret-value more ***"
+        )
+        assert "super-secret-value" not in masked
+
+    def test_own_marker_is_still_skipped_whole(self, registry, masking_filter):
+        registry.register_secret("DB_PASS", "super-secret-value")
+        once = masking_filter.mask_text("connecting with super-secret-value")
+        assert masking_filter.mask_text(once) == once
+
+    def test_unknown_placeholder_marker_is_skipped(self, registry, masking_filter):
+        registry.register_secret("DB_PASS", "super-secret-value")
+        text = "***REDACTED:UNKNOWN*** trailing text"
+        assert masking_filter.mask_text(text) == text
+
+
+class TestSentinelIdempotency:
+    def test_sentinels_are_not_rewritten_by_matching_secrets(
+        self, registry, masking_filter
+    ):
+        registry.register_secrets_batch({"NAME_A": "SECURITY", "NAME_B": "Circuit"})
+        for sentinel in (
+            MASKING_ERROR_MESSAGE,
+            CIRCUIT_OPEN_MESSAGE,
+            CAPACITY_EXCEEDED_MESSAGE,
+        ):
+            assert masking_filter.mask_text(sentinel) == sentinel
+
+    def test_secret_matching_sentinel_text_is_masked_outside_sentinels(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("NAME_A", "SECURITY")
+        masked = masking_filter.mask_text(f"{MASKING_ERROR_MESSAGE} and SECURITY")
+        assert masked == f"{MASKING_ERROR_MESSAGE} and ***REDACTED:NAME_A***"
+
+
 class TestFailClosed:
     def test_capacity_exceeded_suppresses_all_output(self, monkeypatch):
         monkeypatch.setattr(SecretRegistry, "MAX_SECRETS", 2)

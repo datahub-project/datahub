@@ -31,7 +31,11 @@ from datahub.masking.secret_registry import SecretRegistry
 
 logger = get_masking_safe_logger(__name__)
 
-_MARKER_REGEX = re.escape(REDACTED_PREFIX) + r"[^\n]*?" + re.escape(REDACTED_SUFFIX)
+_SENTINEL_MESSAGES = (
+    MASKING_ERROR_MESSAGE,
+    CIRCUIT_OPEN_MESSAGE,
+    CAPACITY_EXCEEDED_MESSAGE,
+)
 
 
 def _compiles(pattern_str: str) -> bool:
@@ -94,9 +98,30 @@ class SecretMaskingFilter(logging.Filter):
         # (e.g., ".*", "a+b", "test|prod") are matched literally, not as regex.
         # The marker alternative comes first so that already-masked spans are
         # consumed whole and never re-matched - this is what makes masking
-        # idempotent even when a secret value collides with marker text.
+        # idempotent even when a secret value collides with marker text. Only
+        # markers bearing a name this filter could have produced are consumed;
+        # a wildcard would let marker-shaped delimiters arriving in untrusted
+        # text smuggle a secret through unmasked.
+        names = sorted(
+            {name for _, name in sorted_secrets} | {"UNKNOWN"},
+            key=len,
+            reverse=True,
+        )
+        marker_regex = (
+            re.escape(REDACTED_PREFIX)
+            + "(?:"
+            + "|".join(re.escape(name) for name in names)
+            + ")"
+            + re.escape(REDACTED_SUFFIX)
+        )
         escaped_values = [re.escape(value) for value, _ in sorted_secrets]
-        pattern_str = "|".join([_MARKER_REGEX, *escaped_values])
+        pattern_str = "|".join(
+            [
+                marker_regex,
+                *(re.escape(message) for message in _SENTINEL_MESSAGES),
+                *escaped_values,
+            ]
+        )
 
         try:
             new_pattern = re.compile(pattern_str)
@@ -177,7 +202,7 @@ class SecretMaskingFilter(logging.Filter):
 
             def replace_match(match: "re.Match[str]") -> str:
                 matched = match.group(0)
-                if matched.startswith(REDACTED_PREFIX):
+                if matched.startswith(REDACTED_PREFIX) or matched in _SENTINEL_MESSAGES:
                     return matched
                 return REDACTED_FORMAT.format(name=replacements.get(matched, "UNKNOWN"))
 
