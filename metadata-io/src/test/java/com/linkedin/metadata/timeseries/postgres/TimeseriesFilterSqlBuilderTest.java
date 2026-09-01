@@ -13,7 +13,9 @@ import static org.testng.Assert.expectThrows;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.QueryUtils;
@@ -413,7 +415,7 @@ public class TimeseriesFilterSqlBuilderTest {
         TimeseriesFilterSqlBuilder.buildDocumentFilter(
             filter, true, Collections.emptyMap(), opContext, QueryFilterRewriteChain.EMPTY);
 
-    assertTrue(built.getExpression().contains("NOT ("));
+    assertTrue(built.getExpression().contains("COALESCE(NOT ("));
     assertEquals(built.getParams(), List.of("Foo"));
   }
 
@@ -503,7 +505,7 @@ public class TimeseriesFilterSqlBuilderTest {
             filter, true, Collections.emptyMap(), opContext, QueryFilterRewriteChain.EMPTY);
 
     String expr = built.getExpression();
-    assertTrue(expr.startsWith("NOT (") || expr.contains("NOT (("));
+    assertTrue(expr.contains("COALESCE(NOT ("));
     // Alternates must not each be individually negated (would become AND of equals).
     assertTrue(!expr.contains("NOT (document->>'description'"));
     assertTrue(expr.contains(" OR "));
@@ -544,5 +546,23 @@ public class TimeseriesFilterSqlBuilderTest {
     assertTrue(built.getExpression().contains("= ANY(?)"));
     assertEquals(built.getParams().size(), 1);
     assertTrue(built.getParams().get(0) instanceof String[]);
+  }
+
+  @Test
+  public void buildDocumentFilter_emptyOrIgnoresLegacyCriteria() {
+    Filter filter = new Filter();
+    filter.setOr(new ConjunctiveCriterionArray());
+    CriterionArray criteria = new CriterionArray();
+    criteria.add(buildCriterion("strStat", Condition.EQUAL, "Foo"));
+    filter.setCriteria(criteria);
+    OperationContext noLatestFlag =
+        opContext.withSearchFlags(flags -> flags.setFilterNonLatestVersions(false));
+
+    TimeseriesFilterSqlBuilder.BuiltSql built =
+        TimeseriesFilterSqlBuilder.buildDocumentFilter(
+            filter, true, Collections.emptyMap(), noLatestFlag, QueryFilterRewriteChain.EMPTY);
+
+    assertEquals(built.getExpression(), "TRUE");
+    assertTrue(built.getParams().isEmpty());
   }
 }
