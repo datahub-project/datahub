@@ -274,6 +274,13 @@ def validate_filter_expression(filter_expr: str) -> bool:
     # Mask literals so a comment/injection token inside a quoted partition value is inert
     # while one outside a literal still trips the guard.
     masked_expr = mask_string_literals(filter_expr)
+
+    # A WHERE-clause predicate never contains ';', so any ';' on the masked filter is
+    # outside a literal and stacks a statement (regardless of what follows) — reject it.
+    if ";" in masked_expr:
+        logger.warning(f"Filter contains statement separator ';': {filter_expr}")
+        return False
+
     for pattern in FILTER_DANGEROUS_PATTERNS:
         if pattern.search(masked_expr):
             logger.warning(

@@ -168,8 +168,9 @@ SQL_ALLOWED_START_PATTERNS = [
 FILTER_DANGEROUS_PATTERNS = [
     re.compile(p, re.IGNORECASE)
     for p in [
-        r";\s*(?:DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|TRUNCATE|MERGE|GRANT|REVOKE|EXEC(?:UTE)?|CALL|EXPORT|LOAD)\s+",
-        r"UNION\s+(?:(?:ALL|DISTINCT)\s+)?SELECT",
+        # Any ';' in a filter is a stacked statement (a WHERE predicate never contains one);
+        # validate_filter_expression rejects it directly, so no keyword list is needed here.
+        r"UNION\s+(?:(?:ALL|DISTINCT)\s+)?\(*\s*SELECT",
         r"--",
         # '#' / '--' / '/*' are scanned on the literal-masked filter, so a comment marker
         # inside a quoted STRING/Hive value is inert; only one outside a literal is caught.
