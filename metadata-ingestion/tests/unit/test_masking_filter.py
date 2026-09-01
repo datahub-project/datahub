@@ -19,8 +19,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from datahub.masking import masking_filter as filter_module
 from datahub.masking.constants import (
     CAPACITY_EXCEEDED_MESSAGE,
+    CIRCUIT_OPEN_MESSAGE,
     MASKING_ERROR_MESSAGE,
 )
 from datahub.masking.masking_filter import (
@@ -1265,6 +1267,46 @@ class TestFailClosed:
                 masking_filter.mask_text("text with somesecret123")
                 == MASKING_ERROR_MESSAGE
             )
+
+    def test_compile_failure_never_masks_with_stale_pattern(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("OLD_KEY", "old-secret-value")
+        assert "old-secret-value" not in masking_filter.mask_text(
+            "text with old-secret-value"
+        )
+        registry.register_secret("NEW_KEY", "new-secret-value")
+        with patch(
+            "datahub.masking.masking_filter.re.compile",
+            side_effect=RuntimeError("boom"),
+        ):
+            masked = masking_filter.mask_text("text with new-secret-value")
+        assert masked == MASKING_ERROR_MESSAGE
+
+    def test_compile_failure_opens_circuit_permanently(self, registry, masking_filter):
+        registry.register_secret("S", "somesecret123")
+        with patch(
+            "datahub.masking.masking_filter.re.compile",
+            side_effect=RuntimeError("boom"),
+        ):
+            masking_filter.mask_text("text with somesecret123")
+        assert (
+            masking_filter.mask_text("text with somesecret123") == CIRCUIT_OPEN_MESSAGE
+        )
+
+    def test_compile_failure_logs_secret_name_not_value(self, registry, masking_filter):
+        registry.register_secret("CULPRIT_KEY", "culprit-secret-value")
+        with (
+            patch(
+                "datahub.masking.masking_filter.re.compile",
+                side_effect=RuntimeError("boom"),
+            ),
+            patch.object(filter_module.logger, "error") as error_log,
+        ):
+            masking_filter.mask_text("some text")
+        logged = " ".join(str(call) for call in error_log.call_args_list)
+        assert "CULPRIT_KEY" in logged
+        assert "culprit-secret-value" not in logged
 
     def test_masking_error_withholds_output(self, registry, masking_filter):
         registry.register_secret("S", "somesecret123")

@@ -16,7 +16,7 @@ import logging
 import re
 import sys
 import threading
-from typing import Any, Dict, Optional, TextIO, Tuple
+from typing import Any, Dict, List, Optional, TextIO, Tuple
 
 from datahub.masking.constants import (
     CAPACITY_EXCEEDED_MESSAGE,
@@ -32,6 +32,14 @@ from datahub.masking.secret_registry import SecretRegistry
 logger = get_masking_safe_logger(__name__)
 
 _MARKER_REGEX = re.escape(REDACTED_PREFIX) + r"[^\n]*?" + re.escape(REDACTED_SUFFIX)
+
+
+def _compiles(pattern_str: str) -> bool:
+    try:
+        re.compile(pattern_str)
+        return True
+    except Exception:
+        return False
 
 
 class SecretMaskingFilter(logging.Filter):
@@ -62,124 +70,78 @@ class SecretMaskingFilter(logging.Filter):
         self._circuit_open = False
 
     def _check_and_rebuild_pattern(self) -> None:
-        """Check if pattern needs rebuilding and rebuild if necessary."""
-        MAX_REBUILD_ATTEMPTS = 10  # Prevent infinite loops
+        """Rebuild the pattern if the registry changed. Called under _pattern_lock.
 
-        # Track last successfully built pattern for emergency fallback
-        last_built_pattern: Optional[re.Pattern] = None
-        last_built_replacements: Dict[str, str] = {}
-        last_built_version: int = 0
+        The version is read before the secrets snapshot, so a registration
+        landing mid-build leaves _last_version behind and the next call
+        rebuilds again - the swap never needs retrying.
+        """
+        current_version = self._registry.get_version()
+        if current_version == self._last_version:
+            return
 
-        for attempt in range(MAX_REBUILD_ATTEMPTS):
-            # Quick check WITHOUT lock (fast path)
-            current_version = self._registry.get_version()
+        secrets = self._registry.get_all_secrets()
 
-            with self._pattern_lock:
-                if current_version == self._last_version:
-                    return  # Pattern is up to date
+        if not secrets:
+            self._pattern = None
+            self._replacements = {}
+            self._last_version = current_version
+            return
 
-            # Build pattern OUTSIDE lock (expensive operations)
-            secrets = self._registry.get_all_secrets()
+        sorted_secrets = sorted(secrets.items(), key=lambda x: len(x[0]), reverse=True)
 
-            if not secrets:
-                with self._pattern_lock:
-                    self._pattern = None
-                    self._replacements = {}
-                    self._last_version = current_version
-                return
+        # CRITICAL: re.escape() ensures secrets with regex metacharacters
+        # (e.g., ".*", "a+b", "test|prod") are matched literally, not as regex.
+        # The marker alternative comes first so that already-masked spans are
+        # consumed whole and never re-matched - this is what makes masking
+        # idempotent even when a secret value collides with marker text.
+        escaped_values = [re.escape(value) for value, _ in sorted_secrets]
+        pattern_str = "|".join([_MARKER_REGEX, *escaped_values])
 
-            # Sort by length (longest first) - NOT under lock
-            sorted_secrets = sorted(
-                secrets.items(), key=lambda x: len(x[0]), reverse=True
+        try:
+            new_pattern = re.compile(pattern_str)
+        except Exception as e:
+            self._pattern = None
+            self._replacements = {}
+            self._open_circuit_for_compile_failure(type(e).__name__, sorted_secrets)
+            return
+
+        secret_count = len(secrets)
+        if secret_count >= 100:
+            logger.warning(
+                f"Large number of secrets registered ({secret_count}). "
+                f"This may impact masking performance."
             )
 
-            # Build pattern - NOT under lock
-            # CRITICAL: re.escape() ensures secrets with regex metacharacters
-            # (e.g., ".*", "a+b", "test|prod") are matched literally, not as regex.
-            # The marker alternative comes first so that already-masked spans are
-            # consumed whole and never re-matched — this is what makes masking
-            # idempotent even when a secret value collides with marker text.
-            escaped_values = [re.escape(value) for value, _ in sorted_secrets]
-            pattern_str = "|".join([_MARKER_REGEX, *escaped_values])
+        self._pattern = new_pattern
+        self._replacements = {value: name for value, name in sorted_secrets}
+        self._last_version = current_version
+        logger.debug(
+            f"Rebuilt masking pattern with {secret_count} secrets "
+            f"(version {current_version})"
+        )
 
-            # Compile regex - NOT under lock (this is the expensive part!)
-            try:
-                new_pattern = re.compile(pattern_str)
-                new_replacements = {value: name for value, name in sorted_secrets}
-
-                # Save this for emergency fallback
-                last_built_pattern = new_pattern
-                last_built_replacements = new_replacements
-                last_built_version = current_version
-            except Exception as e:
-                logger.error(f"Failed to compile masking pattern: {e}")
-                return  # Keep using old pattern
-
-            # Warn about performance impact with large secret counts
-            secret_count = len(secrets)
-            if secret_count > 500:
-                logger.warning(
-                    f"Very large secret count ({secret_count})! "
-                    f"This may impact masking performance. "
-                    f"Consider using Aho-Corasick algorithm for better performance."
-                )
-            elif secret_count >= 100:
-                logger.warning(
-                    f"Large number of secrets registered ({secret_count}). "
-                    f"This may impact masking performance."
-                )
-
-            # Atomic swap under lock (fast!)
-            with self._pattern_lock:
-                # Check version again - secrets might have changed while building
-                registry_version = self._registry.get_version()
-
-                if registry_version == current_version:
-                    # Version is stable, safe to swap in the new pattern
-                    self._pattern = new_pattern
-                    self._replacements = new_replacements
-                    self._last_version = current_version
-
-                    if attempt > 0:
-                        logger.debug(
-                            f"Rebuilt masking pattern with {secret_count} secrets "
-                            f"(version {current_version}) after {attempt + 1} attempts"
-                        )
-                    else:
-                        logger.debug(
-                            f"Rebuilt masking pattern with {secret_count} secrets "
-                            f"(version {current_version})"
-                        )
-                    return  # Success!
-
-                # Version changed during build, loop will retry
-                logger.debug(
-                    f"Pattern version changed during build "
-                    f"(expected {current_version}, got {registry_version}). "
-                    f"Retrying... (attempt {attempt + 1}/{MAX_REBUILD_ATTEMPTS})"
-                )
-                # Continue to next iteration of the loop
-
-        # If we get here, we failed after MAX_REBUILD_ATTEMPTS
-        # Emergency fallback: Use the last pattern we built if we have no pattern at all
-        # Better to have a slightly stale pattern than no masking at all
-        with self._pattern_lock:
-            if self._pattern is None and last_built_pattern is not None:
-                self._pattern = last_built_pattern
-                self._replacements = last_built_replacements
-                self._last_version = last_built_version
-                logger.warning(
-                    f"Emergency fallback: Using potentially stale pattern (version {last_built_version}) "
-                    f"because no pattern was previously available and registry is changing too rapidly."
-                )
-            else:
-                logger.error(
-                    f"CRITICAL: Failed to rebuild masking pattern after {MAX_REBUILD_ATTEMPTS} attempts. "
-                    f"Secrets are being modified too rapidly. "
-                    f"Continuing with potentially stale pattern (version {self._last_version}). "
-                    f"Some newly added secrets may not be masked until rate of changes decreases."
-                )
-        # Keep using the old pattern rather than crashing - graceful degradation
+    def _open_circuit_for_compile_failure(
+        self, exception_type: str, sorted_secrets: List[Tuple[str, str]]
+    ) -> None:
+        if self._circuit_open:
+            return
+        self._circuit_open = True
+        offending = sorted(
+            {name for value, name in sorted_secrets if not _compiles(re.escape(value))}
+        )
+        if offending:
+            detail = f"offending secret(s): {', '.join(offending)}"
+        else:
+            total_length = sum(len(value) for value, _ in sorted_secrets)
+            detail = (
+                f"no single secret at fault; combined pattern too large "
+                f"({len(sorted_secrets)} renderings, {total_length} characters)"
+            )
+        logger.error(
+            f"Masking pattern failed to compile ({exception_type}); {detail}. "
+            f"All output will be suppressed; restart the process to recover."
+        )
 
     def mask_text(self, text: str) -> str:
         """Mask secrets in text string.
@@ -200,6 +162,9 @@ class SecretMaskingFilter(logging.Filter):
             if self._registry.is_capacity_exceeded():
                 return CAPACITY_EXCEEDED_MESSAGE
 
+            if self._circuit_open:
+                return CIRCUIT_OPEN_MESSAGE
+
             with self._pattern_lock:
                 self._check_and_rebuild_pattern()
                 pattern = self._pattern
@@ -209,9 +174,6 @@ class SecretMaskingFilter(logging.Filter):
                 if self._registry.get_count() == 0:
                     return text
                 return self._masking_failed("no pattern despite registered secrets")
-
-            if self._circuit_open:
-                return CIRCUIT_OPEN_MESSAGE
 
             def replace_match(match: "re.Match[str]") -> str:
                 matched = match.group(0)
@@ -227,7 +189,7 @@ class SecretMaskingFilter(logging.Filter):
             return masked
 
         except Exception as e:
-            return self._masking_failed(f"{type(e).__name__}: {e}")
+            return self._masking_failed(type(e).__name__)
 
     def _masking_failed(self, cause: str) -> str:
         self._failure_count += 1
