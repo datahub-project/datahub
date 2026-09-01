@@ -235,7 +235,7 @@ class PentahoSource(Source):
         step: Element,
         context: ProcessingContext,
         root: Optional[Element] = None,
-    ):
+    ) -> None:
         """Process a single transformation step for table-level lineage."""
         step_type = step.findtext("type")
         step_name = step.findtext("name") or "unnamed_step"

@@ -16,17 +16,17 @@ class ProcessingContext:
         self.custom_properties: Dict[str, str] = {}
         self.step_sequence: List[Dict[str, str]] = []  # Track step processing order
 
-    def add_input_dataset(self, dataset_urn: str):
+    def add_input_dataset(self, dataset_urn: str) -> None:
         """Add an input dataset URN to the context."""
         if dataset_urn:
             self.input_datasets.add(dataset_urn)
 
-    def add_output_dataset(self, dataset_urn: str):
+    def add_output_dataset(self, dataset_urn: str) -> None:
         """Add an output dataset URN to the context."""
         if dataset_urn:
             self.output_datasets.add(dataset_urn)
 
-    def add_step_info(self, step_name: str, step_type: str):
+    def add_step_info(self, step_name: str, step_type: str) -> None:
         """Track step processing for debugging."""
         self.step_sequence.append({"name": step_name, "type": step_type})
 

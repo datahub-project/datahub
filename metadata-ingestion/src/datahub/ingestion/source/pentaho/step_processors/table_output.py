@@ -20,7 +20,7 @@ class TableOutputProcessor(StepProcessor):
         step: Element,
         context: ProcessingContext,
         root: Optional[Element] = None,
-    ):
+    ) -> None:
         conn_name = step.findtext("connection")
         table = step.findtext("table")
         schema = step.findtext("schema")

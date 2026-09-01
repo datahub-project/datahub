@@ -32,6 +32,6 @@ class StepProcessor(ABC):
         step: Element,
         context: ProcessingContext,
         root: Optional[Element] = None,
-    ):
+    ) -> None:
         """Process the step and update context with lineage information."""
         pass

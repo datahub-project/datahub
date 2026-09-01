@@ -24,7 +24,7 @@ class TableInputProcessor(StepProcessor):
         step: Element,
         context: ProcessingContext,
         root: Optional[Element] = None,
-    ):
+    ) -> None:
         conn_name = step.findtext("connection")
         table_name = step.findtext("table")
         sql = step.findtext("sql")
