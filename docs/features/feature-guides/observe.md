@@ -18,7 +18,7 @@ The capability area is organized around three jobs:
 - **Resolution** — react fast, communicate clearly, and coordinate a fix.
 - **Governance & Improvement** — codify expectations and raise the bar over time.
 
-:::info OSS vs Cloud
+:::info Core vs Cloud
 [**See the feature-by-feature breakdown**](/docs/managed-datahub/managed-datahub-overview.md#data-observability).
 :::
 
@@ -35,7 +35,7 @@ Active query runs on the major cloud warehouses; ingestion-driven assertions wor
 ### Capabilities
 
 - **[Data Observability Agent](/docs/managed-datahub/observe/data-health-dashboard.md#data-observability-agent-private-beta)** — an AI assistant that scans your data landscape and provisions the right assertions for the right tables in minutes, not weeks. Tell it which slice of your data matters most (or let it figure that out from usage and ownership signals), and it creates Freshness, Volume, Field, and other checks automatically — closing coverage gaps without manual setup per table. _DataHub Cloud only. Private Beta._
-- **[Assertions](/docs/managed-datahub/observe/assertions.md)** — the core data-quality test primitive in DataHub. Assertions can be **active** (DataHub Cloud issues queries against your warehouse on a schedule) or **ingestion-driven** (DataHub Cloud evaluates the assertion against profiles and operations already reported during ingestion, on any platform). Active, ingestion-driven, and anomaly-detection assertions are all DataHub Cloud features. DataHub Core can ingest and display assertion results that you self-report — from dbt, Great Expectations, Snowflake DMFs, or any custom source pushed via the SDK.
+- **[Assertions](/docs/managed-datahub/observe/assertions.md)** — the core data-quality test primitive in DataHub. Assertions can be **active** (DataHub Cloud issues queries against your warehouse on a schedule) or **ingestion-driven** (DataHub Cloud evaluates the assertion against profiles and operations already reported during ingestion, on any platform). Active, ingestion-driven, and anomaly-detection assertions are all DataHub Cloud features. DataHub Core can ingest and display assertion results that you self-report — via ingestion sources like dbt or any custom source pushed via the SDK.
   - [Freshness](/docs/managed-datahub/observe/freshness-assertions.md) — has the table updated recently?
   - [Volume](/docs/managed-datahub/observe/volume-assertions.md) — is row count in the expected range?
   - [Column](/docs/managed-datahub/observe/column-assertions.md) — column-level metrics and value constraints (e.g. `status` must be in `active`, `pending`, or `closed`; or null rate stays below 5%).
@@ -64,9 +64,11 @@ Encode quality expectations as durable artifacts and track improvement over time
 
 DataHub also captures assertion results from external quality tools you may already run, so the asset view stays unified.
 
-- **[dbt](/docs/generated/ingestion/sources/dbt.md)** — dbt tests are ingested as assertions linked to the corresponding tables; failures show up alongside DataHub-native assertions on the asset page.
-- **[Great Expectations](/metadata-ingestion/integration_docs/great-expectations.md)** — GX expectation results are pushed into DataHub as assertions via the action handler.
-- **[Snowflake Data Metric Functions](/docs/assertions/snowflake/snowflake_dmfs.md)** — author assertions in YAML and compile them to native Snowflake DMFs that run inside your warehouse; results stream back into DataHub as assertion results. Externally managed DMFs you've already created in Snowflake can also be ingested as assertions via the Snowflake source's `include_externally_managed_dmfs` option.
+- **[dbt](/docs/generated/ingestion/sources/dbt.md#integrating-with-dbt-test)** — dbt tests are ingested as assertions linked to the corresponding tables; failures show up alongside DataHub-native assertions on the asset page.
+- **[Great Expectations](/metadata-ingestion/integration_docs/great-expectations.md#what-gets-emitted)** — GX expectation results are pushed into DataHub as assertions via the action handler.
+- **[Snowflake Data Metric Functions](/docs/assertions/snowflake/snowflake_dmfs.md#creating-snowflake-dmf-assertions)** — author assertions in YAML and compile them to native Snowflake DMFs that run inside your warehouse; [results stream back into DataHub](/docs/assertions/snowflake/snowflake_dmfs.md#step-5-run-ingestion-to-report-the-results-back-into-datahub) as assertion results. [Externally managed DMFs](/docs/assertions/snowflake/snowflake_dmfs.md#ingesting-external-user-created-dmfs) you've already created in Snowflake can also be ingested as assertions via the Snowflake source's `include_externally_managed_dmfs` option.
+- **[SQLMesh](/docs/generated/ingestion/sources/sqlmesh.md#data-quality-assertions)** — SQLMesh audits are ingested as custom assertions on the SQLMesh model (and surface on the warehouse sibling); [pass/fail history](/docs/generated/ingestion/sources/sqlmesh.md#data-quality-audits) comes from an `audit_results_path` JSON export.
+- **[ODCS](/docs/generated/ingestion/sources/odcs.md#quality-rule-mapping)** — Open Data Contract Standard `quality[]` rules — and a [schema-compliance check](/docs/generated/ingestion/sources/odcs.md#schema-compliance-assertion) — are ingested as assertions on the logical ODCS dataset.
 
 ## Programmatic access — APIs & SDKs
 

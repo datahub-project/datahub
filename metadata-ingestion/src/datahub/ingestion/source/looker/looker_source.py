@@ -110,7 +110,7 @@ class DashboardProcessingResult:
 
 
 @platform_name("Looker")
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @config_class(LookerDashboardSourceConfig)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Use the `platform_instance` field")

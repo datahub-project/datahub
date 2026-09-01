@@ -124,7 +124,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @platform_name("Redshift")
 @config_class(RedshiftConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",

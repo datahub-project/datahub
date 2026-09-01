@@ -152,7 +152,10 @@ kafka_protobuf = {
 }
 
 usage_common = {
-    "sqlparse<0.6.0",
+    # 0.6.0 fixes CVE-2026-59893, CVE-2026-54284, CVE-2026-71491, CVE-2026-59894 and a
+    # quadratic-CPU DoS in format(reindent=...). Airflow constraints pin sqlparse lower,
+    # but the airflow-plugin pulls no sqlparse-bearing extra, so it is unaffected.
+    "sqlparse>=0.6.0,<1.0.0",
 }
 
 sqlglot_lib = {
@@ -454,6 +457,9 @@ databricks_common = {
     # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
     # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
     # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
+    # TODO: When upgrading to >=3.0.0, also drop the get_columns type-map patch in
+    # src/datahub/ingestion/source/sqlalchemy_profiler/adapters/databricks.py -- v2 of
+    # the dialect replaced the local _type_map with parse_column_info_from_tgetcolumnsresponse.
     "databricks-sql-connector>=2.8.0,<3.0.0",
 }
 
@@ -553,11 +559,10 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         f"acryl-datahub-airflow-plugin{_self_pin}",
     },
-    "circuit-breaker": {
-        # In gql v4, the execute() method's signature changed. Since we've updated
-        # our code to use the new signature, we need to pin to gql v4.
-        "gql[requests]>=4.0.0",
-    },
+    # The circuit breakers query GMS through DataHubGraph, so this needs no
+    # extra dependencies. Kept as an empty extra so existing installs that
+    # pin acryl-datahub[circuit-breaker] keep resolving.
+    "circuit-breaker": set(),
     # TODO: Eventually we should reorganize our imports so that this depends on sqlalchemy_lib
     # but not the full sql_common.
     "datahub": sql_common | mysql | kafka_common,
@@ -745,7 +750,7 @@ plugins: Dict[str, Set[str]] = {
         "kerberos>=1.3.0,<2.0.0",
     },
     "pulsar": {"requests<3.0.0"},
-    "redash": {"redash-toolbelt<0.2.0", "sql-metadata<3.0.0"} | sqlglot_lib,
+    "redash": {"redash-toolbelt<0.2.0"} | sqlglot_lib,
     "rdf": {"rdflib==6.3.2", "requests==2.32.5", "requests_file==3.0.1"},
     "redshift": sql_common
     | redshift_common
@@ -811,7 +816,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
-        | {"sqlparse<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
+        | {"sqlparse>=0.6.0,<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
         | sqlglot_lib
         | threading_timeout_common
     ),
@@ -839,9 +844,9 @@ plugins: Dict[str, Set[str]] = {
     "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
     "quicksight": aws_common | sqlglot_lib,
-    # sqlparse: transitive runtime dep of SqlParsingAggregator (imported by sigma.py).
-    # Not directly imported by the sigma source; revisit if SqlParsingAggregator use is removed.
-    "sigma": sqlglot_lib | {"sqlparse<0.6.0", "requests<3.0.0"},
+    # usage_common: sigma emits no usage itself, but SqlParsingAggregator imports
+    # usage_common, which pulls sqlparse in via sql_formatter.
+    "sigma": sqlglot_lib | usage_common | {"requests<3.0.0"},
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
@@ -1199,7 +1204,7 @@ entry_points = {
         "preset = datahub.ingestion.source.preset:PresetSource",
         "tableau = datahub.ingestion.source.tableau.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
-        "metabase = datahub.ingestion.source.metabase:MetabaseSource",
+        "metabase = datahub.ingestion.source.metabase.source:MetabaseSource",
         "microstrategy = datahub.ingestion.source.microstrategy.source:MicroStrategySource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
         "starrocks = datahub.ingestion.source.sql.starrocks:StarRocksSource",

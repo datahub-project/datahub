@@ -324,6 +324,12 @@ task docGen(type: Exec, dependsOn: [codegen, installDocs, specGen]) {
     // This can further reduce if we generate more things in the future
     dependsOn connectorRegistry
   }
+  // sourceDir is connectorRegistry's output and is consumed below as an input file
+  // tree, but the dependency above is only declared when the directory is missing.
+  // Without an ordering rule Gradle rejects the pair as an implicit dependency, so
+  // asking for both tasks in one invocation fails. mustRunAfter fixes the ordering
+  // without forcing connectorRegistry to run on the fast path.
+  mustRunAfter connectorRegistry
 
   def docsOutDir = "${rootProject.projectDir}/docs/generated/ingestion"
   def extraDocsDir = "${rootProject.projectDir}/metadata-ingestion/docs/sources"

@@ -9,6 +9,8 @@ services:
       MARIADB_ROOT_PASSWORD: password
       MARIADB_DATABASE: test_usage_db
     ports:
-      - "53301:3306"
+      # Ephemeral: only the host needs to reach this port (for ingestion); Docker
+      # picks a free one so a leaked container from a prior run can't hold it.
+      - "3306"
     volumes:
       - ./setup_usage:/docker-entrypoint-initdb.d
