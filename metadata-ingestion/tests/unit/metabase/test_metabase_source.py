@@ -1759,3 +1759,17 @@ def test_native_sql_input_fields_accumulate_duplicate_output_columns(
     fields = metabase_source._get_input_fields_from_native_sql(card)
     assert {f.schemaFieldUrn for f in fields} == {users_id_urn, orders_user_id_urn}
     metabase_source.close()
+
+
+def test_card_null_result_metadata_coerced_to_empty_list():
+    # Metabase returns result_metadata: null for cards that have never been run;
+    # the model must accept it rather than failing validation and dropping the card.
+    card = MetabaseCard.model_validate(
+        {
+            "id": 1,
+            "name": "Never Run",
+            "database_id": 1,
+            "result_metadata": None,
+        }
+    )
+    assert card.result_metadata == []

@@ -1,6 +1,6 @@
 from typing import Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.metabase.constants import (
@@ -145,6 +145,13 @@ class MetabaseCard(MetabaseBaseModel):
     last_edit_info: Optional[MetabaseLastEditInfo] = Field(None, alias="last-edit-info")
     public_uuid: Optional[str] = None
     created_at: Optional[str] = None
+
+    # Metabase returns result_metadata: null for cards that have never been run,
+    # which pydantic rejects for a List field; coerce it back to an empty list.
+    @field_validator("result_metadata", mode="before")
+    @classmethod
+    def _default_null_result_metadata(cls, value: object) -> object:
+        return [] if value is None else value
 
     @property
     def custom_properties(self) -> Dict[str, str]:
