@@ -101,6 +101,28 @@ abstract class EbeanOptimisticLockingDialectIT {
         null);
   }
 
+  /**
+   * Blocks until a freshly seeded version-0 row is readable, issuing the exact unlocked read the
+   * writer threads perform. A READ COMMITTED snapshot only ever returns committed rows, so once
+   * this read observes the seed the INSERT has committed, and every transaction opened afterwards
+   * (including pool writers, which are submitted only after this returns) takes a snapshot that
+   * contains it. Bounded, and fails at setup with a clear message rather than letting a writer NPE
+   * on a missing urn key inside its own thread and stall a latch for its full timeout (#19116).
+   */
+  private void awaitSeedVisible(EbeanAspectDao dao, String urn) throws InterruptedException {
+    final long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+    boolean visible = false;
+    while (!visible && System.nanoTime() < deadlineNanos) {
+      Map<String, SystemAspect> aspects =
+          dao.getLatestAspects(opContext, Map.of(urn, Set.of(STATUS_ASPECT_NAME)), false).get(urn);
+      visible = aspects != null && aspects.get(STATUS_ASPECT_NAME) != null;
+      if (!visible) {
+        Thread.sleep(25);
+      }
+    }
+    assertTrue(visible, "seed aspect for " + urn + " never became visible to a fresh transaction");
+  }
+
   @Test
   public void detectsExpectedDialect() {
     EbeanAspectDao dao = newOptimisticDao();
@@ -209,6 +231,10 @@ abstract class EbeanOptimisticLockingDialectIT {
         null,
         statusAspect(urn, new Status().setRemoved(false), seed),
         ASPECT_LATEST_VERSION);
+    // The seed must be committed and visible before any writer opens its transaction; otherwise a
+    // writer's unlocked read returns no entry for this urn and the chained get NPEs before it can
+    // count down bothRead, stalling the latch for its full timeout.
+    awaitSeedVisible(dao, urn);
 
     AtomicInteger successes = new AtomicInteger();
     AtomicInteger conflicts = new AtomicInteger();
