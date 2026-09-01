@@ -358,6 +358,15 @@ class TestMultiLineFragments:
         for line in key.splitlines():
             assert secrets[line] == "GCP_KEY"
 
+    def test_cr_separated_secret_registers_fragments(self):
+        registry = SecretRegistry()
+        registry.register_secret(
+            "LEGACY_KEY", "first-cr-line-material\rsecond-cr-line-material"
+        )
+        secrets = registry.get_all_secrets()
+        assert secrets["first-cr-line-material"] == "LEGACY_KEY"
+        assert secrets["second-cr-line-material"] == "LEGACY_KEY"
+
     def test_structural_short_lines_are_skipped(self):
         value = '{\n  "k": "longsecretbody123"\n}'
         registry = SecretRegistry()

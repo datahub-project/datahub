@@ -46,10 +46,11 @@ def _url_encoded_rendering(value: str) -> Optional[str]:
 
 
 def _line_fragments(value: str) -> List[str]:
-    if "\n" not in value:
+    lines = value.splitlines()
+    if len(lines) <= 1:
         return []
     fragments = []
-    for line in value.splitlines():
+    for line in lines:
         fragment = line.strip()
         if (
             len(fragment) >= MIN_FRAGMENT_LENGTH
