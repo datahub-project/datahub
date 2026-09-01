@@ -66,6 +66,17 @@ describe('detectBrowserLanguage', () => {
         expect(detectBrowserLanguage()).toBe('zh-TW');
     });
 
+    it('does not map Simplified Chinese tags to zh-TW', () => {
+        stubLanguages(['zh-CN']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+        stubLanguages(['zh-Hans']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+        stubLanguages(['zh']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+        stubLanguages(['zh-SG']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+    });
+
     it('returns undefined when no preferred language is supported', () => {
         stubLanguages(['ko-KR', 'zh-CN']);
         expect(detectBrowserLanguage()).toBeUndefined();
