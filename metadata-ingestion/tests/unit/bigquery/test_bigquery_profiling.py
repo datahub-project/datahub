@@ -266,6 +266,61 @@ def test_non_date_partition_columns_find_most_frequent_value():
     assert "42" in filters[0]
 
 
+def test_max_partition_id_infers_pseudo_column_type_for_hourly_range():
+    """max_partition_id on an ingestion-time HOUR table partitions on _PARTITIONTIME, which
+    is absent from INFORMATION_SCHEMA.COLUMNS (empty column_types). The zero-scan fast path
+    must infer the TIMESTAMP pseudo-type so the id widens to a half-open hour range instead
+    of a date-truncated point equality.
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(name="ingestion_hourly", max_partition_id="2024011513")
+    table.partition_info = make_partition_info(  # type: ignore[assignment]
+        "HOUR", "_PARTITIONTIME", ["_PARTITIONTIME"]
+    )
+
+    filters = discovery._get_partition_filters_from_max_partition_id(
+        table, ["_PARTITIONTIME"], {}
+    )
+
+    assert filters == [
+        "`_PARTITIONTIME` >= TIMESTAMP('2024-01-15 13:00:00') "
+        "AND `_PARTITIONTIME` < TIMESTAMP('2024-01-15 14:00:00')"
+    ]
+
+
+def test_date_named_string_column_reaches_strategic_dates():
+    """A STRING/INT64 column with a date-like *name* (event_date) must still reach the
+    strategic-date fallback after direct discovery fails — that path builds a typed
+    equality and is the only pruning fallback on require-filter / Hive-style tables. The
+    old gate skipped it whenever the type was known.
+    """
+
+    class StrategicOnlyDiscovery(PartitionDiscovery):
+        def _get_partition_column_types(self, *args: Any, **kwargs: Any):
+            return {"event_date": "STRING"}
+
+        def _get_partition_info_from_table_query(self, *args: Any, **kwargs: Any):
+            return None
+
+        def _test_date_candidate(self, *args: Any, **kwargs: Any):
+            return ["`event_date` = '2025-01-15'"]
+
+        def _get_partitions_with_sampling(self, *args: Any, **kwargs: Any):
+            return None
+
+    discovery = StrategicOnlyDiscovery(make_config())
+    table = make_table(name="hive_style")
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return []
+
+    filters = discovery._find_real_partition_values(
+        table, "test-project-123456", "ds", ["event_date"], execute
+    )
+
+    assert filters == ["`event_date` = '2025-01-15'"]
+
+
 def test_compound_partition_date_plus_string():
     """A compound partition (DATE + STRING) should yield one filter per column.
     The date filter is a real date value; the string filter is the most-common value
@@ -929,8 +984,11 @@ def test_range_partition_uses_max_bucket_not_most_recently_modified():
     )
 
     def execute(query: str, job_config: Any, context: str) -> list:
-        # Rows in last-modified order: the mid bucket (100) was touched most recently,
-        # but 300 is the true maximum populated bucket.
+        # The numeric-max query orders by SAFE_CAST(partition_id AS INT64) DESC and returns
+        # the true top bucket (300), even though the modified-ordered fetch would surface
+        # the recently-touched mid bucket (100) first.
+        if "SAFE_CAST(partition_id AS INT64) DESC" in query:
+            return [SimpleNamespace(partition_id="300")]
         return [
             SimpleNamespace(partition_id="100"),
             SimpleNamespace(partition_id="300"),

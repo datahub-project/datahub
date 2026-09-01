@@ -280,19 +280,22 @@ class InfoSchemaQueries:
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         verify_partition_has_data: Callable,
     ) -> Optional[List[str]]:
-        # Pick the maximum integer bucket floor across the fetched partitions so the
-        # `col >= floor` scan reads exactly the top bucket. INFORMATION_SCHEMA.PARTITIONS
-        # is ordered by last-modified, not by bucket value, so the most-recently-modified
-        # bucket can be a mid-range floor whose `>=` predicate would also pull in every
-        # higher bucket; the max floor has nothing above it and cannot over-select.
-        max_floor: Optional[int] = None
-        for partition_row in partition_rows:
-            partition_id = partition_row.partition_id
-            if partition_id is None or not str(partition_id).lstrip("-").isdigit():
-                continue
-            value = int(partition_id)
-            if max_floor is None or value > max_floor:
-                max_floor = value
+        # Resolve the *global* maximum bucket floor so the `col >= floor` scan reads exactly
+        # the top bucket and cannot spill into higher buckets. The fetched partition_rows are
+        # ordered by last-modified (see PARTITIONS_BY_MODIFIED), so their max can be a
+        # mid-range floor when the true top bucket is rarely modified; query the numeric max
+        # directly and only fall back to the fetched rows if that query yields nothing.
+        max_floor = self._query_max_range_bucket(
+            table, project, schema, execute_query_func
+        )
+        if max_floor is None:
+            for partition_row in partition_rows:
+                partition_id = partition_row.partition_id
+                if partition_id is None or not str(partition_id).lstrip("-").isdigit():
+                    continue
+                value = int(partition_id)
+                if max_floor is None or value > max_floor:
+                    max_floor = value
 
         if max_floor is None:
             return None
@@ -316,4 +319,36 @@ class InfoSchemaQueries:
             execute_query_func,
         ):
             return filters_for_partition
+        return None
+
+    def _query_max_range_bucket(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+    ) -> Optional[int]:
+        # Fetch the true numeric max RANGE bucket directly, independent of last-modified
+        # ordering. Best-effort: any failure returns None so the caller falls back to the
+        # already-fetched partition rows.
+        try:
+            info_schema_ref = build_safe_table_reference(
+                project, schema, "INFORMATION_SCHEMA.PARTITIONS"
+            )
+            query = queries.MAX_RANGE_PARTITION_ID.format(
+                info_schema_ref=info_schema_ref,
+                null_id=BQ_NULL_PARTITION_ID,
+                unpartitioned_id=BQ_UNPARTITIONED_PARTITION_ID,
+                streaming_id=BQ_STREAMING_UNPARTITIONED_PARTITION_ID,
+            )
+            job_config = QueryJobConfig(
+                query_parameters=[
+                    ScalarQueryParameter("table_name", "STRING", table.name)
+                ]
+            )
+            rows = execute_query_func(query, job_config, "max range partition bucket")
+            if rows and rows[0].partition_id is not None:
+                return int(rows[0].partition_id)
+        except Exception as e:
+            logger.debug(f"Could not query max range bucket for {table.name}: {e}")
         return None
