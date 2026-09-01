@@ -164,6 +164,7 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
     assertTrue(sql.contains("ROW_NUMBER() OVER (PARTITION BY g0 "));
     assertTrue(sql.contains("WHERE _rn <= 5 ORDER BY"));
     assertFalse(sql.trim().endsWith("LIMIT 5"));
+    assertEquals(countSqlPlaceholders(sql), 2);
     assertTrue(sql.contains("AT TIME ZONE") || sql.contains("date_trunc('day'"));
     assertTrue(sql.contains("ORDER BY"));
   }
@@ -193,6 +194,8 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
     assertTrue(sql.contains("DISTINCT ON (g0)"));
     assertTrue(sql.contains("WHERE _rn <= 3"));
     assertTrue(sql.contains(" ORDER BY document #>> ARRAY['user'] ASC"));
+    assertTrue(sql.contains("WITH _ts_agg AS ("));
+    assertEquals(countSqlPlaceholders(sql), 2);
   }
 
   @Test
@@ -220,6 +223,8 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
     assertTrue(sql.contains("WHERE _rn <= 3"));
     assertTrue(sql.contains("DISTINCT ON (g0)"));
     assertTrue(sql.contains("WHERE _rn <= 5"));
+    assertTrue(sql.contains("WITH _ts_agg AS ("));
+    assertEquals(countSqlPlaceholders(sql), 2);
   }
 
   @Test
@@ -350,6 +355,16 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
 
   private static StringArray row(String... cells) {
     return new StringArray(List.of(cells));
+  }
+
+  private static int countSqlPlaceholders(String sql) {
+    int n = 0;
+    for (int i = 0; i < sql.length(); i++) {
+      if (sql.charAt(i) == '?') {
+        n++;
+      }
+    }
+    return n;
   }
 
   /** Java equivalent of {@code postgresDateBucketSql} for DAY + multiple=2 in GMT. */
