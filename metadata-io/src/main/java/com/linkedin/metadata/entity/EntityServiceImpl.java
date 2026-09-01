@@ -1101,12 +1101,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
       Map<Urn, Set<String>> aspectNamesByUrn = new HashMap<>();
       for (UpdateAspectResult result : updateResults) {
-        if (result.getUrn() == null || result.getAspectName() == null) {
+        ChangeMCP request = result.getRequest();
+        if (result.getUrn() == null || request == null || request.getAspectName() == null) {
           continue;
         }
         aspectNamesByUrn
             .computeIfAbsent(result.getUrn(), urn -> new HashSet<>())
-            .add(result.getAspectName());
+            .add(request.getAspectName());
       }
       // Single keyset pass for the whole batch — O(cacheSize), not O(urns × cacheSize).
       cache.invalidate(aspectNamesByUrn);
