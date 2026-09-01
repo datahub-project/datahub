@@ -28,6 +28,9 @@ BQ_EXTERNAL_TABLE_URL_TEMPLATE = "https://console.cloud.google.com/bigquery?proj
 BQ_EXTERNAL_DATASET_URL_TEMPLATE = "https://console.cloud.google.com/bigquery?project={project}&ws=!1m4!1m3!3m2!1s{project}!2s{dataset}"
 
 BQ_SYSTEM_TABLES_PATTERN = [r".*\.INFORMATION_SCHEMA\..*", r".*\.__TABLES__.*"]
+# The system-tables deny pattern never changes, so build it once instead of on every
+# is_allowed() call (invoked per table during ingestion).
+_SYSTEM_TABLES_ALLOW_DENY = AllowDenyPattern(deny=BQ_SYSTEM_TABLES_PATTERN)
 
 # BigQuery sentinel partition IDs that represent unreal/virtual partitions.
 # These appear in INFORMATION_SCHEMA.PARTITIONS and should be excluded when
@@ -98,11 +101,6 @@ class BigQueryIdentifierBuilder:
             if self.identifier_config.convert_urns_to_lowercase
             else table_ref_str
         )
-
-
-# The system-tables deny pattern never changes, so build it once instead of on every
-# is_allowed() call (invoked per table during ingestion).
-_SYSTEM_TABLES_ALLOW_DENY = AllowDenyPattern(deny=BQ_SYSTEM_TABLES_PATTERN)
 
 
 class BigQueryFilter:
