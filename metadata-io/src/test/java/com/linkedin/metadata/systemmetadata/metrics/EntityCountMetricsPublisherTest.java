@@ -42,6 +42,7 @@ public class EntityCountMetricsPublisherTest {
     publisher =
         new EntityCountMetricsPublisher(
             keyAspectEntityCountService,
+            /* platformEntityCounts= */ null,
             systemOperationContext,
             micrometerSink,
             micrometerSink,
@@ -108,7 +109,12 @@ public class EntityCountMetricsPublisherTest {
         new EntityCountMetricsSinkComposer(List.of(micrometerSink, recordingSink));
     EntityCountMetricsPublisher multiSinkPublisher =
         new EntityCountMetricsPublisher(
-            keyAspectEntityCountService, systemOperationContext, composer, micrometerSink, config);
+            keyAspectEntityCountService,
+            null,
+            systemOperationContext,
+            composer,
+            micrometerSink,
+            config);
     KeyAspectEntityCountResult result = sampleResult();
     when(keyAspectEntityCountService.getCounts(systemOperationContext, null, false))
         .thenReturn(result);
@@ -139,6 +145,7 @@ public class EntityCountMetricsPublisherTest {
     EntityCountMetricsPublisher oneShotPublisher =
         new EntityCountMetricsPublisher(
             keyAspectEntityCountService,
+            null,
             systemOperationContext,
             micrometerSink,
             micrometerSink,
@@ -163,6 +170,7 @@ public class EntityCountMetricsPublisherTest {
     EntityCountMetricsPublisher clampedPublisher =
         new EntityCountMetricsPublisher(
             keyAspectEntityCountService,
+            null,
             systemOperationContext,
             micrometerSink,
             micrometerSink,

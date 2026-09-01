@@ -1,6 +1,7 @@
 package com.linkedin.metadata.systemmetadata.metrics;
 
 import com.linkedin.metadata.systemmetadata.KeyAspectEntityCountResult;
+import com.linkedin.metadata.systemmetadata.PlatformEntityCountResult;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,26 @@ public class EntityCountMetricsSinkComposer implements EntityCountMetricsSink {
         sink.publish(result);
       } catch (RuntimeException e) {
         log.warn("Entity count metrics sink {} failed", sink.getClass().getSimpleName(), e);
+        lastFailure = e;
+      }
+    }
+    if (lastFailure != null) {
+      throw lastFailure;
+    }
+  }
+
+  @Override
+  public void publishPlatform(@Nonnull PlatformEntityCountResult result) {
+    RuntimeException lastFailure = null;
+    for (EntityCountMetricsSink sink : delegates) {
+      if (sink == this) {
+        continue;
+      }
+      try {
+        sink.publishPlatform(result);
+      } catch (RuntimeException e) {
+        log.warn(
+            "Entity count platform metrics sink {} failed", sink.getClass().getSimpleName(), e);
         lastFailure = e;
       }
     }
