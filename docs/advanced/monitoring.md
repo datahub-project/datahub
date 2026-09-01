@@ -472,7 +472,7 @@ Each consumer automatically records queue time metrics using the message's embed
 
 Metric: `messaging.queue.time`
 
-- Type: Timer with configurable percentiles and SLO buckets
+- Type: Timer with percentile histogram and configurable SLO buckets (use `histogram_quantile()` or SLO bucket rates for alerting — client-side `quantile` gauges are not exported)
 - Unit: Milliseconds
 - Tags:
   - `messaging.system`: `kafka` or `pgqueue`
@@ -488,7 +488,7 @@ The timer automatically tracks:
 - Count: Total messages processed
 - Sum: Cumulative queue time
 - Max: Highest queue time observed
-- Percentiles: p50, p95, p99, p99.9 (configurable)
+- Histogram buckets: `_bucket` series for percentile estimates via `histogram_quantile()` and SLO compliance
 - SLO Buckets: Percentage of messages meeting latency targets
 
 #### Configuration Guide
@@ -499,9 +499,6 @@ Default Configuration:
 kafka:
   consumer:
     metrics:
-      # Percentiles to calculate
-      percentiles: "0.5,0.95,0.99,0.999"
-
       # Service Level Objective buckets (seconds)
       slo: "300,1800,3600,10800,21600,43200" # 5m,30m,1h,3h,6h,12h
 
@@ -567,7 +564,7 @@ Micrometer queue time metrics coexist with the legacy DropWizard `kafkaLag` hist
 
 The new metrics provide:
 
-- Better percentile accuracy
+- Histogram-based percentile estimates (`histogram_quantile()` over `_bucket` series)
 - SLO bucket tracking
 - Multi-backend support
 - Dimensional tagging

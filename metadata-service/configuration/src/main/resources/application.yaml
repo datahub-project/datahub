@@ -1185,7 +1185,6 @@ kafka:
     pe:
       autoOffsetReset: ${KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET:latest}
     metrics:
-      percentiles: ${KAFKA_CONSUMER_PERCENTILES:0.5,0.95,0.99,0.999}
       slo: ${KAFKA_CONSUMER_SERVICE_LEVEL_OBJECTIVES:300,1800,3000,10800,21600,43200} # 5min, 30min, 1hr, 3hr, 6hr, 12h (seconds)
       maxExpectedValue: ${KAFKA_CONSUMER_MAX_EXPECTED_VALUE:86000} # 24h (seconds)
 

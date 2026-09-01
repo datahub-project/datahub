@@ -314,7 +314,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "kafka.consumer.mcl.fineGrainedLoggingEnabled",
           "kafka.consumer.mcp.autoOffsetReset",
           "kafka.consumer.metrics.maxExpectedValue",
-          "kafka.consumer.metrics.percentiles",
           "kafka.consumer.metrics.slo",
           "kafka.consumer.pe.autoOffsetReset",
           "kafka.consumer.stopOnDeserializationError",

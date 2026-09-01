@@ -638,7 +638,6 @@ Reference Links:
 | `KAFKA_CONSUMER_MCL_FINE_GRAINED_LOGGING_ENABLED` | `false`                           | Enable fine-grained logging for MCL        | GMS, MAE Consumer                                         |
 | `KAFKA_CONSUMER_MCL_ASPECTS_TO_DROP`              | ``                                | Aspects to drop for MCL                    | GMS, MAE Consumer                                         |
 | `KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET`             | `latest`                          | PE consumer auto offset reset              | GMS, PE Consumer                                          |
-| `KAFKA_CONSUMER_PERCENTILES`                      | `0.5,0.95,0.99,0.999`             | Consumer percentiles                       | GMS, MAE Consumer, MCE Consumer, PE Consumer, PE Consumer |
 | `KAFKA_CONSUMER_SERVICE_LEVEL_OBJECTIVES`         | `300,1800,3000,10800,21600,43200` | Consumer SLOs in seconds                   | GMS, MAE Consumer, MCE Consumer, PE Consumer, PE Consumer |
 | `KAFKA_CONSUMER_MAX_EXPECTED_VALUE`               | `86000`                           | Maximum expected consumer value in seconds | GMS, MAE Consumer, MCE Consumer, PE Consumer, PE Consumer |
 
