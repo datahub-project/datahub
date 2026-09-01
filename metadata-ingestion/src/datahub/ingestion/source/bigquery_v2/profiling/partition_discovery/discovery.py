@@ -1432,9 +1432,13 @@ class PartitionDiscovery:
         has_date_components = any(
             col.lower() in DATE_COMPONENT_COLUMNS for col in required_columns
         )
+        # A date-like *name* is worth probing regardless of the resolved type: a STRING or
+        # INT64 column named event_date / dt still gets a typed equality from
+        # _test_date_candidate, and this is the only fallback that prunes after a failed
+        # IS NOT NULL group-by on require-filter / Hive-style tables. A non-date candidate
+        # simply fails verification and is dropped.
         has_date_like_names = any(
-            not column_types.get(col, "") and self._is_date_like_column(col)
-            for col in required_columns
+            self._is_date_like_column(col) for col in required_columns
         )
 
         if not (has_date_types or has_date_components or has_date_like_names):
@@ -1675,11 +1679,23 @@ class PartitionDiscovery:
             getattr(table.partition_info, "type", None) == RANGE_PARTITION_NAME
         )
 
+        # INFORMATION_SCHEMA.COLUMNS never lists the _PARTITIONTIME/_PARTITIONDATE
+        # pseudo-columns, so infer their (TIMESTAMP/DATE) type by name — as the
+        # datetime-override path does. Without it a compact hourly id loses its hour and a
+        # TIMESTAMP id is not widened to a half-open partition range on ingestion-time
+        # tables, so the zero-scan filter would profile the wrong window.
+        enriched_types = dict(column_types)
+        for col in required_columns:
+            if not enriched_types.get(col):
+                inferred = PSEUDO_PARTITION_COLUMN_TYPES.get(col.upper())
+                if inferred:
+                    enriched_types[col] = inferred
+
         try:
             filters = FilterBuilder.convert_partition_id_to_filters(
                 table.max_partition_id,
                 required_columns,
-                column_types,
+                enriched_types,
                 is_range_partition=is_range_partition,
             )
             if filters:
