@@ -153,10 +153,7 @@ public class PgTimeseriesStoreConnectionsTest {
   @Test
   public void open_customUrl_differentFromEbean_doesNotCopyEbeanIamProperties() throws Exception {
     PgTimeseriesStoreOptions store =
-        baseStore()
-            .toBuilder()
-            .poolUrl("jdbc:postgresql://other-host:5432/otherdb")
-            .build();
+        baseStore().toBuilder().poolUrl("jdbc:postgresql://other-host:5432/otherdb").build();
     Database fallback = mock(Database.class);
     DataSourceConfig ebeanDs = new DataSourceConfig();
     ebeanDs.setUrl("jdbc:postgresql://localhost:5432/ts");
