@@ -162,6 +162,24 @@ class AzureDataFactoryConfig(
         le=90,
     )
 
+    max_dynamic_lineage_pairs_per_activity: int = Field(
+        default=50,
+        description=(
+            "Cap on the number of distinct source/sink table pairs a single "
+            "activity (e.g. a Copy activity inside a ForEach loop, where the "
+            "same activity runs once per table) can get its own precise "
+            "lineage entity for. Only applies when an activity has been "
+            "observed reading from more than one distinct source AND writing "
+            "to more than one distinct sink - unioning those onto one "
+            "DataJob would otherwise imply every source feeds every sink, "
+            "which is rarely true. Pairs beyond this cap fall back to the "
+            "less precise unioned-onto-the-parent-job lineage rather than "
+            "being dropped."
+        ),
+        ge=1,
+        le=500,
+    )
+
     # Platform Mapping
     platform_instance_map: dict[str, str] = Field(
         default_factory=dict,

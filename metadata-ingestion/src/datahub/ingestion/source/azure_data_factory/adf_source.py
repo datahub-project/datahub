@@ -19,6 +19,8 @@ Usage:
           tenant_id: ${AZURE_TENANT_ID}
 """
 
+import hashlib
+import json
 import logging
 import re
 from collections import deque
@@ -62,8 +64,10 @@ from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
     ColumnLineageExtractor,
     CopyActivityColumnLineageExtractor,
     DatasetSchemaInfo,
+    build_lowercase_column_map,
     get_activity_translator_config,
     infer_auto_mappings_by_name,
+    match_sink_column_casing,
     parse_translator_column_mappings,
 )
 from datahub.ingestion.source.azure_data_factory.adf_config import (
@@ -269,14 +273,30 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         # Dataset URNs (and column-level mappings) resolved only via
         # execution-history pipeline-run parameters (e.g. an activity
         # dataset parameter set to "@pipeline().parameters.X"), aggregated
-        # across processed runs for later union into the DataJob's static
+        # across processed runs for later use in the DataJob's static
         # lineage. Keyed by (factory_key, pipeline_name, activity_name) ->
-        # (input urns, output urns, column mappings as
-        # (upstream schema field urns, downstream schema field urn)).
+        # {(sorted input urns, sorted output urns): column mappings
+        # observed for that exact pair}. Keying by the full pair - not
+        # two independent sets - is what lets _emit_dynamic_lineage_augmentation
+        # tell a safe many-to-one union (e.g. two different sources
+        # feeding one fixed sink across separate runs) apart from a
+        # genuine many-to-many fan-out (e.g. a ForEach copying N distinct
+        # tables) - only the latter needs per-pair sibling DataJobs.
         self._dynamic_lineage_cache: dict[
             tuple[str, str, str],
-            tuple[set[str], set[str], set[tuple[tuple[str, ...], str]]],
+            dict[
+                tuple[tuple[str, ...], tuple[str, ...]],
+                set[tuple[tuple[str, ...], str]],
+            ],
         ] = {}
+
+        # Real DataFlow object built earlier in the same factory-processing
+        # pass, cached for reuse when emitting sibling DataJobs in
+        # _emit_dynamic_lineage_augmentation - reusing it (rather than
+        # reconstructing a lookalike) means dataPlatformInstance/
+        # browsePathsV2 always match the parent job exactly, with no risk
+        # of drift if its construction logic changes in only one place.
+        self._dataflow_cache: dict[tuple[str, str], DataFlow] = {}
 
         # Column-level lineage extractors - extensible for different activity types
         self._column_lineage_extractors: list[ColumnLineageExtractor] = [
@@ -536,6 +556,9 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             dataflow = self._create_dataflow(
                 pipeline, factory, resource_group, container
             )
+            # Cached for reuse when emitting sibling DataJobs later in the
+            # same run (see _dynamic_lineage_cache / _emit_dynamic_lineage_augmentation).
+            self._dataflow_cache[(factory_key, pipeline_name)] = dataflow
             yield from dataflow.as_workunits()
 
             # Emit activities as DataJobs, using BFS to recurse into container
@@ -2074,18 +2097,32 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
     def _emit_dynamic_lineage_augmentation(
         self, factory: Factory, resource_group: str
     ) -> Iterable[MetadataWorkUnit]:
-        """Union dynamically-resolved dataset URNs (from execution-history
-        pipeline run parameters) into each affected DataJob's static
-        dataJobInputOutput aspect, so per-run-parameterized lineage shows up
-        in the main lineage graph."""
+        """Emit lineage for activities with dynamically-resolved dataset
+        URNs (from execution-history pipeline run parameters), aggregated
+        across processed runs.
+
+        Safe case (at most one side - inputs or outputs - has more than
+        one distinct observed value): union everything onto the parent
+        DataJob's static dataJobInputOutput aspect, exactly as before -
+        correct because every observed input really does feed every
+        observed output (e.g. two different sources feeding one fixed
+        sink across separate runs).
+
+        Fan-out case (both sides have more than one distinct observed
+        value, e.g. a ForEach-looped Copy activity that visits many
+        distinct table pairs): unioning would imply every source feeds
+        every sink, which is rarely true and would show as phantom
+        upstream/downstream lineage in the main graph (DataHub's lineage
+        traversal has no per-pair correlation within one DataJob's
+        dataJobInputOutput aspect). Instead, mint one sibling DataJob per
+        distinct pair (see _emit_pair_sibling_datajob), up to
+        max_dynamic_lineage_pairs_per_activity; the parent job's own
+        lineage is left untouched, and pairs beyond the cap fall back to
+        the safe case's union-onto-parent behavior."""
         factory_name = factory.name or "Unknown"
         factory_key = f"{resource_group}/{factory_name}"
 
-        for cache_key, (
-            dynamic_inputs,
-            dynamic_outputs,
-            dynamic_columns,
-        ) in self._dynamic_lineage_cache.items():
+        for cache_key, pairs in self._dynamic_lineage_cache.items():
             cache_factory_key, pipeline_name, activity_name = cache_key
             if cache_factory_key != factory_key:
                 continue
@@ -2097,27 +2134,17 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             if activity is None:
                 continue
 
-            static_inputs = {
-                str(u) for u in self._extract_activity_inputs(activity, factory_key)
-            }
-            static_outputs = {
-                str(u) for u in self._extract_activity_outputs(activity, factory_key)
-            }
-
-            # Dynamically-resolved values are strictly more accurate than
-            # the static/placeholder fallback (e.g. the generic ADF dataset
-            # name used when an "@item()"/pipeline-parameter expression
-            # can't be resolved statically) - prefer them outright rather
-            # than unioning, so the placeholder doesn't linger alongside
-            # the real table once it's known.
-            combined_inputs = dynamic_inputs or static_inputs
-            combined_outputs = dynamic_outputs or static_outputs
-            if (
-                combined_inputs == static_inputs
-                and combined_outputs == static_outputs
-                and not dynamic_columns
-            ):
-                continue
+            static_inputs = tuple(
+                sorted(
+                    str(u) for u in self._extract_activity_inputs(activity, factory_key)
+                )
+            )
+            static_outputs = tuple(
+                sorted(
+                    str(u)
+                    for u in self._extract_activity_outputs(activity, factory_key)
+                )
+            )
 
             flow_name = f"{factory_name}.{pipeline_name}"
             flow_urn = DataFlowUrn.create_from_ids(
@@ -2130,42 +2157,259 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 data_flow_urn=str(flow_urn), job_id=activity_name
             )
 
-            if dynamic_columns:
-                fine_grained_lineages: Optional[list[FineGrainedLineageClass]] = [
-                    FineGrainedLineageClass(
-                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                        upstreams=list(upstream_urns),
-                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                        downstreams=[downstream_urn],
-                    )
-                    for upstream_urns, downstream_urn in sorted(dynamic_columns)
-                ]
-            elif self.config.include_column_lineage:
-                # This MCP replaces the DataJob's whole dataJobInputOutput
-                # aspect - including whatever fineGrainedLineages the
-                # static path already emitted for this activity (e.g. a
-                # real explicit translator). Recompute it against the
-                # (possibly now-different) combined inputs/outputs rather
-                # than discarding it outright just because this specific
-                # run didn't itself contribute new column lineage.
-                fine_grained_lineages = self._extract_column_lineage(
-                    activity=activity,
-                    activity_type=activity.type or "Unknown",
-                    inlets=sorted(combined_inputs),
-                    outlets=sorted(combined_outputs),
-                    factory_key=factory_key,
-                )
-            else:
-                fine_grained_lineages = None
+            distinct_inputs = {pair[0] for pair in pairs}
+            distinct_outputs = {pair[1] for pair in pairs}
 
-            yield MetadataChangeProposalWrapper(
-                entityUrn=str(job_urn),
-                aspect=DataJobInputOutputClass(
-                    inputDatasets=sorted(combined_inputs),
-                    outputDatasets=sorted(combined_outputs),
-                    fineGrainedLineages=fine_grained_lineages,
-                ),
-            ).as_workunit()
+            if len(distinct_inputs) <= 1 or len(distinct_outputs) <= 1:
+                yield from self._emit_unioned_dynamic_lineage(
+                    activity,
+                    job_urn,
+                    factory_key,
+                    pairs,
+                    static_inputs,
+                    static_outputs,
+                )
+                continue
+
+            sorted_pairs = sorted(pairs.items())
+            cap = self.config.max_dynamic_lineage_pairs_per_activity
+            sibling_pairs = sorted_pairs[:cap]
+            overflow_pairs = sorted_pairs[cap:]
+
+            for pair_key, column_mappings in sibling_pairs:
+                if pair_key == (static_inputs, static_outputs):
+                    # Already covered by the parent job's own static
+                    # lineage - no need for a duplicate entity.
+                    continue
+                yield from self._emit_pair_sibling_datajob(
+                    factory,
+                    resource_group,
+                    factory_key,
+                    pipeline_name,
+                    activity_name,
+                    activity,
+                    pair_key,
+                    column_mappings,
+                )
+
+            if overflow_pairs:
+                self.report.report_dynamic_lineage_pairs_over_cap(len(overflow_pairs))
+                self.report.warning(
+                    title="Dynamic Lineage Pair Cap Exceeded",
+                    message=(
+                        "Activity observed more distinct source/sink pairs "
+                        "than max_dynamic_lineage_pairs_per_activity; the "
+                        "excess pairs were unioned onto the parent job's "
+                        "lineage instead of getting their own precise "
+                        "lineage entity."
+                    ),
+                    context=(
+                        f"activity={activity_name}, "
+                        f"pairs_over_cap={len(overflow_pairs)}"
+                    ),
+                    log=False,
+                )
+                yield from self._emit_unioned_dynamic_lineage(
+                    activity,
+                    job_urn,
+                    factory_key,
+                    dict(overflow_pairs),
+                    static_inputs,
+                    static_outputs,
+                )
+
+    def _column_mappings_to_fine_grained_lineages(
+        self, column_mappings: set[tuple[tuple[str, ...], str]]
+    ) -> list[FineGrainedLineageClass]:
+        """Convert (upstream schema field urns, downstream schema field urn)
+        tuples - the form cached in _dynamic_lineage_cache - into
+        FineGrainedLineageClass objects, used by both the union and
+        per-pair-sibling emission paths."""
+        return [
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=list(upstream_urns),
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[downstream_urn],
+            )
+            for upstream_urns, downstream_urn in sorted(column_mappings)
+        ]
+
+    def _emit_unioned_dynamic_lineage(
+        self,
+        activity: Activity,
+        job_urn: DataJobUrn,
+        factory_key: str,
+        pairs: dict[
+            tuple[tuple[str, ...], tuple[str, ...]], set[tuple[tuple[str, ...], str]]
+        ],
+        static_inputs: tuple[str, ...],
+        static_outputs: tuple[str, ...],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Union every observed (source, sink) pair's inputs/outputs/columns
+        onto the parent DataJob's dataJobInputOutput aspect. Correct
+        whenever at most one side of the pairing varies across observed
+        runs, and also used as the cap-overflow fallback for pairs beyond
+        max_dynamic_lineage_pairs_per_activity in the fan-out case (see
+        _emit_dynamic_lineage_augmentation)."""
+        dynamic_inputs: set[str] = set()
+        dynamic_outputs: set[str] = set()
+        dynamic_columns: set[tuple[tuple[str, ...], str]] = set()
+        for (inputs, outputs), column_mappings in pairs.items():
+            dynamic_inputs.update(inputs)
+            dynamic_outputs.update(outputs)
+            dynamic_columns.update(column_mappings)
+
+        # Dynamically-resolved values are strictly more accurate than the
+        # static/placeholder fallback (e.g. the generic ADF dataset name
+        # used when an "@item()"/pipeline-parameter expression can't be
+        # resolved statically) - prefer them outright rather than
+        # unioning, so the placeholder doesn't linger alongside the real
+        # table once it's known.
+        combined_inputs = dynamic_inputs or set(static_inputs)
+        combined_outputs = dynamic_outputs or set(static_outputs)
+        if (
+            combined_inputs == set(static_inputs)
+            and combined_outputs == set(static_outputs)
+            and not dynamic_columns
+        ):
+            return
+
+        if dynamic_columns:
+            fine_grained_lineages: Optional[list[FineGrainedLineageClass]] = (
+                self._column_mappings_to_fine_grained_lineages(dynamic_columns)
+            )
+        elif self.config.include_column_lineage:
+            # This MCP replaces the DataJob's whole dataJobInputOutput
+            # aspect - including whatever fineGrainedLineages the static
+            # path already emitted for this activity (e.g. a real
+            # explicit translator). Recompute it against the (possibly
+            # now-different) combined inputs/outputs rather than
+            # discarding it outright just because this specific run
+            # didn't itself contribute new column lineage.
+            fine_grained_lineages = self._extract_column_lineage(
+                activity=activity,
+                activity_type=activity.type or "Unknown",
+                inlets=sorted(combined_inputs),
+                outlets=sorted(combined_outputs),
+                factory_key=factory_key,
+            )
+        else:
+            fine_grained_lineages = None
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=str(job_urn),
+            aspect=DataJobInputOutputClass(
+                inputDatasets=sorted(combined_inputs),
+                outputDatasets=sorted(combined_outputs),
+                fineGrainedLineages=fine_grained_lineages,
+            ),
+        ).as_workunit()
+
+    def _emit_pair_sibling_datajob(
+        self,
+        factory: Factory,
+        resource_group: str,
+        factory_key: str,
+        pipeline_name: str,
+        activity_name: str,
+        activity: Activity,
+        pair_key: tuple[tuple[str, ...], tuple[str, ...]],
+        column_mappings: set[tuple[tuple[str, ...], str]],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a sibling DataJob scoped to exactly one distinct (source,
+        sink) pair observed for an activity with a many-to-many fan-out
+        (see _emit_dynamic_lineage_augmentation). Keeps the parent job's
+        own lineage untouched while giving each real pair its own precise
+        Dataset -> Job -> Dataset edge in the main lineage graph, instead
+        of a shared DataJob whose unioned inputs/outputs would otherwise
+        imply every source feeds every sink."""
+        dataflow = self._dataflow_cache.get((factory_key, pipeline_name))
+        if dataflow is None:
+            # Should not happen in practice - _dataflow_cache is populated
+            # for every pipeline that reaches execution-history processing
+            # (see _process_pipelines) - but warn rather than silently
+            # dropping this pair's lineage if that invariant ever breaks.
+            self.report.warning(
+                title="Missing Cached DataFlow for Sibling DataJob",
+                message="Could not find the cached DataFlow for a dynamic-lineage sibling DataJob; this pair's lineage was skipped.",
+                context=f"activity={activity_name}, pipeline={pipeline_name}",
+                log=False,
+            )
+            return
+
+        inputs, outputs = pair_key
+        # json.dumps (not naive string-joining) avoids two different
+        # pairs serializing to the same pre-image if a delimiter-like
+        # character happens to appear inside a real table name.
+        digest = hashlib.sha256(json.dumps(pair_key).encode()).hexdigest()[:12]
+        job_id = f"{activity_name}__{digest}"
+
+        activity_type = activity.type or "Unknown"
+        subtype = ACTIVITY_SUBTYPE_MAP.get(activity_type, activity_type)
+        custom_props: dict[str, str] = {
+            "activity_type": activity_type,
+            "parent_activity": activity_name,
+        }
+
+        fine_grained_lineages: Optional[list[FineGrainedLineageClass]] = None
+        if column_mappings:
+            fine_grained_lineages = self._column_mappings_to_fine_grained_lineages(
+                column_mappings
+            )
+        elif self.config.include_column_lineage:
+            fine_grained_lineages = self._extract_column_lineage(
+                activity=activity,
+                activity_type=activity_type,
+                inlets=list(inputs),
+                outlets=list(outputs),
+                factory_key=factory_key,
+            )
+
+        datajob = DataJob(
+            name=job_id,
+            flow=dataflow,
+            display_name=self._pair_sibling_display_name(
+                activity_name, inputs, outputs
+            ),
+            description=activity.description,
+            external_url=self._get_pipeline_url(factory, resource_group, pipeline_name),
+            custom_properties=custom_props,
+            subtype=subtype,
+            inlets=list(inputs),
+            outlets=list(outputs),
+            fine_grained_lineages=fine_grained_lineages,
+        )
+
+        yield from datajob.as_workunits()
+        self.report.report_dynamic_lineage_sibling_emitted()
+
+    def _pair_sibling_display_name(
+        self,
+        activity_name: str,
+        inputs: tuple[str, ...],
+        outputs: tuple[str, ...],
+    ) -> str:
+        """Human-readable name for a per-pair sibling DataJob, e.g.
+        "CopyActivity (orders_table -> staging_table)" for the common
+        single-input/single-output case."""
+
+        def short(urns: tuple[str, ...]) -> str:
+            names = [self._short_dataset_name(u) for u in urns]
+            if len(names) <= 3:
+                return ", ".join(names)
+            return f"{', '.join(names[:3])} and {len(names) - 3} more"
+
+        return f"{activity_name} ({short(inputs)} -> {short(outputs)})"
+
+    def _short_dataset_name(self, urn: str) -> str:
+        """Extract just the table-name segment from a dataset URN, for
+        readability in a sibling DataJob's display name."""
+        try:
+            qualified_name = DatasetUrn.from_string(urn).name
+        except Exception:
+            return urn
+        return qualified_name.rsplit(".", 1)[-1]
 
     def _resolve_activity_run_lineage(
         self,
@@ -2424,8 +2668,10 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
     ) -> list[tuple[tuple[str, ...], str]]:
         """For Copy activities with a custom SQL query source and a
         resolved sink table, derive column-level (fine-grained) lineage
-        from the query's own selected column list, assuming the sink
-        column has the same name - the same "auto-map by name" default
+        from the query's own selected column list, name-matched against
+        the sink's own schema when DataHub already knows it (falling
+        back to the source's own casing when it doesn't - see
+        match_sink_column_casing) - the same "auto-map by name" default
         ADF itself uses for a Copy activity with no explicit translator
         (CopyActivityColumnLineageExtractor's auto-mapping already makes
         this same assumption for the static/no-execution-history case).
@@ -2505,12 +2751,23 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 )
             return []
 
+        # The query's own SELECT list (e.g. "SELECT *") only ever reflects
+        # the source's column names - resolve each to the sink's actual
+        # field-path casing when DataHub already knows the sink's schema,
+        # for the same reason infer_auto_mappings_by_name does.
+        sink_columns_by_lower = build_lowercase_column_map(
+            self._resolve_schema_via_graph(sink_urn)
+        )
+
         column_mappings: list[tuple[tuple[str, ...], str]] = []
         for column in result.column_lineage:
             upstream_urns = tuple(column.upstream_schema_field_urns())
             if not upstream_urns or not column.downstream.column:
                 continue
-            downstream_urn = str(SchemaFieldUrn(sink_urn, column.downstream.column))
+            sink_column = match_sink_column_casing(
+                column.downstream.column, sink_columns_by_lower
+            )
+            downstream_urn = str(SchemaFieldUrn(sink_urn, sink_column))
             column_mappings.append((upstream_urns, downstream_urn))
             self.report.report_column_lineage_extracted()
         return column_mappings
@@ -2540,12 +2797,18 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
     ) -> list[tuple[tuple[str, ...], str]]:
         """Same-name column mapping for every column in source_urn's
         schema, looked up from DataHub itself rather than the query
-        text - see _resolve_schema_via_graph."""
+        text - see _resolve_schema_via_graph. Also resolves the sink's
+        own schema (when DataHub already has it) so the downstream field
+        path matches the sink's actual column casing instead of assuming
+        it's identical to the source's - see infer_auto_mappings_by_name."""
         source_schema = self._resolve_schema_via_graph(source_urn)
         if not source_schema:
             return []
+        sink_schema = self._resolve_schema_via_graph(sink_urn)
         return self._lineages_to_column_mappings(
-            infer_auto_mappings_by_name(source_urn, sink_urn, source_schema)
+            infer_auto_mappings_by_name(
+                source_urn, sink_urn, source_schema, sink_schema
+            )
         )
 
     def _resolve_schema_via_graph(
@@ -2778,13 +3041,13 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                         )
                         if inlets or outlets:
                             cache_key = (factory_key, activity_pipeline, activity_name)
-                            cached_inputs, cached_outputs, cached_columns = (
-                                self._dynamic_lineage_cache.setdefault(
-                                    cache_key, (set(), set(), set())
-                                )
+                            pair_key = (
+                                tuple(sorted(str(u) for u in inlets)),
+                                tuple(sorted(str(u) for u in outlets)),
                             )
-                            cached_inputs.update(str(u) for u in inlets)
-                            cached_outputs.update(str(u) for u in outlets)
+                            cached_columns = self._dynamic_lineage_cache.setdefault(
+                                cache_key, {}
+                            ).setdefault(pair_key, set())
                             cached_columns.update(column_mappings)
 
                 # Create DataProcessInstance linked to DataJob
