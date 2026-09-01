@@ -56,6 +56,9 @@ class SecretRegistry:
 
     def register_secret(self, variable_name: str, raw_value: str) -> None:
         """Register a secret for masking."""
+        if not is_masking_enabled():
+            return
+
         if not raw_value or not isinstance(raw_value, str):
             return
 
@@ -113,7 +116,7 @@ class SecretRegistry:
 
     def register_secrets_batch(self, secrets: Dict[str, str]) -> None:
         """Register multiple secrets atomically."""
-        if not secrets:
+        if not is_masking_enabled():
             return
 
         # Pre-validate all secrets
