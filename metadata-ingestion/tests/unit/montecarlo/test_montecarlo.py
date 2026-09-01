@@ -1245,6 +1245,30 @@ def test_client_get_custom_rules_paginates() -> None:
     assert rules[0].custom_sql == "select 1"
 
 
+def test_client_get_custom_rules_populates_name_from_rule_name() -> None:
+    # The MCD CustomRule type exposes `ruleName` (snake_cased to `rule_name` by
+    # pycarlo), not `name`. The client must surface it on
+    # MonteCarloAssertionDef.name so monitor_pattern can filter rules by name
+    # (otherwise rules match against their UUID only).
+    page = {
+        "get_custom_rules": {
+            "edges": [
+                {
+                    "node": {
+                        "uuid": "r1",
+                        "rule_name": "Orders non-negative",
+                        "rule_type": "CUSTOM_SQL",
+                    }
+                },
+            ],
+            "page_info": {"has_next_page": False, "end_cursor": None},
+        }
+    }
+    client = _client_with_responses([page])
+    rules = list(client.get_custom_rules())
+    assert rules[0].name == "Orders non-negative"
+
+
 def test_client_get_table_parses_connection_type() -> None:
     client = _client_with_responses(
         [
@@ -1766,9 +1790,12 @@ def test_get_alerts_builds_lookback_window() -> None:
     assert window["after"].startswith("2026-06-08")  # 7 days earlier
 
 
-def test_paginate_stops_on_null_end_cursor() -> None:
-    # has_next_page True but a null end_cursor must terminate, not loop forever
-    # (a second page request would IndexError past the single recorded response).
+def test_paginate_raises_on_null_end_cursor_with_more_pages() -> None:
+    # has_next_page True but a null end_cursor is a server contract violation:
+    # silently truncating would emit incomplete assertions and could trigger
+    # stale deletion of existing ones, so the client must raise rather than
+    # break. The raised RuntimeError is caught by source._emit and surfaced as
+    # a phase-level report.failure.
     client = _client_with_responses(
         [
             {
@@ -1779,7 +1806,40 @@ def test_paginate_stops_on_null_end_cursor() -> None:
             }
         ]
     )
-    assert [r.uuid for r in client.get_custom_rules()] == ["r1"]
+    with pytest.raises(RuntimeError, match="no endCursor"):
+        list(client.get_custom_rules())
+
+
+def test_paginate_raises_on_repeated_end_cursor() -> None:
+    # A server that returns the same endCursor twice would loop forever and
+    # exhaust the daily call budget; the client must detect the repeat and
+    # raise rather than re-fetching the same page indefinitely.
+    page = {
+        "get_custom_rules": {
+            "edges": [{"node": {"uuid": "r1", "rule_type": "X"}}],
+            "page_info": {"has_next_page": True, "end_cursor": "dup"},
+        }
+    }
+    client = _client_with_responses([page, page])
+    with pytest.raises(RuntimeError, match="repeated endCursor"):
+        list(client.get_custom_rules())
+
+
+def test_paginate_raises_on_malformed_connection() -> None:
+    # A 2xx response missing the connection object (or returning the wrong
+    # type) must not be treated as an empty page — silent truncation could
+    # trigger stale deletion of existing assertions.
+    client = _client_with_responses([{"get_custom_rules": None}])
+    with pytest.raises(RuntimeError, match="malformed response"):
+        list(client.get_custom_rules())
+
+
+def test_paginate_offset_raises_on_non_list_root() -> None:
+    # getMonitors must return a list; a non-list (e.g. null) is a contract
+    # violation and must raise rather than be treated as an empty page.
+    client = _client_with_responses([{"get_monitors": None}])
+    with pytest.raises(RuntimeError, match="malformed response"):
+        list(client.get_monitors())
 
 
 def test_get_table_missing_full_table_id_warns_and_returns_none() -> None:

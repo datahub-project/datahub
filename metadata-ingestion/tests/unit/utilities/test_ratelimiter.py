@@ -80,6 +80,15 @@ def test_token_bucket_rejects_non_positive_params() -> None:
         TokenBucket(rate=1, capacity=0)
 
 
+def test_token_bucket_rejects_sub_unit_capacity() -> None:
+    # Each acquire() consumes exactly 1 token and refills are capped at
+    # ``capacity``, so a sub-1 capacity can never satisfy a call (the bucket
+    # would oscillate around zero and every call would block). Reject it up
+    # front with a clear error rather than misbehaving at runtime.
+    with pytest.raises(ValueError, match="capacity must be >= 1"):
+        TokenBucket(rate=10.0, capacity=0.5)
+
+
 def test_token_bucket_empty_branch_fires_under_burst(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -100,6 +109,31 @@ def test_token_bucket_empty_branch_fires_under_burst(
     bucket.acquire()
     # wait = (1 - 0) / 2.0 = 0.5s for the missing token.
     assert sleep_calls[-1] == pytest.approx(0.5, abs=0.01)
+
+
+def test_token_bucket_preserves_fractional_leftover_across_wait(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The fractional balance carried into the sleep must be preserved on wake,
+    not discarded. The post-sleep block must credit ``self._tokens + elapsed*rate``
+    (then consume one), not ``elapsed*rate`` (then consume one): the latter drops
+    the leftover and drives ``_tokens`` negative, making the next caller over-wait.
+    """
+    clock = [0.0]
+    sleep_calls: List[float] = []
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(time, "sleep", _make_deterministic_sleep(clock, sleep_calls))
+
+    bucket = TokenBucket(rate=1.0, capacity=2)
+    bucket.acquire()  # tokens 2 -> 1
+    clock[0] = 0.5  # partial refill: 1 + 0.5*1.0 = 1.5
+    bucket.acquire()  # tokens 1.5 -> 0.5 (fractional leftover carried)
+    # Next acquire: tokens=0.5 < 1 -> wait = (1 - 0.5)/1.0 = 0.5s.
+    bucket.acquire()
+    assert sleep_calls[-1] == pytest.approx(0.5, abs=0.01)
+    # On wake, elapsed=0.5 -> refill 0.5*1.0=0.5; tokens = min(2, 0.5 + 0.5) - 1 = 0.0.
+    # The buggy version (discarding the leftover) would compute min(2, 0.5) - 1 = -0.5.
+    assert bucket._tokens == 0.0
 
 
 def test_token_bucket_releases_lock_during_sleep(

@@ -120,6 +120,7 @@ MONITORS: List[Dict[str, Any]] = [
 CUSTOM_RULES: List[Dict[str, Any]] = [
     {
         "uuid": "rule-orders-not-null",
+        "rule_name": "Orders total non-negative",
         "rule_type": "CUSTOM_SQL",
         "description": "orders.total must be non-negative",
         "custom_sql": "SELECT count(*) FROM analytics.public.orders WHERE total < 0",
@@ -138,6 +139,7 @@ CUSTOM_RULES: List[Dict[str, Any]] = [
     },
     {
         "uuid": "rule-events-freshness",
+        "rule_name": "Events freshness SLA",
         "rule_type": "FRESHNESS",
         "description": "events freshness SLA",
         "custom_sql": None,

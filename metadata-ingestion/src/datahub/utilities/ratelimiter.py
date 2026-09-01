@@ -68,8 +68,11 @@ class TokenBucket:
     def __init__(self, rate: float, capacity: float) -> None:
         if rate <= 0:
             raise ValueError("rate must be > 0")
-        if capacity <= 0:
-            raise ValueError("capacity must be > 0")
+        # Each acquire() consumes exactly 1 token, and refills are capped at
+        # ``capacity``, so a sub-1 capacity can never satisfy a call (the
+        # bucket would oscillate around zero and every call would block).
+        if capacity < 1:
+            raise ValueError("capacity must be >= 1")
         self.rate = rate
         self.capacity = capacity
         self._tokens = capacity
@@ -97,8 +100,11 @@ class TokenBucket:
             now = time.monotonic()
             elapsed = now - self._last_refill
             self._last_refill = now
-            self._tokens = min(self.capacity, elapsed * self.rate)
-            self._tokens -= 1
+            # Preserve the fractional balance carried into the sleep rather than
+            # resetting to ``elapsed * rate``: crediting only the post-sleep
+            # interval would discard the leftover and drive ``_tokens`` negative,
+            # making the next caller over-wait.
+            self._tokens = min(self.capacity, self._tokens + elapsed * self.rate) - 1
 
 
 class DailyCallBudgetExceeded(RuntimeError):

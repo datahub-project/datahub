@@ -359,12 +359,31 @@ class MonteCarloClient:
         # pycarlo normalizes response keys to snake_case (Box camel_killer_box),
         # so root_field and every nested key below must be looked up in snake_case
         # even though the GraphQL query text itself uses camelCase field names.
+        #
+        # A malformed page (missing root field / edges) or a repeated endCursor
+        # raises rather than being treated as an empty page: silently truncating
+        # pagination would emit incomplete assertions and could trigger stale
+        # deletion of existing ones. The raised RuntimeError is caught by
+        # source._emit and surfaced as a phase-level report.failure.
         after: Optional[str] = None
+        seen_cursors: set = set()
         while True:
             page_vars = {**variables, "first": self.page_size, "after": after}
-            connection = self._call(query, page_vars).get(root_field) or {}
-            for edge in connection.get("edges") or []:
-                node = edge.get("node")
+            connection = self._call(query, page_vars).get(root_field)
+            if not isinstance(connection, dict):
+                raise RuntimeError(
+                    f"Monte Carlo API returned a malformed response for "
+                    f"{root_field} (expected a connection object, got "
+                    f"{type(connection).__name__}); aborting pagination."
+                )
+            edges = connection.get("edges")
+            if edges is None:
+                raise RuntimeError(
+                    f"Monte Carlo API returned a malformed response for "
+                    f"{root_field} (missing 'edges'); aborting pagination."
+                )
+            for edge in edges or []:
+                node = edge.get("node") if isinstance(edge, dict) else None
                 if node:
                     yield node
             page_info = connection.get("page_info") or {}
@@ -372,18 +391,35 @@ class MonteCarloClient:
                 break
             after = page_info.get("end_cursor")
             if not after:
-                break
+                raise RuntimeError(
+                    f"Monte Carlo API indicated more pages for {root_field} "
+                    f"but returned no endCursor; cannot continue pagination."
+                )
+            if after in seen_cursors:
+                raise RuntimeError(
+                    f"Monte Carlo API returned a repeated endCursor for "
+                    f"{root_field} (cursor={after!r}); aborting to avoid an "
+                    f"infinite pagination loop."
+                )
+            seen_cursors.add(after)
 
     def _paginate_offset(
         self, query: str, root_field: str, variables: Dict[str, Any]
     ) -> Iterable[Dict[str, Any]]:
         # getMonitors returns a plain list rather than a Relay connection, so it is
         # walked with limit/offset (instead of _paginate's cursor) and stops once a
-        # short page signals the last batch.
+        # short page signals the last batch. A missing/non-list root field raises
+        # (see _paginate) rather than being treated as an empty page.
         offset = 0
         while True:
             page_vars = {**variables, "limit": self.page_size, "offset": offset}
-            page = self._call(query, page_vars).get(root_field) or []
+            page = self._call(query, page_vars).get(root_field)
+            if not isinstance(page, list):
+                raise RuntimeError(
+                    f"Monte Carlo API returned a malformed response for "
+                    f"{root_field} (expected a list, got {type(page).__name__}); "
+                    f"aborting pagination."
+                )
             yield from page
             if len(page) < self.page_size:
                 break
@@ -496,6 +532,7 @@ class MonteCarloClient:
             try:
                 yield MonteCarloAssertionDef(
                     uuid=uuid,
+                    name=raw.get("rule_name"),
                     description=raw.get("description"),
                     rule_type=raw.get("rule_type"),
                     custom_sql=raw.get("custom_sql"),

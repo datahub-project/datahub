@@ -74,8 +74,10 @@ warehouse connection type (falling back to `default_platform` for unrecognized t
 
 #### Assertion URNs do not match your warehouse source
 
-Assertion URNs are derived from the dataset URN resolved via `connection_to_platform_map`. If the
-`platform`, `platform_instance`, or `env` values differ from those used by your warehouse source
+Each Monte Carlo monitor/rule maps to a stable assertion URN derived from the Monte Carlo monitor
+UUID (so the same monitor always maps to the same assertion), and that assertion targets the
+dataset URN resolved via `connection_to_platform_map`. If the `platform`, `platform_instance`, or
+`env` values used in `connection_to_platform_map` differ from those used by your warehouse source
 connector, the assertions will not appear on the correct dataset. Align the values in
 `connection_to_platform_map` with the config of your warehouse source.
 

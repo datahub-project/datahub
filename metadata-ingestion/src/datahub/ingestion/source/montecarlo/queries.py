@@ -38,6 +38,7 @@ query getCustomRules($first: Int, $after: String) {
     edges {
       node {
         uuid
+        ruleName
         ruleType
         description
         customSql
