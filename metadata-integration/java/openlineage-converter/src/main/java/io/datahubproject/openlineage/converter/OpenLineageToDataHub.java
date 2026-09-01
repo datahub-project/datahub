@@ -391,6 +391,12 @@ public class OpenLineageToDataHub {
               domainUrn.getEntityType());
           continue;
         }
+        // "urn:li:domain" parses with entity type "domain" but carries no id, so the entity key
+        // has to be checked separately.
+        if (domainUrn.getEntityKey().size() == 0) {
+          log.warn("Skipping '{}': a domain URN must carry an id (urn:li:domain:<id>).", domain);
+          continue;
+        }
         domainArray.add(domainUrn);
       } catch (URISyntaxException e) {
         log.warn(
