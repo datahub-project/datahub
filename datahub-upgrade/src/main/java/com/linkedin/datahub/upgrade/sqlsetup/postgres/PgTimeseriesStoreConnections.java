@@ -74,10 +74,12 @@ public final class PgTimeseriesStoreConnections {
     }
 
     String jdbcUrl = url.trim();
+    boolean sharesEbeanPool = sharesEbeanPoolUrl(jdbcUrl, ebeanDataSourceConfig);
     String cloudProvider =
         firstNonBlank(
             iam == null ? null : emptyToNull(iam.getCloudProvider()),
-            inferCloudProvider(ebeanDataSourceConfig, jdbcUrl),
+            inferCloudProvider(null, jdbcUrl),
+            sharesEbeanPool ? inferCloudProvider(ebeanDataSourceConfig, jdbcUrl) : null,
             "auto");
 
     CrossCloudIamUtils.CrossCloudConfig cfg =
@@ -95,7 +97,8 @@ public final class PgTimeseriesStoreConnections {
             iam == null ? null : emptyToNull(iam.getInstanceConnectionName()));
 
     String driver = cfg.driver;
-    if (ebeanDataSourceConfig != null
+    if (sharesEbeanPool
+        && ebeanDataSourceConfig != null
         && ebeanDataSourceConfig.getDriver() != null
         && ebeanDataSourceConfig.getDriver().contains("cloud.sql")
         && (driver == null || !driver.contains("cloud.sql"))) {
@@ -115,11 +118,24 @@ public final class PgTimeseriesStoreConnections {
     if (!pass.isEmpty()) {
       connProps.setProperty("password", pass);
     }
-    // Copy IAM properties already applied to the GMS ebean pool before overlaying
-    // configureCrossCloudIam, so GCP socketFactory / cloudSqlInstance are not dropped.
-    mergeNonBlank(connProps, ebeanCustomProperties(ebeanDataSourceConfig));
+    // Copy IAM properties from the GMS ebean pool only when this store uses the same JDBC URL.
+    if (sharesEbeanPool) {
+      mergeNonBlank(connProps, ebeanCustomProperties(ebeanDataSourceConfig));
+    }
     mergeNonBlank(connProps, cfg.customProperties);
     return DriverManager.getConnection(cfg.url, connProps);
+  }
+
+  static boolean sharesEbeanPoolUrl(
+      @Nonnull String storeUrl, @Nullable DataSourceBuilder.Settings ebeanDataSourceConfig) {
+    if (ebeanDataSourceConfig == null) {
+      return false;
+    }
+    String ebeanUrl = ebeanDataSourceConfig.getUrl();
+    if (ebeanUrl == null || ebeanUrl.isBlank()) {
+      return false;
+    }
+    return storeUrl.trim().equals(ebeanUrl.trim());
   }
 
   /**
