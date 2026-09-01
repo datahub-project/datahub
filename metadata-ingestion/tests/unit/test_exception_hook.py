@@ -193,7 +193,7 @@ class TestExceptionHookMasking:
         captured_stderr = io.StringIO()
 
         with mock.patch.object(
-            masking_filter_module._installed_filter,
+            masking_filter_module.SecretMaskingFilter,
             "mask_text",
             side_effect=RuntimeError("Masking failed"),
         ):

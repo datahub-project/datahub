@@ -16,7 +16,8 @@ import logging
 import sys
 import threading
 import traceback
-from typing import Optional
+from types import TracebackType
+from typing import Any, Callable, Optional, Type
 
 from datahub.masking.logging_utils import get_masking_safe_logger
 from datahub.masking.masking_filter import (
@@ -29,7 +30,6 @@ logger = get_masking_safe_logger(__name__)
 
 _bootstrap_completed = False
 _bootstrap_error: Optional[Exception] = None
-_original_excepthook = None
 _bootstrap_lock = threading.Lock()
 
 
@@ -41,24 +41,35 @@ def get_bootstrap_error() -> Optional[Exception]:
     return _bootstrap_error
 
 
-def _install_exception_hook(masking_filter: SecretMaskingFilter) -> None:
-    global _original_excepthook
+class _MaskingExceptHook:
+    """sys.excepthook replacement that masks the formatted traceback."""
 
-    if _original_excepthook is not None:
-        return
-    _original_excepthook = sys.excepthook
-    original_excepthook = _original_excepthook
+    def __init__(
+        self,
+        masking_filter: SecretMaskingFilter,
+        original_excepthook: Callable[..., Any],
+    ) -> None:
+        self._masking_filter = masking_filter
+        self.original_excepthook = original_excepthook
 
-    def masking_excepthook(exc_type, exc_value, exc_traceback):
+    def __call__(
+        self,
+        exc_type: Type[BaseException],
+        exc_value: BaseException,
+        exc_traceback: Optional[TracebackType],
+    ) -> None:
         try:
             tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
-            masked_tb_text = masking_filter.mask_text("".join(tb_lines))
-            sys.stderr.write(masked_tb_text)
+            sys.stderr.write(self._masking_filter.mask_text("".join(tb_lines)))
         except Exception as e:
             logger.error(f"Failed to mask exception: {e}")
-            original_excepthook(exc_type, exc_value, exc_traceback)
+            self.original_excepthook(exc_type, exc_value, exc_traceback)
 
-    sys.excepthook = masking_excepthook
+
+def _install_exception_hook(masking_filter: SecretMaskingFilter) -> None:
+    if isinstance(sys.excepthook, _MaskingExceptHook):
+        return
+    sys.excepthook = _MaskingExceptHook(masking_filter, sys.excepthook)
     logger.debug("Installed custom exception hook for secret masking")
 
 

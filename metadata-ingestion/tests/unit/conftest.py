@@ -9,9 +9,8 @@ from datahub.masking.secret_registry import SecretRegistry
 
 def _reset_masking_process_state() -> None:
     uninstall_masking_filter()
-    if masking_bootstrap._original_excepthook is not None:
-        sys.excepthook = masking_bootstrap._original_excepthook
-        masking_bootstrap._original_excepthook = None
+    if isinstance(sys.excepthook, masking_bootstrap._MaskingExceptHook):
+        sys.excepthook = sys.excepthook.original_excepthook
     masking_bootstrap._bootstrap_completed = False
     masking_bootstrap._bootstrap_error = None
     SecretRegistry.reset_instance()
