@@ -17,12 +17,15 @@ mkdir -p "$TARGET_DIR"
 
 if [ -n "${COMPOSE_PROJECT_NAME:-}" ]; then
   # Compose v2 uses hyphenated container names, while older versions used underscores.
-  # Select by the stable project label so startup failures are captured with either format.
+  # Prefer the stable project label; fall back to name prefix when labels are absent.
   names=$(
     docker ps -a \
       --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" \
       --format '{{.Names}}'
   )
+  if [ -z "$names" ]; then
+    names=$(docker ps -a --format '{{.Names}}' | grep -E "^${COMPOSE_PROJECT_NAME}[-_]" || true)
+  fi
 else
   names=$(docker ps -a --format '{{.Names}}')
 fi
