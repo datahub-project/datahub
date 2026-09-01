@@ -5,6 +5,7 @@ import sys
 from contextlib import redirect_stderr
 from unittest import mock
 
+import datahub.masking.bootstrap as masking_bootstrap
 from datahub.masking import masking_filter as masking_filter_module
 from datahub.masking.bootstrap import (
     initialize_secret_masking,
@@ -190,13 +191,14 @@ class TestExceptionHookMasking:
     def test_exception_hook_masking_failure(self):
         """Hook falls back to the original hook when masking raises."""
         initialize_secret_masking()
+        assert isinstance(sys.excepthook, masking_bootstrap._MaskingExceptHook)
         captured_stderr = io.StringIO()
 
         with mock.patch.object(
             masking_filter_module.SecretMaskingFilter,
             "mask_text",
             side_effect=RuntimeError("Masking failed"),
-        ):
+        ) as mocked_mask_text:
             try:
                 raise ValueError("Test exception without secrets")
             except Exception:
@@ -204,6 +206,7 @@ class TestExceptionHookMasking:
                 with redirect_stderr(captured_stderr):
                     sys.excepthook(*exc_info)
 
+        assert mocked_mask_text.called
         output = captured_stderr.getvalue()
         assert "ValueError" in output
         assert "Test exception" in output

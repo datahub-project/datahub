@@ -132,15 +132,6 @@ class TestBootstrapEdgeCases:
         initialize_secret_masking()
         assert is_bootstrapped()
 
-    def test_force_reinitialization(self):
-        """Test force re-initialization."""
-        initialize_secret_masking()
-        assert is_bootstrapped()
-
-        # Force re-init
-        initialize_secret_masking()
-        assert is_bootstrapped()
-
     def test_bootstrap_error_cleared_on_success(self):
         """Test that bootstrap error is cleared after successful init."""
         initialize_secret_masking()
