@@ -543,7 +543,9 @@ public final class PostgresTimeseriesAggregatedStatsDao {
           && !metricColumnNames.isEmpty()) {
         orderParts.add(sqlSafeAlias(metricColumnNames.get(0)) + dir);
       } else {
-        orderParts.add(numericOrderExpr(groupKeyExprs.get(i), buckets[i], aspectSpec) + dir);
+        // Order by the SELECT alias, not the document JSON path. Wrappers (CTE / ROW_NUMBER)
+        // only expose gN columns; referencing document there fails with "column does not exist".
+        orderParts.add(numericOrderExpr(groupAliases.get(i), buckets[i], aspectSpec) + dir);
       }
     }
     if (!anyString) {
