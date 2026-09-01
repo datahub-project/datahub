@@ -445,18 +445,32 @@ public class ESIndexBuilder {
             .getSourceAsMap();
     builder.currentMappings(currentMappings);
 
-    if (shouldPreserveStructuredPropertyMappings(copyStructuredPropertyMappings)) {
+    if (shouldPreserveStructuredPropertyMappings(copyStructuredPropertyMappings)
+        && hasStructuredPropertyMappings(currentMappings)) {
       // The merge writes into the target map, its "properties" entry, and the
       // structuredProperties entry beneath it. Callers may supply immutable maps
       // (V2SemanticSearchMappingsBuilder builds the semantic index target from
       // ImmutableMaps, where an in-place merge throws UnsupportedOperationException),
       // so merge into a mutable copy of those levels instead of the caller's maps.
+      // The copy is gated on the current index actually having structured-property
+      // mappings, since the merge is a no-op otherwise.
       mappings = copyForStructuredPropertyMerge(mappings);
       mergeStructuredPropertyMappings(mappings, currentMappings);
     }
 
     builder.targetMappings(mappings);
     return builder.build();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static boolean hasStructuredPropertyMappings(Map<String, Object> currentMappings) {
+    Object properties = currentMappings.get(PROPERTIES);
+    if (!(properties instanceof Map)) {
+      return false;
+    }
+    Object structuredProperties =
+        ((Map<String, Object>) properties).get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    return structuredProperties instanceof Map && !((Map<?, ?>) structuredProperties).isEmpty();
   }
 
   @SuppressWarnings("unchecked")
