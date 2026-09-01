@@ -1,9 +1,15 @@
 package com.linkedin.gms.factory.timeseries;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.config.postgres.PgTimeseriesStoreOptions;
+import com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry;
+import com.linkedin.metadata.timeseries.postgres.PostgresTimeseriesAspectDao;
+import io.ebean.Database;
 import org.testng.annotations.Test;
 
 public class PgTimeseriesEbeanConfigFactoryPoolIdentityTest {
@@ -35,6 +41,33 @@ public class PgTimeseriesEbeanConfigFactoryPoolIdentityTest {
     PgTimeseriesStoreOptions b = baseStore("b");
 
     assertFalse(factory.poolIdentityEquals(a, b));
+  }
+
+  @Test
+  public void shutdownRegistry_shutsDownEachDistinctDatabaseOnce() {
+    PgTimeseriesStoreOptions a = baseStore("a");
+    PgTimeseriesStoreOptions b = baseStore("b").toBuilder().poolUrl(a.getPoolUrl()).build();
+    Database shared = mock(Database.class);
+    Database other = mock(Database.class);
+    PgTimeseriesStoreRegistry registry =
+        new PgTimeseriesStoreRegistry(
+            new com.linkedin.metadata.config.postgres.PgTimeseriesSetupOptions(
+                "a", java.util.Map.of("a", a, "b", b, "c", baseStore("c")), java.util.Map.of()),
+            java.util.Map.of(
+                "a",
+                new PgTimeseriesStoreRegistry.StoreHandle(
+                    a, shared, new PostgresTimeseriesAspectDao(shared, a)),
+                "b",
+                new PgTimeseriesStoreRegistry.StoreHandle(
+                    b, shared, new PostgresTimeseriesAspectDao(shared, b)),
+                "c",
+                new PgTimeseriesStoreRegistry.StoreHandle(
+                    baseStore("c"),
+                    other,
+                    new PostgresTimeseriesAspectDao(other, baseStore("c")))));
+    PgTimeseriesEbeanConfigFactory.shutdownRegistry(registry);
+    verify(shared, times(1)).shutdown();
+    verify(other, times(1)).shutdown();
   }
 
   private static PgTimeseriesStoreOptions baseStore(String name) {

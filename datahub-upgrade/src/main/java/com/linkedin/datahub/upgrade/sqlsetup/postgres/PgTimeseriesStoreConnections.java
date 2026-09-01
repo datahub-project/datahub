@@ -73,12 +73,19 @@ public final class PgTimeseriesStoreConnections {
       return DriverManager.getConnection(url.trim(), user, pass);
     }
 
+    String jdbcUrl = url.trim();
+    String cloudProvider =
+        firstNonBlank(
+            iam == null ? null : emptyToNull(iam.getCloudProvider()),
+            inferCloudProvider(ebeanDataSourceConfig, jdbcUrl),
+            "auto");
+
     CrossCloudIamUtils.CrossCloudConfig cfg =
         CrossCloudIamUtils.configureCrossCloudIam(
-            url.trim(),
+            jdbcUrl,
             defaultDriver,
             true,
-            iam == null ? null : emptyToNull(iam.getCloudProvider()),
+            cloudProvider,
             iam == null ? null : emptyToNull(iam.getAwsRegion()),
             iam == null ? null : emptyToNull(iam.getAwsAccessKeyId()),
             iam == null ? null : emptyToNull(iam.getAwsSecretAccessKey()),
@@ -87,10 +94,18 @@ public final class PgTimeseriesStoreConnections {
             iam == null ? null : emptyToNull(iam.getGcpProject()),
             iam == null ? null : emptyToNull(iam.getInstanceConnectionName()));
 
+    String driver = cfg.driver;
+    if (ebeanDataSourceConfig != null
+        && ebeanDataSourceConfig.getDriver() != null
+        && ebeanDataSourceConfig.getDriver().contains("cloud.sql")
+        && (driver == null || !driver.contains("cloud.sql"))) {
+      driver = ebeanDataSourceConfig.getDriver();
+    }
+
     try {
-      Class.forName(cfg.driver);
+      Class.forName(driver);
     } catch (ClassNotFoundException e) {
-      throw new SQLException("JDBC driver not found: " + cfg.driver, e);
+      throw new SQLException("JDBC driver not found: " + driver, e);
     }
 
     Properties connProps = new Properties();
@@ -100,9 +115,10 @@ public final class PgTimeseriesStoreConnections {
     if (!pass.isEmpty()) {
       connProps.setProperty("password", pass);
     }
-    if (cfg.customProperties != null) {
-      cfg.customProperties.forEach(connProps::setProperty);
-    }
+    // Copy IAM properties already applied to the GMS ebean pool before overlaying
+    // configureCrossCloudIam, so GCP socketFactory / cloudSqlInstance are not dropped.
+    mergeNonBlank(connProps, ebeanCustomProperties(ebeanDataSourceConfig));
+    mergeNonBlank(connProps, cfg.customProperties);
     return DriverManager.getConnection(cfg.url, connProps);
   }
 
@@ -116,6 +132,76 @@ public final class PgTimeseriesStoreConnections {
       return true;
     }
     return ebeanPoolUsesIam(ebeanDataSourceConfig);
+  }
+
+  /**
+   * When pgCron IAM does not name a cloud, infer aws/gcp from the already-configured ebean pool so
+   * {@link CrossCloudIamUtils#configureCrossCloudIam} still emits {@code wrapperPlugins=iam} /
+   * Cloud SQL socket factory instead of returning an empty config for {@code cloudProvider=null}.
+   */
+  @Nullable
+  static String inferCloudProvider(
+      @Nullable DataSourceBuilder.Settings cfg, @Nullable String jdbcUrl) {
+    if (cfg != null) {
+      Map<String, String> custom = cfg.getCustomProperties();
+      if (custom != null) {
+        String wrapperPlugins = custom.get("wrapperPlugins");
+        if (wrapperPlugins != null
+            && Arrays.stream(wrapperPlugins.split(","))
+                .map(String::trim)
+                .anyMatch("iam"::equalsIgnoreCase)) {
+          return "aws";
+        }
+        if ("true".equalsIgnoreCase(custom.get("enableIamAuth"))) {
+          return "gcp";
+        }
+      }
+      String driver = cfg.getDriver();
+      if (driver != null && driver.contains("cloud.sql")) {
+        return "gcp";
+      }
+    }
+    if (jdbcUrl != null) {
+      if (jdbcUrl.contains("rds.amazonaws.com") || jdbcUrl.contains("amazonaws.com")) {
+        return "aws";
+      }
+      if (jdbcUrl.contains("googleapis.com") || jdbcUrl.contains("cloudsql")) {
+        return "gcp";
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  private static Map<String, String> ebeanCustomProperties(
+      @Nullable DataSourceBuilder.Settings cfg) {
+    return cfg == null ? null : cfg.getCustomProperties();
+  }
+
+  private static void mergeNonBlank(
+      @Nonnull Properties target, @Nullable Map<String, String> extra) {
+    if (extra == null) {
+      return;
+    }
+    for (Map.Entry<String, String> e : extra.entrySet()) {
+      if (e.getKey() == null || e.getValue() == null || e.getValue().isBlank()) {
+        continue;
+      }
+      target.setProperty(e.getKey(), e.getValue());
+    }
+  }
+
+  @Nullable
+  private static String firstNonBlank(String... values) {
+    if (values == null) {
+      return null;
+    }
+    for (String v : values) {
+      if (v != null && !v.isBlank()) {
+        return v;
+      }
+    }
+    return null;
   }
 
   private static boolean ebeanPoolUsesIam(@Nullable DataSourceBuilder.Settings cfg) {
