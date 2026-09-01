@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCTS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static org.mockito.ArgumentMatchers.any;
@@ -258,7 +259,7 @@ public class DataProductAssetsSideEffectTest {
   }
 
   @Test
-  public void testFanoutBoundTruncates() {
+  public void testCreateEmitsAllMembersWithoutTruncation() {
     ChangeItemImpl change = changeItem(propsWith(datasetUrns(10)), ChangeType.CREATE);
     DataProductAssetsSideEffect test = new DataProductAssetsSideEffect();
     test.setConfig(CONFIG);
@@ -273,10 +274,9 @@ public class DataProductAssetsSideEffectTest {
                 retrieverContext)
             .toList();
 
-    assertEquals(output.size(), 3, "Fan-out should be capped at maxFanoutPerCommit");
+    assertEquals(output.size(), 10, "All unsynced members should be mirrored in one pass");
     assertEquals(output.get(0).getUrn(), datasetUrn(0));
-    assertEquals(output.get(1).getUrn(), datasetUrn(1));
-    assertEquals(output.get(2).getUrn(), datasetUrn(2));
+    assertEquals(output.get(9).getUrn(), datasetUrn(9));
   }
 
   @Test
@@ -310,10 +310,64 @@ public class DataProductAssetsSideEffectTest {
             .toList();
 
     assertEquals(
-        output.size(), 3, "Should emit the next unsynced members, not the first N: " + output);
+        output.size(), 7, "Should emit all unsynced members, not cap at batch size: " + output);
     assertEquals(output.get(0).getUrn(), datasetUrn(3));
-    assertEquals(output.get(1).getUrn(), datasetUrn(4));
-    assertEquals(output.get(2).getUrn(), datasetUrn(5));
+    assertEquals(output.get(6).getUrn(), datasetUrn(9));
+  }
+
+  @Test
+  public void testKeyDeleteSkippedWhenCompanionPropertiesDeleteInBatch() {
+    DataProductAssetsSideEffect test = new DataProductAssetsSideEffect();
+    test.setConfig(CONFIG);
+
+    MetadataChangeLog propertiesMcl = new MetadataChangeLog();
+    propertiesMcl.setEntityUrn(PRODUCT_URN);
+    propertiesMcl.setEntityType(DATA_PRODUCT_ENTITY_NAME);
+    propertiesMcl.setAspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+    propertiesMcl.setChangeType(ChangeType.DELETE);
+    propertiesMcl.setSystemMetadata(new SystemMetadata());
+
+    MetadataChangeLog keyMcl = new MetadataChangeLog();
+    keyMcl.setEntityUrn(PRODUCT_URN);
+    keyMcl.setEntityType(DATA_PRODUCT_ENTITY_NAME);
+    keyMcl.setAspectName(DATA_PRODUCT_KEY_ASPECT_NAME);
+    keyMcl.setChangeType(ChangeType.DELETE);
+    keyMcl.setSystemMetadata(new SystemMetadata());
+
+    List<MCPItem> output =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                List.of(
+                    TestMCL.builder()
+                        .changeType(ChangeType.DELETE)
+                        .urn(PRODUCT_URN)
+                        .entitySpec(TEST_REGISTRY.getEntitySpec(DATA_PRODUCT_ENTITY_NAME))
+                        .aspectSpec(
+                            TEST_REGISTRY
+                                .getEntitySpec(DATA_PRODUCT_ENTITY_NAME)
+                                .getAspectSpec(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
+                        .previousRecordTemplate(propsWith(DATASET_1, DATASET_2))
+                        .metadataChangeLog(propertiesMcl)
+                        .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                        .build(),
+                    TestMCL.builder()
+                        .changeType(ChangeType.DELETE)
+                        .urn(PRODUCT_URN)
+                        .entitySpec(TEST_REGISTRY.getEntitySpec(DATA_PRODUCT_ENTITY_NAME))
+                        .aspectSpec(
+                            TEST_REGISTRY
+                                .getEntitySpec(DATA_PRODUCT_ENTITY_NAME)
+                                .getAspectSpec(DATA_PRODUCT_KEY_ASPECT_NAME))
+                        .previousRecordTemplate(propsWith(DATASET_1))
+                        .metadataChangeLog(keyMcl)
+                        .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                        .build()),
+                retrieverContext)
+            .toList();
+
+    assertEquals(output.size(), 2, "Companion properties DELETE should scrub once only");
+    assertTrue(output.stream().anyMatch(item -> DATASET_1.equals(item.getUrn())));
+    assertTrue(output.stream().anyMatch(item -> DATASET_2.equals(item.getUrn())));
   }
 
   @Test

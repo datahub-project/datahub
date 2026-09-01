@@ -77,21 +77,32 @@ public class ResyncDataProductAssetsStep implements UpgradeStep {
 
       String scrollId = null;
       int migratedCount = 0;
+      int failureCount = 0;
       do {
         log.info(
             "Resyncing dataProducts membership via dataProductProperties UPSERT, batch {}-{}",
             migratedCount,
             migratedCount + batchSize);
-        scrollId = resyncBatch(auditStamp, scrollId);
+        ResyncBatchResult batchResult = resyncBatch(auditStamp, scrollId);
+        failureCount += batchResult.failureCount();
+        scrollId = batchResult.scrollId();
         migratedCount += batchSize;
       } while (scrollId != null);
+
+      if (failureCount > 0) {
+        log.error(
+            "{} completed with {} failure(s); upgrade result not recorded so a later run can retry",
+            id(),
+            failureCount);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+      }
 
       BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 
-  private String resyncBatch(AuditStamp auditStamp, String scrollId) {
+  private ResyncBatchResult resyncBatch(AuditStamp auditStamp, String scrollId) {
     final ScrollResult scrollResult =
         searchService.scrollAcrossEntities(
             opContext.withSearchFlags(
@@ -111,7 +122,7 @@ public class ResyncDataProductAssetsStep implements UpgradeStep {
             null);
 
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().isEmpty()) {
-      return null;
+      return new ResyncBatchResult(null, 0);
     }
 
     Set<Urn> dataProductUrns =
@@ -119,6 +130,7 @@ public class ResyncDataProductAssetsStep implements UpgradeStep {
             .map(SearchEntity::getEntity)
             .collect(Collectors.toCollection(HashSet::new));
 
+    int failureCount = 0;
     try {
       Map<Urn, EntityResponse> responses =
           entityService.getEntitiesV2(
@@ -131,14 +143,16 @@ public class ResyncDataProductAssetsStep implements UpgradeStep {
         try {
           resyncDataProduct(dataProductUrn, responses.get(dataProductUrn), auditStamp);
         } catch (Exception e) {
+          failureCount++;
           log.error("Error resyncing dataProducts for members of {}", dataProductUrn, e);
         }
       }
     } catch (Exception e) {
+      failureCount += dataProductUrns.size();
       log.error("Error batch-fetching dataProductProperties for resync", e);
     }
 
-    return scrollResult.getScrollId();
+    return new ResyncBatchResult(scrollResult.getScrollId(), failureCount);
   }
 
   private void resyncDataProduct(Urn dataProductUrn, EntityResponse response, AuditStamp auditStamp)
@@ -198,4 +212,6 @@ public class ResyncDataProductAssetsStep implements UpgradeStep {
     // Without reprocess, this step is a no-op — first-time fill is MigrateAspects / ZDU.
     return true;
   }
+
+  private record ResyncBatchResult(String scrollId, int failureCount) {}
 }

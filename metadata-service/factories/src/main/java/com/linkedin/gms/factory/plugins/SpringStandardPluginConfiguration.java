@@ -292,7 +292,7 @@ public class SpringStandardPluginConfiguration {
         DataProductAssetsSideEffect.class.getName(),
         maxFanoutPerCommit);
     return new DataProductAssetsSideEffect()
-        .setMaxFanoutPerCommit(maxFanoutPerCommit)
+        .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
         .setConfig(config);
   }
 

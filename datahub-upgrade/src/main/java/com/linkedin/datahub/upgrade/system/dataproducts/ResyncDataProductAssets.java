@@ -9,7 +9,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 
 /**
- * Optional reprocess escape hatch that RESTSTEs {@code dataProductProperties} so {@code
+ * Optional reprocess escape hatch that re-upserts {@code dataProductProperties} so {@code
  * DataProductAssetsSideEffect} re-syncs asset-side {@code dataProducts} membership.
  *
  * <p>First-time population is driven by {@code dataProductProperties} schemaVersion + {@code

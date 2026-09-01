@@ -1414,7 +1414,7 @@ systemUpdate:
   dataProductAssets:
     # First-time population of asset-side dataProducts is driven by dataProductProperties
     # schemaVersion + MigrateAspects / ZDU (see DataProductPropertiesMigrationMutator).
-    # Set reprocess.enabled to force a RESTATE sweep that re-runs DataProductAssetsSideEffect.
+    # Set reprocess.enabled to force a re-upsert sweep that re-runs DataProductAssetsSideEffect.
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_BATCH_SIZE:1000}
     reprocess:
       enabled: ${REPROCESS_DATA_PRODUCT_ASSETS:false}
@@ -1963,7 +1963,7 @@ metadataChangeProposal:
       enabled: ${MCP_SIDE_EFFECTS_ALIASES_ENABLED:true}
     dataProductAssets:
       enabled: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_ENABLED:true} # Mirrors Data Product membership onto member assets' dataProducts aspect for search filtering/faceting
-      maxFanoutPerCommit: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_MAX_FANOUT:500} # Cap ADD/REMOVE patches per DP properties commit
+      maxFanoutPerCommit: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_MAX_FANOUT:500} # Batch size for reading existing asset-side dataProducts; ADD patches are not capped per commit
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 

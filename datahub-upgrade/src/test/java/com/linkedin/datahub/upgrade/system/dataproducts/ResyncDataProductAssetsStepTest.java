@@ -153,4 +153,24 @@ public class ResyncDataProductAssetsStepTest {
         captor.getAllValues().stream()
             .noneMatch(p -> DATA_PRODUCT_PROPERTIES_ASPECT_NAME.equals(p.getAspectName())));
   }
+
+  @Test
+  public void testReturnsFailedWhenResyncErrors() throws Exception {
+    SearchEntity searchEntity = new SearchEntity().setEntity(PRODUCT_URN);
+    mockScrollReturns(new SearchEntityArray(searchEntity), null);
+
+    when(entityService.getEntitiesV2(
+            any(OperationContext.class),
+            eq(DATA_PRODUCT_ENTITY_NAME),
+            eq(Set.of(PRODUCT_URN)),
+            eq(Set.of(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(Map.of(PRODUCT_URN, propertiesResponse(DATASET_1)));
+
+    when(entityService.ingestProposal(any(OperationContext.class), any(), any(), anyBoolean()))
+        .thenThrow(new RuntimeException("resync failed"));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
 }

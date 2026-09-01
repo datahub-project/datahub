@@ -49,8 +49,9 @@ import lombok.extern.slf4j.Slf4j;
  * membership stored on the Data Product side ({@code dataProductProperties.assets}).
  *
  * <p>Uses the post-commit MCP side-effect path ({@link #postMCPSideEffect}) so we receive MCL items
- * with previous and current aspects and can emit ADD/REMOVE patches from that diff. (A pure {@code
- * MCLSideEffect} only feeds search indexing and cannot persist versioned aspect patches.)
+ * with previous and current aspects and can emit ADD/REMOVE patches from that diff. A pure {@code
+ * MCLSideEffect} only feeds search indexing and cannot persist versioned aspect patches, so this
+ * hook intentionally extends {@link MCPSideEffect} and implements {@link #postMCPSideEffect}.
  *
  * <p>Patches (rather than read-modify-write) keep concurrent membership edits to the same asset
  * from clobbering one another. The resulting {@code dataProducts} field is what makes assets
@@ -63,10 +64,9 @@ import lombok.extern.slf4j.Slf4j;
 public class DataProductAssetsSideEffect extends MCPSideEffect {
 
   /**
-   * Default cap on ADD patches emitted for a single Data Product properties commit. Large
-   * CREATE/RESTATE/system-update fan-outs beyond this are truncated; already-synced members are
-   * skipped so a later reprocess advances. REMOVE patches are never truncated — leftover asset-side
-   * membership after delete cannot be recovered from a re-run.
+   * Batch size for reading existing asset-side {@code dataProducts} aspects during sync. All
+   * unsynced ADD patches for a single Data Product properties commit are emitted in one side-effect
+   * invocation (not capped to this value).
    */
   public static final int DEFAULT_MAX_FANOUT_PER_COMMIT = 500;
 
@@ -87,14 +87,27 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
       @Nonnull OperationFingerprint operationContext,
       java.util.Collection<MCLItem> mclItems,
       @Nonnull RetrieverContext retrieverContext) {
+    Set<Urn> companionPropertiesDeletes =
+        mclItems.stream()
+            .filter(
+                item ->
+                    DATA_PRODUCT_PROPERTIES_ASPECT_NAME.equals(item.getAspectName())
+                        && ChangeType.DELETE.equals(item.getChangeType()))
+            .map(MCLItem::getUrn)
+            .collect(Collectors.toSet());
+
     return mclItems.stream()
-        .flatMap(item -> generateAssetPatches(operationContext, item, retrieverContext));
+        .flatMap(
+            item ->
+                generateAssetPatches(
+                    operationContext, item, retrieverContext, companionPropertiesDeletes));
   }
 
   private Stream<MCPItem> generateAssetPatches(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull MCLItem mclItem,
-      @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull RetrieverContext retrieverContext,
+      @Nonnull Set<Urn> companionPropertiesDeletes) {
 
     if (DATA_PRODUCT_PROPERTIES_ASPECT_NAME.equals(mclItem.getAspectName())) {
       if (ChangeType.DELETE.equals(mclItem.getChangeType())) {
@@ -109,9 +122,14 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
 
     if (DATA_PRODUCT_KEY_ASPECT_NAME.equals(mclItem.getAspectName())
         && ChangeType.DELETE.equals(mclItem.getChangeType())) {
-      // Hard delete emits a key-aspect DELETE after wipe; scrub from a companion
-      // dataProductProperties DELETE MCL when available (see EntityServiceImpl), otherwise read
-      // any leftover properties aspect before it disappears from the retriever cache path.
+      if (companionPropertiesDeletes.contains(mclItem.getUrn())) {
+        log.debug(
+            "Skipping dataProducts scrub for {} key delete; companion {} DELETE already in batch",
+            mclItem.getUrn(),
+            DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+        return Stream.empty();
+      }
+      // Hard delete without a companion properties DELETE: scrub from snapshot or retriever cache.
       return scrubFromKeyDelete(operationContext, mclItem, retrieverContext);
     }
 
@@ -155,7 +173,7 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
     // CREATE / CREATE_ENTITY / RESTATE, first write, or ZDU/system-update rewrite: treat every
     // unsynced member as an ADD (idempotent). MigrateAspects UPSERTs identical payloads, so a
     // pure before/after diff would emit nothing without this branch. Skip assets that already
-    // mirror this membership so a capped reprocess can advance past the first N.
+    // mirror this membership so a later reprocess can advance past already-synced members.
     if (!ChangeType.UPSERT.equals(mclItem.getChangeType())
         || previous == null
         || isSystemUpdate(mclItem.getSystemMetadata())) {
@@ -196,13 +214,13 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
                         retrieverContext))
             .filter(Objects::nonNull);
 
-    return Stream.concat(removes, boundAdds(adds, dataProductUrn));
+    return Stream.concat(removes, adds);
   }
 
   /**
-   * Emits ADD patches for members that do not already carry this Data Product on their asset-side
-   * {@code dataProducts} aspect, up to {@link #maxFanoutPerCommit}. Walking in stable order and
-   * skipping already-synced members lets a later MigrateAspects / reprocess pass finish the rest.
+   * Emits ADD patches for every member that does not already carry this Data Product on its
+   * asset-side {@code dataProducts} aspect. Reads existing aspects in batches of {@link
+   * #maxFanoutPerCommit} for efficiency but emits all unsynced patches in this invocation.
    */
   private Stream<MCPItem> addUnsynced(
       @Nonnull OperationFingerprint operationContext,
@@ -216,15 +234,12 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
     List<Urn> assets = new ArrayList<>(byAsset.keySet());
     List<MCPItem> toEmit = new ArrayList<>();
     int scanned = 0;
-    while (scanned < assets.size() && toEmit.size() < maxFanoutPerCommit) {
+    while (scanned < assets.size()) {
       int end = Math.min(scanned + maxFanoutPerCommit, assets.size());
       List<Urn> chunk = assets.subList(scanned, end);
       Map<Urn, Map<String, Aspect>> existing =
           latestDataProducts(operationContext, chunk, retrieverContext);
       for (Urn asset : chunk) {
-        if (toEmit.size() >= maxFanoutPerCommit) {
-          break;
-        }
         DataProductAssociation wanted = byAsset.get(asset);
         if (alreadyMirrored(existing.get(asset), dataProductUrn, wanted)) {
           continue;
@@ -237,17 +252,6 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
         }
       }
       scanned = end;
-    }
-    if (scanned < assets.size()) {
-      log.warn(
-          "Truncating dataProducts ADD fan-out for {}: emitting {} unsynced patches "
-              + "(maxFanoutPerCommit={}); {} member(s) not yet scanned. Re-run system-update "
-              + "migrateAspects or set systemUpdate.dataProductAssets.reprocess.enabled to "
-              + "finish remaining assets.",
-          dataProductUrn,
-          toEmit.size(),
-          maxFanoutPerCommit,
-          assets.size() - scanned);
     }
     return toEmit.stream();
   }
@@ -315,22 +319,6 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
                     source,
                     retrieverContext))
         .filter(Objects::nonNull);
-  }
-
-  private Stream<MCPItem> boundAdds(@Nonnull Stream<MCPItem> adds, @Nonnull Urn dataProductUrn) {
-    List<MCPItem> materialised = adds.collect(Collectors.toList());
-    if (materialised.size() <= maxFanoutPerCommit) {
-      return materialised.stream();
-    }
-    log.warn(
-        "Truncating dataProducts ADD fan-out for {}: emitting {} of {} patches "
-            + "(maxFanoutPerCommit={}). Re-run system-update migrateAspects or set "
-            + "systemUpdate.dataProductAssets.reprocess.enabled to finish remaining assets.",
-        dataProductUrn,
-        maxFanoutPerCommit,
-        materialised.size(),
-        maxFanoutPerCommit);
-    return materialised.stream().limit(maxFanoutPerCommit);
   }
 
   private static boolean isSystemUpdate(@Nullable SystemMetadata systemMetadata) {
