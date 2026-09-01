@@ -266,7 +266,12 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
             () -> updateSearchIndicesForEvent(opContext, event),
             () -> updateTimeseriesFieldsForEvent(opContext, event));
       } else if (event.getChangeType() == ChangeType.DELETE) {
-        deleteTimeseriesFieldsForDeleteEvent(opContext, event);
+        processTimeseriesThrottled(
+            opContext,
+            event,
+            throttleSummary,
+            () -> {},
+            () -> deleteTimeseriesFieldsForDeleteEvent(opContext, event));
       }
     }
   }
