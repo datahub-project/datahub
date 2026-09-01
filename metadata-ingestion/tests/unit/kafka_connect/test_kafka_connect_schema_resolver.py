@@ -157,9 +157,9 @@ class TestSchemaResolverTableExpansion:
 
         # Should match only public schema tables
         assert len(result) == 2
-        assert "testdb.public.users" in result
-        assert "testdb.public.orders" in result
-        assert "testdb.private.secrets" not in result
+        assert "public.users" in result
+        assert "public.orders" in result
+        assert "private.secrets" not in result
 
     def test_pattern_expansion_no_matches(self):
         """Test pattern expansion when no tables match."""
@@ -251,8 +251,8 @@ class TestSchemaResolverTableExpansion:
 
         # Should expand pattern and keep explicit table name
         assert len(result) == 3
-        assert "testdb.public.users" in result
-        assert "testdb.public.orders" in result
+        assert "public.users" in result
+        assert "public.orders" in result
         assert "private.accounts" in result
 
     def test_pattern_expansion_disabled_via_config(self):
@@ -735,10 +735,10 @@ class TestJavaRegexPatternMatching:
 
         # Should match only tables starting with bg_ or cp_ in public schema
         assert len(result) == 2
-        assert "testdb.public.bg_users" in result
-        assert "testdb.public.cp_orders" in result
-        assert "testdb.public.fg_data" not in result
-        assert "testdb.public.users" not in result
+        assert "public.bg_users" in result
+        assert "public.cp_orders" in result
+        assert "public.fg_data" not in result
+        assert "public.users" not in result
 
     def test_character_class_pattern(self):
         """Test character class pattern: public\\.test[0-9]+"""
@@ -785,10 +785,10 @@ class TestJavaRegexPatternMatching:
 
         # Should match only test followed by one or more digits
         assert len(result) == 2
-        assert "testdb.public.test1" in result
-        assert "testdb.public.test23" in result
-        assert "testdb.public.test" not in result
-        assert "testdb.public.testA" not in result
+        assert "public.test1" in result
+        assert "public.test23" in result
+        assert "public.test" not in result
+        assert "public.testA" not in result
 
     def test_complex_grouping_pattern(self):
         """Test complex grouping: (public|private)\\.(users|orders)"""
@@ -837,12 +837,12 @@ class TestJavaRegexPatternMatching:
 
         # Should match exactly: public.users, public.orders, private.users, private.orders
         assert len(result) == 4
-        assert "testdb.public.users" in result
-        assert "testdb.public.orders" in result
-        assert "testdb.private.users" in result
-        assert "testdb.private.orders" in result
-        assert "testdb.public.products" not in result
-        assert "testdb.admin.users" not in result
+        assert "public.users" in result
+        assert "public.orders" in result
+        assert "private.users" in result
+        assert "private.orders" in result
+        assert "public.products" not in result
+        assert "admin.users" not in result
 
     def test_mysql_two_tier_pattern(self):
         """Test MySQL 2-tier pattern: mydb\\.user.*"""
@@ -935,8 +935,8 @@ class TestJavaRegexPatternMatching:
 
         # Escaped dot should match only literal dot, not any character
         assert len(result) == 1
-        assert "testdb.public.user" in result
-        assert "testdb.publicXuser" not in result
+        assert "public.user" in result
+        assert "publicXuser" not in result
 
     def test_postgres_schema_without_database_prefix(self):
         """Test PostgreSQL pattern without database prefix: public\\..*"""
@@ -980,9 +980,9 @@ class TestJavaRegexPatternMatching:
 
         # Should match all tables in public schema (without database in pattern)
         assert len(result) == 2
-        assert "testdb.public.users" in result
-        assert "testdb.public.orders" in result
-        assert "testdb.private.secrets" not in result
+        assert "public.users" in result
+        assert "public.orders" in result
+        assert "private.secrets" not in result
 
     def test_quantifier_patterns(self):
         """Test various quantifiers: +, *"""
@@ -1030,11 +1030,11 @@ class TestJavaRegexPatternMatching:
 
         # Should match only tables with one or more lowercase letters after user_
         assert len(result) == 3
-        assert "testdb.public.user_ab" in result
-        assert "testdb.public.user_abc" in result
-        assert "testdb.public.user_abcd" in result
-        assert "testdb.public.user_" not in result
-        assert "testdb.public.user_123" not in result
+        assert "public.user_ab" in result
+        assert "public.user_abc" in result
+        assert "public.user_abcd" in result
+        assert "public.user_" not in result
+        assert "public.user_123" not in result
 
 
 class TestFineGrainedLineagePlatformInstance:
