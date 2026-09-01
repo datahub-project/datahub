@@ -26,7 +26,7 @@ except ImportError:
 
 # Enable debug logging.
 logging.getLogger().setLevel(logging.DEBUG)
-os.putenv("DATAHUB_DEBUG", "0")
+os.environ["DATAHUB_DEBUG"] = "0"
 
 
 @pytest.fixture
