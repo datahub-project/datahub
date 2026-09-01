@@ -1,23 +1,35 @@
-import { Button, Card, EmptyState, Loader } from '@components';
+import { Button, Card, EmptyState, Loader, PageTitle, borders } from '@components';
 import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
-import MarketplaceDataProductCard from '@app/marketplace/MarketplaceDataProductCard';
+import { ModuleHeader } from '@app/homeV3/module/components/LargeModule';
+import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
+import ModuleName from '@app/homeV3/module/components/ModuleName';
 import { useMarketplaceEntityContext } from '@app/marketplace/context/MarketplaceEntityContext';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { DataProductEntity } from '@app/marketplace/marketplaceTypes';
+import {
+    countPendingOptimistic,
+    isRootDataProduct,
+    mergeDataProductEntities,
+} from '@app/marketplace/utils/marketplaceDataProductEntity';
+import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
+import { toCompactRelativeTimeString } from '@app/shared/time/timeUtils';
+import { SummaryStatIconBadge } from '@app/sharedV2/cards/SummaryStatIconBadge';
 import { PageRoutes } from '@conf/Global';
 
 import {
     GetRootDataProductsBrowseQuery,
     useGetRootDataProductsBrowseQuery,
 } from '@graphql/marketplaceBrowse.generated';
+import { Entity } from '@types';
 
-const MAX_RECENT = 6;
+const MAX_RECENT = 5;
 
 const ContentCard = styled.div`
     flex: 1;
@@ -39,59 +51,47 @@ const PageHeader = styled.div`
     gap: 4px;
 `;
 
-const HomeTitle = styled.div`
-    font-size: 22px;
-    font-weight: 700;
-    color: ${(props) => props.theme.colors.text};
-`;
-
-const HomeBlurb = styled.div`
-    font-size: 14px;
-    color: ${(props) => props.theme.colors.textSecondary};
-`;
-
 const SummaryCards = styled.div`
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
 `;
 
-const RecentSection = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
+const RecentProductsModule = styled(ModuleContainer)`
+    flex: none;
+    width: 100%;
 `;
 
-const SectionHeader = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-`;
-
-const SectionTitle = styled.div`
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: ${(props) => props.theme.colors.textSecondary};
-`;
-
-const CardGrid = styled.div`
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-
-    @media (max-width: 900px) {
-        grid-template-columns: 1fr;
+const MarketplaceModuleHeader = styled(ModuleHeader)`
+    &:hover {
+        background: transparent;
+        border-bottom: ${borders['1px']} ${(props) => props.theme.colors.bg};
     }
 `;
 
-const ShowMoreRow = styled.div`
+const ModuleContent = styled.div<{ $hasFooter?: boolean }>`
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    margin: 0 0 8px 8px;
+    padding-right: 5px;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    height: ${(props) => (props.$hasFooter ? '234px' : '246px')};
+
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: ${(props) => props.theme.colors.scrollbarThumb};
+        border-radius: 3px;
+    }
+    scrollbar-width: thin;
+    scrollbar-color: ${(props) => props.theme.colors.scrollbarThumb} transparent;
+`;
+
+const ShowMoreButton = styled(Button)`
+    margin: 0 16px 0 auto;
+    padding-right: 8px;
 `;
 
 const EmptyListHint = styled.div`
@@ -109,38 +109,64 @@ type DataProduct = NonNullable<
 /**
  * MarketplaceMainContent - Landing page at /marketplace.
  *
- * Shows total counts + recent data products in a card grid.
+ * Summary stats plus a single recent-data-products module (Metrics-style list rows).
  */
 export default function MarketplaceMainContent() {
     const { t } = useTranslation('misc');
+    const { t: te } = useTranslation('entity.types');
     const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
-    const theme = useTheme();
-    const cardIconStyles = { color: theme.colors.icon };
 
-    const { setEntityData } = useMarketplaceEntityContext();
+    const { setEntityData, refetchKey, openCreateModal, optimisticDataProducts, syncOptimisticWithIndexed } =
+        useMarketplaceEntityContext();
     useEffect(() => {
         setEntityData(null);
     }, [setEntityData]);
     const cardStyle = { flex: 1 };
 
-    // Follow-up: add sortInput to GetRootEntitiesInput / getRootDataProducts.
     const {
         data: productsData,
         loading,
         error,
+        refetch,
     } = useGetRootDataProductsBrowseQuery({
         variables: { input: { count: 500, start: 0 } },
     });
 
+    useEffect(() => {
+        if (refetchKey > 0) {
+            refetch();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [refetchKey]);
+
     const totalProducts = productsData?.getRootDataProducts?.total ?? 0;
+    const fetchedProducts = useMemo(
+        () => productsData?.getRootDataProducts?.dataProducts ?? [],
+        [productsData?.getRootDataProducts?.dataProducts],
+    );
+
+    useEffect(() => {
+        syncOptimisticWithIndexed(fetchedProducts.map((p) => p.urn));
+    }, [fetchedProducts, syncOptimisticWithIndexed]);
+
+    const optimisticRootProducts = useMemo(
+        () => optimisticDataProducts.filter(isRootDataProduct),
+        [optimisticDataProducts],
+    );
+    const pendingOptimisticCount = useMemo(
+        () => countPendingOptimistic(fetchedProducts, optimisticRootProducts),
+        [fetchedProducts, optimisticRootProducts],
+    );
+    const displayedTotalProducts = totalProducts + pendingOptimisticCount;
 
     const recentProducts: DataProduct[] = useMemo(() => {
-        const products = productsData?.getRootDataProducts?.dataProducts ?? [];
-        return [...products].sort(
-            (a, b) => (b.properties?.createdOn?.time ?? 0) - (a.properties?.createdOn?.time ?? 0),
-        );
-    }, [productsData]);
+        const merged = mergeDataProductEntities(
+            fetchedProducts as unknown as DataProductEntity[],
+            optimisticRootProducts,
+        ) as unknown as DataProduct[];
+        return [...merged].sort((a, b) => (b.properties?.createdOn?.time ?? 0) - (a.properties?.createdOn?.time ?? 0));
+    }, [fetchedProducts, optimisticRootProducts]);
 
     const [showAllProducts, setShowAllProducts] = useState(false);
     const visibleProducts = showAllProducts ? recentProducts : recentProducts.slice(0, MAX_RECENT);
@@ -156,12 +182,12 @@ export default function MarketplaceMainContent() {
         return urns.size;
     }, [recentProducts]);
 
-    const latestAdditionLabel = useMemo(() => {
+    const latestCreatedLabel = useMemo(() => {
         const latest = Math.max(...recentProducts.map((p) => p.properties?.createdOn?.time ?? 0), 0);
-        return latest > 0 ? toRelativeTimeString(latest) : null;
+        return latest > 0 ? toCompactRelativeTimeString(latest) : null;
     }, [recentProducts]);
 
-    const isEmpty = !loading && !error && totalProducts === 0;
+    const isEmpty = !loading && !error && displayedTotalProducts === 0;
 
     let body: React.ReactNode;
     if (loading) {
@@ -191,8 +217,8 @@ export default function MarketplaceMainContent() {
                     size="lg"
                     action={{
                         label: t('marketplace.homeEmptyAction'),
-                        onClick: () => history.push(PageRoutes.DOMAINS),
-                        dataTestId: 'marketplace-domains-cta',
+                        onClick: openCreateModal,
+                        dataTestId: 'marketplace-create-data-product-cta',
                     }}
                 />
             </EmptyListHint>
@@ -203,64 +229,65 @@ export default function MarketplaceMainContent() {
                 <SummaryCards>
                     <Card
                         dataTestId="marketplace-count-products"
-                        icon={<Storefront size={18} weight="regular" />}
-                        iconStyles={cardIconStyles}
+                        icon={<SummaryStatIconBadge icon={Storefront} tone="brand" />}
                         style={cardStyle}
-                        title={String(totalProducts)}
+                        title={String(displayedTotalProducts)}
                         subTitle={t('marketplace.totalDataProducts')}
                     />
                     <Card
                         dataTestId="marketplace-count-applications"
-                        icon={<AppWindow size={18} weight="regular" />}
-                        iconStyles={cardIconStyles}
+                        icon={<SummaryStatIconBadge icon={AppWindow} tone="info" />}
                         style={cardStyle}
                         title={String(applicationCount)}
                         subTitle={t('marketplace.sourceApplications')}
                     />
                     <Card
                         dataTestId="marketplace-latest-update"
-                        icon={<Clock size={18} weight="regular" />}
-                        iconStyles={cardIconStyles}
+                        icon={<SummaryStatIconBadge icon={Clock} tone="neutral" />}
                         style={cardStyle}
-                        title={latestAdditionLabel ?? '—'}
-                        subTitle={t('marketplace.latestAddition')}
+                        title={latestCreatedLabel ?? '—'}
+                        subTitle={t('marketplace.lastCreated')}
                     />
                 </SummaryCards>
 
-                <RecentSection data-testid="marketplace-recent-products">
-                    <SectionHeader>
-                        <SectionTitle>{t('marketplace.recentDataProducts')}</SectionTitle>
-                    </SectionHeader>
-                    {recentProducts.length === 0 ? (
-                        <EmptyListHint>
-                            <EmptyState icon={Storefront} title={t('marketplace.emptyTreeTitle')} size="sm" />
-                        </EmptyListHint>
-                    ) : (
-                        <>
-                            <CardGrid>
-                                {visibleProducts.map((product) => (
-                                    <MarketplaceDataProductCard key={product.urn} dataProduct={product} />
-                                ))}
-                            </CardGrid>
-                            {recentProducts.length > MAX_RECENT && (
-                                <ShowMoreRow>
-                                    <Button
-                                        variant="link"
-                                        color="gray"
-                                        size="sm"
-                                        onClick={() => setShowAllProducts((v) => !v)}
-                                    >
-                                        {showAllProducts
-                                            ? tc('showLess')
-                                            : tc('showCountMore', {
-                                                  count: recentProducts.length - MAX_RECENT,
-                                              })}
-                                    </Button>
-                                </ShowMoreRow>
-                            )}
-                        </>
+                <RecentProductsModule $height="316px" data-testid="marketplace-recent-products">
+                    <MarketplaceModuleHeader>
+                        <ModuleName text={t('marketplace.recentDataProducts')} />
+                    </MarketplaceModuleHeader>
+                    <ModuleContent $hasFooter={recentProducts.length > MAX_RECENT}>
+                        {recentProducts.length === 0 ? (
+                            <EmptyListHint>
+                                <EmptyState icon={Storefront} title={t('marketplace.emptyTreeTitle')} size="sm" />
+                            </EmptyListHint>
+                        ) : (
+                            visibleProducts.map((product) => (
+                                <AutoCompleteEntityItem
+                                    key={product.urn}
+                                    entity={product as unknown as Entity}
+                                    customOnEntityClick={() =>
+                                        history.push(
+                                            `${PageRoutes.DATA_PRODUCT_ENTITY}/${encodeURIComponent(product.urn)}`,
+                                        )
+                                    }
+                                    hideMatches
+                                    dataTestId={`marketplace-recent-product-${product.urn}`}
+                                />
+                            ))
+                        )}
+                    </ModuleContent>
+                    {recentProducts.length > MAX_RECENT && (
+                        <ShowMoreButton
+                            variant="link"
+                            color="gray"
+                            size="sm"
+                            onClick={() => setShowAllProducts((v) => !v)}
+                        >
+                            {showAllProducts
+                                ? tc('showLess')
+                                : tc('showCountMore', { count: recentProducts.length - MAX_RECENT })}
+                        </ShowMoreButton>
                     )}
-                </RecentSection>
+                </RecentProductsModule>
             </>
         );
     }
@@ -268,8 +295,15 @@ export default function MarketplaceMainContent() {
     return (
         <ContentCard data-testid="marketplace-main-content">
             <PageHeader>
-                <HomeTitle>{t('marketplace.homeTitle')}</HomeTitle>
-                <HomeBlurb>{t('marketplace.homeBlurb')}</HomeBlurb>
+                <PageTitle
+                    title={t('marketplace.homeTitle')}
+                    subTitle={t('marketplace.homeBlurb')}
+                    actionButton={{
+                        label: te('dataProduct.createTitle'),
+                        icon: { icon: Plus },
+                        onClick: openCreateModal,
+                    }}
+                />
             </PageHeader>
             {body}
         </ContentCard>
