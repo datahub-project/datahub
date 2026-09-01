@@ -103,7 +103,7 @@ jobs:
       - name: Restore Slack thread cache
         id: thread-cache
         if: inputs.thread_ts_file != ''
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ inputs.thread_ts_file }}
           key: slack-thread-${{ steps.fetch-details.outputs.head_sha }}
@@ -127,7 +127,7 @@ jobs:
         if: >-
           inputs.thread_ts_file != '' && steps.thread-cache.outputs.cache-hit !=
           'true' && hashFiles(inputs.thread_ts_file) != ''
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ inputs.thread_ts_file }}
           key: slack-thread-${{ steps.fetch-details.outputs.head_sha }}
