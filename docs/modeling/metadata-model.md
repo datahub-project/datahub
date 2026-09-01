@@ -415,6 +415,7 @@ Because timeseries aspects are updated on a frequent basis, ingests of these asp
 instead of being stored in local DB).
 
 You can retrieve timeseries aspects using the "aspects?action=getTimeseriesAspectValues" end point.
+Reads require entity view (or edit/delete) plus, for dataset profile, usage, and operations (and dashboard usage), the matching **View Dataset Profile / Usage / Operations** privileges. Dedicated timeseries APIs also require **Get Timeseries Aspect API** when REST API authorization is enabled. Aggregations via `/analytics?action=getTimeseriesStats` follow the same rules when **every** filter disjunct is positively URN-scoped; mapped sensitive aspects cannot be aggregated without that URN scope.
 
 ##### Aggregatable Timeseries aspects
 

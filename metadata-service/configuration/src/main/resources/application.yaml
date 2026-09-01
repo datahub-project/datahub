@@ -1000,13 +1000,13 @@ elasticsearch:
     # Default entity types when callers omit types. No code baseline — configure via YAML/env.
     # Example: SEARCH_DEFAULT_ENTITY_TYPES_REMOVE=schemaField,document
     defaultEntityTypes:
-      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document}
+      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document,metric,semanticModel}
       add: ${SEARCH_DEFAULT_ENTITY_TYPES_ADD:}
       remove: ${SEARCH_DEFAULT_ENTITY_TYPES_REMOVE:}
 
     # Default entity types for autocomplete-across-entities when callers omit types.
     autocompleteEntityTypes:
-      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty}
+      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty,metric,semanticModel}
       add: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_ADD:}
       remove: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_REMOVE:}
 
@@ -1714,6 +1714,7 @@ featureFlags:
   timeseriesAspectAggBatchLoadEnabled: ${TIMESERIES_ASPECT_AGG_BATCH_LOAD_ENABLED:true} # If enabled, Dashboard.statsSummary uses the batch aggregation DataLoader; disable to revert to per-URN queries
   entityHealthBatchLoadEnabled: ${ENTITY_HEALTH_BATCH_LOAD_ENABLED:true} # If enabled, the entity `health` field uses the batch DataLoader (batches incident, assertion-run and test-result fetches across a request); disable to revert to per-entity resolution
   datasetStatsSummaryBatchLoadEnabled: ${DATASET_STATS_SUMMARY_BATCH_LOAD_ENABLED:true} # If enabled, Dataset.statsSummary uses the batch aggregation DataLoader (batches usage aggregations across a request); disable to revert to per-dataset queries
+  siblingsSearchBatchLoadEnabled: ${SIBLINGS_SEARCH_BATCH_LOAD_ENABLED:true} # If enabled, Dataset.siblingsSearch uses the batch DataLoader (one search per chunk of datasets instead of one per dataset); disable to revert to per-dataset searches
   entityExistsBatchLoadEnabled: ${ENTITY_EXISTS_BATCH_LOAD_ENABLED:true} # If enabled, the entity `exists` field uses the batch DataLoader (one primary-store read per request instead of one per row); disable to revert to per-entity reads
   parentNodesBatchLoadEnabled: ${PARENT_NODES_BATCH_LOAD_ENABLED:true} # If enabled, `parentNodes` uses the batch DataLoader (walks ancestors concurrently, then one batchGetV2 for all ancestors in the request); disable to revert to per-entity resolution
   parentContainersBatchLoadEnabled: ${PARENT_CONTAINERS_BATCH_LOAD_ENABLED:true} # If enabled, `parentContainers` uses the batch DataLoader (walks ancestors concurrently, then one batchGetV2 for all ancestors in the request); disable to revert to per-entity resolution
