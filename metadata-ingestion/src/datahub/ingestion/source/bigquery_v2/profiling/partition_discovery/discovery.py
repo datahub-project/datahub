@@ -220,16 +220,24 @@ class PartitionDiscovery:
 
         required_partition_columns = self._get_partition_columns_from_table_info(table)
 
-        if not required_partition_columns and cached_partition_metadata:
+        # A supplied cache entry is authoritative for the whole dataset: it was built
+        # from one INFORMATION_SCHEMA.COLUMNS scan that returned every partitioning
+        # column, so empty partition_columns means this table has none (genuinely
+        # unpartitioned). Treat that as definitive and skip the per-table COLUMNS query
+        # below — that redundant query per unpartitioned table (usually the majority)
+        # is exactly what the cache exists to avoid.
+        cache_says_unpartitioned = False
+        if not required_partition_columns and cached_partition_metadata is not None:
             required_partition_columns = list(
                 dict.fromkeys(cached_partition_metadata.get("partition_columns", []))
             )
+            cache_says_unpartitioned = not required_partition_columns
 
         # Track whether the INFORMATION_SCHEMA.COLUMNS lookup was authoritative: an empty
         # result from a *successful* query means the table is genuinely unpartitioned,
         # whereas an empty result from a *failed* query means the state is unknown.
         schema_authoritative = True
-        if not required_partition_columns:
+        if not required_partition_columns and not cache_says_unpartitioned:
             schema_columns, schema_authoritative = (
                 self._get_partition_columns_from_schema(
                     table, project, schema, execute_query_func

@@ -545,6 +545,35 @@ def test_partition_metadata_cache_population_failure_reports_and_empties():
     assert any("cache" in str(w).lower() for w in report.warnings)
 
 
+def test_cached_metadata_absent_table_after_success_is_authoritative_unpartitioned():
+    # The dataset cache query only returns partitioning columns, so a table missing from
+    # a *successfully* populated cache has none. It must count as a hit and return an
+    # empty entry (not None) so discovery skips a redundant per-table COLUMNS query;
+    # only a failed population leaves a missing table unknown (a miss -> probe).
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    rows = [
+        SimpleNamespace(
+            table_name="partitioned_tbl", column_name="dt", data_type="DATE"
+        )
+    ]
+    with patch.object(
+        profiler.query_executor, "execute_query_safely", return_value=rows
+    ):
+        partitioned = profiler._get_cached_partition_metadata(
+            "proj-123456", "ds", "partitioned_tbl"
+        )
+        unpartitioned = profiler._get_cached_partition_metadata(
+            "proj-123456", "ds", "some_plain_tbl"
+        )
+
+    assert partitioned == {"partition_columns": ["dt"], "column_types": {"dt": "DATE"}}
+    assert unpartitioned == {"partition_columns": [], "column_types": {}}
+    assert profiler._cache_hits == 2
+    assert profiler._cache_misses == 0
+
+
 def test_external_table_with_no_columns_reaches_external_discovery():
     # An external table with no schema/probe-discoverable columns must reach external
     # discovery, not be treated as unpartitioned.

@@ -3,7 +3,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple
 
 import requests
 from google.api_core.exceptions import GoogleAPICallError
@@ -135,6 +135,11 @@ class BigqueryProfiler(GenericProfiler):
         self._cache_lock = threading.Lock()
         self._cache_hits = 0
         self._cache_misses = 0
+        # Datasets whose cache population *failed*. A table absent from a successfully
+        # populated dataset cache is authoritatively unpartitioned (the cache query only
+        # returns is_partitioning_column='YES' rows), but a table absent because the
+        # whole population failed is unknown and must fall back to per-table probing.
+        self._partition_cache_failed: Set[Tuple[str, str]] = set()
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
@@ -226,10 +231,10 @@ class BigqueryProfiler(GenericProfiler):
             self._partition_metadata_cache[cache_key] = dataset_cache
 
         except Exception as e:
-            # Caching {} here means every table in this dataset is subsequently treated
-            # as unpartitioned (partition discovery falls back to per-table probing).
-            # Surface it in the report so operators know why partition filters may be
-            # missing across a whole dataset (commonly an IAM/permissions issue).
+            # Population failed: mark the dataset so tables absent from it stay "unknown"
+            # (per-table probing) rather than being mistaken for unpartitioned. Surface
+            # it so operators know why partition filters may be missing across a whole
+            # dataset (commonly an IAM/permissions issue).
             self.report.warning(
                 title="Partition metadata cache population failed",
                 message="Failed to pre-fetch partition columns from "
@@ -238,6 +243,7 @@ class BigqueryProfiler(GenericProfiler):
                 context=f"{project}.{dataset}: {e}",
             )
             self._partition_metadata_cache[cache_key] = {}
+            self._partition_cache_failed.add(cache_key)
 
     def _get_cached_partition_metadata(
         self, project: str, dataset: str, table_name: str
@@ -251,12 +257,22 @@ class BigqueryProfiler(GenericProfiler):
             dataset_cache = self._partition_metadata_cache.get(cache_key, {})
             table_metadata = dataset_cache.get(table_name)
 
-            if table_metadata:
+            if table_metadata is not None:
                 self._cache_hits += 1
-            else:
-                self._cache_misses += 1
+                return table_metadata
 
-        return table_metadata
+            # Table absent from the dataset cache. If population succeeded, that absence
+            # is authoritative — the cache query only returns partitioning columns, so a
+            # missing table has none. Return an empty (but non-None) entry so discovery
+            # treats it as unpartitioned without issuing another per-table
+            # INFORMATION_SCHEMA.COLUMNS query. Only a *failed* population leaves the
+            # state genuinely unknown -> miss -> per-table probe.
+            if cache_key in self._partition_cache_failed:
+                self._cache_misses += 1
+                return None
+
+            self._cache_hits += 1
+            return {"partition_columns": [], "column_types": {}}
 
     def log_cache_statistics(self) -> None:
         total_requests = self._cache_hits + self._cache_misses

@@ -1009,3 +1009,25 @@ def test_range_partition_uses_max_bucket_not_most_recently_modified():
     )
 
     assert filters == ["`bucket` >= 300"]
+
+
+def test_cache_empty_metadata_skips_per_table_schema_query():
+    # A present-but-empty cached metadata entry is authoritative: the table is
+    # unpartitioned. Discovery must return [] without falling back to the per-table
+    # INFORMATION_SCHEMA.COLUMNS query (the redundant query the cache exists to avoid).
+    class GuardDiscovery(PartitionDiscovery):
+        def _get_partition_columns_from_schema(self, *args: Any, **kwargs: Any):
+            raise AssertionError("per-table COLUMNS query should have been skipped")
+
+    discovery = GuardDiscovery(make_config())
+    table = make_table(name="plain")
+
+    result = discovery.get_required_partition_filters(
+        table,
+        "test-project-123456",
+        "ds",
+        lambda *a, **k: [],
+        cached_partition_metadata={"partition_columns": [], "column_types": {}},
+    )
+
+    assert result == []
