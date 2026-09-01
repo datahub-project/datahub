@@ -428,3 +428,24 @@ class TestMaskingDisabledGate:
         registry.register_secret("PW", "hunter2secret")
         registry.register_secrets_batch({"TOKEN": "tok-abc-123"})
         assert registry.get_count() == 0
+
+
+class TestRepeatRegistration:
+    def test_repeat_registration_is_a_noop(self):
+        registry = SecretRegistry()
+        registry.register_secrets_batch({"PW": "hunter2secret", "TOKEN": "tok-abc-123"})
+        version = registry.get_version()
+        secrets_before = registry.get_all_secrets()
+
+        registry.register_secrets_batch({"PW": "hunter2secret", "TOKEN": "tok-abc-123"})
+
+        assert registry.get_version() == version
+        assert registry.get_all_secrets() == secrets_before
+
+    def test_same_value_under_new_name_is_not_skipped(self):
+        registry = SecretRegistry()
+        registry.register_secret("FIRST", "shared-value-123")
+
+        registry.register_secret("SECOND", "shared-value-123")
+
+        assert registry.get_secret_value("SECOND") == "shared-value-123"

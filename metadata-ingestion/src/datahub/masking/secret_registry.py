@@ -124,6 +124,12 @@ class SecretRegistry:
         if not accepted:
             return
 
+        if all(
+            self._name_to_value.get(name) == value and value in self._secrets
+            for name, value in accepted.items()
+        ):
+            return
+
         with self._registry_lock:
             new_secrets = self._secrets.copy()
             new_name_to_value = self._name_to_value.copy()
