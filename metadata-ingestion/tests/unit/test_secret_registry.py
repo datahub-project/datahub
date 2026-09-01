@@ -318,3 +318,12 @@ class TestClearRegistry:
         version_after = registry.get_version()
 
         assert version_after > version_before
+
+
+class TestMaskingDisabledGate:
+    def test_registration_is_skipped_when_masking_disabled(self, monkeypatch):
+        monkeypatch.setenv("DATAHUB_DISABLE_SECRET_MASKING", "true")
+        registry = SecretRegistry()
+        registry.register_secret("PW", "hunter2secret")
+        registry.register_secrets_batch({"TOKEN": "tok-abc-123"})
+        assert registry.get_count() == 0
