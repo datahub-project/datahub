@@ -89,6 +89,12 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
                                 _secretService.decrypt(
                                     context.getOperationContext(), secretValue.getValue());
                             return new SecretValue(secretValue.getName(), decryptedSecretValue);
+                          } catch (SecurityException e) {
+                            // The service's caller guard denied the actor before any cipher work.
+                            // That is an authorization failure of the whole request, not a
+                            // property of this secret's stored value, so it must keep failing
+                            // the request instead of being mistaken for a bad ciphertext.
+                            throw e;
                           } catch (Exception e) {
                             // Isolate the failure to this secret so that the healthy secrets in
                             // the batch still resolve. Never log the secret value itself.
