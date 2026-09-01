@@ -11,15 +11,9 @@ import { ColumnAsset, LineageAssetType } from '@app/lineageV3/types';
 import { GetColumnLineageCountsDocument } from '@graphql/lineage.generated';
 import { EntityType, FilterOperator } from '@types';
 
-const SIBLING = 'urn:li:dataset:(urn:li:dataPlatform:dbt,db.schema.customers,PROD)';
-
-function filters(mergedUrns: Set<string>) {
-    return buildRelatedColumnFilters(mergedUrns)[0].and ?? [];
-}
-
 describe('buildRelatedColumnFilters', () => {
     it('counts only direct relations, excluding columns on dbt nodes', () => {
-        const and = filters(new Set());
+        const and = buildRelatedColumnFilters()[0].and ?? [];
 
         expect(and).toHaveLength(2);
         expect(and[0]).toEqual({ field: 'degree', values: ['1'] });
@@ -29,13 +23,6 @@ describe('buildRelatedColumnFilters', () => {
             condition: FilterOperator.Contain,
             negated: true,
         });
-    });
-
-    it('excludes columns on nodes drawn as part of the same node', () => {
-        const and = filters(new Set([SIBLING]));
-
-        expect(and).toHaveLength(3);
-        expect(and[2]).toEqual({ field: 'parent', values: [SIBLING], negated: true });
     });
 });
 
@@ -53,7 +40,7 @@ function countsMock() {
                 endTimeMillis: undefined,
                 ignoreAsHops: generateIgnoreAsHops(EntityType.Dataset),
                 includeSoftDeleted: false,
-                orFilters: buildRelatedColumnFilters(new Set()),
+                orFilters: buildRelatedColumnFilters(),
             },
         },
         result: {
@@ -72,7 +59,7 @@ function newAsset(): ColumnAsset {
 function renderFetchCounts(asset: ColumnAsset, onDisabled = () => {}) {
     return renderHook(
         ({ lineageAsset }: { lineageAsset: ColumnAsset }) =>
-            useFetchColumnCounts(PARENT_URN, SCHEMA_FIELD_URN, lineageAsset, onDisabled),
+            useFetchColumnCounts(SCHEMA_FIELD_URN, lineageAsset, onDisabled),
         {
             initialProps: { lineageAsset: asset },
             wrapper: ({ children }) => (

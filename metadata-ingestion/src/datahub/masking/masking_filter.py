@@ -284,6 +284,31 @@ class SecretMaskingFilter(logging.Filter):
                 )
             return "[REDACTED: Masking Error]"
 
+    def mask_structure(self, obj: Any) -> Any:
+        """Mask every string in a nested structure of dicts/lists/tuples.
+
+        For content that gets serialized afterwards (e.g. JSON reports):
+        masking must happen before serialization, because escaping changes
+        the rendering of a secret so that it no longer matches any
+        registered value.
+        """
+        if isinstance(obj, str):
+            return self.mask_text(obj)
+        if isinstance(obj, dict):
+            masked_items: Dict[Any, Any] = {}
+            for key, value in obj.items():
+                masked_key = self.mask_structure(key)
+                if masked_key in masked_items:
+                    suffix = 2
+                    while f"{masked_key} (duplicate {suffix})" in masked_items:
+                        suffix += 1
+                    masked_key = f"{masked_key} (duplicate {suffix})"
+                masked_items[masked_key] = self.mask_structure(value)
+            return masked_items
+        if isinstance(obj, (list, tuple)):
+            return [self.mask_structure(item) for item in obj]
+        return obj
+
     def _mask_args(self, args: Any) -> Any:
         """Mask secrets in log arguments."""
         if not args:
