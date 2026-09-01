@@ -75,8 +75,7 @@ public class PostgresTimeseriesScrollKeysetTest {
     List<Object> cursor = new ArrayList<>();
     cursor.add(1000L);
     cursor.add(null);
-    PostgresTimeseriesAspectService.appendKeysetPredicate(
-        where, params, keys, cursor);
+    PostgresTimeseriesAspectService.appendKeysetPredicate(where, params, keys, cursor);
 
     String sql = where.toString();
     assertFalse(sql.contains("message_id IS NULL"));
@@ -95,8 +94,7 @@ public class PostgresTimeseriesScrollKeysetTest {
     List<Object> cursor = new ArrayList<>();
     cursor.add(null);
     cursor.add(null);
-    PostgresTimeseriesAspectService.appendKeysetPredicate(
-        where, params, keys, cursor);
+    PostgresTimeseriesAspectService.appendKeysetPredicate(where, params, keys, cursor);
 
     assertTrue(where.toString().contains("1=0"));
     assertTrue(params.isEmpty());

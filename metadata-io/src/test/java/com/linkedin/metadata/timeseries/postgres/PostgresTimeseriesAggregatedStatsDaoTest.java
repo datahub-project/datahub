@@ -227,7 +227,12 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
     GroupingBucket[] buckets = new GroupingBucket[] {stringBucket("user", 10)};
     String order =
         PostgresTimeseriesAggregatedStatsDao.buildGroupOrderBy(
-            buckets, List.of("g0"), List.of("g0"), List.of("sum_count"), new AggregationSpec[0], null);
+            buckets,
+            List.of("g0"),
+            List.of("g0"),
+            List.of("sum_count"),
+            new AggregationSpec[0],
+            null);
     assertEquals(order, "g0 ASC");
   }
 
