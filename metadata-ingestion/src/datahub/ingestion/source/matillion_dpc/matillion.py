@@ -106,7 +106,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("Matillion", id="matillion-dpc")
 @config_class(MatillionSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(

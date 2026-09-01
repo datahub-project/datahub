@@ -80,7 +80,7 @@ class CubeDeploymentKey(ContainerKey):
 
 @platform_name("Cube", id=CUBE_PLATFORM)
 @config_class(CubeSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")

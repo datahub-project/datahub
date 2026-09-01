@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.loaders.DomainEntityCountsBatchLoader;
 import com.linkedin.datahub.graphql.loaders.EntityExistsBatchLoader;
 import com.linkedin.datahub.graphql.loaders.ParentContainersBatchLoader;
 import com.linkedin.datahub.graphql.loaders.ParentNodesBatchLoader;
+import com.linkedin.datahub.graphql.loaders.SiblingsSearchBatchLoader;
 import com.linkedin.datahub.graphql.plugins.SemanticSearchPlugin;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -1014,6 +1015,10 @@ public class GmsGraphQLEngine {
             DatasetStatsSummaryBatchLoader.LOADER_NAME,
             context ->
                 DatasetStatsSummaryBatchLoader.createDataLoader(timeseriesAspectService, context))
+        .addDataLoader(
+            SiblingsSearchBatchLoader.LOADER_NAME,
+            context ->
+                SiblingsSearchBatchLoader.create(this.entityClient, this.viewService, context))
         .addDataLoader(
             EntityExistsBatchLoader.LOADER_NAME,
             context -> EntityExistsBatchLoader.create(this.entityService, context))
@@ -2124,7 +2129,8 @@ public class GmsGraphQLEngine {
                         new ParentContainersResolver(entityClient, featureFlags))
                     .dataFetcher(
                         "siblingsSearch",
-                        new SiblingsSearchResolver(this.entityClient, this.viewService))
+                        new SiblingsSearchResolver(
+                            this.entityClient, this.viewService, this.featureFlags))
                     .dataFetcher(
                         "logicalParent",
                         new EntityTypeResolver(
