@@ -57,11 +57,20 @@ def _dump_container_logs(container_name: str) -> None:
     stdout and pytest captured it. Capture subprocess output so a dump error
     cannot replace the original wait exception.
     """
-    result = subprocess.run(
-        ["docker", "logs", container_name],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["docker", "logs", container_name],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except Exception as exc:
+        logger.error(
+            "Failed to fetch logs for container %s: %s",
+            container_name,
+            exc,
+        )
+        return
     output = "\n".join(part for part in (result.stdout, result.stderr) if part)
     if result.returncode != 0:
         logger.error(
