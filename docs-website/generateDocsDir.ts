@@ -721,7 +721,7 @@ ${CODE_FENCE}
 // Keep in sync with FeatureCardSection component (src/pages/docs/_components/FeatureCardSection/index.jsx)
 const FEATURE_CARD_SECTION_MD = `- **[Data Discovery](/docs/how/search)** — Search your entire data ecosystem, including dashboards, datasets, ML models, and raw files.
 - **[Data Governance](https://datahub.com/blog/)** — Define ownership and track PII.
-- **[Data Quality & Observability](/docs/features/feature-guides/observe)** — Detect and resolve quality issues before they impact production. Automated anomaly detection, assertions, and data contracts keep data reliable.
+- **[Data Quality & Observability](/docs/managed-datahub/observe/overview)** — Detect and resolve quality issues before they impact production. Automated anomaly detection, assertions, and data contracts keep data reliable.
 - **[UI-based Ingestion](/docs/ui-ingestion)** — Easily set up integrations in minutes using DataHub's intuitive UI-based ingestion feature.
 - **[APIs and SDKs](/docs/api/datahub-apis)** — For users who prefer programmatic control, DataHub offers a comprehensive set of APIs and SDKs.
 - **[Vibrant Community](/docs/slack)** — Our community provides support through office hours, workshops, and a Slack channel.`;

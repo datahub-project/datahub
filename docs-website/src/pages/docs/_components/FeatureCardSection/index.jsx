@@ -28,7 +28,7 @@ const featureCardContent =  [
 {
     title: "Data Quality & Observability",
     description: "Detect and resolve quality issues before they impact production. Automated anomaly detection, assertions, and data contracts keep data reliable.",
-    to: "docs/features/feature-guides/observe",
+    to: "docs/managed-datahub/observe/overview",
     icon: <AlertTwoTone />
   },
 {
