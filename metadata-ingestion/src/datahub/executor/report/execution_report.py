@@ -17,11 +17,12 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from datahub.ingestion.api.report import Report
+from datahub.masking.masking_filter import mask_secrets
 
 
 def format_report_line(line_type: str, message: str) -> str:
     utc_time = datetime.datetime.utcnow()
-    return f"{utc_time} {line_type}: {message}"
+    return f"{utc_time} {line_type}: {mask_secrets(message, 'report line')}"
 
 
 @dataclass

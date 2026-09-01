@@ -8,6 +8,8 @@ automatically at point-of-read (config expansion, Pydantic validation).
 
 from unittest.mock import patch
 
+import pytest
+
 
 class TestBootstrapErrorHandling:
     """Test bootstrap initialization error handling."""
@@ -433,3 +435,82 @@ class TestExceptionHookOptimization:
 
         finally:
             shutdown_secret_masking()
+
+
+class TestConcurrentExecutionTeardown:
+    """Masking outlives the first execution to finish, and is torn down by the last."""
+
+    @pytest.fixture(autouse=True)
+    def clean_masking_state(self):
+        """Resets the process-wide masking state around each test."""
+        from datahub.masking.bootstrap import MaskingLifecycle
+        from datahub.masking.secret_registry import SecretRegistry
+
+        MaskingLifecycle.reset_instance()
+        SecretRegistry.reset_instance()
+        yield
+        MaskingLifecycle.reset_instance()
+        SecretRegistry.reset_instance()
+
+    def _register(self, name: str, value: str) -> None:
+        from datahub.masking.secret_registry import SecretRegistry
+
+        SecretRegistry.get_instance().register_secret(name, value)
+
+    def _filter_installed(self) -> bool:
+        import logging
+
+        from datahub.masking.masking_filter import SecretMaskingFilter
+
+        return any(
+            isinstance(f, SecretMaskingFilter) for f in logging.getLogger().filters
+        )
+
+    def test_masking_survives_until_the_last_execution_finishes(self) -> None:
+        from datahub.masking.bootstrap import (
+            initialize_secret_masking,
+            shutdown_secret_masking,
+        )
+        from datahub.masking.masking_filter import SecretMaskingFilter
+        from datahub.masking.secret_registry import SecretRegistry
+
+        initialize_secret_masking(force=True, owner="exec-long")
+        try:
+            self._register("PW_LONG", "long-run-secret")
+            initialize_secret_masking(force=True, owner="exec-short")
+            self._register("PW_SHORT", "short-run-secret")
+
+            # The short run finishes first.
+            shutdown_secret_masking(owner="exec-short")
+
+            # The long run is still reporting, so its secret stays masked...
+            masked = SecretMaskingFilter(SecretRegistry.get_instance()).mask_text(
+                "connecting with long-run-secret"
+            )
+            assert "long-run-secret" not in masked
+            # ...and the installed filter is still in place.
+            assert self._filter_installed()
+        finally:
+            shutdown_secret_masking(owner="exec-long")
+
+        assert SecretRegistry.get_instance().get_count() == 0
+        assert not self._filter_installed()
+
+    def test_a_run_with_no_secrets_does_not_tear_down_a_run_that_has_them(self) -> None:
+        """A run with no secrets never initializes, but still calls shutdown."""
+        from datahub.masking.bootstrap import (
+            initialize_secret_masking,
+            shutdown_secret_masking,
+        )
+        from datahub.masking.secret_registry import SecretRegistry
+
+        initialize_secret_masking(force=True, owner="exec-with-secrets")
+        try:
+            self._register("PW", "still-needed")
+
+            shutdown_secret_masking(owner="exec-no-secrets")
+
+            assert SecretRegistry.get_instance().get_count() == 1
+            assert self._filter_installed()
+        finally:
+            shutdown_secret_masking(owner="exec-with-secrets")

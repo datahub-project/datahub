@@ -28,6 +28,7 @@ from datahub.executor.request.execution_request import ExecutionRequest
 from datahub.executor.request.signal_request import SignalRequest
 from datahub.executor.result.execution_result import ExecutionResult, Type
 from datahub.executor.secret.secret_store_registry import SecretStoreRegistry
+from datahub.masking.bootstrap import shutdown_secret_masking
 from datahub.secret.secret_store import SecretStore, SecretStoreConfig
 
 logger = logging.getLogger(__name__)
@@ -166,6 +167,16 @@ class DefaultExecutor(Executor):
             execution_result.set_result_type(Type.CANCELLED)
             return execution_result
         finally:
+            # Releases the hold taken when the recipe was resolved. Here rather than
+            # in the task, so it also covers report lines written by the except blocks
+            # above, and paths that never reach the task at all.
+            try:
+                shutdown_secret_masking(owner=execution_id)
+            except Exception:
+                logger.warning(
+                    f"Failed to release secret masking for {execution_id}",
+                    exc_info=True,
+                )
             if task_event_loop:
                 task_event_loop.close()
             if execution_id in self.task_futures:
