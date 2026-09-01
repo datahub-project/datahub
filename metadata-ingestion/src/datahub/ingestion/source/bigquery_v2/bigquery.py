@@ -39,7 +39,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
-from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractor,
     BigQueryQueriesExtractorConfig,
