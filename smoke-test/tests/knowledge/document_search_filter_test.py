@@ -15,19 +15,17 @@ import time
 import uuid
 
 import pytest
-import tenacity
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.knowledge.document_helpers import (
+    create_unique_dataset,
+    delete_unique_dataset,
+    fetch_related_documents,
+)
 from tests.utilities.domains import Domain
-from tests.utils import get_sleep_info
 
 logger = logging.getLogger(__name__)
-
 pytestmark = pytest.mark.domain(Domain.AI)
-
-# Same env-driven timing as with_test_retry(), but scoped to a single retryable
-# condition (see _fetch_related_documents) rather than any exception.
-_RETRY_SLEEP, _RETRY_TIMES = get_sleep_info()
 
 
 def execute_graphql(
@@ -97,64 +95,6 @@ def _create_document(
         assert "errors" not in update_res, f"GraphQL errors: {update_res.get('errors')}"
 
     return urn
-
-
-class _DocumentNotIndexedYet(Exception):
-    """The document is not visible in the graph index yet -- worth retrying."""
-
-
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(_RETRY_TIMES),
-    wait=tenacity.wait_fixed(_RETRY_SLEEP),
-    retry=tenacity.retry_if_exception_type(_DocumentNotIndexedYet),
-    reraise=True,
-)
-def _fetch_related_documents(auth_session, dataset_urn: str, expected_doc_urn: str):
-    """Read an entity's relatedDocuments, retrying until the document shows up.
-
-    relatedDocuments is a reverse relationship lookup served by the graph index,
-    so it only reflects the write once the MCL has been consumed *and* indexed.
-    Waiting on the consumer offset does not cover the indexing step, and a fixed
-    sleep is just a guess at how long that takes on any given runner -- retry
-    instead, matching test_scroll_lineage.py::_assert_lineage_edges.
-
-    Only the not-yet-indexed case retries. An HTTP error or a GraphQL error
-    payload is not transient, so it propagates on the first attempt rather than
-    costing every genuine failure the full retry budget.
-    """
-    related_query = """
-        query GetDatasetDocs($urn: String!, $input: RelatedDocumentsInput!) {
-          dataset(urn: $urn) {
-            relatedDocuments(input: $input) {
-              total
-              documents {
-                urn
-                info { title }
-                settings { showInGlobalContext }
-              }
-            }
-          }
-        }
-    """
-    related_vars = {
-        "urn": dataset_urn,
-        "input": {"start": 0, "count": 100},
-    }
-    related_res = execute_graphql(auth_session, related_query, related_vars)
-    assert "errors" not in related_res, f"GraphQL errors: {related_res.get('errors')}"
-
-    related_docs = related_res["data"]["dataset"]["relatedDocuments"]
-    found_urns = [doc["urn"] for doc in related_docs["documents"]]
-
-    # Context-only document SHOULD appear in relatedDocuments. This is the key
-    # distinction: relatedDocuments shows context docs, global search does not.
-    if expected_doc_urn not in found_urns:
-        raise _DocumentNotIndexedYet(
-            f"Context-only document {expected_doc_urn} SHOULD appear in relatedDocuments. "
-            f"Found: {found_urns}. "
-            f"Context documents are meant to be discovered through their related entities."
-        )
-    return related_docs
 
 
 def _delete_document(auth_session, urn: str):
@@ -352,7 +292,7 @@ def test_search_across_entities_filters_documents(auth_session):
 
 
 @pytest.mark.dependency()
-def test_related_documents_shows_context_only_documents(auth_session):
+def test_related_documents_shows_context_only_documents(auth_session, graph_client):
     """
     Test that relatedDocuments on an entity DOES show documents with
     showInGlobalContext=false.
@@ -361,66 +301,46 @@ def test_related_documents_shows_context_only_documents(auth_session):
     the entities they relate to, not through global search.
 
     1. Create a context-only document (showInGlobalContext=false, PUBLISHED).
-    2. Associate the document with a dataset.
+    2. Associate the document with a run-unique dataset (not SampleKafkaDataset,
+       which other modules also mutate under xdist).
     3. Query the dataset's relatedDocuments.
     4. Verify the context-only document appears (it should!).
     5. Clean up.
     """
     test_prefix = _unique_id("context-doc-related")
     doc_id = f"{test_prefix}-context"
-
-    # Create context-only document
-    doc_urn = _create_document(
-        auth_session,
-        doc_id,
-        f"Context Document {test_prefix}",
-        show_in_global_context=False,
-        state="PUBLISHED",
-    )
-
-    # Use bootstrap sample dataset
-    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"
-
-    # Verify dataset exists
-    dataset_query = """
-        query GetDataset($urn: String!) {
-          dataset(urn: $urn) {
-            urn
-          }
-        }
-    """
-    # Read of pre-existing bootstrap data, unrelated to this test's own writes.
-    dataset_res = execute_graphql(
-        auth_session, dataset_query, {"urn": dataset_urn}, no_sync_wait=True
-    )
-    if "errors" in dataset_res or dataset_res["data"]["dataset"] is None:
-        _delete_document(auth_session, doc_urn)
-        pytest.skip("Sample dataset not available - skipping test")
-        return
-
-    # Associate document with dataset
-    update_mutation = """
-        mutation UpdateRelatedEntities($input: UpdateDocumentRelatedEntitiesInput!) {
-          updateDocumentRelatedEntities(input: $input)
-        }
-    """
-    update_vars = {
-        "input": {
-            "urn": doc_urn,
-            "relatedAssets": [dataset_urn],
-        }
-    }
-    update_res = execute_graphql(
-        auth_session, update_mutation, update_vars, no_sync_wait=True
-    )
-    assert "errors" not in update_res, f"GraphQL errors: {update_res.get('errors')}"
-
-    wait_for_writes_to_sync(mae_only=True)
+    dataset_urn = create_unique_dataset(graph_client, test_prefix)
+    doc_urn = None
 
     try:
-        related_docs = _fetch_related_documents(auth_session, dataset_urn, doc_urn)
+        doc_urn = _create_document(
+            auth_session,
+            doc_id,
+            f"Context Document {test_prefix}",
+            show_in_global_context=False,
+            state="PUBLISHED",
+        )
 
-        # Verify it has showInGlobalContext=false
+        update_mutation = """
+            mutation UpdateRelatedEntities($input: UpdateDocumentRelatedEntitiesInput!) {
+              updateDocumentRelatedEntities(input: $input)
+            }
+        """
+        update_vars = {
+            "input": {
+                "urn": doc_urn,
+                "relatedAssets": [dataset_urn],
+            }
+        }
+        update_res = execute_graphql(
+            auth_session, update_mutation, update_vars, no_sync_wait=True
+        )
+        assert "errors" not in update_res, f"GraphQL errors: {update_res.get('errors')}"
+
+        wait_for_writes_to_sync(mae_only=True)
+
+        related_docs = fetch_related_documents(auth_session, dataset_urn, doc_urn)
+
         our_doc = next(
             (doc for doc in related_docs["documents"] if doc["urn"] == doc_urn), None
         )
@@ -428,8 +348,9 @@ def test_related_documents_shows_context_only_documents(auth_session):
         assert our_doc["settings"]["showInGlobalContext"] is False
 
     finally:
-        # Cleanup
-        _delete_document(auth_session, doc_urn)
+        if doc_urn is not None:
+            _delete_document(auth_session, doc_urn)
+        delete_unique_dataset(graph_client, dataset_urn)
 
 
 @pytest.mark.dependency()

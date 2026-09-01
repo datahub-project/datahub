@@ -70,6 +70,15 @@ repos:
         # lintFix + prettierWrite are self-correcting formatters (slow, module-wide
         # Gradle invocation). Run them at pre-push instead of pre-commit; see PFP-5002.
         stages: [pre-push]
+      - id: docs-website-prettier
+        name: docs-website Prettier
+        entry: ./gradlew :docs-website:yarnLintFix -x generateGitPropertiesGlobal
+        language: system
+        files: ^docs-website/(generateDocsDir\.ts|sidebars\.js|src/pages/index\.js)$
+        pass_filenames: false
+        # yarnLintFix is a self-correcting formatter. Run at pre-push instead of
+        # pre-commit so commits stay fast; see PFP-5002.
+        stages: [pre-push]
       - id: bump-schema-versions
         name: Bump PDL schema versions
         entry: python .github/scripts/bump_schema_versions.py

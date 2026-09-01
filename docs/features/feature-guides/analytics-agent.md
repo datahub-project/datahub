@@ -138,7 +138,7 @@ datahub init --sso \
 Analytics Agent reads `~/.datahubenv` automatically. No extra config needed.
 
   </TabItem>
-  <TabItem value="selfhosted" label="DataHub Core (self-hosted)">
+  <TabItem value="oss" label="DataHub Core">
 
 ```bash
 # Authenticate via the DataHub CLI

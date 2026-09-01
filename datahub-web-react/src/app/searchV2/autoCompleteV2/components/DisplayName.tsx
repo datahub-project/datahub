@@ -65,8 +65,7 @@ export default function DisplayName({
             <EntityTitleContainer ref={measuredRef} className={className} $color={color} $colorLevel={colorLevel}>
                 <MatchText
                     type="span"
-                    color={color}
-                    colorLevel={colorLevel}
+                    {...(color ? { color, colorLevel } : {})}
                     weight={weight}
                     text={displayName}
                     highlight={highlight ?? ''}
