@@ -1,7 +1,5 @@
-# Identifiers (table/column/schema names) cannot be parameterized in BigQuery, so they must
-# be validated and backtick-escaped here. Most data values are bound as query parameters,
-# but partition values in WHERE-clause filters are interpolated (see FilterBuilder), so
-# validate_filter_expression / validate_and_filter_expressions guard that one path.
+# Identifiers and interpolated partition filters can't be bound as BigQuery query
+# parameters, so they are validated and backtick-escaped here instead.
 
 import logging
 from typing import List
@@ -23,28 +21,15 @@ logger = logging.getLogger(__name__)
 
 
 def mask_string_literals(sql: str) -> str:
-    """Blank out the *contents* of quoted string literals so structural denylist scans
-    see SQL structure, not data.
+    """Mask the interior of quoted string literals and comments so the denylist scans see
+    SQL structure, not data.
 
-    A partition value such as a GCS URI (`gs://b/data:x`), a Hive key, or any STRING
-    that legitimately contains ``#``, ``--``, ``data:`` etc. is interpolated inside a
-    quoted literal by ``FilterBuilder``. Scanning the raw text would flag those
-    characters as injection even though they are inert literal data (false positive).
-    Conversely, a token that appears *outside* any literal is real SQL and must still be
-    caught. Masking the literal interior — while preserving the delimiters, length, and
-    everything outside literals — gives the denylists a quote-aware view that satisfies
-    both: injection tokens outside literals survive, data tokens inside literals do not.
-
-    SQL comments are recognised *before* a quote can open a literal and are copied
-    through verbatim: a lone quote inside a ``--``/``#`` line comment or a ``/* */`` block
-    comment is comment text, not a literal opener, so masking must not let it swallow the
-    executable SQL (a ``;`` and a second statement) that follows the comment. Leaving the
-    comment body visible also keeps it available to the denylist scans.
-
-    Backtick identifiers are likewise skipped verbatim (they are validated separately by
-    ``validate_bigquery_identifier``) so a quote inside a quoted identifier cannot open a
-    literal. BigQuery backslash escapes (``\\'``, ``\\\\``) and ANSI doubled-quote (``''``)
-    escaping are both honoured so an escaped quote does not prematurely close a literal.
+    A partition value (GCS URI, Hive key) interpolated by ``FilterBuilder`` may contain
+    ``#``/``--``/``data:`` that are inert inside a literal but injection outside one;
+    masking the interior while keeping delimiters gives the scans a quote-aware view.
+    Comments and backtick identifiers are consumed here too, so a quote inside them cannot
+    open a literal and hide following SQL, and their body stays out of the scans. Backslash
+    (``\\'``) and doubled-quote (``''``) escapes are honoured.
     """
     out: List[str] = []
     i = 0
@@ -53,21 +38,24 @@ def mask_string_literals(sql: str) -> str:
     while i < n:
         ch = sql[i]
         if quote is None:
-            # Line comment (`--` or `#`): copy to end of line verbatim. A quote here is
-            # comment text, so it must not open a literal and hide the SQL after the
-            # newline (e.g. `-- it's fine\n; DROP TABLE t`).
+            # Line comment (`--`/`#`): keep the delimiter, mask the body to end of line.
             if ch == "#" or (ch == "-" and i + 1 < n and sql[i + 1] == "-"):
-                while i < n and sql[i] != "\n":
+                out.append(ch)
+                i += 1
+                if ch == "-":  # second '-' of the '--' delimiter
                     out.append(sql[i])
                     i += 1
+                while i < n and sql[i] != "\n":
+                    out.append("x")
+                    i += 1
                 continue
-            # Block comment (`/* ... */`): copy verbatim, including a quote inside it.
+            # Block comment (`/* ... */`): keep the delimiters, mask the interior.
             if ch == "/" and i + 1 < n and sql[i + 1] == "*":
                 out.append(ch)
                 out.append(sql[i + 1])
                 i += 2
                 while i < n and not (sql[i] == "*" and i + 1 < n and sql[i + 1] == "/"):
-                    out.append(sql[i])
+                    out.append("x")
                     i += 1
                 if i + 1 < n:  # emit the closing */
                     out.append(sql[i])
@@ -117,8 +105,7 @@ def mask_string_literals(sql: str) -> str:
 
 def _validate_identifier_format(identifier_type: str, clean_identifier: str) -> None:
     if identifier_type == "project":
-        # fullmatch (not match): a trailing '\n' satisfies the `$` anchor under match, so
-        # anchor the whole string even though newlines are already rejected upstream.
+        # fullmatch, not match: `$` under match would accept a trailing newline.
         if not PROJECT_ID_RE.fullmatch(clean_identifier):
             raise ValueError(f"Invalid project ID format: {clean_identifier}")
         if len(clean_identifier) < 6 or len(clean_identifier) > 30:
@@ -128,8 +115,8 @@ def _validate_identifier_format(identifier_type: str, clean_identifier: str) -> 
                 f"Project ID cannot contain consecutive hyphens: {clean_identifier}"
             )
     elif identifier_type == "table":
-        # BigQuery allows hyphens in table names when backtick-escaped. fullmatch so a
-        # trailing newline cannot satisfy the `$` anchor.
+        # Hyphens allowed in backtick-escaped table names; fullmatch to reject a
+        # trailing newline.
         if not TABLE_IDENTIFIER_RE.fullmatch(clean_identifier):
             raise ValueError(
                 f"Invalid {identifier_type} identifier format: {clean_identifier}"
@@ -173,14 +160,9 @@ def validate_bigquery_identifier(
         upper_identifier == "INFORMATION_SCHEMA"
         or upper_identifier.startswith("INFORMATION_SCHEMA.")
     ):
-        # INFORMATION_SCHEMA views are referenced by their bare dotted name
-        # (project.dataset.INFORMATION_SCHEMA.VIEW). Wrapping "INFORMATION_SCHEMA.VIEW"
-        # in a single backtick pair makes BigQuery treat the whole dotted string as one
-        # identifier — it then looks for a table literally named "INFORMATION_SCHEMA.VIEW"
-        # and the query fails. Validate the view suffix so this branch still rejects
-        # injection, then return the reference unquoted. Matched case-insensitively
-        # because BigQuery accepts `information_schema`. The fast path is limited to
-        # table/general references; a project/dataset must never be INFORMATION_SCHEMA.
+        # INFORMATION_SCHEMA views must stay unquoted: backticking the whole dotted name
+        # makes BigQuery look for a table literally called "INFORMATION_SCHEMA.VIEW". Only
+        # table/general refs reach here; still validate the view suffix to reject injection.
         if upper_identifier != "INFORMATION_SCHEMA":
             view_suffix = identifier[len("INFORMATION_SCHEMA.") :]
             if not VALID_COLUMN_NAME_PATTERN.fullmatch(view_suffix):
@@ -196,8 +178,7 @@ def validate_bigquery_identifier(
                 f"Invalid {identifier_type} identifier contains dangerous character '{pattern}': {identifier}"
             )
 
-    # No backtick strip needed: the dangerous-patterns loop above already rejects any
-    # identifier containing a backtick.
+    # No backtick strip needed: the loop above already rejects any backtick.
     clean_identifier = identifier
 
     if any(ord(c) < 32 or ord(c) > 126 for c in clean_identifier):
@@ -207,9 +188,7 @@ def validate_bigquery_identifier(
 
     _validate_identifier_format(identifier_type, clean_identifier)
 
-    # Dataset/column identifiers starting with "__" are already rejected in
-    # _validate_identifier_format, so only the reserved literals need noting here (and
-    # only for the table/general types, where they are allowed once backticked).
+    # Reserved literals: allowed once backticked, but logged as they can surprise.
     truly_problematic = {
         "null",
         "true",
@@ -228,13 +207,9 @@ def build_safe_table_reference(project: str, dataset: str, table: str) -> str:
     safe_project = validate_bigquery_identifier(project, "project")
     safe_dataset = validate_bigquery_identifier(dataset, "dataset")
 
-    # Strip + case-fold the branch test so ` information_schema.tables ` reaches the
-    # INFORMATION_SCHEMA path the same way validate_bigquery_identifier does internally,
-    # rather than falling through to the table validator and failing on the dot.
+    # Strip + case-fold so ` information_schema.tables ` reaches the unquoted-view path
+    # instead of falling through to the table validator and failing on the dot.
     if table.strip().upper().startswith("INFORMATION_SCHEMA"):
-        # validate_bigquery_identifier returns the INFORMATION_SCHEMA view as a bare
-        # (validated) dotted name, so the canonical `project`.`dataset`.INFORMATION_SCHEMA.VIEW
-        # form is produced rather than a single backtick-quoted third component.
         safe_view = validate_bigquery_identifier(table, "general")
         return f"{safe_project}.{safe_dataset}.{safe_view}"
 
@@ -249,10 +224,8 @@ def validate_column_name(col_name: str, context: str = "") -> bool:
         )
         return False
 
-    # Flexible (not strict) pattern: a column is always backtick-quoted downstream, so a
-    # leading digit or an international character is a legitimate BigQuery column name and
-    # must not be dropped. fullmatch keeps a trailing newline (and any other injection
-    # character) from slipping through.
+    # Flexible pattern: columns are backtick-quoted downstream, so leading-digit /
+    # international names are legitimate; fullmatch still rejects a trailing newline.
     if not FLEXIBLE_COLUMN_NAME_PATTERN.fullmatch(col_name):
         logger.warning(
             f"Column name fails validation{' in ' + context if context else ''}: {col_name}"
@@ -274,15 +247,12 @@ def validate_sql_structure(query: str) -> bool:
     if not query or not isinstance(query, str):
         return False
 
-    # Scan a quote-aware view so dangerous tokens inside string literals (partition
-    # values, URIs) are not misread as injection, while tokens outside literals — the
-    # actual SQL — are still caught.
+    # Quote-aware view so tokens inside literals aren't misread as injection.
     masked = mask_string_literals(query)
     scan_target = WHITESPACE_RE.sub(" ", masked.upper().strip())
 
-    # Reject a statement separator that is followed by more SQL: a read-only profiling
-    # query is a single statement, so a second statement after ';' is never legitimate.
-    # The check runs on the masked query so a ';' inside a literal value is ignored.
+    # A read-only profiling query is one statement; a ';' followed by more SQL (outside a
+    # literal, hence on the masked query) is a stacked statement.
     stripped_masked = masked.rstrip().rstrip(";").rstrip()
     if ";" in stripped_masked:
         raise ValueError("Query must be a single statement")
@@ -301,10 +271,8 @@ def validate_filter_expression(filter_expr: str) -> bool:
     if not filter_expr or not isinstance(filter_expr, str):
         return False
 
-    # Scan with literal contents masked so a comment/injection token that is really part
-    # of a quoted STRING or Hive partition value (e.g. `# ` in a URL, `--` in a path) is
-    # not misread as SQL. A token outside any literal — genuine injection — still trips
-    # the guard because masking only blanks the literal interior.
+    # Mask literals so a comment/injection token inside a quoted partition value is inert
+    # while one outside a literal still trips the guard.
     masked_expr = mask_string_literals(filter_expr)
     for pattern in FILTER_DANGEROUS_PATTERNS:
         if pattern.search(masked_expr):
