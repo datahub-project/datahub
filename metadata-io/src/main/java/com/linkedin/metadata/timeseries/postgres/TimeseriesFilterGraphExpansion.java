@@ -56,9 +56,9 @@ public final class TimeseriesFilterGraphExpansion {
 
     Set<Urn> seeds = seedUrnStrings.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
     Set<String> relationshipTypes = Set.of("IsPartOf");
-    int[] bounds = expansionBounds(opContext);
-    int pageSize = bounds[0];
-    int limit = bounds[1];
+    ExpansionBounds bounds = expansionBounds(opContext);
+    int pageSize = bounds.pageSize();
+    int limit = bounds.limit();
 
     switch (condition) {
       case ANCESTORS_INCL:
@@ -197,12 +197,15 @@ public final class TimeseriesFilterGraphExpansion {
     }
   }
 
+  /** Page size and traversal limit for lineage graph expansion. */
+  record ExpansionBounds(int pageSize, int limit) {}
+
   /**
    * Prefer the operator-set lineage expansion bound on {@link OperationContext} when present;
    * otherwise the rewriter defaults (100/100).
    */
   @Nonnull
-  static int[] expansionBounds(@Nonnull OperationContext opContext) {
+  static ExpansionBounds expansionBounds(@Nonnull OperationContext opContext) {
     int pageSize = DEFAULT_PAGE_SIZE;
     int limit = DEFAULT_LIMIT;
     SearchContext searchContext = opContext.getSearchContext();
@@ -216,6 +219,6 @@ public final class TimeseriesFilterGraphExpansion {
         }
       }
     }
-    return new int[] {pageSize, limit};
+    return new ExpansionBounds(pageSize, limit);
   }
 }
