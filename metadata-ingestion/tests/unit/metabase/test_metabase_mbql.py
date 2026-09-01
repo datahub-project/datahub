@@ -515,7 +515,11 @@ def test_cll_unknown_ref_type_produces_no_cll_entry(mock_post, mock_get, mock_de
 @patch("requests.delete")
 @patch("requests.Session.get")
 @patch("requests.post")
-def test_cll_returns_none_when_no_result_metadata(mock_post, mock_get, mock_delete):
+def test_cll_emits_table_level_when_no_result_metadata(
+    mock_post, mock_get, mock_delete
+):
+    """Without result_metadata no column mapping can be built, but the known source
+    table must still be emitted as coarse (table-level) lineage."""
     src = _make_source(mock_post, mock_get, mock_delete)
     src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
     src.get_field_from_id = MagicMock(return_value=None)  # type: ignore[method-assign]
@@ -533,7 +537,9 @@ def test_cll_returns_none_when_no_result_metadata(mock_post, mock_get, mock_dele
         card,
         "urn:li:dataset:(urn:li:dataPlatform:metabase,model.6,PROD)",
     )
-    assert result is None
+    assert result is not None
+    assert len(result.upstreams) == 1
+    assert not result.fineGrainedLineages
     src.close()
 
 

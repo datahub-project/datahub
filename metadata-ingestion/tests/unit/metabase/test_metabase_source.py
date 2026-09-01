@@ -17,6 +17,7 @@ from datahub.ingestion.source.metabase.models import (
     MetabaseCard,
     MetabaseCardListItem,
     MetabaseCollection,
+    MetabaseDashboard,
     MetabaseDashboardListItem,
     MetabaseDatabaseDetails,
     MetabaseDatasetQuery,
@@ -26,11 +27,13 @@ from datahub.ingestion.source.metabase.models import (
 from datahub.ingestion.source.metabase.report import MetabaseReport
 from datahub.ingestion.source.metabase.source import MetabaseSource
 from datahub.metadata.schema_classes import (
+    BytesTypeClass,
     ContainerClass,
     DashboardInfoClass,
     DatasetLineageTypeClass,
     GlobalTagsClass,
     SchemaMetadataClass,
+    StringTypeClass,
     UpstreamLineageClass,
 )
 
@@ -169,7 +172,7 @@ def test_create_session_from_config_username_password(mock_post, mock_get, mock_
 @patch("requests.delete")
 @patch("requests.Session.get")
 @patch("requests.post")
-def test_fail_session_delete(mock_post, mock_get, mock_delete):
+def test_warn_on_failed_session_delete(mock_post, mock_get, mock_delete):
     metabase_config = MetabaseConfig(
         connect_uri="localhost:3000", username="un", password=SecretStr("pwd")
     )
@@ -191,7 +194,9 @@ def test_fail_session_delete(mock_post, mock_get, mock_delete):
     metabase_source.report = mock_report
     metabase_source.close()
 
-    mock_report.failure.assert_called_once()
+    # A non-2xx logout during teardown must not fail an otherwise-successful run.
+    mock_report.failure.assert_not_called()
+    mock_report.warning.assert_called_once()
 
 
 @patch("requests.delete")
@@ -869,7 +874,8 @@ def test_collection_404_error_handling(mock_post, mock_get, mock_delete):
 def test_collection_non_404_error_handling(
     mock_post, mock_get, mock_delete, status_code
 ):
-    """Test that non-404 errors (401/403/500) for collections are reported as warnings"""
+    """Non-404 collection errors (401/403/500) are fatal: dashboards are discovered
+    only by iterating collections, so a silent skip would drop every dashboard."""
     metabase_config = MetabaseConfig(
         connect_uri="http://localhost:3000",
         username="test",
@@ -902,9 +908,9 @@ def test_collection_non_404_error_handling(
     collections = metabase_source._get_collections_map()
     assert collections == {}
 
-    assert len(metabase_source.report.warnings) == 1
-    warning_message = str(metabase_source.report.warnings[0])
-    assert "Check API credentials and permissions" in warning_message
+    assert len(metabase_source.report.failures) == 1
+    failure_message = str(metabase_source.report.failures[0])
+    assert "Check API credentials and permissions" in failure_message
 
     metabase_source.close()
 
@@ -1374,6 +1380,100 @@ def test_passthrough_cll_emits_copy_1to1_lineage():
         for fgl in lineage.fineGrainedLineages
     }
     assert downstream_cols == {"order_id", "amount"}
+
+
+def test_model_lineage_passthrough_prefers_copy_over_transformed():
+    """A pass-through model whose result metadata carries id-based field refs would
+    resolve via the query-builder path as TRANSFORMED; _get_model_lineage must route
+    it through the pass-through COPY path instead (1:1 copy of the source)."""
+    ctx = PipelineContext(run_id="metabase-test")
+    config = MetabaseConfig(username="un", password=SecretStr("pwd"))
+    metabase = FakeMetabaseSource(ctx, config)
+
+    metabase.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
+    )
+    metabase.get_source_table_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=("public", "orders")
+    )
+    # Field ids resolve, so the query-builder path could produce fine-grained
+    # TRANSFORMED lineage if it were tried first.
+    metabase.get_field_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=MetabaseField(id=101, name="order_id", table_id=42)
+    )
+
+    card = MetabaseCard(
+        id=1,
+        name="Orders Model",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="query", query={"source-table": 42}),
+        result_metadata=[
+            {"name": "order_id", "field_ref": ["field", 101, None]},
+            {"name": "amount", "field_ref": ["field", 102, None]},
+        ],
+    )
+
+    model_urn = metabase._model_urn(card.id)
+    lineage = metabase._get_model_lineage(card, model_urn)
+
+    assert lineage is not None
+    assert lineage.upstreams[0].type == DatasetLineageTypeClass.COPY
+
+
+def test_map_type_jsonb_prefers_bytes_over_json_substring():
+    """`type/JSONB` must map to Bytes, not match the `JSON` substring -> String."""
+    ctx = PipelineContext(run_id="metabase-test")
+    config = MetabaseConfig(username="un", password=SecretStr("pwd"))
+    metabase = FakeMetabaseSource(ctx, config)
+
+    assert isinstance(
+        metabase._map_metabase_type_to_datahub_type("type/JSONB"), BytesTypeClass
+    )
+    assert isinstance(
+        metabase._map_metabase_type_to_datahub_type("type/JSON"), StringTypeClass
+    )
+
+
+def test_normalize_honors_standard_lowercase_mixin_flag():
+    """The standard convert_urns_to_lowercase mixin flag (shown in recipe docs) must
+    lowercase lineage table URNs, not just the connector-specific flag."""
+    ctx = PipelineContext(run_id="metabase-test")
+
+    default_src = FakeMetabaseSource(
+        ctx, MetabaseConfig(username="un", password=SecretStr("pwd"))
+    )
+    assert default_src._normalize("MyTable") == "MyTable"
+
+    mixin_src = FakeMetabaseSource(
+        ctx,
+        MetabaseConfig(
+            username="un", password=SecretStr("pwd"), convert_urns_to_lowercase=True
+        ),
+    )
+    assert mixin_src._normalize("MyTable") == "mytable"
+
+
+def test_virtual_dashcard_null_card_does_not_drop_dashboard():
+    """A virtual dashcard (card: null, e.g. text/heading) must not fail validation
+    for the whole dashboard; the emitter skips cards with no `card`."""
+    dashboard = MetabaseDashboard.model_validate(
+        {
+            "id": 7,
+            "name": "Mixed",
+            "dashcards": [
+                {"id": 1, "card": None},
+                {"id": 2, "card": {"id": 42, "name": "Q"}, "dashboard_id": 7},
+            ],
+        }
+    )
+    assert len(dashboard.dashcards) == 2
+    assert dashboard.dashcards[0].card is None
+    assert dashboard.dashcards[1].card is not None
 
 
 def test_model_subtypes_passthrough_vs_transformed():

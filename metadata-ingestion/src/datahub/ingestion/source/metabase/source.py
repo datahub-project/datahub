@@ -170,7 +170,14 @@ class MetabaseSource(StatefulIngestionSourceBase):
         self.setup_session()
 
     def _normalize(self, value: str) -> str:
-        return value.lower() if self.config.convert_lineage_urns_to_lowercase else value
+        # Honor both the connector-specific flag and the standard mixin flag
+        # (convert_urns_to_lowercase) that appears in generated recipe docs, so
+        # setting either one lowercases lineage table URNs.
+        lowercase = (
+            self.config.convert_lineage_urns_to_lowercase
+            or self.config.convert_urns_to_lowercase
+        )
+        return value.lower() if lowercase else value
 
     def _url(self, path: str, **kwargs: object) -> str:
         return f"{self.config.connect_uri}{path.format(**kwargs)}"
@@ -385,10 +392,14 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     timeout=self.config.request_timeout_sec,
                 )
                 if response.status_code not in (200, 204):
-                    self.report.failure(
+                    # Teardown only: a non-2xx logout (e.g. 401 after the session
+                    # already expired) must not fail an otherwise-successful run,
+                    # matching how a network error on this same call is handled.
+                    self.report.warning(
                         title="Unable to Log User Out",
                         message="Unable to log the ingestion user out of Metabase.",
                         context=f"Status code: {response.status_code}",
+                        log=False,
                     )
         except requests.exceptions.RequestException as e:
             self.report.warning(
@@ -906,45 +917,45 @@ class MetabaseSource(StatefulIngestionSourceBase):
         card: MetabaseCard,
         entity_urn: str,
     ) -> Optional[UpstreamLineageClass]:
-        if not card.result_metadata:
-            return None
-
-        ctx = self._get_mbql_context(card)
-        if not ctx:
-            return None
+        # Resolve source tables first so we always emit at least table-level lineage
+        # (matching the chart path) even when result_metadata is missing or the MBQL
+        # context cannot be built and no column mapping can be derived.
+        table_urns = self._get_table_urns_from_query_builder(card)
 
         # Mirror the chart inputFields fallback: a name-only column (aggregate output
         # or a column projected from an upstream Model) has no field id to resolve, but
         # when the card draws on a single upstream table (ctx.single_source_urn, unset
         # for pass-through and multi-table joins) we attribute it to that table by name.
-        single_source_urn = ctx.single_source_urn
-
         fine_grained: List[FineGrainedLineageClass] = []
-        for meta in card.result_metadata:
-            if (
-                not meta.name
-                or not meta.field_ref
-                or not isinstance(meta.field_ref, list)
-            ):
-                continue
-            upstream_urns = self._resolve_field_ref_upstream_urns(meta.field_ref, ctx)
-            if not upstream_urns and single_source_urn:
-                upstream_urns = [
-                    builder.make_schema_field_urn(
-                        parent_urn=single_source_urn, field_path=meta.name
-                    )
-                ]
-            if upstream_urns:
-                fine_grained.append(
-                    self._fine_grained_field(
-                        upstreams=upstream_urns,
-                        downstream=builder.make_schema_field_urn(
-                            parent_urn=entity_urn, field_path=meta.name
-                        ),
-                    )
+        ctx = self._get_mbql_context(card) if card.result_metadata else None
+        if ctx:
+            single_source_urn = ctx.single_source_urn
+            for meta in card.result_metadata:
+                if (
+                    not meta.name
+                    or not meta.field_ref
+                    or not isinstance(meta.field_ref, list)
+                ):
+                    continue
+                upstream_urns = self._resolve_field_ref_upstream_urns(
+                    meta.field_ref, ctx
                 )
+                if not upstream_urns and single_source_urn:
+                    upstream_urns = [
+                        builder.make_schema_field_urn(
+                            parent_urn=single_source_urn, field_path=meta.name
+                        )
+                    ]
+                if upstream_urns:
+                    fine_grained.append(
+                        self._fine_grained_field(
+                            upstreams=upstream_urns,
+                            downstream=builder.make_schema_field_urn(
+                                parent_urn=entity_urn, field_path=meta.name
+                            ),
+                        )
+                    )
 
-        table_urns = self._get_table_urns_from_query_builder(card)
         if not table_urns:
             self.report.query_builder_cll_dropped += 1
             self.report.warning(
@@ -978,11 +989,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
             return None
 
         result, _ = parsed
-        if result.debug_info.table_error:
-            self._warn_native_sql_parse_failure(
-                card.id, str(result.debug_info.table_error)
-            )
-            return None
+        table_error = result.debug_info.table_error
+        if table_error:
+            self._warn_native_sql_parse_failure(card.id, str(table_error))
 
         table_urns = [str(t) for t in result.in_tables]
         if not table_urns:
@@ -990,7 +999,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         fine_grained: List[FineGrainedLineageClass] = []
 
-        if result.column_lineage:
+        # Skip column mapping when table parsing errored (it is unreliable), but
+        # still emit the coarse table-level lineage the parser did resolve.
+        if not table_error and result.column_lineage:
             for col_lineage in result.column_lineage:
                 if not col_lineage.downstream.column:
                     continue
@@ -1094,19 +1105,20 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 # 404 is expected when collection features are disabled or unavailable
                 logger.debug("Collections endpoint not found: %s", str(req_error))
                 return {}
-            self.report.warning(
+            # Dashboards are discovered only by iterating collections, so a hard
+            # failure here silently drops every dashboard while charts still emit.
+            # Escalate to a failure rather than exiting "success" with no dashboards.
+            self.report.failure(
                 title="Failed to retrieve collections",
-                message="Unable to fetch collections from Metabase API",
+                message="Unable to fetch collections from Metabase API; dashboards cannot be discovered.",
                 context=f"Error: {str(req_error)} - Check API credentials and permissions",
-                log=False,
             )
             return {}
         except ValueError as e:
-            self.report.warning(
+            self.report.failure(
                 title="Failed to retrieve collections",
-                message="Metabase returned a non-JSON response for the collections request.",
+                message="Metabase returned a non-JSON response for the collections request; dashboards cannot be discovered.",
                 context=f"Error: {str(e)} - Check API credentials and permissions",
-                log=False,
             )
             return {}
 
@@ -1602,9 +1614,13 @@ class MetabaseSource(StatefulIngestionSourceBase):
         NullTypeClass,
     ]:
         """Map Metabase base_type (e.g. "type/Integer") to DataHub type."""
-        for type_keyword, datahub_class in METABASE_TYPE_TO_DATAHUB_TYPE.items():
+        # Match the longest keyword first so a more specific type wins over a
+        # substring of it (e.g. "type/JSONB" -> Bytes, not "JSON" -> String).
+        for type_keyword in sorted(
+            METABASE_TYPE_TO_DATAHUB_TYPE, key=len, reverse=True
+        ):
             if type_keyword in metabase_type:
-                return datahub_class()
+                return METABASE_TYPE_TO_DATAHUB_TYPE[type_keyword]()
 
         return NullTypeClass()
 
@@ -1695,22 +1711,22 @@ class MetabaseSource(StatefulIngestionSourceBase):
         self, card: MetabaseCard, model_urn: str
     ) -> Optional[UpstreamLineageClass]:
         if card.effective_query_type == _QUERY_TYPE_QUERY:
-            cll = self._get_cll_from_query_builder(card=card, entity_urn=model_urn)
-
-            if cll and not cll.fineGrainedLineages:
-                is_passthrough = (
-                    card.dataset_query.query.is_passthrough()
-                    if card.dataset_query.query
-                    else False
+            is_passthrough = (
+                card.dataset_query.query.is_passthrough()
+                if card.dataset_query and card.dataset_query.query
+                else False
+            )
+            # A pass-through model (source-table only) is a 1:1 COPY of its source.
+            # Try that first: its id-based field refs would otherwise resolve via the
+            # query-builder path and mislabel the model as TRANSFORMED.
+            if is_passthrough:
+                passthrough_cll = self._get_passthrough_cll(
+                    card=card, entity_urn=model_urn
                 )
-                if is_passthrough:
-                    passthrough_cll = self._get_passthrough_cll(
-                        card=card, entity_urn=model_urn
-                    )
-                    if passthrough_cll and passthrough_cll.fineGrainedLineages:
-                        cll = passthrough_cll
+                if passthrough_cll and passthrough_cll.fineGrainedLineages:
+                    return passthrough_cll
 
-            return cll
+            return self._get_cll_from_query_builder(card=card, entity_urn=model_urn)
         elif card.effective_query_type == _QUERY_TYPE_NATIVE:
             return self._get_cll_from_native_sql(card=card, entity_urn=model_urn)
         else:
