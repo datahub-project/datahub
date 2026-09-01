@@ -495,8 +495,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     f"semanticText event for {entity_urn} without readable documentInfo, skipping"
                 )
                 return
-            contents = dict(info_dict.get("contents") or {})
-            contents["semanticText"] = aspect_dict.get("text")
+            raw_info_contents = info_dict.get("contents")
+            override_text = aspect_dict.get("text")
+            if raw_info_contents is None and not override_text:
+                # Partial entity (null contents) with no usable override: skip silently,
+                # mirroring the batch and documentInfo-event guards, rather than stamping
+                # an EMPTY_TEXT marker from a body we could not read.
+                logger.debug(
+                    f"semanticText event for {entity_urn} with empty override and null "
+                    f"contents, skipping"
+                )
+                return
+            contents = dict(raw_info_contents or {})
+            contents["semanticText"] = override_text
             # Downstream source-type filtering reads from the documentInfo shape.
             aspect_dict = info_dict
         else:

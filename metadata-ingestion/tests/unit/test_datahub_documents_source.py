@@ -2590,6 +2590,28 @@ class TestSkipMarkersAndProvenance:
             == hashlib.sha256(text.encode("utf-8")).hexdigest()
         )
 
+    def test_empty_override_event_with_null_contents_skips_silently(
+        self, ctx, config, mock_graph
+    ):
+        """A semanticText event with an empty override on a partial entity (null
+        documentInfo.contents) must skip silently -- not stamp an EMPTY_TEXT marker
+        from a body that was never readable (mirrors the batch/documentInfo guards)."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            with patch.object(
+                source,
+                "_fetch_document_info_dict",
+                return_value={"source": {"sourceType": "NATIVE"}, "contents": None},
+            ):
+                event: dict[str, Any] = {
+                    "entityUrn": "urn:li:document:partial-override",
+                    "aspectName": "semanticText",
+                    "aspect": json.dumps({"text": ""}),
+                }
+                workunits = list(source._process_single_event(event))
+
+        assert workunits == []
+
     def test_threshold_change_reevaluates_skipped_documents(self, ctx, mock_graph):
         """Recorded state for a skipped document must become invalid when
         min_text_length changes, so the document is re-evaluated (and embedded once
