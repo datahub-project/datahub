@@ -72,6 +72,38 @@ public class EntityClientCache {
     }
   }
 
+  /**
+   * Invalidates cache entries for many entity/aspect pairs in a single keyset pass.
+   *
+   * <p>Equivalent to calling {@link #invalidate(Urn, Set)} once per URN, but scans the cache keyset
+   * only once regardless of how many URNs are supplied — bounding the cost of write-time eviction
+   * on large (bulk-ingest) batches to O(cacheSize) rather than O(urns × cacheSize).
+   *
+   * @param aspectNamesByUrn aspect names to invalidate, keyed by entity URN
+   */
+  public void invalidate(@Nonnull final Map<Urn, Set<String>> aspectNamesByUrn) {
+    if (!config.isEnabled() || aspectNamesByUrn.isEmpty()) {
+      return;
+    }
+
+    Set<Key> keysToInvalidate =
+        cache.keySet().stream()
+            .filter(
+                key ->
+                    aspectNamesByUrn
+                        .getOrDefault(key.getUrn(), Set.of())
+                        .contains(key.getAspectName()))
+            .collect(Collectors.toSet());
+
+    if (!keysToInvalidate.isEmpty()) {
+      cache.invalidateAll(keysToInvalidate);
+      log.debug(
+          "Invalidated {} cache entries across {} urn(s)",
+          keysToInvalidate.size(),
+          aspectNamesByUrn.size());
+    }
+  }
+
   public Map<Urn, EntityResponse> batchGetV2(
       @Nonnull OperationContext opContext,
       @Nonnull final Set<Urn> urns,

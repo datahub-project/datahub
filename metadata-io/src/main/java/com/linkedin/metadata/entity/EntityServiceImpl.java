@@ -1048,7 +1048,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
       invalidateEntityGraphCacheOnSyncIngest(
           opContext, aspectsBatch, ingestResults.getUpdateAspectResults());
-      invalidateEntityClientCacheOnSyncIngest(opContext, aspectsBatch);
     } finally {
       // Retention is best-effort cleanup keyed only on the committed upsert results, not on MCL
       // output. Run it in a finally so a failure emitting MCLs / running side effects — all of
@@ -1056,6 +1055,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       // retention ran before MCL work; post-commit must not regress that). applyRetentionPostCommit
       // never throws (its own outer try/catch), so it cannot mask an in-flight exception here.
       applyRetentionPostCommit(opContext, ingestResults.getUpdateAspectResults());
+      // Same rationale: evict written aspects from the same-node client cache post-commit so a
+      // failure emitting MCLs / running side effects above cannot leave reads stale until TTL.
+      invalidateEntityClientCacheOnSyncIngest(opContext, ingestResults.getUpdateAspectResults());
     }
 
     return updateAspectResults;
@@ -1080,12 +1082,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * {@code corpUserInfo} and other entityClient-cached aspects from a TTL cache that is otherwise
    * only refreshed on expiry. Without eviction, a read that follows a write on the same node
    * returns stale data for up to the aspect TTL — a read-your-writes gap. Mirrors {@link
-   * #invalidateEntityGraphCacheOnSyncIngest} so both caches drop stale entries at commit. Best
-   * effort: a caching retriever that is not the entity-client-backed one (e.g. EMPTY in tests) is
-   * skipped, and any failure here must never fail the write that already committed.
+   * #invalidateEntityGraphCacheOnSyncIngest} so both caches drop stale entries at commit.
+   *
+   * <p>Eviction keys come from the committed {@link UpdateAspectResult}s — not the input batch — so
+   * default/derived aspects written as a side effect (e.g. {@code corpUserKey}) are evicted too.
+   * Best effort: a caching retriever that is not the entity-client-backed one (e.g. EMPTY in tests)
+   * is skipped, and any failure here must never fail the write that already committed.
    */
   private void invalidateEntityClientCacheOnSyncIngest(
-      @Nonnull OperationContext opContext, @Nonnull AspectsBatch aspectsBatch) {
+      @Nonnull OperationContext opContext, @Nonnull List<UpdateAspectResult> updateResults) {
     try {
       CachingAspectRetriever cachingAspectRetriever =
           opContext.getRetrieverContext().getCachingAspectRetriever();
@@ -1095,12 +1100,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       EntityClientCache cache = entityClientRetriever.getEntityClient().getEntityClientCache();
 
       Map<Urn, Set<String>> aspectNamesByUrn = new HashMap<>();
-      for (BatchItem item : aspectsBatch.getItems()) {
+      for (UpdateAspectResult result : updateResults) {
+        if (result.getUrn() == null || result.getAspectName() == null) {
+          continue;
+        }
         aspectNamesByUrn
-            .computeIfAbsent(item.getUrn(), urn -> new HashSet<>())
-            .add(item.getAspectName());
+            .computeIfAbsent(result.getUrn(), urn -> new HashSet<>())
+            .add(result.getAspectName());
       }
-      aspectNamesByUrn.forEach(cache::invalidate);
+      // Single keyset pass for the whole batch — O(cacheSize), not O(urns × cacheSize).
+      cache.invalidate(aspectNamesByUrn);
     } catch (Exception e) {
       log.warn("Failed to invalidate entity client cache after sync ingest", e);
     }
