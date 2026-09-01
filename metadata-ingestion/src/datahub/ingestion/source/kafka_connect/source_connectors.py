@@ -3457,7 +3457,7 @@ class DebeziumSourceConnector(BaseConnector):
                     )
 
                     if schema_name_matches:
-                        matched_tables.append(table_without_database)
+                        matched_tables.append(normalized_table_name)
 
             logger.debug(
                 f"Pattern '{pattern}' matched {len(matched_tables)} tables from DataHub"
