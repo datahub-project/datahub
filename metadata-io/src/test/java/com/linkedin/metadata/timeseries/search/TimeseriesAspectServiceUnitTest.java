@@ -1361,7 +1361,7 @@ public class TimeseriesAspectServiceUnitTest {
     // only exercised STRING groupings, so this covers the date-histogram nesting the buckets loader
     // relies on.
     when(indexConvention.getTimeseriesAspectIndexName(
-            any(OperationFingerprint.class), eq("dashboard"), eq("dashboardUsageStatistics")))
+            eq("dashboard"), eq("dashboardUsageStatistics")))
         .thenReturn("dashboard_dashboardusagestatistics_v1");
 
     ParsedTerms emptyTerms = mock(ParsedTerms.class);
