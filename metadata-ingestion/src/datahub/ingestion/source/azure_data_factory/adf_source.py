@@ -64,8 +64,10 @@ from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
     ColumnLineageExtractor,
     CopyActivityColumnLineageExtractor,
     DatasetSchemaInfo,
+    build_lowercase_column_map,
     get_activity_translator_config,
     infer_auto_mappings_by_name,
+    match_sink_column_casing,
     parse_translator_column_mappings,
 )
 from datahub.ingestion.source.azure_data_factory.adf_config import (
@@ -2666,8 +2668,10 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
     ) -> list[tuple[tuple[str, ...], str]]:
         """For Copy activities with a custom SQL query source and a
         resolved sink table, derive column-level (fine-grained) lineage
-        from the query's own selected column list, assuming the sink
-        column has the same name - the same "auto-map by name" default
+        from the query's own selected column list, name-matched against
+        the sink's own schema when DataHub already knows it (falling
+        back to the source's own casing when it doesn't - see
+        match_sink_column_casing) - the same "auto-map by name" default
         ADF itself uses for a Copy activity with no explicit translator
         (CopyActivityColumnLineageExtractor's auto-mapping already makes
         this same assumption for the static/no-execution-history case).
@@ -2747,12 +2751,23 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 )
             return []
 
+        # The query's own SELECT list (e.g. "SELECT *") only ever reflects
+        # the source's column names - resolve each to the sink's actual
+        # field-path casing when DataHub already knows the sink's schema,
+        # for the same reason infer_auto_mappings_by_name does.
+        sink_columns_by_lower = build_lowercase_column_map(
+            self._resolve_schema_via_graph(sink_urn)
+        )
+
         column_mappings: list[tuple[tuple[str, ...], str]] = []
         for column in result.column_lineage:
             upstream_urns = tuple(column.upstream_schema_field_urns())
             if not upstream_urns or not column.downstream.column:
                 continue
-            downstream_urn = str(SchemaFieldUrn(sink_urn, column.downstream.column))
+            sink_column = match_sink_column_casing(
+                column.downstream.column, sink_columns_by_lower
+            )
+            downstream_urn = str(SchemaFieldUrn(sink_urn, sink_column))
             column_mappings.append((upstream_urns, downstream_urn))
             self.report.report_column_lineage_extracted()
         return column_mappings
@@ -2782,12 +2797,18 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
     ) -> list[tuple[tuple[str, ...], str]]:
         """Same-name column mapping for every column in source_urn's
         schema, looked up from DataHub itself rather than the query
-        text - see _resolve_schema_via_graph."""
+        text - see _resolve_schema_via_graph. Also resolves the sink's
+        own schema (when DataHub already has it) so the downstream field
+        path matches the sink's actual column casing instead of assuming
+        it's identical to the source's - see infer_auto_mappings_by_name."""
         source_schema = self._resolve_schema_via_graph(source_urn)
         if not source_schema:
             return []
+        sink_schema = self._resolve_schema_via_graph(sink_urn)
         return self._lineages_to_column_mappings(
-            infer_auto_mappings_by_name(source_urn, sink_urn, source_schema)
+            infer_auto_mappings_by_name(
+                source_urn, sink_urn, source_schema, sink_schema
+            )
         )
 
     def _resolve_schema_via_graph(
