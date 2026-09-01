@@ -5,6 +5,7 @@ produces the expected metadata events.
 """
 
 import json
+import re
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, Iterator, List, Optional, cast
@@ -1284,7 +1285,7 @@ def test_adf_source_dynamic_lineage_via_query_parsing(tmp_path):
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_adf_source_query_parsing_fully_qualified_and_sink_ddl(tmp_path):
-    """Two extensions to query-based lineage recovery, mirroring a
+    """Three extensions to query-based lineage recovery, mirroring a
     real-world "mirror many source tables into equally many destination
     tables" pattern:
     1. A Databricks source's resolved query only ever contains a 2-part
@@ -1298,6 +1299,12 @@ def test_adf_source_query_parsing_fully_qualified_and_sink_ddl(tmp_path):
        source.query does for the source - parsing it should produce as
        many distinct downstream tables as sources, not a single static
        fallback.
+    3. This activity has been observed feeding from more than one
+       distinct source AND into more than one distinct sink - the
+       many-to-many fan-out case. Unioning both pairs onto the parent
+       job's lineage would wrongly imply either source feeds either
+       sink, so each real pair gets its own sibling DataJob instead, and
+       the parent job's own lineage aspect is left untouched.
     """
     output_file = tmp_path / "adf_fqn_sink_ddl_events.json"
 
@@ -1459,53 +1466,419 @@ def test_adf_source_query_parsing_fully_qualified_and_sink_ddl(tmp_path):
             pipeline.raise_from_status()
 
     events = json.loads(output_file.read_text())
-    lineage_aspects = [
+    sibling_lineage_aspects = [
         e
         for e in events
         if e.get("aspectName") == "dataJobInputOutput"
-        and "MirrorManyTables" in e.get("entityUrn", "")
+        and re.search(r",MirrorManyTables__[0-9a-f]{12}\)", e.get("entityUrn", ""))
     ]
-    assert len(lineage_aspects) >= 1
-    aspect = lineage_aspects[-1]["aspect"]["json"]
-    input_datasets = aspect["inputDatasets"]
-    output_datasets = aspect["outputDatasets"]
+    parent_lineage_aspects = [
+        e
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and e.get("entityUrn", "").endswith(",MirrorManyTables)")
+    ]
+
+    # Two distinct sources and two distinct sinks were observed for this
+    # one activity - the parent job's own lineage is left exactly as the
+    # static extraction produced it (a placeholder, since "@item()" can't
+    # be resolved statically), rather than being unioned with either real
+    # pair (which would wrongly imply either source feeds either sink).
+    # Each real pair gets its own sibling DataJob instead.
+    assert len(parent_lineage_aspects) == 1
+    parent_aspect = parent_lineage_aspects[0]["aspect"]["json"]
+    assert parent_aspect["inputDatasets"] == [
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,DatabricksSourceDataset,DEV)"
+    ]
+    assert parent_aspect["outputDatasets"] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,MssqlSinkDataset,DEV)"
+    ]
+    assert len(sibling_lineage_aspects) == 2
+
+    def _pair(aspect_json: Dict[str, Any]) -> tuple:
+        inputs = aspect_json["inputDatasets"]
+        outputs = aspect_json["outputDatasets"]
+        assert len(inputs) == 1
+        assert len(outputs) == 1
+        return inputs[0], outputs[0]
+
+    table_pairs = {_pair(e["aspect"]["json"]) for e in sibling_lineage_aspects}
 
     # Databricks source: fully qualified with the explicitly configured
     # default catalog, since ADF's Databricks datasets never expose one
-    # themselves.
+    # themselves. MSSQL sink: the distinct destination table recovered
+    # from preCopyScript, correctly paired with its own source rather
+    # than the other iteration's - fully qualified with the linked
+    # service's own declared database parameter default (a real value
+    # from the API, not a config-file setting).
     assert any(
-        d.startswith(
+        src.startswith(
             "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.sales.orders_table,"
         )
-        for d in input_datasets
-    )
-    assert any(
-        d.startswith(
-            "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.sales.customers_table,"
-        )
-        for d in input_datasets
-    )
-
-    # MSSQL sink: two distinct destination tables recovered from
-    # preCopyScript, mirroring the two source tables - not a single
-    # static fallback, and fully qualified with the linked service's own
-    # declared database parameter default (a real value from the API,
-    # not a config-file setting).
-    assert any(
-        d.startswith(
+        and dst.startswith(
             "urn:li:dataset:(urn:li:dataPlatform:mssql,WarehouseDB.sales.orders_table,"
         )
-        for d in output_datasets
+        for src, dst in table_pairs
     )
     assert any(
-        d.startswith(
+        src.startswith(
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.sales.customers_table,"
+        )
+        and dst.startswith(
             "urn:li:dataset:(urn:li:dataPlatform:mssql,WarehouseDB.sales.customers_table,"
         )
-        for d in output_datasets
+        for src, dst in table_pairs
     )
-    assert len(output_datasets) >= 2
-    assert not any("MssqlSinkDataset" in d for d in output_datasets)
-    assert not any("linkedService" in d for d in output_datasets)
+    assert not any("MssqlSinkDataset" in dst for _, dst in table_pairs)
+    assert not any("linkedService" in dst for _, dst in table_pairs)
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_adf_source_dynamic_lineage_pair_cap_overflow_falls_back_to_union(tmp_path):
+    """When an activity's many-to-many fan-out (see
+    test_adf_source_query_parsing_fully_qualified_and_sink_ddl) has more
+    distinct pairs than max_dynamic_lineage_pairs_per_activity, the
+    excess pairs fall back to being unioned onto the parent job's
+    lineage - the less precise, pre-fix behavior - rather than being
+    dropped outright.
+    """
+    output_file = tmp_path / "adf_pair_cap_overflow_events.json"
+
+    factory_name = "cap-test-factory"
+    resource_group = "cap-test-rg"
+
+    copy_activity = create_mock_activity(
+        name="CopyManyPairs",
+        activity_type="Copy",
+        inputs=[
+            {
+                "referenceName": "SourceDataset",
+                "type": "DatasetReference",
+                "parameters": {"table_name": "@item().TableName"},
+            }
+        ],
+        outputs=[
+            {
+                "referenceName": "SinkDataset",
+                "type": "DatasetReference",
+                "parameters": {"table_name": "@item().TableName"},
+            }
+        ],
+    )
+    pipeline_def = create_mock_pipeline(
+        name="CapOverflowPipeline",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        activities=[copy_activity],
+    )
+    source_dataset = create_mock_dataset(
+        name="SourceDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="SqlSourceLS",
+        dataset_type="AzureSqlTableDataset",
+        type_properties={
+            "table": {"value": "@dataset().table_name", "type": "Expression"},
+        },
+    )
+    sink_dataset = create_mock_dataset(
+        name="SinkDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="SqlSourceLS",
+        dataset_type="AzureSqlTableDataset",
+        type_properties={
+            "table": {"value": "@dataset().table_name", "type": "Expression"},
+        },
+    )
+
+    pipeline_runs = [
+        create_mock_pipeline_run(run_id="run-cap", pipeline_name="CapOverflowPipeline"),
+    ]
+    activity_runs = {
+        "run-cap": [
+            create_mock_activity_run(
+                activity_run_id=f"act-cap-{i}",
+                activity_name="CopyManyPairs",
+                activity_type="Copy",
+                pipeline_run_id="run-cap",
+                pipeline_name="CapOverflowPipeline",
+            )
+            for i in range(3)
+        ]
+    }
+    pair_names = ["alpha_table", "beta_table", "gamma_table"]
+    for i, name in enumerate(pair_names):
+        activity_runs["run-cap"][i]["input"] = {
+            "source": {"query": f"SELECT * FROM dbo.src_{name}"},
+            "sink": {"preCopyScript": f"truncate table dbo.dst_{name}"},
+        }
+
+    test_data = {
+        "factories": [
+            create_mock_factory(factory_name, resource_group, SUBSCRIPTION_ID)
+        ],
+        "pipelines": [pipeline_def],
+        "datasets": [source_dataset, sink_dataset],
+        "linked_services": [
+            create_mock_linked_service(
+                name="SqlSourceLS",
+                factory_name=factory_name,
+                resource_group=resource_group,
+                subscription_id=SUBSCRIPTION_ID,
+                service_type="AzureSqlDatabase",
+            )
+        ],
+        "triggers": [],
+        "pipeline_runs": pipeline_runs,
+        "activity_runs": activity_runs,
+    }
+    mock_client = create_mock_client(test_data, include_activity_runs=True)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-cap-overflow",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": SUBSCRIPTION_ID,
+                            "resource_group": resource_group,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_execution_history": True,
+                            "execution_history_days": 7,
+                            "env": "DEV",
+                            "max_dynamic_lineage_pairs_per_activity": 2,
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": str(output_file)},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    source_report = cast(AzureDataFactorySourceReport, pipeline.source.get_report())
+    assert source_report.dynamic_lineage_sibling_jobs_emitted == 2
+    assert source_report.dynamic_lineage_pairs_over_cap == 1
+    assert len(source_report.warnings) > 0
+
+    events = json.loads(output_file.read_text())
+    sibling_lineage_aspects = [
+        e
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and re.search(r",CopyManyPairs__[0-9a-f]{12}\)", e.get("entityUrn", ""))
+    ]
+    parent_lineage_aspects = [
+        e
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and e.get("entityUrn", "").endswith(",CopyManyPairs)")
+    ]
+
+    assert len(sibling_lineage_aspects) == 2
+    # The static (creation-time) aspect, plus one augmentation MCP
+    # unioning the single pair that didn't fit under the cap.
+    assert len(parent_lineage_aspects) == 2
+    overflow_aspect = parent_lineage_aspects[-1]["aspect"]["json"]
+    assert len(overflow_aspect["inputDatasets"]) == 1
+    assert len(overflow_aspect["outputDatasets"]) == 1
+
+    sibling_sources = {
+        e["aspect"]["json"]["inputDatasets"][0] for e in sibling_lineage_aspects
+    }
+    sibling_sinks = {
+        e["aspect"]["json"]["outputDatasets"][0] for e in sibling_lineage_aspects
+    }
+    all_sources = sibling_sources | set(overflow_aspect["inputDatasets"])
+    all_sinks = sibling_sinks | set(overflow_aspect["outputDatasets"])
+
+    # All three real pairs ended up represented somewhere - two as
+    # siblings, one unioned onto the parent - none silently dropped.
+    for name in pair_names:
+        assert any(f"src_{name}" in urn for urn in all_sources)
+        assert any(f"dst_{name}" in urn for urn in all_sinks)
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_adf_source_dynamic_lineage_pair_matching_static_skips_duplicate_sibling(
+    tmp_path,
+):
+    """One of several fanned-out pairs can happen to resolve to exactly
+    the activity's own static lineage (e.g. its dataset references
+    aren't parameterized at all, and one run's query/DDL just happens to
+    read/write the same tables). That pair is already covered by the
+    parent job's own static dataJobInputOutput aspect, so it must not
+    also get a duplicate sibling DataJob.
+    """
+    output_file = tmp_path / "adf_pair_matches_static_events.json"
+
+    factory_name = "static-match-test-factory"
+    resource_group = "static-match-test-rg"
+
+    copy_activity = create_mock_activity(
+        name="CopyStaticMatch",
+        activity_type="Copy",
+        inputs=[{"referenceName": "StaticSourceDataset", "type": "DatasetReference"}],
+        outputs=[{"referenceName": "StaticSinkDataset", "type": "DatasetReference"}],
+    )
+    pipeline_def = create_mock_pipeline(
+        name="StaticMatchPipeline",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        activities=[copy_activity],
+    )
+    source_dataset = create_mock_dataset(
+        name="StaticSourceDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="SqlSourceLS",
+        dataset_type="AzureSqlTableDataset",
+        type_properties={"table": "orders_table"},
+    )
+    sink_dataset = create_mock_dataset(
+        name="StaticSinkDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="SqlSourceLS",
+        dataset_type="AzureSqlTableDataset",
+        type_properties={"table": "staging_orders"},
+    )
+
+    pipeline_runs = [
+        create_mock_pipeline_run(
+            run_id="run-static-match", pipeline_name="StaticMatchPipeline"
+        ),
+    ]
+    activity_runs = {
+        "run-static-match": [
+            create_mock_activity_run(
+                activity_run_id=f"act-static-match-{i}",
+                activity_name="CopyStaticMatch",
+                activity_type="Copy",
+                pipeline_run_id="run-static-match",
+                pipeline_name="StaticMatchPipeline",
+            )
+            for i in range(3)
+        ]
+    }
+    # Run 0 resolves to exactly the same tables as the activity's own
+    # static (unparameterized) dataset references - runs 1 and 2 resolve
+    # to genuinely different tables, making this a real many-to-many
+    # fan-out overall.
+    runs = [
+        ("orders_table", "staging_orders"),
+        ("customers_table", "staging_customers"),
+        ("vendors_table", "staging_vendors"),
+    ]
+    for i, (source_table, sink_table) in enumerate(runs):
+        activity_runs["run-static-match"][i]["input"] = {
+            "source": {"query": f"SELECT * FROM {source_table}"},
+            "sink": {"preCopyScript": f"truncate table {sink_table}"},
+        }
+
+    test_data = {
+        "factories": [
+            create_mock_factory(factory_name, resource_group, SUBSCRIPTION_ID)
+        ],
+        "pipelines": [pipeline_def],
+        "datasets": [source_dataset, sink_dataset],
+        "linked_services": [
+            create_mock_linked_service(
+                name="SqlSourceLS",
+                factory_name=factory_name,
+                resource_group=resource_group,
+                subscription_id=SUBSCRIPTION_ID,
+                service_type="AzureSqlDatabase",
+            )
+        ],
+        "triggers": [],
+        "pipeline_runs": pipeline_runs,
+        "activity_runs": activity_runs,
+    }
+    mock_client = create_mock_client(test_data, include_activity_runs=True)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-static-match",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": SUBSCRIPTION_ID,
+                            "resource_group": resource_group,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_execution_history": True,
+                            "execution_history_days": 7,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": str(output_file)},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    events = json.loads(output_file.read_text())
+    static_lineage_aspects = [
+        e
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and e.get("entityUrn", "").endswith(",CopyStaticMatch)")
+    ]
+    sibling_lineage_aspects = [
+        e
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and re.search(r",CopyStaticMatch__[0-9a-f]{12}\)", e.get("entityUrn", ""))
+    ]
+
+    assert len(static_lineage_aspects) == 1
+    static_aspect = static_lineage_aspects[0]["aspect"]["json"]
+    assert any("orders_table" in d for d in static_aspect["inputDatasets"])
+    assert any("staging_orders" in d for d in static_aspect["outputDatasets"])
+
+    # Only the two genuinely-different pairs get a sibling - the pair
+    # that duplicates the parent's own static lineage does not.
+    assert len(sibling_lineage_aspects) == 2
+    sibling_sources = {
+        e["aspect"]["json"]["inputDatasets"][0] for e in sibling_lineage_aspects
+    }
+    assert not any("orders_table" in urn for urn in sibling_sources)
+    assert any("customers_table" in urn for urn in sibling_sources)
+    assert any("vendors_table" in urn for urn in sibling_sources)
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -3429,33 +3802,43 @@ def test_adf_source_dynamic_column_lineage_via_query_parsing(tmp_path):
             pipeline.raise_from_status()
 
     events = json.loads(output_file.read_text())
-    lineage_aspects = [
+    sibling_lineage_aspects = [
         e
         for e in events
         if e.get("aspectName") == "dataJobInputOutput"
-        and "MirrorManyTablesWithColumns" in e.get("entityUrn", "")
+        and re.search(
+            r",MirrorManyTablesWithColumns__[0-9a-f]{12}\)", e.get("entityUrn", "")
+        )
     ]
-    assert len(lineage_aspects) >= 1
-    aspect = lineage_aspects[-1]["aspect"]["json"]
-    fine_grained_lineages = aspect.get("fineGrainedLineages")
-    assert fine_grained_lineages, "expected column-level lineage to be emitted"
+
+    # Two distinct sources and two distinct sinks were observed - each
+    # real pair gets its own sibling DataJob (see
+    # test_adf_source_query_parsing_fully_qualified_and_sink_ddl), and
+    # its column-level lineage is scoped to only that pair's own columns
+    # rather than unioned with the other pair's.
+    assert len(sibling_lineage_aspects) == 2
+
+    all_mappings: set = set()
+    for e in sibling_lineage_aspects:
+        fine_grained_lineages = e["aspect"]["json"].get("fineGrainedLineages")
+        assert fine_grained_lineages, "expected column-level lineage to be emitted"
+        all_mappings.update(
+            (fgl["upstreams"][0], fgl["downstreams"][0])
+            for fgl in fine_grained_lineages
+        )
 
     # 3 columns for orders_table + 2 columns for customers_table = 5 total
-    # distinct column-level mappings, each pointing at its own real table
-    # pair - not a single static/generic fallback.
-    assert len(fine_grained_lineages) == 5
-
-    mappings = {
-        (fgl["upstreams"][0], fgl["downstreams"][0]) for fgl in fine_grained_lineages
-    }
+    # distinct column-level mappings across both siblings, each pointing
+    # at its own real table pair - not a single static/generic fallback.
+    assert len(all_mappings) == 5
     assert (
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,sales.orders_table,DEV),id)",
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,sales.orders_table,DEV),id)",
-    ) in mappings
+    ) in all_mappings
     assert (
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,sales.customers_table,DEV),email)",
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,sales.customers_table,DEV),email)",
-    ) in mappings
+    ) in all_mappings
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

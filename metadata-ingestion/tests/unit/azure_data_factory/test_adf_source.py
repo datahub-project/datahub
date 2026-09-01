@@ -47,6 +47,7 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
 )
+from datahub.sdk.dataflow import DataFlow
 
 
 class TestLinkedServicePlatformMapping:
@@ -2053,3 +2054,99 @@ class TestGraphSchemaColumnLineageFallback:
         )
 
         assert mappings == []
+
+
+class TestPairSiblingDataJobEmission:
+    """Tests for _emit_pair_sibling_datajob, the mechanism that gives a
+    many-to-many activity fan-out (an activity observed feeding from
+    more than one distinct source AND into more than one distinct sink -
+    e.g. a ForEach-looped Copy activity) its own precise lineage entity
+    per real (source, sink) pair, instead of a shared DataJob whose
+    unioned inputs/outputs would otherwise imply every source feeds
+    every sink. See _emit_dynamic_lineage_augmentation."""
+
+    def _make_source(self) -> AzureDataFactorySource:
+        source = object.__new__(AzureDataFactorySource)
+        source.config = AzureDataFactoryConfig(
+            subscription_id="test-sub", include_column_lineage=False
+        )
+        source.report = AzureDataFactorySourceReport()
+        dataflow = DataFlow(
+            platform="azure-data-factory", name="test-factory.TestPipeline", env="DEV"
+        )
+        source._dataflow_cache = {("test-factory", "TestPipeline"): dataflow}
+        return source
+
+    def _pair_key(
+        self, source_table: str, sink_table: str
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        return (
+            (f"urn:li:dataset:(urn:li:dataPlatform:mssql,db.{source_table},PROD)",),
+            (f"urn:li:dataset:(urn:li:dataPlatform:mssql,db.{sink_table},PROD)",),
+        )
+
+    def _emit(self, source: AzureDataFactorySource, pair_key: Any) -> Any:
+        factory = SimpleNamespace(name="test-factory")
+        activity = SimpleNamespace(name="CopyActivity", type="Copy", description=None)
+        workunits = list(
+            source._emit_pair_sibling_datajob(
+                factory,
+                "test-rg",
+                "test-factory",
+                "TestPipeline",
+                "CopyActivity",
+                activity,
+                pair_key,
+                set(),
+            )
+        )
+        assert len(workunits) >= 1
+        return workunits[0].get_urn()
+
+    def test_same_pair_produces_stable_job_id(self) -> None:
+        """Sibling job_ids are deterministic hashes of the pair, not
+        random per-run identifiers - re-ingesting the same pair must
+        mint the same DataJob URN, not a duplicate."""
+        source = self._make_source()
+        pair_key = self._pair_key("orders_table", "staging_table")
+
+        first_urn = self._emit(source, pair_key)
+        second_urn = self._emit(source, pair_key)
+
+        assert first_urn == second_urn
+
+    def test_different_pairs_produce_different_job_ids(self) -> None:
+        source = self._make_source()
+
+        orders_urn = self._emit(source, self._pair_key("orders_table", "staging_table"))
+        customers_urn = self._emit(
+            source, self._pair_key("customers_table", "staging_table")
+        )
+
+        assert orders_urn != customers_urn
+
+    def test_missing_dataflow_cache_entry_warns_and_yields_nothing(self) -> None:
+        """If the DataFlow for this pipeline was never cached (e.g. an
+        unexpected ordering bug), skip rather than crashing - the parent
+        job's own lineage is unaffected either way - but report a warning
+        rather than dropping the pair's lineage with no signal at all."""
+        source = self._make_source()
+        source._dataflow_cache = {}
+        factory = SimpleNamespace(name="test-factory")
+        activity = SimpleNamespace(name="CopyActivity", type="Copy", description=None)
+
+        workunits = list(
+            source._emit_pair_sibling_datajob(
+                factory,
+                "test-rg",
+                "test-factory",
+                "TestPipeline",
+                "CopyActivity",
+                activity,
+                self._pair_key("orders_table", "staging_table"),
+                set(),
+            )
+        )
+
+        assert workunits == []
+        assert len(source.report.warnings) == 1
