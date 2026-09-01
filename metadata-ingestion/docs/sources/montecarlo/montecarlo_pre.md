@@ -22,10 +22,20 @@ In order to ingest metadata from Monte Carlo, you will need:
 #### Cross-platform URN mapping
 
 A Monte Carlo MCON does not encode the DataHub platform. The connector resolves each MCON to a
-concrete table via `getTable` and maps the warehouse connection type to a DataHub platform. Use
-`connection_to_platform_map` to pin the `platform`, `platform_instance` and `env` for each Monte
-Carlo warehouse so the resulting dataset URNs line up with the URNs emitted by your warehouse
-sources (Snowflake, BigQuery, etc.).
+concrete table via `getTable` and uses `connection_to_platform_map` to pin the `platform`,
+`platform_instance` and `env` for each Monte Carlo warehouse so the resulting dataset URNs line up
+with the URNs emitted by your warehouse sources (Snowflake, BigQuery, etc.). This explicit map is
+the default and safest resolution path: an asset whose warehouse is not in the map is skipped with
+a warning.
+
+If maintaining an entry per warehouse is impractical, you can opt into automatic inference with
+`auto_map_connection_types: true`. When enabled, the connector infers the DataHub platform for
+warehouses missing from `connection_to_platform_map` from the Monte Carlo warehouse connection type
+(`snowflake`, `bigquery`, `redshift`, ...), falling back to `default_platform` for unrecognized
+connection types. The inferred dataset URN uses the top-level `platform_instance` and `env` (not
+per-warehouse values), so this is only safe for single-instance-per-platform setups — in
+multi-instance setups it can attach assertions to the wrong dataset. Prefer
+`connection_to_platform_map` where possible.
 
 Each key in `connection_to_platform_map` is a Monte Carlo **warehouse resource UUID** — not the
 warehouse's display name. You can find it in any of these ways:

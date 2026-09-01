@@ -311,9 +311,6 @@ class MonteCarloAssertionBuilder:
             return
 
         assertion_urn = self._assertion_urn(definition.uuid)
-        self._ingested_by_monitor[definition.uuid] = _IngestedAssertion(
-            assertion_urn=assertion_urn, dataset_urn=dataset_urn
-        )
 
         # customProperties keeps only the DataHub-side correlation key; native MC
         # fields move to nativeType/nativeParameters. mc_monitor_uuid is a
@@ -330,6 +327,12 @@ class MonteCarloAssertionBuilder:
             custom_assertion=custom_assertion,
             description=definition.description,
             custom_properties=custom_properties,
+        )
+        # Register only after the emit succeeded: if _emit_assertion raises, the
+        # assertion is never created this run, and a dangling entry here would let
+        # build_run_event attach a failure run event to a non-existent assertion.
+        self._ingested_by_monitor[definition.uuid] = _IngestedAssertion(
+            assertion_urn=assertion_urn, dataset_urn=dataset_urn
         )
         self.report.report_assertion_emitted()
 

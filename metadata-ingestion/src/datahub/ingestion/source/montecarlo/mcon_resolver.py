@@ -76,6 +76,8 @@ class MconResolver:
         mapped = self.config.connection_to_platform_map.get(resource_id)
         if mapped is not None:
             return mapped
+        if not self.config.auto_map_connection_types:
+            return None
         platform: Optional[str] = None
         if connection_type:
             platform = CONNECTION_TYPE_TO_PLATFORM.get(connection_type.lower())
@@ -113,8 +115,9 @@ class MconResolver:
                 self.report.mcons_unmapped_platform.append(mcon)
                 self.report.warning(
                     title="Unmapped Monte Carlo warehouse",
-                    message="No platform mapping for this warehouse connection type. "
-                    "Add it to connection_to_platform_map or set default_platform.",
+                    message="No platform mapping for this warehouse. Add it to "
+                    "connection_to_platform_map, or enable auto_map_connection_types "
+                    "to infer it from the warehouse connection type.",
                     context=f"{mcon} (connection_type={resolved.connection_type})",
                 )
                 return None

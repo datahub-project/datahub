@@ -51,8 +51,10 @@ to the Monte Carlo UI via `externalUrl`.
   emits only `FAILURE` run events (from alerts/incidents). Periodic `SUCCESS` events are not
   synthesized.
 - **MCON resolution:** Each monitored asset requires one `getTable` call to resolve its MCON to a
-  warehouse table (results are cached per MCON). Assets whose warehouse connection type is not in
-  `connection_to_platform_map` (and not auto-mappable) are skipped with a warning.
+  warehouse table (results are cached per MCON). Assets whose warehouse is not in
+  `connection_to_platform_map` are skipped with a warning unless `auto_map_connection_types` is
+  enabled, in which case the platform is inferred from the warehouse connection type (with
+  `default_platform` as the fallback for unrecognized types).
 - **Assertion typing:** All monitors and rules are modeled as `CUSTOM` assertions. Their native
   `comparisons` data is mapped onto DataHub's structured `CustomAssertionInfo` fields
   (`scope`/`operator`/`aggregation`/`fields`/`parameters`) and the native type/parameters are
@@ -65,9 +67,10 @@ to the Monte Carlo UI via `externalUrl`.
 
 #### Monitored assets are skipped with a warning
 
-If you see warnings like `Could not resolve MCON to a DataHub dataset URN`, the warehouse
-connection type for that asset is not covered by `connection_to_platform_map`. Add a mapping entry
-for the connection name shown in the warning.
+If you see warnings like `Could not resolve MCON to a DataHub dataset URN`, the warehouse for that
+asset is not in `connection_to_platform_map`. Add a mapping entry for the warehouse resource UUID
+shown in the warning, or enable `auto_map_connection_types` to infer the platform from the
+warehouse connection type (falling back to `default_platform` for unrecognized types).
 
 #### Assertion URNs do not match your warehouse source
 

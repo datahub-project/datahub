@@ -112,7 +112,28 @@ def test_resolver_uses_connection_map_then_connection_type() -> None:
     assert report.mcons_resolved == 1
 
 
-def test_resolver_falls_back_to_connection_type() -> None:
+def test_resolver_auto_maps_connection_type_when_enabled() -> None:
+    """With auto_map_connection_types enabled, a warehouse missing from
+    connection_to_platform_map is resolved from its connection type."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="bigquery"
+            )
+        }
+    )
+    resolver = MconResolver(make_config(auto_map_connection_types=True), client, report)
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is not None and "bigquery" in urn
+    assert report.mcons_resolved == 1
+
+
+def test_resolver_skips_auto_mappable_warehouse_by_default() -> None:
+    """auto_map_connection_types defaults to False, so a warehouse that *could* be
+    auto-mapped is skipped with a warning unless explicitly listed in
+    connection_to_platform_map. Explicit mapping is the safe default."""
     report = MonteCarloSourceReport()
     mcon = "MCON++acct++wh-2++table++db.sch.tbl"
     client = FakeResolverClient(
@@ -123,12 +144,34 @@ def test_resolver_falls_back_to_connection_type() -> None:
         }
     )
     resolver = MconResolver(make_config(), client, report)
+    assert resolver.dataset_urn_for_mcon(mcon) is None
+    assert mcon in report.mcons_unmapped_platform
+    assert report.mcons_resolved == 0
+
+
+def test_resolver_uses_default_platform_when_auto_mapping_enabled() -> None:
+    """default_platform is only consulted when auto_map_connection_types is enabled;
+    it covers connection types not in the built-in connection-type map."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-x++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="exotic-db"
+            )
+        }
+    )
+    cfg = make_config(auto_map_connection_types=True, default_platform="postgres")
+    resolver = MconResolver(cfg, client, report)
     urn = resolver.dataset_urn_for_mcon(mcon)
-    assert urn is not None and "bigquery" in urn
+    assert urn is not None
+    assert "postgres" in urn
+    assert report.mcons_resolved == 1
 
 
-def test_resolver_uses_default_platform() -> None:
-    """default_platform is used when the connection type has no auto-mapping."""
+def test_resolver_default_platform_ignored_when_auto_mapping_disabled() -> None:
+    """default_platform alone does nothing without auto_map_connection_types —
+    explicit mapping is required, so the asset is skipped despite default_platform."""
     report = MonteCarloSourceReport()
     mcon = "MCON++acct++wh-x++table++db.sch.tbl"
     client = FakeResolverClient(
@@ -140,10 +183,8 @@ def test_resolver_uses_default_platform() -> None:
     )
     cfg = make_config(default_platform="postgres")
     resolver = MconResolver(cfg, client, report)
-    urn = resolver.dataset_urn_for_mcon(mcon)
-    assert urn is not None
-    assert "postgres" in urn
-    assert report.mcons_resolved == 1
+    assert resolver.dataset_urn_for_mcon(mcon) is None
+    assert mcon in report.mcons_unmapped_platform
 
 
 def test_resolver_warns_on_unmapped_platform() -> None:
@@ -226,7 +267,7 @@ def test_build_assertion_emits_custom_and_platform_instance() -> None:
             )
         }
     )
-    cfg = make_config()
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
     resolver = MconResolver(cfg, client, report)
     builder = MonteCarloAssertionBuilder(cfg, report, resolver)
 
@@ -266,7 +307,7 @@ def test_build_assertion_oss_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
             )
         }
     )
-    cfg = make_config()
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
     resolver = MconResolver(cfg, client, report)
     builder = MonteCarloAssertionBuilder(cfg, report, resolver)
 
@@ -304,7 +345,8 @@ def test_resolver_lowercases_snowflake_by_default() -> None:
             )
         }
     )
-    resolver = MconResolver(make_config(), client, MonteCarloSourceReport())
+    cfg = make_config(connection_to_platform_map={"wh-1": {"platform": "snowflake"}})
+    resolver = MconResolver(cfg, client, MonteCarloSourceReport())
     urn = resolver.dataset_urn_for_mcon(mcon)
     assert urn is not None
     assert "db.sch.tbl" in urn and "DB.SCH.TBL" not in urn
@@ -323,7 +365,8 @@ def test_resolver_preserves_case_for_case_sensitive_platform() -> None:
             )
         }
     )
-    resolver = MconResolver(make_config(), client, MonteCarloSourceReport())
+    cfg = make_config(connection_to_platform_map={"wh-1": {"platform": "bigquery"}})
+    resolver = MconResolver(cfg, client, MonteCarloSourceReport())
     urn = resolver.dataset_urn_for_mcon(mcon)
     assert urn is not None
     assert "Proj.Dataset.Events" in urn
@@ -343,7 +386,8 @@ def test_resolver_converts_full_table_id_colon_to_dot() -> None:
             )
         }
     )
-    resolver = MconResolver(make_config(), client, MonteCarloSourceReport())
+    cfg = make_config(connection_to_platform_map={"wh-1": {"platform": "snowflake"}})
+    resolver = MconResolver(cfg, client, MonteCarloSourceReport())
     urn = resolver.dataset_urn_for_mcon(mcon)
     assert urn is not None
     assert "mydb.public.mytable" in urn
@@ -362,7 +406,10 @@ def test_resolver_lowercases_urn_when_configured() -> None:
             )
         }
     )
-    cfg = make_config(convert_urns_to_lowercase=True)
+    cfg = make_config(
+        connection_to_platform_map={"wh-1": {"platform": "bigquery"}},
+        convert_urns_to_lowercase=True,
+    )
     resolver = MconResolver(cfg, client, MonteCarloSourceReport())
     urn = resolver.dataset_urn_for_mcon(mcon)
     assert urn is not None
@@ -456,7 +503,7 @@ def _builder_with_resolved_snowflake(
             )
         }
     )
-    cfg = make_config()
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
     resolver = MconResolver(cfg, client, report)
     return MonteCarloAssertionBuilder(cfg, report, resolver)
 
@@ -773,7 +820,7 @@ def test_build_run_event_links_to_ingested_monitor() -> None:
             )
         }
     )
-    cfg = make_config()
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
     resolver = MconResolver(cfg, client, report)
     builder = MonteCarloAssertionBuilder(cfg, report, resolver)
     _build_assertion_workunits(
@@ -792,6 +839,10 @@ def test_build_run_event_links_to_ingested_monitor() -> None:
     assert isinstance(run_event, AssertionRunEventClass)
     assert run_event.runId == "alert-1"
     assert run_event.result is not None and run_event.result.type == "FAILURE"
+    # The run event must bind to the ingested monitor's assertion and its dataset,
+    # not to swapped/blank URNs — mutation-tested to fail if either is wrong.
+    assert run_event.assertionUrn == builder._assertion_urn("mon-1")
+    assert run_event.asserteeUrn == resolver.dataset_urn_for_mcon(mcon)
     assert report.run_events_emitted == 1
 
 
@@ -823,7 +874,7 @@ def test_build_run_event_uses_first_ingested_monitor_uuid() -> None:
             )
         }
     )
-    cfg = make_config()
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
     resolver = MconResolver(cfg, client, report)
     builder = MonteCarloAssertionBuilder(cfg, report, resolver)
     # Ingest only "mon-2"; "mon-1" and "mon-3" are not ingested (filtered /
@@ -846,6 +897,46 @@ def test_build_run_event_uses_first_ingested_monitor_uuid() -> None:
     # The run event attaches to mon-2's assertion, proving the second UUID was used.
     assert run_event.assertionUrn == builder._assertion_urn("mon-2")
     assert report.run_events_emitted == 1
+
+
+def test_build_assertion_failed_emit_does_not_register_monitor() -> None:
+    """If _emit_assertion raises, the monitor must NOT be registered in
+    _ingested_by_monitor — otherwise build_run_event would later bind a failure
+    run event to an assertion that was never created this run (Bugbot finding)."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+
+    def boom(*args: Any, **kwargs: Any) -> Iterator[MetadataWorkUnit]:
+        raise RuntimeError("emit exploded")
+
+    builder._emit_assertion = boom  # type: ignore[method-assign]
+    definition = MonteCarloAssertionDef(uuid="mon-1", entity_mcons=[mcon])
+
+    with pytest.raises(RuntimeError):
+        list(builder.build_assertion(definition))
+
+    # The monitor was never emitted, so it must not be registered — a later
+    # alert for it must be skipped, not bound to a non-existent assertion.
+    assert "mon-1" not in builder._ingested_by_monitor
+    assert report.assertions_emitted == 0
+
+    alert = MonteCarloAlert(
+        uuid="alert-x",
+        monitor_uuids=["mon-1"],
+        created_time="2026-05-01T00:00:00+00:00",
+    )
+    assert list(builder.build_run_event(alert)) == []
+    assert report.run_events_emitted == 0
 
 
 # --- Client parsing / pagination (against recorded GraphQL dicts) ---
@@ -1151,7 +1242,8 @@ def test_client_get_table_parses_connection_type() -> None:
 
 
 def test_resolver_non_obvious_connection_types() -> None:
-    """sql-server and synapse both map to mssql (non-obvious aliases)."""
+    """sql-server and synapse both map to mssql (non-obvious aliases), but only
+    when auto_map_connection_types is enabled."""
     mcon = "MCON++acct++wh++table++db.sch.tbl"
     for connection_type in ("sql-server", "synapse"):
         client = FakeResolverClient(
@@ -1164,7 +1256,9 @@ def test_resolver_non_obvious_connection_types() -> None:
             }
         )
         urn = MconResolver(
-            make_config(), client, MonteCarloSourceReport()
+            make_config(auto_map_connection_types=True),
+            client,
+            MonteCarloSourceReport(),
         ).dataset_urn_for_mcon(mcon)
         assert urn is not None
         assert "mssql" in urn, f"{connection_type} should resolve to mssql"
@@ -1504,7 +1598,11 @@ def test_get_workunits_warns_when_all_assertions_skipped() -> None:
 def test_get_workunits_no_guard_when_assertions_emitted() -> None:
     """The all-failed guard must NOT fire when at least one assertion is emitted."""
     source = MonteCarloSource.__new__(MonteCarloSource)
-    source.config = make_config(include_assertions=True, include_alerts=False)
+    source.config = make_config(
+        include_assertions=True,
+        include_alerts=False,
+        connection_to_platform_map={"wh-2": {"platform": "snowflake"}},
+    )
     source.report = MonteCarloSourceReport()
     mcon = "MCON++acct++wh-2++table++db.sch.tbl"
 

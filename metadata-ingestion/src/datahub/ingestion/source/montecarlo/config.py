@@ -63,13 +63,26 @@ class MonteCarloSourceConfig(
         "they line up with the warehouse source's URNs. The key is the warehouse's "
         "resource UUID (the resource segment of an asset's MCON, "
         "``MCON++<account>++<resource-uuid>++table++...``; also visible on the "
-        "warehouse in the Monte Carlo settings UI), not its display name.",
+        "warehouse in the Monte Carlo settings UI), not its display name. This is the "
+        "default and safest resolution path — assets whose warehouse is not in this "
+        "map are skipped with a warning unless auto_map_connection_types is enabled.",
+    )
+    auto_map_connection_types: bool = Field(
+        default=False,
+        description="When enabled, infer the DataHub platform for warehouses missing "
+        "from connection_to_platform_map from the Monte Carlo warehouse connection type "
+        "(snowflake, bigquery, redshift, ...), falling back to default_platform for "
+        "unrecognized connection types. The inferred dataset URN uses the top-level "
+        "platform_instance and env (not per-warehouse values), so this is only safe "
+        "for single-instance-per-platform setups — in multi-instance setups it can "
+        "attach assertions to the wrong dataset. Disabled by default; prefer "
+        "connection_to_platform_map where possible.",
     )
     default_platform: Optional[str] = Field(
         default=None,
-        description="Fallback DataHub platform to use when a warehouse is not present in "
-        "connection_to_platform_map and the warehouse connection type cannot be mapped "
-        "automatically. Leave unset to skip (and warn about) unresolvable assets.",
+        description="Fallback DataHub platform used only when auto_map_connection_types "
+        "is enabled and a warehouse's connection type is not in the built-in "
+        "connection-type map. Leave unset to skip (and warn about) such warehouses.",
     )
 
     include_assertions: bool = Field(
