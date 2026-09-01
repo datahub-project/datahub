@@ -1,10 +1,12 @@
 package com.linkedin.metadata.systemmetadata;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -24,8 +26,10 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.AggregationBuilders;
+import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.filter.Filter;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -42,23 +46,26 @@ public class PlatformEntityCounts {
   public static final String NO_PLATFORM = "NO_PLATFORM";
 
   private static final String PLATFORM_FIELD = "platform";
-  private static final String PLATFORM_AGG_FIELD = "platform.keyword";
   private static final String PLATFORM_AGG_NAME = "by_platform";
   private static final String ACTIVE_AGG_NAME = "active";
   private static final String SOFT_DELETED_AGG_NAME = "soft_deleted";
+  private static final String ENTITY_TYPE_FIELD = "_entityType";
   private static final int MAX_PLATFORM_BUCKETS = 500;
   private static final String DATA_PLATFORM_INSTANCE_ASPECT = "dataPlatformInstance";
 
   private final SearchClientShim<?> searchClient;
   private final EntityRegistry entityRegistry;
+  private final EntityIndexConfiguration entityIndexConfiguration;
   private final int maxEntityTypes;
 
   public PlatformEntityCounts(
       @Nonnull SearchClientShim<?> searchClient,
       @Nonnull EntityRegistry entityRegistry,
+      @Nullable EntityIndexConfiguration entityIndexConfiguration,
       int maxEntityTypes) {
     this.searchClient = Objects.requireNonNull(searchClient, "searchClient");
     this.entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry");
+    this.entityIndexConfiguration = entityIndexConfiguration;
     this.maxEntityTypes = maxEntityTypes;
   }
 
@@ -66,6 +73,14 @@ public class PlatformEntityCounts {
   public PlatformEntityCountResult getCountsByPlatform(
       @Nonnull OperationContext opContext, @Nullable List<String> entityTypes) {
     List<String> resolved = resolveEntityTypes(entityTypes);
+    if (!v2Enabled() && !v3Enabled()) {
+      return PlatformEntityCountResult.builder()
+          .counts(List.of())
+          .requestedTypes(resolved)
+          .computedAt(Instant.now())
+          .build();
+    }
+
     List<PlatformEntityCountEntry> entries = new ArrayList<>();
     for (String entityType : resolved) {
       if (!hasPlatformSearchField(entityType)) {
@@ -75,7 +90,9 @@ public class PlatformEntityCounts {
       try {
         entries.addAll(countEntityTypeByPlatform(opContext, entityType));
       } catch (IOException e) {
-        log.warn("Platform count failed for entity type {}; skipping", entityType, e);
+        throw new RuntimeException("Platform count query failed for entity type " + entityType, e);
+      } catch (OpenSearchStatusException e) {
+        throw new RuntimeException("Platform count query failed for entity type " + entityType, e);
       }
     }
     return PlatformEntityCountResult.builder()
@@ -88,17 +105,31 @@ public class PlatformEntityCounts {
   @Nonnull
   private List<PlatformEntityCountEntry> countEntityTypeByPlatform(
       @Nonnull OperationContext opContext, @Nonnull String entityType) throws IOException {
+    EntitySpec spec = entityRegistry.getEntitySpec(entityType);
+    IndexConvention convention = opContext.getSearchContext().getIndexConvention();
+    boolean useV3 = !v2Enabled() && v3Enabled();
     String indexName =
-        opContext.getSearchContext().getIndexConvention().getEntityIndexName(opContext, entityType);
+        useV3
+            ? convention.getEntityIndexNameV3(opContext, spec.getSearchGroup())
+            : convention.getEntityIndexName(opContext, entityType);
+    String aggField =
+        useV3
+            ? PLATFORM_FIELD
+            : ESUtils.toKeywordField(
+                opContext, PLATFORM_FIELD, false, opContext.getAspectRetriever());
+    QueryBuilder query =
+        useV3
+            ? QueryBuilders.termQuery(ENTITY_TYPE_FIELD, entityType)
+            : QueryBuilders.matchAllQuery();
 
     SearchSourceBuilder source =
         new SearchSourceBuilder()
-            .query(QueryBuilders.matchAllQuery())
+            .query(query)
             .size(0)
             .trackTotalHits(false)
             .aggregation(
                 AggregationBuilders.terms(PLATFORM_AGG_NAME)
-                    .field(PLATFORM_AGG_FIELD)
+                    .field(aggField)
                     .missing(NO_PLATFORM)
                     .size(MAX_PLATFORM_BUCKETS)
                     .subAggregation(
@@ -123,17 +154,24 @@ public class PlatformEntityCounts {
       throw e;
     }
 
-    Terms platformTerms = response.getAggregations().get(PLATFORM_AGG_NAME);
+    Aggregations aggregations = response.getAggregations();
+    if (aggregations == null) {
+      return List.of();
+    }
+    Terms platformTerms = aggregations.get(PLATFORM_AGG_NAME);
     if (platformTerms == null) {
       return List.of();
     }
     long otherDocCount = platformTerms.getSumOfOtherDocCounts();
     if (otherDocCount > 0) {
-      log.warn(
-          "Platform terms aggregation for {} truncated {} docs outside top {} buckets",
-          entityType,
-          otherDocCount,
-          MAX_PLATFORM_BUCKETS);
+      throw new IllegalStateException(
+          "Platform terms aggregation for "
+              + entityType
+              + " truncated "
+              + otherDocCount
+              + " docs outside top "
+              + MAX_PLATFORM_BUCKETS
+              + " buckets");
     }
 
     List<PlatformEntityCountEntry> entries = new ArrayList<>();
@@ -189,6 +227,18 @@ public class PlatformEntityCounts {
       }
     }
     return false;
+  }
+
+  private boolean v2Enabled() {
+    return entityIndexConfiguration != null
+        && entityIndexConfiguration.getV2() != null
+        && entityIndexConfiguration.getV2().isEnabled();
+  }
+
+  private boolean v3Enabled() {
+    return entityIndexConfiguration != null
+        && entityIndexConfiguration.getV3() != null
+        && entityIndexConfiguration.getV3().isEnabled();
   }
 
   @Nonnull

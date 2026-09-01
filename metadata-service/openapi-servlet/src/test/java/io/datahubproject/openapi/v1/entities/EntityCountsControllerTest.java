@@ -220,6 +220,22 @@ public class EntityCountsControllerTest {
   }
 
   @Test
+  public void getEntityCountsUnsupportedGroupByReturnsBadRequest() throws Exception {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorized(
+                    any(OperationContext.class), eq(ApiGroup.COUNTS), eq(ApiOperation.READ)))
+        .thenReturn(true);
+
+    mockMvc
+        .perform(
+            get("/openapi/v1/entities/counts?types=dataset&groupBy=foo")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   public void getEntityTypeCountReturnsSingleType() throws Exception {
     authUtilMock
         .when(

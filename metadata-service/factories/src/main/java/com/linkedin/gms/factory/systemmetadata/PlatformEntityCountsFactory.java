@@ -20,6 +20,10 @@ public class PlatformEntityCountsFactory {
       ConfigurationProvider configurationProvider) {
     int maxEntityTypes =
         configurationProvider.getCache().getEntityCounts().getKeyAspect().getMaxEntityTypes();
-    return new PlatformEntityCounts(searchClient, entityRegistry, maxEntityTypes);
+    return new PlatformEntityCounts(
+        searchClient,
+        entityRegistry,
+        configurationProvider.getElasticSearch().getEntityIndex(),
+        maxEntityTypes);
   }
 }

@@ -63,7 +63,10 @@ public class EntityCountsController {
       description =
           "Returns active and soft-deleted entity counts per registry key aspect. "
               + "Omit types for all entity types. Pass groupBy=platform for a "
-              + "(entityType, platform) breakdown from the entity search index.")
+              + "(entityType, platform) breakdown from the entity search index "
+              + "(live aggregation; skipCache does not apply). With groupBy=platform, "
+              + "includeTotal sums only returned (entityType, platform) rows; types "
+              + "without a searchable platform field are omitted.")
   public ResponseEntity<EntityCountsResponseDto> getEntityCounts(
       HttpServletRequest request,
       @Parameter(description = "Entity types to include. Omit for all registry entity types.")
@@ -75,10 +78,17 @@ public class EntityCountsController {
                       + "NO_PLATFORM for missing values).")
           @RequestParam(name = "groupBy", required = false)
           String groupBy,
-      @Parameter(description = "When true, include totalCount rollups in the response.")
+      @Parameter(
+              description =
+                  "When true, include totalCount rollups in the response. With "
+                      + "groupBy=platform, totals sum only returned (entityType, platform) "
+                      + "rows; types without a searchable platform field are omitted.")
           @RequestParam(name = "includeTotal", required = false, defaultValue = "false")
           boolean includeTotal,
-      @Parameter(description = "When true, bypass the distributed entity count cache.")
+      @Parameter(
+              description =
+                  "When true, bypass the distributed entity count cache. Ignored when "
+                      + "groupBy=platform (platform counts are always computed live).")
           @RequestParam(name = "skipCache", required = false, defaultValue = "false")
           boolean skipCache) {
     OperationContext opContext = buildSession(request, "getEntityCounts", types);
