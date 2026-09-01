@@ -68,7 +68,7 @@ jobs:
       # Cache ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
       - name: Restore yarn cache
         id: yarn-cache
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
@@ -78,7 +78,7 @@ jobs:
         run: ./gradlew :datahub-web-react:mdPrettierCheck :datahub-web-react:docusaurusMarkdownLint
       - name: Save yarn cache
         if: always() && steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
@@ -99,7 +99,7 @@ jobs:
       # Cache ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
       - name: Restore yarn cache
         id: yarn-cache
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
@@ -109,7 +109,7 @@ jobs:
         run: ./gradlew :datahub-web-react:githubActionsPrettierCheck
       - name: Save yarn cache
         if: always() && steps.yarn-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
@@ -131,7 +131,7 @@ jobs:
       # by ci-cache-warmup.yml warm-docs-website-yarn-cache. Prefix keeps this
       # small entry out of the '<os>-yarn-' family used by datahub-web-react.
       - name: Restore yarn cache
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/yarn
           key: docs-website-${{ runner.os }}-yarn-${{ hashFiles('docs-website/yarn.lock') }}
@@ -275,7 +275,7 @@ jobs:
       # Key must stay byte-identical with the lookup and save keys in
       # ci-cache-warmup.yml warm-smoke-test-lint-cache. metadata-ingestion's
       # manifests are included because requirements.txt installs '-e ../metadata-ingestion[...]'.
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         name: Restore uv cache
         if: ${{ needs.setup.outputs.smoke-test-python == 'true' }}
         with:
@@ -312,7 +312,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Restore uv cache
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.UV_CACHE_DIR }}
           # Restore-only: Actions caches are ref-scoped, so a PR-side save can never be
@@ -412,7 +412,7 @@ jobs:
       # frontend jobs run on Depot runners, whose cache writes GitHub-hosted jobs cannot
       # read). Saving here would only mint a per-PR copy (this workflow is
       # pull_request-only), so we never save.
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         name: Restore yarn cache
         with:
           path: |
@@ -465,7 +465,7 @@ jobs:
       # yarn cache, which contains most of the lint toolchain (eslint, prettier,
       # typescript). Saving here would only mint a per-PR copy (this workflow is
       # pull_request-only), so we never save.
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         name: Restore yarn cache
         with:
           path: |
@@ -475,7 +475,7 @@ jobs:
             playwright-${{ runner.os }}-yarn-
             ${{ runner.os }}-yarn-
       - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
       - name: Install dependencies
