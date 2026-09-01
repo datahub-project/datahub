@@ -845,6 +845,13 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                             "text",
                             "semanticText"))
                     .collect(Collectors.toSet()))
+            .put(
+                EntityType.METRIC,
+                Stream.concat(COMMON.stream(), Stream.of("path", "semanticModel", "parentMetric"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.SEMANTIC_MODEL,
+                Stream.concat(COMMON.stream(), Stream.of("path")).collect(Collectors.toSet()))
             .build();
 
     for (String entityName : parseCsv(DEFAULT_SEARCH_ENTITY_TYPES)) {
