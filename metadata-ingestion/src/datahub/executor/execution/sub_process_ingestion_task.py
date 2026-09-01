@@ -48,11 +48,11 @@ from datahub.executor.execution.sub_process_task_common import (
     resolve_wrapper_script,
 )
 from datahub.executor.execution.task import Task, TaskError
-from datahub.masking.bootstrap import shutdown_secret_masking
-from datahub.masking.masking_filter import SecretMaskingFilter
+from datahub.masking.masking_filter import SecretMaskingFilter, mask_secrets
 from datahub.masking.secret_registry import SecretRegistry
 
 logger = logging.getLogger(__name__)
+
 
 ARTIFACTS_DIR_NAME = "artifacts"
 
@@ -448,6 +448,7 @@ class SubProcessIngestionTask(Task):
     ) -> None:
         """Monitor subprocess execution with async tasks for output reading and progress reporting."""
         most_recent_log_ts: Optional[datetime] = None
+        progress_masking_filter = SecretMaskingFilter(SecretRegistry.get_instance())
 
         async def _read_output_lines() -> None:
             nonlocal most_recent_log_ts
@@ -509,8 +510,12 @@ class SubProcessIngestionTask(Task):
                     if most_recent_log_ts is None:
                         report = "No logs yet"
                     else:
-                        report = SubProcessTaskUtil._format_log_lines(
-                            shared_logs.get_lines()
+                        report = mask_secrets(
+                            SubProcessTaskUtil._format_log_lines(
+                                shared_logs.get_lines()
+                            ),
+                            "progress report",
+                            progress_masking_filter,
                         )
                         current_time = datetime.now(tz=timezone.utc)
                         if most_recent_log_ts < current_time - timedelta(minutes=2):
@@ -599,16 +604,9 @@ class SubProcessIngestionTask(Task):
             try:
                 with open(report_out_file) as structured_report_fp:
                     report_content = structured_report_fp.read()
-                try:
-                    registry = SecretRegistry.get_instance()
-                    if registry and registry.get_count() > 0:
-                        report_content = SecretMaskingFilter(registry).mask_text(
-                            report_content
-                        )
-                except Exception:
-                    # Better to have the report than to fail completely.
-                    logger.warning("Failed to mask structured report, using original")
-                ctx.get_report().set_structured_report(report_content)
+                ctx.get_report().set_structured_report(
+                    mask_secrets(report_content, "structured report")
+                )
             except Exception:
                 logger.exception(
                     "Failed to process structured report from %s", report_out_file
@@ -616,17 +614,15 @@ class SubProcessIngestionTask(Task):
 
         try:
             ctx.get_report().set_logs(
-                SubProcessTaskUtil._format_log_lines(shared_logs.get_lines())
+                mask_secrets(
+                    SubProcessTaskUtil._format_log_lines(shared_logs.get_lines()),
+                    "logs",
+                )
             )
         except Exception:
             logger.exception("Failed to set logs on execution report")
 
         SubProcessTaskUtil._remove_directory(exec_out_dir)
-
-        try:
-            shutdown_secret_masking()
-        except Exception as e:
-            logger.warning(f"Failed to shutdown secret masking: {e}")
 
         if cancelled:
             ctx.get_report().report_info("Ingestion task was cancelled")

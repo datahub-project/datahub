@@ -60,9 +60,10 @@ def _expand_pip_req(req: str) -> str:
 
 _DEFAULT_MAX_LOG_LINES = 2000
 _DEFAULT_MAX_BYTES_PER_LINE = 2**12  # 4kb
-# Kafka has a 1mb limit on the size of a data packet.
-# Doing 90% of that so we have some buffer for other things.
-_DEFAULT_MAX_LOG_SIZE_BYTES = int(0.9 * 2**18)  # 90% of 1mb
+# Bounds the output captured on a SubprocessRunner failure, i.e. what gets attached to
+# CalledProcessError when a venv-setup command fails. Not the cap on ingestion logs:
+# those go through LogHolder.get_lines() and SubProcessTaskUtil.MAX_LOG_SIZE_BYTES.
+_DEFAULT_MAX_LOG_SIZE_BYTES = int(0.9 * 2**18)  # ~230kb
 
 VENV_VERSION_LATEST = "latest"
 VENV_VERSION_BUNDLED = "bundled"
@@ -547,10 +548,19 @@ async def setup_venv(
     if venv_config.requirements_file is not None:
         # Case 2: the caller supplied its own requirements file, so install from it
         # verbatim rather than composing an acryl-datahub requirement line.
-        runner._logs.append(
-            f"Installing requirements from: {venv_config.requirements_file}\n"
+        # Contents are not logged: a caller-supplied requirements file may carry index
+        # credentials, and these logs reach the execution report.
+        req_line_count = len(
+            [
+                line
+                for line in venv_config.requirements_file.read_text().splitlines()
+                if line.strip() and not line.lstrip().startswith("#")
+            ]
         )
-        await runner.execute(["cat", str(venv_config.requirements_file)])
+        runner._logs.append(
+            f"Installing {req_line_count} requirement(s) from: "
+            f"{venv_config.requirements_file}\n"
+        )
         install_cmd = [
             _find_uv(),
             "pip",
@@ -613,8 +623,15 @@ async def setup_venv(
     if venv_config.requirements_file is None and expanded_pip_reqs:
         extra_req_file = venv_loc / "extra-requirements.txt"
         extra_req_file.write_text("\n".join(expanded_pip_reqs))
-        runner._logs.append(f"Installing extra requirements from: {extra_req_file}\n")
-        await runner.execute(["cat", str(extra_req_file)])
+        # Log the requirement lines as configured, not the expanded file: ${VAR}
+        # templates are commonly index-URL credentials, and expanded values reach the
+        # execution report, which is readable with Manage Ingestion alone.
+        runner._logs.append(
+            f"Installing {len(expanded_pip_reqs)} extra requirement(s) from: "
+            f"{extra_req_file}\n"
+        )
+        for req in venv_config.extra_pip_requirements:
+            runner._logs.append(f"  {req}\n")
         await runner.execute(
             [_find_uv(), "pip", "install", "-r", str(extra_req_file)],
             env=venv_env,

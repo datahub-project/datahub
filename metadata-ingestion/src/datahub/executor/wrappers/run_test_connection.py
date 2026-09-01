@@ -25,6 +25,7 @@ import sys
 from pathlib import Path
 
 from datahub.executor.execution.wrapper_common import (
+    FlagSupport,
     activate_venv,
     build_datahub_stdin,
     check_cli_flag_support,
@@ -34,6 +35,21 @@ from datahub.executor.execution.wrapper_common import (
     setup_memory_limit,
     validate_venv,
 )
+
+
+def create_probe_failure_report(report_out_file: str) -> None:
+    """Create a report for a CLI that could not answer the capability probe."""
+    report = {
+        "internal_failure": True,
+        "internal_failure_reason": (
+            "The datahub CLI in this environment failed to run, so the connection was "
+            "never tested. This is an environment problem rather than a recipe problem "
+            "-- see the execution logs for the CLI's own error."
+        ),
+    }
+
+    with open(report_out_file, "w") as f:
+        json.dump(report, f, indent=2)
 
 
 def create_unsupported_report(report_out_file: str) -> None:
@@ -73,8 +89,11 @@ def main():
     setup_memory_limit()
     register_secrets_for_masking(secrets)
 
-    has_test_connection = check_cli_flag_support(venv_datahub, "test-source-connection")
-    if not has_test_connection:
+    support = check_cli_flag_support(venv_datahub, "test-source-connection")
+    if support is FlagSupport.PROBE_FAILED:
+        create_probe_failure_report(report_out_file)
+        sys.exit(1)
+    if support is FlagSupport.UNSUPPORTED:
         create_unsupported_report(report_out_file)
         sys.exit(0)
 
