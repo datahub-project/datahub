@@ -270,7 +270,13 @@ class VenvConfig(pydantic.BaseModel):
         # Without these, `pkg==2.1.*` hashes identically forever: the first venv is reused on
         # every subsequent run, the index is never consulted again, and a newly published release
         # is silently never installed. Nothing looks broken -- the source just stops updating.
-        suffix.update(str(resolved_pins or []).encode("utf-8"))
+        #
+        # Only included when non-empty. A failed resolution returns [] and must fall back to the
+        # pre-resolution name — the same name the warm venv was originally built under — so that
+        # an expired token or unreachable index degrades to "stale dependencies" rather than
+        # "cache key flip → rebuild → install 401 → hard failure".
+        if resolved_pins:
+            suffix.update(str(resolved_pins).encode("utf-8"))
 
         return f"{self.main_plugin}-{suffix.digest().hex()[:16]}"
 
@@ -464,14 +470,20 @@ async def resolve_moving_pins(
     name it had, and a warm venv is reused -- so a registry outage leaves an ingestion source
     running on slightly stale dependencies rather than failing it outright.
     """
+    # Option lines (--extra-index-url, -c, etc.) must reach the resolver so it sees the same
+    # indexes and constraints the install path does. Without them, sources with private indexes
+    # in extra_pip_requirements 401 on every resolve.
+    option_lines = [req for req in expanded_pip_reqs if req.lstrip().startswith("-")]
     moving = [req for req in expanded_pip_reqs if is_moving_requirement(req)]
     if not moving:
         return []
 
+    compile_input = option_lines + moving
+
     try:
         result = await anyio.run_process(
             [_find_uv(), "pip", "compile", "--no-deps", "--refresh", "--quiet", "-"],
-            input="\n".join(moving).encode("utf-8"),
+            input="\n".join(compile_input).encode("utf-8"),
             env={**os.environ, **extra_env_vars},
             check=True,
         )
@@ -598,6 +610,28 @@ async def setup_venv(
         [_find_uv(), "venv", "--python", sys.executable, str(venv_loc)]
     )
 
+    try:
+        await _install_into_venv(venv_config, runner, venv_loc, expanded_pip_reqs)
+    except Exception:
+        # Delete the half-built venv so it can't be adopted as warm on the next run.
+        # A venv with bin/python but missing packages would pass the exists() check
+        # and silently run with the wrong dependencies.
+        import shutil
+
+        shutil.rmtree(venv_loc, ignore_errors=True)
+        raise
+
+    return venv_reference
+
+
+async def _install_into_venv(
+    venv_config: "VenvConfig",
+    runner: SubprocessRunner,
+    venv_loc: pathlib.Path,
+    expanded_pip_reqs: list[str],
+) -> None:
+    """Install packages into a freshly created venv. Extracted so setup_venv can clean up on failure."""
+
     venv_env = {
         **os.environ,
         **venv_config.extra_env_vars,
@@ -682,7 +716,6 @@ async def setup_venv(
             env=venv_env,
         )
 
-    return venv_reference
 
 
 def validate_dependency_resolution_enabled(version: str) -> None:
