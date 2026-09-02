@@ -636,7 +636,8 @@ docker run -p 8000:8000 \
 Or without Docker:
 
 ```bash
-DATAHUB_GMS_URL="<your-datahub-url>" FASTMCP_HOST=0.0.0.0 uvx mcp-server-datahub-http
+DATAHUB_GMS_URL="<your-datahub-url>" FASTMCP_HOST=0.0.0.0 \
+  uvx --from mcp-server-datahub mcp-server-datahub-http
 ```
 
 :::caution
