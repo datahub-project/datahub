@@ -589,8 +589,9 @@ compileScala213Java {
 }
 
 test {
-  // PathUtils unit tests initialize Hadoop Configuration, which still requires Commons Collections
-  // 3.x even though the module globally excludes it from normal dependency configurations.
+  // Hadoop's Configuration type references the legacy Commons Collections 3.x API at runtime.
+  // PathUtilsTest loads that type, while the module globally excludes the dependency from normal
+  // configurations, so supply it through a detached test-only configuration.
   classpath += project.configurations.detachedConfiguration(
       project.dependencies.create('commons-collections:commons-collections:3.2.2'))
   forkEvery = 1
