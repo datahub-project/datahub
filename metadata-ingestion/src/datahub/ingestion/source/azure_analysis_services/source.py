@@ -153,5 +153,10 @@ class AzureAnalysisServicesSource(StatefulIngestionSourceBase, TestableSource):
         return self.report
 
     def close(self) -> None:
-        self.client.close()
-        super().close()
+        # super().close() commits the stateful-ingestion checkpoint; it must run
+        # even if XMLA session teardown raises, otherwise the next run can reuse
+        # stale checkpoint state or miss soft-deletes.
+        try:
+            self.client.close()
+        finally:
+            super().close()

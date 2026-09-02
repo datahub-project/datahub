@@ -93,3 +93,26 @@ def test_server_with_trailing_suffix_rejected(server):
     # accepted by matching only the valid prefix.
     with pytest.raises(ValidationError):
         AzureAnalysisServicesConfig.model_validate(_service_principal(server=server))
+
+
+def test_platform_powerbi_with_powerbi_endpoint_ok():
+    config = AzureAnalysisServicesConfig.model_validate(
+        _service_principal(server=_POWERBI, platform=constants.PLATFORM_POWERBI)
+    )
+    assert config.platform == constants.PLATFORM_POWERBI
+
+
+def test_platform_powerbi_with_asazure_endpoint_rejected():
+    # powerbi URNs only merge against a Power BI Premium XMLA endpoint; pairing
+    # the powerbi platform with an asazure endpoint is a misconfiguration.
+    with pytest.raises(ValidationError):
+        AzureAnalysisServicesConfig.model_validate(
+            _service_principal(server=_ASAZURE, platform=constants.PLATFORM_POWERBI)
+        )
+
+
+def test_unknown_platform_value_rejected():
+    with pytest.raises(ValidationError):
+        AzureAnalysisServicesConfig.model_validate(
+            _service_principal(platform="azure-analysis-service")
+        )

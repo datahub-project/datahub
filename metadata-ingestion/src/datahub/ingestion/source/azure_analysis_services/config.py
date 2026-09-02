@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
@@ -58,7 +58,9 @@ class AzureAnalysisServicesConfig(
             "Premium XMLA endpoint ``powerbi://api.powerbi.com/v1.0/myorg/<workspace>``."
         ),
     )
-    platform: HiddenFromDocs[str] = Field(default=constants.PLATFORM_AAS)
+    platform: HiddenFromDocs[Literal["azure-analysis-services", "powerbi"]] = Field(
+        default=constants.PLATFORM_AAS
+    )
     include_workspace_name_in_dataset_urn: bool = Field(
         default=False,
         description=(
@@ -185,6 +187,22 @@ class AzureAnalysisServicesConfig(
             "'powerbi://api.powerbi.com/v1.0/myorg/<workspace>' endpoint; "
             f"got: {value}"
         )
+
+    @model_validator(mode="after")
+    def _validate_platform_endpoint(self) -> "AzureAnalysisServicesConfig":
+        # platform=powerbi only makes sense against a Power BI Premium XMLA
+        # endpoint: the URNs are built to merge with the Power BI connector, and
+        # XmlaClient rewrites the powerbi:// prefix. Pairing it with an asazure
+        # endpoint would silently emit entities that stitch to nothing.
+        if self.platform == constants.PLATFORM_POWERBI and not (
+            constants.POWERBI_ENDPOINT_RE.fullmatch(self.server)
+        ):
+            raise ValueError(
+                "platform='powerbi' requires a Power BI Premium XMLA endpoint "
+                "('powerbi://api.powerbi.com/v1.0/myorg/<workspace>'); "
+                f"got server: {self.server}"
+            )
+        return self
 
     @model_validator(mode="after")
     def _validate_auth(self) -> "AzureAnalysisServicesConfig":

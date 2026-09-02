@@ -1,6 +1,6 @@
 import re
 from enum import IntEnum
-from typing import Pattern
+from typing import Final, Pattern
 
 # XMLA / SOAP protocol
 
@@ -179,8 +179,10 @@ PROP_TABLE_COUNT = "table_count"
 
 # Platform
 
-PLATFORM_AAS = "azure-analysis-services"
-PLATFORM_POWERBI = "powerbi"
+# Final so the literal type is preserved: these seed the config's platform
+# Literal["azure-analysis-services", "powerbi"] default.
+PLATFORM_AAS: Final = "azure-analysis-services"
+PLATFORM_POWERBI: Final = "powerbi"
 
 # Precompiled regex
 # ``asazure://westeurope.asazure.windows.net/myserver`` or the https form; the
