@@ -99,6 +99,7 @@ from datahub.ingestion.source_report.ingestion_stage import (
     QUERIES_EXTRACTION,
     VIEW_PARSING,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
@@ -751,35 +752,10 @@ class SnowflakeV2Source(
                         run_id=self.ctx.run_id,
                     )
 
-                queries_extractor = SnowflakeQueriesExtractor(
-                    connection=self.connection,
-                    # TODO: this should be its own section in main recipe
-                    config=SnowflakeQueriesExtractorConfig(
-                        window=BaseTimeWindowConfig(
-                            start_time=self.config.start_time,
-                            end_time=self.config.end_time,
-                            bucket_duration=self.config.bucket_duration,
-                        ),
-                        temporary_tables_pattern=self.config.temporary_tables_pattern,
-                        include_lineage=self.config.include_table_lineage,
-                        include_usage_statistics=self.config.include_usage_stats,
-                        include_operations=self.config.include_operational_stats,
-                        include_queries=self.config.include_queries,
-                        include_query_usage_statistics=self.config.include_query_usage_statistics,
-                        user_email_pattern=self.config.user_email_pattern,
-                        pushdown_deny_usernames=self.config.pushdown_deny_usernames,
-                        pushdown_allow_usernames=self.config.pushdown_allow_usernames,
-                        query_dedup_strategy=self.config.query_dedup_strategy,
-                        push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
-                        additional_database_names_allowlist=self.config.additional_database_names_allowlist,
-                    ),
-                    structured_report=self.report,
-                    filters=self.filters,
-                    identifiers=self.identifiers,
-                    redundant_run_skip_handler=redundant_queries_run_skip_handler,
-                    schema_resolver=schema_resolver,
-                    discovered_tables=self.discovered_datasets,
-                    graph=self.ctx.graph,
+                queries_extractor = self._create_queries_extractor(
+                    schema_resolver,
+                    redundant_queries_run_skip_handler,
+                    schema_extractor,
                 )
 
                 # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
@@ -846,6 +822,44 @@ class SnowflakeV2Source(
             ).get_assertion_workunits(self.discovered_datasets)
 
         self.connection.close()
+
+    def _create_queries_extractor(
+        self,
+        schema_resolver: SchemaResolver,
+        redundant_run_skip_handler: Optional[RedundantQueriesRunSkipHandler],
+        schema_extractor: SnowflakeSchemaGenerator,
+    ) -> SnowflakeQueriesExtractor:
+        return SnowflakeQueriesExtractor(
+            connection=self.connection,
+            # TODO: this should be its own section in main recipe
+            config=SnowflakeQueriesExtractorConfig(
+                window=BaseTimeWindowConfig(
+                    start_time=self.config.start_time,
+                    end_time=self.config.end_time,
+                    bucket_duration=self.config.bucket_duration,
+                ),
+                temporary_tables_pattern=self.config.temporary_tables_pattern,
+                include_lineage=self.config.include_table_lineage,
+                include_usage_statistics=self.config.include_usage_stats,
+                include_operations=self.config.include_operational_stats,
+                include_queries=self.config.include_queries,
+                include_query_usage_statistics=self.config.include_query_usage_statistics,
+                user_email_pattern=self.config.user_email_pattern,
+                pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                pushdown_allow_usernames=self.config.pushdown_allow_usernames,
+                query_dedup_strategy=self.config.query_dedup_strategy,
+                push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
+                additional_database_names_allowlist=self.config.additional_database_names_allowlist,
+            ),
+            structured_report=self.report,
+            filters=self.filters,
+            identifiers=self.identifiers,
+            redundant_run_skip_handler=redundant_run_skip_handler,
+            schema_resolver=schema_resolver,
+            discovered_tables=self.discovered_datasets,
+            dynamic_table_names=schema_extractor.dynamic_table_identifiers,
+            graph=self.ctx.graph,
+        )
 
     def _get_stages_tasks_pipes_workunits(
         self,

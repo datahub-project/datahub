@@ -13,7 +13,9 @@ from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.schema_classes import (
     OperationClass,
+    QueryPropertiesClass,
     QueryUsageStatisticsClass,
+    UpstreamLineageClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn, QueryUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -1827,3 +1829,106 @@ def test_usage_aggregator_uses_shared_connection() -> None:
         )
     finally:
         aggregator.close()
+
+
+# --- dynamic-table INPUTS fallback on definition parse-failure ---
+
+_UNPARSEABLE_DT_DDL = (
+    "create or replace dynamic table db.schema.dt (a int) "
+    "target_lag='1 hour' refresh_mode=CUSTOM_INCREMENTAL initialize=ON_CREATE warehouse=w "
+    "refresh using (merge into self as t "
+    "using (select a from db.schema.src changes(information=>default)) s on t.a=s.a "
+    "when matched then update set t.a=s.a when not matched then insert (a) values (s.a))"
+)
+
+
+def _upstream_lineage_aspect(mcps, downstream_urn):
+    for mcp in mcps:
+        if mcp.entityUrn == downstream_urn and isinstance(
+            mcp.aspect, UpstreamLineageClass
+        ):
+            return mcp.aspect
+    return None
+
+
+def _skip_query_present(mcps):
+    return any(
+        isinstance(mcp.aspect, QueryPropertiesClass)
+        and mcp.aspect.statement.value == "-skip-"
+        for mcp in mcps
+    )
+
+
+def test_dynamic_table_definition_table_error_uses_inputs_fallback() -> None:
+    """An unparseable dynamic-table definition falls back to table-level INPUTS,
+    with no column lineage."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    dt = DatasetUrn("snowflake", "db.schema.dt").urn()
+    up_a = DatasetUrn("snowflake", "db.schema.src_a").urn()
+    up_b = DatasetUrn("snowflake", "db.schema.src_b").urn()
+    aggregator.add_view_definition(
+        view_urn=dt,
+        view_definition=_UNPARSEABLE_DT_DDL,
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[up_a, up_b],
+    )
+    mcps = list(aggregator.gen_metadata())
+    aspect = _upstream_lineage_aspect(mcps, dt)
+    assert aspect is not None
+    assert sorted(u.dataset for u in aspect.upstreams) == sorted([up_a, up_b])
+    assert not aspect.fineGrainedLineages
+    # the fallback must not surface a spurious Query entity carrying the "-skip-" placeholder.
+    assert not _skip_query_present(mcps)
+
+
+def test_dynamic_table_definition_table_error_empty_fallback_no_aspect() -> None:
+    """An unparseable definition with no INPUTS emits no upstreamLineage aspect and no
+    spurious Query entity."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    dt = DatasetUrn("snowflake", "db.schema.dt").urn()
+    aggregator.add_view_definition(
+        view_urn=dt,
+        view_definition=_UNPARSEABLE_DT_DDL,
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[],
+    )
+    mcps = list(aggregator.gen_metadata())
+    assert _upstream_lineage_aspect(mcps, dt) is None
+    assert not _skip_query_present(mcps)
+
+
+def test_parseable_definition_ignores_inputs_fallback() -> None:
+    """When the definition parses, the INPUTS fallback is ignored (no pollution)."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    v = DatasetUrn("snowflake", "db.schema.v").urn()
+    real = DatasetUrn("snowflake", "db.schema.bar").urn()
+    wrong = DatasetUrn("snowflake", "db.schema.wrong").urn()
+    aggregator.add_view_definition(
+        view_urn=v,
+        view_definition="create view v as select a from db.schema.bar",
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[wrong],
+    )
+    aspect = _upstream_lineage_aspect(list(aggregator.gen_metadata()), v)
+    assert aspect is not None
+    upstreams = [u.dataset for u in aspect.upstreams]
+    assert real in upstreams
+    assert wrong not in upstreams
