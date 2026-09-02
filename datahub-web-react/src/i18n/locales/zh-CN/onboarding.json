@@ -117,7 +117,7 @@
     "ingestion.learnMore": "在<anchor>此处</anchor>了解关于数据引入的更多信息，并查看受支持集成的完整列表。",
     "ingestion.refreshDescription": "点击可强制刷新正在运行的数据引入源。",
     "ingestion.refreshTitle": "刷新数据引入源",
-    "lineageGraph.dataLineageDescription": "数据 <bold>数据血缘</bold> 让你能够可视化并理解此实体的上游依赖和下游使用方。",
+    "lineageGraph.dataLineageDescription": "<bold>数据血缘</bold>让你能够可视化并理解此实体的上游依赖和下游使用方。",
     "lineageGraph.introDescription": "你可以在此页面查看某个实体的 <bold>数据血缘图谱</bold>。",
     "lineageGraph.introTitle": "数据血缘图谱",
     "lineageGraph.learnMore": "在<anchor>此处</anchor>了解关于 <bold>数据血缘</bold> 的更多信息。",

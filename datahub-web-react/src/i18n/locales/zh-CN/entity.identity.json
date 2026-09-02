@@ -77,7 +77,7 @@
     "serviceAccounts.createModal.description.validationError": "描述不能超过 500 个字符",
     "serviceAccounts.createModal.name.description": "服务账户的名称",
     "serviceAccounts.createModal.name.label": "名称",
-    "serviceAccounts.createModal.name.placeholder": "数据引入管道 服务账户",
+    "serviceAccounts.createModal.name.placeholder": "数据引入管道服务账户",
     "serviceAccounts.createModal.name.validationError": "名称不能超过 200 个字符",
     "serviceAccounts.createModal.subtitle": "服务账户用于以编程方式访问 DataHub API。",
     "serviceAccounts.createModal.title": "创建服务账户",
