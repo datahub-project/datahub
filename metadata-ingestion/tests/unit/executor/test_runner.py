@@ -1474,3 +1474,80 @@ class TestResolveMovingPins:
 
         monkeypatch.setattr("datahub.executor.execution.runner.anyio.run_process", boom)
         assert await resolve_moving_pins(["pkg>=1.0"], {}) == []
+
+    @pytest.mark.asyncio
+    async def test_a_successful_resolution_returns_sorted_pins(self, monkeypatch):
+        async def fake_resolve(*args, **kwargs):
+            from unittest.mock import MagicMock
+
+            result = MagicMock()
+            result.stdout = b"# uv resolved\npkg-b==2.0.0\npkg-a==1.5.3\n"
+            return result
+
+        monkeypatch.setattr(
+            "datahub.executor.execution.runner.anyio.run_process", fake_resolve
+        )
+        pins = await resolve_moving_pins(["pkg-a>=1.0", "pkg-b>=2.0"], {})
+        assert pins == ["pkg-a==1.5.3", "pkg-b==2.0.0"]
+
+
+class TestSetupVenvResolvesBeforeNaming:
+    """The venv cache key must incorporate resolved pins so a new release changes the name.
+
+    Without resolved_pins flowing through setup_venv → get_stable_venv_name, a range
+    pin like ==2.1.* hashes identically forever and the venv is silently reused.
+    """
+
+    @pytest.mark.asyncio
+    async def test_venv_name_changes_when_resolved_pins_change(
+        self, tmp_path: pathlib.Path
+    ):
+        from unittest.mock import AsyncMock, call
+
+        logs = LogHolder()
+        runner = SubprocessRunner(logs)
+
+        created_venvs: list[str] = []
+
+        async def mock_execute(command, env=None, cwd=None):
+            if "venv" in command:
+                venv_path = Path(command[-1])
+                venv_path.mkdir(parents=True, exist_ok=True)
+                (venv_path / "bin").mkdir(exist_ok=True)
+                (venv_path / "bin" / "python").touch()
+                created_venvs.append(venv_path.name)
+
+        resolve_call_count = 0
+
+        async def fake_resolve(reqs, env_vars):
+            nonlocal resolve_call_count
+            resolve_call_count += 1
+            if resolve_call_count == 1:
+                return ["acryl-datahub-cloud-docs==2.1.0.1"]
+            return ["acryl-datahub-cloud-docs==2.1.0.2"]
+
+        config = VenvConfig(
+            version="0.14.0",
+            main_plugin="snowflake",
+            extra_pip_requirements=["acryl-datahub-cloud-docs==2.1.*"],
+        )
+
+        with (
+            patch.object(runner, "execute", side_effect=mock_execute),
+            patch(
+                "datahub.executor.execution.runner.resolve_moving_pins",
+                side_effect=fake_resolve,
+            ),
+        ):
+            ref1 = await setup_venv(config, runner, tmp_path)
+            # Remove the venv so the second call can't reuse it by path
+            import shutil
+
+            shutil.rmtree(ref1.venv_loc)
+
+            ref2 = await setup_venv(config, runner, tmp_path)
+
+        assert ref1.venv_loc.name != ref2.venv_loc.name, (
+            "The venv name must change when resolved pins change, "
+            f"but both were {ref1.venv_loc.name}"
+        )
