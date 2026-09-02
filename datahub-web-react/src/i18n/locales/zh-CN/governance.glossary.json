@@ -1,7 +1,5 @@
 {
-    "card.nodeGroupCountTooltip_one": "包含 {{count}} 个术语组",
     "card.nodeGroupCountTooltip_other": "包含 {{count}} 个术语组",
-    "card.termCountTooltip_one": "包含 {{count}} 个术语",
     "card.termCountTooltip_other": "包含 {{count}} 个术语",
     "empty.addTerm": "添加术语",
     "empty.addTermGroup": "添加术语组",

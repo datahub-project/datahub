@@ -52,7 +52,7 @@
     "remoteExecutor": "远程执行器",
     "revokeConfirmText": "使用此令牌的任何人都将无法再访问 DataHub API。此操作无法撤销。",
     "revokeConfirmTitle": "确定要吊销此令牌吗？",
-    "revokeError": "吊销令牌失败！：\n {{message}}",
+    "revokeError": "吊销令牌失败：\n {{message}}",
     "revokeTokenAriaLabel": "吊销令牌",
     "searchServiceAccountsPlaceholder": "搜索服务账户...",
     "selectServiceAccountSubtitle": "选择一个服务账户，为其生成 API 令牌。",

@@ -1,6 +1,5 @@
 {
     "graph.empty": "目前尚未收集该数据资产的统计信息。",
-    "graph.rowCount_one": "{{formattedCount}} 行",
     "graph.rowCount_other": "{{formattedCount}} 行",
     "graph.statName": "行数",
     "graph.title": "行数",

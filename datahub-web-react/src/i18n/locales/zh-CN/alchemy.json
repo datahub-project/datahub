@@ -71,7 +71,6 @@
     "pagination.nextPage": "下一页",
     "pagination.previousPage": "上一页",
     "radio.label": "标签",
-    "resizablePills.moreHiddenCount_one": "另有 {{count}} 项已隐藏",
     "resizablePills.moreHiddenCount_other": "另有 {{count}} 项已隐藏",
     "search.placeholder": "搜索...",
     "select.placeholder": "请选择一个选项",

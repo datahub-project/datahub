@@ -73,7 +73,6 @@
     "state.active": "活跃",
     "state.all": "全部",
     "state.resolved": "已解决",
-    "summary.activeCount_one": "当前有 {{count}} 个活跃的事件",
     "summary.activeCount_other": "当前有 {{count}} 个活跃的事件",
     "summary.noActive": "当前没有活跃的事件",
     "summary.noneRaised": "尚未上报任何事件",

@@ -35,7 +35,7 @@ type Props = {
 };
 
 // Prefer full BCP-47 tag (e.g. zh-CN, pt-BR) before primary subtag.
-function resolveRemirrorLocale(language: string): string {
+export function resolveRemirrorLocale(language: string): string {
     if (REMIRROR_SUPPORTED_LOCALES.includes(language)) {
         return language;
     }

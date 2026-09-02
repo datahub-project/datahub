@@ -20,9 +20,21 @@ export function detectBrowserLanguage(): SupportedLanguage | undefined {
         if (!tag) return undefined;
         const lower = tag.toLowerCase();
         const base = lower.split('-')[0];
+        if (base === 'zh') {
+            if (lower.includes('hant') || lower === 'zh-tw' || lower === 'zh-hk' || lower === 'zh-mo') {
+                // Prefer zh-TW when registered (companion PR); never fold Traditional to zh-CN.
+                if ('zh-TW' in LOCALE_MAP) {
+                    return 'zh-TW';
+                }
+                return undefined;
+            }
+            if ('zh-CN' in LOCALE_MAP) {
+                // zh-Hans, zh-CN, zh-SG, bare zh
+                return 'zh-CN';
+            }
+            return undefined;
+        }
         // Exact (case-insensitive) match first, then fold region variants to their base language.
-        // Any `zh-*` tag (incl. Traditional) folds to `zh-CN` here; the zh-TW PR adds a real
-        // Hant branch that takes precedence over this fold.
         return (
             supported.find((locale) => locale.toLowerCase() === lower) ??
             supported.find((locale) => locale.toLowerCase().split('-')[0] === base)
