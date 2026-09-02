@@ -12,7 +12,7 @@ from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utilities.domains import Domain
 from tests.utils import run_datahub_cmd
 
-pytestmark = pytest.mark.domain(Domain.INGESTION, Domain.PLATFORM)
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 
 def datahub_upsert_user(auth_session, user: CorpUser) -> None:
