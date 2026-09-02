@@ -20,7 +20,9 @@ See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
 
 ```bash
 ./gradlew build           # Build entire project
-./gradlew check           # Run all tests and linting
+./gradlew check           # Run all tests (Python/JS lint lives in lint-jobs.yml / :module:lint)
+./gradlew lintCheck       # Run all lint checks (Python, JS, GraphQL, markdown, Java)
+./gradlew lintFix         # Auto-fix all lint issues
 ./gradlew format          # Format all code (Java, Markdown, GraphQL, YAML)
 
 # Note that each directory typically has a build.gradle file, but the available tasks follow similar conventions.
@@ -56,6 +58,8 @@ See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
 **Format everything:**
 
 ```bash
+./gradlew lintCheck           # Run all lint checks (Python, JS, GraphQL, markdown, Java)
+./gradlew lintFix             # Auto-fix all lint issues
 ./gradlew format              # Format all code (Java, Markdown, GraphQL, YAML)
 ./gradlew formatChanged       # Format only changed files (faster)
 ```
@@ -89,7 +93,7 @@ If you see CI failures like:
 
 - `markdown_format / markdown_format_check (pull_request)` - Use `./gradlew :datahub-web-react:mdPrettierWrite`
 - `graphql_prettier_check` - Use `./gradlew :datahub-web-react:graphqlPrettierWrite`
-- `spotlessJavaCheck` - Use `./gradlew spotlessApply`
+- `spotless-check` - Use `./gradlew spotlessApply`
 - Python linting failures - Use `./gradlew :metadata-ingestion:lintFix`
 
 **Never do this:**
@@ -199,15 +203,8 @@ Or via Gradle directly: `./gradlew :docs-website:yarnStart` (always does a full 
 
 ### How the docs site is assembled
 
-The final site is served from `docs-website/genDocs/` (gitignored). It is assembled at build time
-from multiple hand-authored sources plus several generation steps:
-
-1. **Gradle generation tasks** produce `docs/generated/` (connector docs, entity reference, schemas)
-2. **`generateDocsDir.ts`** discovers all markdown in the repo, applies transformations (frontmatter,
-   link rewriting, `{{ inline }}` directives), and writes the result to `genDocs/`
-3. **Docusaurus** serves from `genDocs/`, additionally generating GraphQL API docs and Python SDK docs
-
-See `docs-website/AGENTS.md` for full pipeline details.
+The final site is assembled at build time into `docs-website/genDocs/` (gitignored) —
+see `docs-website/AGENTS.md` for the full pipeline.
 
 ### Where docs live
 
@@ -262,37 +259,7 @@ Forgetting step 2 means the release note is published but never appears in the s
   - **Security**: Never pass credentials to third-party SDKs via `os.environ`. Use the SDK's programmatic injection mechanism (a settings object, client constructor argument, or credential provider). Writing secrets to the process environment exposes them via `/proc/<pid>/environ` and to any code in the same process. See [`looker_lib_wrapper.py`](metadata-ingestion/src/datahub/ingestion/source/looker/looker_lib_wrapper.py) (`_DataHubLookerApiSettings`) for the canonical pattern.
   - **Connectors**: File layout, lineage, reporting, and PR-scope conventions for ingestion connectors live in `metadata-ingestion/AGENTS.md`
 - **TypeScript**: Use Prettier formatting, strict types (no `any`), React Testing Library
-
-### Frontend Theming (Colors)
-
-**Always use semantic color tokens** from `datahub-web-react/src/conf/theme/colorThemes/types.ts`. Never use hardcoded hex values, `REDESIGN_COLORS`, `ANTD_GRAY`, or direct alchemy `colors.gray[X]` imports.
-
-**In styled-components** (no import needed — `theme` is available via props):
-
-```typescript
-background: ${(props) => props.theme.colors.bg};
-color: ${(props) => props.theme.colors.text};
-border: 1px solid ${(props) => props.theme.colors.border};
-```
-
-**In React component bodies:**
-
-```typescript
-import { useTheme } from 'styled-components';
-const theme = useTheme();
-<Icon color={theme.colors.icon} />
-```
-
-**For alchemy components** (`<Text>`, `<Icon>`, etc.) — do not pass `color`/`colorLevel` props. Let them inherit from themed parent styled-components.
-
-**Do not import from:**
-
-- `datahub-web-react/src/alchemy-components/theme/foundations/colors.ts` (raw palette, only used internally by the theme)
-- `REDESIGN_COLORS` or `ANTD_GRAY` from `entityV2/shared/constants.ts`
-
-### Frontend Components
-
-Prefer alchemy (`@components`) over `antd` for UI. ESLint `rulesdir/no-antd-imports` is the enforcement — do not add new `antd` imports in app code. Files that already imported antd on the PR base (`origin/master`) are grandfathered.
+  - **Frontend**: Component conventions, theming/color tokens, file layout, and the frontend CI checklist live in `datahub-web-react/AGENTS.md`
 
 ### Code Comments
 
@@ -484,7 +451,6 @@ messages, or PRs:
   being tested, not the customer's actual identifiers.
 - Vendor/system built-ins (e.g. a platform's standard system tables) are fine,
   but prefer generic names when in doubt.
-- **Never bypass git hook failures with `--no-verify`** (or any equivalent skip flag) on commit or push. A failing hook is a signal that something needs attention — stop, report the failure to the user, and confirm how to proceed. Only use `--no-verify` if the user explicitly tells you to for that specific action.
 
 ## Starting / Operating DataHub
 
@@ -739,38 +705,8 @@ datahub graphql --agent-context
 
 ## Playwright UI E2E Tests
 
-Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/README.md).
-
-### Seeding
-
-`test.use({ featureName: 'my-feature' })` at the `describe` level auto-loads
-`tests/my-feature/fixtures/data.json` via `seeding.fixture.ts` — once per worker per
-feature per run. Do **not** set `featureName` for suites that create their own data
-via `apiMock` or direct API calls.
-
-## Frontend CI Checklist
-
-This checklist is for **commit- or PR-ready** frontend work — i.e. when you're about to
-commit, push, or hand off changes that are going into a PR. It is **not** required for
-every intermediate edit: work that is part of a larger task, a work-in-progress branch,
-or scratch experimentation that won't be committed yet can skip it. Run the relevant
-commands when the change is ready to ship:
-
-```bash
-# Full lint (eslint + prettier src + type-check) for datahub-web-react
-./gradlew :datahub-web-react:yarnLint
-
-# Targeted lint-fix on a single file
-./gradlew -x yarnInstall -x yarnGenerate yarnLintFix -Pfile=src/path/to/file.tsx
-
-# Vitest unit tests (requires icon stubs — run once per clone)
-node datahub-web-react/scripts/generate-lazy-icon-stubs.js
-cd datahub-web-react && yarn test src/path/to/file.test.ts --run
-```
-
-`yarn type-check` in CI runs repo-wide and will surface pre-existing errors in
-unrelated files. Focus on errors in files **you touched** — in particular, optional
-prop calls (`prop?.(arg)`) and import aliases.
+Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/README.md) —
+including test-data seeding via `test.use({ featureName: ... })`.
 
 ## Python Virtual Environments
 

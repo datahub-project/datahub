@@ -1664,7 +1664,7 @@ class Mapper:
 
 @platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",

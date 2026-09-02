@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 
 _RECOGNIZED_FUNCTIONS: FrozenSet[str] = frozenset(f.value for f in FunctionName)
 
+# The let scopes enclosing the node being walked, outermost first, each as
+# (let id, let node). A nested let is pushed onto the end rather than replacing
+# what is already there, so its body can still reach the steps its parents bind.
+Scopes = Tuple[Tuple[int, dict], ...]
+
 
 def resolve_to_data_access_functions(
     node_map: NodeIdMap,
@@ -56,8 +61,7 @@ def resolve_to_data_access_functions(
     _walk(
         node_map=node_map,
         node=output_node,
-        current_let=root_let,
-        current_let_id=root_let_id,
+        scopes=((root_let_id, root_let),),
         accessor_chain=None,
         results=results,
         seen=seen,
@@ -69,8 +73,7 @@ def resolve_to_data_access_functions(
 def _walk(
     node_map: NodeIdMap,
     node: Optional[dict],
-    current_let: dict,
-    current_let_id: int,
+    scopes: Scopes,
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
@@ -91,8 +94,7 @@ def _walk(
         _walk_identifier_name(
             node_map,
             name,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
@@ -108,8 +110,7 @@ def _walk(
         _walk_identifier_name(
             node_map,
             name,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
@@ -124,8 +125,7 @@ def _walk(
         _walk(
             node_map,
             inner_output,
-            node,
-            inner_let_id,
+            scopes + ((inner_let_id, node),),
             accessor_chain,
             results,
             seen,
@@ -140,8 +140,7 @@ def _walk(
         _walk_recursive_primary(
             node_map,
             node,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
@@ -160,8 +159,7 @@ def _walk(
                 _walk(
                     node_map,
                     inner,
-                    current_let,
-                    current_let_id,
+                    scopes,
                     accessor_chain,
                     results,
                     seen.copy(),
@@ -176,8 +174,7 @@ def _walk(
             _walk(
                 node_map,
                 body,
-                current_let,
-                current_let_id,
+                scopes,
                 accessor_chain,
                 results,
                 seen,
@@ -185,13 +182,27 @@ def _walk(
             )
         return
 
+    # -- ParenthesizedExpression --
+    # Parentheses around an expression carry no semantics, so the navigation
+    # chain continues through them, e.g. `then (Source{[Name=..]}[Data])`.
+    if kind == "ParenthesizedExpression":
+        _walk(
+            node_map,
+            node.get("content"),
+            scopes,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
+        )
+        return
+
     # -- IfExpression (conditional data source selection, e.g. dev/prod switching) --
     if kind == "IfExpression":
         _walk(
             node_map,
             node.get("trueExpression"),
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
@@ -200,8 +211,7 @@ def _walk(
         _walk(
             node_map,
             node.get("falseExpression"),
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen.copy(),
@@ -215,8 +225,7 @@ def _walk(
 def _walk_recursive_primary(
     node_map: NodeIdMap,
     node: dict,
-    current_let: dict,
-    current_let_id: int,
+    scopes: Scopes,
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
@@ -230,8 +239,7 @@ def _walk_recursive_primary(
         _walk(
             node_map,
             head,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
@@ -247,8 +255,7 @@ def _walk_recursive_primary(
             node_map,
             head,
             first,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
@@ -271,8 +278,7 @@ def _walk_recursive_primary(
         _walk(
             node_map,
             head,
-            current_let,
-            current_let_id,
+            scopes,
             new_accessor,
             results,
             seen,
@@ -284,8 +290,7 @@ def _walk_recursive_primary(
     _walk(
         node_map,
         head,
-        current_let,
-        current_let_id,
+        scopes,
         accessor_chain,
         results,
         seen,
@@ -297,8 +302,7 @@ def _walk_invoke(
     node_map: NodeIdMap,
     head: Optional[dict],
     invoke_node: dict,
-    current_let: dict,
-    current_let_id: int,
+    scopes: Scopes,
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
@@ -330,8 +334,7 @@ def _walk_invoke(
                 _walk(
                     node_map,
                     inner,
-                    current_let,
-                    current_let_id,
+                    scopes,
                     accessor_chain,
                     results,
                     seen,
@@ -349,32 +352,61 @@ def _unwrap_csv(elem: object) -> Optional[dict]:
     return None
 
 
+def _resolve_in_scopes(
+    node_map: NodeIdMap, scopes: Scopes, name: str
+) -> Optional[Tuple[int, dict, Scopes]]:
+    """Look a name up in the innermost scope that binds it.
+
+    Returns the binding scope's id, the value assigned to the name, and the
+    scopes that value is itself evaluated in. That last part matters: a step
+    bound by an outer let cannot see names introduced by a nested one, so the
+    chain is truncated at the scope where the name was found.
+
+    Known gap, covered by an xfail test: a plain reference in M is *exclusive*,
+    so a binding is not in scope for its own value and `a = a` reads an
+    enclosing `a`. Preferring the innermost binding unconditionally resolves it
+    to itself instead, which the circular-reference guard then stops.
+    """
+    for index in range(len(scopes) - 1, -1, -1):
+        let_id, let_node = scopes[index]
+        resolved = resolve_identifier(node_map, let_node, name)
+        if resolved is not None:
+            return let_id, resolved, scopes[: index + 1]
+    return None
+
+
 def _walk_identifier_name(
     node_map: NodeIdMap,
     name: str,
-    current_let: dict,
-    current_let_id: int,
+    scopes: Scopes,
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
 ) -> None:
-    """Resolve a variable name in the current let scope and continue walking."""
+    """Resolve a variable name against the enclosing scopes and keep walking."""
     if not name:
         return
-    # Circular reference guard: (let_id, variable_name) pair
-    guard_key = (current_let_id, name)
+
+    found = _resolve_in_scopes(node_map, scopes, name)
+    if found is None:
+        logger.debug("No enclosing let binds '%s', stopping this branch", name)
+        return
+    binding_let_id, resolved, binding_scopes = found
+
+    # Circular reference guard: (binding let id, variable name) pair. Casefolded
+    # to match how the name was resolved -- M treats `a` and `A` as one variable,
+    # so a cycle spelled inconsistently has to count as the same visit.
+    guard_key = (binding_let_id, name.casefold())
     if guard_key in seen:
         logger.warning("Circular reference detected for variable '%s', stopping", name)
         return
     seen.add(guard_key)
 
-    resolved = resolve_identifier(node_map, current_let, name)
     _walk(
         node_map,
         resolved,
-        current_let,
-        current_let_id,
+        binding_scopes,
         accessor_chain,
         results,
         seen,

@@ -717,7 +717,7 @@ def load_run_results(
 
 @platform_name("dbt")
 @config_class(DBTCoreConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class DBTCoreSource(DBTSourceBase, TestableSource):
     config: DBTCoreConfig

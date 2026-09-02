@@ -767,21 +767,16 @@ Join thousands of data practitioners building with DataHub!
 
 ### 🗓️ Town Halls
 
-**Next Town Hall:**
+Monthly community calls with roadmap updates, live demos, and user case studies.
 
-- 🎟️ [Register for the next Town Hall](https://luma.com/1vz73xnf)
-
-**Last Town Hall:**
-
-- 📺 [Context to Action with Grab, dltHub, and iFood](https://youtu.be/GsnX7edN6Rw) (May 2026)
-
-[→ View all past recordings](https://www.youtube.com/playlist?list=PLdCtLs64vZvHTXGqybmOfyxXbGDn2Reb9)
+- 🎟️ [Register for the next Town Hall](https://luma.com/datahubevents?tag=datahub%20town%20hall)
+- 📺 [Watch past recordings](https://www.youtube.com/playlist?list=PLdCtLs64vZvHTXGqybmOfyxXbGDn2Reb9)
 
 ### 💬 Get Help & Connect
 
 | Channel                | Purpose                                  | Link                                                                         |
 | ---------------------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
-| **Slack Community**    | Real-time chat, questions, announcements | [Join 15,000+ members](https://datahub.com/slack)                            |
+| **Slack Community**    | Real-time chat, questions, announcements | [Join 16,000+ members](https://datahub.com/slack)                            |
 | **GitHub Discussions** | Technical discussions, feature requests  | [Start a Discussion](https://github.com/datahub-project/datahub/discussions) |
 | **GitHub Issues**      | Bug reports, feature requests            | [Open an Issue](https://github.com/datahub-project/datahub/issues)           |
 | **Stack Overflow**     | Technical Q&A (tag: `datahub`)           | [Ask a Question](https://stackoverflow.com/questions/tagged/datahub)         |

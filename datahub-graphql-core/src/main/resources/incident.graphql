@@ -90,83 +90,84 @@ type Incident implements Entity {
   """
   The primary key of the Incident
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The type of incident
   """
-  incidentType: IncidentType!
+  incidentType: IncidentType! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   A custom type of incident. Present only if type is 'CUSTOM'
   """
-  customType: String
+  customType: String @aspectMapping(aspects: ["incidentInfo"])
 
   """
   An optional title associated with the incident
   """
-  title: String
+  title: String @aspectMapping(aspects: ["incidentInfo"])
 
   """
   An optional description associated with the incident
   """
-  description: String
+  description: String @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The status of an incident
   """
-  incidentStatus: IncidentStatus!
+  incidentStatus: IncidentStatus! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The status of an incident
   @deprecated, use incidentStatus instead
   """
-  status: IncidentStatus!
+  status: IncidentStatus! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   Optional priority of the incident.
   """
-  priority: IncidentPriority
+  priority: IncidentPriority @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The users or groups are assigned to resolve the incident
   """
-  assignees: [OwnerType!]
+  assignees: [OwnerType!] @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The entity that the incident is associated with.
   """
-  entity: Entity!
+  entity: Entity! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The source of the incident, i.e. how it was generated
   """
-  source: IncidentSource
+  source: IncidentSource @aspectMapping(aspects: ["incidentInfo"])
 
   """
   An optional time at which the incident actually started (may be before the date it was raised).
   """
-  startedAt: Long
+  startedAt: Long @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The time at which the incident was initially created
   """
-  created: AuditStamp!
+  created: AuditStamp! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The standard tags for the Incident
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -561,7 +562,7 @@ extend type Dataset {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type DataJob {
@@ -593,7 +594,7 @@ extend type DataJob {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type DataFlow {
@@ -625,7 +626,7 @@ extend type DataFlow {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type Dashboard {
@@ -657,7 +658,7 @@ extend type Dashboard {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type Chart {
@@ -689,7 +690,7 @@ extend type Chart {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type MLModel {
@@ -721,7 +722,7 @@ extend type MLModel {
     Optional number of results to return, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type MLFeature {
@@ -753,5 +754,69 @@ extend type MLFeature {
     Optional number of results to return, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
+}
+
+extend type SchemaFieldEntity {
+  """
+  Incidents associated with the SchemaField
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
+    """
+    Optional incident stage to filter by, defaults to any stage.
+    """
+    stage: IncidentStage
+    """
+    Optional incident priority to filter by, defaults to any priority.
+    """
+    priority: IncidentPriority
+    """
+    Optional assignee urns for an incident.
+    """
+    assigneeUrns: [String!]
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional number of results to return, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult @noAspects
+}
+
+extend type MLFeatureTable {
+  """
+  Incidents associated with the MLFeatureTable
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
+    """
+    Optional incident stage to filter by, defaults to any stage.
+    """
+    stage: IncidentStage
+    """
+    Optional incident priority to filter by, defaults to any priority.
+    """
+    priority: IncidentPriority
+    """
+    Optional assignee urns for an incident.
+    """
+    assigneeUrns: [String!]
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional number of results to return, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult @noAspects
 }
