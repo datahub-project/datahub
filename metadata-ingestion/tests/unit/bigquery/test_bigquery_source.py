@@ -1696,6 +1696,65 @@ def test_bigquery_source_no_legacy_only_usage_field_report_warning_under_legacy_
     )
 
 
+def test_bigquery_source_reports_subscriptions_without_linked_dataset_lineage():
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": "p",
+            "extract_subscriptions_from_analytics_hub": True,
+            "include_linked_dataset_lineage": False,
+        }
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    assert any(
+        "extract_subscriptions_from_analytics_hub" in w.message
+        for w in fake_source.report.warnings
+    )
+
+
+def test_bigquery_source_reports_linked_dataset_lineage_missing_dependencies():
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": "p",
+            "include_linked_dataset_lineage": True,
+            "include_table_lineage": False,
+            "include_schema_metadata": False,
+        }
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    messages = [w.message for w in fake_source.report.warnings]
+    assert any("`include_table_lineage` is False" in m for m in messages)
+    assert any("`include_schema_metadata` is False" in m for m in messages)
+
+
+def test_bigquery_source_no_linked_dataset_warnings_when_configured():
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": "p",
+            "include_linked_dataset_lineage": True,
+            "include_table_lineage": True,
+            "include_schema_metadata": True,
+            "extract_subscriptions_from_analytics_hub": True,
+        }
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    assert not any(
+        "include_linked_dataset_lineage" in w.message
+        for w in fake_source.report.warnings
+    )
+
+
 @pytest.mark.parametrize(
     "recipe,expect_warning",
     [

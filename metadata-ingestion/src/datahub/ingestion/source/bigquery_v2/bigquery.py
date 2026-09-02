@@ -316,6 +316,37 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     log=False,
                 )
 
+        # Config validators already log these pairings; dual-site to the report because
+        # UI-driven ingestion only surfaces report warnings.
+        if (
+            self.config.extract_subscriptions_from_analytics_hub
+            and not self.config.include_linked_dataset_lineage
+        ):
+            self.report.warning(
+                message="`extract_subscriptions_from_analytics_hub` has no effect while "
+                "`include_linked_dataset_lineage` is False; linked datasets are not "
+                "detected, so there is nothing to attach subscription properties to.",
+                title="Analytics Hub subscriptions will not be extracted",
+                log=False,
+            )
+        if self.config.include_linked_dataset_lineage:
+            if not self.config.include_table_lineage:
+                self.report.warning(
+                    message="`include_linked_dataset_lineage` is set but "
+                    "`include_table_lineage` is False; the linked-dataset COPY lineage "
+                    "(the feature's main output) will not be emitted.",
+                    title="Linked-dataset COPY lineage will not be emitted",
+                    log=False,
+                )
+            if not self.config.include_schema_metadata:
+                self.report.warning(
+                    message="`include_linked_dataset_lineage` is set but "
+                    "`include_schema_metadata` is False; linked datasets are detected "
+                    "during the schema pass, so with it disabled the feature is inert.",
+                    title="Linked datasets will not be detected",
+                    log=False,
+                )
+
     def _build_queries_extractor_config(self) -> BigQueryQueriesExtractorConfig:
         return BigQueryQueriesExtractorConfig(
             window=self.config,
