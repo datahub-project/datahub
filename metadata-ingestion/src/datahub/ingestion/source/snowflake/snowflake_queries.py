@@ -211,8 +211,7 @@ class SnowflakeQueriesExtractorReport(Report):
     stored_proc_lineage: Optional[StoredProcLineageReport] = None
 
     num_ddl_queries_dropped: int = 0
-    num_dynamic_table_refresh_stmts_filtered: int = 0
-    num_dynamic_table_write_stmts_filtered: int = 0
+    num_dynamic_table_stmts_filtered: int = 0
     num_stream_queries_observed: int = 0
     num_stream_queries_clean_fast_path: int = 0
     num_stream_bypass_by_query_type: Dict[str, int] = dataclasses.field(
@@ -578,12 +577,12 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 # Every dynamic-table refresh normalizes to the same DataHub query fingerprint, so
                 # keeping them cross-attributes one table's upstreams onto others. Drop them.
                 if row.get("QUERY_TYPE") == REFRESH_DYNAMIC_TABLE_QUERY_TYPE:
-                    self.report.num_dynamic_table_refresh_stmts_filtered += 1
+                    self.report.num_dynamic_table_stmts_filtered += 1
                     continue
 
                 # A statement that writes a dynamic table names it in OBJECTS_MODIFIED.
                 if self._row_modifies_dynamic_table(row):
-                    self.report.num_dynamic_table_write_stmts_filtered += 1
+                    self.report.num_dynamic_table_stmts_filtered += 1
                     continue
 
                 try:

@@ -760,7 +760,7 @@ class TestSnowflakeQueryParser:
 
         # The refresh row is dropped before the parser; only the SELECT reaches it.
         assert parsed_query_types == ["SELECT"]
-        assert extractor.report.num_dynamic_table_refresh_stmts_filtered == 1
+        assert extractor.report.num_dynamic_table_stmts_filtered == 1
 
     def test_parse_query_with_valid_columns_returns_preparsed_query(self):
         """Test that queries with all valid column names return PreparsedQuery."""
@@ -3952,7 +3952,7 @@ class TestDynamicTableLineageSuppression:
         reached = self._reached_parser(extractor, rows)
 
         assert reached == ["regular-row"]
-        assert extractor.report.num_dynamic_table_write_stmts_filtered == 1
+        assert extractor.report.num_dynamic_table_stmts_filtered == 1
 
     def test_empty_dynamic_table_set_no_suppression(self):
         """With no known dynamic tables (e.g. standalone queries mode) nothing is suppressed."""
@@ -3962,7 +3962,7 @@ class TestDynamicTableLineageSuppression:
         reached = self._reached_parser(extractor, rows)
 
         assert reached == ["dt-row"]
-        assert extractor.report.num_dynamic_table_write_stmts_filtered == 0
+        assert extractor.report.num_dynamic_table_stmts_filtered == 0
 
     def test_modified_object_missing_name_does_not_crash(self):
         """A modified-object entry without objectName is skipped, not fatal (row reaches the parser)."""
@@ -3975,7 +3975,7 @@ class TestDynamicTableLineageSuppression:
         reached = self._reached_parser(extractor, rows)
 
         assert reached == ["noname-row"]
-        assert extractor.report.num_dynamic_table_write_stmts_filtered == 0
+        assert extractor.report.num_dynamic_table_stmts_filtered == 0
 
     def test_malformed_objects_modified_does_not_abort_stage(self):
         """Unexpected OBJECTS_MODIFIED shapes (invalid JSON, a non-list, a non-dict element, or a
@@ -4040,4 +4040,4 @@ class TestDynamicTableLineageSuppression:
         reached = self._reached_parser(extractor, rows)
 
         assert reached == []  # dropped: the lookup form matched the collected form
-        assert extractor.report.num_dynamic_table_write_stmts_filtered == 1
+        assert extractor.report.num_dynamic_table_stmts_filtered == 1
