@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { DatePickerWrapper, Label, StyledAntdDatePicker } from '@components/components/DatePicker/components';
 import { DatePickerVariant } from '@components/components/DatePicker/constants';
@@ -17,6 +17,7 @@ export function DatePicker({
     disabled = datePickerDefault.disabled,
     disabledDate,
     placeholder,
+    'data-testid': dataTestId,
     label,
 }: DatePickerProps) {
     const [internalValue, setInternalValue] = useState<DatePickerValue | undefined>(value);
@@ -25,7 +26,9 @@ export function DatePicker({
     const presetProps = useVariantProps(variant);
     const { inputRender, ...datePickerProps } = presetProps;
 
-    useEffect(() => onChange?.(internalValue), [onChange, internalValue]);
+    const onChangeRef = useRef(onChange);
+    onChangeRef.current = onChange;
+    useEffect(() => onChangeRef.current?.(internalValue), [internalValue]);
 
     const wrappedInputRender = useMemo(() => {
         if (!inputRender) return undefined;
@@ -55,6 +58,7 @@ export function DatePicker({
                 onOpenChange={(open) => setIsOpen(open)}
                 disabled={disabled}
                 disabledDate={disabledDate}
+                data-testid={dataTestId}
             />
         </DatePickerWrapper>
     );
