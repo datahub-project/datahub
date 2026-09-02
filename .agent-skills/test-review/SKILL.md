@@ -228,7 +228,7 @@ guide: `smoke-test/AGENTS.md`.
 3. **Authentication** -- `auth_session` fixture, `make_step_actor_user()`, never inline
 4. **Retry patterns** -- Trace API, `wait_for_writes_to_sync()`, `@with_test_retry()`, no bare `time.sleep()`
 5. **GraphQL / REST** -- `execute_graphql()`, `restli_default_headers`, `ingest_file_via_rest()`
-6. **Markers** -- required `domain(...)`, `p0`, `read_only`, `global_policy_mutator`
+6. **Markers** -- required `domain(...)`; `p0` only for regressions that must run on every PR; `read_only` only when the test never mutates; `global_policy_mutator` only when mutating shared platform policy
 7. **Environment variables** -- `env_vars.py` registry, no hardcoded URLs
 8. **Guaranteed cleanup** -- fixture `yield` or `try/finally`
 9. **Multi-environment config** -- URLs via env vars, `USE_STATIC_SLEEP` fallback

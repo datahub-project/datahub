@@ -126,7 +126,6 @@ Never use `time.sleep()` to wait for GMS, search, or Kafka.
 | After bulk ingest or cleanup            | `wait_for_writes_to_sync()` (`mcp_only` / `mae_only` when only one store matters) |
 | One known async write with a `trace_id` | Trace API (`/openapi/v1/trace/write/{trace_id}`)                                  |
 | Custom timing                           | `tenacity` with `stop_after_delay`                                                |
-| Action/integration lifecycle            | Service status polling (`integrations_service_utils`)                             |
 
 **Rules:**
 
@@ -141,8 +140,9 @@ Never use `time.sleep()` to wait for GMS, search, or Kafka.
 
 ## 5. GraphQL and REST
 
-**Source:** `execute_graphql` / `ingest_file_via_rest` / `restli_default_headers`
-in `smoke-test/tests/utils.py`, `smoke-test/AGENTS.md` (Rules).
+**Source:** `execute_graphql` / `ingest_file_via_rest` in
+`smoke-test/tests/utils.py`; per-module `restli_default_headers` (e.g.
+`smoke-test/test_e2e.py`); `smoke-test/AGENTS.md` (Rules).
 
 `execute_graphql()` already asserts a non-empty body, `data` is not `None`,
 and no `errors` key.
@@ -151,8 +151,9 @@ and no `errors` key.
 
 - WARNING: Use `execute_graphql()` instead of a manual GraphQL POST.
 - WARNING: Assert specific field values, not that the response exists.
-- WARNING: Use `restli_default_headers` for Rest.li; ingest with
-  `ingest_file_via_rest()`, not a hand-rolled Pipeline.
+- WARNING: Rest.li calls need `X-RestLi-Protocol-Version: 2.0.0` (copy the
+  per-module `restli_default_headers` dict; it is not in `utils.py`). Ingest
+  with `ingest_file_via_rest()`, not a hand-rolled Pipeline.
 - SUGGESTION: OpenAPI v3 multi-step tests use `concurrent_openapi.run_tests()`.
   Do not add fixtures that only re-check a GraphQL path already covered.
 - SUGGESTION: Tags, terms, and descriptions via

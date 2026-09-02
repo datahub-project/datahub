@@ -19,7 +19,6 @@
 ### Classification
 
 - **Smoke tests:** {{SMOKE_COUNT}} files
-- **Filtered out (Cypress / connector):** {{FILTERED_COUNT}} files
 
 ---
 
