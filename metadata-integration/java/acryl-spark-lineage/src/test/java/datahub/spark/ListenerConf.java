@@ -27,6 +27,7 @@ final class ListenerConf {
 
   private Path emitFile;
   private Boolean captureColumnLevelLineage;
+  private Boolean captureQueryEntities;
   private String globalPlatformInstance;
   private String globalEnv;
 
@@ -51,6 +52,15 @@ final class ListenerConf {
   ListenerConf captureColumnLevelLineage(boolean enabled) {
     this.captureColumnLevelLineage = enabled;
     return put("spark.datahub.metadata.dataset.captureColumnLevelLineage", String.valueOf(enabled));
+  }
+
+  /**
+   * Emit a Query entity (queryProperties + querySubjects) for the SQL captured in a job's
+   * SQLJobFacet, linked as the `query` on the corresponding fine-grained lineage entries.
+   */
+  ListenerConf captureQueryEntities(boolean enabled) {
+    this.captureQueryEntities = enabled;
+    return put("spark.datahub.captureQueryEntities", String.valueOf(enabled));
   }
 
   /** The global platform_instance applied to datasets that have no per-connection mapping. */
@@ -150,6 +160,7 @@ final class ListenerConf {
     sb.append("=== DataHub Spark listener config ===\n");
     sb.append(line("emitter", emitFile != null ? "file -> " + emitFile : "<none>"));
     sb.append(flag("captureColumnLevelLineage", captureColumnLevelLineage));
+    sb.append(flag("captureQueryEntities", captureQueryEntities));
     sb.append(line("platformInstance (global)", value(globalPlatformInstance)));
     sb.append(line("env (global)", globalEnv != null ? globalEnv : "<unset> [default PROD]"));
 

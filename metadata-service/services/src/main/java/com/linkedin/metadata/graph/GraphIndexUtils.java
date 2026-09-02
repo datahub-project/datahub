@@ -203,7 +203,8 @@ public class GraphIndexUtils {
   }
 
   // TODO: remove this method once we implement sourceOverride when creating graph edges
-  private static void updateFineGrainedEdgesAndRelationships(
+  @VisibleForTesting
+  static void updateFineGrainedEdgesAndRelationships(
       Urn entity,
       FineGrainedLineageArray fineGrainedLineageArray,
       List<Edge> edgesToAdd,
@@ -215,11 +216,14 @@ public class GraphIndexUtils {
         if (!fineGrainedLineage.hasDownstreams() || !fineGrainedLineage.hasUpstreams()) {
           break;
         }
-        // Fine grained lineage array is present either on datajob (datajob input/output) or dataset
-        // We set the datajob as the viaEntity in scenario 1, and the query (if present) as the
-        // viaEntity in scenario 2
+        // Fine grained lineage array is present either on a datajob (datajob input/output) or a
+        // dataset. A named query is the most specific description of the transformation, so it
+        // wins whenever present; otherwise a datajob-hosted aspect attributes the edge to the
+        // datajob itself.
         Urn viaEntity =
-            entity.getEntityType().equals("dataJob") ? entity : fineGrainedLineage.getQuery();
+            fineGrainedLineage.getQuery() != null
+                ? fineGrainedLineage.getQuery()
+                : (entity.getEntityType().equals("dataJob") ? entity : null);
         // for every downstream, create an edge with each of the upstreams
         for (Urn downstream : fineGrainedLineage.getDownstreams()) {
           for (Urn upstream : fineGrainedLineage.getUpstreams()) {

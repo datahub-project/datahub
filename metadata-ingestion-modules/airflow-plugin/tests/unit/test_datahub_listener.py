@@ -6,8 +6,19 @@ from typing import Any, Iterator, List
 from unittest.mock import MagicMock, patch
 
 import pytest
+from openlineage.client.facet import SqlJobFacet
 
 import datahub_airflow_plugin.airflow3.datahub_listener as listener_mod
+from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.metadata.schema_classes import QueryPropertiesClass, QuerySubjectsClass
+from datahub.metadata.urns import QueryUrn
+from datahub.sql_parsing.fingerprint_utils import generate_hash
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+    SqlParsingResult,
+)
 from datahub_airflow_plugin.airflow3.datahub_listener import DataHubListener
 
 
@@ -376,3 +387,174 @@ class TestOnStarting:
         ):
             # Must not raise — on_starting runs synchronously on Airflow startup.
             DataHubListener.on_starting(stub, TaskRunnerMarker())
+
+
+UPSTREAM_DATASET_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_schema.src,PROD)"
+)
+DOWNSTREAM_DATASET_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_schema.dst,PROD)"
+)
+SQL_STATEMENT = "SELECT col_a FROM my_db.my_schema.src"
+EVENT_TIME_MILLIS = 1700000000000
+
+
+def _make_query_entity_stub(capture_query_entities: bool) -> Any:
+    config = SimpleNamespace(capture_query_entities=capture_query_entities)
+    # _emit_query_entity calls self._make_emit_callback(); the real method
+    # doesn't touch self, so a no-op stand-in is sufficient here.
+    return SimpleNamespace(config=config, _make_emit_callback=lambda: None)
+
+
+def _make_operator_lineage_with_sql_facet() -> Any:
+    """A minimal OpenLineage OperatorLineage stand-in carrying both facets
+    _sql_parser_patch.py sets: the DataHub SqlParsingResult in run_facets, and
+    the raw SQL text in the job_facets "sql" SqlJobFacet.
+
+    query_fingerprint is deliberately set to something other than the real SQL
+    text: SqlParsingResult has no text field, only this fingerprint, and using
+    it instead of the job facet would derive a different (wrong) Query URN.
+    """
+    sql_parsing_result = SqlParsingResult(
+        in_tables=[UPSTREAM_DATASET_URN],
+        out_tables=[DOWNSTREAM_DATASET_URN],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(
+                    table=DOWNSTREAM_DATASET_URN, column="col_a"
+                ),
+                upstreams=[ColumnRef(table=UPSTREAM_DATASET_URN, column="col_a")],
+            )
+        ],
+        query_fingerprint="not-the-real-sql-fingerprint",
+    )
+    return SimpleNamespace(
+        inputs=[],
+        outputs=[],
+        run_facets={listener_mod.DATAHUB_SQL_PARSING_RESULT_KEY: sql_parsing_result},
+        job_facets={"sql": SqlJobFacet(query=SQL_STATEMENT)},
+    )
+
+
+def _extract_lineage_from_airflow3(stub: Any) -> Any:
+    task = MagicMock()
+    task.task_id = "my_task"
+    task.get_openlineage_facets_on_complete = MagicMock(
+        return_value=_make_operator_lineage_with_sql_facet()
+    )
+    return DataHubListener._extract_lineage_from_airflow3(
+        stub, task, MagicMock(), complete=True
+    )
+
+
+class TestQueryEntityEmission:
+    """capture_query_entities: the SQL statement text must come from the
+    OpenLineage SQL job facet (the only place it exists - SqlParsingResult
+    carries a fingerprint but no text), become the Query URN via
+    sha256(statement text), and drive both the FGL.query link and the emitted
+    Query entity aspects.
+    """
+
+    def test_query_entity_emitted_and_linked_when_enabled(self) -> None:
+        stub = _make_query_entity_stub(capture_query_entities=True)
+
+        _, _, sql_parsing_result, statement_text = _extract_lineage_from_airflow3(stub)
+        assert statement_text == SQL_STATEMENT
+
+        datajob = MagicMock()
+        datajob.urn = "urn:li:dataJob:(urn:li:dataFlow:(airflow,my_dag,PROD),my_task)"
+        _, _, fine_grained_lineages, subject_urns = (
+            DataHubListener._process_sql_parsing_result(
+                stub, datajob, sql_parsing_result, statement_text
+            )
+        )
+
+        expected_query_urn = QueryUrn(generate_hash(SQL_STATEMENT)).urn()
+        assert fine_grained_lineages
+        assert all(fgl.query == expected_query_urn for fgl in fine_grained_lineages)
+
+        mock_emitter = MagicMock()
+        DataHubListener._emit_query_entity(
+            stub, mock_emitter, statement_text, subject_urns, EVENT_TIME_MILLIS
+        )
+
+        emitted_mcps = [call.args[0] for call in mock_emitter.emit.call_args_list]
+        assert emitted_mcps
+        assert all(mcp.entityUrn == expected_query_urn for mcp in emitted_mcps)
+
+        query_properties = next(
+            mcp.aspect
+            for mcp in emitted_mcps
+            if isinstance(mcp.aspect, QueryPropertiesClass)
+        )
+        assert query_properties.statement.value == SQL_STATEMENT
+        # `created` is fixed at epoch-0 (matching the Python SDK's
+        # _empty_audit_stamp) since this URN is reused across re-observations of
+        # the same SQL - a real timestamp would get clobbered on every re-run.
+        # `lastModified` carries the real task-completion time.
+        assert query_properties.created.time == 0
+        assert query_properties.lastModified.time == EVENT_TIME_MILLIS
+
+        query_subjects = next(
+            mcp.aspect
+            for mcp in emitted_mcps
+            if isinstance(mcp.aspect, QuerySubjectsClass)
+        )
+        expected_subject_urns = {
+            UPSTREAM_DATASET_URN,
+            DOWNSTREAM_DATASET_URN,
+            make_schema_field_urn(UPSTREAM_DATASET_URN, "col_a"),
+            make_schema_field_urn(DOWNSTREAM_DATASET_URN, "col_a"),
+        }
+        assert {
+            subject.entity for subject in query_subjects.subjects
+        } == expected_subject_urns
+
+    def test_no_query_entity_when_flag_disabled(self) -> None:
+        stub = _make_query_entity_stub(capture_query_entities=False)
+
+        _, _, sql_parsing_result, statement_text = _extract_lineage_from_airflow3(stub)
+
+        datajob = MagicMock()
+        datajob.urn = "urn:li:dataJob:(urn:li:dataFlow:(airflow,my_dag,PROD),my_task)"
+        _, _, fine_grained_lineages, subject_urns = (
+            DataHubListener._process_sql_parsing_result(
+                stub, datajob, sql_parsing_result, statement_text
+            )
+        )
+        assert fine_grained_lineages
+        assert all(fgl.query is None for fgl in fine_grained_lineages)
+
+        mock_emitter = MagicMock()
+        DataHubListener._emit_query_entity(
+            stub, mock_emitter, statement_text, subject_urns, EVENT_TIME_MILLIS
+        )
+        mock_emitter.emit.assert_not_called()
+
+    def test_no_query_entity_when_no_column_lineage(self) -> None:
+        """DDL and values-only DML parse without column_lineage, so no
+        FineGrainedLineage ever gets the query URN attached. The Query entity
+        must not be emitted in that case either - otherwise it would exist
+        with nothing referencing it.
+        """
+        stub = _make_query_entity_stub(capture_query_entities=True)
+        statement_text = "DROP TABLE my_db.my_schema.src"
+        sql_parsing_result = SqlParsingResult(
+            in_tables=[], out_tables=[UPSTREAM_DATASET_URN], column_lineage=None
+        )
+
+        datajob = MagicMock()
+        datajob.urn = "urn:li:dataJob:(urn:li:dataFlow:(airflow,my_dag,PROD),my_task)"
+        _, _, fine_grained_lineages, subject_urns = (
+            DataHubListener._process_sql_parsing_result(
+                stub, datajob, sql_parsing_result, statement_text
+            )
+        )
+        assert not fine_grained_lineages
+        assert not subject_urns
+
+        mock_emitter = MagicMock()
+        DataHubListener._emit_query_entity(
+            stub, mock_emitter, statement_text, subject_urns, EVENT_TIME_MILLIS
+        )
+        mock_emitter.emit.assert_not_called()

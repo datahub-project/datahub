@@ -5,8 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.dataprocess.RunResultType;
 import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -22,8 +25,11 @@ import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
 import io.datahubproject.openlineage.dataset.DatahubDataset;
 import io.datahubproject.openlineage.dataset.DatahubJob;
 import io.datahubproject.openlineage.dataset.PathSpec;
+import io.datahubproject.openlineage.utils.QueryUrnUtils;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClientUtils;
+import io.openlineage.client.transports.ConsoleConfig;
+import io.openlineage.spark.api.SparkOpenLineageConfig;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -1345,6 +1351,214 @@ public class OpenLineageEventToDatahubTest {
           "Transform operation should prefix transformations with '-- ' before SQL, got: "
               + transformOperation);
     }
+  }
+
+  @Test
+  public void testSqlFacetProducesQueryEntityAndLinksFineGrainedLineage()
+      throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(true);
+    builder.captureQueryEntities(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_with_sql_facet.json"),
+            StandardCharsets.UTF_8);
+    String expectedSql = "SELECT age, name FROM people WHERE age > 18";
+    Urn expectedQueryUrn = QueryUrnUtils.queryUrnForStatement(expectedSql);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubOpenlineageConfig config = builder.build();
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, config);
+
+    assertNotNull(datahubJob);
+    DatahubDataset outputDataset = datahubJob.getOutSet().iterator().next();
+    List<FineGrainedLineage> fgls =
+        Objects.requireNonNull(outputDataset.getLineage().getFineGrainedLineages());
+    assertTrue(
+        fgls.stream().anyMatch(fgl -> expectedQueryUrn.equals(fgl.getQuery())),
+        "expected a FineGrainedLineage with query=" + expectedQueryUrn);
+
+    List<MetadataChangeProposal> mcps = datahubJob.toMcps(config);
+    MetadataChangeProposal queryPropertiesMcp =
+        mcps.stream()
+            .filter(mcp -> "queryProperties".equals(mcp.getAspectName()))
+            .filter(mcp -> expectedQueryUrn.equals(mcp.getEntityUrn()))
+            .findFirst()
+            .orElseThrow(
+                () -> new AssertionError("no queryProperties MCP emitted for " + expectedQueryUrn));
+
+    JsonNode statement = readAspectJson(queryPropertiesMcp).get("statement");
+    assertEquals(expectedSql, statement.get("value").asText());
+  }
+
+  @Test
+  public void testSqlFacetQueryUrnHashesRawTextNotTrimmed() throws URISyntaxException, IOException {
+    // Padding the captured SQL with whitespace, as a producer might, must not change the query
+    // URN relative to what a producer hashing the raw (unpadded) text would compute - otherwise
+    // the same SQL mints different URNs depending on which producer captured it.
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(true);
+    builder.captureQueryEntities(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_with_sql_facet.json"),
+            StandardCharsets.UTF_8);
+    String paddedSql = "   SELECT age, name FROM people WHERE age > 18   ";
+    String paddedEvent =
+        olEvent.replace(
+            "\"query\": \"SELECT age, name FROM people WHERE age > 18\"",
+            "\"query\": \"" + paddedSql + "\"");
+    Urn expectedQueryUrn = QueryUrnUtils.queryUrnForStatement(paddedSql);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(paddedEvent);
+    DatahubOpenlineageConfig config = builder.build();
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, config);
+
+    assertNotNull(datahubJob);
+    DatahubDataset outputDataset = datahubJob.getOutSet().iterator().next();
+    List<FineGrainedLineage> fgls =
+        Objects.requireNonNull(outputDataset.getLineage().getFineGrainedLineages());
+    assertTrue(
+        fgls.stream().anyMatch(fgl -> expectedQueryUrn.equals(fgl.getQuery())),
+        "expected a FineGrainedLineage with query=" + expectedQueryUrn);
+
+    List<MetadataChangeProposal> mcps = datahubJob.toMcps(config);
+    MetadataChangeProposal queryPropertiesMcp =
+        mcps.stream()
+            .filter(mcp -> "queryProperties".equals(mcp.getAspectName()))
+            .filter(mcp -> expectedQueryUrn.equals(mcp.getEntityUrn()))
+            .findFirst()
+            .orElseThrow(
+                () -> new AssertionError("no queryProperties MCP emitted for " + expectedQueryUrn));
+
+    JsonNode statement = readAspectJson(queryPropertiesMcp).get("statement");
+    assertEquals(
+        paddedSql,
+        statement.get("value").asText(),
+        "stored statement must be the raw padded text so the URN is re-derivable from it");
+  }
+
+  @Test
+  public void testCaptureQueryEntitiesDefaultsToOff() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(true);
+    // captureQueryEntities intentionally left unset - must default to off.
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_with_sql_facet.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubOpenlineageConfig config = builder.build();
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, config);
+
+    assertNotNull(datahubJob);
+    DatahubDataset outputDataset = datahubJob.getOutSet().iterator().next();
+    List<FineGrainedLineage> fgls =
+        Objects.requireNonNull(outputDataset.getLineage().getFineGrainedLineages());
+    assertTrue(
+        fgls.stream().allMatch(fgl -> fgl.getQuery() == null),
+        "no FineGrainedLineage should carry a query urn when captureQueryEntities is off");
+
+    List<MetadataChangeProposal> mcps = datahubJob.toMcps(config);
+    assertTrue(
+        mcps.stream().noneMatch(mcp -> "queryProperties".equals(mcp.getAspectName())),
+        "no queryProperties MCP should be emitted when captureQueryEntities is off");
+    assertTrue(
+        mcps.stream().noneMatch(mcp -> "query".equals(mcp.getEntityType())),
+        "no query entity MCP should be emitted when captureQueryEntities is off");
+  }
+
+  @Test
+  public void testCoalescedEventsEmitOnlyTheReferencedQueryEntity()
+      throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(true);
+    builder.captureQueryEntities(true);
+    DatahubOpenlineageConfig config = builder.build();
+
+    String firstSql = "SELECT age, name FROM people WHERE age > 18";
+    String secondSql = "SELECT age, name FROM people WHERE age > 21";
+    Urn firstQueryUrn = QueryUrnUtils.queryUrnForStatement(firstSql);
+    Urn secondQueryUrn = QueryUrnUtils.queryUrnForStatement(secondSql);
+
+    OpenLineage.RunEvent firstEvent =
+        OpenLineageClientUtils.runEventFromJson(
+            IOUtils.toString(
+                this.getClass().getResourceAsStream("/ol_events/sample_spark_with_sql_facet.json"),
+                StandardCharsets.UTF_8));
+    OpenLineage.RunEvent secondEvent =
+        OpenLineageClientUtils.runEventFromJson(
+            IOUtils.toString(
+                this.getClass()
+                    .getResourceAsStream(
+                        "/ol_events/sample_spark_with_sql_facet_second_event.json"),
+                StandardCharsets.UTF_8));
+
+    SparkOpenLineageConfig sparkOpenLineageConfig = new SparkOpenLineageConfig();
+    sparkOpenLineageConfig.setTransportConfig(new ConsoleConfig());
+    DatahubEventEmitter emitter = new DatahubEventEmitter(sparkOpenLineageConfig, "test-app");
+    emitter.setConfig(SparkLineageConf.builder().openLineageConf(config).build());
+
+    // Two write events to the same output dataset with different SQL - the shape Spark produces
+    // when it coalesces multiple events per job run. The second event's lineage supersedes the
+    // first's on the shared output dataset (see DatahubEventEmitter#mergeDatasets).
+    emitter.convertOpenLineageRunEventToDatahubJob(firstEvent);
+    emitter.convertOpenLineageRunEventToDatahubJob(secondEvent);
+
+    List<MetadataChangeProposal> mcps = emitter.generateCoalescedMcps();
+
+    assertTrue(
+        mcps.stream()
+            .anyMatch(
+                mcp ->
+                    "queryProperties".equals(mcp.getAspectName())
+                        && secondQueryUrn.equals(mcp.getEntityUrn())),
+        "the surviving query should still get its Query entity");
+    assertTrue(
+        mcps.stream()
+            .noneMatch(
+                mcp ->
+                    "queryProperties".equals(mcp.getAspectName())
+                        && firstQueryUrn.equals(mcp.getEntityUrn())),
+        "the superseded query must not produce an orphan Query entity");
+  }
+
+  /** Parses the JSON aspect value carried by an in-process (non-file-emitter) MCP. */
+  private static JsonNode readAspectJson(MetadataChangeProposal mcp) throws IOException {
+    String json = mcp.getAspect().getValue().asString(StandardCharsets.UTF_8);
+    return new ObjectMapper().readTree(json);
   }
 
   @Test

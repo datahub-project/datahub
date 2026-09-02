@@ -61,6 +61,7 @@ import io.datahubproject.openlineage.dataset.HdfsPathDataset;
 import io.datahubproject.openlineage.dataset.HdfsPlatform;
 import io.datahubproject.openlineage.dataset.PathSpec;
 import io.datahubproject.openlineage.utils.DatahubUtils;
+import io.datahubproject.openlineage.utils.QueryUrnUtils;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClientUtils;
 import java.io.IOException;
@@ -81,6 +82,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -507,7 +509,10 @@ public class OpenLineageToDataHub {
   }
 
   private static UpstreamLineage getFineGrainedLineage(
-      OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig, OpenLineage.Job job) {
+      OpenLineage.Dataset dataset,
+      DatahubOpenlineageConfig mappingConfig,
+      OpenLineage.Job job,
+      Map<Urn, String> queryStatements) {
     FineGrainedLineageArray fgla = new FineGrainedLineageArray();
     UpstreamArray upstreams = new UpstreamArray();
 
@@ -616,12 +621,18 @@ public class OpenLineageToDataHub {
       }
 
       // Extract SQL query from SQLJobFacet if available
+      String sqlFacetQuery = null;
       if (job != null
           && job.getFacets() != null
           && job.getFacets().getSql() != null
           && job.getFacets().getSql().getQuery() != null) {
         String sqlQuery = job.getFacets().getSql().getQuery();
-        if (!sqlQuery.trim().isEmpty()) {
+        if (!StringUtils.isBlank(sqlQuery)) {
+          // Hash and store the RAW statement text, not trimmed: the Airflow listener and the
+          // Python SDK hash the raw text, and the URN must be re-derivable from the stored
+          // statement. Trimming here would mint a different URN for the same SQL depending on
+          // which producer captured it.
+          sqlFacetQuery = sqlQuery;
           if (!combinedTransformations.isEmpty()) {
             combinedTransformations = "-- " + combinedTransformations + "\n" + sqlQuery;
           } else {
@@ -639,6 +650,13 @@ public class OpenLineageToDataHub {
       fgl.setDownstreams(downstreamsFields);
       fgl.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
       fgl.setTransformOperation(combinedTransformations);
+
+      if (mappingConfig.isCaptureQueryEntities() && sqlFacetQuery != null) {
+        Urn queryUrn = QueryUrnUtils.queryUrnForStatement(sqlFacetQuery);
+        fgl.setQuery(queryUrn);
+        queryStatements.put(queryUrn, sqlFacetQuery);
+      }
+
       fgla.add(fgl);
     }
 
@@ -1274,7 +1292,8 @@ public class OpenLineageToDataHub {
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
           UpstreamLineage upstreamLineage =
-              getFineGrainedLineage(input, datahubConf, event.getJob());
+              getFineGrainedLineage(
+                  input, datahubConf, event.getJob(), datahubJob.getQueryStatements());
           if (upstreamLineage != null) {
             builder.lineage(upstreamLineage);
           }
@@ -1304,7 +1323,8 @@ public class OpenLineageToDataHub {
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
           UpstreamLineage upstreamLineage =
-              getFineGrainedLineage(output, datahubConf, event.getJob());
+              getFineGrainedLineage(
+                  output, datahubConf, event.getJob(), datahubJob.getQueryStatements());
           if (upstreamLineage != null) {
             builder.lineage(upstreamLineage);
           }

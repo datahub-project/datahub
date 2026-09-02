@@ -76,6 +76,7 @@ enabled = True  # default
 | debug_emitter                      | false                | [debug] If true, the plugin will log the emitted events.                                                                                                                                                                    |
 | dag_filter_str                     | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                                                                                                              |
 | enable_datajob_lineage             | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                                                                                                            |
+| capture_query_entities             | false                | Emit each task's captured SQL statement as a DataHub Query entity, linked from the task's fine-grained lineage. See [Query Entities](#query-entities-sql-only).                                                             |
 | capture_airflow_assets             | true                 | Capture native Airflow Assets/Datasets as DataHub lineage. See [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets).                                                                                            |
 | emit_mode                          | ASYNC                | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees. |
 
@@ -123,6 +124,19 @@ enable_multi_statement_sql_parsing = True  # Default: False
 ```
 
 **Note:** Use a list of SQL strings (recommended) or semicolon-separated statements in a single string:
+
+### Query Entities (SQL-only)
+
+By default, a task's SQL survives only as a string field on the lineage itself. Enable `capture_query_entities` to also emit the task's captured SQL statement as a DataHub **Query entity**, referenced from the task's fine-grained lineage. The statement then becomes searchable, gets its own page, and appears on the **Queries** tab of each dataset the task reads or writes. Identical statements de-duplicate across producers.
+
+**What this does not change:** the table-level lineage graph still shows the Airflow task as the intermediate node between datasets — this flag does not place a query node between two tables. That rendering comes from a query reference on a dataset's own `upstreamLineage`, which this plugin does not write. Selecting a column does attribute the column-level transformation to the query rather than to the task.
+
+```ini title="airflow.cfg"
+[datahub]
+capture_query_entities = True  # Default: False
+```
+
+This only works when the task's OpenLineage integration populates a SQL job facet, which happens for `SQLExecuteQueryOperator` subclasses routed through DataHub's shared `SQLParser` patch. `AthenaOperator`/`AWSAthenaOperator`, `BigQueryInsertJobOperator`, and `TeradataOperator` use their own OpenLineage patches that populate only the SQL parsing result, not the job facet, so enabling this flag produces no Query entity for tasks using those operators — their table- and column-level lineage is unaffected either way. Tasks with no SQL to capture at all likewise emit no Query entity.
 
 ## Manual Lineage Annotation
 
