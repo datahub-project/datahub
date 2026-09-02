@@ -35,6 +35,9 @@ import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -220,6 +223,56 @@ public class DataProductAssetsSideEffectTest {
         output.size(),
         2,
         "System-update UPSERT should re-ADD all current members even when unchanged: " + output);
+  }
+
+  @Test
+  public void testSystemUpdateRemovesStaleMirrors() {
+    SearchRetriever mockSearchRetriever = mock(SearchRetriever.class);
+    ScrollResult scrollResult = new ScrollResult();
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    SearchEntity staleHit = new SearchEntity();
+    staleHit.setEntity(DATASET_2);
+    searchEntities.add(staleHit);
+    scrollResult.setEntities(searchEntities);
+    scrollResult.setNumEntities(1);
+    scrollResult.setPageSize(1);
+    scrollResult.setScrollId(null);
+    when(mockSearchRetriever.scroll(any(), any(), any(), any(), any(), any()))
+        .thenReturn(scrollResult);
+
+    retrieverContext =
+        RetrieverContext.builder()
+            .searchRetriever(mockSearchRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
+            .graphRetriever(mock(GraphRetriever.class))
+            .build();
+
+    SystemMetadata systemMetadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
+    systemMetadata.setProperties(properties);
+
+    ChangeItemImpl change = changeItem(propsWith(DATASET_1), ChangeType.UPSERT, systemMetadata);
+    List<MCPItem> output = run(change, propsWith(DATASET_1));
+
+    assertEquals(
+        output.size(),
+        2,
+        "System-update should ADD current members and REMOVE stale search hits: " + output);
+    assertTrue(
+        output.stream()
+            .anyMatch(
+                item ->
+                    DATASET_1.equals(item.getUrn())
+                        && expectedAssetPatch(DATASET_1, PatchOperationType.ADD, false, change)
+                            .equals(item)));
+    assertTrue(
+        output.stream()
+            .anyMatch(
+                item ->
+                    DATASET_2.equals(item.getUrn())
+                        && expectedAssetPatch(DATASET_2, PatchOperationType.REMOVE, false, change)
+                            .equals(item)));
   }
 
   @Test

@@ -22,8 +22,13 @@ import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.metadata.aspect.patch.template.dataproduct.DataProductsTemplate;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -64,9 +69,11 @@ import lombok.extern.slf4j.Slf4j;
 public class DataProductAssetsSideEffect extends MCPSideEffect {
 
   /**
-   * Batch size for reading existing asset-side {@code dataProducts} aspects during sync. All
-   * unsynced ADD patches for a single Data Product properties commit are emitted in one side-effect
-   * invocation (not capped to this value).
+   * Batch size for reading existing asset-side {@code dataProducts} aspects during sync and for
+   * search scroll pages when healing stale mirrors on system-update. All unsynced ADD patches for a
+   * single Data Product properties commit are emitted in one side-effect invocation (not capped to
+   * this value). {@code EntityServiceImpl} Kafka-batches applied patches at 500 ({@code
+   * MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE}).
    */
   public static final int DEFAULT_MAX_FANOUT_PER_COMMIT = 500;
 
@@ -177,7 +184,13 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
     if (!ChangeType.UPSERT.equals(mclItem.getChangeType())
         || previous == null
         || isSystemUpdate(mclItem.getSystemMetadata())) {
-      return addUnsynced(operationContext, newByAsset, dataProductUrn, mclItem, retrieverContext);
+      Stream<MCPItem> adds =
+          addUnsynced(operationContext, newByAsset, dataProductUrn, mclItem, retrieverContext);
+      if (isSystemUpdate(mclItem.getSystemMetadata())) {
+        return Stream.concat(
+            adds, removeStaleMirrors(dataProductUrn, newByAsset, mclItem, retrieverContext));
+      }
+      return adds;
     }
 
     final Map<Urn, DataProductAssociation> oldByAsset = associationsByAsset(previous);
@@ -254,6 +267,93 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
       scanned = end;
     }
     return toEmit.stream();
+  }
+
+  /**
+   * On system-update reprocess, search for assets that still mirror this Data Product but are no
+   * longer listed in {@code dataProductProperties.assets}, and emit REMOVE patches. Live user
+   * UPSERTs already diff REMOVEs from the before/after membership map.
+   */
+  private Stream<MCPItem> removeStaleMirrors(
+      @Nonnull Urn dataProductUrn,
+      @Nonnull Map<Urn, DataProductAssociation> currentMembers,
+      @Nonnull MCLItem source,
+      @Nonnull RetrieverContext retrieverContext) {
+    SearchRetriever searchRetriever = retrieverContext.getSearchRetriever();
+    if (searchRetriever == null || searchRetriever == SearchRetriever.EMPTY) {
+      return Stream.empty();
+    }
+
+    List<String> entities = entitiesSupportingDataProducts(retrieverContext);
+    if (entities.isEmpty()) {
+      return Stream.empty();
+    }
+
+    Filter filter =
+        FilterUtils.createValuesFilter("dataProduct", List.of(dataProductUrn.toString()));
+    List<MCPItem> removes = new ArrayList<>();
+    try {
+      String scrollId = null;
+      do {
+        ScrollResult scrollResult =
+            searchRetriever.scroll(
+                entities,
+                filter,
+                scrollId,
+                maxFanoutPerCommit,
+                List.of(),
+                SearchRetriever.RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS);
+
+        if (scrollResult.getEntities() == null || scrollResult.getEntities().isEmpty()) {
+          break;
+        }
+
+        for (SearchEntity hit : scrollResult.getEntities()) {
+          Urn assetUrn = hit.getEntity();
+          if (assetUrn == null || currentMembers.containsKey(assetUrn)) {
+            continue;
+          }
+          MCPItem patch =
+              buildAssetPatch(
+                  assetUrn,
+                  dataProductUrn,
+                  null,
+                  PatchOperationType.REMOVE,
+                  source,
+                  retrieverContext);
+          if (patch != null) {
+            removes.add(patch);
+          }
+        }
+
+        String nextScrollId = scrollResult.getScrollId();
+        if (nextScrollId == null || nextScrollId.equals(scrollId)) {
+          break;
+        }
+        scrollId = nextScrollId;
+      } while (true);
+    } catch (RuntimeException e) {
+      log.warn(
+          "Unable to scroll for stale dataProduct mirrors for {}; skipping REMOVE heal",
+          dataProductUrn,
+          e);
+    }
+    return removes.stream();
+  }
+
+  @Nonnull
+  private static List<String> entitiesSupportingDataProducts(
+      @Nonnull RetrieverContext retrieverContext) {
+    return retrieverContext
+        .getAspectRetriever()
+        .getEntityRegistry()
+        .getEntitySpecs()
+        .values()
+        .stream()
+        .filter(spec -> spec.getAspectSpec(DATA_PRODUCTS_ASPECT_NAME) != null)
+        .map(EntitySpec::getName)
+        .sorted()
+        .collect(Collectors.toList());
   }
 
   @Nonnull

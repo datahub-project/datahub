@@ -40,7 +40,7 @@ import lombok.extern.slf4j.Slf4j;
  * Reprocess step: scrolls Data Products, batch-fetches {@code dataProductProperties}, and emits
  * UPSERT proposals tagged as system-update so {@link
  * com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffect} re-mirrors membership
- * onto assets.
+ * onto assets (missing ADDs and stale REMOVEs).
  */
 @Slf4j
 public class ResyncDataProductAssetsStep implements UpgradeStep {
