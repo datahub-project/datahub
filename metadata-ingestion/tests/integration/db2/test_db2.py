@@ -2,6 +2,7 @@ import logging
 import os
 import platform
 import queue
+import subprocess
 import threading
 
 import pytest
@@ -25,6 +26,48 @@ def test_resources_dir(pytestconfig):
     return pytestconfig.rootpath / "tests/integration/db2"
 
 
+def _shell(cmd: str) -> str:
+    return subprocess.run(
+        cmd, shell=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def _db2_setup_failure() -> str | None:
+    """The container's setup script is fail-open: on CREATE DATABASE failure it
+    logs "(!) Failed to create ..." / an SQL error and still reports setup as
+    completed, so the server comes up without the database and readiness would
+    poll out the full timeout. Detect the failure to abort immediately."""
+    logs = _shell("docker logs testdb2 2>&1")
+    for line in logs.splitlines():
+        if "(!) Failed to create" in line or "SQL0293N" in line:
+            return line.strip()
+    return None
+
+
+def _db2_environment_diagnostics() -> str:
+    """Facts needed to diagnose a CREATE DATABASE failure: what filesystem the
+    database path actually sits on, kernel async-I/O headroom, and the DB2
+    diagnostic log entries with the underlying OS error."""
+    return "\n".join(
+        [
+            "--- df -T /database ---",
+            _shell("docker exec testdb2 df -T /database /database/data 2>&1"),
+            "--- mount options ---",
+            _shell(
+                "docker exec testdb2 sh -c 'mount | grep -E \"/database| / \"' 2>&1"
+            ),
+            "--- aio limits (aio-nr / aio-max-nr) ---",
+            _shell(
+                "docker exec testdb2 sh -c 'cat /proc/sys/fs/aio-nr /proc/sys/fs/aio-max-nr' 2>&1"
+            ),
+            "--- db2diag tail ---",
+            _shell(
+                "docker exec testdb2 sh -c 'tail -n 120 /database/config/db2inst1/sqllib/db2dump/DIAG0000/db2diag.log' 2>&1"
+            ),
+        ]
+    )
+
+
 def _attempt_db2_connection() -> bool:
     engine = sqlalchemy.create_engine(DB2_URL)
     try:
@@ -46,6 +89,13 @@ def is_db2_up() -> bool:
     overall timeout only ticks between checker calls, so a stalled handshake
     inside connect() must neither block the loop nor - were the thread
     non-daemon - the interpreter exit."""
+    setup_failure = _db2_setup_failure()
+    if setup_failure is not None:
+        raise RuntimeError(
+            f"DB2 container setup failed: {setup_failure!r}.\n"
+            f"{_db2_environment_diagnostics()}"
+        )
+
     outcome: "queue.Queue[bool]" = queue.Queue(maxsize=1)
     threading.Thread(
         target=lambda: outcome.put(_attempt_db2_connection()), daemon=True
