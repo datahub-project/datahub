@@ -2,6 +2,7 @@ from typing import Dict
 
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.azure_analysis_services import constants
 from datahub.ingestion.source.azure_analysis_services.config import (
     AzureAnalysisServicesConfig,
 )
@@ -25,6 +26,7 @@ from datahub.metadata.schema_classes import (
 )
 
 _SERVER = "asazure://westeurope.asazure.windows.net/myserver"
+_POWERBI_SERVER = "powerbi://api.powerbi.com/v1.0/myorg/salesws"
 
 
 def _mapper(**config_overrides: object) -> AasMapper:
@@ -170,7 +172,7 @@ def test_powerbi_urn_alignment() -> None:
         == "Sales Model.My Table"
     )
 
-    pbi_mapper = _mapper(platform="powerbi")
+    pbi_mapper = _mapper(platform="powerbi", server=_POWERBI_SERVER)
     # Power BI's form_full_table_name replaces spaces with underscores.
     assert (
         pbi_mapper._table_dataset_name("Sales Model", "My Table")
@@ -179,7 +181,11 @@ def test_powerbi_urn_alignment() -> None:
 
 
 def test_powerbi_workspace_prefix_alignment() -> None:
-    prefixed = _mapper(platform="powerbi", include_workspace_name_in_dataset_urn=True)
+    prefixed = _mapper(
+        platform="powerbi",
+        server=_POWERBI_SERVER,
+        include_workspace_name_in_dataset_urn=True,
+    )
     # server_name="myserver" stands in for the workspace segment; Power BI
     # lowercases it and swaps spaces, matching workspace-prefixed Power BI URNs.
     assert (
@@ -276,6 +282,32 @@ def test_cube_dataset_field_naming_and_dual_subtypes() -> None:
     schema = next(a for a in aspects if isinstance(a, SchemaMetadataClass))
     # Measures are re-emitted on the cube dataset qualified as <table>.<measure>.
     assert [f.fieldPath for f in schema.fields] == ["Sales.Total Sales"]
+
+
+def test_cube_metadata_and_table_count_respect_table_pattern() -> None:
+    mapper = _mapper(table_pattern={"deny": ["Ignored"]})
+    model = AasTabularModel(
+        catalog="SalesModel",
+        name="Sales Model",
+        tables=[
+            AasTable(
+                name="Sales",
+                measures=[AasMeasure(name="Total", expression="SUM(Sales[Amount])")],
+            ),
+            AasTable(
+                name="Ignored",
+                measures=[AasMeasure(name="Hidden", expression="SUM(Ignored[X])")],
+            ),
+        ],
+    )
+
+    # A denied table's measures must not surface as cube fields.
+    schema = mapper._cube_schema_metadata(model)
+    assert [f.fieldPath for f in schema.fields] == ["Sales.Total"]
+
+    # table_count must reflect the filtered set, not every model table.
+    props = mapper._model_container_properties(model)
+    assert props[constants.PROP_TABLE_COUNT] == "1"
 
 
 def test_map_table_swallows_and_continues() -> None:

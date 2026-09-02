@@ -226,10 +226,16 @@ class AasMapper:
 
     # Model container properties
 
+    def _allowed_tables(self, model: AasTabularModel) -> List[AasTable]:
+        # table_pattern gates what is emitted; container/cube counts and the
+        # cube's measure fields must reflect the same filtered set so denied
+        # tables never leak back in through the model-level surfaces.
+        return [t for t in model.tables if self.config.table_pattern.allowed(t.name)]
+
     def _model_container_properties(self, model: AasTabularModel) -> Dict[str, str]:
         props: Dict[str, str] = {
             constants.PROP_CATALOG: model.catalog,
-            constants.PROP_TABLE_COUNT: str(len(model.tables)),
+            constants.PROP_TABLE_COUNT: str(len(self._allowed_tables(model))),
         }
         if model.culture:
             props[constants.PROP_CULTURE] = model.culture
@@ -508,7 +514,7 @@ class AasMapper:
         # The cube dataset exposes every measure in the model as a field so the
         # model's analytical surface is browsable in one place.
         fields: List[SchemaFieldClass] = []
-        for table in model.tables:
+        for table in self._allowed_tables(model):
             for measure in table.measures:
                 field = self._field_for_measure(measure)
                 field.fieldPath = f"{table.name}.{measure.name}"
