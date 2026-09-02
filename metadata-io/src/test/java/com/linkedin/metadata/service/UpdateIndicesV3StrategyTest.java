@@ -915,6 +915,100 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testThrottle_TimeseriesIndexSuppressesDedicatedWrite() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(false, true, false);
+    TimeseriesAspectWriteSink sink = mock(TimeseriesAspectWriteSink.class);
+    UpdateIndicesV3Strategy throttledStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            false,
+            cache);
+
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    ObjectNode tsDoc = JsonNodeFactory.instance.objectNode();
+    tsDoc.put("urn", testUrn.toString());
+    try (var transformer = mockStatic(TimeseriesAspectTransformer.class)) {
+      transformer
+          .when(() -> TimeseriesAspectTransformer.transform(any(), any(), any(), any(), any()))
+          .thenReturn(Map.of("doc-id", tsDoc));
+      throttledStrategy.processBatch(
+          operationContext,
+          Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+          true);
+    }
+
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(eq(operationContext), anyString(), anyString(), anyString());
+    verify(timeseriesAspectService, never())
+        .upsertDocument(any(), anyString(), anyString(), anyString(), any());
+    verify(sink, never()).upsertDocument(any(), anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void testThrottle_TimeseriesDeleteSuppressesDedicatedWrite() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(false, true, false);
+    TimeseriesAspectWriteSink sink = mock(TimeseriesAspectWriteSink.class);
+    UpdateIndicesV3Strategy throttledStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            sink,
+            "MD5",
+            false,
+            cache);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(timeseriesAspectService.applyDocumentDeleteOnMclDelete()).thenReturn(false);
+
+    MCLItem deleteEvent = mock(MCLItem.class);
+    when(deleteEvent.getUrn()).thenReturn(testUrn);
+    when(deleteEvent.getEntitySpec()).thenReturn(mockEntitySpec);
+    when(deleteEvent.getAspectSpec()).thenReturn(mockAspectSpec);
+    when(deleteEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(deleteEvent.getPreviousRecordTemplate()).thenReturn(null);
+    when(deleteEvent.getAspectName()).thenReturn("datasetProfile");
+    when(deleteEvent.getAuditStamp()).thenReturn(mockAuditStamp);
+
+    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+
+    try (var util = mockStatic(UpdateIndicesUtil.class)) {
+      util.when(() -> UpdateIndicesUtil.extractSpecPair(any()))
+          .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
+      throttledStrategy.processBatch(
+          operationContext,
+          Collections.singletonMap(testUrn, Collections.singletonList(deleteEvent)),
+          true);
+    }
+
+    verify(sink, never())
+        .deleteByUrn(
+            eq(operationContext), eq("dataset"), eq("datasetProfile"), eq(testUrn.toString()));
+  }
+
+  @Test
   public void testProcessBatch_ExceptionInStructuredPropertiesProcessing() throws Exception {
     // Setup for UPSERT event with structured properties aspect that will cause an exception
     when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);

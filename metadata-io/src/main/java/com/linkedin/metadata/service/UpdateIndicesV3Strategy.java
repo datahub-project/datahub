@@ -109,7 +109,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       log.debug("Processing {} events for URN: {} with V3 unified batch", urnEvents.size(), urn);
 
       if (!v2Enabled) {
-        processTimeseriesAspectEventsForUrnGroup(opContext, urnEvents);
+        processTimeseriesAspectEventsForUrnGroup(opContext, urnEvents, throttleSummary);
       }
 
       // V3 optimization: single operation per URN regardless of aspect count
@@ -127,26 +127,106 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    *
    * <p>Apply events in original list order. A same-URN batch of no-snapshot DELETE then timeseries
    * UPSERT must not run {@code deleteByUrn} after the upsert, which would wipe the later row.
+   *
+   * <p>Timeseries-index throttle (including the dual-write sink) matches V2: upserts and deletes
+   * consult {@link TimeseriesWriteThrottleCache}. Entity-index throttle for V3 search documents is
+   * applied separately in {@link #buildV3SearchDocument}.
    */
   private void processTimeseriesAspectEventsForUrnGroup(
-      @Nonnull OperationContext opContext, @Nonnull List<MCLItem> urnEvents) {
+      @Nonnull OperationContext opContext,
+      @Nonnull List<MCLItem> urnEvents,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
     for (MCLItem event : urnEvents) {
       if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
+        boolean timeseries;
         try {
-          updateTimeseriesFieldsForEvent(opContext, event);
+          timeseries = event.getAspectSpec().isTimeseries();
         } catch (RuntimeException e) {
           handleTimeseriesWriteFailure(opContext, event, e, "timeseries_update_failed", "update");
+          continue;
         }
+        if (!timeseries) {
+          continue;
+        }
+        runTimeseriesIndexWriteThrottled(
+            event,
+            throttleSummary,
+            () -> {
+              try {
+                updateTimeseriesFieldsForEvent(opContext, event);
+              } catch (RuntimeException e) {
+                handleTimeseriesWriteFailure(
+                    opContext, event, e, "timeseries_update_failed", "update");
+              }
+            });
       } else if (event.getChangeType() == ChangeType.DELETE) {
         try {
           Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(event);
           if (specPair.getSecond().isTimeseries()) {
-            deleteTimeseriesFieldsForDeleteEvent(opContext, event);
+            runTimeseriesIndexWriteThrottled(
+                event,
+                throttleSummary,
+                () -> {
+                  try {
+                    deleteTimeseriesFieldsForDeleteEvent(opContext, event);
+                  } catch (RuntimeException e) {
+                    handleTimeseriesWriteFailure(
+                        opContext, event, e, "timeseries_delete_failed", "delete");
+                  }
+                });
           }
         } catch (RuntimeException e) {
           handleTimeseriesWriteFailure(opContext, event, e, "timeseries_delete_failed", "delete");
         }
       }
+    }
+  }
+
+  /**
+   * Gate dedicated timeseries index / sink writes the same way V2 gates {@code
+   * timeseriesIndexWrite}. Entity-index suppression is handled in {@link #buildV3SearchDocument}.
+   */
+  private void runTimeseriesIndexWriteThrottled(
+      @Nonnull MCLItem event,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary,
+      @Nonnull Runnable timeseriesIndexWrite) {
+    if (timeseriesThrottleCache == null) {
+      timeseriesIndexWrite.run();
+      return;
+    }
+
+    boolean tsEnabled = timeseriesThrottleCache.isTimeseriesIndexEnabled();
+    boolean observeEnabled = timeseriesThrottleCache.isObserveEnabled();
+    if (!tsEnabled && !observeEnabled) {
+      timeseriesIndexWrite.run();
+      return;
+    }
+
+    long eventTimeMs =
+        event.getAuditStamp() != null
+            ? event.getAuditStamp().getTime()
+            : System.currentTimeMillis();
+    boolean throttled =
+        timeseriesThrottleCache.shouldThrottle(
+            event.getEntitySpec().getName(),
+            event.getUrn().toString(),
+            event.getAspectName(),
+            eventTimeMs);
+
+    if (throttled && tsEnabled) {
+      if (throttleSummary != null) {
+        throttleSummary.recordSuppressed(
+            TimeseriesWriteThrottleCache.ThrottleTarget.TIMESERIES_INDEX);
+      }
+    } else {
+      timeseriesIndexWrite.run();
+      if (throttleSummary != null) {
+        throttleSummary.recordWritten(TimeseriesWriteThrottleCache.ThrottleTarget.TIMESERIES_INDEX);
+      }
+    }
+
+    if (throttled && observeEnabled && throttleSummary != null) {
+      throttleSummary.recordObserved();
     }
   }
 
