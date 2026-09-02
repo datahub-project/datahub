@@ -16,3 +16,12 @@ services:
       ARCHIVE_LOGS: false
     ports:
       - '50000:50000'
+    volumes:
+      # The database path must live on a real filesystem: on the overlayfs
+      # container layer, CREATE DATABASE can fail with SQL0293N (table space
+      # container access) and the setup script only warns and keeps going,
+      # leaving the server up without the database.
+      - db2data:/database
+
+volumes:
+  db2data:
