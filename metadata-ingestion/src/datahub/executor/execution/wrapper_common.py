@@ -83,7 +83,7 @@ def register_secrets_for_masking(secrets: dict[str, str]) -> None:
         return
 
     try:
-        initialize_secret_masking(force=True)
+        initialize_secret_masking()
         registry = SecretRegistry.get_instance()
         for name, value in secrets.items():
             if value:
