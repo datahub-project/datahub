@@ -268,6 +268,11 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     # whether the M was bad or whether we understood it and declined to walk.
     m_query_referenced_query_failures: int = 0
     m_query_referenced_query_not_followed: int = 0
+    # Edges emitted from one table to another in the same dataset.
+    m_query_table_to_table_lineage: int = 0
+    # Names the walk could not account for at all -- usually an M parameter or
+    # an unsupported source's argument. The denominator for the counter above.
+    m_query_unresolved_references: int = 0
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
 
@@ -662,6 +667,16 @@ class PowerBiDashboardSourceConfig(
     extract_independent_datasets: bool = pydantic.Field(
         default=False,
         description="Whether to extract datasets not used in any PowerBI visualization",
+    )
+
+    extract_table_to_table_lineage: bool = pydantic.Field(
+        default=True,
+        description="Whether a table built on another table in the same dataset "
+        "gets an edge to it. A reference is only followed when it names an "
+        "actual table of that dataset, so switching this off is an escape hatch "
+        "rather than a correctness fix. Queries with 'Enable load' switched off "
+        "are unaffected -- they have no entity to point an edge at and are "
+        "always followed to the data source they hold.",
     )
 
     platform_instance: Optional[str] = pydantic.Field(

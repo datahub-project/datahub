@@ -2,7 +2,7 @@ import dataclasses
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Dict, Mapping, Optional, Set, Tuple
 
 from datahub.ingestion.source.powerbi.m_query._bridge import (
     MQueryBridgeError,
@@ -124,6 +124,11 @@ class SharedExpressions:
 
     texts: Dict[str, str]
     parse: Callable[[str], NodeIdMap]
+    # The dataset's loaded tables, name -> full name. A referenced name matching
+    # one of these is a sibling table, which has an entity of its own, so it
+    # becomes an edge instead of a chain to follow. Empty when the caller has
+    # switched table-to-table lineage off, which makes the walk ignore them.
+    tables: Mapping[str, str] = field(default_factory=dict)
     chain: Tuple[str, ...] = ()
     # Both shared across the whole walk rather than per path: parsing is
     # deterministic, so a query reached by several routes should be sent to the
@@ -137,6 +142,24 @@ class SharedExpressions:
     # free text so the caller can report each reason under its own title and
     # counter instead of calling every one of them a parse failure.
     stops: Dict[str, Tuple["StopReason", Optional[str]]] = field(default_factory=dict)
+    # Full names of sibling tables this walk reached. Collected on the walk
+    # rather than returned, because the chain forks per path while the set
+    # belongs to the table being resolved.
+    table_refs: Set[str] = field(default_factory=set)
+    # Names that resolved to nothing at all: not a step in scope, not a sibling
+    # table, not one of the dataset's other queries. Almost always an M
+    # parameter or an unsupported source's argument, so this is a denominator
+    # for the operator rather than a failure -- without it, a model that should
+    # have table-to-table edges and has none gives the report nothing to show.
+    unresolved: Set[str] = field(default_factory=set)
+
+    def sibling(self, name: str) -> Optional[str]:
+        """The full name of the loaded table this name refers to, if any.
+
+        Resolved the way every other name here is -- unquoted and
+        case-insensitively -- so `#"Base Rows"` finds the table `Base Rows`.
+        """
+        return resolve_parameter_value(self.tables, name)
 
     def lookup(self, name: str) -> Optional[str]:
         """The M text bound to a name, or None if the dataset has no such query."""

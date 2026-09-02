@@ -69,6 +69,7 @@ def get_upstream_tables(
     config: PowerBiDashboardSourceConfig,
     parameters: Optional[Dict[str, str]] = None,
     expressions: Optional[Dict[str, str]] = None,
+    tables: Optional[Dict[str, str]] = None,
     cache: Optional[ExpressionCache] = None,
 ) -> List[Lineage]:
     """Parse the M-Query expression on *table* and return upstream lineage.
@@ -102,6 +103,10 @@ def get_upstream_tables(
 
     shared = SharedExpressions(
         texts=shared_texts,
+        # The dataset's own loaded tables. A reference to one of these is an
+        # edge to an existing entity, not a chain to follow; the caller passes
+        # nothing when table-to-table lineage is switched off.
+        tables=tables or {},
         parse=lambda text: _parse_with_bridge(text, config.m_query_parse_timeout),
         # Shared across the dataset's tables when the caller supplies one, so a
         # referenced query is parsed once per dataset rather than once per table.
@@ -219,6 +224,11 @@ def get_upstream_tables(
             if lineage.upstreams:
                 lineages.append(lineage)
 
+        # Sibling tables are a lineage of their own: no data-access function was
+        # reached, so they cannot ride along on one of the entries above.
+        if shared.table_refs:
+            lineages.append(Lineage(powerbi_table_upstreams=sorted(shared.table_refs)))
+
         if lineages:
             reporter.m_query_resolver_successes += 1
         else:
@@ -251,6 +261,10 @@ def get_upstream_tables(
         # which referenced queries came up short -- that is the diagnostic the
         # operator needs most when a table ends up with no lineage.
         _report_referenced_query_stops(reporter, table, shared)
+        # A denominator for table-to-table lineage: a model that should have
+        # sibling edges and has none leaves nothing else in the report to look
+        # at. Not a warning -- an M parameter lands here routinely.
+        reporter.m_query_unresolved_references += len(shared.unresolved)
 
 
 def _report_referenced_query_stops(
