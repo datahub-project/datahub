@@ -195,8 +195,9 @@ sqlalchemy_lib = {
     # Required for all SQL sources.
     # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
     "sqlalchemy>=1.4.39,<2",
-    # greenlet is imported directly by datahub.utilities.sqlalchemy_query_combiner, which
-    # is used by both the SQLAlchemy and GE profilers (via sql_report.py).
+    # greenlet is imported directly by
+    # datahub.ingestion.source.sqlalchemy_profiler.query_combiner, which is used
+    # by the SQLAlchemy profiler (and surfaced in sql_report.py).
     "greenlet<4.0.0",
 }
 sql_common = (

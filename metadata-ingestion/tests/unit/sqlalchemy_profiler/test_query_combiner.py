@@ -6,6 +6,7 @@ implementation, no exact-error-message assertions.
 """
 
 import dataclasses
+import logging
 from typing import Any, Dict, Optional
 
 import pytest
@@ -13,10 +14,16 @@ import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine
 from sqlalchemy.engine import Connection
 
-from datahub.utilities.sqlalchemy_query_combiner import (
+from datahub.ingestion.source.sqlalchemy_profiler import (
+    query_combiner as query_combiner_module,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
     MAX_QUERIES_TO_COMBINE_AT_ONCE,
+    MisTaggedQueryError,
     SQLAlchemyQueryCombiner,
     get_query_columns,
+    is_single_row_query,
+    single_row_query,
 )
 
 
@@ -58,7 +65,6 @@ def _make_combiner(**overrides: Any) -> SQLAlchemyQueryCombiner:
     defaults: Dict[str, Any] = {
         "enabled": True,
         "catch_exceptions": True,
-        "is_single_row_query_method": lambda q: True,
         "serial_execution_fallback_enabled": True,
     }
     defaults.update(overrides)
@@ -81,8 +87,16 @@ def _schedule(
     conn: Connection,
     query: Any,
     multiparams: Any = (),
+    combinable: bool = True,
 ) -> _Capture:
+    """Schedule a query on the combiner.
+
+    Tags the query as single-row by default, since most tests here exercise
+    batching. Pass combinable=False to schedule an untagged query.
+    """
     cap = _Capture()
+    if combinable:
+        query = single_row_query(query)
 
     def execute() -> None:
         try:
@@ -143,20 +157,18 @@ class TestBatchingAndPartitioning:
         assert combiner.report.query_exceptions == 0
         assert combiner.report.total_queries == n
 
-    def test_non_single_row_query_goes_uncombined(self, engine, test_table):
-        # is_single_row_query_method partitions the queue: a query the
-        # predicate rejects is NOT batched — it goes out via uncombined and
-        # runs normally. This is the partitioning the class name claims.
+    def test_untagged_query_goes_uncombined(self, engine, test_table):
+        # The single-row tag partitions the queue: an untagged query is NOT
+        # batched — it goes out via uncombined and runs normally. This is the
+        # partitioning the class name claims.
         single = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
         rejected = sa.select(
             sa.func.max(test_table.c.value).label("max_value")
         ).select_from(test_table)
-        combiner = _make_combiner(
-            is_single_row_query_method=lambda q: q is not rejected
-        )
+        combiner = _make_combiner()
         with engine.connect() as conn, combiner.activate() as qc:
             cap_single = _schedule(qc, conn, single)
-            cap_rejected = _schedule(qc, conn, rejected)
+            cap_rejected = _schedule(qc, conn, rejected, combinable=False)
             qc.flush()
 
         assert cap_single.result.scalar() == 3
@@ -164,6 +176,7 @@ class TestBatchingAndPartitioning:
         assert combiner.report.combined_queries_issued == 1
         assert combiner.report.queries_combined == 1
         assert combiner.report.uncombined_queries_issued == 1
+        assert combiner.report.uncombined_queries_in_greenlet == 1
         assert combiner.report.query_exceptions == 0
         assert combiner.report.total_queries == 2
 
@@ -401,21 +414,20 @@ class TestExceptionAndFallback:
             # path. Expected here.
 
     def test_catch_exceptions_false_propagates_handle_execute_error(
-        self, engine, test_table
+        self, engine, test_table, monkeypatch
     ):
         # catch_exceptions=False makes the activate() fake executor
         # re-raise any exception out of _handle_execute (rather than
-        # falling back to the underlying execute). is_single_row_query_method
-        # is called inside _handle_execute, so a predicate that raises
-        # exercises this path: the exception propagates to the closure.
+        # falling back to the underlying execute). is_single_row_query() is
+        # called inside _handle_execute, so making it raise exercises this
+        # path: the exception propagates to the closure.
         query = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
 
         def boom(_q: Any) -> bool:
-            raise RuntimeError("is_single_row_query_method blew up")
+            raise RuntimeError("is_single_row_query blew up")
 
-        combiner = _make_combiner(
-            catch_exceptions=False, is_single_row_query_method=boom
-        )
+        monkeypatch.setattr(query_combiner_module, "is_single_row_query", boom)
+        combiner = _make_combiner(catch_exceptions=False)
         with engine.connect() as conn, combiner.activate() as qc:
             cap = _schedule(qc, conn, query)
             qc.flush()
@@ -443,3 +455,110 @@ class TestGetQueryColumns:
         assert len(cte_cols) == 2
         # .columns yields anon labels (embed an object id), not 'count':
         assert all(c.name != "count" for c in cte_cols)
+
+
+class TestSingleRowTagging:
+    """The tag is the contract: only tagged statements are combined."""
+
+    def test_tagging_is_generative(self, test_table):
+        # execution_options() returns a copy. A caller who writes
+        # `query.execution_options(...)` without reassigning gets a silent
+        # no-op, so pin that single_row_query leaves the original alone.
+        query = sa.select(sa.func.count()).select_from(test_table)
+        tagged = single_row_query(query)
+
+        assert tagged is not query
+        assert is_single_row_query(tagged)
+        assert not is_single_row_query(query)
+
+    def test_untagged_statement_is_not_combinable(self, test_table):
+        assert not is_single_row_query(
+            sa.select(sa.func.count()).select_from(test_table)
+        )
+
+    def test_non_executable_input_is_rejected_not_raised(self):
+        # _handle_execute passes whatever reached Connection.execute. Anything
+        # without get_execution_options must be rejected quietly rather than
+        # blowing up the query path.
+        assert not is_single_row_query(object())
+        assert not is_single_row_query(None)
+        assert not is_single_row_query("SELECT 1")
+
+    def test_text_clause_can_be_tagged(self):
+        # TextClause is an Executable, so the accessor works there too.
+        assert is_single_row_query(single_row_query(sa.text("SELECT 1")))
+
+    def test_counter_stays_zero_when_everything_is_tagged(self, engine, test_table):
+        query = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            _schedule(qc, conn, query)
+            qc.flush()
+
+        assert combiner.report.uncombined_queries_in_greenlet == 0
+
+    def test_mistagged_query_raises_for_the_developer(self, engine, test_table):
+        # A tag the SQL contradicts is a call-site bug, so it fails loudly
+        # rather than being counted. catch_exceptions=False is what dev and CI
+        # runs use, so the error reaches the caller.
+        two_rows = sa.select(test_table.c.value.label("value")).limit(2)
+
+        combiner = _make_combiner(catch_exceptions=False)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap = _schedule(qc, conn, two_rows)
+            qc.flush()
+
+        assert isinstance(cap.exc, MisTaggedQueryError)
+        # Says what to do, not just what happened.
+        assert "execute_rows()" in str(cap.exc)
+
+    def test_mistagged_query_degrades_safely_in_production(self, engine, test_table):
+        # catch_exceptions=True is the production default. A mis-tag must not
+        # fail an ingestion run: the query executes on its own, results are
+        # correct, and the mistake stays visible via query_exceptions.
+        good = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
+        two_rows = sa.select(test_table.c.value.label("value")).limit(2)
+
+        combiner = _make_combiner(catch_exceptions=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap_good = _schedule(qc, conn, good)
+            cap_two = _schedule(qc, conn, two_rows)
+            qc.flush()
+
+        assert cap_good.result.scalar() == 3
+        assert len(cap_two.result.fetchall()) == 2
+        assert combiner.report.query_exceptions == 1
+
+
+class TestUnbatchableQueries:
+    """Not every uncombined query is a mistake, so most of them stay quiet."""
+
+    def test_raw_string_runs_but_is_never_combined(self, engine, test_table):
+        # A raw string is the only non-Executable that reaches the combiner --
+        # SQLAlchemy rejects None, ints and Tables itself with
+        # ObjectNotExecutableError. It executes fine, it just cannot be batched.
+        combiner = _make_combiner(catch_exceptions=False)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap = _schedule(qc, conn, "SELECT 1", combinable=False)
+            qc.flush()
+
+        assert cap.exc is None
+        assert cap.result.scalar() == 1
+        assert combiner.report.combined_queries_issued == 0
+        assert combiner.report.uncombined_queries_in_greenlet == 1
+
+    def test_ordinary_untagged_statement_is_silent(self, engine, test_table, caplog):
+        # execute_rows() on a genuine multi-row query is a correct choice, not a
+        # mistake, so it must not log -- only a false row-shape claim raises.
+        query = sa.select(test_table.c.value).select_from(test_table)
+        combiner = _make_combiner()
+        with (
+            caplog.at_level(logging.WARNING),
+            engine.connect() as conn,
+            combiner.activate() as qc,
+        ):
+            _schedule(qc, conn, query, combinable=False)
+            qc.flush()
+
+        assert [r for r in caplog.records if r.levelno == logging.WARNING] == []
+        assert combiner.report.uncombined_queries_in_greenlet == 1

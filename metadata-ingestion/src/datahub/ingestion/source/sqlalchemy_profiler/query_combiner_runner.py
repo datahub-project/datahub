@@ -1,18 +1,30 @@
 """Query combiner runner for executing profiling queries with batching optimization."""
 
+import contextlib
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Generic, List, Optional, Tuple, TypeVar
-
-from sqlalchemy.engine import Connection
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generic,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    TypeVar,
+)
 
 if TYPE_CHECKING:
     import sqlalchemy as sa
 
     from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
         PlatformAdapter,
+        ProfilingConnection,
     )
-    from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombiner
+    from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+        SQLAlchemyQueryCombiner,
+    )
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -138,7 +150,7 @@ class QueryCombinerRunner:
 
     def __init__(
         self,
-        conn: Connection,
+        conn: "ProfilingConnection",
         platform: str,
         adapter: "PlatformAdapter",
         query_combiner: "SQLAlchemyQueryCombiner",
@@ -147,7 +159,7 @@ class QueryCombinerRunner:
         Initialize the query combiner runner.
 
         Args:
-            conn: Active database connection
+            conn: Active profiling connection facade
             platform: Database platform name (for logging/debugging)
             adapter: Platform-specific adapter that executes queries
             query_combiner: Query combiner for batching queries (required)
@@ -156,6 +168,46 @@ class QueryCombinerRunner:
         self.platform = platform.lower()
         self.adapter = adapter
         self.query_combiner = query_combiner
+
+    def _schedule(self, fn: Callable[[], T]) -> FutureResult[T]:
+        """Schedule an adapter call on the query combiner.
+
+        The call runs in its own greenlet and parks on its first statement, so
+        the combiner can batch it with other pending work. The exception is
+        captured rather than raised, so one failing query does not tear down
+        flush(); result() re-raises it.
+        """
+        container = _ResultContainer[T]()
+
+        def execute() -> None:
+            try:
+                container.value = fn()
+            except Exception as e:
+                container.exc = e
+
+        self.query_combiner.run(execute)
+        return FutureResult(container=container)
+
+    def flush(self) -> None:
+        """Execute every scheduled query. FutureResults resolve after this."""
+        self.query_combiner.flush()
+
+    @contextlib.contextmanager
+    def batch(self) -> Iterator["QueryCombinerRunner"]:
+        """Schedule queries inside the block; they all execute on exit.
+
+        Flushes on the way out even if the block raises, so a failure between
+        scheduling and flushing cannot leave queries parked in the queue.
+
+            with runner.batch() as batch:
+                row_count = batch.get_row_count(table)
+                min_val = batch.get_column_min(table, "col")
+            print(row_count.result())
+        """
+        try:
+            yield self
+        finally:
+            self.flush()
 
     def get_row_count(
         self,
@@ -168,18 +220,11 @@ class QueryCombinerRunner:
 
         Returns FutureResult that resolves after query_combiner.flush().
         """
-        container = _ResultContainer[int]()
-
-        def execute():
-            try:
-                container.value = self.adapter.get_row_count(
-                    table, self.conn, sample_clause, use_estimation
-                )
-            except Exception as e:
-                container.exc = e
-
-        self.query_combiner.run(execute)
-        return FutureResult(container=container)
+        return self._schedule(
+            lambda: self.adapter.get_row_count(
+                table, self.conn, sample_clause, use_estimation
+            )
+        )
 
     def get_column_non_null_count(
         self, table: "sa.Table", column: str
@@ -189,18 +234,9 @@ class QueryCombinerRunner:
 
         Returns FutureResult that resolves after query_combiner.flush().
         """
-        container = _ResultContainer[int]()
-
-        def execute():
-            try:
-                container.value = self.adapter.get_column_non_null_count(
-                    table, column, self.conn
-                )
-            except Exception as e:
-                container.exc = e
-
-        self.query_combiner.run(execute)
-        return FutureResult(container=container)
+        return self._schedule(
+            lambda: self.adapter.get_column_non_null_count(table, column, self.conn)
+        )
 
     def get_column_min(self, table: "sa.Table", column: str) -> FutureResult[Any]:
         """
@@ -208,16 +244,9 @@ class QueryCombinerRunner:
 
         Returns FutureResult that resolves after query_combiner.flush().
         """
-        container = _ResultContainer[Any]()
-
-        def execute():
-            try:
-                container.value = self.adapter.get_column_min(table, column, self.conn)
-            except Exception as e:
-                container.exc = e
-
-        self.query_combiner.run(execute)
-        return FutureResult(container=container)
+        return self._schedule(
+            lambda: self.adapter.get_column_min(table, column, self.conn)
+        )
 
     def get_column_max(self, table: "sa.Table", column: str) -> FutureResult[Any]:
         """
@@ -225,16 +254,9 @@ class QueryCombinerRunner:
 
         Returns FutureResult that resolves after query_combiner.flush().
         """
-        container = _ResultContainer[Any]()
-
-        def execute():
-            try:
-                container.value = self.adapter.get_column_max(table, column, self.conn)
-            except Exception as e:
-                container.exc = e
-
-        self.query_combiner.run(execute)
-        return FutureResult(container=container)
+        return self._schedule(
+            lambda: self.adapter.get_column_max(table, column, self.conn)
+        )
 
     def get_column_mean(
         self, table: "sa.Table", column: str
@@ -244,16 +266,9 @@ class QueryCombinerRunner:
 
         Returns FutureResult that resolves after query_combiner.flush().
         """
-        container = _ResultContainer[Optional[float]]()
-
-        def execute():
-            try:
-                container.value = self.adapter.get_column_mean(table, column, self.conn)
-            except Exception as e:
-                container.exc = e
-
-        self.query_combiner.run(execute)
-        return FutureResult(container=container)
+        return self._schedule(
+            lambda: self.adapter.get_column_mean(table, column, self.conn)
+        )
 
     def get_column_stdev(
         self, table: "sa.Table", column: str
@@ -263,18 +278,9 @@ class QueryCombinerRunner:
 
         Returns FutureResult that resolves after query_combiner.flush().
         """
-        container = _ResultContainer[Optional[float]]()
-
-        def execute():
-            try:
-                container.value = self.adapter.get_column_stdev(
-                    table, column, self.conn
-                )
-            except Exception as e:
-                container.exc = e
-
-        self.query_combiner.run(execute)
-        return FutureResult(container=container)
+        return self._schedule(
+            lambda: self.adapter.get_column_stdev(table, column, self.conn)
+        )
 
     def get_column_unique_count(
         self, table: "sa.Table", column: str, use_approx: bool = True
@@ -284,18 +290,11 @@ class QueryCombinerRunner:
 
         Returns FutureResult that resolves after query_combiner.flush().
         """
-        container = _ResultContainer[int]()
-
-        def execute():
-            try:
-                container.value = self.adapter.get_column_unique_count(
-                    table, column, self.conn, use_approx
-                )
-            except Exception as e:
-                container.exc = e
-
-        self.query_combiner.run(execute)
-        return FutureResult(container=container)
+        return self._schedule(
+            lambda: self.adapter.get_column_unique_count(
+                table, column, self.conn, use_approx
+            )
+        )
 
     def get_column_median(self, table: "sa.Table", column: str) -> FutureResult[Any]:
         """
@@ -303,18 +302,9 @@ class QueryCombinerRunner:
 
         Returns FutureResult that resolves after query_combiner.flush().
         """
-        container = _ResultContainer[Any]()
-
-        def execute():
-            try:
-                container.value = self.adapter.get_column_median(
-                    table, column, self.conn
-                )
-            except Exception as e:
-                container.exc = e
-
-        self.query_combiner.run(execute)
-        return FutureResult(container=container)
+        return self._schedule(
+            lambda: self.adapter.get_column_median(table, column, self.conn)
+        )
 
     def get_column_quantiles(
         self,

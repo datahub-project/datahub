@@ -15,11 +15,47 @@ from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    single_row_query,
+)
 
 logger = logging.getLogger(__name__)
 
 # Default quantiles for statistical profiling
 DEFAULT_QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
+
+
+class ProfilingConnection:
+    """Connection facade that makes every statement declare its row shape.
+
+    Deliberately does not expose .execute(). SQLAlchemyQueryCombiner batches
+    statements by cross-joining them as CTEs, which is only valid for statements
+    returning exactly one row, and a wrong answer degrades a whole batch to
+    serial execution. Forcing the choice through three named methods means the
+    declaration cannot be forgotten -- mypy rejects a bare .execute() call.
+
+    See SINGLE_ROW_EXECUTION_OPTION in query_combiner.py for what qualifies.
+    """
+
+    def __init__(self, conn: Connection) -> None:
+        self._conn = conn
+
+    def execute_single_row(self, query: Any) -> Any:
+        """Execute a statement that returns exactly one row.
+
+        Tags the statement so the query combiner may batch it. Only valid for a
+        bare aggregate with no GROUP BY, no LIMIT/OFFSET and no row-filtering
+        WHERE -- see SINGLE_ROW_EXECUTION_OPTION.
+        """
+        return self._conn.execute(single_row_query(query))
+
+    def execute_rows(self, query: Any) -> Any:
+        """Execute a statement returning zero, one, or many rows. Never batched."""
+        return self._conn.execute(query)
+
+    def execute_statement(self, statement: Any) -> Any:
+        """Execute DDL or another statement with no meaningful result set."""
+        return self._conn.execute(statement)
 
 
 class PlatformAdapter(ABC):
@@ -259,7 +295,7 @@ class PlatformAdapter(ABC):
         return False
 
     def get_estimated_row_count(
-        self, table: sa.Table, conn: Connection
+        self, table: sa.Table, conn: ProfilingConnection
     ) -> Optional[int]:
         """
         Get fast row count estimate without full table scan.
@@ -287,7 +323,7 @@ class PlatformAdapter(ABC):
     def get_row_count(
         self,
         table: sa.Table,
-        conn: Connection,
+        conn: ProfilingConnection,
         sample_clause: Optional[str] = None,
         use_estimation: bool = False,
     ) -> int:
@@ -324,14 +360,14 @@ class PlatformAdapter(ABC):
         query = sa.select([sa.func.count()]).select_from(table)
         if sample_clause:
             query = query.suffix_with(sample_clause)
-        count_result: Any = conn.execute(query).scalar()
+        count_result: Any = conn.execute_single_row(query).scalar()
         # scalar() can return Any | None, so we need to handle None
         if count_result is None:
             return 0
         return int(count_result)
 
     def get_column_non_null_count(
-        self, table: sa.Table, column: str, conn: Connection
+        self, table: sa.Table, column: str, conn: ProfilingConnection
     ) -> int:
         """
         Get non-null count for a column.
@@ -347,10 +383,12 @@ class PlatformAdapter(ABC):
             Non-null count
         """
         query = sa.select([sa.func.count(sa.column(column))]).select_from(table)
-        result = conn.execute(query).scalar()
+        result = conn.execute_single_row(query).scalar()
         return int(result) if result is not None else 0
 
-    def get_column_min(self, table: sa.Table, column: str, conn: Connection) -> Any:
+    def get_column_min(
+        self, table: sa.Table, column: str, conn: ProfilingConnection
+    ) -> Any:
         """
         Get minimum value for a column.
 
@@ -363,9 +401,11 @@ class PlatformAdapter(ABC):
             Minimum value
         """
         query = sa.select([sa.func.min(sa.column(column))]).select_from(table)
-        return conn.execute(query).scalar()
+        return conn.execute_single_row(query).scalar()
 
-    def get_column_max(self, table: sa.Table, column: str, conn: Connection) -> Any:
+    def get_column_max(
+        self, table: sa.Table, column: str, conn: ProfilingConnection
+    ) -> Any:
         """
         Get maximum value for a column.
 
@@ -378,10 +418,10 @@ class PlatformAdapter(ABC):
             Maximum value
         """
         query = sa.select([sa.func.max(sa.column(column))]).select_from(table)
-        return conn.execute(query).scalar()
+        return conn.execute_single_row(query).scalar()
 
     def get_column_mean(
-        self, table: sa.Table, column: str, conn: Connection
+        self, table: sa.Table, column: str, conn: ProfilingConnection
     ) -> Optional[Any]:
         """
         Get average value for a column.
@@ -402,13 +442,13 @@ class PlatformAdapter(ABC):
         avg_expr = self.get_mean_expr(column)
 
         query = sa.select([avg_expr]).select_from(table)
-        result = conn.execute(query).scalar()
+        result = conn.execute_single_row(query).scalar()
 
         # Return raw result to preserve database-native formatting (like GE does)
         return result
 
     def get_column_stdev(
-        self, table: sa.Table, column: str, conn: Connection
+        self, table: sa.Table, column: str, conn: ProfilingConnection
     ) -> Optional[Any]:
         """
         Get standard deviation for a column.
@@ -424,7 +464,7 @@ class PlatformAdapter(ABC):
         # `stddev()` defaults to STDDEV_POP (MySQL, Doris) — calling stddev_samp
         # explicitly keeps semantics consistent across dialects.
         query = sa.select([sa.func.stddev_samp(sa.column(column))]).select_from(table)
-        result = conn.execute(query).scalar()
+        result = conn.execute_single_row(query).scalar()
         if result is None:
             non_null_count = self.get_column_non_null_count(table, column, conn)
             if non_null_count == 1:
@@ -449,7 +489,7 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         use_approx: bool = True,
     ) -> int:
         """
@@ -470,10 +510,12 @@ class PlatformAdapter(ABC):
             expr = sa.func.count(sa.func.distinct(sa.column(column)))
 
         query = sa.select([expr]).select_from(table)
-        result = conn.execute(query).scalar()
+        result = conn.execute_single_row(query).scalar()
         return int(result) if result is not None else 0
 
-    def get_column_median(self, table: sa.Table, column: str, conn: Connection) -> Any:
+    def get_column_median(
+        self, table: sa.Table, column: str, conn: ProfilingConnection
+    ) -> Any:
         """
         Get median value for a column.
 
@@ -490,7 +532,7 @@ class PlatformAdapter(ABC):
             try:
                 query = sa.select([expr]).select_from(table)
                 # Return raw result to preserve database-native formatting.
-                return conn.execute(query).scalar()
+                return conn.execute_single_row(query).scalar()
             except SQLAlchemyError as e:
                 logger.debug(
                     f"Native MEDIAN expression failed for column {column}; "
@@ -511,7 +553,9 @@ class PlatformAdapter(ABC):
             .offset(offset)
             .limit(2)
         )
-        rows = [row[0] for row in conn.execute(middle_query).fetchall()]
+        # Deliberately not single-row: the OFFSET/LIMIT window returns two rows
+        # for an even count, which would break a combined batch.
+        rows = [row[0] for row in conn.execute_rows(middle_query).fetchall()]
         if not rows:
             return None
         if non_null_count % 2 == 0 and len(rows) == 2:
@@ -524,7 +568,7 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         """
@@ -575,7 +619,7 @@ class PlatformAdapter(ABC):
                     f"PERCENTILE_CONT({q}) WITHIN GROUP (ORDER BY {quoted_column})"
                 ).label("percentile")
                 query = sa.select([percentile_expr]).select_from(table)
-                result = conn.execute(query).scalar()
+                result = conn.execute_rows(query).scalar()
                 logger.debug(
                     f"Quantile {q} for {column}: result type={type(result)}, value={result}"
                 )
@@ -592,7 +636,7 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         num_buckets: int = 10,
         min_val: Optional[float] = None,
         max_val: Optional[float] = None,
@@ -668,7 +712,7 @@ class PlatformAdapter(ABC):
             buckets.append(sa.func.sum(bucket_case_expr).label(f"bucket_{i}"))
 
         query = sa.select(buckets).select_from(table)
-        result = conn.execute(query).fetchone()
+        result = conn.execute_rows(query).fetchone()
 
         # Convert to list of tuples
         histogram: List[Tuple[float, float, int]] = []
@@ -685,7 +729,7 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         top_k: int = 10,
     ) -> List[Tuple[Any, int]]:
         """
@@ -709,7 +753,7 @@ class PlatformAdapter(ABC):
             .limit(top_k)
         )
 
-        result = conn.execute(query).fetchall()
+        result = conn.execute_rows(query).fetchall()
         logger.debug(
             f"get_column_value_frequencies for {column}: got {len(result)} rows"
         )
@@ -725,7 +769,7 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
     ) -> List[Tuple[Any, int]]:
         """
         Get all distinct non-null values with their counts, sorted by value in Python.
@@ -750,7 +794,7 @@ class PlatformAdapter(ABC):
             .group_by(sa.column(column))
         )
 
-        rows = [(row[0], int(row[1])) for row in conn.execute(query).fetchall()]
+        rows = [(row[0], int(row[1])) for row in conn.execute_rows(query).fetchall()]
         try:
             rows.sort(key=lambda r: (r[0] is None, r[0]))
         except TypeError:
@@ -773,7 +817,7 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         limit: int = 20,
     ) -> List[Any]:
         """
@@ -798,7 +842,7 @@ class PlatformAdapter(ABC):
             .limit(limit)
         )
 
-        result = conn.execute(query).fetchall()
+        result = conn.execute_rows(query).fetchall()
         logger.debug(
             f"get_column_sample_values for {column}: got {len(result)} rows, limit={limit}"
         )

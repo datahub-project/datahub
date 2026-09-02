@@ -12,29 +12,15 @@ from datahub.ingestion.source.ge_profiling_config import (
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    ProfilingConnection,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    SQLAlchemyQueryCombiner,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner_runner import (
     QueryCombinerRunner,
 )
-from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombiner
-
-
-def _is_single_row_query_method(query):
-    """Simple version for testing."""
-    import traceback
-
-    SINGLE_ROW_QUERY_METHODS = {
-        "get_row_count",
-        "get_column_min",
-        "get_column_max",
-        "get_column_mean",
-        "get_column_stdev",
-        "get_column_unique_count",
-        "get_column_non_null_count",
-        "get_column_median",
-    }
-
-    stack = traceback.extract_stack()
-    return any(frame.name in SINGLE_ROW_QUERY_METHODS for frame in reversed(stack))
 
 
 def _register_sqlite_functions(dbapi_conn, connection_record):
@@ -147,7 +133,10 @@ class TestQueryCombinerRunner:
             mock_combiner.run = MagicMock(side_effect=lambda func: func())
 
             runner = QueryCombinerRunner(
-                conn, "sqlite", test_adapter, query_combiner=mock_combiner
+                ProfilingConnection(conn),
+                "sqlite",
+                test_adapter,
+                query_combiner=mock_combiner,
             )
 
             # Methods return FutureResult objects
@@ -174,7 +163,10 @@ class TestQueryCombinerRunner:
             mock_combiner.run = MagicMock(side_effect=lambda func: func())
 
             runner = QueryCombinerRunner(
-                conn, "sqlite", test_adapter, query_combiner=mock_combiner
+                ProfilingConnection(conn),
+                "sqlite",
+                test_adapter,
+                query_combiner=mock_combiner,
             )
 
             # Schedule a query
@@ -197,7 +189,10 @@ class TestQueryCombinerRunner:
             mock_combiner.run = MagicMock(side_effect=lambda func: func())
 
             runner = QueryCombinerRunner(
-                conn, "sqlite", test_adapter, query_combiner=mock_combiner
+                ProfilingConnection(conn),
+                "sqlite",
+                test_adapter,
+                query_combiner=mock_combiner,
             )
 
             # Schedule multiple queries
@@ -227,7 +222,10 @@ class TestQueryCombinerRunner:
             mock_combiner.run = MagicMock(side_effect=accumulate_query)
 
             runner = QueryCombinerRunner(
-                conn, "sqlite", test_adapter, query_combiner=mock_combiner
+                ProfilingConnection(conn),
+                "sqlite",
+                test_adapter,
+                query_combiner=mock_combiner,
             )
 
             # Execute multiple queries
@@ -246,7 +244,10 @@ class TestQueryCombinerRunner:
             mock_combiner.run = MagicMock(side_effect=lambda func: func())
 
             runner = QueryCombinerRunner(
-                conn, "sqlite", test_adapter, query_combiner=mock_combiner
+                ProfilingConnection(conn),
+                "sqlite",
+                test_adapter,
+                query_combiner=mock_combiner,
             )
 
             # Test all decorated methods
@@ -290,7 +291,10 @@ class TestQueryCombinerRunner:
             mock_combiner.run = MagicMock(side_effect=lambda func: func())
 
             runner = QueryCombinerRunner(
-                conn, "sqlite", test_adapter, query_combiner=mock_combiner
+                ProfilingConnection(conn),
+                "sqlite",
+                test_adapter,
+                query_combiner=mock_combiner,
             )
 
             # Methods that aren't decorated (they may execute multiple queries)
@@ -319,7 +323,10 @@ class TestQueryCombinerRunner:
             mock_combiner.run = MagicMock(side_effect=capture_func)
 
             runner = QueryCombinerRunner(
-                conn, "sqlite", test_adapter, query_combiner=mock_combiner
+                ProfilingConnection(conn),
+                "sqlite",
+                test_adapter,
+                query_combiner=mock_combiner,
             )
 
             result_future = runner.get_row_count(test_table)
@@ -338,7 +345,10 @@ class TestQueryCombinerRunner:
             mock_combiner.run = MagicMock(side_effect=lambda func: func())
 
             runner = QueryCombinerRunner(
-                conn, "sqlite", test_adapter, query_combiner=mock_combiner
+                ProfilingConnection(conn),
+                "sqlite",
+                test_adapter,
+                query_combiner=mock_combiner,
             )
 
             # All these calls should delegate to adapter methods
@@ -373,13 +383,14 @@ class TestQueryCombinerRunner:
             SQLAlchemyQueryCombiner(
                 enabled=True,
                 catch_exceptions=False,
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
             ).activate() as query_combiner,
         ):
             event.listen(conn, "before_cursor_execute", _capture_sql)
 
-            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
 
             # Schedule multiple queries
             row_count_future = runner.get_row_count(test_table)
@@ -433,13 +444,14 @@ class TestQueryCombinerRunner:
             SQLAlchemyQueryCombiner(
                 enabled=True,
                 catch_exceptions=False,
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
             ).activate() as query_combiner,
         ):
             event.listen(conn, "before_cursor_execute", _capture_sql)
 
-            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
 
             # Stage 1: Schedule row count and cardinality queries
             row_count_future = runner.get_row_count(test_table)
@@ -498,11 +510,12 @@ class TestQueryCombinerRunner:
             SQLAlchemyQueryCombiner(
                 enabled=True,
                 catch_exceptions=False,
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
             ).activate() as query_combiner,
         ):
-            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
 
             # Schedule query
             row_count_future = runner.get_row_count(test_table)
@@ -527,11 +540,12 @@ class TestQueryCombinerRunner:
             SQLAlchemyQueryCombiner(
                 enabled=True,
                 catch_exceptions=False,
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
             ).activate() as query_combiner,
         ):
-            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
 
             # Schedule 5 queries
             futures = [
@@ -582,11 +596,12 @@ class TestQueryCombinerRunner:
             SQLAlchemyQueryCombiner(
                 enabled=True,
                 catch_exceptions=False,  # Fail fast on SQL errors
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=False,  # Disable fallback so flush() raises
             ).activate() as query_combiner,
         ):
-            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
 
             # Schedule a query that will fail (non-existent column)
             _ = runner.get_column_min(test_table, "nonexistent_column")
@@ -618,11 +633,12 @@ class TestQueryCombinerRunner:
             SQLAlchemyQueryCombiner(
                 enabled=True,
                 catch_exceptions=False,
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
             ).activate() as query_combiner,
         ):
-            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
 
             # Schedule a query but don't flush
             future = runner.get_row_count(test_table)
@@ -653,11 +669,12 @@ class TestQueryCombinerRunner:
             SQLAlchemyQueryCombiner(
                 enabled=True,
                 catch_exceptions=False,
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,  # Enable fallback for individual query execution
             ).activate() as query_combiner,
         ):
-            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
 
             # Schedule a query that will fail (non-existent column)
             # This will trigger fallback execution where exception is caught and stored
@@ -697,11 +714,12 @@ class TestQueryCombinerRunner:
             SQLAlchemyQueryCombiner(
                 enabled=True,
                 catch_exceptions=False,
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
             ).activate() as query_combiner,
         ):
-            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
 
             # Schedule mixed queries: some will succeed, some will fail
             success_future_1 = runner.get_row_count(test_table)
@@ -731,11 +749,12 @@ class TestQueryCombinerRunner:
             SQLAlchemyQueryCombiner(
                 enabled=True,
                 catch_exceptions=False,
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
             ).activate() as query_combiner,
         ):
-            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
 
             # Trigger a specific type of exception
             future = runner.get_column_min(test_table, "nonexistent_column")
@@ -772,11 +791,12 @@ class TestQueryCombinerRunner:
             SQLAlchemyQueryCombiner(
                 enabled=True,
                 catch_exceptions=False,
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
             ).activate() as query_combiner,
         ):
-            runner = QueryCombinerRunner(conn, "sqlite", test_adapter, query_combiner)
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
 
             # State 1: Pending (before flush)
             pending_future = runner.get_row_count(test_table)
@@ -804,3 +824,204 @@ class TestQueryCombinerRunner:
                 or "SQLAlchemyError" in error_repr
                 or "nonexistent" in error_repr.lower()
             )
+
+
+class TestRowShapeRegressions:
+    """Queries that do not return exactly one row must not poison a batch.
+
+    _execute_queue() combines queued statements by cross-joining them as CTEs
+    and asserts the combined result has exactly one row. A statement returning
+    zero or two rows breaks that assertion, and flush() then re-issues every
+    query in the batch serially. Both cases below used to be misclassified as
+    single-row by the old call-stack inspection.
+    """
+
+    def test_median_fallback_does_not_poison_batch(
+        self, sqlite_engine, test_adapter, test_table
+    ):
+        """get_column_median's OFFSET/LIMIT fallback returns two rows.
+
+        GenericAdapter.get_median_expr() returns None, so get_column_median
+        falls back to a `.offset(n).limit(2)` window. Scheduled alongside other
+        queries, that must not break the combined batch.
+        """
+        with (
+            sqlite_engine.connect() as conn,
+            SQLAlchemyQueryCombiner(
+                enabled=True,
+                catch_exceptions=False,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
+
+            count_future = runner.get_row_count(test_table)
+            min_future = runner.get_column_min(test_table, "value")
+            max_future = runner.get_column_max(test_table, "value")
+            median_future = runner.get_column_median(test_table, "value")
+
+            query_combiner.flush()
+
+            assert count_future.result() == 3
+            assert min_future.result() == 10.5
+            assert max_future.result() == 30.5
+            # 3 rows -> odd count -> exact centre value
+            assert median_future.result() == 20.5
+
+            # The batch survived: nothing fell back to serial execution.
+            assert query_combiner.report.query_exceptions == 0
+            assert query_combiner.report.combined_queries_issued >= 1
+
+    def test_zero_row_query_does_not_poison_batch(
+        self, sqlite_engine, test_adapter, test_table
+    ):
+        """A filtered catalog lookup can match nothing.
+
+        get_estimated_row_count implementations query catalog tables with a
+        WHERE on schema+table, so a table absent from the catalog yields zero
+        rows. Modelled here with an adapter whose estimate query matches
+        nothing.
+        """
+
+        class ZeroRowEstimateAdapter(type(test_adapter)):  # type: ignore[misc]
+            def supports_row_count_estimation(self) -> bool:
+                return True
+
+            def get_estimated_row_count(self, table, conn):
+                query = (
+                    sa.select([sa.column("value")])
+                    .select_from(table)
+                    .where(sa.column("id") == -1)
+                )
+                return conn.execute_rows(query).scalar()
+
+        adapter = ZeroRowEstimateAdapter(
+            ProfilingConfig(), SQLSourceReport(), sqlite_engine
+        )
+
+        with (
+            sqlite_engine.connect() as conn,
+            SQLAlchemyQueryCombiner(
+                enabled=True,
+                catch_exceptions=False,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", adapter, query_combiner
+            )
+
+            estimate_future = runner.get_row_count(test_table, use_estimation=True)
+            min_future = runner.get_column_min(test_table, "value")
+            max_future = runner.get_column_max(test_table, "value")
+
+            query_combiner.flush()
+
+            assert estimate_future.result() == 0
+            assert min_future.result() == 10.5
+            assert max_future.result() == 30.5
+
+            assert query_combiner.report.query_exceptions == 0
+
+
+class TestMissingTagIsObservable:
+    """The one mistake neither mypy nor a raise can catch.
+
+    mypy rejects a bare conn.execute() in an adapter, and a tag the SQL
+    contradicts raises MisTaggedQueryError. What neither catches is choosing
+    execute_rows() for a query that really is single-row: valid code, correct
+    results, silently unbatched. Only the report counter shows it -- which is
+    why that counter is a perf measure rather than a health check.
+    """
+
+    def test_untagged_adapter_query_increments_report_counter(
+        self, sqlite_engine, test_adapter, test_table
+    ):
+        class UntaggedAdapter(type(test_adapter)):  # type: ignore[misc]
+            def get_column_min(self, table, column, conn):
+                query = sa.select([sa.func.min(sa.column(column))]).select_from(table)
+                # Should have been execute_single_row: batching is lost.
+                return conn.execute_rows(query).scalar()
+
+        adapter = UntaggedAdapter(ProfilingConfig(), SQLSourceReport(), sqlite_engine)
+
+        with (
+            sqlite_engine.connect() as conn,
+            SQLAlchemyQueryCombiner(
+                enabled=True,
+                catch_exceptions=False,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", adapter, query_combiner
+            )
+            min_future = runner.get_column_min(test_table, "value")
+            max_future = runner.get_column_max(test_table, "value")
+            query_combiner.flush()
+
+            # Still correct, just not batched.
+            assert min_future.result() == 10.5
+            assert max_future.result() == 30.5
+            assert query_combiner.report.uncombined_queries_in_greenlet == 1
+            assert query_combiner.report.query_exceptions == 0
+
+
+class TestBatchContextManager:
+    """runner.batch() is the single handle: schedule inside, executes on exit."""
+
+    def test_batch_flushes_on_normal_exit(
+        self, sqlite_engine, test_adapter, test_table
+    ):
+        with (
+            sqlite_engine.connect() as conn,
+            SQLAlchemyQueryCombiner(
+                enabled=True,
+                catch_exceptions=False,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
+
+            with runner.batch() as batch:
+                count_future = batch.get_row_count(test_table)
+                min_future = batch.get_column_min(test_table, "value")
+
+            # No explicit flush() call: exiting the block executed both.
+            assert count_future.result() == 3
+            assert min_future.result() == 10.5
+            assert query_combiner.report.combined_queries_issued == 1
+
+    def test_batch_flushes_even_when_block_raises(
+        self, sqlite_engine, test_adapter, test_table
+    ):
+        """A failure between scheduling and flushing must not park the queue.
+
+        Before batch(), an exception raised after scheduling skipped the
+        explicit flush() and left greenlets waiting on results that would never
+        arrive.
+        """
+        with (
+            sqlite_engine.connect() as conn,
+            SQLAlchemyQueryCombiner(
+                enabled=True,
+                catch_exceptions=False,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
+
+            with pytest.raises(ValueError, match="boom"):
+                with runner.batch() as batch:
+                    count_future = batch.get_row_count(test_table)
+                    raise ValueError("boom")
+
+            # The scheduled query still ran, so its result is available.
+            assert count_future.result() == 3
+            assert query_combiner.report.query_exceptions == 0

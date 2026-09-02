@@ -7,7 +7,18 @@ import random
 import string
 import threading
 import unittest.mock
-from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+    cast,
+)
 
 import greenlet
 import sqlalchemy
@@ -29,6 +40,75 @@ IS_SQLALCHEMY_1_4 = version.parse(SQLALCHEMY_VERSION) >= version.parse("1.4.0")
 
 
 MAX_QUERIES_TO_COMBINE_AT_ONCE = 40
+
+_StatementT = TypeVar("_StatementT")
+
+SINGLE_ROW_EXECUTION_OPTION = "datahub_single_row"
+"""Statement execution option marking a query as returning exactly one row.
+
+Set it with single_row_query(); read it with is_single_row_query().
+
+WHAT TO TAG: only a statement that returns exactly one row for every possible
+database state. In practice that means a bare aggregate (COUNT / MIN / MAX /
+AVG / STDDEV / MEDIAN) over a table, with no GROUP BY, no LIMIT / OFFSET and no
+row-filtering WHERE.
+
+WHY IT MATTERS: SQLAlchemyQueryCombiner folds tagged statements into a single
+round-trip by wrapping each one in a CTE and cross-joining up to
+MAX_QUERIES_TO_COMBINE_AT_ONCE of them. That transform is only valid when every
+CTE yields exactly one row. A tagged statement that returns zero rows (a
+filtered catalog lookup that misses) or two rows (an OFFSET/LIMIT window)
+collapses or multiplies the join, trips the row-count assertion in
+_execute_queue(), and forces the whole pending batch -- up to 40 unrelated
+queries -- to be re-issued serially.
+
+Tagging is therefore a correctness claim, not a hint. When in doubt, do not tag:
+an untagged statement is simply executed on its own.
+"""
+
+
+def single_row_query(query: _StatementT) -> _StatementT:
+    """Tag a statement as returning exactly one row.
+
+    See SINGLE_ROW_EXECUTION_OPTION for when this is valid.
+
+    execution_options() is generative, so this returns a tagged copy and leaves
+    the original untouched. Callers must use the returned value.
+    """
+    return query.execution_options(  # type: ignore[attr-defined,no-any-return]
+        **{SINGLE_ROW_EXECUTION_OPTION: True}
+    )
+
+
+class MisTaggedQueryError(AssertionError):
+    """A query was tagged single-row but the SQL says otherwise.
+
+    A programming error at the call site, not a runtime condition: it depends
+    only on how the query was built, so it surfaces on the first run in dev or
+    CI rather than varying with data. Raised rather than counted for that
+    reason -- there is nothing to monitor, only something to fix.
+
+    In production catch_exceptions is on, so this degrades to executing the
+    query on its own (correct, just unbatched) with a warning and a bump to
+    report.query_exceptions.
+    """
+
+
+def is_single_row_query(query: Any) -> bool:
+    """Whether a statement carries the single-row tag and may be combined.
+
+    Total by design: this is called on whatever reached Connection.execute, so
+    it answers False for a non-statement rather than raising.
+
+    In practice a raw SQL string is the only non-Executable that gets this far.
+    SQLAlchemy itself rejects every other kind (None, a Table, an int) with
+    ObjectNotExecutableError, so there is nothing extra to report about them. A
+    raw string executes fine, simply never batches, and shows up in
+    uncombined_queries_in_greenlet like any other unbatched query.
+    """
+    if not isinstance(query, sqlalchemy.sql.Executable):
+        return False
+    return bool(query.get_execution_options().get(SINGLE_ROW_EXECUTION_OPTION, False))
 
 
 # We need to make sure that only one query combiner attempts to patch
@@ -138,6 +218,17 @@ class SQLAlchemyQueryCombinerReport(Report):
     combined_queries_issued: int = 0
     queries_combined: int = 0
 
+    # Queries issued inside a greenlet scheduled via run() that were not tagged
+    # single-row, so they cost a round-trip of their own.
+    #
+    # Non-zero is normal, not a defect: a scheduled method may legitimately
+    # issue a multi-row query -- get_column_median's OFFSET/LIMIT fallback on
+    # platforms without a native MEDIAN, or get_estimated_row_count's filtered
+    # catalog lookup. This measures how much batching a given platform and
+    # config actually achieve, which cannot be known statically. A mis-tag, by
+    # contrast, raises MisTaggedQueryError rather than landing here.
+    uncombined_queries_in_greenlet: int = 0
+
     query_exceptions: int = 0
 
 
@@ -147,11 +238,14 @@ class SQLAlchemyQueryCombiner:
     This class adds support for dynamically combining multiple SQL queries into
     a single query. Specifically, it can combine queries which each return a
     single row. It uses greenlets to manage the execution lifecycle of the queries.
+
+    Only statements tagged with single_row_query() are combined; anything else
+    is executed on its own. See SINGLE_ROW_EXECUTION_OPTION for what qualifies
+    and why a wrong tag is expensive.
     """
 
     enabled: bool
     catch_exceptions: bool
-    is_single_row_query_method: Callable[[Any], bool]
     serial_execution_fallback_enabled: bool
 
     # The Python GIL ensures that modifications to the report's counters
@@ -228,9 +322,32 @@ class SQLAlchemyQueryCombiner:
         if multiparams or params:
             return False, None
 
-        # Attempt to match against the known single-row query methods.
-        if not self.is_single_row_query_method(query):
+        # Only statements explicitly tagged as returning exactly one row can be
+        # folded into the CTE cross-join. Reaching here means the caller
+        # scheduled this via run() but did not tag it, so batching is lost.
+        if not is_single_row_query(query):
+            # Not a mistake in itself: a scheduled method may legitimately need
+            # a multi-row query (see the counter's definition). It just cannot
+            # join the batch.
+            self.report.uncombined_queries_in_greenlet += 1
             return False, None
+
+        # Trust, but verify. The tag is a claim about row shape; if the SQL
+        # contradicts it outright, the call site is wrong. Guarded with getattr
+        # so a future SQLAlchemy bump degrades to no-veto rather than raising on
+        # a renamed internal.
+        if isinstance(query, sqlalchemy.sql.Select) and (
+            getattr(query, "_limit_clause", None) is not None
+            or getattr(query, "_offset_clause", None) is not None
+            or getattr(query, "_group_by_clauses", None)
+            or getattr(query, "_distinct", False)
+        ):
+            raise MisTaggedQueryError(
+                "This query is tagged as returning exactly one row, but it has a "
+                "LIMIT, OFFSET, GROUP BY or DISTINCT clause, so it cannot. Fix the "
+                "call site to use execute_rows() instead of execute_single_row(). "
+                f"Query: {query}"
+            )
 
         # Figure out how many columns this query returns.
         # This also implicitly ensures that the typing is generally correct.
