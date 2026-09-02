@@ -258,6 +258,8 @@ public class PgTimeseriesEbeanConfigFactory implements DisposableBean {
       PgTimeseriesStoreOptions store, String dataSourceUrl, MetricUtils metricUtils) {
     DataSourceConfig dataSourceConfig = new DataSourceConfig();
 
+    // Same IAM toggle as GMS Ebean for every named store. Split IAM vs password per JDBC URL is
+    // not supported.
     boolean shouldUseIam =
         Boolean.TRUE.equals(useIamAuth) || Boolean.TRUE.equals(postgresUseIamAuth);
     String driver =

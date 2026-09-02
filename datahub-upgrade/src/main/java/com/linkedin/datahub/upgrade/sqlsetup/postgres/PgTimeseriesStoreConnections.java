@@ -141,6 +141,9 @@ public final class PgTimeseriesStoreConnections {
   /**
    * Match runtime pools: IAM is on when pgCron IAM flags are set, or the GMS ebean datasource is
    * already IAM-configured ({@code ebean.useIamAuth} / {@code ebean.postgresUseIamAuth}).
+   *
+   * <p>Per-store IAM vs password is not supported. Every named store uses this same toggle even
+   * when its JDBC URL differs from Ebean.
    */
   static boolean shouldUseIam(
       @Nullable Iam iam, @Nullable DataSourceBuilder.Settings ebeanDataSourceConfig) {
