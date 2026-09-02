@@ -426,6 +426,7 @@ fragment datasetSchema on Dataset {
 
 query getDatasetSchema($urn: String!, $skipSiblingsSearch: Boolean = false) {
     dataset(urn: $urn) {
+        urn
         ...datasetSchema
         siblings {
             isPrimary

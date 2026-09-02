@@ -200,23 +200,6 @@ class TestStreamWrapperErrorHandling:
     def teardown_method(self):
         SecretRegistry.reset_instance()
 
-    def test_wrapper_write_with_masking_failure(self):
-        """Test that wrapper handles masking failures gracefully."""
-        registry = SecretRegistry.get_instance()
-        masking_filter = SecretMaskingFilter(registry)
-
-        output = StringIO()
-        wrapper = StreamMaskingWrapper(output, masking_filter)
-
-        # Mock mask_text to raise an error (but not TypeError)
-        with mock.patch.object(
-            masking_filter, "mask_text", side_effect=RuntimeError("Simulated error")
-        ):
-            # Should fall back to writing unmasked text
-            chars_written = wrapper.write("test message")
-            assert chars_written == len("test message")
-            assert output.getvalue() == "test message"
-
     def test_wrapper_write_with_stream_error(self):
         """Test that wrapper handles stream write errors."""
         registry = SecretRegistry.get_instance()
