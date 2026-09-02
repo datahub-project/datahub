@@ -1,7 +1,6 @@
 import logging
 import os
 import platform
-import subprocess
 
 import pytest
 import sqlalchemy
@@ -16,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.integration_batch_4
 DB2_PORT = 50000
+DB2_URL = f"db2+ibm_db://db2inst1:password@localhost:{DB2_PORT}/testdb"
 
 
 @pytest.fixture(scope="module")
@@ -23,13 +23,19 @@ def test_resources_dir(pytestconfig):
     return pytestconfig.rootpath / "tests/integration/db2"
 
 
-def is_db2_up(container_name: str) -> bool:
-    cmd = f"docker logs {container_name} 2>&1 | grep 'Setup has completed.'"
-    ret = subprocess.run(
-        cmd,
-        shell=True,
-    )
-    return ret.returncode == 0
+def is_db2_up() -> bool:
+    """Readiness = the test database accepts a connection. The container log
+    line "Setup has completed." is printed at the START of boot in current
+    images, before the multi-minute instance and database creation, so
+    log-grepping cannot signal readiness."""
+    engine = sqlalchemy.create_engine(DB2_URL)
+    try:
+        with engine.connect():
+            return True
+    except Exception:
+        return False
+    finally:
+        engine.dispose()
 
 
 def _split_statements(sql):
@@ -67,15 +73,13 @@ def db2_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             "testdb2",
             DB2_PORT,
             timeout=600,
-            checker=lambda: is_db2_up("testdb2"),
+            checker=is_db2_up,
         )
 
         setup_filename = test_resources_dir / "setup" / "setup.sql"
         statements = _split_statements(open(setup_filename).read())
 
-        engine = sqlalchemy.create_engine(
-            f"db2+ibm_db://db2inst1:password@localhost:{DB2_PORT}/testdb"
-        )
+        engine = sqlalchemy.create_engine(DB2_URL)
         with engine.begin() as conn:
             for statement in statements:
                 logger.info("Executing SQL: " + statement)
