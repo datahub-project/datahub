@@ -27,6 +27,38 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
   private static final String INDEX = "documentindex_v2_semantic";
 
   /**
+   * Spy builder whose mocked search client reports {@code INDEX} existing with the given current
+   * mappings. Default mock booleans make shouldPreserveStructuredPropertyMappings(false) return
+   * true, selecting the live-mapping merge fallback — the configuration that crashed.
+   */
+  private static ESIndexBuilder builderForExistingIndex(Map<String, Object> currentMappings)
+      throws Exception {
+    SearchClientShim<?> searchClient = mock(SearchClientShim.class, RETURNS_DEEP_STUBS);
+    when(searchClient.indexExists(any(), any(), any())).thenReturn(true);
+    when(searchClient.getIndexSettings(any(), any(), any()).getIndexToSettings())
+        .thenReturn(Map.of(INDEX, Settings.builder().build()));
+    MappingMetadata mappingMetadata = mock(MappingMetadata.class);
+    when(mappingMetadata.getSourceAsMap()).thenReturn(currentMappings);
+    when(searchClient.getIndexMapping(any(), any(), any()).mappings())
+        .thenReturn(Map.of(INDEX, mappingMetadata));
+
+    ElasticSearchConfiguration config = mock(ElasticSearchConfiguration.class, RETURNS_DEEP_STUBS);
+    when(config.getBuildIndices().getSlowOperationTimeoutSeconds()).thenReturn(10);
+    GitVersion gitVersion = mock(GitVersion.class);
+    when(gitVersion.getVersion()).thenReturn("test");
+    ESIndexBuilder builder =
+        spy(
+            new ESIndexBuilder(
+                searchClient,
+                config,
+                mock(StructuredPropertiesConfiguration.class),
+                Map.of(),
+                gitVersion));
+    doReturn(false).when(builder).isOpenSearch29OrHigher(any());
+    return builder;
+  }
+
+  /**
    * Regression for the AI-smoke system-update failure: target mappings supplied by
    * V2SemanticSearchMappingsBuilder are ImmutableMaps at every level, and buildReindexState
    * currently falls back to merging the current index's structured-property mappings into the
@@ -55,30 +87,7 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
                     "properties",
                     ImmutableMap.of("propertyA", ImmutableMap.of("type", "keyword")))));
 
-    SearchClientShim<?> searchClient = mock(SearchClientShim.class, RETURNS_DEEP_STUBS);
-    when(searchClient.indexExists(any(), any(), any())).thenReturn(true);
-    when(searchClient.getIndexSettings(any(), any(), any()).getIndexToSettings())
-        .thenReturn(Map.of(INDEX, Settings.builder().build()));
-    MappingMetadata mappingMetadata = mock(MappingMetadata.class);
-    when(mappingMetadata.getSourceAsMap()).thenReturn(currentMappings);
-    when(searchClient.getIndexMapping(any(), any(), any()).mappings())
-        .thenReturn(Map.of(INDEX, mappingMetadata));
-
-    ElasticSearchConfiguration config = mock(ElasticSearchConfiguration.class, RETURNS_DEEP_STUBS);
-    when(config.getBuildIndices().getSlowOperationTimeoutSeconds()).thenReturn(10);
-    GitVersion gitVersion = mock(GitVersion.class);
-    when(gitVersion.getVersion()).thenReturn("test");
-    // Default mock booleans make shouldPreserveStructuredPropertyMappings(false) return true,
-    // selecting the live-mapping merge fallback — the configuration that crashed.
-    ESIndexBuilder builder =
-        spy(
-            new ESIndexBuilder(
-                searchClient,
-                config,
-                mock(StructuredPropertiesConfiguration.class),
-                Map.of(),
-                gitVersion));
-    doReturn(false).when(builder).isOpenSearch29OrHigher(any());
+    ESIndexBuilder builder = builderForExistingIndex(currentMappings);
 
     // The semantic target: immutable at every level the merge writes to.
     Map<String, Object> immutableTarget =
@@ -139,28 +148,7 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
                     "properties",
                     ImmutableMap.of("propertyFromCurrent", ImmutableMap.of("type", "keyword")))));
 
-    SearchClientShim<?> searchClient = mock(SearchClientShim.class, RETURNS_DEEP_STUBS);
-    when(searchClient.indexExists(any(), any(), any())).thenReturn(true);
-    when(searchClient.getIndexSettings(any(), any(), any()).getIndexToSettings())
-        .thenReturn(Map.of(INDEX, Settings.builder().build()));
-    MappingMetadata mappingMetadata = mock(MappingMetadata.class);
-    when(mappingMetadata.getSourceAsMap()).thenReturn(currentMappings);
-    when(searchClient.getIndexMapping(any(), any(), any()).mappings())
-        .thenReturn(Map.of(INDEX, mappingMetadata));
-
-    ElasticSearchConfiguration config = mock(ElasticSearchConfiguration.class, RETURNS_DEEP_STUBS);
-    when(config.getBuildIndices().getSlowOperationTimeoutSeconds()).thenReturn(10);
-    GitVersion gitVersion = mock(GitVersion.class);
-    when(gitVersion.getVersion()).thenReturn("test");
-    ESIndexBuilder builder =
-        spy(
-            new ESIndexBuilder(
-                searchClient,
-                config,
-                mock(StructuredPropertiesConfiguration.class),
-                Map.of(),
-                gitVersion));
-    doReturn(false).when(builder).isOpenSearch29OrHigher(any());
+    ESIndexBuilder builder = builderForExistingIndex(currentMappings);
 
     // Target whose structuredProperties.properties (L4) is a non-empty ImmutableMap.
     Map<String, Object> immutableTarget =
@@ -200,5 +188,47 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
     assertEquals(
         originalL4.size(), 1, "caller's structuredProperties.properties must not be mutated");
     assertTrue(originalL4.containsKey("propertyFromTarget"));
+  }
+
+  /**
+   * A target with no root "properties" entry at all still receives the merge. Before the merge
+   * returned its own copy, this case wrote the current structured properties into a detached map
+   * and silently discarded them.
+   */
+  @Test
+  public void testBuildReindexStateMergesIntoTargetWithoutPropertiesEntry() throws Exception {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    Map<String, Object> currentMappings =
+        ImmutableMap.of(
+            "properties",
+            ImmutableMap.of(
+                "structuredProperties",
+                ImmutableMap.of(
+                    "type",
+                    "object",
+                    "dynamic",
+                    "false",
+                    "properties",
+                    ImmutableMap.of("propertyA", ImmutableMap.of("type", "keyword")))));
+
+    ESIndexBuilder builder = builderForExistingIndex(currentMappings);
+
+    Map<String, Object> immutableTarget = ImmutableMap.of();
+
+    ReindexConfig result =
+        builder.buildReindexState(opContext, INDEX, immutableTarget, ImmutableMap.of(), false);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> mergedSpFields =
+        (Map<String, Object>)
+            ((Map<String, Object>)
+                    ((Map<String, Object>) result.targetMappings().get("properties"))
+                        .get("structuredProperties"))
+                .get("properties");
+    assertTrue(
+        mergedSpFields.containsKey("propertyA"),
+        "merge must land on a target without a properties entry");
+    assertTrue(immutableTarget.isEmpty(), "caller's map untouched");
   }
 }
