@@ -674,6 +674,17 @@ repos:
         stages:
           - pre-commit
 
+      - id: smoke-test-p0-dependencies
+        name: p0 smoke tests must not depend on non-p0 tests
+        description: pytest-dependency skips a test whose dependency was deselected,
+          so a p0 test depending on a non-p0 test silently does nothing under -m p0
+        language: system
+        files: ^smoke-test/.*\.py$
+        entry: python3 .github/scripts/check_p0_dependencies.py
+        pass_filenames: false
+        stages:
+          - pre-commit
+
       - id: docusaurus-markdown-lint
         name: Lint Docusaurus Markdown
         description: Catches Docusaurus-specific Markdown issues that Prettier cannot

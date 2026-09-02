@@ -764,6 +764,7 @@ def test_list_users(auth_session):
     )  # Length of default user set.
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
 # The bootstrapped groups come from bootstrap_mce.json and are only visible here
 # once Elasticsearch has indexed them. wait_for_writes_to_sync() inside

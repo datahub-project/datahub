@@ -50,6 +50,7 @@ def _unique_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
 def test_document_change_history(auth_session):
     """Test document change history tracking."""
