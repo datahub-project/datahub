@@ -419,9 +419,14 @@ def test_get_folder_info_ignores_disallowed_path(s3_resource, caplog):
     s3_source = _get_s3_source(path_spec)
 
     # act
-    with patch(
-        "datahub.ingestion.source.data_lake_common.path_spec.PathSpec.allowed"
-    ) as allowed:
+    # The skip path logs at DEBUG; raise capture above pytest's log_level so
+    # this assertion does not depend on ini/CLI logging settings.
+    with (
+        caplog.at_level(logging.DEBUG, logger="datahub.ingestion.source.s3.source"),
+        patch(
+            "datahub.ingestion.source.data_lake_common.path_spec.PathSpec.allowed"
+        ) as allowed,
+    ):
         allowed.return_value = False
         res = s3_source.get_folder_info(path_spec, "s3://my-bucket/my-folder")
         res = list(res)
