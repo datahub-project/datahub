@@ -69,7 +69,7 @@ The fastest way to connect any agent to DataHub is through the [MCP server](../.
 - **DataHub Cloud** — point your agent at the hosted endpoint: `https://<tenant>.acryl.io/integrations/ai/mcp`
 - **Self-hosted (DataHub Core)** — run the [open-source MCP server](https://github.com/acryldata/mcp-server-datahub), configured with `DATAHUB_GMS_URL` (e.g. `http://<gms-host>:8080`):
   - **Local (stdio)** — `uvx mcp-server-datahub@latest`, launched by your agent
-  - **Shared (HTTP)** — `mcp-server-datahub-http`, then point agents at `http://<host>:8000/mcp`, each with their own DataHub token ([setup](https://github.com/acryldata/mcp-server-datahub#docker-http-deployment))
+  - **Shared (HTTP)** — `mcp-server-datahub-http`, then point agents at `http://<host>:8000/mcp`, each with their own DataHub token ([setup](../../features/feature-guides/mcp.md#shared-http-deployment))
 
 See the [MCP Server Guide](../../features/feature-guides/mcp.md) for authentication and setup.
 
