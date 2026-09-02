@@ -13,7 +13,7 @@ the symbols below; do not invent rules.
 
 ## 1. Isolation and unique names
 
-**Source:** `smoke-test/AGENTS.md` (Data Isolation Utilities),
+**Source:** `smoke-test/AGENTS.md` (Isolation),
 `unique_suffix` / `unique_dataset_urn` / `materialize_with_unique_name` /
 `materialize_unique_dataset` in `smoke-test/tests/utils.py`,
 `_ingest_cleanup_unique_dataset_impl` in `smoke-test/conftest.py`.
@@ -51,7 +51,7 @@ ingested_dataset_run_id = ""
 
 ## 2. Fixtures and data lifecycle
 
-**Source:** `smoke-test/AGENTS.md` (Cleanup, Fixture ingest),
+**Source:** `smoke-test/AGENTS.md` (Isolation),
 `auth_session` / `graph_client` / `openapi_graph_client` / `clear_graph_cache`
 in `smoke-test/conftest.py`.
 
@@ -93,7 +93,7 @@ Fallback when fixture keys are **already unique** to the module:
 
 ## 3. Authentication and HTTP
 
-**Source:** `smoke-test/AGENTS.md` (Auth and HTTP), `TestSessionWrapper` in
+**Source:** `smoke-test/AGENTS.md` (Rules), `TestSessionWrapper` in
 `smoke-test/tests/utils.py`, `make_step_actor_user` in
 `smoke-test/tests/utilities/multi_user.py`.
 
@@ -114,7 +114,7 @@ POST/PUT, and revokes the token on destroy.
 
 ## 4. Retry and consistency
 
-**Source:** `smoke-test/AGENTS.md` (Consistency), `with_test_retry` in
+**Source:** `smoke-test/AGENTS.md` (Rules), `with_test_retry` in
 `smoke-test/tests/utils.py`, `wait_for_writes_to_sync` in
 `smoke-test/tests/consistency_utils.py`.
 
@@ -142,7 +142,7 @@ Never use `time.sleep()` to wait for GMS, search, or Kafka.
 ## 5. GraphQL and REST
 
 **Source:** `execute_graphql` / `ingest_file_via_rest` / `restli_default_headers`
-in `smoke-test/tests/utils.py`, `smoke-test/AGENTS.md` (GraphQL, Auth and HTTP).
+in `smoke-test/tests/utils.py`, `smoke-test/AGENTS.md` (Rules).
 
 `execute_graphql()` already asserts a non-empty body, `data` is not `None`,
 and no `errors` key.
@@ -189,7 +189,7 @@ and no `errors` key.
 ## 7. Environment variables
 
 **Source:** `smoke-test/tests/utilities/env_vars.py`, `smoke-test/AGENTS.md`
-(Auth and HTTP).
+(Rules).
 
 **Rules:**
 
@@ -204,7 +204,7 @@ and no `errors` key.
 
 ## 8. Guaranteed cleanup
 
-**Source:** `smoke-test/AGENTS.md` (Cleanup), `_ingest_cleanup_*` in
+**Source:** `smoke-test/AGENTS.md` (Rules, Isolation), `_ingest_cleanup_*` in
 `smoke-test/conftest.py`.
 
 | Where created | Teardown |
@@ -248,7 +248,7 @@ and no `errors` key.
 
 ## 11. Placement, logging, and quality
 
-**Source:** `smoke-test/AGENTS.md` (What this suite is for, Logging),
+**Source:** `smoke-test/AGENTS.md` (When to add smoke tests, Rules),
 root `AGENTS.md` (Testing Principles, Confidentiality).
 
 **Rules:**
