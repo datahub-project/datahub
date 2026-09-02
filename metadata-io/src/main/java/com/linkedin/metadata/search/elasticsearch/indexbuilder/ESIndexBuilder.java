@@ -445,39 +445,17 @@ public class ESIndexBuilder {
             .getSourceAsMap();
     builder.currentMappings(currentMappings);
 
-    if (shouldPreserveStructuredPropertyMappings(copyStructuredPropertyMappings)
-        && hasStructuredPropertyMappings(currentMappings)) {
-      // The merge writes into the target map, its "properties" entry, and the
-      // structuredProperties entry beneath it. Callers may supply immutable maps
-      // (V2SemanticSearchMappingsBuilder builds the semantic index target from
-      // ImmutableMaps, where an in-place merge throws UnsupportedOperationException),
-      // so merge into a mutable copy of those levels instead of the caller's maps.
-      // The copy is gated on the current index actually having structured-property
-      // mappings, since the merge is a no-op otherwise. Merging from the live index at
-      // all — rather than building targets from structured-property definitions — is a
-      // separate issue: https://github.com/datahub-project/datahub/issues/19588.
-      mappings = copyForStructuredPropertyMerge(mappings);
-      mergeStructuredPropertyMappings(mappings, currentMappings);
-    }
+    final Map<String, Object> targetMappings =
+        shouldPreserveStructuredPropertyMappings(copyStructuredPropertyMappings)
+            ? mergeStructuredPropertyMappings(mappings, currentMappings)
+            : mappings;
 
-    builder.targetMappings(mappings);
+    builder.targetMappings(targetMappings);
     return builder.build();
   }
 
   @SuppressWarnings("unchecked")
-  private static boolean hasStructuredPropertyMappings(Map<String, Object> currentMappings) {
-    Object properties = currentMappings.get(PROPERTIES);
-    if (!(properties instanceof Map)) {
-      return false;
-    }
-    Object structuredProperties =
-        ((Map<String, Object>) properties).get(STRUCTURED_PROPERTY_MAPPING_FIELD);
-    return structuredProperties instanceof Map && !((Map<?, ?>) structuredProperties).isEmpty();
-  }
-
-  @SuppressWarnings("unchecked")
-  @VisibleForTesting
-  static Map<String, Object> copyForStructuredPropertyMerge(Map<String, Object> mappings) {
+  private static Map<String, Object> copyForStructuredPropertyMerge(Map<String, Object> mappings) {
     Map<String, Object> mutableMappings = new HashMap<>(mappings);
     Object properties = mutableMappings.get(PROPERTIES);
     if (properties instanceof Map) {
@@ -513,9 +491,17 @@ public class ESIndexBuilder {
     return baseSettings.get("knn") == Boolean.TRUE;
   }
 
+  /**
+   * Merges the current index's structured-property mappings into a shallow mutable copy of {@code
+   * targetMappings} and returns that copy; returns {@code targetMappings} unchanged when the
+   * current index has none to merge. The copy (rather than an in-place merge) keeps caller-supplied
+   * maps untouched: V2SemanticSearchMappingsBuilder supplies the semantic index target as
+   * ImmutableMaps, where an in-place merge throws a message-less UnsupportedOperationException.
+   * Merging from the live index at all — rather than building targets from structured-property
+   * definitions — is a separate issue: https://github.com/datahub-project/datahub/issues/19588.
+   */
   @SuppressWarnings("unchecked")
-  @VisibleForTesting
-  void mergeStructuredPropertyMappings(
+  private Map<String, Object> mergeStructuredPropertyMappings(
       Map<String, Object> targetMappings, Map<String, Object> currentMappings) {
     // Extract current structured property mapping (entire object, not just properties)
     Map<String, Object> currentStructuredPropertyMapping =
@@ -525,13 +511,16 @@ public class ESIndexBuilder {
                 .orElse(new HashMap<>());
 
     if (currentStructuredPropertyMapping.isEmpty()) {
-      return;
+      return targetMappings;
     }
 
-    // Get or create target structured property mapping
+    Map<String, Object> merged = copyForStructuredPropertyMerge(targetMappings);
+
+    // computeIfAbsent (vs the previous detached orElse(new HashMap<>())) also makes a target
+    // without a root "properties" entry merge correctly instead of into a discarded map.
     Map<String, Object> targetProperties =
         (Map<String, Object>)
-            Optional.ofNullable(targetMappings.get(PROPERTIES)).orElse(new HashMap<>());
+            merged.computeIfAbsent(PROPERTIES, k -> new HashMap<String, Object>());
 
     Map<String, Object> targetStructuredPropertyMapping =
         (Map<String, Object>)
@@ -543,6 +532,8 @@ public class ESIndexBuilder {
 
     // Merge properties separately to handle nested field conflicts properly
     mergeStructuredProperties(targetStructuredPropertyMapping, currentStructuredPropertyMapping);
+
+    return merged;
   }
 
   @SuppressWarnings("unchecked")
