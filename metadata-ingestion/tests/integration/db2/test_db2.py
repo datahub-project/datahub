@@ -1,7 +1,8 @@
-import concurrent.futures
 import logging
 import os
 import platform
+import queue
+import threading
 
 import pytest
 import sqlalchemy
@@ -37,20 +38,22 @@ def _attempt_db2_connection() -> bool:
 
 def is_db2_up() -> bool:
     """Readiness = the test database accepts a connection. The container log
-    line "Setup has completed." is printed at the START of boot in current
-    images, before the multi-minute instance and database creation, so
-    log-grepping cannot signal readiness.
+    line "Setup has completed." is printed even when database creation failed
+    (the setup script only warns and keeps going), so log-grepping cannot
+    signal readiness.
 
-    The attempt runs in a worker thread with a hard bound: the poll loop's
+    The attempt runs in a daemon thread with a hard bound: the poll loop's
     overall timeout only ticks between checker calls, so a stalled handshake
-    inside connect() would otherwise hang the job instead of failing it."""
-    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    inside connect() must neither block the loop nor - were the thread
+    non-daemon - the interpreter exit."""
+    outcome: "queue.Queue[bool]" = queue.Queue(maxsize=1)
+    threading.Thread(
+        target=lambda: outcome.put(_attempt_db2_connection()), daemon=True
+    ).start()
     try:
-        return pool.submit(_attempt_db2_connection).result(timeout=30)
-    except concurrent.futures.TimeoutError:
+        return outcome.get(timeout=30)
+    except queue.Empty:
         return False
-    finally:
-        pool.shutdown(wait=False)
 
 
 def _split_statements(sql):
