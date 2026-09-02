@@ -23,10 +23,12 @@ export function detectBrowserLanguage(): SupportedLanguage | undefined {
         if (base === 'zh') {
             if (lower.includes('hant') || lower === 'zh-tw' || lower === 'zh-hk' || lower === 'zh-mo') {
                 // Prefer zh-TW when registered (companion PR); never fold Traditional to zh-CN.
-                return supported.find((locale) => locale === 'zh-TW');
+                const traditional: string = 'zh-TW';
+                return isSupportedLanguage(traditional) ? traditional : undefined;
             }
-            // zh-Hans, zh-CN, zh-SG, bare zh — only when zh-CN is registered.
-            return supported.find((locale) => locale === 'zh-CN');
+            // zh-Hans, zh-CN, zh-SG, bare zh
+            const simplified: string = 'zh-CN';
+            return isSupportedLanguage(simplified) ? simplified : undefined;
         }
         // Exact (case-insensitive) match first, then fold region variants to their base language.
         return (
