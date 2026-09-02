@@ -1,6 +1,7 @@
 import logging
 import os
 import platform
+import subprocess
 
 import pytest
 import sqlalchemy
@@ -16,6 +17,11 @@ logger = logging.getLogger(__name__)
 pytestmark = pytest.mark.integration_batch_4
 DB2_PORT = 50000
 DB2_URL = f"db2+ibm_db://db2inst1:password@localhost:{DB2_PORT}/testdb"
+# ibm_db_sa drops CONNECTTIMEOUT from the SQLAlchemy URL; set it on the probe DSN.
+DB2_PROBE_DSN = (
+    f"DATABASE=testdb;HOSTNAME=localhost;PORT={DB2_PORT};PROTOCOL=TCPIP;"
+    "UID=db2inst1;PWD=password;CONNECTTIMEOUT=5;"
+)
 
 
 @pytest.fixture(scope="module")
@@ -23,18 +29,26 @@ def test_resources_dir(pytestconfig):
     return pytestconfig.rootpath / "tests/integration/db2"
 
 
-def is_db2_up(_container_name: str) -> bool:
-    # The image prints "Setup has completed." before alias testdb is catalogued.
-    # SQL30061 until a real connection succeeds.
-    engine = sqlalchemy.create_engine(DB2_URL)
+def is_db2_up(container_name: str) -> bool:
+    # Cheap boot wait: the image prints this before testdb is catalogued.
+    logs = subprocess.run(
+        ["docker", "logs", container_name],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    if "Setup has completed." not in f"{logs.stdout}{logs.stderr}":
+        return False
+    # Then require a real connection so we do not race SQL30061. Short
+    # CONNECTTIMEOUT keeps a half-open listener from blocking wait_for_port.
     try:
-        with engine.connect() as conn:
-            conn.execute(sqlalchemy.text("SELECT 1 FROM SYSIBM.SYSDUMMY1"))
+        import ibm_db
+
+        conn = ibm_db.connect(DB2_PROBE_DSN, "", "")
+        ibm_db.close(conn)
         return True
     except Exception:
         return False
-    finally:
-        engine.dispose()
 
 
 def _split_statements(sql):
