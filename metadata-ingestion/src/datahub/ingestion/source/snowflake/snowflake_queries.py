@@ -207,8 +207,8 @@ class SnowflakeQueriesExtractorReport(Report):
     audit_log_load_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     aggregator_generate_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
-    # Recorded so a cleanup failure can tell the operator where temp files may
-    # remain; None if the run ended before the audit log was created.
+    # Best-effort path for a cleanup-failure warning to cite; recorded before the
+    # file is created, so it names the intended path, not a confirmed one.
     audit_log_path: Optional[str] = None
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
