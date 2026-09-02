@@ -1,15 +1,15 @@
 {
-    "failAssertions": "查看失敗的 assertions →",
+    "failAssertions": "查看失敗的斷言 →",
     "failChecks": "查看失敗的檢查 →",
-    "failIncidents": "查看進行中的 incidents →",
-    "passAssertions": "所有 assertions 皆已通過",
+    "failIncidents": "查看進行中的事件 →",
+    "passAssertions": "所有斷言均已通過",
     "passChecks": "所有檢查皆已通過",
-    "passIncidents": "沒有進行中的 incidents",
-    "summaryHealthy": "此資產狀態良好",
-    "summaryUnhealthy": "此資產狀態可能異常",
+    "passIncidents": "沒有進行中的事件",
+    "summaryHealthy": "此資料資產狀態良好",
+    "summaryUnhealthy": "此資料資產狀態可能異常",
     "typeAssertions": "Assertions",
-    "typeIncidents": "Incidents",
+    "typeIncidents": "事件",
     "typeTests": "測試",
-    "warnAssertions": "部分 assertions 有問題。",
+    "warnAssertions": "部分斷言有問題。",
     "warnChecks": "部分檢查有問題。"
 }

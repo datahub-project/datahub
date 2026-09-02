@@ -23,6 +23,9 @@
     "disable": "停用",
     "disconnect": "中斷連線",
     "dismiss": "忽略",
+    "documentationAdded": "已新增說明文件",
+    "documentationRemoved": "已移除說明文件",
+    "documentationUpdated": "已更新說明文件",
     "done": "完成",
     "download": "下載",
     "edit": "編輯",
@@ -33,6 +36,7 @@
     "filter": "篩選",
     "finish": "完成",
     "grant": "授予",
+    "hideDiff": "隱藏差異",
     "home": "首頁",
     "import": "匯入",
     "invite": "邀請",
@@ -68,6 +72,7 @@
     "showAll": "顯示全部",
     "showCountMore": "再顯示 {{count}} 筆",
     "showCountMoreCapitalized": "再顯示 {{count}} 筆",
+    "showDiff": "顯示差異",
     "showLess": "顯示較少",
     "showMore": "顯示更多",
     "showMoreCapitalized": "顯示更多",
@@ -83,10 +88,5 @@
     "viewAllCount": "檢視全部（{{count}}）",
     "viewLess": "檢視較少",
     "viewMore": "檢視更多",
-    "yes": "是",
-    "documentationAdded": "已新增說明文件",
-    "documentationRemoved": "已移除說明文件",
-    "documentationUpdated": "已更新說明文件",
-    "showDiff": "顯示差異",
-    "hideDiff": "隱藏差異"
+    "yes": "是"
 }

@@ -5,7 +5,7 @@
     "deleteError": "無法刪除擁有權類型",
     "deleteSuccess": "已成功刪除擁有權類型。",
     "editTitle": "編輯擁有權類型",
-    "emptyDescription": "建立自訂的擁有權類型，以分類資產的 Owner。",
+    "emptyDescription": "建立自訂的擁有權類型，以分類資料資產的擁有者。",
     "emptyTitle": "找不到擁有權類型",
     "form.description": "說明",
     "form.descriptionPlaceholder": "請提供說明",
