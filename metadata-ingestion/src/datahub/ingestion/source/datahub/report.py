@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Optional
 
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionReport,
@@ -17,6 +18,10 @@ class DataHubSourceReport(StatefulIngestionReport):
     database_parse_errors: LossyDict[str, LossyDict[str, LossyList[str]]] = field(
         default_factory=LossyDict
     )
+    num_database_quarantined_rows: int = 0
+    # Only set once the quarantine file actually exists, so a clean run doesn't
+    # advertise a file that was never created.
+    database_quarantine_file: Optional[str] = None
 
     num_kafka_aspects_ingested: int = 0
     num_kafka_parse_errors: int = 0

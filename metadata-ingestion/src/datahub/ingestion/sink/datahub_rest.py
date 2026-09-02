@@ -52,6 +52,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.utilities.partition_executor import (
+    BatchItemFailures,
     BatchPartitionExecutor,
     PartitionExecutor,
 )
@@ -64,6 +65,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _DEFAULT_REST_SINK_MAX_THREADS = get_rest_sink_default_max_threads()
+
+# Isolation does one HTTP round trip per record, each with its own retry ladder, so a
+# systemic failure (an expired auth token, a model mismatch, an outage) turns "the batch
+# failed" into max_per_batch sequential failures per rejected batch. Once this many
+# consecutive isolation passes recover nothing, stop paying that cost and let the batch
+# exception propagate as it did before per-record isolation existed.
+_MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS = 3
 
 
 class RestSinkMode(ConfigEnum):
@@ -114,6 +122,16 @@ class DataHubRestSinkReport(SinkReport):
 
     async_batches_prepared: int = 0
     async_batches_split: int = 0
+
+    # Batch rejection is all-or-nothing server-side, so a rejected batch is re-emitted
+    # one record at a time to find the records that actually caused it. "recovered"
+    # counts records that would have been silently lost before this behaviour existed.
+    batches_rejected: int = 0
+    records_isolated_after_batch_rejection: int = 0
+    records_recovered_after_batch_rejection: int = 0
+    # Incremented once isolation trips off (see _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS)
+    # so a systemic failure doesn't silently drop out of batches_rejected.
+    batches_rejected_while_isolation_suppressed: int = 0
 
     main_thread_blocking_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
@@ -183,6 +201,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         self._gms_emit_mode = _resolve_gms_emit_mode(
             self.config.mode, _DEFAULT_EMIT_MODE
         )
+
+        # Guards the isolation circuit breaker's counters below, since
+        # _isolate_batch_failures runs on worker threads and several batches can be
+        # rejected concurrently.
+        self._isolation_lock = threading.Lock()
+        self._consecutive_zero_recovery_isolations = 0
+        self._isolation_suppressed = False
 
         try:
             gms_config = self.emitter.server_config
@@ -411,19 +436,40 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             ]
         ],
     ) -> None:
-        events: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]] = []
+        # Grouped per record, not flattened, so a rejected batch can be attributed to the
+        # record that caused it. The expansion is 1:N because an MCE unpacks into several MCPs.
+        events_by_record: List[
+            List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]]
+        ] = []
 
         for record in records:
             event = record[0]
 
             if isinstance(event, MetadataChangeEvent):
                 # Unpack MCEs into MCPs.
-                mcps = mcps_from_mce(event)
-                events.extend(mcps)
+                events_by_record.append(list(mcps_from_mce(event)))
             else:
-                events.append(event)
+                events_by_record.append([event])
 
-        trace_data = self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
+        events = [event for group in events_by_record for event in group]
+
+        try:
+            # emit_mcps chunks internally by payload size. If a later chunk fails after
+            # earlier chunks already landed, isolation below re-emits those
+            # already-succeeded records too, since it only sees the whole call failed.
+            # Server-side no-op detection on the duplicate emit makes this harmless; it
+            # just inflates "recovered" with records that were never actually lost.
+            trace_data = self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
+        except Exception as batch_error:
+            if len(events_by_record) <= 1:
+                # Nothing to isolate: the single record's error is already precise.
+                raise
+            if self._isolation_suppressed:
+                with self._isolation_lock:
+                    self.report.batches_rejected_while_isolation_suppressed += 1
+                raise
+            raise self._isolate_batch_failures(events_by_record) from batch_error
+
         num_chunks = len(trace_data)
         self.report.async_batches_prepared += 1
         if num_chunks > 1:
@@ -432,6 +478,62 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 f"In async_batch mode, the payload was split into {num_chunks} batches. "
                 "If there's many of these issues, consider decreasing `max_per_batch`."
             )
+
+    def _isolate_batch_failures(
+        self,
+        events_by_record: List[
+            List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]]
+        ],
+    ) -> BatchItemFailures:
+        # The server rejects a batch as a unit, so a single invalid record fails every
+        # record batched with it. Re-emitting one record at a time attributes the failure
+        # to the record that caused it and lets the rest through.
+        self.report.batches_rejected += 1
+        self.report.records_isolated_after_batch_rejection += len(events_by_record)
+
+        outcomes: List[Optional[BaseException]] = []
+        for events in events_by_record:
+            try:
+                self.emitter.emit_mcps(events, emit_mode=self._gms_emit_mode)
+            except Exception as e:
+                outcomes.append(e)
+            else:
+                outcomes.append(None)
+                self.report.records_recovered_after_batch_rejection += 1
+
+        recovered = sum(1 for outcome in outcomes if outcome is None)
+        logger.info(
+            "Batch of %d rejected; isolation recovered %d record(s) and identified "
+            "%d genuine failure(s)",
+            len(events_by_record),
+            recovered,
+            len(outcomes) - recovered,
+        )
+
+        newly_suppressed = False
+        with self._isolation_lock:
+            if recovered > 0:
+                self._consecutive_zero_recovery_isolations = 0
+            else:
+                self._consecutive_zero_recovery_isolations += 1
+                if (
+                    self._consecutive_zero_recovery_isolations
+                    >= _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS
+                    and not self._isolation_suppressed
+                ):
+                    self._isolation_suppressed = True
+                    newly_suppressed = True
+        if newly_suppressed:
+            logger.warning(
+                "Isolation recovered zero records across %d consecutive rejected "
+                "batches; disabling per-record isolation for the rest of this run. "
+                "Later rejected batches will fail as a whole instead of being "
+                "re-emitted one record at a time. See "
+                "batches_rejected_while_isolation_suppressed in the report.",
+                _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS,
+            )
+
+        return BatchItemFailures(outcomes)
 
     def write_record_async(
         self,
