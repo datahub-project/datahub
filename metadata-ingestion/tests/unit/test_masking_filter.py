@@ -28,6 +28,7 @@ from datahub.masking.constants import (
 from datahub.masking.masking_filter import (
     SecretMaskingFilter,
     StreamMaskingWrapper,
+    _filterable_handlers,
     install_masking_filter,
     uninstall_masking_filter,
 )
@@ -575,6 +576,58 @@ class TestInstallation:
             )
         finally:
             logging.getLogger().removeHandler(probe_handler)
+
+    def test_placeholders_are_not_materialized(self):
+        """Collecting handlers must not mutate loggerDict: materializing a
+        PlaceHolder mid-iteration breaks the very iteration, and any thread
+        creating loggers concurrently does the same."""
+        logging.getLogger("mask_ph_probe.parent.child")
+        assert isinstance(
+            logging.root.manager.loggerDict["mask_ph_probe.parent"],
+            logging.PlaceHolder,
+        )
+        names_before = set(logging.root.manager.loggerDict)
+
+        _filterable_handlers()
+
+        assert set(logging.root.manager.loggerDict) == names_before
+        assert isinstance(
+            logging.root.manager.loggerDict["mask_ph_probe.parent"],
+            logging.PlaceHolder,
+        )
+
+    def test_masking_safe_handler_streams_are_not_wrapped(self):
+        """Stream swapping honors the same exclusion as filter attachment:
+        masking's own diagnostic channel must keep the raw stream, or the
+        messages explaining a suppression would themselves be suppressed."""
+
+        class FakeStderr:
+            name = "<stderr>"
+
+            def write(self, text):
+                return len(text)
+
+            def flush(self):
+                pass
+
+        safe_stream = FakeStderr()
+        safe_handler = logging.StreamHandler(safe_stream)
+        safe_logger = logging.getLogger("datahub.masking.stream_probe")
+        safe_logger.addHandler(safe_handler)
+
+        covered_stream = FakeStderr()
+        covered_handler = logging.StreamHandler(covered_stream)
+        covered_logger = logging.getLogger("app.stream_probe")
+        covered_logger.addHandler(covered_handler)
+
+        try:
+            install_masking_filter(SecretRegistry())
+
+            assert safe_handler.stream is safe_stream
+            assert isinstance(covered_handler.stream, StreamMaskingWrapper)
+        finally:
+            safe_logger.removeHandler(safe_handler)
+            covered_logger.removeHandler(covered_handler)
 
     def test_double_install(self):
         """Repeated installation stacks no duplicate filters or wrappers."""

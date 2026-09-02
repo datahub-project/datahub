@@ -290,57 +290,54 @@ class StreamMaskingWrapper:
         return getattr(self._original, name)
 
 
-def _update_existing_handlers() -> None:
-    """Update all existing logging handlers to use wrapped streams."""
-    updated_count = 0
+def _covered_loggers() -> "list[logging.Logger]":
+    """Root plus all named loggers except masking's own diagnostic channel,
+    which must stay unmasked so the causes of a suppression remain visible.
 
-    # Get all loggers (including root and all named loggers)
-    all_loggers = [logging.getLogger()] + [
-        logging.getLogger(name) for name in logging.root.manager.loggerDict
-    ]
-
-    for log in all_loggers:
-        if not isinstance(log, logging.Logger):
-            # Skip PlaceHolder objects in logger dict
+    Iterates a snapshot: loggerDict is mutated by any thread creating a
+    logger, and materializing a PlaceHolder mutates it too, so the live dict
+    must never be iterated. PlaceHolders carry no handlers - skip them
+    instead of materializing them.
+    """
+    loggers = [logging.getLogger()]
+    for name, candidate in list(logging.root.manager.loggerDict.items()):
+        if name.startswith("datahub.masking"):
             continue
+        if isinstance(candidate, logging.Logger):
+            loggers.append(candidate)
+    return loggers
 
-        for handler in log.handlers:
-            if isinstance(handler, logging.StreamHandler):
-                # Check if handler is using an unwrapped stream
-                if hasattr(handler, "stream"):
-                    stream = handler.stream
 
-                    # If handler's stream is the original unwrapped stdout/stderr,
-                    # update it to use our wrapped version
-                    if not isinstance(stream, StreamMaskingWrapper):
-                        # Check if this is stdout or stderr by comparing the underlying file
-                        try:
-                            if hasattr(stream, "name"):
-                                if stream.name == "<stderr>":
-                                    handler.setStream(sys.stderr)
-                                    updated_count += 1
-                                elif stream.name == "<stdout>":
-                                    handler.setStream(sys.stdout)
-                                    updated_count += 1
-                        except Exception:
-                            # If we can't determine the stream, skip it
-                            pass
+def _update_existing_handlers() -> None:
+    """Point existing stream handlers at the wrapped stdout/stderr.
+
+    Handlers created before masking was initialized hold references to the
+    original unwrapped streams.
+    """
+    updated_count = 0
+    for covered in _covered_loggers():
+        for handler in covered.handlers:
+            if not isinstance(handler, logging.StreamHandler):
+                continue
+            stream = getattr(handler, "stream", None)
+            if stream is None or isinstance(stream, StreamMaskingWrapper):
+                continue
+            try:
+                if getattr(stream, "name", None) == "<stderr>":
+                    handler.setStream(sys.stderr)
+                    updated_count += 1
+                elif getattr(stream, "name", None) == "<stdout>":
+                    handler.setStream(sys.stdout)
+                    updated_count += 1
+            except Exception:
+                pass
 
     if updated_count > 0:
         logger.debug(f"Updated {updated_count} logging handlers to use wrapped streams")
 
 
 def _filterable_handlers() -> "list[logging.Handler]":
-    handlers = []
-    loggers = [logging.getLogger()] + [
-        logging.getLogger(name)
-        for name in logging.root.manager.loggerDict
-        if not name.startswith("datahub.masking")
-    ]
-    for candidate in loggers:
-        if isinstance(candidate, logging.Logger):
-            handlers.extend(candidate.handlers)
-    return handlers
+    return [handler for covered in _covered_loggers() for handler in covered.handlers]
 
 
 def install_masking_filter(
