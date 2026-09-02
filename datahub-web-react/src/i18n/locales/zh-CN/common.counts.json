@@ -1,9 +1,16 @@
 {
+    "columnCount_one": "{{count}} 列",
     "columnCount_other": "{{count}} 列",
+    "matchCount_one": "{{count}} 个匹配项",
     "matchCount_other": "{{count}} 个匹配项",
-    "ownerCount_other": "{{count}} 位 Owner",
+    "ownerCount_one": "{{count}} 位所有者",
+    "ownerCount_other": "{{count}} 位所有者",
+    "queryCount_one": "{{count}} 条查询",
     "queryCount_other": "{{count}} 条查询",
+    "rowCount_one": "{{count}} 行",
     "rowCount_other": "{{count}} 行",
-    "tagCount_other": "{{count}} 个 Tag",
+    "tagCount_one": "{{count}} 个标签",
+    "tagCount_other": "{{count}} 个标签",
+    "termCount_one": "{{count}} 个术语",
     "termCount_other": "{{count}} 个术语"
 }
