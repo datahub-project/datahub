@@ -43,10 +43,16 @@ describe('no-phosphor-generic-imports', () => {
             // Export patterns
             "export { Icon } from '@phosphor-icons/react';",
             "export * from '@phosphor-icons/react/dist';",
-            // Dynamic imports
+            // Dynamic imports with strings
             "const icon = await import('@phosphor-icons/react/dist/csr');",
-            // CommonJS
+            // Dynamic imports with backticks (template literals)
+            "const icon = await import(`@phosphor-icons/react/dist`);",
+            // CommonJS with strings
             "const { Icon } = require('@phosphor-icons/react/dist');",
+            // CommonJS with backticks
+            "const { Icon } = require(`@phosphor-icons/react`);",
+            // Overly broad paths that shouldn't match /dist/lib/types pattern
+            "import { Icon } from '@phosphor-icons/react/dist/lib/types-old';",
         ])('flags %s', (code) => {
             const msgs = lint(code);
             expect(msgs).toHaveLength(1);
@@ -66,9 +72,14 @@ describe('no-phosphor-generic-imports', () => {
             // Type imports from root
             "import type { Icon } from '@phosphor-icons/react';",
             "import type { IconWeight } from '@phosphor-icons/react';",
+            // Type-only exports
+            "export type { Icon } from '@phosphor-icons/react';",
+            "export type * from '@phosphor-icons/react';",
             // Type definitions from /dist/lib/types
             "import { Icon as PhosphorIcon } from '@phosphor-icons/react/dist/lib/types';",
             "import type { Icon } from '@phosphor-icons/react/dist/lib/types';",
+            // Specific icon imports with template literals in dynamic imports (allowed)
+            "const CheckCircle = import(`@phosphor-icons/react/dist/csr/CheckCircle`);",
             // Non-phosphor imports
             "import { Button } from '@components';",
             "import { useState } from 'react';",

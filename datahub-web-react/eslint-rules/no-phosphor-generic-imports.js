@@ -19,31 +19,50 @@ const BLOCK_MESSAGE =
 // Allow only specific icon imports (csr/ssr/IconName), excluding index and other special files
 const ALLOWED_ICON_PATTERN = /^@phosphor-icons\/react\/dist\/(csr|ssr)\/(?!index)\w+$/;
 
-function checkPhosphorImport(node, context) {
-    if (!node?.value || typeof node.value !== 'string') return;
+// Match exact type definition entrypoint
+const TYPE_DEFS_PATTERN = /^@phosphor-icons\/react\/dist\/lib\/types(\/.*)?$/;
 
-    const source = node.value;
-    if (!source.startsWith('@phosphor-icons/react')) return;
+function extractStringValue(sourceNode) {
+    if (!sourceNode) return null;
 
-    const parent = node.parent || {};
+    // Handle Literal nodes (string literals)
+    if (sourceNode.type === 'Literal' && typeof sourceNode.value === 'string') {
+        return sourceNode.value;
+    }
+
+    // Handle TemplateLiteral nodes (backtick strings) with no expressions
+    if (sourceNode.type === 'TemplateLiteral' && sourceNode.expressions.length === 0) {
+        return sourceNode.quasis[0]?.value?.cooked || null;
+    }
+
+    return null;
+}
+
+function checkPhosphorImport(sourceValue, sourceNode, context) {
+    if (!sourceValue || typeof sourceValue !== 'string') return;
+
+    if (!sourceValue.startsWith('@phosphor-icons/react')) return;
+
+    const parent = sourceNode.parent || {};
 
     // Allow: import type { Icon } from '@phosphor-icons/react'
-    if (parent.type === 'ImportDeclaration' && parent.importKind === 'type') {
+    // Allow: export type { Icon } from '@phosphor-icons/react'
+    if (parent.importKind === 'type' || parent.exportKind === 'type') {
         return;
     }
 
-    // Allow: type imports from /dist/lib/types (type definitions)
-    if (source.includes('/dist/lib/types')) {
+    // Allow: exact type definition entrypoint only
+    if (TYPE_DEFS_PATTERN.test(sourceValue)) {
         return;
     }
 
     // Allow: specific icon imports matching @phosphor-icons/react/dist/(csr|ssr)/IconName
-    if (ALLOWED_ICON_PATTERN.test(source)) {
+    if (ALLOWED_ICON_PATTERN.test(sourceValue)) {
         return;
     }
 
     // Block everything else
-    context.report({ node, message: BLOCK_MESSAGE });
+    context.report({ node: sourceNode, message: BLOCK_MESSAGE });
 }
 
 module.exports = {
@@ -57,29 +76,32 @@ module.exports = {
     create(context) {
         return {
             ImportDeclaration(node) {
-                checkPhosphorImport(node.source, context);
+                checkPhosphorImport(node.source.value, node.source, context);
             },
             ExportNamedDeclaration(node) {
                 if (node.source) {
-                    checkPhosphorImport(node.source, context);
+                    checkPhosphorImport(node.source.value, node.source, context);
                 }
             },
             ExportAllDeclaration(node) {
-                checkPhosphorImport(node.source, context);
+                checkPhosphorImport(node.source.value, node.source, context);
             },
             ImportExpression(node) {
-                if (node.source && node.source.type === 'Literal') {
-                    checkPhosphorImport(node.source, context);
+                const sourceValue = extractStringValue(node.source);
+                if (sourceValue) {
+                    checkPhosphorImport(sourceValue, node.source, context);
                 }
             },
             CallExpression(node) {
                 if (
                     node.callee.type === 'Identifier' &&
                     node.callee.name === 'require' &&
-                    node.arguments.length === 1 &&
-                    node.arguments[0].type === 'Literal'
+                    node.arguments.length === 1
                 ) {
-                    checkPhosphorImport(node.arguments[0], context);
+                    const sourceValue = extractStringValue(node.arguments[0]);
+                    if (sourceValue) {
+                        checkPhosphorImport(sourceValue, node.arguments[0], context);
+                    }
                 }
             },
         };
