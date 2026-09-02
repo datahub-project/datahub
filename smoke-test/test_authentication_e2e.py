@@ -46,7 +46,11 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.domain(Domain.PLATFORM),
+    pytest.mark.p0,
+]
 
 
 # Test constants

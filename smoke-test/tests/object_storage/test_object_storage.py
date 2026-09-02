@@ -93,6 +93,7 @@ def test_documentation_file_upload_gated_without_presigned_urls(
     assert enabled is False
 
 
+@pytest.mark.p0
 def test_get_presigned_upload_url_rejects_local_provider(
     auth_session: Any, documentation_dataset_urn: str
 ) -> None:

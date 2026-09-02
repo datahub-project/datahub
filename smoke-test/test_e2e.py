@@ -212,12 +212,14 @@ def test_run_ingestion(auth_session):
     wait_for_writes_to_sync()
 
 
+@pytest.mark.p0
 def test_gms_get_user(auth_session):
     username = "jdoe"
     urn = f"urn:li:corpuser:{username}"
     _ensure_user_present(auth_session, urn=urn)
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "platform,dataset_name,env",
     [
@@ -282,6 +284,7 @@ def test_gms_batch_get_v2(auth_session):
     )  # Aspect does not exist.
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "query,min_expected_results",
     [
@@ -305,6 +308,7 @@ def test_gms_search_dataset(auth_session, query, min_expected_results):
     assert len(res_data["value"]["entities"]) >= min_expected_results
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "query,min_expected_results",
     [
@@ -395,6 +399,7 @@ def test_gms_usage_fetch(auth_session):
     }
 
 
+@pytest.mark.p0
 def test_frontend_auth(auth_session):
     pass
 
@@ -424,6 +429,7 @@ def test_frontend_browse_datasets(auth_session):
     assert len(res_data["data"]["browse"]["groups"]) > 0
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "query,min_expected_results",
     [
@@ -458,6 +464,7 @@ def test_frontend_search_datasets(auth_session, query, min_expected_results):
     assert len(res_data["data"]["search"]["searchResults"]) >= min_expected_results
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "query,min_expected_results",
     [
@@ -493,6 +500,7 @@ def test_frontend_search_across_entities(auth_session, query, min_expected_resul
     )
 
 
+@pytest.mark.p0
 def test_frontend_user_info(auth_session):
     urn = get_root_urn()
     query = """query corpUser($urn: String!) {
@@ -517,6 +525,7 @@ def test_frontend_user_info(auth_session):
     assert res_data["data"]["corpUser"]["urn"] == urn
 
 
+@pytest.mark.p0
 @pytest.mark.parametrize(
     "platform,dataset_name,env",
     [
@@ -793,6 +802,7 @@ def test_list_groups(auth_session):
     )  # Length of default group set.
 
 
+@pytest.mark.p0
 @pytest.mark.dependency(depends=["test_list_groups"])
 def test_add_remove_members_from_group(auth_session):
     # Assert no group edges for user jdoe
@@ -1111,6 +1121,7 @@ def test_search_results_recommendations(auth_session):
     assert "errors" not in res_data
 
 
+@pytest.mark.p0
 def test_generate_personal_access_token(auth_session):
     # Test success case
     json = {

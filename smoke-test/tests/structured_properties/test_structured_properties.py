@@ -175,6 +175,7 @@ def to_es_filter_name(
         return f"structuredProperties.{qualified_name}"
 
 
+@pytest.mark.p0
 def test_structured_property_string(ingest_cleanup_data, graph_client):
     property_name = f"retention{randint(10, 10000)}Policy"
 

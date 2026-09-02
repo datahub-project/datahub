@@ -10,6 +10,7 @@ from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.CATALOG)]
 
 
+@pytest.mark.p0
 def test_all(auth_session, graph_client):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-timeline-sample-kafka"

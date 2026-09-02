@@ -37,7 +37,7 @@ from tests.utils import wait_for_writes_to_sync, with_test_retry
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.CATALOG)
+pytestmark = [pytest.mark.domain(Domain.CATALOG), pytest.mark.p0]
 
 
 start_index = randint(10, 10000)

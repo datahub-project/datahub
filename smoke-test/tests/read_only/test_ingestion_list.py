@@ -4,7 +4,7 @@ from tests.test_result_msg import add_datahub_stats
 from tests.utilities.domains import Domain
 from tests.utilities.metadata_operations import list_ingestion_sources
 
-pytestmark = pytest.mark.domain(Domain.INGESTION)
+pytestmark = [pytest.mark.domain(Domain.INGESTION), pytest.mark.p0]
 
 
 @pytest.mark.read_only

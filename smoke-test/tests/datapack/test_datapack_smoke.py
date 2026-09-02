@@ -81,6 +81,7 @@ def _restore_soft_deleted_showcase_structured_properties(
 class TestDatapackCLI:
     """Test the `datahub datapack` CLI commands."""
 
+    @pytest.mark.p0
     def test_datapack_list(self):
         """datahub datapack list returns available packs."""
         result = run_datahub_cmd(["datapack", "list", "--format", "json"])
