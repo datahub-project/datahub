@@ -1,7 +1,6 @@
 import json
 import logging
 import time
-from random import randint
 
 import pytest
 
@@ -52,7 +51,7 @@ from datahub.metadata.schema_classes import (
 )
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utilities.domains import Domain
-from tests.utils import delete_urns, get_sleep_info, run_datahub_cmd
+from tests.utils import delete_urns, get_sleep_info, run_datahub_cmd, unique_suffix
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +59,7 @@ pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 PLATFORM = "snowflake"
 ENV = "PROD"
-_suffix = randint(10, 100000)
+_suffix = unique_suffix()
 
 # --- platform2instance scenario ---
 # Unique platform so catalog-wide dataplatform2instance cannot rewrite other
