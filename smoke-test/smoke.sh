@@ -43,6 +43,24 @@ if [[ "${PYTEST_XDIST_WORKERS:-0}" =~ ^[1-9][0-9]*$ ]]; then
   xdist_args=(-n "${PYTEST_XDIST_WORKERS}" --dist=loadscope)
 fi
 
+# SMOKE_TIER: which criticality tier to run. "p0" runs only tests carrying the
+# p0 marker -- the pull-request gate; "full" or unset runs the whole suite. CI
+# sets it from the P0_SMOKE_RUN repository variable. Applied inside
+# run_pytest_policy_phases only: the other strategies below are already narrow,
+# explicit test selections that a tier filter would just gut.
+tier_args=()
+case "${SMOKE_TIER:-full}" in
+  full) ;;
+  p0)
+    echo "SMOKE_TIER=p0: running only p0-marked tests"
+    tier_args=(--tier p0)
+    ;;
+  *)
+    echo "ERROR: unknown SMOKE_TIER='${SMOKE_TIER}' (expected 'p0' or 'full')" >&2
+    exit 1
+    ;;
+esac
+
 # pytest exit 5 = no tests collected (empty phase for this batch is OK).
 _pytest_ok() {
   local rc=$1
@@ -66,6 +84,7 @@ run_pytest_policy_phases() {
   SMOKE_POLICY_PHASE=1 pytest -rP --durations=20 -vv --continue-on-collection-errors \
     ${xdist_args[@]+"${xdist_args[@]}"} \
     --junit-xml="${junit_prefix}-phase1.xml" \
+    ${tier_args[@]+"${tier_args[@]}"} \
     ${extra_args[@]+"${extra_args[@]}"}
   rc1=$?
   set -e
@@ -81,6 +100,7 @@ run_pytest_policy_phases() {
   SMOKE_POLICY_PHASE=2 pytest -rP --durations=20 -vv --continue-on-collection-errors \
     --reruns 1 --reruns-delay 1 \
     --junit-xml="${junit_prefix}-phase2.xml" \
+    ${tier_args[@]+"${tier_args[@]}"} \
     ${extra_args[@]+"${extra_args[@]}"}
   rc2=$?
   set -e

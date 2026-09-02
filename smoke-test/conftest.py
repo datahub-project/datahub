@@ -221,6 +221,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             f"{', '.join(sorted(ALL_DOMAINS))}."
         ),
     )
+    parser.addoption(
+        "--tier",
+        action="store",
+        default="full",
+        choices=["p0", "full"],
+        help=(
+            "Criticality tier to run. 'p0' runs only tests marked p0 -- the set "
+            "that gates pull requests; 'full' (the default) runs everything. "
+            "CI passes this through from SMOKE_TIER in smoke.sh."
+        ),
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -231,6 +242,38 @@ def pytest_configure(config: pytest.Config) -> None:
         parse_requested_domains(config.getoption("--domain"))
     except ValueError as exc:
         raise pytest.UsageError(str(exc)) from exc
+
+
+def _apply_tier_filter(config: pytest.Config, items: List[Item]) -> None:
+    """Deselect tests outside the criticality tier requested with --tier.
+
+    Deliberately not expressed as ``-m p0``: a command-line ``-m`` *replaces*
+    the expression in addopts, and pytest applies ``-m`` deselection only after
+    this hook runs -- so the weight-based batching below would still pack
+    batches from the whole suite and leave most of them nearly empty.
+    """
+    if config.getoption("--tier") != "p0":
+        return
+
+    selected: List[Item] = []
+    deselected: List[Item] = []
+    for item in items:
+        target = selected if item.get_closest_marker("p0") else deselected
+        target.append(item)
+
+    if items and not selected:
+        # Otherwise every batch collects nothing, pytest exits 5, and smoke.sh
+        # treats that as success: a p0 run that tested nothing would go green.
+        pytest.exit(
+            f"--tier p0 selected 0 of {len(items)} collected test(s): "
+            "no test carries the p0 marker.",
+            returncode=pytest.ExitCode.USAGE_ERROR,
+        )
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+    logger.info("--tier p0: selected %s of %s test(s)", len(selected), len(items))
+    items[:] = selected
 
 
 def _apply_domain_filter(config: pytest.Config, items: List[Item]) -> None:
@@ -442,6 +485,7 @@ def pytest_collection_modifyitems(
 ) -> None:
     # Runs before every early return below, and before the weight-based batching,
     # so batches are packed from the selected tests only.
+    _apply_tier_filter(config, items)
     _apply_domain_filter(config, items)
 
     # Check if FILTERED_TESTS is set (for retry logic)

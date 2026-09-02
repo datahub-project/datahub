@@ -74,8 +74,25 @@ pytest --domain catalog --domain ingestion -vv
 
 A test that spans domains declares all of them, e.g.
 `@pytest.mark.domain(Domain.CATALOG, Domain.INGESTION)`, and is selected by
-either. Tests marked `p0` are the ones critical enough to run on every pull
-request; combine the two with `pytest -m p0 --domain catalog`.
+either.
+
+#### Selecting tests by criticality tier
+
+Tests critical enough to gate every pull request carry `@pytest.mark.p0`.
+Select them with `--tier`:
+
+```bash
+# Only the p0 tier
+pytest --tier p0 -vv
+
+# The p0 tier within one domain
+pytest --tier p0 --domain catalog -vv
+```
+
+`--tier full` is the default and runs everything. CI drives the choice through
+the `SMOKE_TIER` env var that `smoke.sh` reads: `docker-unified.yml` sets it to
+`p0` for pull requests while the `P0_SMOKE_RUN` repository variable is `true`,
+and leaves post-merge runs on the full suite.
 
 ## Test Categories
 

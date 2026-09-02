@@ -124,6 +124,11 @@ jobs:
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
       playwright_matrix: ${{ steps.set-playwright-matrix.outputs.matrix }}
       playwright_change: ${{ steps.ci-optimize.outputs.playwright-change == 'true' }}
+      # Pull requests run only the p0 tier while the P0_SMOKE_RUN repository
+      # variable is 'true'; post-merge pushes -- and the default with the
+      # variable unset -- always run the full suite. smoke.sh reads it as
+      # SMOKE_TIER.
+      smoke_tier: ${{ (github.event_name == 'pull_request' && vars.P0_SMOKE_RUN == 'true') && 'p0' || 'full' }}
       smoke_build_task: ${{ steps.smoke-profile.outputs.smoke_build_task }}
       smoke_profile_name: ${{ steps.smoke-profile.outputs.smoke_profile_name }}
       # Gradle modules base_build has to bake; empty means every image in the
@@ -932,6 +937,8 @@ jobs:
           TEST_STRATEGY: pytests
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
+          # 'p0' or 'full' -- see the setup job's smoke_tier output.
+          SMOKE_TIER: ${{ needs.setup.outputs.smoke_tier }}
           PYTEST_XDIST_WORKERS: "3"
           # GMS here runs with a 1s bulk-flush and 1s index refresh interval
           # (see run-quickstart.sh), so the trailing post-wait sleep can match.
