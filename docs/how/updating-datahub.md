@@ -367,6 +367,12 @@ Requirements:
 
 - #18393 / #18421: **(Operations / logging)** Core services and the frontend can optionally ship logs to a Loki-compatible aggregator. Set `LOG_AGGREGATOR_ENDPOINT` to enable shipping (also used for support-bundle log collection without relying on the Kubernetes API). Opt-in; unset leaves local logging unchanged.
 
+- **(GMS / Groups)** Fixed native group membership becoming permanently unrecoverable after a group was deleted and recreated under the same identifier. Deleting a group removed its membership edges from the graph but left each member's `nativeGroupMembership` aspect still referencing it; re-adding those members then wrote unchanged aspect content, which is suppressed both at change-log emission and by graph diff mode, so the membership never took effect — `addGroupMembers` reported success while the group stayed empty. Group deletion now clears the member-side references it is responsible for, and re-adding a member repairs a membership whose graph edge is missing. Because policies evaluate membership from the aspect while the UI and notifications read the graph, affected users could retain a deleted group's privileges while appearing to belong to no group. **Action:** none for new deletions. Members stranded by an earlier delete are repaired by re-adding them to the group; a `restore-indices` run over `corpuser` / `nativeGroupMembership` also rebuilds the missing edges, but it rebuilds references to groups that no longer exist too, so clear those aspect entries first where the group was intentionally deleted.
+
+- **(GMS / Groups)** Adding members to a group is now all-or-nothing with respect to unknown users. Previously members were processed one at a time, so a request naming a user that does not exist added the users listed before it and then failed, leaving a partial application. The request now fails without adding anyone, and names the users it could not find. **Action:** none, unless you relied on the partial-application behavior — split such requests per user to get the old semantics.
+
+- **(GMS / Groups)** Adding members to a group is now written in a single batched request rather than one write per member, so a large `addGroupMembers` call is substantially faster. The writes stay synchronous, so the member list is readable immediately afterwards. Note that a very large request is still partitioned by the entity client's configured batch size, so a failure part-way through can leave earlier members added — the all-or-nothing guarantee above covers unknown users, which are rejected before anything is written. **Action:** none.
+
 ### Environment Variables
 
 - `OPTIMISTIC_LOCKING_ENABLED` (default `false`) — Use CAS aspect writes instead of `SELECT FOR UPDATE` with Ebean storage. See Other Notable Changes above and [Environment Variables](../deploy/environment-vars.md).
@@ -427,6 +433,45 @@ Requirements:
 - #18289 **(Ingestion / S3, GCS, ABS)** `max_rows` (default **100**) now also bounds schema inference for `.json` files, where it was previously ignored. A `.json` file holding a single object is no longer read end to end: it is streamed and every array inside it is truncated to `max_rows` elements. This removes an out-of-memory risk on large files such as `{"data": [ ...millions... ]}`, but the inferred schema is now a sample — for `{"rows": [ ...5000 records... ]}`, a field that first appears in record 3000 is no longer reported, and nullability is decided from the first `max_rows` records instead of all of them. Top-level JSON arrays and `.jsonl` files were already sampled this way, so only single-object `.json` files change. **Action:** if you need the previous exhaustive behavior for `.json` files, raise `max_rows` above the largest array you care about (note this raises memory use for CSV/TSV inference too).
 
 - **(Spark lineage)** The `acryl-spark-lineage` agent now shades its bundled OpenLineage under `io.acryl.shaded.io.openlineage` instead of exposing it at `io.openlineage`. This lets the agent run alongside environments that ship their own OpenLineage on the Spark classpath — notably **Amazon EMR 7.12+ / SageMaker Unified Studio (DataZone)**, whose built-in `/usr/share/aws/datazone-openlineage-spark/lib/` jars previously collided with the agent's copy and failed the Spark job. The destructive workaround (`rm -rf /usr/share/aws/datazone-openlineage-spark/lib/`) is no longer needed; both DataHub and DataZone lineage can be captured on the same cluster. The user-facing listener (`datahub.spark.DatahubSparkListener`) and all `spark.datahub.*` / `spark.openlineage.*` config are unchanged — no recipe changes required. The OpenLineage extension SPI (`io.openlineage.spark.extension.*`), which data-source connectors implement at its canonical name, is intentionally left unrelocated. **Action:** only required if you depended on the agent transitively exposing `io.openlineage.*` classes to your own code (rare) — reference the shaded coordinates instead.
+
+## v1.6.0.2
+
+Patch release for v1.6.0 — security and authorization hardening plus CVE dependency bumps. No new features; no schema or model changes.
+
+Requirements:
+
+- CLI / Python SDK: 1.6.0.17, 1.7.0.3
+- Helm Chart: 1.1.2
+
+### Breaking Changes
+
+- #18886 **(GMS / Auth)** The hardcoded `systemClientSecret` default (`JohnSnowKnowsNothing`) has been removed from the server configs. **Action:** set `DATAHUB_SYSTEM_CLIENT_SECRET` on GMS, MAE/MCE/PE consumers, the frontend, and Actions before upgrading — services relying on the built-in default will fail to authenticate.
+
+- #19508 **(GMS / Timeseries read authorization)** Dataset profile, usage, and operations timeseries (and dashboard usage statistics) now require the matching **View Dataset Profile / Usage / Operations** privileges on Rest.li and OpenAPI as well as GraphQL. Dedicated timeseries APIs (`getTimeseriesAspectValues`, OpenAPI timeseries scroll, `getTimeseriesStats` with a URN filter) also require **Get Timeseries Aspect API** when REST API authorization is enabled. **Action:** grant those privileges (or rely on the default `view-dataset-sensitive` policy) to API clients that previously read these aspects with only entity GET. Chart usage statistics are unchanged.
+
+- #19360 **(GMS / Role and group membership writes)** Writes to aspects that grant privileges are now authorized at the aspect layer across GraphQL, OpenAPI, and Rest.li. Adding a role (`roleMembership`) requires **Manage Policies**; adding a user to a group (`groupMembership` / `nativeGroupMembership`) requires **Edit Group Members**; adding a corpGroup owner (`ownership`) requires **Edit Owners** — or **Manage Users & Groups** when the actor is adding themselves. Only additions are checked; removals, unchanged re-ingestion, and system writes pass. Previously **Edit Entity** on a user was enough to grant that user the Admin role. **Action:** grant **Manage Policies** to automation that writes `roleMembership` outside the UI; membership-only sync (LDAP, Okta, Azure AD, `datahub user upsert`) needs **Edit Group Members** or **Manage Users & Groups**. Toggle via `metadataChangeProposal.validation.aspectAuthorization.privilegeGrant.enabled` (default `true`).
+
+- #18740 **(GMS / Documents)** Document authorization is now enforced across GraphQL, OpenAPI, and Rest.li: CREATE accepts `CREATE_ENTITY` / `EDIT_ENTITY` / `MANAGE_DOCUMENTS`, UPDATE accepts `EDIT_ENTITY` / `MANAGE_DOCUMENTS`, DELETE accepts `DELETE_ENTITY` / `MANAGE_DOCUMENTS`. `document` is also added to `VIEW_RESTRICTED_ENTITY_TYPES`, so with `VIEW_AUTHORIZATION_ENABLED=true` documents are gated like other catalog entities. **Action:** grant the document privileges (or `MANAGE_DOCUMENTS`) as needed and ensure readers have View Entity / Get Entity.
+
+### Known Issues
+
+### Potential Downtime
+
+### Other Notable Changes
+
+**Security fixes:**
+
+- #19297 **(Auth)** The built-in self policy granted to every actor on their own entity was flattening the full ENTITY READ privilege map, which also handed out edit privileges on your own corpuser entity. It is now limited to `VIEW_ENTITY_PAGE` and `GET_ENTITY`.
+- #19316 **(Auth)** `POST /auth/signUp`, `/auth/resetNativeUserCredentials`, `/auth/verifyNativeUserCredentials`, and `/auth/getSsoSettings` now require GMS **system client** credentials, matching `/auth/generateSessionTokenForUser`. A user session token calling these GMS helpers directly gets **401**; frontend login, signup, password reset, and SSO are unaffected.
+- #19384 **(Auth)** Aspect authorization no longer trusts client-supplied `appSource` system metadata to identify system writes.
+- #19405 **(Auth)** Incidents raised on a schema field are now authorized against the parent entity.
+- #19298, #19299, #19300 **(UI)** Stored XSS fixes: query and incident descriptions are sanitized (the legacy `MarkdownViewer` is removed), the documentation editor's PDF preview iframe `src` is sanitized, and dangerous `renderUrl` schemes on embeds are rejected.
+
+**Dependency CVE bumps:**
+
+- Logback 1.5.38 (CVE-2026-9828, CVE-2026-10532), Log4j 2.25.5 (CVE-2026-49844), Netty 4.2.17.Final (CVE-2026-59902), libthrift 0.23.0 (CVE-2026-43869), Jetty 12.1.10 (CVE-2026-10050), httpcore5 5.4.3 (CVE-2026-54399), micrometer-core 1.16.6 (CVE-2026-40983, CVE-2026-40984), reactor-netty-core 1.3.6, netty-reactive-streams 3.0.9.
+- Apache Parquet 1.18.0, which refreshes its shaded Jackson to jackson-databind 2.22.1 (CVE-2026-54512, CVE-2026-54513).
+- Python ingestion: nltk 3.10.3 (CVE-2026-12075).
 
 ## v1.6.0.1
 
@@ -935,6 +980,14 @@ Patch release focused on security and dependency updates (Play frontend and Java
 
 ### Other Notable Changes
 
+- #15262: (Ingestion) The Metabase ingestion source has been improved with several robustness and performance enhancements:
+  - Collection name sanitization now properly handles special characters (e.g., `"Sales & Marketing"` → `metabase_collection_sales_marketing`)
+  - Added recursion depth protection to prevent stack overflow from circular card references
+  - Optimized collection API calls with caching to eliminate N+1 query problems (up to 620x performance improvement for large deployments)
+  - Improved error reporting to differentiate expected 404 errors from authentication/permission issues
+  - Consolidated duplicate lineage extraction logic for better maintainability
+  - Optimized model extraction to reduce duplicate API calls
+  - Recipes must provide `api_key`, or both `username` and `password`; blank values are rejected. `connect_uri` should include a scheme (`http://` or `https://`); a host-only value is treated as `http://`.
 - (Ingestion) BigQuery source: Improved `dataset_pattern` filtering to apply earlier in the ingestion pipeline, reducing unnecessary API calls to BigQuery for datasets that will be filtered out.
 - #15714: Kafka topic partition counts can now automatically be increased during upgrades if configured values exceed existing partition counts. Set `DATAHUB_AUTO_INCREASE_PARTITIONS=true` to enable.
 - (CLI) Added `--extra-env` option to `datahub ingest deploy` command to pass environment variables as comma-separated KEY=VALUE pairs (e.g., `--extra-env "VAR1=value1,VAR2=value2"`). These are stored in the ingestion source configuration and made available to the executor at runtime.
