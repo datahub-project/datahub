@@ -225,6 +225,11 @@ See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size
 | `TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_API_DEFAULT` | `5000`                                | Default API result limit                                                                                                                                                                                                                                        | GMS                        |
 | `TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_STRICT`      | `false`                               | Throw exception if strict is true, otherwise override with default and warn                                                                                                                                                                                     | GMS                        |
 
+pgTimeseries named stores may use different JDBC URLs, but IAM vs password is **not** per-store.
+Every Postgres database used by GMS Ebean and pgTimeseries must share
+`EBEAN_USE_IAM_AUTH` / `EBEAN_POSTGRES_USE_AWS_IAM_AUTH`. See
+[pgTimeseries](../pgtimeseries-design.md).
+
 ## System Metadata Service
 
 | Environment Variable                                | Default | Description                                                                 | Components |

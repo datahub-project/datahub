@@ -18,3 +18,6 @@
 #             url: jdbc:postgresql://ts-long-host:5432/datahub
 #       routing:
 #         "[dataset.datasetprofile]": long
+#
+# IAM vs password is not per-store. Every named store must use the same
+# mechanism as GMS Ebean (EBEAN_USE_IAM_AUTH / EBEAN_POSTGRES_USE_AWS_IAM_AUTH).
