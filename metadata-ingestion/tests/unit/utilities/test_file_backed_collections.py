@@ -444,3 +444,16 @@ def test_closed_property():
     # an error. Callers that share a dict cannot know who closes it first.
     cache.close()
     assert cache.closed
+
+
+def test_closed_when_shared_connection_closed_externally():
+    """For a shared dict, closing the ConnectionWrapper also closes the handle.
+
+    The dict reaches `_conn = None` via ConnectionWrapper.close() walking its
+    dependent objects, not via its own close(). This is the borrowed-dict path
+    `closed` exists for, and it is distinct from the owned path above.
+    """
+    with ConnectionWrapper() as conn:
+        cache = FileBackedDict[int](shared_connection=conn)
+        assert not cache.closed
+    assert cache.closed

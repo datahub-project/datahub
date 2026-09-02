@@ -1,3 +1,4 @@
+import contextlib
 import functools
 import os
 import pathlib
@@ -1829,11 +1830,14 @@ def test_usage_aggregator_uses_shared_connection() -> None:
         aggregator.close()
 
 
+@contextlib.contextmanager
 def _borrowed_resolver_pair():
     """An owner aggregator and a borrower that shares its schema resolver.
 
     This is the shape Snowflake builds under `use_queries_v2`: one aggregator
-    owns the resolver, a second is handed the same object and never owns it.
+    owns the resolver, a second is handed the same object and never owns it. Both
+    are closed on exit so their backing SQLite temp dirs do not leak; close() is
+    idempotent, so a test may also close either one itself.
     """
     owner = SqlParsingAggregator(
         platform="snowflake",
@@ -1850,7 +1854,11 @@ def _borrowed_resolver_pair():
         generate_lineage=True,
         generate_queries=False,
     )
-    return owner, borrower
+    try:
+        yield owner, borrower
+    finally:
+        borrower.close()
+        owner.close()
 
 
 @pytest.mark.parametrize("close_borrower_too", [False, True])
@@ -1861,13 +1869,18 @@ def test_compute_stats_does_not_raise_after_resolver_closed(close_borrower_too):
     about whether the resolver's SQLite connection is still open. Closing the
     owner used to leave the borrower's next report serialization raising
     AttributeError on a None connection.
-    """
-    owner, borrower = _borrowed_resolver_pair()
-    if close_borrower_too:
-        borrower.close()
-    owner.close()
 
-    borrower.report.compute_stats()
+    Only the [False] case exercises the guard: with close_borrower_too=True the
+    borrower's own `_closed` is set, so compute_stats() returns at the pre-existing
+    early return and never reaches the guarded line. [True] is kept as a regression
+    guard for that early-return interaction.
+    """
+    with _borrowed_resolver_pair() as (owner, borrower):
+        if close_borrower_too:
+            borrower.close()
+        owner.close()
+
+        borrower.report.compute_stats()
 
 
 def test_aggregator_owned_stats_survive_dead_resolver():
@@ -1878,22 +1891,22 @@ def test_aggregator_owned_stats_survive_dead_resolver():
     assignment below the guard is asserted, so a partial list cannot let that
     regression through.
     """
-    owner, borrower = _borrowed_resolver_pair()
-    owner.close()
+    with _borrowed_resolver_pair() as (owner, borrower):
+        owner.close()
 
-    borrower.report.compute_stats()
+        borrower.report.compute_stats()
 
-    # aggregator-owned
-    assert borrower.report.num_unique_query_fingerprints is not None
-    assert borrower.report.num_urns_with_lineage is not None
-    assert borrower.report.num_temp_sessions is not None
-    assert borrower.report.num_inferred_temp_schemas is not None
-    # process-wide caches, unaffected by this aggregator's resolver
-    assert borrower.report.sql_parsing_cache_stats is not None
-    assert borrower.report.parse_statement_cache_stats is not None
-    assert borrower.report.format_query_cache_stats is not None
-    # the one thing that is genuinely unreadable
-    assert borrower.report.schema_resolver_count is None
+        # aggregator-owned
+        assert borrower.report.num_unique_query_fingerprints is not None
+        assert borrower.report.num_urns_with_lineage is not None
+        assert borrower.report.num_temp_sessions is not None
+        assert borrower.report.num_inferred_temp_schemas is not None
+        # process-wide caches, unaffected by this aggregator's resolver
+        assert borrower.report.sql_parsing_cache_stats is not None
+        assert borrower.report.parse_statement_cache_stats is not None
+        assert borrower.report.format_query_cache_stats is not None
+        # the one thing that is genuinely unreadable
+        assert borrower.report.schema_resolver_count is None
 
 
 def test_stale_count_not_republished_after_resolver_closes():
@@ -1902,29 +1915,36 @@ def test_stale_count_not_republished_after_resolver_closes():
     A count measured while the resolver was alive must not survive into the final
     report once the resolver is gone.
     """
-    owner, borrower = _borrowed_resolver_pair()
+    with _borrowed_resolver_pair() as (owner, borrower):
+        borrower.report.compute_stats()
+        assert isinstance(borrower.report.schema_resolver_count, int), (
+            "setup failed: the count was never populated, so the assertion below "
+            "would pass for the wrong reason"
+        )
 
-    borrower.report.compute_stats()
-    assert isinstance(borrower.report.schema_resolver_count, int), (
-        "setup failed: the count was never populated, so the assertion below "
-        "would pass for the wrong reason"
-    )
+        owner.close()
+        borrower.report.compute_stats()
 
-    owner.close()
-    borrower.report.compute_stats()
-
-    assert borrower.report.schema_resolver_count is None
+        assert borrower.report.schema_resolver_count is None
 
 
 def test_no_stats_for_never_populated_closed_resolver():
-    owner, borrower = _borrowed_resolver_pair()
-    owner._schema_resolver._schema_cache.clear()
-    owner.close()
+    """An empty open resolver reads 0; a closed one reads None, not 0.
 
-    borrower.report.compute_stats()
+    The two are different facts: 0 means measured-and-empty, None means could not
+    measure. Asserting both is what makes the cleared cache load-bearing.
+    """
+    with _borrowed_resolver_pair() as (owner, borrower):
+        owner._schema_resolver._schema_cache.clear()
 
-    # Absent, not a spurious zero: we did not measure it, so we do not claim it.
-    assert borrower.report.schema_resolver_count is None
+        borrower.report.compute_stats()
+        # Empty but readable, while the resolver is still open.
+        assert borrower.report.schema_resolver_count == 0
+
+        owner.close()
+        borrower.report.compute_stats()
+        # Absent, not a spurious zero: we could not measure it, so we do not claim it.
+        assert borrower.report.schema_resolver_count is None
 
 
 def test_compute_stats_early_returns_when_aggregator_closed():
@@ -1955,8 +1975,8 @@ def test_compute_stats_early_returns_when_aggregator_closed():
 
 def test_report_serializes_twice_without_raising():
     """The pipeline serializes the report mid-run for progress and again at the end."""
-    owner, borrower = _borrowed_resolver_pair()
-    owner.close()
+    with _borrowed_resolver_pair() as (owner, borrower):
+        owner.close()
 
-    borrower.report.as_obj()
-    borrower.report.as_obj()
+        borrower.report.as_obj()
+        borrower.report.as_obj()
