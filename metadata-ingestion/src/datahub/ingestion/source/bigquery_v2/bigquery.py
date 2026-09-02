@@ -19,7 +19,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryShardPatternMatcher,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    EXTRACT_COLUMN_LINEAGE_IGNORED_MESSAGE,
+    BigQueryV2Config,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQuerySchemaApi,
@@ -36,7 +39,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
-from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractor,
     BigQueryQueriesExtractorConfig,
@@ -283,6 +286,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.report.warning(
                     message="`usage.apply_view_usage_to_tables` is only supported with the legacy extraction path "
                     "(`use_queries_v2: False`) and is ignored under queries-v2.",
+                    context="Config option deprecation warning",
+                    title="Config option deprecation warning",
+                    log=False,
+                )
+            # `extract_column_lineage` defaults to False, so an explicit False is only
+            # detectable via `model_fields_set`.
+            if "extract_column_lineage" in self.config.model_fields_set:
+                self.report.warning(
+                    message=EXTRACT_COLUMN_LINEAGE_IGNORED_MESSAGE,
                     context="Config option deprecation warning",
                     title="Config option deprecation warning",
                     log=False,

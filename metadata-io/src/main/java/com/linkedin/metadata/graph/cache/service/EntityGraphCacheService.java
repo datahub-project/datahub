@@ -164,6 +164,16 @@ public class EntityGraphCacheService implements EntityGraphCache {
     return binding == null ? Optional.empty() : Optional.of(binding);
   }
 
+  @Override
+  @Nonnull
+  public java.util.OptionalInt maxEdgesForGraph(@Nonnull String graphId) {
+    EntityGraphDefinition definition = registry.getDefinition(graphId);
+    if (definition == null || definition.getBounds() == null) {
+      return java.util.OptionalInt.empty();
+    }
+    return definition.getBounds().getMaxEdges();
+  }
+
   public void scheduledRebuild(@Nonnull EntityGraphDefinition definition) {
     if (!properties.isEnabled()) {
       return;

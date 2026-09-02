@@ -7,7 +7,7 @@ from tests.utilities.metadata_operations import (
     get_metadata_analytics_charts,
 )
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 @pytest.mark.read_only

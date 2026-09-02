@@ -308,7 +308,7 @@ ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
 
 USER datahub
 RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
-    echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+    printf -- '-e /metadata-ingestion/\n-e /datahub-actions/[all]\n' | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
@@ -393,7 +393,7 @@ ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
 
 USER datahub
 RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
-    echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+    printf -- '-e /metadata-ingestion/\n-e /datahub-actions/[all]\n' | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
@@ -472,7 +472,7 @@ ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
 USER datahub
 # Install only datahub-actions, NOT metadata-ingestion
 RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
-    echo "-e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+    printf -- '-e /datahub-actions/[all]\n' | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
