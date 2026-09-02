@@ -1,0 +1,14 @@
+{
+    "backButton.tooltip": "返回",
+    "confirmationModal.areYouSure": "确定吗？",
+    "copyUrn.tooltip": "复制 URN。URN 是 DataHub 上实体的唯一标识符。",
+    "customIcon.alt": "图标",
+    "entityCountCard.viewCountTooltip": "查看 {{formattedCount}} {{tooltipDescriptor}}",
+    "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
+    "multiStepForm.disabledNextTooltip": "请完成所有必填字段后再进入下一步",
+    "noEntityFound.subtitle": "抱歉，在 DataHub 中找不到此实体",
+    "noEntityFound.title": "未找到",
+    "noPageFound.backToHome": "返回首页",
+    "noPageFound.subtitle": "您请求的页面未找到。",
+    "platformIcon.alt": "平台徽标"
+}

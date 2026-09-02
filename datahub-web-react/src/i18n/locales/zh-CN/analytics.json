@@ -1,0 +1,11 @@
+{
+    "allDomains": "所有域",
+    "dataLandscapeSummary": "数据全景概览",
+    "domainLandscapeSummary": "域全景概览",
+    "failedToLoadCharts": "加载图表失败",
+    "failedToLoadDomains": "加载域失败",
+    "failedToLoadHighlights": "加载内容失败",
+    "noDomainData": "此域没有分析数据",
+    "selectDomain": "选择域",
+    "usageAnalytics": "使用分析"
+}
