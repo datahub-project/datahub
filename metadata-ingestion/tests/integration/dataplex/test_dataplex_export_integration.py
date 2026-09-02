@@ -3,9 +3,9 @@
 Runs the full pipeline with ``extraction_method: export``: a mocked
 metadataJobs REST session (submit + poll), a mocked GCS client streaming canned
 export JSONL, and golden file validation. Proves that exported entries flow
-through the same mapper pipeline as the API path. The read-only variant
-(``existing_export_paths``) needs no REST session at all — canned JSONL feeds
-straight through the pipeline, which is why both tests share one golden file.
+through the same mapper pipeline as the API path. The ``read_export`` variant
+needs no REST session at all — canned JSONL feeds straight through the
+pipeline, which is why both tests share one golden file.
 
 The stateful test proves the central safety guarantee end to end: an export
 failure suppresses stale-entity soft-deletion, while a clean run deletes.
@@ -247,17 +247,17 @@ def test_dataplex_export_integration(
     )
 
 
-def dataplex_readonly_export_recipe(mcp_output_path: str) -> Dict[str, Any]:
-    """Test recipe for read-only export mode (existing_export_paths)."""
+def dataplex_read_export_recipe(mcp_output_path: str) -> Dict[str, Any]:
+    """Test recipe for extraction_method: read_export."""
     return {
         "source": {
             "type": "dataplex",
             "config": {
                 "project_ids": ["test-project"],
                 "entries_locations": ["us"],
-                "extraction_method": "export",
-                "export_config": {
-                    "existing_export_paths": {"us": "gs://export-bucket-us/metadata"},
+                "extraction_method": "read_export",
+                "read_export_config": {
+                    "export_paths": {"us": "gs://export-bucket-us/metadata"},
                 },
                 "include_lineage": False,
                 "include_schema": True,
@@ -271,13 +271,13 @@ def dataplex_readonly_export_recipe(mcp_output_path: str) -> Dict[str, Any]:
 @time_machine.travel(FROZEN_TIME, tick=False)
 @patch("google.cloud.storage.Client")
 @patch("google.auth.default")
-def test_dataplex_readonly_export_integration(
+def test_dataplex_read_export_integration(
     mock_google_auth,
     mock_storage_client_class,
     pytestconfig,
     tmp_path,
 ):
-    """Read-only mode: pre-existing export output feeds the pipeline directly.
+    """read_export mode: pre-existing export output feeds the pipeline directly.
 
     No metadataJobs REST session is mocked because none is used — job
     submission is skipped entirely. With two job partitions in the bucket,
@@ -309,12 +309,12 @@ def test_dataplex_readonly_export_integration(
     mock_storage_client.list_blobs.return_value = [current_blob, older_blob]
     mock_storage_client_class.return_value = mock_storage_client
 
-    mcp_output_path = tmp_path / "dataplex_readonly_export_mces.json"
+    mcp_output_path = tmp_path / "dataplex_read_export_mces.json"
     mcp_golden_path = (
         Path(__file__).parent / "golden" / "dataplex_export_entries_golden.json"
     )
 
-    pipeline_config = dataplex_readonly_export_recipe(str(mcp_output_path))
+    pipeline_config = dataplex_read_export_recipe(str(mcp_output_path))
     pipeline = run_and_get_pipeline(pipeline_config)
 
     report = pipeline.source.get_report()

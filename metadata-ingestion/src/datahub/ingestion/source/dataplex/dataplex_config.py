@@ -109,42 +109,18 @@ class DataplexFilterConfig(ConfigModel):
     )
 
 
-class DataplexExportConfig(ConfigModel):
-    """Configuration for the metadata-export extraction method.
+class DataplexExportJobConfig(ConfigModel):
+    """Configuration for ``extraction_method: export``.
 
-    When ``extraction_method: export`` is set, one Dataplex ``metadataJobs.create``
-    EXPORT job is submitted per configured entries location, writing JSONL to a
-    per-location Cloud Storage bucket. The bucket for each location is resolved
-    from ``export_bucket_config[location]`` first, falling back to
-    ``{bucket_base_name}-{location}``.
-
-    Alternatively, ``existing_export_paths`` switches the connector to read-only
-    mode: no jobs are submitted, and entries are read from the given
-    already-completed export output paths instead.
+    One Dataplex ``metadataJobs.create`` EXPORT job is submitted per configured
+    entries location, writing JSONL to a per-location Cloud Storage bucket. The
+    bucket for each location is resolved from ``export_bucket_config[location]``
+    first, falling back to ``{bucket_base_name}-{location}``.
     """
 
-    export_job_runner_project: Optional[str] = Field(
-        default=None,
+    export_job_runner_project: str = Field(
         description="GCP project that runs the Dataplex metadata export jobs. "
-        "The service account needs roles/dataplex.metadataJobOwner on this project. "
-        "Required unless 'existing_export_paths' is set (read-only mode submits "
-        "no jobs).",
-    )
-
-    existing_export_paths: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Read-only mode: mapping of entries location to the "
-        "'gs://bucket[/prefix]' output path of an already-completed Dataplex "
-        "metadata export, e.g. {us: 'gs://my-bucket-us/exports'}. When set, the "
-        "connector submits no export jobs and only reads these paths, so the "
-        "service account needs just roles/storage.objectViewer on the buckets "
-        "(no Dataplex job-submission roles). Use this when exports are "
-        "orchestrated outside DataHub (Cloud Scheduler, Workflows, etc.). If a "
-        "path contains output from several export jobs (multiple 'job=<id>' "
-        "partitions), only the most recently written partition is read. The "
-        "entries stage reads exactly the locations in this mapping; "
-        "'entries_locations' still applies to the other stages (lineage, "
-        "glossaries).",
+        "The service account needs roles/dataplex.metadataJobOwner on this project.",
     )
 
     export_bucket_config: Dict[str, str] = Field(
@@ -180,11 +156,6 @@ class DataplexExportConfig(ConfigModel):
         description="Total wait timeout (seconds) for all export jobs to finish.",
     )
 
-    @property
-    def is_read_only(self) -> bool:
-        """True when reading pre-existing export output instead of submitting jobs."""
-        return bool(self.existing_export_paths)
-
     def bucket_for_location(self, location: str) -> str:
         """Resolve the GCS bucket for a given location.
 
@@ -198,6 +169,43 @@ class DataplexExportConfig(ConfigModel):
             f"No bucket configured for location '{location}'. Add it to "
             "'export_bucket_config' or set 'bucket_base_name'."
         )
+
+
+class DataplexReadExportConfig(ConfigModel):
+    """Configuration for ``extraction_method: read_export``.
+
+    Ingests the output of Dataplex metadata exports produced outside DataHub
+    (Cloud Scheduler, Workflows, a separate pipeline, etc.). No export jobs are
+    submitted, so the service account only needs roles/storage.objectViewer on
+    the buckets — no Dataplex job-submission roles.
+    """
+
+    export_paths: Dict[str, str] = Field(
+        description="Mapping of entries location to the 'gs://bucket[/prefix]' "
+        "output path of an already-completed Dataplex metadata export, e.g. "
+        "{us: 'gs://my-bucket-us/exports'}. If a path contains output from "
+        "several export jobs (multiple 'job=<id>' partitions), only the most "
+        "recently written partition is read; point the path at a specific "
+        "'.../job=<id>' folder to pin an exact run. The entries stage reads "
+        "exactly the locations in this mapping ('entries_locations' applies to "
+        "the other stages: lineage, glossaries).",
+    )
+
+    @field_validator("export_paths")
+    @classmethod
+    def _validate_export_paths(cls, v: Dict[str, str]) -> Dict[str, str]:
+        if not v:
+            raise ValueError(
+                "export_paths must contain at least one location -> gs:// path entry."
+            )
+        for location, path in v.items():
+            try:
+                parse_gcs_path(path)
+            except ValueError as e:
+                raise ValueError(
+                    f"export_paths entry for location '{location}' is invalid: {e}"
+                ) from e
+        return v
 
 
 class DataplexConfig(
@@ -222,23 +230,33 @@ class DataplexConfig(
         description="GCP credential information. If not specified, uses Application Default Credentials.",
     )
 
-    extraction_method: Literal["api", "export"] = Field(
+    extraction_method: Literal["api", "export", "read_export"] = Field(
         default="api",
         description="How entries are fetched from the Universal Catalog. "
         "'api' (default) lists entries per project via list_entry_groups / "
         "list_entries / get_entry — this only sees entries physically created in "
         "the configured projects. 'export' submits a Dataplex metadata EXPORT job "
         "per entries location (scoped to the configured projects) that writes "
-        "JSONL to a GCS bucket, then reads entries from that bucket. Use 'export' "
-        "for central-catalog / federated architectures where assets surface in a "
+        "JSONL to a GCS bucket, then reads entries from that bucket; use it for "
+        "central-catalog / federated architectures where assets surface in a "
         "catalog project via Dataplex catalog linking and are invisible to "
-        "list_entries. Requires 'export_config' to be set.",
+        "list_entries. Requires 'export_config'. 'read_export' ingests the "
+        "output of export jobs you run outside DataHub — no jobs are submitted "
+        "and only storage read access is needed. Requires 'read_export_config'.",
     )
 
-    export_config: Optional[DataplexExportConfig] = Field(
+    export_config: Optional[DataplexExportJobConfig] = Field(
         default=None,
-        description="Export-method settings (job runner project, GCS buckets, "
-        "polling). Required when extraction_method is 'export'.",
+        description="Settings for extraction_method 'export' (job runner "
+        "project, GCS buckets, polling). Required for 'export', not allowed "
+        "otherwise.",
+    )
+
+    read_export_config: Optional[DataplexReadExportConfig] = Field(
+        default=None,
+        description="Settings for extraction_method 'read_export' (paths of "
+        "pre-existing export output). Required for 'read_export', not allowed "
+        "otherwise.",
     )
 
     entries_locations: List[str] = Field(
@@ -450,61 +468,31 @@ class DataplexConfig(
         return self
 
     @model_validator(mode="after")
-    def validate_export_configuration(self) -> "DataplexConfig":
-        """Validate export-method configuration when extraction_method is 'export'."""
-        if self.extraction_method != "export":
-            if self.export_config is not None:
-                logger.warning(
-                    "export_config is set but extraction_method is '%s', so it "
-                    "will be ignored. Set extraction_method to 'export' to use it.",
-                    self.extraction_method,
-                )
-            return self
-        if self.export_config is None:
-            raise ValueError(
-                "export_config must be set when extraction_method is 'export'."
-            )
-
-        if self.export_config.is_read_only:
-            # Read-only mode: paths must parse up front, so a misconfiguration
-            # fails at recipe validation rather than mid-run.
-            for location, path in self.export_config.existing_export_paths.items():
-                try:
-                    parse_gcs_path(path)
-                except ValueError as e:
+    def validate_extraction_method_configuration(self) -> "DataplexConfig":
+        """One rule: the selected method's config block must be present, the others absent."""
+        required_block_by_method = {
+            "api": None,
+            "export": "export_config",
+            "read_export": "read_export_config",
+        }
+        required_block = required_block_by_method[self.extraction_method]
+        for block in ("export_config", "read_export_config"):
+            if block == required_block:
+                if getattr(self, block) is None:
                     raise ValueError(
-                        f"existing_export_paths entry for location '{location}' "
-                        f"is invalid: {e}"
-                    ) from e
-            # Everything job-submission-related is ignored in read-only mode;
-            # flag whichever of those fields the user explicitly set.
-            ignored = [
-                name
-                for name in (
-                    "export_job_runner_project",
-                    "export_bucket_config",
-                    "bucket_base_name",
-                    "prefix",
-                    "export_poll_seconds",
-                    "export_timeout_seconds",
+                        f"{block} must be set when extraction_method is "
+                        f"'{self.extraction_method}'."
+                    )
+            elif getattr(self, block) is not None:
+                raise ValueError(
+                    f"{block} is set but extraction_method is "
+                    f"'{self.extraction_method}'. Remove it, or switch "
+                    "extraction_method to the matching value."
                 )
-                if name in self.export_config.model_fields_set
-                and getattr(self.export_config, name)
-            ]
-            if ignored:
-                logger.warning(
-                    "existing_export_paths is set (read-only mode), so the "
-                    "job-submission settings %s will be ignored.",
-                    ignored,
-                )
-            return self
 
-        if not self.export_config.export_job_runner_project:
-            raise ValueError(
-                "export_config.export_job_runner_project must be set when "
-                "extraction_method is 'export' (unless "
-                "'export_config.existing_export_paths' is used)."
-            )
+        if self.extraction_method != "export":
+            return self
+        assert self.export_config is not None
         # A key that is present but blank would pass the missing-bucket check
         # below and produce an invalid 'gs:///...' output path at runtime.
         blank_buckets = [

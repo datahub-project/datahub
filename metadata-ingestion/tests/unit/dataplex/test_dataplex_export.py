@@ -2,7 +2,6 @@
 
 import itertools
 import json
-import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
 from unittest.mock import MagicMock, Mock, patch
@@ -12,14 +11,15 @@ from pydantic import ValidationError
 
 from datahub.ingestion.source.dataplex.dataplex_config import (
     DataplexConfig,
-    DataplexExportConfig,
+    DataplexExportJobConfig,
+    DataplexReadExportConfig,
 )
 from datahub.ingestion.source.dataplex.dataplex_export import (
     ExportTarget,
     _output_path,
-    existing_export_targets,
     export_scope_entry_types,
     iter_exported_entries,
+    read_export_targets,
     run_exports,
 )
 from datahub.ingestion.source.dataplex.dataplex_report import (
@@ -73,7 +73,7 @@ class TestExportConfig:
             )
 
     def test_bucket_for_location_precedence(self):
-        export_config = DataplexExportConfig(
+        export_config = DataplexExportJobConfig(
             export_job_runner_project="runner-project",
             export_bucket_config={"us": "explicit-bucket"},
             bucket_base_name="base",
@@ -82,7 +82,7 @@ class TestExportConfig:
         assert export_config.bucket_for_location("eu") == "base-eu"
 
     def test_bucket_for_location_missing_raises(self):
-        export_config = DataplexExportConfig(
+        export_config = DataplexExportJobConfig(
             export_job_runner_project="runner-project",
             export_bucket_config={"us": "bucket-us"},
         )
@@ -112,11 +112,9 @@ class TestExportConfig:
                 export_config={"bucket_base_name": "my-export"},
             )
 
-    def test_export_config_ignored_under_api_mode_warns(self, caplog):
-        with caplog.at_level(logging.WARNING):
-            config = make_export_config(extraction_method="api")
-        assert config.extraction_method == "api"
-        assert any("will be ignored" in r.message for r in caplog.records)
+    def test_config_block_for_unselected_method_rejected(self):
+        with pytest.raises(ValidationError, match="export_config is set"):
+            make_export_config(extraction_method="api")
 
     def test_blank_bucket_value_rejected(self):
         with pytest.raises(ValidationError, match="blank"):
@@ -133,77 +131,67 @@ class TestExportConfig:
             )
 
 
-def make_readonly_config(**path_overrides: str) -> DataplexConfig:
-    """Build a read-only export-mode DataplexConfig (existing_export_paths)."""
+def make_read_export_config(**path_overrides: str) -> DataplexConfig:
+    """Build a read_export-mode DataplexConfig."""
     paths = path_overrides or {"us": "gs://my-export-us/exports"}
     return DataplexConfig.model_validate(
         {
             "project_ids": ["test-project"],
             "entries_locations": ["us"],
-            "extraction_method": "export",
-            "export_config": {"existing_export_paths": paths},
+            "extraction_method": "read_export",
+            "read_export_config": {"export_paths": paths},
         }
     )
 
 
-class TestReadOnlyExportConfig:
-    """Read-only mode configuration (existing_export_paths)."""
+class TestReadExportConfig:
+    """read_export-mode configuration."""
 
-    def test_runner_project_and_buckets_not_required(self):
-        config = make_readonly_config()
-        assert config.export_config is not None
-        assert config.export_config.is_read_only
-        assert config.export_config.export_job_runner_project is None
+    def test_valid_config_needs_only_paths(self):
+        config = make_read_export_config()
+        assert config.read_export_config is not None
+        assert config.export_config is None
+
+    def test_read_export_requires_config_block(self):
+        with pytest.raises(ValidationError, match="read_export_config must be set"):
+            DataplexConfig.model_validate(
+                {
+                    "project_ids": ["test-project"],
+                    "extraction_method": "read_export",
+                }
+            )
+
+    def test_empty_paths_rejected(self):
+        with pytest.raises(ValidationError, match="at least one"):
+            DataplexReadExportConfig(export_paths={})
 
     def test_invalid_gcs_path_rejected(self):
         with pytest.raises(ValidationError, match="location 'us'"):
-            make_readonly_config(us="s3://wrong-scheme/exports")
+            make_read_export_config(us="s3://wrong-scheme/exports")
 
-    def test_submission_settings_alongside_paths_warn(self, caplog):
-        with caplog.at_level(logging.WARNING):
-            config = DataplexConfig.model_validate(
-                {
-                    "project_ids": ["test-project"],
-                    "entries_locations": ["us"],
-                    "extraction_method": "export",
-                    "export_config": {
-                        "existing_export_paths": {"us": "gs://my-export-us/exports"},
-                        "bucket_base_name": "my-export",
-                    },
-                }
-            )
-        assert config.export_config is not None
-        assert config.export_config.is_read_only
-        assert any("read-only mode" in r.message for r in caplog.records)
-
-    def test_ignored_warning_lists_all_explicitly_set_fields(self, caplog):
-        with caplog.at_level(logging.WARNING):
+    def test_both_config_blocks_rejected(self):
+        with pytest.raises(ValidationError, match="export_config is set"):
             DataplexConfig.model_validate(
                 {
                     "project_ids": ["test-project"],
                     "entries_locations": ["us"],
-                    "extraction_method": "export",
+                    "extraction_method": "read_export",
+                    "read_export_config": {
+                        "export_paths": {"us": "gs://my-export-us/exports"}
+                    },
                     "export_config": {
-                        "existing_export_paths": {"us": "gs://my-export-us/exports"},
-                        "prefix": "custom",
-                        "export_poll_seconds": 30,
+                        "export_job_runner_project": "runner-project",
+                        "bucket_base_name": "my-export",
                     },
                 }
             )
-        messages = [
-            r.getMessage() for r in caplog.records if "read-only mode" in r.getMessage()
-        ]
-        assert len(messages) == 1
-        assert "prefix" in messages[0]
-        assert "export_poll_seconds" in messages[0]
-        assert "export_timeout_seconds" not in messages[0]
 
     def test_targets_built_from_paths(self):
-        config = make_readonly_config(
+        config = make_read_export_config(
             eu="gs://my-export-eu/", us="gs://my-export-us/exports/"
         )
-        assert config.export_config is not None
-        targets = existing_export_targets(config.export_config)
+        assert config.read_export_config is not None
+        targets = read_export_targets(config.read_export_config)
         assert [(t.location, t.bucket, t.job_id, t.output_path) for t in targets] == [
             ("eu", "my-export-eu", None, "gs://my-export-eu/"),
             ("us", "my-export-us", None, "gs://my-export-us/exports/"),

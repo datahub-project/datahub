@@ -15,9 +15,9 @@ surface tenant assets in a catalog project via Dataplex catalog linking; those
 linked entries are invisible to ``list_entries`` but ARE included in a
 metadata export scoped to the catalog project.
 
-When ``export_config.existing_export_paths`` is set (read-only mode), job
-submission is skipped entirely: the connector reads already-completed export
-output from the configured ``gs://`` paths, needing only storage read access.
+With ``extraction_method: read_export``, job submission is skipped entirely:
+the connector reads already-completed export output from the paths configured
+in ``read_export_config``, needing only storage read access.
 
 Reference: https://docs.cloud.google.com/dataplex/docs/export-metadata
 """
@@ -40,7 +40,8 @@ from google.oauth2 import service_account
 
 from datahub.ingestion.source.dataplex.dataplex_config import (
     DataplexConfig,
-    DataplexExportConfig,
+    DataplexExportJobConfig,
+    DataplexReadExportConfig,
 )
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
     ExportedEntry,
@@ -99,9 +100,9 @@ class ExportTarget:
     """One location's export output to read.
 
     ``job_id`` is set when this run submitted the export job itself, and the
-    read is scoped to that job's output. It is None for read-only targets
-    built from ``existing_export_paths``, where the freshest ``job=<id>``
-    partition under ``output_path`` is read instead.
+    read is scoped to that job's output. It is None for ``read_export``
+    targets, where the freshest ``job=<id>`` partition under ``output_path``
+    is read instead.
     """
 
     location: str
@@ -127,24 +128,25 @@ def build_authed_session(
 
 
 def build_storage_client(
-    export_config: DataplexExportConfig,
+    project: Optional[str],
     credentials: Optional[service_account.Credentials],
 ) -> storage.Client:
-    """Storage client for the export buckets, bound to the job runner project.
+    """Storage client for the export buckets.
 
-    In read-only mode there is no runner project; the client project is then
-    inferred from the credentials / environment, which is sufficient for reads.
+    In export mode the client is bound to the job runner project (which owns
+    the buckets). In read_export mode there is no runner project; the client
+    project is then inferred from the credentials / environment, which is
+    sufficient for reads.
     """
-    return storage.Client(
-        project=export_config.export_job_runner_project,
-        credentials=credentials,
-    )
+    return storage.Client(project=project, credentials=credentials)
 
 
-def existing_export_targets(export_config: DataplexExportConfig) -> List[ExportTarget]:
-    """Build read-only targets from ``existing_export_paths`` (no job submission)."""
+def read_export_targets(
+    read_export_config: DataplexReadExportConfig,
+) -> List[ExportTarget]:
+    """Build targets from ``read_export_config.export_paths`` (no job submission)."""
     targets: List[ExportTarget] = []
-    for location, path in sorted(export_config.existing_export_paths.items()):
+    for location, path in sorted(read_export_config.export_paths.items()):
         gcs = parse_gcs_path(path)  # validated at config time
         targets.append(
             ExportTarget(
@@ -155,8 +157,8 @@ def existing_export_targets(export_config: DataplexExportConfig) -> List[ExportT
             )
         )
     logger.info(
-        "Read-only export mode: reading pre-existing export output for %d "
-        "location(s); no export jobs will be submitted.",
+        "read_export: reading pre-existing export output for %d location(s); "
+        "no export jobs will be submitted.",
         len(targets),
     )
     return targets
@@ -268,7 +270,7 @@ class _PendingJob:
 
 def _submit_all_jobs(
     config: DataplexConfig,
-    export_config: DataplexExportConfig,
+    export_config: DataplexExportJobConfig,
     runner_project: str,
     project_ids: List[str],
     session: google.auth.transport.requests.AuthorizedSession,
@@ -404,7 +406,6 @@ def run_exports(
     export_config = config.export_config
     assert export_config is not None  # enforced by config validation
     runner_project = export_config.export_job_runner_project
-    assert runner_project is not None  # enforced by config validation (submit mode)
 
     pending = _submit_all_jobs(
         config=config,
@@ -514,7 +515,7 @@ def _select_latest_partition(
     target: ExportTarget,
     report: DataplexReport,
 ) -> List[storage.Blob]:
-    """Pick the blobs to read from a pre-existing export path (read-only mode).
+    """Pick the blobs to read from a pre-existing export path (read_export).
 
     Without a job id of our own, the freshest ``job=<id>`` partition under the
     path is read (by newest blob creation time, job segment as tie-breaker).
@@ -530,8 +531,8 @@ def _select_latest_partition(
             title="No Dataplex export output at configured path",
             message=(
                 "No .jsonl objects found under the configured "
-                "existing_export_paths entry. Check that the path points at a "
-                "completed metadata export's output."
+                "read_export_config.export_paths entry. Check that the path "
+                "points at a completed metadata export's output."
             ),
             context=f"location={target.location}, path={target.output_path}",
         )
@@ -555,8 +556,8 @@ def _select_latest_partition(
             message=(
                 ".jsonl objects without a job=<id> path segment were skipped "
                 "because job partitions are present under the same path. Point "
-                "existing_export_paths at those objects directly if they "
-                "should be read."
+                "read_export_config.export_paths at those objects directly if "
+                "they should be read."
             ),
             context=f"path={target.output_path}, skipped={len(unpartitioned)}",
         )

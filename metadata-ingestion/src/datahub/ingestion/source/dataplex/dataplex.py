@@ -49,8 +49,8 @@ from datahub.ingestion.source.dataplex.dataplex_export import (
     GCP_SCOPES,
     build_authed_session,
     build_storage_client,
-    existing_export_targets,
     iter_exported_entries,
+    read_export_targets,
     run_exports,
 )
 from datahub.ingestion.source.dataplex.dataplex_glossary import (
@@ -386,9 +386,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         on the runner project and that the export bucket is accessible. It does
         NOT verify permission to create metadata jobs
         (roles/dataplex.metadataJobOwner), so a successful test does not
-        guarantee job submission will succeed at ingestion time. In read-only
-        export mode (existing_export_paths), only storage read access is
-        probed: each configured path must be listable and non-empty.
+        guarantee job submission will succeed at ingestion time. In read_export
+        mode, only storage read access is probed: each configured path must be
+        listable and non-empty.
         """
         test_report = TestConnectionReport()
         try:
@@ -402,32 +402,35 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 else None
             )
 
+            if config.extraction_method == "read_export":
+                assert config.read_export_config is not None
+                storage_client = build_storage_client(None, credentials)
+                for target in read_export_targets(config.read_export_config):
+                    gcs = parse_gcs_path(target.output_path)
+                    probe = list(
+                        storage_client.list_blobs(
+                            gcs.bucket, prefix=gcs.list_prefix, max_results=1
+                        )
+                    )
+                    if not probe:
+                        test_report.basic_connectivity = CapabilityReport(
+                            capable=False,
+                            failure_reason=(
+                                f"No objects found under export path "
+                                f"'{target.output_path}' for location "
+                                f"'{target.location}'."
+                            ),
+                        )
+                        return test_report
+                test_report.basic_connectivity = CapabilityReport(capable=True)
+                return test_report
+
             if config.extraction_method == "export":
                 assert config.export_config is not None
-                storage_client = build_storage_client(config.export_config, credentials)
+                runner_project = config.export_config.export_job_runner_project
+                storage_client = build_storage_client(runner_project, credentials)
 
-                if config.export_config.is_read_only:
-                    for target in existing_export_targets(config.export_config):
-                        gcs = parse_gcs_path(target.output_path)
-                        probe = list(
-                            storage_client.list_blobs(
-                                gcs.bucket, prefix=gcs.list_prefix, max_results=1
-                            )
-                        )
-                        if not probe:
-                            test_report.basic_connectivity = CapabilityReport(
-                                capable=False,
-                                failure_reason=(
-                                    f"No objects found under existing export "
-                                    f"path '{target.output_path}' for location "
-                                    f"'{target.location}'."
-                                ),
-                            )
-                            return test_report
-                    test_report.basic_connectivity = CapabilityReport(capable=True)
-                    return test_report
-
-                # Submit mode exercises the metadataJobs API on the job runner
+                # Export mode exercises the metadataJobs API on the job runner
                 # project and the export bucket instead of Catalog listing —
                 # for every configured entries location, since ingestion will
                 # submit one job per location. The listing probe only proves
@@ -435,7 +438,6 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 # (roles/dataplex.metadataJobOwner) cannot be verified without
                 # actually submitting a job.
                 session = build_authed_session(credentials)
-                runner_project = config.export_config.export_job_runner_project
                 for location in config.entries_locations:
                     resp = session.get(
                         f"{DATAPLEX_API_ROOT}/projects/{runner_project}"
@@ -506,22 +508,25 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         return self.report
 
     def _get_entries_workunits_via_export(self) -> Iterable[MetadataWorkUnit]:
-        """Entries stage for ``extraction_method: export``.
+        """Entries stage for ``extraction_method: export`` and ``read_export``.
 
-        Submits one metadata EXPORT job per entries location, waits for them to
-        finish, then streams the exported JSONL from GCS through the same
-        filter + mapper pipeline as the API path (populating the lineage
-        side-channel identically). In read-only mode
-        (``export_config.existing_export_paths``) no jobs are submitted: the
-        configured pre-existing output paths are read directly instead.
+        ``export`` submits one metadata EXPORT job per entries location, waits
+        for them to finish, then streams the exported JSONL from GCS through
+        the same filter + mapper pipeline as the API path (populating the
+        lineage side-channel identically). ``read_export`` submits no jobs: the
+        pre-existing output paths from ``read_export_config`` are read
+        directly instead.
         """
-        export_config = self.config.export_config
-        assert export_config is not None  # enforced by config validation
-
-        if export_config.is_read_only:
+        storage_project: Optional[str] = None
+        if self.config.extraction_method == "read_export":
+            read_export_config = self.config.read_export_config
+            assert read_export_config is not None  # enforced by config validation
             with self.report.new_stage("Resolving pre-existing Dataplex export output"):
-                targets = existing_export_targets(export_config)
+                targets = read_export_targets(read_export_config)
         else:
+            export_config = self.config.export_config
+            assert export_config is not None  # enforced by config validation
+            storage_project = export_config.export_job_runner_project
             with self.report.new_stage("Submitting Dataplex metadata export jobs"):
                 session = build_authed_session(self._credentials)
                 targets = run_exports(
@@ -532,7 +537,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         with self.report.new_stage("Reading Dataplex export output from GCS"):
-            storage_client = build_storage_client(export_config, self._credentials)
+            storage_client = build_storage_client(storage_project, self._credentials)
             for target in targets:
                 entries = iter_exported_entries(
                     storage_client=storage_client,
@@ -545,7 +550,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main function to fetch and yield workunits for various Dataplex resources."""
-        if self.config.extraction_method == "export":
+        if self.config.extraction_method in ("export", "read_export"):
             yield from self._get_entries_workunits_via_export()
         else:
             with self.report.new_stage(
