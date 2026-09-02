@@ -46,7 +46,7 @@ describe('detectBrowserLanguage', () => {
 
     it('returns the first supported language in preference order', () => {
         // Use unsupported tags first so preference order is exercised past them.
-        stubLanguages(['ko-KR', 'zh-CN', 'fr-FR', 'de']);
+        stubLanguages(['ko-KR', 'ru-RU', 'fr-FR', 'de']);
         expect(detectBrowserLanguage()).toBe('fr');
     });
 
@@ -58,7 +58,7 @@ describe('detectBrowserLanguage', () => {
     });
 
     it('returns undefined when no preferred language is supported', () => {
-        stubLanguages(['ko-KR', 'zh-CN']);
+        stubLanguages(['ko-KR']);
         expect(detectBrowserLanguage()).toBeUndefined();
     });
 

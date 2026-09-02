@@ -1,0 +1,13 @@
+{
+    "addAttribute": "添加属性",
+    "addError": "添加失败：\n {{error}}",
+    "addSuccess": "添加了业务属性！",
+    "modal.addTitle": "添加 {{entityName}}",
+    "modal.removeTitle": "删除 {{entityName}}",
+    "removeAttributeError": "删除业务属性失败：\n {{error}}",
+    "removeConfirm.content": "您确定要删除 {{attributeName}} 属性吗？",
+    "removeConfirm.title": "您想删除 {{attributeName}} 属性吗？",
+    "removeError": "删除失败：\n {{error}}",
+    "removeSuccess": "删除了业务属性！",
+    "searchPlaceholder": "搜索 {{entityName}}..."
+}
