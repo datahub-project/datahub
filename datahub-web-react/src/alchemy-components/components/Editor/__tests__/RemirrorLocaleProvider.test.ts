@@ -4,6 +4,7 @@ import { resolveRemirrorLocale } from '@components/components/Editor/RemirrorLoc
 
 describe('resolveRemirrorLocale', () => {
     it('prefers an exact BCP-47 match when a bundle exists', () => {
+        expect(resolveRemirrorLocale('zh-CN')).toBe('zh-CN');
         expect(resolveRemirrorLocale('zh-TW')).toBe('zh-TW');
         expect(resolveRemirrorLocale('pt-BR')).toBe('pt-BR');
     });

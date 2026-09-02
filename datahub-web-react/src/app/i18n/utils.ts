@@ -20,14 +20,12 @@ export function detectBrowserLanguage(): SupportedLanguage | undefined {
         if (!tag) return undefined;
         const lower = tag.toLowerCase();
         const base = lower.split('-')[0];
-        // Traditional Chinese tags → zh-TW. Every other `zh-*` tag (Hans, zh-CN, bare `zh`, …)
-        // must not fall through to the base-language fold below, or it would incorrectly
-        // resolve to zh-TW. The zh-CN locale PR owns those mappings.
         if (base === 'zh') {
             if (lower.includes('hant') || lower === 'zh-tw' || lower === 'zh-hk' || lower === 'zh-mo') {
                 return 'zh-TW';
             }
-            return undefined;
+            // zh-Hans, zh-CN, zh-SG, bare zh
+            return 'zh-CN';
         }
         // Exact (case-insensitive) match first, then fold region variants to their base language.
         return (
