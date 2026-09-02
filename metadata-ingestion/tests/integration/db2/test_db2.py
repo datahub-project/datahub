@@ -16,15 +16,7 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 logger = logging.getLogger(__name__)
 
-# TEMPORARY, drop before merge if the db2 CI fix (#19574) has landed: the CI
-# runners currently fail db2's CREATE DATABASE with SQL0293N, breaking every
-# batch run regardless of this PR's content.
-pytestmark = [
-    pytest.mark.integration_batch_4,
-    pytest.mark.skip(
-        reason="db2 CREATE DATABASE fails on CI runner storage (SQL0293N) - see PR #19574"
-    ),
-]
+pytestmark = pytest.mark.integration_batch_4
 DB2_PORT = 50000
 DB2_URL = f"db2+ibm_db://db2inst1:password@localhost:{DB2_PORT}/testdb"
 
