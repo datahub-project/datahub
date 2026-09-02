@@ -142,18 +142,26 @@ class PartitionInfo:
     # TimePartitioning field doesn't provide data_type so we have to add it afterwards
     @classmethod
     def from_time_partitioning(
-        cls, time_partitioning: TimePartitioning
+        cls,
+        time_partitioning: TimePartitioning,
+        require_partition_filter: Optional[bool] = None,
     ) -> "PartitionInfo":
+        if require_partition_filter is None:
+            # Fall back to the deprecated copy of the flag inside timePartitioning,
+            # in case the table-level field was absent from the API response.
+            require_partition_filter = time_partitioning.require_partition_filter
         return cls(
             field=time_partitioning.field or "_PARTITIONTIME",
             type=time_partitioning.type_,
             expiration_ms=time_partitioning.expiration_ms,
-            require_partition_filter=time_partitioning.require_partition_filter,
+            require_partition_filter=bool(require_partition_filter),
         )
 
     @classmethod
     def from_range_partitioning(
-        cls, range_partitioning: Dict[str, Any]
+        cls,
+        range_partitioning: Dict[str, Any],
+        require_partition_filter: bool = False,
     ) -> Optional["PartitionInfo"]:
         field: Optional[str] = range_partitioning.get("field")
         if not field:
@@ -162,17 +170,30 @@ class PartitionInfo:
         return cls(
             field=field,
             type=RANGE_PARTITION_NAME,
+            require_partition_filter=require_partition_filter,
         )
 
     @classmethod
     def from_table_info(cls, table_info: TableListItem) -> Optional["PartitionInfo"]:
         RANGE_PARTITIONING_KEY: str = "rangePartitioning"
 
+        # BigQuery exposes requirePartitionFilter at the table level; the copy
+        # inside timePartitioning is deprecated and is left unset for tables
+        # configured through the current API/console, and rangePartitioning
+        # never carries it. TableListItem does not expose a property for the
+        # table-level field, but the raw tables.list resource includes it.
+        require_partition_filter: Optional[bool] = table_info._properties.get(
+            "requirePartitionFilter"
+        )
+
         if table_info.time_partitioning:
-            return PartitionInfo.from_time_partitioning(table_info.time_partitioning)
+            return PartitionInfo.from_time_partitioning(
+                table_info.time_partitioning, require_partition_filter
+            )
         elif RANGE_PARTITIONING_KEY in table_info._properties:
             return PartitionInfo.from_range_partitioning(
-                table_info._properties[RANGE_PARTITIONING_KEY]
+                table_info._properties[RANGE_PARTITIONING_KEY],
+                bool(require_partition_filter),
             )
         else:
             return None
