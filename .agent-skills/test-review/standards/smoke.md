@@ -120,13 +120,13 @@ POST/PUT, and revokes the token on destroy.
 
 Never use `time.sleep()` to wait for GMS, search, or Kafka.
 
-| Situation | Mechanism |
-| --- | --- |
-| Read-after-write assertion | `@with_test_retry()` |
-| After bulk ingest or cleanup | `wait_for_writes_to_sync()` (`mcp_only` / `mae_only` when only one store matters) |
-| One known async write with a `trace_id` | Trace API (`/openapi/v1/trace/write/{trace_id}`) |
-| Custom timing | `tenacity` with `stop_after_delay` |
-| Action/integration lifecycle | Service status polling (`integrations_service_utils`) |
+| Situation                               | Mechanism                                                                         |
+| --------------------------------------- | --------------------------------------------------------------------------------- |
+| Read-after-write assertion              | `@with_test_retry()`                                                              |
+| After bulk ingest or cleanup            | `wait_for_writes_to_sync()` (`mcp_only` / `mae_only` when only one store matters) |
+| One known async write with a `trace_id` | Trace API (`/openapi/v1/trace/write/{trace_id}`)                                  |
+| Custom timing                           | `tenacity` with `stop_after_delay`                                                |
+| Action/integration lifecycle            | Service status polling (`integrations_service_utils`)                             |
 
 **Rules:**
 
@@ -166,13 +166,13 @@ and no `errors` key.
 `Domain` in `smoke-test/tests/utilities/domains.py`, `smoke-test/AGENTS.md`
 (Markers), `global_policy_mutator` handling in `smoke-test/conftest.py`.
 
-| Marker | When to use |
-| --- | --- |
-| `domain(...)` | **Required** on new modules. `platform`, `observe`, `ingestion`, `ai`, `catalog`. Span by listing each. |
-| `p0` | Only for regressions that must run on every PR. |
-| `read_only` | Only if the test never creates, mutates, or deletes entities. |
+| Marker                  | When to use                                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `domain(...)`           | **Required** on new modules. `platform`, `observe`, `ingestion`, `ai`, `catalog`. Span by listing each.            |
+| `p0`                    | Only for regressions that must run on every PR.                                                                    |
+| `read_only`             | Only if the test never creates, mutates, or deletes entities.                                                      |
 | `global_policy_mutator` | Module disables default policies or mutates shared platform policy. CI runs these serially after parallel modules. |
-| `dependency()` | Rare; keep chains short. |
+| `dependency()`          | Rare; keep chains short.                                                                                           |
 
 `no_cypress_suite1` is legacy batching — do not require it on new tests.
 
@@ -207,10 +207,10 @@ and no `errors` key.
 **Source:** `smoke-test/AGENTS.md` (Rules, Isolation), `_ingest_cleanup_*` in
 `smoke-test/conftest.py`.
 
-| Where created | Teardown |
-| --- | --- |
-| Module fixture | `yield` (pytest always runs it) |
-| Inside a test | `try/finally`; wrap cleanup in `try/except` so a delete failure does not hide the assertion |
+| Where created  | Teardown                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------- |
+| Module fixture | `yield` (pytest always runs it)                                                             |
+| Inside a test  | `try/finally`; wrap cleanup in `try/except` so a delete failure does not hide the assertion |
 
 **Rules:**
 

@@ -9,16 +9,16 @@
 
 ## Summary
 
-| Category               | Status               | Issues               |
-| ---------------------- | -------------------- | -------------------- |
+| Category                | Status               | Issues               |
+| ----------------------- | -------------------- | -------------------- |
 | Isolation / unique URNs | {{ISOLATION_STATUS}} | {{ISOLATION_ISSUES}} |
-| Data Lifecycle         | {{LIFECYCLE_STATUS}} | {{LIFECYCLE_ISSUES}} |
-| Fixture Usage          | {{FIXTURE_STATUS}}   | {{FIXTURE_ISSUES}}   |
-| Assertion Quality      | {{ASSERT_STATUS}}    | {{ASSERT_ISSUES}}    |
-| Retry & Consistency    | {{RETRY_STATUS}}     | {{RETRY_ISSUES}}     |
-| Markers                | {{MARKER_STATUS}}    | {{MARKER_ISSUES}}    |
-| Environment Discipline | {{ENV_STATUS}}       | {{ENV_ISSUES}}       |
-| Anti-Pattern Detection | {{ANTI_STATUS}}      | {{ANTI_ISSUES}}      |
+| Data Lifecycle          | {{LIFECYCLE_STATUS}} | {{LIFECYCLE_ISSUES}} |
+| Fixture Usage           | {{FIXTURE_STATUS}}   | {{FIXTURE_ISSUES}}   |
+| Assertion Quality       | {{ASSERT_STATUS}}    | {{ASSERT_ISSUES}}    |
+| Retry & Consistency     | {{RETRY_STATUS}}     | {{RETRY_ISSUES}}     |
+| Markers                 | {{MARKER_STATUS}}    | {{MARKER_ISSUES}}    |
+| Environment Discipline  | {{ENV_STATUS}}       | {{ENV_ISSUES}}       |
+| Anti-Pattern Detection  | {{ANTI_STATUS}}      | {{ANTI_ISSUES}}      |
 
 **Legend:** Pass | Warnings | Issues Found
 
