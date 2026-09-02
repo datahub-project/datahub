@@ -25,6 +25,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
@@ -272,7 +273,8 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
   /**
    * On system-update reprocess, search for assets that still mirror this Data Product but are no
    * longer listed in {@code dataProductProperties.assets}, and emit REMOVE patches. Live user
-   * UPSERTs already diff REMOVEs from the before/after membership map.
+   * UPSERTs already diff REMOVEs from the before/after membership map. Includes soft-deleted assets
+   * so restoring one cannot resurrect a stale membership.
    */
   private Stream<MCPItem> removeStaleMirrors(
       @Nonnull Urn dataProductUrn,
@@ -291,18 +293,25 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
 
     Filter filter =
         FilterUtils.createValuesFilter("dataProduct", List.of(dataProductUrn.toString()));
+    // Same as RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS but include soft-deleted so a
+    // later restore cannot resurrect a stale membership that was skipped while removed.
+    SearchFlags healFlags =
+        new SearchFlags()
+            .setFulltext(false)
+            .setMaxAggValues(20)
+            .setSkipCache(true)
+            .setSkipAggregates(true)
+            .setSkipHighlighting(true)
+            .setIncludeSoftDeleted(true)
+            .setIncludeRestricted(false)
+            .setFilterNonLatestVersions(false);
     List<MCPItem> removes = new ArrayList<>();
     try {
       String scrollId = null;
       do {
         ScrollResult scrollResult =
             searchRetriever.scroll(
-                entities,
-                filter,
-                scrollId,
-                maxFanoutPerCommit,
-                List.of(),
-                SearchRetriever.RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS);
+                entities, filter, scrollId, maxFanoutPerCommit, List.of(), healFlags);
 
         if (scrollResult.getEntities() == null || scrollResult.getEntities().isEmpty()) {
           break;
@@ -334,9 +343,12 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
       } while (true);
     } catch (RuntimeException e) {
       log.warn(
-          "Unable to scroll for stale dataProduct mirrors for {}; skipping REMOVE heal",
+          "Unable to scroll for stale dataProduct mirrors for {}; failing REMOVE heal",
           dataProductUrn,
           e);
+      // Do not return a partial REMOVE list — incomplete heal would leave MigrateAspects /
+      // ResyncDataProductAssetsStep marked successful while stale mirrors remain.
+      throw e;
     }
     return removes.stream();
   }

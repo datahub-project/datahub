@@ -9,8 +9,10 @@ import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAM
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
@@ -35,6 +37,8 @@ import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -48,6 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -254,6 +259,19 @@ public class DataProductAssetsSideEffectTest {
 
     ChangeItemImpl change = changeItem(propsWith(DATASET_1), ChangeType.UPSERT, systemMetadata);
     List<MCPItem> output = run(change, propsWith(DATASET_1));
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(mockSearchRetriever).scroll(any(), filterCaptor.capture(), any(), any(), any(), any());
+    Filter filter = filterCaptor.getValue();
+    assertNotNull(filter);
+    assertNotNull(filter.getOr());
+    assertEquals(filter.getOr().size(), 1);
+    List<Criterion> andCriteria = filter.getOr().get(0).getAnd();
+    assertNotNull(andCriteria);
+    assertEquals(andCriteria.size(), 1);
+    assertEquals(andCriteria.get(0).getField(), "dataProduct");
+    assertEquals(andCriteria.get(0).getValues().size(), 1);
+    assertEquals(andCriteria.get(0).getValues().get(0), PRODUCT_URN.toString());
 
     assertEquals(
         output.size(),
