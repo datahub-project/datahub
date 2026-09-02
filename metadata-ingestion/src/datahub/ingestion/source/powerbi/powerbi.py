@@ -267,6 +267,66 @@ class Mapper:
 
         return fine_grained_lineages
 
+    def make_sibling_column_lineage(
+        self,
+        table: powerbi_data_classes.Table,
+        dataset_urn: str,
+        sibling_urns: Dict[str, str],
+    ) -> List[FineGrainedLineage]:
+        """Column edges between tables of one dataset, matched by column name.
+
+        The references this follows are pass-through steps -- `Table.Combine`,
+        `Table.SelectRows` and the like carry columns through unchanged -- so a
+        column present on both sides is the same column. A name on only one side
+        is left alone rather than guessed at, which is what a renaming or
+        aggregating step produces.
+
+        Not routed through make_fine_grained_lineage_class: that lowercases the
+        upstream dataset with convert_lineage_urns_to_lowercase, which tracks the
+        casing of *other* platforms. A sibling is a Power BI asset, so it has to
+        agree with how its own entity was built -- convert_urns_to_lowercase --
+        or the edge points at a dataset that does not exist.
+        """
+        if (
+            not self.__config.extract_column_level_lineage
+            or not self.__config.extract_lineage
+            or not sibling_urns
+            or not table.columns
+            or not table.dataset
+        ):
+            return []
+
+        by_full_name = {t.full_name: t for t in table.dataset.tables}
+        # column name -> upstream schemaField URNs, so one downstream column
+        # carries every sibling it came from.
+        upstreams_by_column: Dict[str, List[str]] = {}
+        for full_name, sibling_urn in sibling_urns.items():
+            sibling = by_full_name.get(full_name)
+            if sibling is None or not sibling.columns:
+                continue
+            sibling_columns = {
+                c.name.casefold(): c.name for c in sibling.columns if c.name
+            }
+            for column in table.columns:
+                if not column.name:
+                    continue
+                upstream_name = sibling_columns.get(column.name.casefold())
+                if upstream_name is None:
+                    continue
+                upstreams_by_column.setdefault(column.name, []).append(
+                    builder.make_schema_field_urn(sibling_urn, upstream_name)
+                )
+
+        return [
+            FineGrainedLineage(
+                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                downstreams=[builder.make_schema_field_urn(dataset_urn, column_name)],
+                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                upstreams=upstreams,
+            )
+            for column_name, upstreams in upstreams_by_column.items()
+        ]
+
     def extract_directlake_lineage(
         self,
         table: powerbi_data_classes.Table,
@@ -393,9 +453,22 @@ class Mapper:
         # table.dataset should always be set, but we check it just in case.
         parameters = table.dataset.parameters if table.dataset else {}
         expressions = table.dataset.expressions if table.dataset else {}
+        # Name -> full name for the dataset's own tables, so a reference to one
+        # is matched against a table that exists rather than guessed at. Empty
+        # without a dataset back-pointer, which means no reference can be
+        # collected that the mapper would then have to discard.
+        sibling_tables = (
+            {t.name: t.full_name for t in table.dataset.tables if t.name != table.name}
+            if table.dataset and self.__config.extract_table_to_table_lineage
+            else {}
+        )
 
         upstream: List[UpstreamClass] = []
         cll_lineage: List[FineGrainedLineage] = []
+        # Sibling full name -> its URN, gathered across every lineage so a column
+        # reached through two siblings lands as one edge with two upstreams
+        # rather than two edges naming the same column.
+        sibling_urns: Dict[str, str] = {}
 
         logger.debug(
             f"Extracting lineage for table {table.full_name} in dataset {table.dataset.name if table.dataset else None}"
@@ -411,6 +484,7 @@ class Mapper:
             config=self.__config,
             parameters=parameters,
             expressions=expressions,
+            tables=sibling_tables,
             cache=self.expression_cache_for(table.dataset),
         )
 
@@ -438,6 +512,24 @@ class Mapper:
                     )
                 )
 
+            # A table in the same dataset already has an entity, so it is named
+            # directly. The resolver only collects names that matched one of the
+            # dataset's tables, so no validation is repeated here.
+            for sibling_full_name in lineage.powerbi_table_upstreams:
+                sibling_urn = self.assets_urn_to_lowercase(
+                    builder.make_dataset_urn_with_platform_instance(
+                        platform=self.__config.platform_name,
+                        name=sibling_full_name,
+                        platform_instance=self.__config.platform_instance,
+                        env=self.__config.env,
+                    )
+                )
+                upstream.append(
+                    UpstreamClass(sibling_urn, DatasetLineageTypeClass.TRANSFORMED)
+                )
+                self.__reporter.m_query_table_to_table_lineage += 1
+                sibling_urns[sibling_full_name] = sibling_urn
+
             # Column edges belong to the lineage, not to each of its upstreams --
             # building them per upstream produced one identical copy per upstream.
             # Still gated on an upstream surviving dataset_type_mapping, so a
@@ -449,6 +541,10 @@ class Mapper:
                         dataset_urn=ds_urn,
                     )
                 )
+
+        cll_lineage.extend(
+            self.make_sibling_column_lineage(table, ds_urn, sibling_urns)
+        )
 
         # One table can reach the same upstream by more than one route -- two
         # queries filtering a common source, or both branches of a conditional --

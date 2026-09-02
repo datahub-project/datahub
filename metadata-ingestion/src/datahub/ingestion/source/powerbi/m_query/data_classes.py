@@ -63,12 +63,18 @@ class DataPlatformTable:
 
 @dataclass
 class Lineage:
-    upstreams: List[DataPlatformTable]
-    column_lineage: List[ColumnLineageInfo]
+    upstreams: List[DataPlatformTable] = field(default_factory=list)
+    column_lineage: List[ColumnLineageInfo] = field(default_factory=list)
+    # Full names of tables in the same dataset that this table is built on.
+    # Unlike a query with "Enable load" off, a loaded table has an entity of its
+    # own, so the chain is expressed as an edge to it rather than by following
+    # the chain inline -- following it would attribute the data source to this
+    # table and drop the intermediate tables that do exist.
+    powerbi_table_upstreams: List[str] = field(default_factory=list)
 
     @staticmethod
     def empty() -> "Lineage":
-        return Lineage(upstreams=[], column_lineage=[])
+        return Lineage()
 
 
 class FunctionName(Enum):

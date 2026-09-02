@@ -402,6 +402,7 @@ def _walk_shared_expression(
     text = shared.lookup(name)
     if text is None:
         logger.debug("Nothing in this dataset defines '%s'", name)
+        shared.unresolved.add(name)
         return
 
     sub_map = shared.parsed(name, text)
@@ -477,9 +478,14 @@ def _walk_identifier_name(
 
     found = _resolve_in_scopes(node_map, scopes, name)
     if found is None:
-        # Nothing in this expression binds the name, so it may belong to another
-        # query in the model -- one that is not loaded and therefore has no
-        # entity of its own to point an edge at.
+        # Nothing in this expression binds the name, so it belongs to something
+        # else in the model. A loaded table is checked first: the scan states
+        # outright which tables exist, while a query with "Enable load" off is
+        # known only by its presence among the dataset's expressions.
+        sibling = shared.sibling(name)
+        if sibling is not None:
+            shared.table_refs.add(sibling)
+            return
         _walk_shared_expression(name, accessor_chain, results, parameters, shared)
         return
     binding_let_id, resolved, binding_scopes = found

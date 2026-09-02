@@ -261,6 +261,51 @@ Native queries reached this way honour `native_query_parsing`: with it disabled,
 referenced query containing `Value.NativeQuery` is not followed, the same as a table's
 own expression.
 
+#### Tables built on other tables
+
+A table can also be built on another table of the same dataset — one that is loaded, so
+it appears in the report in its own right. That reference becomes an edge to it:
+
+```shell
+Sales Enriched        -- loaded
+  = Table.Combine({Sales Current, Sales Archive})
+        |
+        +-----------> Sales Current      -- loaded
+        +-----------> Sales Archive      -- loaded
+                        = Table.SelectRows(Sales Raw, ...)
+                            |
+                            +-----------> Sales Raw    -- loaded
+                                            holds the warehouse connection
+```
+
+Every hop is a table in the model, so every hop is an entity, and the chain can be
+walked from `Sales Enriched` back to the warehouse one table at a time.
+
+This is the counterpart to the section above, and the difference is worth knowing when
+deciding whether to switch "Enable load" off. A query with the switch **off** has no
+entity, so the warehouse table is attributed to whichever loaded table is built on it
+and the intermediate steps do not appear. A query with the switch **on** is a table, so
+it keeps its own lineage and the chain runs through it. Neither shape loses lineage;
+they differ in whether the intermediate steps show up in the graph.
+
+Column-level lineage is matched by column name. The references followed here carry
+columns through unchanged — `Table.Combine`, `Table.SelectRows` and similar — so a
+column present on both tables is treated as the same column. A column that exists on
+only one side is left alone rather than guessed at, which is what a renaming or
+aggregating step produces, so expect no column edges across a `Table.Group` or a
+renamed column.
+
+A name is only treated as a reference when it matches an actual table of that dataset.
+Step names such as `Source`, `Data` or `Calendar` are plausible as table names too, but
+a step binds its own name, so the step wins and no edge appears. A table cannot
+reference itself.
+
+Set `extract_table_to_table_lineage: false` to switch this off. Two counters describe
+what happened: `m_query_table_to_table_lineage` counts the edges emitted, and
+`m_query_unresolved_references` counts names that could not be accounted for at all —
+usually a parameter or an argument to an unsupported source. If a model has references
+of this kind and no edges appear, the second counter is the place to look.
+
 #### Extract endorsements to tags
 
 By default, extracting endorsement information to tags is disabled. The feature may be useful if organization uses [endorsements](https://learn.microsoft.com/en-us/power-bi/collaborate-share/service-endorse-content) to identify content quality.
