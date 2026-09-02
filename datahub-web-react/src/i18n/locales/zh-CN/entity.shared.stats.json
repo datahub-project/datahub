@@ -1,5 +1,6 @@
 {
-    "graph.empty": "目前尚未收集该资产的统计信息。",
+    "graph.empty": "目前尚未收集该数据资产的统计信息。",
+    "graph.rowCount_one": "{{formattedCount}} 行",
     "graph.rowCount_other": "{{formattedCount}} 行",
     "graph.statName": "行数",
     "graph.title": "行数",
@@ -8,5 +9,5 @@
     "percentile.med": "中",
     "upstream.directUpstreams": "直接上游",
     "upstream.indirectUpstreams": "间接上游",
-    "upstream.unhealthy": "部分上游资产状态异常"
+    "upstream.unhealthy": "部分上游数据资产状态异常"
 }

@@ -1,5 +1,7 @@
 {
+    "card.nodeGroupCountTooltip_one": "包含 {{count}} 个术语组",
     "card.nodeGroupCountTooltip_other": "包含 {{count}} 个术语组",
+    "card.termCountTooltip_one": "包含 {{count}} 个术语",
     "card.termCountTooltip_other": "包含 {{count}} 个术语",
     "empty.addTerm": "添加术语",
     "empty.addTermGroup": "添加术语组",
@@ -10,16 +12,16 @@
     "page.createGlossary": "创建术语表",
     "page.subtitle": "使用数据字典对你的数据资产和列进行分类",
     "page.title": "业务术语表",
-    "section.glossaryTerms": "Glossary Term",
+    "section.glossaryTerms": "术语",
     "section.termGroups": "术语组",
     "sidebar.collapse": "折叠术语表",
+    "sidebar.domainFilter.label": "数据域",
+    "sidebar.domainFilter.placeholder": "按数据域筛选",
     "sidebar.expand": "展开术语表",
     "sidebar.home": "术语表主页",
-    "sidebar.ownerFilter.label": "Owner",
-    "sidebar.ownerFilter.placeholder": "按 Owner 筛选",
-    "sidebar.domainFilter.label": "Domain",
-    "sidebar.domainFilter.placeholder": "按 Domain 筛选",
-    "sidebar.section.allTerms": "所有 Glossary Term",
-    "sidebar.tagFilter.label": "Tag",
-    "sidebar.tagFilter.placeholder": "按 Tag 筛选"
+    "sidebar.ownerFilter.label": "所有者",
+    "sidebar.ownerFilter.placeholder": "按所有者筛选",
+    "sidebar.section.allTerms": "所有术语",
+    "sidebar.tagFilter.label": "标签",
+    "sidebar.tagFilter.placeholder": "按标签筛选"
 }

@@ -23,6 +23,9 @@
     "disable": "禁用",
     "disconnect": "断开连接",
     "dismiss": "忽略",
+    "documentationAdded": "已添加文档",
+    "documentationRemoved": "已移除文档",
+    "documentationUpdated": "已更新文档",
     "done": "完成",
     "download": "下载",
     "edit": "编辑",
@@ -33,6 +36,7 @@
     "filter": "筛选",
     "finish": "完成",
     "grant": "授予",
+    "hideDiff": "隐藏差异",
     "home": "首页",
     "import": "导入",
     "invite": "邀请",
@@ -68,6 +72,7 @@
     "showAll": "显示全部",
     "showCountMore": "再显示 {{count}} 项",
     "showCountMoreCapitalized": "再显示 {{count}} 项",
+    "showDiff": "显示差异",
     "showLess": "显示更少",
     "showMore": "显示更多",
     "showMoreCapitalized": "显示更多",
@@ -83,10 +88,5 @@
     "viewAllCount": "查看全部（{{count}}）",
     "viewLess": "收起",
     "viewMore": "查看更多",
-    "yes": "是",
-    "documentationAdded": "已添加文档",
-    "documentationRemoved": "已移除文档",
-    "documentationUpdated": "已更新文档",
-    "showDiff": "显示差异",
-    "hideDiff": "隐藏差异"
+    "yes": "是"
 }
