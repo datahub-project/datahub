@@ -143,6 +143,14 @@ SqlSetup migrates **every** configured store against that store’s JDBC URL (fa
 upgrade/Ebean connection when the store pool URL is unset). GMS and Upgrade both load the same
 config overlay.
 
+**IAM is all-or-nothing.** Named stores may use different JDBC URLs and credentials, but they must
+all use the **same authentication mechanism** as GMS Ebean / pgCron: either IAM (`EBEAN_USE_IAM_AUTH`
+/ `EBEAN_POSTGRES_USE_AWS_IAM_AUTH`) or username/password. Mixing IAM on one Postgres database and
+password auth on another is not supported. Cloud IAM properties (`wrapperPlugins`, Cloud SQL
+`socketFactory` / `cloudSqlInstance`) are copied onto a store only when its JDBC URL matches the
+Ebean pool URL; other stores still enable IAM the same way and infer cloud from the store URL or
+`auto`.
+
 ---
 
 ## Schema Design
