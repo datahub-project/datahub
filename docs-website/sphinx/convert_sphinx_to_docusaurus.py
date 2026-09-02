@@ -35,6 +35,50 @@ def sanitize_mdx_unsafe_tags(content: str) -> str:
         content
     )
 
+# ---- DEMOTE AUTO-LINKED URNs BACK TO INLINE CODE ----
+_URN_AUTOLINK = re.compile(r"\[urn:[^\]]*\]\(")
+
+
+def demote_urn_autolinks(content: str) -> str:
+    # docutils treats a bare `urn:...` in a docstring as a standalone hyperlink,
+    # since `urn` is a registered URI scheme, so Sphinx emits it as a real link.
+    # Docusaurus then feeds the href to Node's url.parse(), which reads
+    # `urn:li:ownershipType:producer` as host `li` plus port `ownershipType:producer`
+    # and rejects it: a DeprecationWarning on Node 22, a hard build failure on 26+.
+    # URNs are identifiers, not links, so render them as code.
+    #
+    # The link is matched by scanning for its balancing `)` rather than by regex,
+    # because urns nest to arbitrary depth (a schemaField urn wraps a dataset urn,
+    # which wraps a dataPlatform urn). docutils drops exactly the urn's final `)`
+    # from the href and leaves it as text after the link, so the scan reaches zero
+    # one paren late and recovers the complete urn.
+    #
+    # Matching starts at `[urn:` so that an auto-link nested inside a bracketed
+    # example (e.g. `["urn:li:entityType:datahub.corpuser"]`) takes the inner
+    # brackets only, and the href is used rather than the link text because the
+    # text carries markdown escapes (`_\_system_\_`) that a code span would show
+    # literally.
+    out = []
+    pos = 0
+    for match in _URN_AUTOLINK.finditer(content):
+        if match.start() < pos:
+            continue
+        i, depth = match.end(), 1
+        while i < len(content) and depth:
+            if content[i] == "(":
+                depth += 1
+            elif content[i] == ")":
+                depth -= 1
+            i += 1
+        if depth:
+            continue  # unbalanced; leave the text as-is
+        out.append(content[pos : match.start()])
+        out.append("`" + content[match.end() : i - 1] + "`")
+        pos = i
+    out.append(content[pos:])
+    return "".join(out)
+
+
 # ---- REPAIR BROKEN MARKDOWN BOLD ----
 def repair_broken_emphasis(content: str) -> str:
     content = re.sub(r'\[\*\*([^\*]+)\*\s+\*', r'[**\1**', content)
@@ -140,6 +184,7 @@ def convert_file(doc: pathlib.Path, outfile: pathlib.Path):
         content = content.replace(old, new)
 
     content = sanitize_mdx_unsafe_tags(content)
+    content = demote_urn_autolinks(content)
     content = repair_broken_emphasis(content)
     content = wrap_section_blocks(content, "h3-block")
     content = fix_parameter_dash(content)

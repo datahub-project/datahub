@@ -36,26 +36,6 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Core Capabilities",
-      link: {
-        type: "generated-index",
-        title: "Core Capabilities",
-        description:
-          "AI-powered discovery, governance, and observability unify across your data estate to deliver data quality, compliance, and AI readiness.",
-      },
-      items: [
-        {
-          label: "Data Quality & Observability",
-          type: "doc",
-          id: "docs/features/feature-guides/observe",
-          customProps: {
-            icon: "🔍",
-          },
-        },
-      ],
-    },
-    {
-      type: "category",
       label: "Features",
       link: {
         type: "generated-index",
@@ -701,6 +681,14 @@ module.exports = {
     {
       type: "doc",
       id: "docs/managed-datahub/welcome-acryl",
+    },
+    {
+      label: "Data Quality & Observability",
+      type: "doc",
+      id: "docs/managed-datahub/observe/overview",
+      customProps: {
+        icon: "🔍",
+      },
     },
     {
       label: "Upgrading from DataHub Core to Cloud",
@@ -1561,6 +1549,7 @@ module.exports = {
       },
       items: [
         "docs/slack",
+        { type: "doc", label: "Otto (Community Assistant)", id: "docs/otto" },
         "docs/townhalls",
         //        "docs/townhall-history",
         "docs/CODE_OF_CONDUCT",

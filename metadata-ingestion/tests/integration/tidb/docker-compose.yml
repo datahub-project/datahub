@@ -9,6 +9,10 @@ services:
       - --host=0.0.0.0
       - --advertise-address=127.0.0.1
     ports:
-      - "54000:4000"
+      # Ephemeral: only the MySQL protocol port is needed from the host (for
+      # ingestion); letting Docker pick a free port avoids colliding with a
+      # leaked container from a prior run. Standalone unistore node, so there
+      # is no PD/TiKV topology whose env vars bake in this port.
+      - "4000"
     volumes:
       - ./setup:/setup

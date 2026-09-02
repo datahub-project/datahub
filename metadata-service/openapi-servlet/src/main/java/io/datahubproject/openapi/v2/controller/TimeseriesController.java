@@ -8,6 +8,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -26,6 +27,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -109,21 +111,18 @@ public class TimeseriesController {
             startTimeMillis,
             endTimeMillis);
 
-    if (!AuthUtil.isAPIAuthorizedUrns(
-        opContext,
-        TIMESERIES,
-        READ,
-        result.getDocuments().stream()
-            .map(doc -> UrnUtils.getUrn(doc.getUrn()))
-            .collect(Collectors.toSet()))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
-    }
+    List<GenericTimeseriesDocument> authorizedDocs =
+        Optional.ofNullable(result.getDocuments()).orElse(List.of()).stream()
+            .filter(
+                doc ->
+                    TimeseriesAuthUtil.canReadAspect(
+                        opContext, UrnUtils.getUrn(doc.getUrn()), entityName, aspectName))
+            .collect(Collectors.toList());
 
     return ResponseEntity.ok(
         GenericScrollResult.<GenericTimeseriesAspect>builder()
             .scrollId(result.getScrollId())
-            .results(toGenericTimeseriesAspect(result.getDocuments(), withSystemMetadata))
+            .results(toGenericTimeseriesAspect(authorizedDocs, withSystemMetadata))
             .build());
   }
 
