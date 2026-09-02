@@ -18,23 +18,25 @@ This module:
 The OpenLineage version is defined in the root `build.gradle`:
 
 ```gradle
-ext.openLineageVersion = '1.50.0'
+ext.openLineageVersion = '1.53.0'
 ```
 
-**Last upgraded:** July 3, 2026 (from 1.45.0 to 1.50.0)
+**Last upgraded:** September 2, 2026 (from 1.50.0 to 1.53.0)
 
-**Key changes across 1.46.0 → 1.50.0:**
+**Key changes across 1.51.0 → 1.53.0:**
 
-- ✅ Iceberg-on-Glue symlink now detected via Spark config upstream (1.46, #4384) — the
-  temporary DataHub `AwsUtils` backport was removed as a result
-- ✅ `DatasetFactory.getDataset(...)` overloads replaced by the `sparkDatasetBuilder()` builder
-  pattern (1.48); all vendored call sites migrated
-- ✅ `BaseCatalogTypeHandler.getIdentifier()` now returns `Optional<DatasetIdentifier>` (1.48)
-- ⚡ BigLake / GCP lakehouse Hive catalog symlink support (1.46) and S3 default-location fix (1.47)
-- ⚡ SQL Server JDBC → `MsSqlDialect`; S3 Tables + Snowflake Horizon Iceberg REST catalogs (1.48)
-- ⚡ `PartitionedFile.filePath()` returns `SparkPath` and `DataSourceRDDPartition.inputPartition()`
-  became `inputPartitions()` — older-Spark branches now access these reflectively
-- 🔒 httpclient5 → 5.6.1 and AWS SDK CVE bumps (1.47)
+- ✅ Databricks Unity Catalog symlinks now use the stable `unity-catalog` namespace and a
+  catalog-qualified table name; Spark 4 also gains an open source Unity Catalog handler (1.51)
+- ✅ Parent-run context can forward facets for both the parent and root run/job through the generic
+  OpenLineage context payload (1.52)
+- ⚡ Spark output coverage now includes append-mode `insertInto`, `LOAD DATA`, Spark 4 V1
+  micro-batch writes, and additional Databricks CTAS, COPY, UPDATE, and DELETE plan variants
+- ⚡ SQL lineage now covers additional nested joins and predicate/assignment subqueries, and Spark
+  lifecycle state is cleaned up after completion (1.52-1.53)
+- 📐 OpenLineage 1.53 adds explicit-lineage model facets. DataHub accepts the newer model while
+  retaining its existing conversion behavior; no DataHub-specific mapping is added in this upgrade
+- 🔒 Upstream Java integrations moved to Jackson 2.18.9. DataHub's enforced Jackson BOM remains the
+  authority for the converter and shaded artifacts
 
 ### Architecture: Patch-Based Customization System
 
@@ -43,10 +45,11 @@ DataHub maintains customizations to OpenLineage through a **version-organized pa
 ```
 patches/
 └── datahub-customizations/      # Versioned patch files (committed to git)
-    ├── v1.50.0/                 # Patches for OpenLineage 1.50.0 (current)
+    ├── v1.53.0/                 # Patches for OpenLineage 1.53.0 (current)
     │   ├── Vendors.patch
     │   ├── PathUtils.patch
     │   └── ...
+    ├── v1.50.0/                 # Patches for OpenLineage 1.50.0 (historical)
     ├── v1.45.0/                 # Patches for OpenLineage 1.45.0 (historical)
     ├── v1.38.0/                 # Patches for OpenLineage 1.38.0 (historical)
     └── v1.33.0/                 # Patches for OpenLineage 1.33.0 (historical)
@@ -57,7 +60,7 @@ patches/upstream-<version>/      # Original OpenLineage files
 patches/backup-<timestamp>/      # Automatic backups during upgrades
 ```
 
-**Important**: Only `patches/datahub-customizations/` is version controlled. Each OpenLineage version has its own subdirectory (e.g., `v1.50.0/`) containing patches specific to that version. Upstream and backup files are temporary and excluded via `.gitignore`.
+**Important**: Only `patches/datahub-customizations/` is version controlled. Each OpenLineage version has its own subdirectory (e.g., `v1.53.0/`) containing patches specific to that version. Upstream and backup files are temporary and excluded via `.gitignore`.
 
 ### Shadowed Classes Location
 
@@ -69,9 +72,9 @@ src/main/java/io/openlineage/
 
 These files are OpenLineage source files with DataHub-specific modifications applied via patches.
 
-### Known Customizations (v1.50.0)
+### Known Customizations (v1.53.0)
 
-Tracked via patch files in `patches/datahub-customizations/v1.50.0/`:
+Tracked via patch files in `patches/datahub-customizations/v1.53.0/`:
 
 1. **`Vendors.patch`**: Adds `RedshiftVendor` to the vendors list
 2. **`PathUtils.patch`**: "Table outside warehouse" symlink handling
@@ -208,7 +211,7 @@ See ING-2959 for the phased plan.
 
 ### Upgrade Process (3-way merge — the reliable path)
 
-The 1.33→1.38→1.45→1.50 upgrades showed that the only robust way to move a **patch-tracked**
+The 1.33→1.38→1.45→1.50→1.53 upgrades showed that the only robust way to move a **patch-tracked**
 vendored file forward is a **3-way merge**: replay upstream's `old→new` delta on top of our
 customized copy. Blind `cp new-upstream + patch -p0` (what `upgrade-openlineage.sh` attempts) breaks
 whenever upstream changed a patched file — e.g. OL 1.48's `DatasetFactory` builder refactor rewrote
@@ -218,8 +221,8 @@ optional first pass only.
 1. **Fetch both the old and new upstream** (the old version is the merge base):
 
    ```bash
-   ./scripts/fetch-upstream.sh <old-version>   # e.g. 1.45.0
-   ./scripts/fetch-upstream.sh <new-version>   # e.g. 1.50.0
+   ./scripts/fetch-upstream.sh <old-version>   # e.g. 1.50.0
+   ./scripts/fetch-upstream.sh <new-version>   # e.g. 1.53.0
    ```
 
 2. **3-way merge each patch-tracked file** (see "Known Customizations" for the list). `git merge-file`
@@ -311,8 +314,8 @@ excluded from dependency locking (its Spark 4 deps are test-only, not part of th
 Patch files show exactly what DataHub customized:
 
 ```bash
-# View a specific customization for v1.50.0
-cat patches/datahub-customizations/v1.50.0/Vendors.patch
+# View a specific customization for v1.53.0
+cat patches/datahub-customizations/v1.53.0/Vendors.patch
 
 # Example output shows:
 # - Lines removed from upstream (-)
@@ -351,10 +354,10 @@ If you need to customize additional files:
 
 ```bash
 # Dry-run to see if patch will apply cleanly
-patch -p0 --dry-run < patches/datahub-customizations/v1.50.0/Vendors.patch
+patch -p0 --dry-run < patches/datahub-customizations/v1.53.0/Vendors.patch
 
 # See what a patch would change
-patch -p0 --dry-run < patches/datahub-customizations/v1.50.0/Vendors.patch | less
+patch -p0 --dry-run < patches/datahub-customizations/v1.53.0/Vendors.patch | less
 ```
 
 ### Debugging
