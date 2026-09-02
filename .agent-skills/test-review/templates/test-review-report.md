@@ -91,6 +91,7 @@ No warning issues found.
 ### Smoke Test Standards
 
 - [{{SMOKE_ISOLATION}}] Run-unique names (`unique_suffix` / unique ingest); no shared hardcoded URNs
+- [{{SMOKE_FIXTURE}}] Unique ingest (`_ingest_cleanup_unique_dataset_impl` / `materialize_*`) or `_ingest_cleanup_data_impl` only when keys are already unique
 - [{{SMOKE_LIFECYCLE}}] Fixture `yield` teardown (`_ingest_cleanup_unique_dataset_impl` or `_ingest_cleanup_data_impl` when keys are already unique)
 - [{{SMOKE_AUTH}}] Uses `auth_session` fixture (no inline credentials)
 - [{{SMOKE_RETRY}}] Uses `@with_test_retry()` or `wait_for_writes_to_sync()` (no bare `time.sleep`)
