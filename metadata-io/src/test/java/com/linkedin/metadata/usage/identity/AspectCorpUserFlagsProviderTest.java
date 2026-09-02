@@ -13,7 +13,6 @@ import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.usage.UsageTestFixtures;
 import com.linkedin.metadata.usage.identity.CorpUserFlagsProvider.CorpUserFlags;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -83,12 +82,10 @@ public class AspectCorpUserFlagsProviderTest {
     Assert.assertEquals(flags, CorpUserFlags.DEFAULT);
   }
 
-  private OperationContext mockOpContext(CachingAspectRetriever cachingAspectRetriever) {
+  private OperationContext mockOpContext(CachingAspectRetriever aspectRetriever) {
     OperationContext opContext = mock(OperationContext.class);
-    RetrieverContext retrieverContext = mock(RetrieverContext.class);
     when(opContext.getEntityRegistry()).thenReturn(new TestEntityRegistry());
-    when(opContext.getRetrieverContext()).thenReturn(retrieverContext);
-    when(retrieverContext.getCachingAspectRetriever()).thenReturn(cachingAspectRetriever);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
     return opContext;
   }
 }
