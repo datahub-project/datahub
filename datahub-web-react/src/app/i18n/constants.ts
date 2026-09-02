@@ -95,7 +95,7 @@ export const ZH_CN_LOCALE_CONFIG: LocaleConfig = {
     lang: 'zh-CN',
     antd: zhCN,
     dayjs: 'zh-cn',
-    label: '简体中文 (Beta)',
+    label: '简体中文',
 };
 
 export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {
