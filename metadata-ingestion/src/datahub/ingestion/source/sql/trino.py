@@ -3,7 +3,7 @@ import json
 import logging
 import uuid
 from textwrap import dedent
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
 import sqlalchemy
 import trino
@@ -258,7 +258,11 @@ class TrinoConfig(BasicSQLAlchemyConfig):
     include_column_lineage: bool = Field(
         default=True,
         description="When emitting upstreamLineage to connector sources (e.g. Iceberg, Hive), "
-        "include column-level (fine-grained) lineage. Requires schema to be available.",
+        "include column-level (fine-grained) lineage. Requires schema to be available. "
+        "Upstream column names are resolved from the connector source's schema in "
+        "DataHub (when a graph is configured) so they match the source's casing "
+        "(e.g. mixed-case Iceberg columns) rather than Trino's lowercased names; the "
+        "Trino column name is used as a fallback when the source schema is unavailable.",
     )
 
     trino_as_primary: bool = Field(
@@ -308,6 +312,76 @@ class TrinoSource(SQLAlchemySource):
         self, config: TrinoConfig, ctx: PipelineContext, platform: str = "trino"
     ):
         super().__init__(config, ctx, platform)
+        # Cache of source-dataset-urn -> {lowercased simple field path -> real-cased
+        # simple field path}, used to emit column-level lineage whose upstream column
+        # names match the connector source (e.g. Iceberg's mixed-case columns).
+        # Value is None when the source schema could not be resolved from the graph.
+        self._source_field_path_map_cache: Dict[str, Optional[Dict[str, str]]] = {}
+
+    def _get_source_field_path_map(
+        self, source_dataset_urn: str
+    ) -> Optional[Dict[str, str]]:
+        """Resolve the connector source's real (e.g. mixed-case) column names.
+
+        Trino reports columns lowercased, but the connector source (e.g. Iceberg) may
+        use mixed-case column names. To emit valid column-level lineage we must point
+        the upstream ``schemaField`` URNs at the source's actual column names. This
+        looks up the source dataset's ``SchemaMetadata`` in DataHub and returns a map
+        of ``lowercased simple field path -> real-cased simple field path``.
+
+        Returns ``None`` when no graph is configured, the source schema is not
+        available (e.g. the connector source has not been ingested yet), or the lookup
+        failed, in which case callers fall back to Trino's own (lowercased) field path.
+        """
+        if source_dataset_urn in self._source_field_path_map_cache:
+            return self._source_field_path_map_cache[source_dataset_urn]
+
+        field_path_map: Optional[Dict[str, str]] = None
+        if self.ctx.graph is not None:
+            try:
+                source_schema = self.ctx.graph.get_aspect(
+                    source_dataset_urn, SchemaMetadataClass
+                )
+            except Exception as e:
+                # get_aspect raises on any non-404 response, so a GMS hiccup would
+                # otherwise escape mid-iteration and abort this dataset's lineage after
+                # the sibling workunits were already emitted. Degrade to the Trino field
+                # path instead -- exactly the behaviour before schema resolution existed.
+                self.report.warning(
+                    "Could not resolve connector source schema; column lineage falls "
+                    "back to Trino's lowercased column names",
+                    context=source_dataset_urn,
+                    exc=e,
+                )
+            else:
+                if source_schema is not None and source_schema.fields:
+                    field_path_map = {}
+                    ambiguous: Set[str] = set()
+                    for field in source_schema.fields:
+                        simple_path = get_simple_field_path_from_v2_field_path(
+                            field.fieldPath
+                        )
+                        lowered = simple_path.lower()
+                        if field_path_map.get(lowered, simple_path) != simple_path:
+                            # The source distinguishes these columns only by case, so a
+                            # lowercased Trino name cannot choose between them. Record
+                            # the clash and drop the key below rather than binding to
+                            # whichever column happened to come last.
+                            ambiguous.add(lowered)
+                        field_path_map[lowered] = simple_path
+                    for lowered in ambiguous:
+                        del field_path_map[lowered]
+                    if ambiguous:
+                        self.report.warning(
+                            "Connector source has columns differing only by case; "
+                            "column lineage skipped for them",
+                            context=f"{source_dataset_urn} columns={sorted(ambiguous)}",
+                        )
+
+        # Cached even on failure, so one outage does not re-query GMS for every table
+        # that shares this connector source.
+        self._source_field_path_map_cache[source_dataset_urn] = field_path_map
+        return field_path_map
 
     def get_db_name(self, inspector: Inspector) -> str:
         if self.config.database:
@@ -385,7 +459,15 @@ class TrinoSource(SQLAlchemySource):
         """
         Emit upstreamLineage from this Trino dataset to the connector dataset.
         When include_column_lineage is True and schema_metadata has fields,
-        also emits fineGrainedLineages (column-level lineage) with 1:1 field mapping.
+        also emits fineGrainedLineages (column-level lineage).
+
+        The downstream (Trino) column path is used as-is (Trino's lowercased name).
+        The upstream (source) column path is resolved from the connector source's
+        own schema in DataHub so it matches the source's real casing (e.g. Iceberg's
+        mixed-case columns); see ``_get_source_field_path_map``. When the source
+        schema cannot be resolved (no graph / not yet ingested), the upstream falls
+        back to the Trino path, preserving previous behaviour for sources whose
+        column names already match.
         """
         fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None
         if (
@@ -393,14 +475,32 @@ class TrinoSource(SQLAlchemySource):
             and schema_metadata is not None
             and schema_metadata.fields
         ):
+            source_field_path_map = self._get_source_field_path_map(source_dataset_urn)
             fine_grained_lineages = []
             for field in schema_metadata.fields:
                 try:
                     path = get_simple_field_path_from_v2_field_path(field.fieldPath)
+                    upstream_path = path
+                    if source_field_path_map is not None:
+                        matched = source_field_path_map.get(path.lower())
+                        if matched is None:
+                            # The source schema is known but has no column matching this
+                            # Trino column -- either absent, or ambiguous because the
+                            # source distinguishes columns only by case. Skip rather
+                            # than guess at an upstream schemaField URN.
+                            self.report.warning(
+                                "Skipped column lineage: no unambiguous matching "
+                                "column on the connector source",
+                                context=f"{source_dataset_urn} column={path}",
+                            )
+                            continue
+                        upstream_path = matched
                     fine_grained_lineages.append(
                         FineGrainedLineageClass(
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[make_schema_field_urn(source_dataset_urn, path)],
+                            upstreams=[
+                                make_schema_field_urn(source_dataset_urn, upstream_path)
+                            ],
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                             downstreams=[make_schema_field_urn(dataset_urn, path)],
                         )
