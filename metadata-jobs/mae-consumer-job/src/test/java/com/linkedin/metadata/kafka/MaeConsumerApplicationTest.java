@@ -26,20 +26,7 @@ import org.testng.annotations.Test;
 @ActiveProfiles("test")
 @SpringBootTest(
     classes = {MaeConsumerApplication.class, MaeConsumerApplicationTestConfiguration.class},
-    properties = {
-      "PE_CONSUMER_ENABLED=true",
-      "spring.main.allow-bean-definition-overriding=true",
-      // MaeConsumerApplication scans com.linkedin.gms.factory.entity for EntityServiceFactory (ZDU
-      // dual-write), which also brings in EbeanDatabaseFactory, so the entity-store pool is now
-      // built during startup and would otherwise dial a real MySQL. H2 keeps it in-memory. These
-      // properties are scoped to this class; a @Primary mock Database in the shared test
-      // configuration would instead defeat MaeConsumerV3WriterApplicationTest's assertions.
-      "ebean.url=jdbc:h2:mem:mae-consumer;IGNORECASE=TRUE;mode=mysql;DB_CLOSE_DELAY=-1;",
-      "ebean.driver=org.h2.Driver",
-      "ebean.username=tester",
-      "ebean.password=",
-      "ebean.autoCreateDdl=true"
-    })
+    properties = {"PE_CONSUMER_ENABLED=true", "spring.main.allow-bean-definition-overriding=true"})
 public class MaeConsumerApplicationTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private KafkaHealthIndicator kafkaHealthIndicator;

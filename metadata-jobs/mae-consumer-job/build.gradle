@@ -39,10 +39,6 @@ dependencies {
 
     runtimeOnly externalDependency.postgresql
 
-    // EntityService (ZDU dual-write) needs a JDBC driver. postgresql was already here;
-    // MySQL deployments failed with "Problem loading Database Driver: com.mysql.jdbc.Driver".
-    runtimeOnly externalDependency.mysqlConnector
-
     testImplementation project(':metadata-dao-impl:kafka-producer')
     testImplementation project(':metadata-jobs:pe-consumer')
     testImplementation externalDependency.springBootTest

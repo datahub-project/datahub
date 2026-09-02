@@ -30,10 +30,6 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.metadata.pgqueue",
       "com.linkedin.metadata.dao.producer",
       "com.linkedin.gms.factory.config",
-      // Parent package supplies EntityServiceFactory, which the ZDU dual-write bean in
-      // .update.indices requires. Scanning only the subpackage gave MAE the bean without its
-      // dependency. Needs the mysqlConnector dep and EBEAN_DATASOURCE_* env to work.
-      "com.linkedin.gms.factory.entity",
       "com.linkedin.gms.factory.entity.update.indices",
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.entityclient",

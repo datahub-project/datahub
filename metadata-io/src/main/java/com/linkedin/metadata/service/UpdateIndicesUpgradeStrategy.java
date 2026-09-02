@@ -3,11 +3,12 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_TYPES;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
+import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultStore;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -21,17 +22,17 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -44,9 +45,11 @@ import lombok.extern.slf4j.Slf4j;
  * records the dual-write start time on the first successful write for each index, which Phase 2's
  * catch-up step uses to determine its query window.
  *
- * <p>Periodically polls the persisted upgrade state to detect indices marked as {@code
- * DUAL_WRITE_DISABLED} and stops writing to them. The poller shuts down once all targets are
- * removed.
+ * <p>Periodically reconciles against the persisted upgrade state: it picks up indices that have
+ * completed Phase 1 and drops those marked {@code DUAL_WRITE_DISABLED}. Because it adds as well as
+ * removes, a state read that fails at startup — a network call in restli deployments — recovers on
+ * a later poll rather than leaving dual-write off for the process lifetime. The poller shuts down
+ * once state has been read successfully and no targets remain.
  *
  * <p>This strategy is a no-op when no incremental reindex is in progress or when rollback
  * dual-write is not enabled.
@@ -61,7 +64,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
    * Map of entity name → old backing index physical name. Populated on startup from Phase 1 upgrade
    * result. Entries are removed when dual-write is disabled.
    */
-  private final ConcurrentHashMap<String, String> oldIndexTargets;
+  @VisibleForTesting @Getter private final ConcurrentHashMap<String, String> oldIndexTargets;
 
   /**
    * Tracks whether dual-write start time has been recorded for each index. Key is old index name.
@@ -71,12 +74,25 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
   @Nullable private final DualWriteStartTimeCallback dualWriteStartTimeCallback;
   @Nullable private final ScheduledExecutorService statePoller;
 
+  /**
+   * Whether a read of the persisted upgrade state has ever succeeded. Distinguishes "no targets
+   * because the upgrade is finished" from "no targets because we could not read yet" — only the
+   * former should stop the poller.
+   */
+  private volatile boolean upgradeStateObserved = false;
+
   private static final long DEFAULT_POLL_INTERVAL_SECONDS = 300;
 
-  /** Callback interface for persisting dual-write start time to upgrade result. */
+  /**
+   * Callback interface for persisting dual-write start time to upgrade result.
+   *
+   * <p>Implementations must throw if the write did not land. {@link #recordDualWriteStartIfNeeded}
+   * treats a normal return as durably persisted and never asks again, so swallowing a failure here
+   * loses the start time permanently and leaves Phase 2's catch-up step without a query window.
+   */
   @FunctionalInterface
   public interface DualWriteStartTimeCallback {
-    void onDualWriteStarted(String entityName, long startTimeMillis);
+    void onDualWriteStarted(String entityName, long startTimeMillis) throws Exception;
   }
 
   public UpdateIndicesUpgradeStrategy(
@@ -85,7 +101,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
       @Nonnull Map<String, String> oldIndexTargets,
       @Nullable DualWriteStartTimeCallback dualWriteStartTimeCallback,
       @Nullable OperationContext opContext,
-      @Nullable EntityService<?> entityService,
+      @Nullable DataHubUpgradeResultStore upgradeResultStore,
       @Nullable Urn upgradeIdUrn,
       long pollIntervalSeconds) {
     this.elasticSearchService = elasticSearchService;
@@ -101,34 +117,32 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
     this.dualWriteStartTimeRecorded = new ConcurrentHashMap<>();
     this.dualWriteStartTimeCallback = dualWriteStartTimeCallback;
 
-    if (!oldIndexTargets.isEmpty()) {
-      log.info(
-          "UpdateIndicesUpgradeStrategy initialized with {} old index targets for rollback dual-write: {}",
-          oldIndexTargets.size(),
-          oldIndexTargets);
+    if (opContext != null && upgradeResultStore != null && upgradeIdUrn != null) {
+      // Seed synchronously so the first MCL batch already dual-writes, then poll. The poller starts
+      // regardless of the outcome: if this read failed, it is the thing that recovers.
+      reconcileTargets(opContext, upgradeResultStore, upgradeIdUrn);
 
-      if (opContext != null && entityService != null && upgradeIdUrn != null) {
-        statePoller =
-            Executors.newSingleThreadScheduledExecutor(
-                r -> {
-                  Thread t = new Thread(r, "incremental-reindex-state-poller");
-                  t.setDaemon(true);
-                  return t;
-                });
-        long interval =
-            pollIntervalSeconds > 0 ? pollIntervalSeconds : DEFAULT_POLL_INTERVAL_SECONDS;
-        statePoller.scheduleAtFixedRate(
-            () -> pollForSwappedIndices(opContext, entityService, upgradeIdUrn),
-            interval,
-            interval,
-            TimeUnit.SECONDS);
-      } else {
-        statePoller = null;
-      }
+      statePoller =
+          Executors.newSingleThreadScheduledExecutor(
+              r -> {
+                Thread t = new Thread(r, "incremental-reindex-state-poller");
+                t.setDaemon(true);
+                return t;
+              });
+      long interval = pollIntervalSeconds > 0 ? pollIntervalSeconds : DEFAULT_POLL_INTERVAL_SECONDS;
+      statePoller.scheduleAtFixedRate(
+          () -> reconcileTargets(opContext, upgradeResultStore, upgradeIdUrn),
+          interval,
+          interval,
+          TimeUnit.SECONDS);
     } else {
-      log.info("UpdateIndicesUpgradeStrategy initialized with no active upgrade targets");
       statePoller = null;
     }
+
+    log.info(
+        "UpdateIndicesUpgradeStrategy initialized with {} old index target(s) for rollback dual-write: {}",
+        this.oldIndexTargets.size(),
+        this.oldIndexTargets);
   }
 
   @Override
@@ -266,72 +280,85 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
     if (removed != null) {
       log.info(
           "Removed rollback dual-write target for entity '{}' (was '{}')", entityName, removed);
-      if (oldIndexTargets.isEmpty()) {
-        shutdownPoller();
-      }
+      maybeShutdownPoller();
     }
   }
 
+  /**
+   * Reconciles the live target map against persisted Phase 1 state: adds indices that completed
+   * Phase 1 with an old backing index recorded, and drops those whose dual-write has been disabled.
+   *
+   * <p>Adding — not just removing — is what makes a failed initial load recoverable. The read is a
+   * network call in restli deployments, and a GMS that is not serving yet at consumer startup used
+   * to leave the target map empty for the process lifetime, silently disabling dual-write and
+   * letting the old backing index go stale.
+   */
   // Package-private for testing
-  void pollForSwappedIndices(
-      OperationContext opContext, EntityService<?> entityService, Urn upgradeIdUrn) {
+  void reconcileTargets(
+      OperationContext opContext, DataHubUpgradeResultStore upgradeResultStore, Urn upgradeIdUrn) {
+    final DataHubUpgradeResult result;
     try {
-      Optional<DataHubUpgradeResult> result =
-          getUpgradeResult(opContext, entityService, upgradeIdUrn);
-      if (result.isEmpty() || result.get().getResult() == null) {
-        return;
-      }
-
-      Map<String, Map<String, String>> allStates =
-          IncrementalReindexState.getAllIndexStates(result.get().getResult());
-      IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-
-      Set<String> swappedEntities =
-          allStates.entrySet().stream()
-              .filter(
-                  e ->
-                      IncrementalReindexState.Status.DUAL_WRITE_DISABLED
-                          .name()
-                          .equals(e.getValue().get(IncrementalReindexState.STATUS)))
-              .map(e -> indexConvention.getEntityName(opContext, e.getKey()))
-              .filter(Optional::isPresent)
-              .map(Optional::get)
-              .collect(Collectors.toSet());
-
-      Set<String> toRemove =
-          oldIndexTargets.keySet().stream()
-              .filter(e -> swappedEntities.stream().anyMatch(sw -> key(sw).equals(e)))
-              .collect(Collectors.toSet());
-
-      for (String entityName : toRemove) {
-        removeTarget(entityName);
-      }
+      result =
+          DataHubUpgradeResultConditionalPersist.fromEnveloped(
+              upgradeResultStore.readLatest(opContext, upgradeIdUrn));
     } catch (Exception e) {
-      log.warn("Failed to poll for swapped indices: {}", e.getMessage());
+      // Deliberately not treated as "no state": keep whatever targets we already hold, because
+      // dropping them would silently stop protecting the old backing index.
+      log.warn(
+          "Could not read incremental reindex state for {}, keeping {} dual-write target(s): {}",
+          upgradeIdUrn,
+          oldIndexTargets.size(),
+          e.getMessage());
+      return;
     }
+
+    if (result == null || result.getResult() == null) {
+      log.debug("No incremental reindex state recorded for {}", upgradeIdUrn);
+      return;
+    }
+
+    final Map<String, Map<String, String>> allStates =
+        IncrementalReindexState.getAllIndexStates(result.getResult());
+    final IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+
+    for (Map.Entry<String, Map<String, String>> entry : allStates.entrySet()) {
+      final String indexName = entry.getKey();
+      final Map<String, String> indexState = entry.getValue();
+      final Optional<String> entityName = indexConvention.getEntityName(opContext, indexName);
+      if (entityName.isEmpty()) {
+        continue;
+      }
+
+      final String status = indexState.get(IncrementalReindexState.STATUS);
+      final String oldBackingIndexName =
+          indexState.get(IncrementalReindexState.OLD_BACKING_INDEX_NAME);
+
+      if (IncrementalReindexState.Status.DUAL_WRITE_DISABLED.name().equals(status)) {
+        removeTarget(entityName.get());
+      } else if (IncrementalReindexState.Status.COMPLETED.name().equals(status)
+          && oldBackingIndexName != null
+          && !oldBackingIndexName.isEmpty()
+          && oldIndexTargets.put(key(entityName.get()), oldBackingIndexName) == null) {
+        log.info(
+            "Added rollback dual-write target for entity '{}' -> '{}'",
+            entityName.get(),
+            oldBackingIndexName);
+      }
+    }
+
+    upgradeStateObserved = true;
+    maybeShutdownPoller();
   }
 
-  private Optional<DataHubUpgradeResult> getUpgradeResult(
-      OperationContext opContext, EntityService<?> entityService, Urn upgradeIdUrn) {
-    try {
-      EntityResponse response =
-          entityService.getEntityV2(
-              opContext,
-              upgradeIdUrn.getEntityType(),
-              upgradeIdUrn,
-              Set.of("dataHubUpgradeResult"));
-      if (response != null && response.getAspects().containsKey("dataHubUpgradeResult")) {
-        return Optional.of(
-            new DataHubUpgradeResult(
-                response.getAspects().get("dataHubUpgradeResult").getValue().data()));
-      }
-    } catch (Exception e) {
-      log.debug("Could not fetch upgrade result for {}: {}", upgradeIdUrn, e.getMessage());
+  /**
+   * Stops polling once the upgrade is genuinely done. Gated on having actually read state: an empty
+   * target map before any successful read means the load has not happened yet, and shutting down
+   * there would remove the only chance to recover.
+   */
+  private void maybeShutdownPoller() {
+    if (!upgradeStateObserved || !oldIndexTargets.isEmpty()) {
+      return;
     }
-    return Optional.empty();
-  }
-
-  private void shutdownPoller() {
     if (statePoller != null && !statePoller.isShutdown()) {
       log.info("All dual-write targets removed, shutting down state poller");
       statePoller.shutdown();
@@ -365,6 +392,6 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   /** Entity-name key normaliser — see the constructor for why this is needed. */
   private static String key(String entityName) {
-    return entityName == null ? null : entityName.toLowerCase(java.util.Locale.ROOT);
+    return entityName == null ? null : entityName.toLowerCase(Locale.ROOT);
   }
 }
