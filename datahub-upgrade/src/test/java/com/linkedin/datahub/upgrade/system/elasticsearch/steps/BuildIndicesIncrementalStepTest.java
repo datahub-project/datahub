@@ -529,6 +529,21 @@ public class BuildIndicesIncrementalStepTest {
   }
 
   @Test
+  public void testFailsWhenServiceThrowsDuringIndexBuilderLookup() throws Throwable {
+    // First call enumerates the configs; the lookup's second call throws (e.g. the message-less
+    // UnsupportedOperationException from the structured-property merge). The exception is caught
+    // per-service, so the lookup finds no builder and the step fails rather than crashing.
+    ReindexConfig config = mockReindexConfig("some_index", true);
+    when(indexedService.buildReindexConfigs(any(), any()))
+        .thenReturn(List.of(config))
+        .thenThrow(new UnsupportedOperationException());
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
   public void testExceptionReturnsFailed() throws Throwable {
     when(indexBuilder.buildIndexIncremental(any(OperationContext.class), any(), anyString()))
         .thenThrow(new RuntimeException("ES connection error"));
