@@ -288,6 +288,38 @@ assert any(e["entityUrn"] == expected_urn for e in events)
 
 ---
 
+## Integration Service Status Polling
+
+For tests involving DataHub actions/integrations, poll the action status API instead of sleeping.
+
+**Source:** `smoke-test/tests/integrations_service_utils.py`
+
+```python
+def wait_until_action_has_processed_event(action_urn, integrations_url, event_time, timeout=120):
+    """Poll action stats endpoint until at least one event has been processed."""
+    url = f"{integrations_url}/private/actions/{action_urn}/stats"
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        response = requests.get(url)
+        if response.status_code == 200:
+            stats = response.json()
+            last_processed = stats.get("live", {}).get(
+                "customProperties", {}
+            ).get("event_processing_stats.last_event_processed_time")
+            if last_processed:
+                return
+        time.sleep(1)
+    raise TimeoutError(...)
+
+def wait_for_reload_completion(action_urn, integrations_url, timeout=120):
+    """Poll action status until it transitions back to 'running' after a config reload."""
+    # Polls until status == "running" or timeout
+```
+
+**When to use:** In tests that configure and trigger DataHub actions/integrations, and need to confirm the action has finished initializing or processing events.
+
+---
+
 ## GraphQL with Exponential Backoff
 
 For GraphQL calls that may fail under server load, use the retry-aware wrapper.
