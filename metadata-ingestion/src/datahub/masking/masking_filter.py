@@ -24,7 +24,10 @@ from datahub.masking.constants import (
     REDACTED_PREFIX,
     SENTINEL_MESSAGES,
 )
-from datahub.masking.logging_utils import get_masking_safe_logger
+from datahub.masking.logging_utils import (
+    get_masking_safe_logger,
+    is_masking_internal_logger,
+)
 from datahub.masking.secret_registry import SecretRegistry
 
 logger = get_masking_safe_logger(__name__)
@@ -301,7 +304,7 @@ def _covered_loggers() -> "list[logging.Logger]":
     """
     loggers = [logging.getLogger()]
     for name, candidate in list(logging.root.manager.loggerDict.items()):
-        if name.startswith("datahub.masking"):
+        if is_masking_internal_logger(name):
             continue
         if isinstance(candidate, logging.Logger):
             loggers.append(candidate)

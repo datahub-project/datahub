@@ -596,6 +596,18 @@ class TestInstallation:
             logging.PlaceHolder,
         )
 
+    def test_lookalike_masking_namespace_is_covered(self):
+        """Only datahub.masking and its dotted descendants are exempt; a
+        lookalike prefix must not become an unmasked channel."""
+        lookalike = logging.getLogger("datahub.maskingness.probe")
+        handler = logging.NullHandler()
+        lookalike.addHandler(handler)
+        try:
+            install_masking_filter(SecretRegistry())
+            assert any(isinstance(f, SecretMaskingFilter) for f in handler.filters)
+        finally:
+            lookalike.removeHandler(handler)
+
     def test_masking_safe_handler_streams_are_not_wrapped(self):
         """Stream swapping honors the same exclusion as filter attachment:
         masking's own diagnostic channel must keep the raw stream, or the
