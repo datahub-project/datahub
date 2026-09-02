@@ -1,4 +1,5 @@
 import logging
+from abc import ABC
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.source.common.m_query.config import PowerBIPlatformDetail
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 # the shared M-Query engine.
 __all__ = [
     "AbstractDataPlatformInstanceResolver",
+    "BaseAbstractDataPlatformInstanceResolver",
     "ServerToPlatformInstanceResolver",
     "ResolvePlatformInstanceFromServerToPlatformInstance",
     "ResolvePlatformInstanceFromDatasetTypeMapping",
@@ -25,15 +27,25 @@ __all__ = [
 ResolvePlatformInstanceFromServerToPlatformInstance = ServerToPlatformInstanceResolver
 
 
+class BaseAbstractDataPlatformInstanceResolver(
+    AbstractDataPlatformInstanceResolver, ABC
+):
+    # Backward-compat shim: the old two-level hierarchy stored the connector
+    # config on this intermediate base. The engine collapsed it into
+    # ``AbstractDataPlatformInstanceResolver``; kept so external subclasses that
+    # relied on the base's ``config`` attribute keep working.
+    config: PowerBiDashboardSourceConfig
+
+    def __init__(self, config: PowerBiDashboardSourceConfig) -> None:
+        self.config = config
+
+
 class ResolvePlatformInstanceFromDatasetTypeMapping(
-    AbstractDataPlatformInstanceResolver
+    BaseAbstractDataPlatformInstanceResolver
 ):
     # Legacy PowerBI resolver backed by the deprecated ``dataset_type_mapping``
     # recipe field. Retained only for backward compatibility; new recipes should
     # use ``server_to_platform_instance``.
-    def __init__(self, config: PowerBiDashboardSourceConfig) -> None:
-        self.config = config
-
     def get_platform_instance(
         self, data_platform_detail: PowerBIPlatformDetail
     ) -> PlatformDetail:

@@ -74,17 +74,44 @@ def cleanup_smoke_secrets(auth_session: object):
     _delete_secrets_by_name(auth_session, _SMOKE_SECRET_NAMES)
 
 
+def _iter_ingestion_source_urns(auth_session) -> list[str]:
+    """Page through listIngestionSources so leftover smoke sources are not missed."""
+    query = """query listIngestionSources($input: ListIngestionSourcesInput!) {\n
+            listIngestionSources(input: $input) {\n
+              start\n
+              count\n
+              total\n
+              ingestionSources {\n
+                urn\n
+              }\n
+            }\n
+        }"""
+    start = 0
+    page_size = 50
+    urns: list[str] = []
+    while True:
+        res_data = execute_graphql(
+            auth_session, query, {"input": {"start": start, "count": page_size}}
+        )
+        listing = res_data["data"]["listIngestionSources"]
+        page = listing["ingestionSources"]
+        urns.extend(source["urn"] for source in page)
+        start += len(page)
+        if not page or start >= listing["total"]:
+            break
+    return urns
+
+
 def _delete_ingestion_sources_by_name(auth_session: object, names: list[str]) -> None:
-    res_data = _get_ingestionSources(auth_session)
     deleted = False
-    for source in res_data["data"]["listIngestionSources"]["ingestionSources"]:
+    for urn in _iter_ingestion_source_urns(auth_session):
         query = """query ingestionSource($urn: String!) {\n
             ingestionSource(urn: $urn) {\n
               urn\n
               name\n
             }\n
         }"""
-        source_data = execute_graphql(auth_session, query, {"urn": source["urn"]})
+        source_data = execute_graphql(auth_session, query, {"urn": urn})
         ingestion_source = source_data["data"]["ingestionSource"]
         if ingestion_source is None:
             continue
@@ -121,29 +148,15 @@ def cleanup_smoke_ingestion_sources(auth_session: object):
     )
 
 
-def _get_ingestionSources(auth_session):
-    query = """query listIngestionSources($input: ListIngestionSourcesInput!) {\n
-            listIngestionSources(input: $input) {\n
-              start\n
-              count\n
-              total\n
-              ingestionSources {\n
-                urn\n
-              }\n
+@with_test_retry()
+def _ensure_ingestion_source_absent(auth_session, ingestion_source_urn: str) -> None:
+    query = """query ingestionSource($urn: String!) {\n
+            ingestionSource(urn: $urn) {\n
+              urn\n
             }\n
         }"""
-    variables: Dict[str, Any] = {"input": {"start": 0, "count": 20}}
-    res_data = execute_graphql(auth_session, query, variables)
-    assert res_data["data"]["listIngestionSources"]["total"] is not None
-    return res_data
-
-
-@with_test_retry()
-def _ensure_ingestion_source_count(auth_session, expected_count):
-    res_data = _get_ingestionSources(auth_session)
-    after_count = res_data["data"]["listIngestionSources"]["total"]
-    assert after_count == expected_count
-    return after_count
+    res_data = execute_graphql(auth_session, query, {"urn": ingestion_source_urn})
+    assert res_data["data"]["ingestionSource"] is None
 
 
 @with_test_retry()
@@ -485,18 +498,16 @@ EOF"""
 
 @pytest.mark.dependency()
 def test_create_list_get_remove_ingestion_source(auth_session):
-    # Get count of existing ingestion sources
-    res_data = _get_ingestionSources(auth_session)
-
-    before_count = res_data["data"]["listIngestionSources"]["total"]
-
-    # Create new ingestion source
+    # Create new ingestion source. Assert presence/absence by URN — not
+    # listIngestionSources.total, which is instance-wide and races with other
+    # modules (audit_events, privileges) under xdist --dist=loadscope.
+    source_name = f"{_SMOKE_INGESTION_SOURCE_PREFIX}CRUD_{uuid.uuid4().hex[:8]}"
     query = """mutation createIngestionSource($input: UpdateIngestionSourceInput!) {\n
             createIngestionSource(input: $input)
         }"""
     variables: Dict[str, Any] = {
         "input": {
-            "name": f"{_SMOKE_INGESTION_SOURCE_PREFIX}CRUD",
+            "name": source_name,
             "type": "mysql",
             "description": "My ingestion source description",
             "schedule": {"interval": "*/60 * * * *", "timezone": "UTC"},
@@ -511,9 +522,7 @@ def test_create_list_get_remove_ingestion_source(auth_session):
     assert res_data["data"]["createIngestionSource"] is not None
 
     ingestion_source_urn = res_data["data"]["createIngestionSource"]
-
-    # Assert that there are more ingestion sources now.
-    after_count = _ensure_ingestion_source_count(auth_session, before_count + 1)
+    _ensure_ingestion_source_present(auth_session, ingestion_source_urn)
 
     # Get the ingestion source back
     query = """query ingestionSource($urn: String!) {\n
@@ -539,7 +548,7 @@ def test_create_list_get_remove_ingestion_source(auth_session):
     ingestion_source = res_data["data"]["ingestionSource"]
     assert ingestion_source["urn"] == ingestion_source_urn
     assert ingestion_source["type"] == "mysql"
-    assert ingestion_source["name"] == f"{_SMOKE_INGESTION_SOURCE_PREFIX}CRUD"
+    assert ingestion_source["name"] == source_name
     assert ingestion_source["schedule"]["interval"] == "*/60 * * * *"
     assert ingestion_source["schedule"]["timezone"] == "UTC"
     assert (
@@ -558,8 +567,7 @@ def test_create_list_get_remove_ingestion_source(auth_session):
     logger.info(res_data)
     assert res_data["data"]["deleteIngestionSource"] is not None
 
-    # Ensure the ingestion source has been removed.
-    _ensure_ingestion_source_count(auth_session, after_count - 1)
+    _ensure_ingestion_source_absent(auth_session, ingestion_source_urn)
 
 
 @pytest.mark.dependency(

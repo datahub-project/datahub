@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, List, Optional
 
 from datahub.ingestion.api.common import PipelineContext
@@ -27,6 +28,15 @@ from datahub.ingestion.source.common.m_query.interfaces import (
 from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
 
 logger = logging.getLogger(__name__)
+
+# A `let ... in` wrapper is a heuristic that a failed expression was intended to
+# be M-Query rather than a DAX computed-table definition
+# (SELECTCOLUMNS/CALCULATETABLE/FILTER/...). It is not exhaustive: bare
+# expressions such as `Sql.Database("server", "db")` are valid M without `let`,
+# and a broken one reaching this branch is misclassified as non-M. A word
+# boundary prevents identifiers that merely contain the substring "let" (e.g. a
+# column named `filetype`) from being mistaken for the keyword.
+_M_QUERY_LET_KEYWORD = re.compile(r"\blet\b", re.IGNORECASE)
 
 
 def _parse_with_bridge(expression: str, timeout: int) -> Dict[int, dict]:
@@ -99,8 +109,8 @@ def get_upstream_tables(
         reporter.m_query_parse_timeouts += 1
         reporter.warning(
             title="M-Query Parsing Timeout",
-            message=f"M-Query parsing timed out after {config.m_query_parse_timeout} seconds. Lineage for this table will not be extracted.",
-            context=f"table-full-name={table.full_name}, expression={expression}",
+            message="M-Query parsing timed out; lineage for this table will not be extracted",
+            context=f"timeout={config.m_query_parse_timeout}s, table-full-name={table.full_name}, expression={expression}",
         )
         return []
     except MQueryParseError as e:
@@ -109,11 +119,11 @@ def get_upstream_tables(
         # Lark parser happened to parse these and then logged INFO "Non-Data
         # Platform Expression". Preserve that behaviour: only warn when the
         # expression looks like it was intended to be M-Query.
-        if "let" not in expression.lower():
+        if not _M_QUERY_LET_KEYWORD.search(expression):
             reporter.m_query_non_mquery_expressions += 1
             logger.info(
                 "Non-M-Query expression in table %s — skipping lineage extraction "
-                "(expression does not contain 'let'). Expression: %s. Error: %s",
+                "(no M-Query 'let' keyword). Expression: %s. Error: %s",
                 table.full_name,
                 expression,
                 e,

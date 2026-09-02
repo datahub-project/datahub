@@ -9,6 +9,7 @@ from datahub.ingestion.source.fabric.common.models import (
     FabricWorkspace,
     WorkspaceKey,
 )
+from datahub.ingestion.source.fabric.common.urn_generator import make_workspace_name
 from datahub.sdk.container import Container
 
 
@@ -61,5 +62,5 @@ def build_workspace_container(
         subtype=GenericContainerSubTypes.FABRIC_WORKSPACE,
         external_url=f"{FABRIC_APP_BASE_URL}/groups/{workspace.id}/list",
         parent_container=None,
-        qualified_name=workspace.id,
+        qualified_name=make_workspace_name(workspace.id),
     )

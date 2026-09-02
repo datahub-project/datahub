@@ -14,7 +14,7 @@ from tests.utils import delete_urns, run_datahub_cmd, sync_elastic
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.INGESTION, Domain.PLATFORM)
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 
 def datahub_upsert_group(auth_session: Any, group: CorpGroup) -> None:

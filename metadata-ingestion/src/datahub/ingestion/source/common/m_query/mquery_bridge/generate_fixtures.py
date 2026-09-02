@@ -22,7 +22,7 @@ from pathlib import Path
 
 # generate_fixtures.py is at:
 #   metadata-ingestion/src/datahub/ingestion/source/common/m_query/mquery_bridge/
-# parents: [0]=mquery_bridge [1]=m_query [2]=powerbi [3]=source [4]=ingestion
+# parents: [0]=mquery_bridge [1]=m_query [2]=common [3]=source [4]=ingestion
 #          [5]=datahub [6]=src [7]=metadata-ingestion
 TESTS_DIR = Path(__file__).resolve().parents[7] / "tests" / "integration" / "powerbi"
 sys.path.insert(0, str(TESTS_DIR))

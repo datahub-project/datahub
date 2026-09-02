@@ -36,6 +36,7 @@ def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path, monkeyp
         _resources_dir / "docker-compose.yml", "cassandra"
     ) as docker_services:
         wait_for_port(docker_services, "test-cassandra", 9042)
+        cassandra_port = docker_services.port_for("test-cassandra", 9042)
 
         time.sleep(5)
 
@@ -49,7 +50,7 @@ def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path, monkeyp
                     "config": {
                         "platform_instance": "dev_instance",
                         "contact_point": "localhost",
-                        "port": 9042,
+                        "port": cassandra_port,
                         "profiling": {"enabled": True},
                     },
                 },

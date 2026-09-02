@@ -1,0 +1,30 @@
+# Patch for DataHub customizations in TopicPartitionProxy.java
+# Upstream version: OpenLineage 1.50.0
+# Generated: 2026-08-26 09:58:09 UTC
+#
+# To apply this patch to a new upstream version, from the acryl-spark-lineage module directory:
+#   patch src/main/java/io/openlineage/spark/agent/lifecycle/plan/TopicPartitionProxy.java < patches/datahub-customizations/v1.50.0/TopicPartitionProxy.patch
+#
+# The target is named explicitly rather than left to -p<n>: both header paths exist during an
+# upgrade, and patch's "fewest components wins" heuristic picks the upstream reference copy, so
+# -p1 would silently rewrite patches/upstream-*/ instead of the source tree.
+#
+--- a/patches/upstream-1.50.0/spark/agent/lifecycle/plan/TopicPartitionProxy.java
++++ b/src/main/java/io/openlineage/spark/agent/lifecycle/plan/TopicPartitionProxy.java
+@@ -17,7 +17,15 @@
+  */
+ @Slf4j
+ public final class TopicPartitionProxy {
+-  private static final String EXPECTED_CLASS_NAME = "org.apache.kafka.common.TopicPartition";
++  // DataHub customization (issue #19005): built at runtime, not written as one literal. The
++  // shadow-jar relocator rewrites string constants, so as a single literal this name got relocated
++  // under io.acryl.shaded, while the TopicPartitions we are handed come from Spark's own
++  // spark-sql-kafka-0-10 at the canonical name. The check below then failed on every partition,
++  // PlanUtils.safeApply swallowed it at INFO, and Kafka streaming inputs were always empty. Joining
++  // segments also un-folds the message below, which used to print the un-rewritten name and hide
++  // it.
++  private static final String EXPECTED_CLASS_NAME =
++      String.join(".", "org", "apache", "kafka", "common", "TopicPartition");
+   private final Object topicPartition;
+ 
+   /**
