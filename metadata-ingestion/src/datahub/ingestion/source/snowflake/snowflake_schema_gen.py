@@ -608,8 +608,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     def _register_dynamic_table_upstreams(
         self, table: SnowflakeDynamicTable, db_name: str, schema_name: str
     ) -> None:
-        if self.aggregator is None:
-            return
+        assert self.aggregator is not None  # caller (_process_tables) guards on this
         downstream_urn = self.identifiers.gen_dataset_urn(
             self.identifiers.get_dataset_identifier(table.name, schema_name, db_name)
         )
@@ -630,7 +629,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         else:
             self.report.num_dynamic_tables_missing_definition += 1
             self.structured_reporter.info(
-                title="Dynamic table definition unavailable — column-level lineage skipped",
+                title="Dynamic table definition unavailable: column-level lineage skipped",
                 message=(
                     "The DDL for this dynamic table could not be retrieved; "
                     "table-level lineage will be produced from INPUTS but "
@@ -652,23 +651,25 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         db_name: str,
         schema_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-        # Collect dynamic-table identifiers above the include_technical_schema gate: the queries
-        # extractor needs them to suppress query-log lineage even when the fallback below is not
-        # emitted, so a dynamic table gets no lineage rather than wrong lineage in that config.
-        for table in tables:
-            if isinstance(table, SnowflakeDynamicTable):
-                self.dynamic_table_identifiers.add(
-                    self.identifiers.get_dataset_identifier(
-                        table.name, schema_name, db_name
-                    )
+        dynamic_tables = [t for t in tables if isinstance(t, SnowflakeDynamicTable)]
+        # Identifiers feed the queries extractor's refresh-row suppression, in every config.
+        for dynamic_table in dynamic_tables:
+            self.dynamic_table_identifiers.add(
+                self.identifiers.get_dataset_identifier(
+                    dynamic_table.name, schema_name, db_name
+                )
+            )
+        # Register lineage outside the include_technical_schema gate (like view definitions) so a
+        # lineage-only run still gets dynamic-table upstreams.
+        if self.aggregator:
+            for dynamic_table in dynamic_tables:
+                self._register_dynamic_table_upstreams(
+                    dynamic_table, db_name, schema_name
                 )
 
         if self.config.include_technical_schema:
             data_reader = self.make_data_reader()
             for table in tables:
-                if isinstance(table, SnowflakeDynamicTable):
-                    self._register_dynamic_table_upstreams(table, db_name, schema_name)
-
                 table_wu_generator = self._process_table(
                     table, snowflake_schema, db_name
                 )

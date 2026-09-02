@@ -3952,7 +3952,7 @@ class TestDynamicTableLineageSuppression:
         reached = self._reached_parser(extractor, rows)
 
         assert reached == ["regular-row"]
-        assert extractor.report.num_dynamic_table_lineage_stmts_filtered == 1
+        assert extractor.report.num_dynamic_table_write_stmts_filtered == 1
 
     def test_empty_dynamic_table_set_no_suppression(self):
         """With no known dynamic tables (e.g. standalone queries mode) nothing is suppressed."""
@@ -3962,7 +3962,7 @@ class TestDynamicTableLineageSuppression:
         reached = self._reached_parser(extractor, rows)
 
         assert reached == ["dt-row"]
-        assert extractor.report.num_dynamic_table_lineage_stmts_filtered == 0
+        assert extractor.report.num_dynamic_table_write_stmts_filtered == 0
 
     def test_modified_object_missing_name_does_not_crash(self):
         """A modified-object entry without objectName is skipped, not fatal (row reaches the parser)."""
@@ -3975,20 +3975,31 @@ class TestDynamicTableLineageSuppression:
         reached = self._reached_parser(extractor, rows)
 
         assert reached == ["noname-row"]
-        assert extractor.report.num_dynamic_table_lineage_stmts_filtered == 0
+        assert extractor.report.num_dynamic_table_write_stmts_filtered == 0
 
     def test_malformed_objects_modified_does_not_abort_stage(self):
-        """Unexpected OBJECTS_MODIFIED shapes (a non-list, or a non-string objectName) must not raise
-        out of the pre-parse check — that would abort the whole query-log stage and silently drop every
-        remaining row. Each such row instead falls through to the parser."""
+        """Unexpected OBJECTS_MODIFIED shapes (invalid JSON, a non-list, a non-dict element, or a
+        non-string objectName) must not raise out of the pre-parse check, which would abort the whole
+        query-log stage and silently drop every remaining row. Each such row instead falls through to
+        the parser."""
         dt_id = self._dt_identifier()
         extractor = self._extractor(dynamic_table_names={dt_id})
+        invalid_json = self._row(
+            self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="invalid-json"
+        )
+        invalid_json["OBJECTS_MODIFIED"] = "{not valid json"  # unparseable string
         non_list = self._row(
             self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="non-list"
         )
         non_list["OBJECTS_MODIFIED"] = json.dumps(
             {"objectName": "PROD.PUBLIC.MY_DT"}
         )  # a dict, not a list
+        non_dict_element = self._row(
+            self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="non-dict-element"
+        )
+        non_dict_element["OBJECTS_MODIFIED"] = json.dumps(
+            ["a bare string"]
+        )  # a list whose element is not a dict
         non_string_name = self._row(
             self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="non-string"
         )
@@ -3997,15 +4008,24 @@ class TestDynamicTableLineageSuppression:
         )  # objectName is not a string
         good = self._row(self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="good")
 
-        reached = self._reached_parser(extractor, [non_list, non_string_name, good])
+        reached = self._reached_parser(
+            extractor,
+            [invalid_json, non_list, non_dict_element, non_string_name, good],
+        )
 
         # No malformed row raised out of the pre-parse filter, so every row reached the parser.
-        assert reached == ["non-list", "non-string", "good"]
+        assert reached == [
+            "invalid-json",
+            "non-list",
+            "non-dict-element",
+            "non-string",
+            "good",
+        ]
 
     def test_collect_and_lookup_use_matching_identifier_forms(self):
         """The seam: the DT set is BUILT with get_dataset_identifier (as _process_tables does) but a
         query-log row is matched with get_dataset_identifier_from_qualified_name. If those two ever
-        normalize the same table differently, suppression silently stops — so pin them with real
+        normalize the same table differently, suppression silently stops, so pin them with real
         builders (no mocks, no building the set via the lookup method)."""
         ids = SnowflakeIdentifierBuilder(
             identifier_config=SnowflakeIdentifierConfig(),
@@ -4020,4 +4040,4 @@ class TestDynamicTableLineageSuppression:
         reached = self._reached_parser(extractor, rows)
 
         assert reached == []  # dropped: the lookup form matched the collected form
-        assert extractor.report.num_dynamic_table_lineage_stmts_filtered == 1
+        assert extractor.report.num_dynamic_table_write_stmts_filtered == 1

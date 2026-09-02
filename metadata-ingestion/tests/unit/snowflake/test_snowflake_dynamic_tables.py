@@ -741,9 +741,31 @@ def test_process_tables_collects_dynamic_table_identifiers():
     assert gen.dynamic_table_identifiers == {"db.sch.dt"}
 
 
+def test_process_tables_registers_lineage_without_technical_schema():
+    """Dynamic-table definition/INPUTS lineage is registered even when include_technical_schema is
+    False (mirroring views). Otherwise a lineage-only run suppresses the DT's query-log rows but gives
+    it no upstreams at all."""
+    gen = _make_gen_with_mocks()
+    gen.config = MagicMock()
+    gen.config.include_technical_schema = False
+    gen.dynamic_table_identifiers = set()
+
+    list(
+        gen._process_tables(
+            [_dt("select 1")],
+            snowflake_schema=MagicMock(),
+            db_name="DB",
+            schema_name="SCHEMA",
+        )
+    )
+
+    # Lineage was registered despite the technical-schema gate being off.
+    gen.aggregator.add_view_definition.assert_called_once()
+
+
 def test_source_wires_dynamic_table_identifiers_into_queries_extractor():
     """The source hands schema-gen's collected dynamic_table_identifiers to the queries extractor as
-    dynamic_table_names — the seam that connects dynamic-table discovery to query-log suppression. A
+    dynamic_table_names, the seam that connects dynamic-table discovery to query-log suppression. A
     refactor that drops or renames this kwarg would pass every other unit test and silently disable
     suppression, so pin it here."""
     from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
@@ -773,7 +795,7 @@ def test_source_wires_dynamic_table_identifiers_into_queries_extractor():
 
 def test_register_dynamic_table_excludes_self_from_inputs():
     """INPUTS that list the dynamic table itself (e.g. a MERGE INTO SELF definition) must not become a
-    self-loop upstream — the exact edge this path exists to remove."""
+    self-loop upstream, the exact edge this path exists to remove."""
     gen = _make_gen_with_mocks()
     table = SnowflakeDynamicTable(
         name="DT",

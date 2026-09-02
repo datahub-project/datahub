@@ -474,7 +474,7 @@ def test_snowflake_dynamic_table_missing_monitor_privilege_raises_pipeline_warni
         assert report.num_dynamic_tables_missing_definition == 1
         assert any(
             w.title
-            == "Dynamic table definition unavailable — column-level lineage skipped"
+            == "Dynamic table definition unavailable: column-level lineage skipped"
             for w in report.infos
         )
 
