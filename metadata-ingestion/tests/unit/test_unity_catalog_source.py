@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+from typing import Iterator
 from unittest.mock import ANY, patch
 
 import pytest
@@ -6,7 +8,16 @@ from databricks.sdk.service.catalog import TableType
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
-from datahub.ingestion.source.unity.proxy_types import Column, Schema, Table
+from datahub.ingestion.source.unity.proxy_types import (
+    Column,
+    Query,
+    QueryStatementType,
+    Schema,
+    Table,
+    TableReference,
+    usage_statement_types,
+)
+from datahub.ingestion.source.unity.query_lineage import QueryLineageResolver
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 
 
@@ -1188,7 +1199,7 @@ class TestUnityCatalogMetricViews:
         )
         with patch.object(source, "ingest_lineage", return_value=None) as rest_path:
             list(source.process_table(table, schema))
-        rest_path.assert_called_once_with(table)
+        rest_path.assert_called_once_with(table, source.query_lineage_resolver)
 
     def test_flag_off_uses_ingest_lineage_not_yaml(self):
         source = self._build_source(include_metric_views=False)
@@ -1199,7 +1210,7 @@ class TestUnityCatalogMetricViews:
         ):
             list(source.process_table(table, schema))
         yaml_path.assert_not_called()
-        rest_path.assert_called_once_with(table)
+        rest_path.assert_called_once_with(table, source.query_lineage_resolver)
 
     def test_yaml_lineage_no_parseable_sources_increments_counter(self):
         """Source entries that cannot resolve to a TableReference are surfaced via a counter."""
@@ -3177,3 +3188,442 @@ class TestUnityCatalogViewFiltering:
         assert dropped == [table.id]
         assert view.ref in source.view_refs
         assert metric_view.ref in source.table_refs
+
+
+class TestUnityCatalogQueryLinkedLineage:
+    @pytest.fixture(autouse=True)
+    def _mock_workspace_client(self):
+        with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+            yield
+
+    @staticmethod
+    def _build_source(**extra: object) -> UnityCatalogSource:
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                **extra,
+            }
+        )
+        ctx = PipelineContext(run_id="test_run")
+        return UnityCatalogSource.create(config, ctx)
+
+    @staticmethod
+    def _build_table_with_upstream() -> Table:
+        from datahub.ingestion.source.unity.proxy_types import Catalog
+
+        # metastore=None matches production under _build_source's default
+        # include_metastore=False: process_metastores only assigns a real
+        # Metastore to catalogs when that flag is on (source.py:774-776), so a
+        # table ref's metastore is genuinely None here, not just in this fixture.
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=None,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+        table = Table(
+            id="c.s.my_table",
+            name="my_table",
+            comment=None,
+            schema=schema,
+            columns=[],
+            storage_location=None,
+            data_source_format=None,
+            table_type=TableType.MANAGED,
+            owner=None,
+            generation=None,
+            created_at=None,
+            created_by=None,
+            updated_at=None,
+            updated_by=None,
+            table_id=None,
+            view_definition=None,
+            properties={},
+        )
+        upstream_ref = TableReference(
+            metastore=None, catalog="c", schema="s", table="upstream_table"
+        )
+        table.upstreams = {upstream_ref: {"col_a": ["col_a"]}}
+        return table
+
+    @staticmethod
+    def _build_query(upstream_ref: TableReference, table: Table) -> Query:
+        return Query(
+            query_id="stmt-1",
+            query_text="INSERT INTO c.s.my_table SELECT col_a FROM c.s.upstream_table",
+            statement_type=None,
+            start_time=None,
+            end_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            user_id=None,
+            user_name=None,
+            executed_as_user_id=None,
+            executed_as_user_name=None,
+            source_table_full_names=[upstream_ref.qualified_table_name],
+            target_table_full_names=[table.ref.qualified_table_name],
+        )
+
+    def test_lineage_aspect_sets_query_urn_on_upstream(self):
+        """Warehouse-attributable edges carry the query URN that renders the ~ node."""
+        source = self._build_source()
+        table = self._build_table_with_upstream()
+        dataset_urn = source.gen_dataset_urn(table.ref)
+        upstream_ref = next(iter(table.upstreams))
+        upstream_urn = source.gen_dataset_urn(upstream_ref)
+
+        urn_by_full_name = {
+            upstream_ref.qualified_table_name: upstream_urn,
+            table.ref.qualified_table_name: dataset_urn,
+        }
+        resolver = QueryLineageResolver(resolve_urn=urn_by_full_name.get)
+        resolver.add_query(self._build_query(upstream_ref, table))
+        expected_query_urn = resolver.query_urn_for(upstream_urn, dataset_urn)
+        assert expected_query_urn is not None
+
+        aspect = source._generate_lineage_aspect(dataset_urn, table, resolver=resolver)
+
+        assert aspect is not None
+        linked = [u for u in aspect.upstreams if u.dataset == upstream_urn]
+        assert len(linked) == 1
+        assert linked[0].query == expected_query_urn
+        assert source.report.num_lineage_edges_query_linked == 1
+        assert source.report.num_lineage_edges_query_unlinked == 0
+
+    def test_lineage_aspect_without_resolver_sets_no_query(self):
+        """Cluster-executed lineage has no statement_id, so nothing is linked."""
+        source = self._build_source()
+        table = self._build_table_with_upstream()
+        dataset_urn = source.gen_dataset_urn(table.ref)
+
+        aspect = source._generate_lineage_aspect(dataset_urn, table, resolver=None)
+
+        assert aspect is not None
+        assert all(u.query is None for u in aspect.upstreams)
+        # With no resolver the feature is inert: neither counter moves, so the
+        # report cannot imply the feature ran.
+        assert source.report.num_lineage_edges_query_linked == 0
+        assert source.report.num_lineage_edges_query_unlinked == 0
+
+    def test_unmatched_edge_counts_as_unlinked(self):
+        """An edge the resolver cannot attribute is counted, not silently dropped.
+
+        This counter is how an operator distinguishes "my workload is
+        cluster-executed, so the feature cannot apply" from "the feature ran and
+        matched nothing".
+        """
+        source = self._build_source()
+        table = self._build_table_with_upstream()
+        dataset_urn = source.gen_dataset_urn(table.ref)
+        resolver = QueryLineageResolver(resolve_urn=lambda _full_name: None)
+
+        aspect = source._generate_lineage_aspect(dataset_urn, table, resolver=resolver)
+
+        assert aspect is not None
+        assert all(u.query is None for u in aspect.upstreams)
+        assert source.report.num_lineage_edges_query_linked == 0
+        assert source.report.num_lineage_edges_query_unlinked == 1
+
+    def test_fine_grained_lineage_carries_query_urn(self):
+        """Column-level entries carry the same query URN as their table edge."""
+        source = self._build_source()
+        table = self._build_table_with_upstream()
+        dataset_urn = source.gen_dataset_urn(table.ref)
+        upstream_ref = next(iter(table.upstreams))
+        upstream_urn = source.gen_dataset_urn(upstream_ref)
+
+        urn_by_full_name = {
+            upstream_ref.qualified_table_name: upstream_urn,
+            table.ref.qualified_table_name: dataset_urn,
+        }
+        resolver = QueryLineageResolver(resolve_urn=urn_by_full_name.get)
+        resolver.add_query(self._build_query(upstream_ref, table))
+        expected_query_urn = resolver.query_urn_for(upstream_urn, dataset_urn)
+        assert expected_query_urn is not None
+
+        aspect = source._generate_lineage_aspect(dataset_urn, table, resolver=resolver)
+
+        assert aspect is not None
+        assert aspect.fineGrainedLineages
+        assert all(fg.query == expected_query_urn for fg in aspect.fineGrainedLineages)
+
+    def test_lineage_urn_helper_agrees_with_gen_dataset_urn(self):
+        """The resolver's URNs must match the ones the lineage aspect looks up.
+
+        table.ref.metastore is genuinely None here (see the comment on
+        _build_table_with_upstream), matching what production passes to both
+        gen_dataset_urn and the resolver under the default include_metastore=False
+        — so this exercises the real divergence risk instead of two paths that are
+        structurally forced to agree.
+        """
+        source = self._build_source()
+        table = self._build_table_with_upstream()
+
+        from_gen = source.gen_dataset_urn(table.ref)
+        from_helper = source._lineage_full_name_to_urn(table.ref.qualified_table_name)
+
+        assert from_helper == from_gen, (
+            "resolver and lineage aspect disagree on dataset URN; "
+            "every query link would silently miss"
+        )
+
+    def test_lineage_full_name_to_urn_respects_configured_patterns(self):
+        """Mirrors process_catalogs/process_schemas/process_tables' own pattern
+        checks, using the exact argument form each expects: a bare catalog name,
+        a "catalog.schema" pair, and a "catalog.schema.table" triple. The
+        query-history fetch's own catalog_pattern push-down (proxy.py) only
+        excludes a statement when *neither* its source nor target catalog
+        matches, and applies no schema/table filtering at all -- so without this,
+        a table outside the configured scope could still reach querySubjects.
+        """
+        source = self._build_source(
+            catalog_pattern={"deny": ["blocked_catalog"]},
+            schema_pattern={"deny": ["c\\.blocked_schema"]},
+            table_pattern={"deny": ["c\\.s\\.blocked_table"]},
+        )
+
+        assert source._lineage_full_name_to_urn("c.s.my_table") is not None
+        assert source._lineage_full_name_to_urn("blocked_catalog.s.my_table") is None
+        assert source._lineage_full_name_to_urn("c.blocked_schema.my_table") is None
+        assert source._lineage_full_name_to_urn("c.s.blocked_table") is None
+
+    def test_pattern_excluded_table_does_not_reach_query_subjects(self):
+        """A statement touching a table outside the configured patterns must not
+        contribute a querySubjects entry: resolve_urn returns None for it, so it
+        can never become a resolver candidate in the first place.
+        """
+        source = self._build_source(schema_pattern={"deny": ["c\\.blocked_schema"]})
+        resolver = QueryLineageResolver(resolve_urn=source._lineage_full_name_to_urn)
+        resolver.add_query(
+            Query(
+                query_id="stmt-1",
+                query_text="INSERT INTO c.s.my_table SELECT col_a "
+                "FROM c.blocked_schema.upstream_table",
+                statement_type=None,
+                start_time=None,
+                end_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                user_id=None,
+                user_name=None,
+                executed_as_user_id=None,
+                executed_as_user_name=None,
+                source_table_full_names=["c.blocked_schema.upstream_table"],
+                target_table_full_names=["c.s.my_table"],
+            )
+        )
+
+        # The upstream side never resolved to a URN, so no edge exists at all --
+        # not even one with an empty subjects list.
+        assert resolver.queries_to_emit() == []
+        assert resolver.num_edges_linked == 0
+
+    def test_wiring_emits_query_linked_lineage_end_to_end(self, monkeypatch):
+        """Drives the real wiring, not a hand-built resolver: stubs
+        get_query_history_via_system_tables at the Databricks boundary, then calls
+        the real _build_query_lineage_resolver() and _gen_query_entity_workunits()
+        before process_table()/ingest_lineage(), exactly as get_workunits_internal
+        wires them, and inspects the emitted workunits.
+
+        This is the test the brief's original (rejected) _lineage_full_name_to_urn
+        design — which resolved through the near-empty schema resolver during this
+        pass — would have failed: every other test in this class injects its own
+        resolver and so can't catch a real resolver that quietly links nothing.
+
+        Does not drive process_metastores/get_workunits_internal itself (that would
+        additionally require mocking catalogs/schemas/tables API calls unrelated to
+        this wiring); table_lineage/get_column_lineage are stubbed because they are
+        themselves Databricks-boundary calls the fixture's preset table.upstreams
+        doesn't need.
+        """
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+        from datahub.metadata.schema_classes import (
+            QuerySubjectsClass,
+            UpstreamLineageClass,
+        )
+
+        source = self._build_source()
+        table = self._build_table_with_upstream()
+        upstream_ref = next(iter(table.upstreams))
+
+        query = self._build_query(upstream_ref, table)
+        captured: dict = {}
+
+        def _stub_history(*args: object, **kwargs: object) -> Iterator[Query]:
+            captured.update(kwargs)
+            return iter([query])
+
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy,
+            "get_query_history_via_system_tables",
+            _stub_history,
+        )
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy, "table_lineage", lambda *a, **k: None
+        )
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy, "get_column_lineage", lambda *a, **k: None
+        )
+
+        source.query_lineage_resolver = source._build_query_lineage_resolver()
+        assert source.query_lineage_resolver is not None
+
+        # Assert the arguments actually passed, not just the outcome under a
+        # permissive stub. include_operational_stats narrows the *fetch*: when
+        # false, usage_statement_types() allows SELECT only, so every
+        # lineage-producing statement (INSERT/CTAS/MERGE/UPDATE/COPY) is excluded
+        # and the whole feature becomes a silent no-op.
+        assert captured["include_operational_stats"] is True
+        assert QueryStatementType.INSERT in usage_statement_types(
+            bool(captured["include_operational_stats"])
+        )
+        # This is a second fetch of the same window; its parse/row-read problems
+        # must not inflate the usage path's counters or duplicate its warnings.
+        assert captured["secondary_fetch"] is True
+
+        # _gen_query_entity_workunits must run before process_table, exactly as
+        # get_workunits_internal orders them, so the Query entity already exists
+        # by the time process_table's lineage aspect can reference its URN.
+        entity_workunits = list(
+            source._gen_query_entity_workunits(source.query_lineage_resolver)
+        )
+        table_workunits = list(source.process_table(table, table.schema))
+
+        upstream_urn = source.gen_dataset_urn(upstream_ref)
+        dataset_urn = source.gen_dataset_urn(table.ref)
+        expected_query_urn = source.query_lineage_resolver.query_urn_for(
+            upstream_urn, dataset_urn
+        )
+        assert expected_query_urn is not None
+
+        lineage_aspects = [
+            wu.metadata.aspect
+            for wu in table_workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+        ]
+        assert len(lineage_aspects) == 1
+        linked = [u for u in lineage_aspects[0].upstreams if u.dataset == upstream_urn]
+        assert len(linked) == 1
+        assert linked[0].query == expected_query_urn
+
+        query_entity_urns = {
+            wu.metadata.entityUrn
+            for wu in entity_workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        }
+        assert expected_query_urn in query_entity_urns
+
+        subjects_aspects = [
+            wu.metadata.aspect
+            for wu in entity_workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and wu.metadata.entityUrn == expected_query_urn
+            and isinstance(wu.metadata.aspect, QuerySubjectsClass)
+        ]
+        assert len(subjects_aspects) == 1
+        subject_urns = {s.entity for s in subjects_aspects[0].subjects}
+        assert subject_urns == {upstream_urn, dataset_urn}
+
+    def test_query_entities_precede_referencing_lineage_aspects(self, monkeypatch):
+        """Pins get_workunits_internal's real emission order: a `query` URN
+        pointing at an entity that hasn't been emitted yet renders as a ghost
+        node in the lineage graph, so the queryProperties workunit for a query
+        must appear before any aspect that references its URN.
+
+        Drives get_workunits_internal() itself (unlike the wiring test above,
+        which calls process_table/_gen_query_entity_workunits directly) so a
+        regression that reorders the two calls inside it is actually caught.
+        process_metastores/get_view_lineage are stubbed to avoid mocking the
+        unrelated catalogs/schemas/tables API calls a real crawl would need.
+        """
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+        from datahub.metadata.schema_classes import (
+            QueryPropertiesClass,
+            UpstreamLineageClass,
+        )
+
+        source = self._build_source(include_usage_statistics=False)
+        table = self._build_table_with_upstream()
+        upstream_ref = next(iter(table.upstreams))
+        query = self._build_query(upstream_ref, table)
+
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy,
+            "get_query_history_via_system_tables",
+            lambda *a, **k: iter([query]),
+        )
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy, "table_lineage", lambda *a, **k: None
+        )
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy, "get_column_lineage", lambda *a, **k: None
+        )
+        monkeypatch.setattr(
+            source,
+            "process_metastores",
+            lambda: source.process_table(table, table.schema),
+        )
+        monkeypatch.setattr(source, "get_view_lineage", lambda: iter(()))
+
+        workunits = list(source.get_workunits_internal())
+
+        upstream_urn = source.gen_dataset_urn(upstream_ref)
+        dataset_urn = source.gen_dataset_urn(table.ref)
+        assert source.query_lineage_resolver is not None
+        expected_query_urn = source.query_lineage_resolver.query_urn_for(
+            upstream_urn, dataset_urn
+        )
+        assert expected_query_urn is not None
+
+        query_props_index = next(
+            i
+            for i, wu in enumerate(workunits)
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and wu.metadata.entityUrn == expected_query_urn
+            and isinstance(wu.metadata.aspect, QueryPropertiesClass)
+        )
+        referencing_index = next(
+            i
+            for i, wu in enumerate(workunits)
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+            and any(u.query == expected_query_urn for u in wu.metadata.aspect.upstreams)
+        )
+        assert query_props_index < referencing_index
+
+    def test_secondary_fetch_false_when_usage_will_not_read_system_tables(
+        self, monkeypatch
+    ):
+        """secondary_fetch must reflect reality, not be hardcoded.
+
+        When usage extraction is off (or forced onto the REST API), the lineage
+        path's fetch is the ONLY read of system.query.history, so it must not
+        silence its own parse/row-read warnings under a fetch that never happens.
+        """
+        source = self._build_source(include_usage_statistics=False)
+
+        captured: dict = {}
+
+        def _stub_history(*args: object, **kwargs: object) -> Iterator[Query]:
+            captured.update(kwargs)
+            return iter([])
+
+        monkeypatch.setattr(
+            source.unity_catalog_api_proxy,
+            "get_query_history_via_system_tables",
+            _stub_history,
+        )
+
+        resolver = source._build_query_lineage_resolver()
+
+        assert resolver is not None
+        assert captured["secondary_fetch"] is False

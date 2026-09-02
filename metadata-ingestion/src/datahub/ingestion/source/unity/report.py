@@ -34,6 +34,26 @@ class UnityCatalogReport(SQLSourceReport):
     num_external_upstreams_unsupported: int = 0
     num_external_upstreams_partition_stripped: int = 0
 
+    # Query-linked lineage. Read these together: statements_seen is the whole
+    # population fetched from system.query.history, of which read-only statements
+    # (no target table) are never linkable; edges_linked plus edges_unlinked is
+    # every lineage edge the connector emitted while the feature was active, so
+    # edges_linked == 0 with a non-zero seen count means the feature did nothing.
+    num_query_entities_emitted: int = 0
+    num_lineage_edges_query_linked: int = 0
+    num_lineage_edges_query_unlinked: int = 0
+    num_lineage_statements_seen: int = 0
+    # Statements with no usable text; statements resolved to text is
+    # num_lineage_statements_seen minus this.
+    num_lineage_statements_skipped: int = 0
+    num_lineage_statements_unresolved_tables: int = 0
+    # The query-lineage path fetches system.query.history a second time (the usage
+    # path does its own fetch). Its parse and row-read problems are recorded here
+    # rather than on the usage counters below, so one underlying failure is not
+    # counted twice. Sharing a single fetch between the two paths is a follow-up.
+    num_query_lineage_fetch_statements_missing_info: int = 0
+    num_query_lineage_fetch_row_field_read_errors: int = 0
+
     num_queries: int = 0
     num_queries_dropped: int = 0
     num_queries_preparsed_from_lineage: int = 0

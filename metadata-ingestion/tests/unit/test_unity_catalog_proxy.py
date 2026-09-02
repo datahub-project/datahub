@@ -1920,6 +1920,50 @@ class TestUnityCatalogProxyUsageSystemTables:
     @patch(
         "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
+    def test_get_query_history_via_system_tables_secondary_fetch_reporting(
+        self, mock_execute, mock_proxy
+    ):
+        """A secondary fetch must not double-count or re-warn.
+
+        The query-lineage path reads the same window the usage path reads. If both
+        fetches record into the same counters and both raise the same warning, the
+        report roughly doubles one underlying failure.
+        """
+        from types import SimpleNamespace
+
+        bad_row = SimpleNamespace(
+            statement_id="query_bad",
+            statement_text="SELECT col_a FROM my_catalog.my_schema.src",
+            statement_type="NOT_A_VALID_TYPE",
+            start_time=datetime(2023, 1, 1, 10, 0, 0),
+            end_time=datetime(2023, 1, 1, 10, 0, 30),
+            executed_by="user@example.com",
+            executed_as="user@example.com",
+            executed_by_user_id=123,
+            executed_as_user_id=123,
+        )
+        mock_execute.side_effect = lambda *a, **kw: (r for r in [bad_row])
+
+        list(
+            mock_proxy.get_query_history_via_system_tables(
+                datetime(2023, 1, 1),
+                datetime(2023, 1, 31),
+                secondary_fetch=True,
+            )
+        )
+
+        assert mock_proxy.report.num_queries_missing_info == 0
+        assert mock_proxy.report.num_query_lineage_fetch_statements_missing_info == 1
+        warning_titles = [str(w.title) for w in mock_proxy.report.warnings]
+        assert not any(
+            "Failed to parse queries from system tables" in t for t in warning_titles
+        ), (
+            f"secondary fetch must not repeat the primary fetch's warning: {warning_titles}"
+        )
+
+    @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
+    )
     def test_get_query_history_via_system_tables_time_parameters(
         self, mock_execute, mock_proxy
     ):

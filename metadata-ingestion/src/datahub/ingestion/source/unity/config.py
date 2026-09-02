@@ -400,7 +400,15 @@ class UnityCatalogSourceConfig(
 
     ignore_start_time_lineage: bool = pydantic.Field(
         default=False,
-        description="Option to ignore the start_time and retrieve all available lineage. When enabled, the start_time filter will be set to zero to extract all lineage events regardless of the configured time window.",
+        description=(
+            "Option to ignore the start_time and retrieve all available lineage. When enabled, "
+            "the start_time filter will be set to zero to extract all lineage events regardless "
+            "of the configured time window. Note this does not widen the system.query.history "
+            "window used to attach a SQL statement to a lineage edge (see include_queries) — "
+            "that fetch still starts at start_time, so an unbounded system.query.history scan is "
+            "avoided at the cost of older lineage edges being emitted without a query link. This "
+            "is surfaced via the num_lineage_edges_query_unlinked report counter."
+        ),
     )
 
     column_lineage_column_limit: int = pydantic.Field(

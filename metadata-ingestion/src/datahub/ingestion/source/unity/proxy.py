@@ -791,6 +791,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         *,
         catalog_pattern: Optional[AllowDenyPattern] = None,
         include_operational_stats: bool = True,
+        secondary_fetch: bool = False,
     ) -> Iterable[Query]:
         """Get query history using system.query.history joined with table lineage.
 
@@ -800,6 +801,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         When catalog_pattern is provided, filters queries via a semi-join on
         table_lineage so only statements touching matching catalogs are fetched.
+
+        `secondary_fetch` marks a caller that re-reads a window another caller
+        already reads (the query-lineage path; see
+        UnityCatalogSource._build_query_lineage_resolver). Such a fetch records its
+        parse and row-read problems under its own counters and leaves the warnings
+        to the primary fetch, so the same underlying failures are not counted or
+        warned about twice.
         """
         logger.info(
             f"Fetching query history from system.query.history for period: {start_time} to {end_time}"
@@ -957,29 +965,42 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             yield from _flush_current()
         finally:
             parse_failures = self.report.num_queries_missing_info - missing_info_before
-            if parse_failures > 0:
-                self.report.warning(
-                    title="Failed to parse queries from system tables",
-                    message=(
-                        "Statements from system.query.history could not be parsed "
-                        "and were skipped."
-                    ),
-                    context=f"count={parse_failures}",
-                    log=False,
-                )
             row_field_errors = (
                 self.report.num_lineage_row_field_read_errors - row_field_errors_before
             )
-            if row_field_errors > 0:
-                self.report.warning(
-                    title="Failed to read lineage row fields",
-                    message=(
-                        "Lineage column values from system.access.table_lineage "
-                        "could not be read and were skipped."
-                    ),
-                    context=f"count={row_field_errors}",
-                    log=False,
+            if secondary_fetch:
+                # Hand this fetch's problems back to its own counters. The two
+                # fetches are sequential (never concurrent), so rewinding to the
+                # snapshot cannot discard another caller's increments.
+                self.report.num_queries_missing_info = missing_info_before
+                self.report.num_lineage_row_field_read_errors = row_field_errors_before
+                self.report.num_query_lineage_fetch_statements_missing_info += (
+                    parse_failures
                 )
+                self.report.num_query_lineage_fetch_row_field_read_errors += (
+                    row_field_errors
+                )
+            else:
+                if parse_failures > 0:
+                    self.report.warning(
+                        title="Failed to parse queries from system tables",
+                        message=(
+                            "Statements from system.query.history could not be "
+                            "parsed and were skipped."
+                        ),
+                        context=f"count={parse_failures}",
+                        log=False,
+                    )
+                if row_field_errors > 0:
+                    self.report.warning(
+                        title="Failed to read lineage row fields",
+                        message=(
+                            "Lineage column values from system.access.table_lineage "
+                            "could not be read and were skipped."
+                        ),
+                        context=f"count={row_field_errors}",
+                        log=False,
+                    )
 
     def _build_datetime_where_conditions(
         self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
