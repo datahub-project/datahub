@@ -60,9 +60,13 @@ def _db2_environment_diagnostics() -> str:
             _shell(
                 "docker exec testdb2 sh -c 'cat /proc/sys/fs/aio-nr /proc/sys/fs/aio-max-nr' 2>&1"
             ),
-            "--- db2diag tail ---",
+            "--- device sector sizes ---",
             _shell(
-                "docker exec testdb2 sh -c 'tail -n 120 /database/config/db2inst1/sqllib/db2dump/DIAG0000/db2diag.log' 2>&1"
+                "docker exec testdb2 sh -c 'cat /sys/block/*/queue/logical_block_size /sys/block/*/queue/physical_block_size 2>/dev/null; blockdev --getss --getpbsz /dev/mapper/root 2>&1'"
+            ),
+            "--- db2diag root errors (first Severe/Error entries with OS errno) ---",
+            _shell(
+                "docker exec testdb2 sh -c \"grep -B3 -A22 -E 'LEVEL: (Severe|Error)' /database/config/db2inst1/sqllib/db2dump/DIAG0000/db2diag.log | head -220\" 2>&1"
             ),
         ]
     )
