@@ -1,6 +1,6 @@
 {
-    "emptyMessages.application.description": "将实体与 Application 关联，以跟踪归属关系和生命周期。",
-    "emptyMessages.application.title": "暂无 Application",
+    "emptyMessages.application.description": "将实体与应用关联，以跟踪归属关系和生命周期。",
+    "emptyMessages.application.title": "暂无应用",
     "emptyMessages.containedBy.description": "术语可以被其他术语包含，用于表示“Has A”类型的关系。",
     "emptyMessages.containedBy.title": "未被任何术语包含",
     "emptyMessages.contains.description": "术语可以包含其他术语，用于表示“Has A”类型的关系。",
