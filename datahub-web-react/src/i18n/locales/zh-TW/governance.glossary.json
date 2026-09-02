@@ -1,5 +1,7 @@
 {
+    "card.nodeGroupCountTooltip_one": "包含 {{count}} 個詞彙群組",
     "card.nodeGroupCountTooltip_other": "包含 {{count}} 個詞彙群組",
+    "card.termCountTooltip_one": "包含 {{count}} 個詞彙",
     "card.termCountTooltip_other": "包含 {{count}} 個詞彙",
     "empty.addTerm": "新增詞彙",
     "empty.addTermGroup": "新增詞彙群組",
@@ -10,16 +12,16 @@
     "page.createGlossary": "建立詞彙表",
     "page.subtitle": "使用資料字典為你的資料資產與欄位分類",
     "page.title": "商業詞彙表",
-    "section.glossaryTerms": "Glossary Term",
+    "section.glossaryTerms": "詞彙",
     "section.termGroups": "詞彙群組",
     "sidebar.collapse": "收合詞彙表",
+    "sidebar.domainFilter.label": "資料域",
+    "sidebar.domainFilter.placeholder": "依資料域篩選",
     "sidebar.expand": "展開詞彙表",
     "sidebar.home": "詞彙表首頁",
-    "sidebar.ownerFilter.label": "Owner",
-    "sidebar.ownerFilter.placeholder": "依 Owner 篩選",
-    "sidebar.domainFilter.label": "Domain",
-    "sidebar.domainFilter.placeholder": "依 Domain 篩選",
-    "sidebar.section.allTerms": "所有 Glossary Term",
-    "sidebar.tagFilter.label": "Tag",
-    "sidebar.tagFilter.placeholder": "依 Tag 篩選"
+    "sidebar.ownerFilter.label": "擁有者",
+    "sidebar.ownerFilter.placeholder": "依擁有者篩選",
+    "sidebar.section.allTerms": "所有詞彙",
+    "sidebar.tagFilter.label": "標籤",
+    "sidebar.tagFilter.placeholder": "依標籤篩選"
 }
