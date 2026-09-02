@@ -62,6 +62,7 @@ from datahub.sql_parsing.schema_resolver import (
 from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_CASE_INSENSITIVE_COLS,
+    DIALECTS_WITH_CASE_PRESERVING_COL_URNS,
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
     QueryType,
     QueryTypeProps,
@@ -853,24 +854,108 @@ class SqlUnderstandingError(Exception):
     pass
 
 
+def _identity_str(name: str) -> str:
+    return name
+
+
 @dataclasses.dataclass
 class _ColumnResolver:
     sqlglot_db_schema: sqlglot.MappingSchema
     table_schema_normalized_mapping: Dict[_TableName, Dict[str, str]]
-    use_case_insensitive_cols: bool
+    # Folds an identifier to the spelling the schema mapping and the statement are
+    # keyed by. Identity for the case-sensitive dialects.
+    fold_col_case: Callable[[str], str]
+    # Casing to emit when no schema is available to recover the real spelling from.
+    # Deliberately not the same function as fold_col_case: see
+    # DIALECTS_WITH_CASE_PRESERVING_COL_URNS.
+    #
+    # Known asymmetry on the output side: an explicit alias reaches this verbatim,
+    # because an alias is an Identifier rather than a Column and so escapes the fold,
+    # while a bare `SELECT t.MyCol` arrives already folded and comes out lowercased.
+    # It only shows when the downstream table's schema is absent - with a schema, the
+    # mapping restores the real spelling either way - and a downstream absent from
+    # DataHub has no schemaField URN for the casing to disagree with. Recovering it
+    # would mean carrying the pre-fold spelling of every output column through
+    # qualification, which is a change to the fold itself rather than to this
+    # fallback, so it is left recorded rather than fixed here.
+    fallback_col_case: Callable[[str], str]
+
+    # Whether to restore column casing when rendering column_logic. Scoped to the
+    # dialects whose fold this change introduces; see the note in render_column_logic
+    # for why the others are left alone.
+    restore_logic_col_case: bool
+
+    def real_col_case_for(self, columns: Iterable[str]) -> Dict[str, str]:
+        """Folded spelling -> real spelling, for the given resolved column names.
+
+        Built from the names already resolved for one lineage edge rather than from
+        every schema in the statement, so a rendered expression can only ever be
+        given a spelling that edge itself reports. A flattened statement-wide map
+        cannot do that: it would hand a column belonging to a table with no schema
+        the casing of a same-named column from a table that has one.
+        """
+        real_case: Dict[str, str] = {}
+        ambiguous: Set[str] = set()
+        for real in columns:
+            folded = self.fold_col_case(real)
+            if folded in ambiguous:
+                continue
+            existing = real_case.get(folded)
+            if existing is not None and existing != real:
+                del real_case[folded]
+                ambiguous.add(folded)
+                continue
+            real_case[folded] = real
+        return real_case
+
+    def render_column_logic(
+        self,
+        expression: sqlglot.exp.Expr,
+        dialect: sqlglot.Dialect,
+        real_col_case: Dict[str, str],
+    ) -> str:
+        """Render an expression for the human-readable transformOperation.
+
+        Column references in the statement were folded in place before the lineage
+        was computed, so rendering the expression as-is names columns in their folded
+        spelling while the schemaField URNs on the same edge carry the real spelling.
+        Restore it so an edge does not describe itself with a column name that differs
+        from the URN beside it - taking the spellings from that edge's own resolved
+        upstreams, which is what makes the two agree by construction.
+
+        The same mismatch exists on the other folding dialects, where it predates this
+        change; correcting those moves goldens for platforms this change is not about,
+        so it is left for its own change.
+        """
+        if not self.restore_logic_col_case or not real_col_case:
+            return expression.sql(dialect=dialect)
+
+        rendered = expression.copy()
+        for column in rendered.find_all(sqlglot.exp.Column):
+            identifier = column.this
+            if not isinstance(identifier, sqlglot.exp.Identifier):
+                continue
+            real = real_col_case.get(identifier.name)
+            if real is not None:
+                identifier.set("this", real)
+        return rendered.sql(dialect=dialect)
 
     def schema_aware_fuzzy_column_resolve(
         self, table: Optional[_TableName], sqlglot_column: str
     ) -> str:
-        default_col_name = (
-            sqlglot_column.lower() if self.use_case_insensitive_cols else sqlglot_column
-        )
-        if table:
-            return self.table_schema_normalized_mapping[table].get(
-                sqlglot_column, default_col_name
-            )
-        else:
+        default_col_name = self.fallback_col_case(sqlglot_column)
+        if not table:
             return default_col_name
+
+        # The mapping is keyed by the folded spelling, so the lookup key has to be
+        # folded too. Column references in the statement have already been folded,
+        # but output-column aliases have not: a quoted alias such as `MyCol` would
+        # otherwise miss the mapping and lose the real casing from the schema.
+        # `.get` rather than `[...]`: the mapping is a defaultdict, and subscripting
+        # it on a read would insert an empty entry for every unresolved table.
+        return self.table_schema_normalized_mapping.get(table, {}).get(
+            self.fold_col_case(sqlglot_column), default_col_name
+        )
 
 
 def _prepare_query_columns(
@@ -895,6 +980,31 @@ def _prepare_query_columns(
     use_case_insensitive_cols = is_dialect_instance(
         dialect, DIALECTS_WITH_CASE_INSENSITIVE_COLS
     )
+    # For case-insensitive dialects we fold column identifiers to one canonical
+    # spelling. The sqlglot schema, the statement and the mapping back to the
+    # schema's real casing all have to agree on it, so it is derived once here and
+    # shared. Folding to a no-op for the case-sensitive dialects keeps every caller
+    # free of a "should I fold?" branch.
+    fold_col_case: Callable[[str], str]
+    if not use_case_insensitive_cols:
+        fold_col_case = _identity_str
+    elif is_dialect_instance(dialect, DIALECTS_WITH_DEFAULT_UPPERCASE_COLS):
+        fold_col_case = str.upper
+    else:
+        fold_col_case = str.lower
+
+    # Without a schema we can only guess a column's casing. Lowercase is right for
+    # the dialects whose sources lowercase column names; for MySQL, whose source
+    # reports the catalog's casing, the spelling written in the query is closer to
+    # the truth than a folded guess, and a folded guess yields a schemaField URN
+    # that does not exist.
+    fallback_col_case: Callable[[str], str]
+    if not use_case_insensitive_cols or is_dialect_instance(
+        dialect, DIALECTS_WITH_CASE_PRESERVING_COL_URNS
+    ):
+        fallback_col_case = _identity_str
+    else:
+        fallback_col_case = str.lower
 
     sqlglot_db_schema = sqlglot.MappingSchema(
         dialect=dialect,
@@ -907,17 +1017,7 @@ def _prepare_query_columns(
     for table, table_schema in table_schemas.items():
         normalized_table_schema: SchemaInfo = {}
         for col, col_type in table_schema.items():
-            if use_case_insensitive_cols:
-                col_normalized = (
-                    # This is required to match Sqlglot's behavior.
-                    col.upper()
-                    if is_dialect_instance(
-                        dialect, DIALECTS_WITH_DEFAULT_UPPERCASE_COLS
-                    )
-                    else col.lower()
-                )
-            else:
-                col_normalized = col
+            col_normalized = fold_col_case(col)
 
             table_schema_normalized_mapping[table][col_normalized] = col
             normalized_table_schema[col_normalized] = col_type or "UNKNOWN"
@@ -932,8 +1032,16 @@ def _prepare_query_columns(
         def _sqlglot_force_column_normalizer(
             node: sqlglot.exp.Expression,
         ) -> sqlglot.exp.Expression:
-            if isinstance(node, sqlglot.exp.Column):
+            if isinstance(node, sqlglot.exp.Column) and isinstance(
+                node.this, sqlglot.exp.Identifier
+            ):
                 node.this.set("quoted", False)
+                # Fold the case here rather than leaving it to the dialect's
+                # normalization strategy. sqlglot models some case-insensitive
+                # dialects (e.g. MySQL) as CASE_SENSITIVE, so unquoting alone
+                # leaves the identifier spelled as written, and it would then no
+                # longer match the folded schema keys built above.
+                node.this.set("this", fold_col_case(node.this.name))
 
             return node
 
@@ -1006,7 +1114,10 @@ def _prepare_query_columns(
     return statement, _ColumnResolver(
         sqlglot_db_schema=sqlglot_db_schema,
         table_schema_normalized_mapping=table_schema_normalized_mapping,
-        use_case_insensitive_cols=use_case_insensitive_cols,
+        fold_col_case=fold_col_case,
+        fallback_col_case=fallback_col_case,
+        restore_logic_col_case=use_case_insensitive_cols
+        and is_dialect_instance(dialect, DIALECTS_WITH_CASE_PRESERVING_COL_URNS),
     )
 
 
@@ -1160,7 +1271,21 @@ def _select_statement_cll(
                         column_type=output_col_type,
                     ),
                     upstreams=sorted(direct_resolved_col_upstreams),
-                    logic=_get_column_transformation(lineage_node, dialect),
+                    logic=_get_column_transformation(
+                        lineage_node,
+                        dialect,
+                        column_resolver,
+                        # Only this edge's own resolved upstream spellings, so the
+                        # description cannot contradict the URNs beside it. The
+                        # downstream name is deliberately excluded: it may differ in
+                        # case from the upstream it reads, which would register as a
+                        # conflict and drop the entry - and the renderer only rewrites
+                        # Column nodes, so an output alias is untouched regardless.
+                        column_resolver.real_col_case_for(
+                            upstream.column
+                            for upstream in direct_resolved_col_upstreams
+                        ),
+                    ),
                 )
             )
 
@@ -1333,6 +1458,19 @@ def _get_direct_raw_col_upstreams(
         elif isinstance(node.expression, sqlglot.exp.Table):
             table_ref = _table_name_from_sqlglot_table(node.expression, dialect)
 
+            # Qualify so this matches the qualified keys of the schema and urn
+            # mappings. The statement-level qualify() passes do not rewrite tables
+            # inside the select of a CREATE VIEW or INSERT, so without this the
+            # column lookups miss and fall back to a guessed spelling. Qualifying
+            # already-qualified parts is a no-op. The Placeholder branch below does
+            # the same thing for its own table refs.
+            if dialect is not None:
+                table_ref = table_ref.qualified(
+                    dialect=dialect,
+                    default_db=default_db,
+                    default_schema=default_schema,
+                )
+
             if node.name == "*":
                 # This will happen if we couldn't expand the * to actual columns e.g. if
                 # we don't have schema info for the table. In this case, we can't generate
@@ -1424,6 +1562,8 @@ def _is_single_column_expression(
 def _get_column_transformation(
     lineage_node: sqlglot.lineage.Node,
     dialect: sqlglot.Dialect,
+    column_resolver: _ColumnResolver,
+    real_col_case: Dict[str, str],
     parent: Optional[sqlglot.lineage.Node] = None,
 ) -> ColumnTransformation:
     # expression = lineage_node.expression
@@ -1439,7 +1579,9 @@ def _get_column_transformation(
             expression = lineage_node.expression
         return ColumnTransformation(
             is_direct_copy=is_copy,
-            column_logic=expression.sql(dialect=dialect),
+            column_logic=column_resolver.render_column_logic(
+                expression, dialect, real_col_case
+            ),
         )
 
     elif len(lineage_node.downstream) > 1 or not _is_single_column_expression(
@@ -1447,13 +1589,17 @@ def _get_column_transformation(
     ):
         return ColumnTransformation(
             is_direct_copy=False,
-            column_logic=lineage_node.expression.sql(dialect=dialect),
+            column_logic=column_resolver.render_column_logic(
+                lineage_node.expression, dialect, real_col_case
+            ),
         )
 
     else:
         return _get_column_transformation(
             lineage_node=lineage_node.downstream[0],
             dialect=dialect,
+            column_resolver=column_resolver,
+            real_col_case=real_col_case,
             parent=lineage_node,
         )
 
@@ -2115,7 +2261,11 @@ def _sqlglot_lineage_inner(
     # Prep for generating column-level lineage.
     downstream_table: Optional[_TableName] = None
     if len(modified) == 1:
-        downstream_table = next(iter(modified))
+        # Qualified, because the schema mapping built below is keyed by the
+        # qualified name and this feeds the output-column lookups.
+        downstream_table = next(iter(modified)).qualified(
+            dialect=dialect, default_db=default_db, default_schema=default_schema
+        )
 
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
