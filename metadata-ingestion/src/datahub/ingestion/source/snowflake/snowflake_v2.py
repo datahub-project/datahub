@@ -5,7 +5,7 @@ import os
 import os.path
 import platform
 from dataclasses import dataclass
-from typing import Dict, Iterable, Iterator, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
@@ -20,6 +20,7 @@ from datahub.ingestion.api.source import (
     CapabilityReport,
     SourceCapability,
     SourceReport,
+    StructuredLogLevel,
     TestableSource,
     TestConnectionReport,
 )
@@ -103,36 +104,6 @@ from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-@contextlib.contextmanager
-def _close_without_masking(
-    extractor: SnowflakeQueriesExtractor, report: SourceReport
-) -> Iterator[SnowflakeQueriesExtractor]:
-    """Close the extractor without a cleanup failure hiding the original error.
-
-    close() finishes SQLite writes and removes temp files, so the same full disk
-    that failed the run can make it raise as well. Python would then propagate
-    that cleanup error in place of the failure the report needs to show. Report
-    the cleanup failure and re-raise the original. On a clean exit, a close()
-    failure still propagates.
-    """
-    try:
-        yield extractor
-    except BaseException:
-        try:
-            extractor.close()
-        except Exception as e:
-            report.warning(
-                title="Failed to clean up after query extraction",
-                message="Query extraction failed, and cleaning up after it also failed. "
-                "The original failure is reported separately. Temporary files may "
-                "have been left behind.",
-                exc=e,
-            )
-        raise
-    else:
-        extractor.close()
 
 
 @platform_name("Snowflake", doc_order=1)
@@ -811,17 +782,24 @@ class SnowflakeV2Source(
                     discovered_tables=self.discovered_datasets,
                     graph=self.ctx.graph,
                 )
-                # The report below is attached before the work starts, so the
-                # extractor must be closed on every exit path, exceptions and
-                # abandoned generators included. Left open, it outlives the
-                # schema resolver it borrows from the source.
-                with _close_without_masking(queries_extractor, self.report):
+                # The extractor borrows the source's schema resolver and must not
+                # outlive it; report_exc closes it without masking the real error.
+                try:
                     # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
                     # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
                     # it should be pretty straightforward to refactor this and only initialize the aggregator once.
                     # This also applies for the _is_temp_table and _is_allowed_table methods above, duplicated from SnowflakeQueriesExtractor.
                     self.report.queries_extractor = queries_extractor.report
                     yield from queries_extractor.get_workunits_internal()
+                finally:
+                    with self.report.report_exc(
+                        title="Failed to clean up after query extraction",
+                        message="Cleaning up after the query-history stage failed; "
+                        "temporary files may have been left behind.",
+                        context=queries_extractor.report.audit_log_path,
+                        level=StructuredLogLevel.WARN,
+                    ):
+                        queries_extractor.close()
 
         else:
             if self.lineage_extractor:

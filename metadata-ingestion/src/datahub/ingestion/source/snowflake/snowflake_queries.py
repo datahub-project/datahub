@@ -207,6 +207,10 @@ class SnowflakeQueriesExtractorReport(Report):
     audit_log_load_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     aggregator_generate_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
+    # Recorded so a cleanup failure can tell the operator where temp files may
+    # remain; None if the run ended before the audit log was created.
+    audit_log_path: Optional[str] = None
+
     sql_aggregator: Optional[SqlAggregatorReport] = None
     stored_proc_lineage: Optional[StoredProcLineageReport] = None
 
@@ -369,6 +373,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
         # TODO: Add some logic to check if the cached audit log is stale or not.
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
+        self.report.audit_log_path = str(audit_log_file)
         use_cached_audit_log = audit_log_file.exists()
 
         if self.config.local_temp_path is None:
