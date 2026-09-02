@@ -2,7 +2,9 @@ package com.linkedin.gms.factory.objectstorage;
 
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.s3.StsClientFactory;
 import com.linkedin.metadata.config.ObjectStorageConfiguration;
 import com.linkedin.metadata.utils.objectstorage.GcsObjectStorageClient;
 import com.linkedin.metadata.utils.objectstorage.LocalObjectStorageClient;
@@ -14,21 +16,27 @@ import jakarta.annotation.Nullable;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import software.amazon.awssdk.regions.Region;
+import org.springframework.context.annotation.Import;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.sts.StsClient;
-import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @Slf4j
 @Configuration
+@Import({AwsClientFactory.class, StsClientFactory.class})
 public class ObjectStorageClientFactory {
 
   @Autowired private ConfigurationProvider configurationProvider;
 
   @Autowired(required = false)
-  private StsClient stsClient;
+  @Qualifier("objectStorageS3Client")
+  private S3Client objectStorageS3Client;
+
+  @Autowired(required = false)
+  @Qualifier("objectStorageS3Presigner")
+  private S3Presigner objectStorageS3Presigner;
 
   @Bean(name = "objectStorageClient")
   @Nullable
@@ -54,108 +62,65 @@ public class ObjectStorageClientFactory {
         return null;
       }
 
-      ObjectStorageLocation resolvedLocation = location.get();
-      int multipartThreshold =
-          objectStorageConfiguration != null
-                  && objectStorageConfiguration.getMultipartThresholdBytes() != null
-              ? objectStorageConfiguration.getMultipartThresholdBytes()
-              : S3ObjectStorageClient.DEFAULT_MULTIPART_THRESHOLD_BYTES;
-      int multipartPartSize =
-          objectStorageConfiguration != null
-                  && objectStorageConfiguration.getMultipartPartSizeBytes() != null
-              ? objectStorageConfiguration.getMultipartPartSizeBytes()
-              : S3ObjectStorageClient.DEFAULT_MULTIPART_PART_SIZE_BYTES;
-
-      return switch (resolvedLocation.provider()) {
-        case LOCAL -> new LocalObjectStorageClient(resolvedLocation.localRoot());
-        case S3 -> {
-          S3Client s3Client = createS3Client(objectStorageConfiguration);
-          if (s3Client == null) {
-            yield null;
-          }
-          yield new S3ObjectStorageClient(
-              s3Client,
-              resolvedLocation.bucket(),
-              emptyToNull(resolvedLocation.keyPrefix()),
-              multipartThreshold,
-              multipartPartSize);
-        }
-        case GCS -> {
-          Storage storage = StorageOptions.getDefaultInstance().getService();
-          yield new GcsObjectStorageClient(
-              storage,
-              resolvedLocation.bucket(),
-              emptyToNull(resolvedLocation.keyPrefix()),
-              multipartThreshold,
-              multipartPartSize);
-        }
-      };
+      return clientFor(location.get());
     } catch (Exception e) {
       log.error("Failed to create ObjectStorageClient", e);
       return null;
     }
   }
 
+  /**
+   * Builds a client rooted at an arbitrary location rather than only the configured one, so a
+   * caller addressing a different bucket reuses this credential resolution (role assumption,
+   * endpoint override, region) and this provider routing instead of standing up its own.
+   * Credentials and multipart sizing still come from {@code datahub.objectStorage}; only the
+   * location varies.
+   *
+   * <p>Null when the provider needs a client that cannot be built — today only S3, when AWS is
+   * unconfigured.
+   */
   @Nullable
-  private S3Client createS3Client(@Nullable ObjectStorageConfiguration objectStorageConfiguration) {
-    String roleArn =
-        objectStorageConfiguration != null ? objectStorageConfiguration.getRoleArn() : null;
-    if (roleArn != null && !roleArn.trim().isEmpty()) {
-      if (stsClient == null) {
-        throw new IllegalStateException(
-            "StsClient bean is required when datahub.objectStorage.roleArn is configured");
+  public ObjectStorageClient clientFor(@Nonnull ObjectStorageLocation location) {
+    ObjectStorageConfiguration config = configurationProvider.getDatahub().getObjectStorage();
+    int multipartThreshold =
+        config != null && config.getMultipartThresholdBytes() != null
+            ? config.getMultipartThresholdBytes()
+            : S3ObjectStorageClient.DEFAULT_MULTIPART_THRESHOLD_BYTES;
+    int multipartPartSize =
+        config != null && config.getMultipartPartSizeBytes() != null
+            ? config.getMultipartPartSizeBytes()
+            : S3ObjectStorageClient.DEFAULT_MULTIPART_PART_SIZE_BYTES;
+
+    return switch (location.provider()) {
+      case LOCAL -> new LocalObjectStorageClient(location.localRoot());
+      case S3 -> {
+        if (objectStorageS3Client == null || objectStorageS3Presigner == null) {
+          yield null;
+        }
+        yield new S3ObjectStorageClient(
+            objectStorageS3Client,
+            objectStorageS3Presigner,
+            location.bucket(),
+            emptyToNull(location.keyPrefix()),
+            multipartThreshold,
+            multipartPartSize);
       }
-      StsAssumeRoleCredentialsProvider credentialsProvider =
-          StsAssumeRoleCredentialsProvider.builder()
-              .stsClient(stsClient)
-              .refreshRequest(r -> r.roleArn(roleArn).roleSessionName("object-storage-session"))
-              .asyncCredentialUpdateEnabled(true)
-              .build();
-      return buildS3ClientBuilder().credentialsProvider(credentialsProvider).build();
-    }
-
-    String endpointUrl = envOrProperty("AWS_ENDPOINT_URL");
-    String awsRegion = envOrProperty("AWS_REGION");
-    String awsRegionProp = System.getProperty("aws.region");
-    boolean hasAwsEndpoint = endpointUrl != null && !endpointUrl.isEmpty();
-    boolean hasAwsRegion =
-        (awsRegion != null && !awsRegion.trim().isEmpty())
-            || (awsRegionProp != null && !awsRegionProp.trim().isEmpty());
-
-    if (!hasAwsEndpoint && !hasAwsRegion) {
-      log.debug(
-          "Skipping S3 ObjectStorageClient (no roleArn, AWS_ENDPOINT_URL, AWS_REGION, or aws.region)");
-      return null;
-    }
-
-    var clientBuilder = buildS3ClientBuilder();
-    if (hasAwsEndpoint) {
-      clientBuilder.endpointOverride(java.net.URI.create(endpointUrl));
-      clientBuilder.forcePathStyle(true);
-      if (!hasAwsRegion) {
-        clientBuilder.region(Region.US_EAST_1);
+      case GCS -> {
+        Storage storage = StorageOptions.getDefaultInstance().getService();
+        yield new GcsObjectStorageClient(
+            storage,
+            location.bucket(),
+            emptyToNull(location.keyPrefix()),
+            multipartThreshold,
+            multipartPartSize);
       }
-    }
-    return clientBuilder.build();
-  }
-
-  private software.amazon.awssdk.services.s3.S3ClientBuilder buildS3ClientBuilder() {
-    return S3Client.builder();
+    };
   }
 
   @Nullable
   private static String emptyToNull(@Nullable String value) {
     if (value == null || value.isEmpty()) {
       return null;
-    }
-    return value;
-  }
-
-  @Nullable
-  private static String envOrProperty(@Nonnull String name) {
-    String value = System.getenv(name);
-    if (value == null || value.isEmpty()) {
-      value = System.getProperty(name);
     }
     return value;
   }
