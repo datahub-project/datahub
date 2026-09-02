@@ -119,10 +119,10 @@ EXACT_FIXES: dict[str, dict[str, str]] = {
 def collapse_glossary_spacing(text: str) -> str:
     """Remove spurious spaces around translated glossary terms."""
     doubles = [
-        ("数据 数据引入", "使用数据引入"),
-        ("使用数据 数据引入", "使用数据引入"),
         ("图表 使用数据 数据引入", "图表使用数据引入"),
         ("仪表板 使用数据 数据引入", "仪表板使用数据引入"),
+        ("使用数据 数据引入", "使用数据引入"),
+        ("数据 数据引入", "使用数据引入"),
         ("数据 数据血缘", "数据血缘"),
         ("数据 数据管道", "数据管道"),
         ("数据 数据域", "数据域"),

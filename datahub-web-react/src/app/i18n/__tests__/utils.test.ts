@@ -62,18 +62,26 @@ describe('detectBrowserLanguage', () => {
         expect(detectBrowserLanguage()).toBeUndefined();
     });
 
-    it('maps Chinese tags to zh-CN via exact or base-language fold', () => {
+    it('maps Simplified Chinese tags to zh-CN', () => {
         stubLanguages(['zh-CN']);
         expect(detectBrowserLanguage()).toBe('zh-CN');
         stubLanguages(['zh-Hans']);
         expect(detectBrowserLanguage()).toBe('zh-CN');
         stubLanguages(['zh']);
         expect(detectBrowserLanguage()).toBe('zh-CN');
-        // Traditional tags also fold to zh-CN until the zh-TW locale ships.
+        stubLanguages(['zh-SG']);
+        expect(detectBrowserLanguage()).toBe('zh-CN');
+    });
+
+    it('does not map Traditional Chinese tags to zh-CN', () => {
         stubLanguages(['zh-TW']);
-        expect(detectBrowserLanguage()).toBe('zh-CN');
+        expect(detectBrowserLanguage()).toBeUndefined();
         stubLanguages(['zh-Hant']);
-        expect(detectBrowserLanguage()).toBe('zh-CN');
+        expect(detectBrowserLanguage()).toBeUndefined();
+        stubLanguages(['zh-HK']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+        stubLanguages(['zh-MO']);
+        expect(detectBrowserLanguage()).toBeUndefined();
     });
 
     it('returns undefined when the browser exposes no languages', () => {

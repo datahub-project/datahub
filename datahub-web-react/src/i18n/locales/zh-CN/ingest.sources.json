@@ -43,7 +43,7 @@
     "sources.looker.description": "从 Looker 导入模型、Explore、视图、Look、仪表板以及数据血缘。",
     "sources.lookml.description": "从 LookML 文件导入模型、Explore、视图、Look、仪表板以及数据血缘。",
     "sources.mariadb.description": "从 MariaDB 导入表、视图、数据库、架构和统计信息。",
-    "sources.matillionDpc.description": "从 Matillion 数据产品ivity Cloud 导入数据管道、流式数据管道、项目、环境以及数据血缘。",
+    "sources.matillionDpc.description": "从 Matillion Data Productivity Cloud 导入数据管道、流式数据管道、项目、环境以及数据血缘。",
     "sources.metabase.description": "从 Metabase 导入集合、仪表板和图表。",
     "sources.mlflow.description": "从 MLflow 导入已注册模型、模型版本和模型阶段。",
     "sources.mode.description": "从 Mode 导入报表、图表以及数据血缘。",

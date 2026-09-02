@@ -29,7 +29,6 @@
     "emptyTab.terms.description": "为实体应用术语，以对其数据进行分类。",
     "emptyTab.terms.title": "尚未添加术语",
     "entity.consumesCount": "消费 {{count}} 个 {{entityName}}",
-    "entity.containsAssets_one": "包含 {{count}} 个数据资产",
     "entity.containsAssets_other": "包含 {{count}} 个数据资产",
     "entity.containsCount": "包含 {{count}} 个 {{entityName}}",
     "entity.foundInCount": "在 {{count}} 个 {{entityName}} 中找到",
