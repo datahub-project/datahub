@@ -25,6 +25,10 @@ ext.openLineageVersion = '1.53.0'
 
 **Key changes across 1.51.0 → 1.53.0:**
 
+- ✅ OpenLineage's Spark integration now includes Spark 4.2 compatibility, including the
+  `CatalogManager` interface change; DataHub's Spark 4 smoke baseline remains on Spark 4.0 (1.53)
+- ✅ ClickHouse V2 catalogs now emit dataset identifiers plus catalog and storage facets through
+  the official ClickHouse Spark connector (1.53)
 - ✅ Databricks Unity Catalog symlinks now use the stable `unity-catalog` namespace and a
   catalog-qualified table name; Spark 4 also gains an open source Unity Catalog handler (1.51)
 - ✅ Parent-run context can forward facets for both the parent and root run/job through the generic
@@ -213,8 +217,9 @@ See ING-2959 for the phased plan.
 
 The 1.33→1.38→1.45→1.50→1.53 upgrades showed that the only robust way to move a **patch-tracked**
 vendored file forward is a **3-way merge**: replay upstream's `old→new` delta on top of our
-customized copy. Blind `cp new-upstream + patch -p0` (what `upgrade-openlineage.sh` attempts) breaks
-whenever upstream changed a patched file — e.g. OL 1.48's `DatasetFactory` builder refactor rewrote
+customized copy. Blindly copying new upstream and replaying the old patch (what
+`upgrade-openlineage.sh` attempts) breaks whenever upstream changed a patched file — e.g. OL 1.48's
+`DatasetFactory` builder refactor rewrote
 call sites in several patched files. Prefer the steps below; treat `upgrade-openlineage.sh` as an
 optional first pass only.
 
@@ -354,10 +359,12 @@ If you need to customize additional files:
 
 ```bash
 # Dry-run to see if patch will apply cleanly
-patch -p0 --dry-run < patches/datahub-customizations/v1.53.0/Vendors.patch
+patch --dry-run src/main/java/io/openlineage/spark/api/Vendors.java \
+  < patches/datahub-customizations/v1.53.0/Vendors.patch
 
 # See what a patch would change
-patch -p0 --dry-run < patches/datahub-customizations/v1.53.0/Vendors.patch | less
+patch --dry-run src/main/java/io/openlineage/spark/api/Vendors.java \
+  < patches/datahub-customizations/v1.53.0/Vendors.patch | less
 ```
 
 ### Debugging
