@@ -240,21 +240,60 @@ public class PlanUtils {
       UUID rootParentRunId,
       String rootParentJobName,
       String rootParentJobNamespace) {
+    return parentRunFacet(
+        parentRunId,
+        parentJobName,
+        parentJobNamespace,
+        null,
+        null,
+        rootParentRunId,
+        rootParentJobName,
+        rootParentJobNamespace,
+        null,
+        null);
+  }
+
+  /**
+   * Construct a {@link OpenLineage.ParentRunFacet} given the parent job's parentRunId, job name,
+   * and namespace, along with any facets forwarded via {@code spark.openlineage.context} for the
+   * parent and root run/job.
+   */
+  public static OpenLineage.ParentRunFacet parentRunFacet(
+      UUID parentRunId,
+      String parentJobName,
+      String parentJobNamespace,
+      OpenLineage.ParentRunFacetRunFacets parentRunFacets,
+      OpenLineage.ParentRunFacetJobFacets parentJobFacets,
+      UUID rootParentRunId,
+      String rootParentJobName,
+      String rootParentJobNamespace,
+      OpenLineage.RootRunFacets rootRunFacets,
+      OpenLineage.RootJobFacets rootJobFacets) {
     return new OpenLineage(Versions.OPEN_LINEAGE_PRODUCER_URI)
         .newParentRunFacetBuilder()
-        .run(new OpenLineage.ParentRunFacetRunBuilder().runId(parentRunId).build())
+        .run(
+            new OpenLineage.ParentRunFacetRunBuilder()
+                .runId(parentRunId)
+                .facets(parentRunFacets)
+                .build())
         .job(
             new OpenLineage.ParentRunFacetJobBuilder()
                 .name(NameNormalizer.normalize(parentJobName))
                 .namespace(parentJobNamespace)
+                .facets(parentJobFacets)
                 .build())
         .root(
             new OpenLineage.ParentRunFacetRootBuilder()
-                .run(new OpenLineage.RootRunBuilder().runId(rootParentRunId).build())
+                .run(
+                    new OpenLineage.RootRunBuilder()
+                        .runId(rootParentRunId)
+                        .facets(rootRunFacets)
+                        .build())
                 .job(
                     new OpenLineage.RootJobBuilder()
                         .namespace(rootParentJobNamespace)
                         .name(rootParentJobName)
+                        .facets(rootJobFacets)
                         .build())
                 .build())
         .build();

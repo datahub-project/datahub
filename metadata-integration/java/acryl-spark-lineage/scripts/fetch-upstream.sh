@@ -62,11 +62,11 @@ for entry in "${FILES[@]}"; do
 
   if curl -sf "$URL" -o "$OUTPUT" 2>/dev/null; then
     echo "✓"
-    ((SUCCESS_COUNT++))
+    ((++SUCCESS_COUNT))
   else
     echo "✗ (not found - may be DataHub-specific)"
     rm -f "$OUTPUT"
-    ((FAIL_COUNT++))
+    ((++FAIL_COUNT))
   fi
 done
 

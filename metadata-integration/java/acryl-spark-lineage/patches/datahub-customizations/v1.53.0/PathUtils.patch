@@ -1,0 +1,25 @@
+# Patch for DataHub customizations in PathUtils.java
+# Upstream version: OpenLineage 1.53.0
+# Generated: 2026-09-02 09:22:23 UTC
+#
+# To apply this patch to a new upstream version, from the acryl-spark-lineage module directory:
+#   patch src/main/java/io/openlineage/spark/agent/util/PathUtils.java < patches/datahub-customizations/v1.53.0/PathUtils.patch
+#
+# The target is named explicitly rather than left to -p<n>: both header paths exist during an
+# upgrade, and patch's "fewest components wins" heuristic picks the upstream reference copy, so
+# -p1 would silently rewrite patches/upstream-*/ instead of the source tree.
+#
+--- a/patches/upstream-1.53.0/spark/agent/util/PathUtils.java
++++ b/src/main/java/io/openlineage/spark/agent/util/PathUtils.java
+@@ -115,6 +115,11 @@
+           symlinkDataset =
+               Optional.of(
+                   FilesystemDatasetUtils.fromLocationAndName(warehouseLocation.get(), tableName));
++        } else {
++          // Table is outside warehouse, but we create symlink to actual location + tableName
++          String tableName = nameFromTableIdentifier(identifier);
++          symlinkDataset =
++              Optional.of(FilesystemDatasetUtils.fromLocationAndName(locationUri, tableName));
+         }
+       }
+     }
