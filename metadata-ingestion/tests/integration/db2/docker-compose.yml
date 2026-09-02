@@ -2,7 +2,10 @@ services:
   testdb2:
     container_name: "testdb2"
     hostname: db2
-    image: icr.io/db2_community/db2
+    # Pinned: the 'latest' tag moved to 12.1.5.0 on 2026-09-01 and its
+    # bootstrap no longer creates DBNAME before reporting setup complete,
+    # breaking every testIntegrationBatch2 run (SQL30061N: TESTDB not found).
+    image: icr.io/db2_community/db2:12.1.4.0
     platform: linux/amd64
     privileged: true
     environment:
