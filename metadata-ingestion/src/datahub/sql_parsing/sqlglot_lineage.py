@@ -32,6 +32,7 @@ import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 import sqlglot.optimizer.unnest_subqueries
 from pydantic import field_serializer, field_validator
+from sqlglot.dialects.dialect import NormalizationStrategy
 from sqlglot.optimizer.scope import find_all_in_scope
 
 from datahub.cli.env_utils import get_boolean_env_variable
@@ -63,9 +64,11 @@ from datahub.sql_parsing.split_statements import split_statements
 from datahub.sql_parsing.sql_parsing_common import (
     DIALECTS_WITH_CASE_INSENSITIVE_COLS,
     DIALECTS_WITH_DEFAULT_UPPERCASE_COLS,
+    PLATFORMS_WITH_NORMALIZE_NAME_URNS,
     QueryType,
     QueryTypeProps,
     get_dialect_str,
+    lower_if_all_upper,
 )
 from datahub.sql_parsing.sqlglot_utils import (
     DialectOrStr,
@@ -2021,6 +2024,292 @@ def _normalize_db_or_schema(
     return db_or_schema
 
 
+# Lowercased counterpart of ``_TableName.identity``: database, schema, table, and
+# ``parts`` for names with more than three of them.
+_TableCaseKey = Tuple[str, str, str, Optional[Tuple[str, ...]]]
+
+
+def _case_insensitive_table_key(table: _TableName) -> _TableCaseKey:
+    """Case-insensitive bucket for a table name.
+
+    Mirrors ``_TableName.identity``, including ``parts`` on exactly the names where
+    identity does (more than three of them). A key coarser than identity would put
+    two genuinely different tables in one bucket, and the ambiguity check in
+    ``_collect_as_written_tables`` would then discard both.
+    """
+    return (
+        (table.database or "").lower(),
+        (table.db_schema or "").lower(),
+        table.table.lower(),
+        (
+            tuple(part.lower() for part in table.parts)
+            if table.parts is not None and len(table.parts) > 3
+            else None
+        ),
+    )
+
+
+def _collect_as_written_tables(
+    statement: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+    default_db: Optional[str],
+    default_schema: Optional[str],
+) -> Dict[_TableCaseKey, _TableName]:
+    """Index the table names in a statement by the casing they were written with.
+
+    Must be called on the statement *before* qualify() normalizes it. sqlglot folds
+    unquoted identifiers to the dialect's canonical case but leaves quoted ones
+    alone, so this is the only place the author's original spelling survives.
+
+    Uses the same dialect-aware reader as the resolution loop so the keys line up:
+    it restores MSSQL temp-table prefixes and populates ``parts`` for names with
+    more than three components, both of which participate in ``_TableName``
+    identity.
+
+    CTE references are skipped. sqlglot models a CTE reference as an ``exp.Table``,
+    so indexing them would qualify a CTE alias with the default db/schema and land it
+    in the same case-insensitive bucket as a real table of that name - and the
+    staging idiom `WITH orders AS (SELECT * FROM MY_SCHEMA.ORDERS)` does exactly
+    that. The colliding entries would then both be discarded and recovery would
+    silently never run. ``_table_level_lineage`` excludes CTEs from the set being
+    recovered for the same reason; the two have to agree on what a table is.
+
+    Names that collide case-insensitively (e.g. a query joining both `Foo` and
+    `foo`) are dropped rather than guessed at.
+    """
+    # Match CTE names by the dialect's own identifier rule. Where identifiers fold, a
+    # reference spelled in another case is still the same CTE; where they do not, a CTE
+    # `Foo` and a table `foo` are different objects and matching case-insensitively
+    # would skip the table and lose its recovery.
+    cte_case_sensitive = (
+        dialect.NORMALIZATION_STRATEGY == NormalizationStrategy.CASE_SENSITIVE
+    )
+
+    def cte_key(name: str) -> str:
+        return name if cte_case_sensitive else name.lower()
+
+    cte_names = {
+        cte_key(cte.alias_or_name) for cte in statement.find_all(sqlglot.exp.CTE)
+    }
+
+    as_written: Dict[_TableCaseKey, _TableName] = {}
+    ambiguous: Set[_TableCaseKey] = set()
+
+    for table_expr in statement.find_all(sqlglot.exp.Table):
+        try:
+            table = _table_name_from_sqlglot_table(
+                table_expr,
+                dialect,
+                default_db=default_db,
+                default_schema=default_schema,
+            )
+        except Exception as e:
+            logger.debug("Could not read table name for casing recovery: %s", e)
+            continue
+
+        # A bare reference matching a CTE declared here is that CTE, not a table.
+        # Only bare references can be: a qualified name cannot resolve to a CTE.
+        if (
+            table_expr.this
+            and not table_expr.args.get("db")
+            and not table_expr.args.get("catalog")
+            and cte_key(table_expr.name) in cte_names
+        ):
+            continue
+
+        key = _case_insensitive_table_key(table)
+        if key in ambiguous:
+            continue
+        existing = as_written.get(key)
+        if existing is not None and existing != table:
+            logger.debug(
+                "Ambiguous as-written casing for %s: %s vs %s - skipping recovery "
+                "for this name",
+                key,
+                existing,
+                table,
+            )
+            del as_written[key]
+            ambiguous.add(key)
+            continue
+        as_written[key] = table
+
+    return as_written
+
+
+def _recover_identifier_casing(
+    table: _TableName,
+    as_written_tables: Dict[_TableCaseKey, _TableName],
+    schema_resolver: SchemaResolverInterface,
+) -> Optional[Tuple[str, SchemaInfo]]:
+    """Retry resolution using the casing the query actually used.
+
+    ``resolve_table`` only ever tries variants that apply one uniform rule to the
+    whole name - as parsed, all-lowercased, or all-lowercased-except-the-platform-
+    instance. Real URNs are often not uniform, because sources build them per
+    identifier. Oracle is the clearest case: its source applies SQLAlchemy's
+    ``normalize_name``, so ``MY_SCHEMA."MixedCase"`` is ingested as
+    ``my_schema.MixedCase`` - a lowercased schema next to a verbatim table, which
+    no uniform rule produces.
+
+    The query itself carries the missing information, because any identifier that
+    is not in the engine's default case has to be quoted to work at all. So retry
+    with the spelling from the query, and - on the platforms whose sources apply
+    it - with ``normalize_name`` applied to that spelling.
+
+    Returns None unless a candidate actually resolved, so this is purely additive:
+    a miss leaves the original best-effort URN untouched.
+
+    Known trade-off: on a dialect that folds unquoted identifiers, an unquoted
+    ``Foo`` means ``FOO``, but the spelling kept here is ``Foo``. If the catalog
+    holds no ``FOO``/``foo`` and does hold a case-distinct ``Foo``, recovery links
+    to that one instead of reporting nothing. Guarding it would mean trusting the
+    as-written spelling only for quoted identifiers, and only on the dialects that
+    fold - unquoted names are the normal case on case-insensitive platforms such as
+    MSSQL, where nothing folds and this cannot happen. Accepted for now because it
+    requires the referenced table to be absent from the catalog while a case-variant
+    of it is present, and the alternative in that situation is no lineage at all.
+    """
+    as_written = as_written_tables.get(_case_insensitive_table_key(table))
+    if as_written is None:
+        return None
+
+    candidates = [as_written]
+    if schema_resolver.platform in PLATFORMS_WITH_NORMALIZE_NAME_URNS:
+        candidates.append(_apply_normalize_name(as_written))
+
+    # Skip the table as parsed - already tried by the caller - and any duplicate,
+    # which is what normalize_name yields when it is a no-op for this spelling.
+    already_tried = {table}
+    to_try: List[_TableName] = []
+    for candidate in candidates:
+        if candidate in already_tried:
+            continue
+        already_tried.add(candidate)
+        to_try.append(candidate)
+
+    # One round trip for every candidate rather than one each: resolve_table batches
+    # the URN variants of a single table, so without this a recovered table costs a
+    # round trip per candidate spelling. Only worth it with something to batch - a
+    # single candidate is the common case, and resolve_table already batches that.
+    if len(to_try) > 1:
+        schema_resolver.prefetch_tables(to_try)
+
+    for candidate in to_try:
+        candidate_urn, candidate_schema = schema_resolver.resolve_table(candidate)
+        if candidate_schema is not None:
+            logger.debug(
+                "Recovered identifier casing for %s: resolved as %s",
+                table,
+                candidate_urn,
+            )
+            return candidate_urn, candidate_schema
+
+    return None
+
+
+def _fold_table_field(table: _TableName) -> str:
+    """Fold the ``table`` field, which is not always a single identifier.
+
+    For names with more than three components, ``_table_name_from_sqlglot_table``
+    puts everything past the catalog and schema into ``table``, joined by dots -
+    ``SRV.DB.SCH."MixedCase"`` yields ``table="SCH.MixedCase"``. Folding that whole
+    string is a no-op as soon as one component is mixed-case, because it is not
+    ``isupper()``, which would leave ``SCH`` uppercase and produce a candidate that
+    can never match a real URN.
+
+    Splitting on dots unconditionally is not safe either: a quoted identifier may
+    contain one (``"MY.Table"`` gives ``table="MY.Table"`` with a single part), and
+    MSSQL temp prefixes live in ``table`` but not in ``parts``. So only treat dots
+    as separators when ``parts`` confirms that is what they are, and fold the name
+    as a whole otherwise.
+    """
+    components = table.table.split(".")
+    if len(components) < 2 or table.parts is None:
+        return lower_if_all_upper(table.table)
+
+    leading = (table.database is not None) + (table.db_schema is not None)
+    if len(table.parts) - leading != len(components):
+        # The dots are inside an identifier, not between them.
+        return lower_if_all_upper(table.table)
+
+    return ".".join(lower_if_all_upper(component) for component in components)
+
+
+def _apply_normalize_name(table: _TableName) -> _TableName:
+    """Apply ``lower_if_all_upper`` to each identifier in a table name.
+
+    ``parts`` is carried over as well: it participates in ``_TableName`` identity
+    for names with more than three components, so dropping it would produce a
+    candidate that can never equal what the resolver builds for such a name.
+    """
+
+    def fold(name: Optional[str]) -> Optional[str]:
+        return lower_if_all_upper(name) if name is not None else None
+
+    return _TableName(
+        database=fold(table.database),
+        db_schema=fold(table.db_schema),
+        table=_fold_table_field(table),
+        parts=(
+            tuple(lower_if_all_upper(part) for part in table.parts)
+            if table.parts is not None
+            else None
+        ),
+    )
+
+
+def _resolve_tables(
+    tables: Iterable[_TableName],
+    *,
+    schema_resolver: SchemaResolverInterface,
+    dialect: sqlglot.Dialect,
+    default_db: Optional[str],
+    default_schema: Optional[str],
+    original_statement: sqlglot.exp.Expression,
+    as_written_default_db: Optional[str],
+    as_written_default_schema: Optional[str],
+) -> Tuple[Dict[_TableName, str], Dict[_TableName, SchemaInfo]]:
+    """Map each discovered table to its URN and, where known, its schema."""
+    table_name_urn_mapping: Dict[_TableName, str] = {}
+    table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
+
+    # Built on first use only. Most queries resolve on the first attempt, and this
+    # runs on every parsed statement in the aggregator.
+    as_written_tables: Optional[Dict[_TableCaseKey, _TableName]] = None
+
+    for table in tables:
+        # For select statements, qualification will be a no-op. For other statements, this
+        # is where the qualification actually happens.
+        qualified_table = table.qualified(
+            dialect=dialect, default_db=default_db, default_schema=default_schema
+        )
+
+        urn, schema_info = schema_resolver.resolve_table(qualified_table)
+        if schema_info is None:
+            if as_written_tables is None:
+                as_written_tables = _collect_as_written_tables(
+                    original_statement,
+                    dialect,
+                    default_db=as_written_default_db,
+                    default_schema=as_written_default_schema,
+                )
+            recovered = _recover_identifier_casing(
+                qualified_table, as_written_tables, schema_resolver
+            )
+            if recovered is not None:
+                urn, schema_info = recovered
+
+        table_name_urn_mapping[qualified_table] = urn
+        if schema_info:
+            table_name_schema_mapping[qualified_table] = schema_info
+
+        # Also include the original, non-qualified table name in the urn mapping.
+        table_name_urn_mapping[table] = urn
+
+    return table_name_urn_mapping, table_name_schema_mapping
+
+
 def _simplify_select_into(statement: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
     """
     Check if the expression is a SELECT INTO statement. If so, converts it into a CTAS.
@@ -2055,6 +2344,11 @@ def _sqlglot_lineage_inner(
         dialect = get_dialect(override_dialect)
     else:
         dialect = get_dialect(schema_resolver.platform)
+
+    # Keep the pre-normalization spelling for _recover_identifier_casing(), which
+    # needs the casing the recipe supplied rather than the dialect-folded form.
+    as_written_default_db = default_db
+    as_written_default_schema = default_schema
 
     default_db = _normalize_db_or_schema(default_db, dialect)
     default_schema = _normalize_db_or_schema(default_schema, dialect)
@@ -2118,24 +2412,16 @@ def _sqlglot_lineage_inner(
         downstream_table = next(iter(modified))
 
     # Fetch schema info for the relevant tables.
-    table_name_urn_mapping: Dict[_TableName, str] = {}
-    table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
-
-    for table in tables | modified:
-        # For select statements, qualification will be a no-op. For other statements, this
-        # is where the qualification actually happens.
-        qualified_table = table.qualified(
-            dialect=dialect, default_db=default_db, default_schema=default_schema
-        )
-
-        urn, schema_info = schema_resolver.resolve_table(qualified_table)
-
-        table_name_urn_mapping[qualified_table] = urn
-        if schema_info:
-            table_name_schema_mapping[qualified_table] = schema_info
-
-        # Also include the original, non-qualified table name in the urn mapping.
-        table_name_urn_mapping[table] = urn
+    table_name_urn_mapping, table_name_schema_mapping = _resolve_tables(
+        tables | modified,
+        schema_resolver=schema_resolver,
+        dialect=dialect,
+        default_db=default_db,
+        default_schema=default_schema,
+        original_statement=original_statement,
+        as_written_default_db=as_written_default_db,
+        as_written_default_schema=as_written_default_schema,
+    )
 
     total_tables_discovered = len(tables | modified)
     total_schemas_resolved = len(table_name_schema_mapping)
