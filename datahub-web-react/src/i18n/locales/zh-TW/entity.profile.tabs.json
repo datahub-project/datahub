@@ -29,7 +29,6 @@
     "emptyTab.terms.description": "為實體套用詞彙以分類其資料。",
     "emptyTab.terms.title": "尚未新增任何詞彙",
     "entity.consumesCount": "使用 {{count}} 個 {{entityName}}",
-    "entity.containsAssets_one": "包含 {{count}} 項資料資產",
     "entity.containsAssets_other": "包含 {{count}} 項資料資產",
     "entity.containsCount": "包含 {{count}} 個 {{entityName}}",
     "entity.foundInCount": "出現在 {{count}} 個 {{entityName}} 中",

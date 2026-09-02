@@ -71,7 +71,6 @@
     "pagination.nextPage": "下一頁",
     "pagination.previousPage": "上一頁",
     "radio.label": "標籤",
-    "resizablePills.moreHiddenCount_one": "另有 {{count}} 個項目已隱藏",
     "resizablePills.moreHiddenCount_other": "另有 {{count}} 個項目已隱藏",
     "search.placeholder": "搜尋...",
     "select.placeholder": "請選取一個選項",

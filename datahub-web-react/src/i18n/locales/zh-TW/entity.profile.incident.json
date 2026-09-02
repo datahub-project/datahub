@@ -73,7 +73,6 @@
     "state.active": "進行中",
     "state.all": "全部",
     "state.resolved": "已解決",
-    "summary.activeCount_one": "目前有 {{count}} 個進行中的事件",
     "summary.activeCount_other": "目前有 {{count}} 個進行中的事件",
     "summary.noActive": "目前沒有進行中的事件",
     "summary.noneRaised": "尚未提出任何事件",

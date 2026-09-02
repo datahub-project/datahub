@@ -52,7 +52,7 @@
     "remoteExecutor": "遠端執行器",
     "revokeConfirmText": "使用此權杖的任何人都將無法再存取 DataHub API。此操作無法復原。",
     "revokeConfirmTitle": "確定要撤銷這個權杖嗎？",
-    "revokeError": "撤銷權杖失敗！：\n {{message}}",
+    "revokeError": "撤銷權杖失敗：\n {{message}}",
     "revokeTokenAriaLabel": "撤銷權杖",
     "searchServiceAccountsPlaceholder": "搜尋服務帳號...",
     "selectServiceAccountSubtitle": "選擇要為其產生 API 權杖的服務帳號。",
