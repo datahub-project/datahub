@@ -14,6 +14,8 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
@@ -806,6 +808,45 @@ public class UpdateIndicesV3StrategyTest {
     // Observe mode should NOT suppress — the write should proceed
     verify(elasticSearchService)
         .upsertDocumentBySearchGroup(eq(operationContext), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testThrottle_ObserveModeCountsOnceWhenV2Disabled() throws Exception {
+    TimeseriesWriteThrottleCache cache = spy(buildThrottleCache(false, false, true));
+    TimeseriesWriteThrottleCache.ThrottleSummary summary = spy(cache.newSummary());
+    when(cache.newSummary()).thenReturn(summary);
+    UpdateIndicesV3Strategy throttledStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            TimeseriesAspectWriteSink.NOOP,
+            "MD5",
+            false,
+            cache);
+
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    throttledStrategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    verify(summary, times(1)).recordObserved();
   }
 
   @Test

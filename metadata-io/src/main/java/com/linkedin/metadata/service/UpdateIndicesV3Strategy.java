@@ -609,7 +609,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
               }
               continue;
             }
-            if (timeseriesThrottleCache.isObserveEnabled() && throttleSummary != null) {
+            // When V2 is off, runTimeseriesIndexWriteThrottled already recorded observe.
+            if (v2Enabled
+                && timeseriesThrottleCache.isObserveEnabled()
+                && throttleSummary != null) {
               throttleSummary.recordObserved();
             }
           }
