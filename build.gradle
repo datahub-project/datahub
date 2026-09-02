@@ -236,7 +236,7 @@ project.ext.externalDependency = [
     'awsSdk2Bom': 'software.amazon.awssdk:bom:2.30.33',
     'awsS3': "software.amazon.awssdk:s3:$awsSdk2Version",
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:2.0.4',
-    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.6.5',
+    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:4.4.0',
     'awsRds':"software.amazon.awssdk:rds:$awsSdk2Version",
     'azureIdentityExtensions': 'com.azure:azure-identity-extensions:1.2.6',
     'azureIdentity': 'com.azure:azure-identity:1.18.1',

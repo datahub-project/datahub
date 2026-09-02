@@ -725,6 +725,6 @@ software.amazon.eventstream:eventstream:1.0.1=productionRuntimeClasspath,runtime
 software.amazon.glue:schema-registry-build-tools:1.1.25=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 software.amazon.glue:schema-registry-common:1.1.25=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 software.amazon.glue:schema-registry-serde:1.1.25=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
-software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.6.5=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
+software.amazon.jdbc:aws-advanced-jdbc-wrapper:4.4.0=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 software.amazon.msk:aws-msk-iam-auth:2.3.2=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 empty=developmentOnly,testAndDevelopmentOnly,testAnnotationProcessor

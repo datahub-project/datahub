@@ -607,5 +607,5 @@ software.amazon.eventstream:eventstream:1.0.1=runtimeClasspath,testRuntimeClassp
 software.amazon.glue:schema-registry-build-tools:1.1.25=runtimeClasspath,testRuntimeClasspath
 software.amazon.glue:schema-registry-common:1.1.25=runtimeClasspath,testRuntimeClasspath
 software.amazon.glue:schema-registry-serde:1.1.25=runtimeClasspath,testRuntimeClasspath
-software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.6.5=runtimeClasspath,testRuntimeClasspath
+software.amazon.jdbc:aws-advanced-jdbc-wrapper:4.4.0=runtimeClasspath,testRuntimeClasspath
 empty=swaggerTemplate,swaggerUI,testAnnotationProcessor
