@@ -107,7 +107,7 @@ buildscript {
   // Mockito inline mocks need byte-buddy + byte-buddy-agent matched and >= 1.17.5 (ASM 9.8) to
   // instrument Java 25 runtime classes; forced in the resolutionStrategy block below.
   ext.byteBuddyVersion = '1.18.11'
-  ext.openLineageVersion = '1.50.0'
+  ext.openLineageVersion = '1.53.0'
   ext.awsSdk2Version = '2.30.33'
   ext.micrometerVersion = '1.16.6'
   // CVE-2026-1002; CVE-2026-6860 / GHSA-3g76-f9xq-8vp6 (SNI cache growth); fabric8 kubernetes-httpclient-vertx
