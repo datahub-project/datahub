@@ -94,6 +94,34 @@ class TestProcessingContext:
         assert context.step_sequence[0]["name"] == "test_step"
         assert context.step_sequence[0]["type"] == "TableInput"
 
+    def test_sorted_datasets_are_insertion_order_independent(self):
+        """Emission order must not depend on the order URNs were added.
+
+        The URNs accumulate in sets, whose iteration order varies with
+        per-process string hashing, so emitting them unsorted churns the
+        DataJobInputOutput aspect between runs over the same file.
+        """
+        config = PentahoSourceConfig(base_folder="/test")
+        urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,c_table,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,a_table,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,b_table,PROD)",
+        ]
+
+        forward = ProcessingContext("/test/file.ktr", config)
+        reverse = ProcessingContext("/test/file.ktr", config)
+        for urn in urns:
+            forward.add_input_dataset(urn)
+            forward.add_output_dataset(urn)
+        for urn in reversed(urns):
+            reverse.add_input_dataset(urn)
+            reverse.add_output_dataset(urn)
+
+        assert forward.sorted_input_datasets() == reverse.sorted_input_datasets()
+        assert forward.sorted_output_datasets() == reverse.sorted_output_datasets()
+        assert forward.sorted_input_datasets() == sorted(urns)
+        assert forward.sorted_output_datasets() == sorted(urns)
+
     def test_get_custom_properties(self):
         """Test custom properties generation."""
         config = PentahoSourceConfig(base_folder="/test")
@@ -210,6 +238,49 @@ class TestStepProcessors:
             "urn:li:dataset:(urn:li:dataPlatform:mysql,orders,PROD)"
         }
         # The parse failure must be operator-visible, not silently swallowed.
+        assert len(source.report.warnings) == 1
+
+    def test_table_input_processor_sql_parser_raising_falls_back(self):
+        """A raise from the parser must not escape the processor.
+
+        create_lineage_sql_parsed_result guards sqlglot_lineage itself, but its
+        schema-resolver setup and teardown sit outside that guard, so it can
+        still raise. The step's table name remains usable in that case.
+        """
+        source = PentahoSource(self.config, PipelineContext(run_id="test_run"))
+        processor = TableInputProcessor(source)
+
+        step_xml = ET.fromstring(
+            """
+            <step>
+                <type>TableInput</type>
+                <connection>mysql_conn</connection>
+                <table>orders</table>
+                <sql>SELECT id FROM analytics.orders</sql>
+            </step>
+        """
+        )
+        root = ET.fromstring(
+            """
+            <transformation>
+                <connection>
+                    <name>mysql_conn</name>
+                    <type>MYSQL</type>
+                </connection>
+            </transformation>
+        """
+        )
+
+        context = ProcessingContext("/test/file.ktr", self.config)
+        with patch(
+            "datahub.ingestion.source.pentaho.step_processors.table_input.create_lineage_sql_parsed_result",
+            side_effect=RuntimeError("schema resolver unavailable"),
+        ):
+            processor.process(step_xml, context, root)
+
+        assert context.input_datasets == {
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,orders,PROD)"
+        }
         assert len(source.report.warnings) == 1
 
     def test_table_input_processor_with_valid_sql(self):
