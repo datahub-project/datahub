@@ -1,0 +1,309 @@
+name: Release Process - Cut Tag
+
+run-name: "Cut tag on ${{ github.ref_name }}${{ inputs.hotfix_version != '' && format(' → v{0}', inputs.hotfix_version) || '' }} [${{ inputs.release_type }}]"
+
+# branch_type and version are inferred from the branch this workflow is run on
+# (releases/v{version} or hotfixes/v{version}), so they are no longer inputs.
+# Run this workflow directly from the release or hotfix branch.
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "rc or final. 'rc' auto-computes the next RC number."
+        required: true
+        type: choice
+        options:
+          - rc
+          - final
+      hotfix_version:
+        description: "Tag version for hotfix (e.g. 1.0.1). Required when running on a hotfixes/v{version} branch."
+        required: false
+        default: ""
+      skip_hotfix_sync_check:
+        description: "Skip the hotfix sync check. Use only when squash merge has been verified manually."
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+# Scoped per branch so two RC cuts for the same version cannot race,
+# while parallel cuts across different versions run concurrently.
+concurrency:
+  group: cut-tag-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve branch context
+    runs-on: depot-ubuntu-24.04-small
+    permissions:
+      contents: read
+    outputs:
+      branch_type: ${{ steps.parse.outputs.branch_type }}
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - name: Check out release scripts
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: true
+          fetch-depth: 1
+
+      # Infers branch_type and version from the branch name, and fails the run
+      # if it is not a releases/v{version} or hotfixes/v{version} branch.
+      - name: Parse branch_type and version from ref
+        id: parse
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          python3 .github/scripts/validate_inputs.py parse-ref --ref "$REF_NAME"
+
+  verify_hotfix_sync:
+    name: Verify Hotfix Sync
+    needs: [resolve]
+    if: needs.resolve.outputs.branch_type == 'hotfix' && !inputs.skip_hotfix_sync_check
+    uses: ./.github/workflows/release-verify-hotfix-sync.yml
+    permissions:
+      contents: read
+    with:
+      version: ${{ needs.resolve.outputs.version }}
+
+  cut_tag:
+    name: Cut Tag
+    needs: [resolve, verify_hotfix_sync]
+    # 'cancelled' is intentionally not listed: if the workflow is cancelled
+    # mid-sync-check we do not proceed with the tag cut. The explicit resolve
+    # success check is required because always() would otherwise let this run
+    # even when resolve rejected the branch (verify_hotfix_sync would be skipped).
+    if: >-
+      always()
+      && needs.resolve.result == 'success'
+      && (needs.verify_hotfix_sync.result == 'success' || needs.verify_hotfix_sync.result == 'skipped')
+    runs-on: depot-ubuntu-22.04
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.name }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ vars.RELEASE_TEAM_GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_TEAM_GH_APP_PRIVATE_KEY }}
+
+      - name: Check out release scripts
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: true
+          fetch-depth: 1
+
+      - name: Validate inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          BRANCH_TYPE: ${{ needs.resolve.outputs.branch_type }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          HOTFIX_VERSION: ${{ inputs.hotfix_version }}
+        run: |
+          python3 .github/scripts/validate_inputs.py cut-tag \
+            --version "$VERSION" \
+            --branch-type "$BRANCH_TYPE" \
+            --release-type "$RELEASE_TYPE" \
+            --hotfix-version "$HOTFIX_VERSION"
+
+      # The tag targets the branch the workflow was dispatched on, which the
+      # resolve job has already validated as a releases/ or hotfixes/ branch.
+      - name: Resolve target branch
+        id: target
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          echo "branch=${REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute next RC tag
+        if: inputs.release_type == 'rc'
+        id: next_rc
+        env:
+          # Read-only API call — GITHUB_TOKEN is sufficient here.
+          GH_TOKEN: ${{ github.token }}
+          BRANCH_TYPE: ${{ needs.resolve.outputs.branch_type }}
+          HOTFIX_VERSION: ${{ inputs.hotfix_version }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          if [ "$BRANCH_TYPE" == "hotfix" ]; then
+            RC_VERSION="$HOTFIX_VERSION"
+          else
+            RC_VERSION="$VERSION"
+          fi
+          python3 .github/scripts/compute_next_rc.py \
+            --version "$RC_VERSION" \
+            --output-file /tmp/next_rc_tag.txt
+          echo "tag=$(cat /tmp/next_rc_tag.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve tag name and pre-release flag
+        id: tag
+        env:
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          BRANCH_TYPE: ${{ needs.resolve.outputs.branch_type }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          HOTFIX_VERSION: ${{ inputs.hotfix_version }}
+          NEXT_RC_TAG: ${{ steps.next_rc.outputs.tag }}
+        run: |
+          SUFFIX=$(PYTHONPATH=.github/scripts python3 -c "from release_variables import VERSION_SUFFIX; print(VERSION_SUFFIX)")
+          if [ "$RELEASE_TYPE" == "rc" ]; then
+            echo "name=${NEXT_RC_TAG}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          elif [ "$BRANCH_TYPE" == "hotfix" ]; then
+            echo "name=v${HOTFIX_VERSION}${SUFFIX}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=v${VERSION}${SUFFIX}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute preceding tag for release notes
+        id: preceding_tag
+        env:
+          # Read-only API call — GITHUB_TOKEN is sufficient here.
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          python3 .github/scripts/compute_preceding_tag.py \
+            --tag "$TAG" \
+            --output-file /tmp/preceding_tag.txt
+          echo "tag=$(cat /tmp/preceding_tag.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        env:
+          # App token required: releases created by GITHUB_TOKEN do not fire the
+          # 'release: published' event that triggers downstream workflows.
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PRERELEASE_FLAG: ${{ steps.tag.outputs.prerelease }}
+          PRECEDING_TAG: ${{ steps.preceding_tag.outputs.tag }}
+          TAG_NAME: ${{ steps.tag.outputs.name }}
+          TARGET_BRANCH: ${{ steps.target.outputs.branch }}
+        run: |
+          NOTES_ARGS=()
+          if [ -n "$PRECEDING_TAG" ]; then
+            NOTES_ARGS=("--notes-start-tag" "$PRECEDING_TAG")
+          fi
+
+          PRERELEASE_ARGS=()
+          if [ "$PRERELEASE_FLAG" == "true" ]; then
+            PRERELEASE_ARGS=("--prerelease")
+          fi
+
+          gh release create "$TAG_NAME" \
+            --target "$TARGET_BRANCH" \
+            --title "$TAG_NAME" \
+            "${PRERELEASE_ARGS[@]}" \
+            "${NOTES_ARGS[@]}" \
+            --generate-notes
+          echo "Created release: $TAG_NAME"
+
+  create_linear_label:
+    name: Create Linear Release Label
+    needs: cut_tag
+    if: always() && needs.cut_tag.result == 'success' && needs.cut_tag.outputs.prerelease == 'false'
+    runs-on: depot-ubuntu-24.04-small
+    permissions:
+      contents: read
+    # Auxiliary step — must never block the release cut.
+    continue-on-error: true
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Create Linear release label
+        env:
+          INGESTION_LINEAR_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
+        run: |
+          python3 .github/scripts/create_linear_release_label.py \
+            --tag "${{ needs.cut_tag.outputs.tag }}"
+
+  print_docker_unified_url:
+    name: Print Docker Unified CI URL
+    needs: cut_tag
+    if: always() && needs.cut_tag.result == 'success'
+    runs-on: depot-ubuntu-24.04-small
+    permissions:
+      contents: read
+      # Needed for `gh run list` to locate the docker-unified run below.
+      actions: read
+    outputs:
+      docker_unified_url: ${{ steps.print_url.outputs.url }}
+    steps:
+      - name: Resolve tag to commit SHA
+        id: resolve_sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.cut_tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          REF_DATA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/${TAG}")
+          SHA=$(echo "$REF_DATA" | jq -r '.object.sha')
+          TYPE=$(echo "$REF_DATA" | jq -r '.object.type')
+          if [ "$TYPE" == "tag" ]; then
+            SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/${SHA}" | jq -r '.object.sha')
+          fi
+          if [[ -z "$SHA" || "$SHA" == "null" ]]; then
+            echo "✗ Could not resolve tag ${TAG} to a commit SHA"
+            exit 1
+          fi
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+
+      # The release's `release: published` event triggers docker-unified
+      # asynchronously, so poll until its run registers, then grab the exact
+      # run URL. Non-blocking: on timeout the print step falls back to a
+      # filtered workflow URL.
+      - name: Locate docker-unified run for this release
+        id: find_run
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.resolve_sha.outputs.sha }}
+        run: |
+          set -uo pipefail
+          RUN_URL=""
+          for _ in $(seq 1 12); do
+            RUN_URL=$(gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow docker-unified.yml \
+              --event release \
+              --limit 20 \
+              --json databaseId,url,headSha,createdAt \
+              --jq "[.[] | select(.headSha == \"${SHA}\")] | sort_by(.createdAt) | last | .url // empty")
+            if [[ -n "$RUN_URL" ]]; then
+              break
+            fi
+            sleep 5
+          done
+          echo "run_url=${RUN_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Print docker-unified workflow URL
+        id: print_url
+        env:
+          TAG: ${{ needs.cut_tag.outputs.tag }}
+          SHA: ${{ steps.resolve_sha.outputs.sha }}
+          RUN_URL: ${{ steps.find_run.outputs.run_url }}
+        run: |
+          if [[ -n "${RUN_URL}" ]]; then
+            URL="${RUN_URL}"
+          else
+            # Run not registered yet — link to the release-triggered runs so
+            # the operator sees the relevant runs instead of the full history.
+            URL="https://github.com/${GITHUB_REPOSITORY}/actions/workflows/docker-unified.yml?query=event%3Arelease"
+          fi
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  Docker Unified CI for ${TAG} (${SHA})"
+          echo "  ${URL}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
