@@ -255,7 +255,7 @@ looker_common = {
     # See https://github.com/joshtemple/lkml/issues/73.
     "lkml>=1.3.4,<2.0.0",
     *sqlglot_lib,
-    "GitPython>2,<4.0.0",
+    "GitPython>=3.1.58,<4.0.0",
     "python-liquid>=2.0.0,<3.0.0",
     "deepmerge>=1.1.1,<3.0.0",
 }
@@ -756,7 +756,7 @@ plugins: Dict[str, Set[str]] = {
     "mariadb": mysql_common,
     "tidb": mysql_common,
     "doris": mysql_common,
-    "odcs": aws_common | {"GitPython>2,<4.0.0"},
+    "odcs": aws_common | {"GitPython>=3.1.58,<4.0.0"},
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0", "flatdict!=4.0.1"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
