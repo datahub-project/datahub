@@ -28,12 +28,15 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
 
   /**
    * Regression for the AI-smoke system-update failure: target mappings supplied by
-   * V2SemanticSearchMappingsBuilder are ImmutableMaps at every level, and with structured-property
-   * system-update disabled (the default) buildReindexState merges the current index's
-   * structured-property mappings into the target on every pass. Merging into the caller's maps
-   * threw a message-less UnsupportedOperationException, which BuildIndicesIncrementalStep swallowed
-   * into "No index builder found". Drives the real buildReindexState path with an immutable target
-   * against an existing index whose mappings carry structured properties.
+   * V2SemanticSearchMappingsBuilder are ImmutableMaps at every level, and buildReindexState
+   * currently falls back to merging the current index's structured-property mappings into the
+   * target when it has no definition-driven target to preserve (see
+   * shouldPreserveStructuredPropertyMappings; making targets definition-driven whenever structured
+   * properties are enabled is tracked in https://github.com/datahub-project/datahub/issues/19588).
+   * Merging into the caller's maps threw a message-less UnsupportedOperationException, which
+   * BuildIndicesIncrementalStep swallowed into "No index builder found". Drives the real
+   * buildReindexState path with an immutable target against an existing index whose mappings carry
+   * structured properties.
    */
   @Test
   public void testBuildReindexStateMergesIntoImmutableTargetMappings() throws Exception {
@@ -65,8 +68,8 @@ public class ESIndexBuilderStructuredPropertyMergeTest {
     when(config.getBuildIndices().getSlowOperationTimeoutSeconds()).thenReturn(10);
     GitVersion gitVersion = mock(GitVersion.class);
     when(gitVersion.getVersion()).thenReturn("test");
-    // Default mock booleans are false: structured-property system-update disabled, so
-    // shouldPreserveStructuredPropertyMappings(false) is true — the failing configuration.
+    // Default mock booleans make shouldPreserveStructuredPropertyMappings(false) return true,
+    // selecting the live-mapping merge fallback — the configuration that crashed.
     ESIndexBuilder builder =
         spy(
             new ESIndexBuilder(

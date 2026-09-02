@@ -453,7 +453,9 @@ public class ESIndexBuilder {
       // ImmutableMaps, where an in-place merge throws UnsupportedOperationException),
       // so merge into a mutable copy of those levels instead of the caller's maps.
       // The copy is gated on the current index actually having structured-property
-      // mappings, since the merge is a no-op otherwise.
+      // mappings, since the merge is a no-op otherwise. Merging from the live index at
+      // all — rather than building targets from structured-property definitions — is a
+      // separate issue: https://github.com/datahub-project/datahub/issues/19588.
       mappings = copyForStructuredPropertyMerge(mappings);
       mergeStructuredPropertyMappings(mappings, currentMappings);
     }
