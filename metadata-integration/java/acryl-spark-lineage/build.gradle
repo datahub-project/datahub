@@ -589,6 +589,11 @@ compileScala213Java {
 }
 
 test {
+  // Hadoop's Configuration type references the legacy Commons Collections 3.x API at runtime.
+  // PathUtilsTest loads that type, while the module globally excludes the dependency from normal
+  // configurations, so supply it through a detached test-only configuration.
+  classpath += project.configurations.detachedConfiguration(
+      project.dependencies.create('commons-collections:commons-collections:3.2.2'))
   forkEvery = 1
   // Keep the default unit-test run fast and Docker-free: the real-Spark smoke test is tagged
   // "integration" and runs via the sparkRealSmokeTest task below.
@@ -627,7 +632,7 @@ tasks.register('sparkRealSmokeTest', Test) {
 
 // Apache Spark 4.x compatibility smoke test (Scala 2.13, Java 17+). Runs a real local Spark 4
 // SparkSession with the DataHub listener and asserts lineage is emitted — i.e. that the plugin
-// (OpenLineage 1.50 + our vendored classes) attaches and works on Spark 4. Kept out of `test`/CI
+// (OpenLineage 1.53 + our vendored classes) attaches and works on Spark 4. Kept out of `test`/CI
 // unit runs; run explicitly via `./gradlew :...:acryl-spark-lineage:sparkSmoke4Test`.
 tasks.register('sparkSmoke4Test', Test) {
   description = 'Runs a real Apache Spark 4.x (Scala 2.13) lineage smoke test against the shaded agent jar.'

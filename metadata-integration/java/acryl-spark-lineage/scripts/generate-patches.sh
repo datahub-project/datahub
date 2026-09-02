@@ -91,7 +91,10 @@ for file in "${FILES[@]}"; do
 # -p1 would silently rewrite patches/upstream-*/ instead of the source tree.
 #
 EOF
-    cat "$PATCH_FILE" >> "$TEMP_PATCH"
+    # Unified diff writes blank context lines as a single space. Since these patches are committed
+    # as text, Git reports that marker as trailing whitespace; patch accepts an empty hunk line as
+    # the same blank context, so normalize it while assembling the final file.
+    sed 's/^ $//' "$PATCH_FILE" >> "$TEMP_PATCH"
     mv "$TEMP_PATCH" "$PATCH_FILE"
   fi
 done
