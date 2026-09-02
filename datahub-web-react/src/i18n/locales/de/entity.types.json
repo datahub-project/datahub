@@ -308,6 +308,7 @@
     "tab.properties": "Eigenschaften",
     "tab.queries": "Queries",
     "tab.runs": "Runs",
+    "tab.definition": "Definition",
     "tab.summary": "Übersicht",
     "tag.name": "Tag",
     "tag.namePlural": "Tags",
@@ -320,11 +321,12 @@
     "user.invalidUrlError": "keine gültige URL",
     "user.name": "Person",
     "user.namePlural": "Personen",
-    "user.slackMemberIdHelp": "Finde deine Member-ID über das <icon></icon>-Menü in deinem Slack-Profil. Mehr Infos <anchor>hier.</anchor>",
+    "user.slackMemberIdHelp": "Member ID: Slack Profil <icon></icon> Menü. Mehr Infos <anchor>hier.</anchor>",
     "user.slackMemberIdLabel": "Slack-Member-ID",
     "user.tab.groups": "Gruppen",
     "user.tab.ownerOf": "Owner von",
     "user.teamLabel": "Team",
     "user.teamsHeading": "Teams",
-    "user.titleRoleLabel": "Titel/Rolle"
+    "user.titleRoleLabel": "Titel/Rolle",
+    "dataProduct.parentLabel": "Übergeordnetes Data Product"
 }

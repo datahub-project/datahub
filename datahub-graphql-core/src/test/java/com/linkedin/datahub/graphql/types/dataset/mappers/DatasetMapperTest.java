@@ -254,4 +254,87 @@ public class DatasetMapperTest {
 
     Assert.assertNull(actual.getLogicalParent());
   }
+
+  @Test
+  public void testDatasetMapperWithSemanticModelProperties() {
+    final Urn semanticModelUrn =
+        Urn.createFromTuple(Constants.SEMANTIC_MODEL_ENTITY_NAME, "dbt", "analytics.orders", "m");
+    final com.linkedin.dataset.SemanticModelProperties input =
+        new com.linkedin.dataset.SemanticModelProperties()
+            .setAlias("orders_ds")
+            .setSemanticModel(semanticModelUrn);
+
+    final Map<String, com.linkedin.entity.EnvelopedAspect> aspects = new HashMap<>();
+    aspects.put(
+        Constants.SEMANTIC_MODEL_PROPERTIES_ASPECT_NAME,
+        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(input.data())));
+
+    final EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.DATASET_ENTITY_NAME)
+            .setUrn(TEST_DATASET_URN)
+            .setAspects(new EnvelopedAspectMap(aspects));
+
+    final Dataset actual = DatasetMapper.map(null, response);
+
+    Assert.assertNotNull(actual.getSemanticModelProperties());
+    Assert.assertEquals(actual.getSemanticModelProperties().getAlias(), "orders_ds");
+    Assert.assertNotNull(actual.getSemanticModelProperties().getSemanticModel());
+    Assert.assertEquals(
+        actual.getSemanticModelProperties().getSemanticModel().getUrn(),
+        semanticModelUrn.toString());
+  }
+
+  @Test
+  public void testDatasetMapperViewPropertiesWithFormattedLogic() {
+    final com.linkedin.dataset.ViewProperties input = new com.linkedin.dataset.ViewProperties();
+    input.setMaterialized(true);
+    input.setViewLanguage("SQL");
+    input.setViewLogic("select * from {{ ref('upstream') }}");
+    input.setFormattedViewLogic("select * from warehouse.schema.upstream");
+
+    final Map<String, com.linkedin.entity.EnvelopedAspect> aspects = new HashMap<>();
+    aspects.put(
+        Constants.VIEW_PROPERTIES_ASPECT_NAME,
+        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(input.data())));
+    final EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.DATASET_ENTITY_NAME)
+            .setUrn(TEST_DATASET_URN)
+            .setAspects(new EnvelopedAspectMap(aspects));
+
+    final Dataset actual = DatasetMapper.map(null, response);
+
+    Assert.assertNotNull(actual.getViewProperties());
+    Assert.assertTrue(actual.getViewProperties().getMaterialized());
+    Assert.assertEquals(actual.getViewProperties().getLanguage(), "SQL");
+    Assert.assertEquals(
+        actual.getViewProperties().getLogic(), "select * from {{ ref('upstream') }}");
+    Assert.assertEquals(
+        actual.getViewProperties().getFormattedLogic(), "select * from warehouse.schema.upstream");
+  }
+
+  @Test
+  public void testDatasetMapperViewPropertiesWithoutFormattedLogic() {
+    final com.linkedin.dataset.ViewProperties input = new com.linkedin.dataset.ViewProperties();
+    input.setMaterialized(false);
+    input.setViewLanguage("SQL");
+    input.setViewLogic("select 1");
+
+    final Map<String, com.linkedin.entity.EnvelopedAspect> aspects = new HashMap<>();
+    aspects.put(
+        Constants.VIEW_PROPERTIES_ASPECT_NAME,
+        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(input.data())));
+    final EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.DATASET_ENTITY_NAME)
+            .setUrn(TEST_DATASET_URN)
+            .setAspects(new EnvelopedAspectMap(aspects));
+
+    final Dataset actual = DatasetMapper.map(null, response);
+
+    Assert.assertNotNull(actual.getViewProperties());
+    Assert.assertEquals(actual.getViewProperties().getLogic(), "select 1");
+    Assert.assertNull(actual.getViewProperties().getFormattedLogic());
+  }
 }

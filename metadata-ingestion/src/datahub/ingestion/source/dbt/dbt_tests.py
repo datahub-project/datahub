@@ -2,7 +2,7 @@ import json
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -20,7 +20,6 @@ from datahub.metadata.schema_classes import (
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
     CustomAssertionInfoClass,
-    DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
 )
 
@@ -248,6 +247,34 @@ def _map_dbt_freshness_status(
     return AssertionResultTypeClass.FAILURE, AssertionResultSeverityClass.HIGH
 
 
+def _make_custom_assertion_info(
+    *,
+    entity_urn: str,
+    scope: Union[DatasetAssertionScopeClass, str],
+    operator: Union[AssertionStdOperatorClass, str],
+    aggregation: Union[AssertionStdAggregationClass, str],
+    fields: Optional[List[str]] = None,
+    native_type: Optional[str] = None,
+    parameters: Optional[AssertionStdParametersClass] = None,
+    logic: Optional[str] = None,
+    native_parameters: Optional[Dict[str, str]] = None,
+) -> CustomAssertionInfoClass:
+    field_urns = fields or []
+    return CustomAssertionInfoClass(
+        type="dbt",
+        entity=entity_urn,
+        field=field_urns[0] if field_urns else None,
+        fields=field_urns or None,
+        scope=scope,
+        operator=operator,
+        aggregation=aggregation,
+        parameters=parameters,
+        nativeType=native_type,
+        logic=logic,
+        nativeParameters=native_parameters,
+    )
+
+
 def make_assertion_from_test(
     extra_custom_props: Dict[str, str],
     node: "DBTNode",
@@ -261,71 +288,64 @@ def make_assertion_from_test(
 
     if qualified_test_name in _DBT_TEST_NAME_TO_ASSERTION_MAP:
         assertion_params = _DBT_TEST_NAME_TO_ASSERTION_MAP[qualified_test_name]
-        assertion_info = AssertionInfoClass(
-            type=AssertionTypeClass.DATASET,
-            customProperties=extra_custom_props,
-            source=mce_builder.make_assertion_source(),
-            datasetAssertion=DatasetAssertionInfoClass(
-                dataset=upstream_urn,
-                scope=assertion_params.scope,
-                operator=assertion_params.operator,
-                fields=(
-                    [mce_builder.make_schema_field_urn(upstream_urn, column_name)]
-                    if (
-                        assertion_params.scope
-                        == DatasetAssertionScopeClass.DATASET_COLUMN
-                        and column_name
-                    )
-                    else []
-                ),
-                nativeType=node.name,
-                aggregation=assertion_params.aggregation,
-                parameters=(
-                    assertion_params.parameters(kw_args)
-                    if assertion_params.parameters
-                    else None
-                ),
-                logic=(
-                    assertion_params.logic_fn(kw_args)
-                    if assertion_params.logic_fn
-                    else None
-                ),
-                nativeParameters=_string_map(kw_args),
+        fields = (
+            [mce_builder.make_schema_field_urn(upstream_urn, column_name)]
+            if (
+                assertion_params.scope == DatasetAssertionScopeClass.DATASET_COLUMN
+                and column_name
+            )
+            else []
+        )
+        custom_assertion = _make_custom_assertion_info(
+            entity_urn=upstream_urn,
+            scope=assertion_params.scope,
+            operator=assertion_params.operator,
+            aggregation=assertion_params.aggregation,
+            fields=fields,
+            native_type=node.name,
+            parameters=(
+                assertion_params.parameters(kw_args)
+                if assertion_params.parameters
+                else None
             ),
+            logic=(
+                assertion_params.logic_fn(kw_args)
+                if assertion_params.logic_fn
+                else None
+            ),
+            native_parameters=_string_map(kw_args),
         )
     elif column_name:
         # no match with known test types, column-level test
-        assertion_info = AssertionInfoClass(
-            type=AssertionTypeClass.DATASET,
-            customProperties=extra_custom_props,
-            source=mce_builder.make_assertion_source(),
-            datasetAssertion=DatasetAssertionInfoClass(
-                dataset=upstream_urn,
-                scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-                operator=AssertionStdOperatorClass._NATIVE_,
-                fields=[mce_builder.make_schema_field_urn(upstream_urn, column_name)],
-                nativeType=node.name,
-                logic=node.compiled_code or node.raw_code,
-                aggregation=AssertionStdAggregationClass._NATIVE_,
-                nativeParameters=_string_map(kw_args),
-            ),
+        fields = [mce_builder.make_schema_field_urn(upstream_urn, column_name)]
+        custom_assertion = _make_custom_assertion_info(
+            entity_urn=upstream_urn,
+            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
+            operator=AssertionStdOperatorClass._NATIVE_,
+            aggregation=AssertionStdAggregationClass._NATIVE_,
+            fields=fields,
+            native_type=node.name,
+            logic=node.compiled_code or node.raw_code,
+            native_parameters=_string_map(kw_args),
         )
     else:
         # no match with known test types, default to row-level test
-        assertion_info = AssertionInfoClass(
-            type=AssertionTypeClass.DATASET,
-            customProperties=extra_custom_props,
-            source=mce_builder.make_assertion_source(),
-            datasetAssertion=DatasetAssertionInfoClass(
-                dataset=upstream_urn,
-                scope=DatasetAssertionScopeClass.DATASET_ROWS,
-                operator=AssertionStdOperatorClass._NATIVE_,
-                logic=node.compiled_code or node.raw_code,
-                nativeType=node.name,
-                aggregation=AssertionStdAggregationClass._NATIVE_,
-                nativeParameters=_string_map(kw_args),
-            ),
+        custom_assertion = _make_custom_assertion_info(
+            entity_urn=upstream_urn,
+            scope=DatasetAssertionScopeClass.DATASET_ROWS,
+            operator=AssertionStdOperatorClass._NATIVE_,
+            aggregation=AssertionStdAggregationClass._NATIVE_,
+            native_type=node.name,
+            logic=node.compiled_code or node.raw_code,
+            native_parameters=_string_map(kw_args),
         )
+
+    assertion_info = AssertionInfoClass(
+        type=AssertionTypeClass.CUSTOM,
+        customProperties=extra_custom_props,
+        source=mce_builder.make_assertion_source(),
+        customAssertion=custom_assertion,
+    )
 
     return MetadataChangeProposalWrapper(
         entityUrn=assertion_urn,

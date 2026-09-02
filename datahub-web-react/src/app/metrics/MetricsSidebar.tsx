@@ -1,122 +1,44 @@
-import { Button, EmptyState, SearchBar } from '@components';
-import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
-import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
-import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { Avatar, EmptyState, SearchBar } from '@components';
 import { Sigma } from '@phosphor-icons/react/dist/csr/Sigma';
-import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { matchPath, useHistory, useLocation } from 'react-router-dom';
+import { matchPath, useLocation } from 'react-router-dom';
+import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
+import { AvatarType } from '@components/components/AvatarStack/types';
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 
-import { MetricsTreeItem } from '@app/metrics/MetricsTreeItem';
+import MetricsSidebarSearchFilters from '@app/metrics/MetricsSidebarSearchFilters';
+import MetricsSidebarSearchResults from '@app/metrics/MetricsSidebarSearchResults';
 import { SemanticModelRow } from '@app/metrics/SemanticModelRow';
 import { useMetricsEntityContext } from '@app/metrics/context/MetricsEntityContext';
-import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import useMetricsSectionExpansion from '@app/metrics/hooks/useMetricsSectionExpansion';
+import useMetricsSidebarFacetOptions from '@app/metrics/hooks/useMetricsSidebarFacetOptions';
+import useMetricsSidebarSearch from '@app/metrics/hooks/useMetricsSidebarSearch';
+import { SemanticModel } from '@app/metrics/metricsTypes';
+import useSemanticModelRoots from '@app/metrics/useSemanticModelRoots';
+import {
+    SECONDARY_BROWSE_FILTERS,
+    SecondaryBrowseFilter,
+    isMetricsSidebarSearchActive,
+    isSecondaryBrowseFilter,
+    nextPromotedBrowseFilters,
+} from '@app/metrics/utils/metricsSidebarMode';
+import {
+    DEFAULT_METRICS_SIDEBAR_SORT,
+    METRICS_SIDEBAR_SORT,
+    MetricsSidebarSortValue,
+} from '@app/metrics/utils/metricsSidebarSort';
+import HierarchicalBrowseSidebar from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar';
+import SidebarAddFilter from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarAddFilter';
+import SidebarHomeNavLink from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarHomeNavLink';
+import SidebarSortSelect from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarSortSelect';
+import { TreeSectionHeader } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeSectionHeader';
 import { PageRoutes } from '@conf/Global';
 
-import { useGetSemanticModelsBrowseQuery } from '@graphql/metricsBrowse.generated';
-
-const SIDEBAR_TRANSITION_MS = 300;
-export const SIDEBAR_COLLAPSED_WIDTH = 63;
-
-// Visual chrome mirrors `app/context/ContextSidebar.tsx`.
-const SidebarContainer = styled.div<{
-    $width: number;
-    $isCollapsed: boolean;
-    $isShowNavBarRedesign?: boolean;
-}>`
-    flex-shrink: 0;
-    max-height: 100%;
-    width: ${(props) => (props.$isCollapsed ? `${SIDEBAR_COLLAPSED_WIDTH}px` : `${props.$width}px`)};
-    transition: width ${SIDEBAR_TRANSITION_MS}ms ease-in-out;
-    background-color: ${(props) => props.theme.colors.bg};
-    border-radius: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowSm};`}
-`;
-
-const HeaderControls = styled.div<{ $isCollapsed: boolean }>`
-    display: flex;
-    align-items: center;
-    justify-content: ${(props) => (props.$isCollapsed ? 'center' : 'space-between')};
-    padding: 12px;
-    height: 50px;
-    overflow: hidden;
-`;
-
-const SidebarTitle = styled.div`
-    font-size: 16px;
-    font-weight: bold;
-    color: ${(props) => props.theme.colors.text};
-`;
-
-const HeaderButtons = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 4px;
-`;
-
-const Separator = styled.div`
-    height: 1px;
-    background: ${(props) => props.theme.colors.border};
-`;
-
-const SearchInputWrapper = styled.div`
-    padding: 12px;
-    flex-shrink: 0;
-`;
-
-const FiltersWrapper = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 0 12px 12px;
-    flex-shrink: 0;
-`;
-
-const SearchIconButton = styled.button`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: 16px 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    color: ${(props) => props.theme.colors.icon};
-
-    &:hover {
-        color: ${(props) => props.theme.colors.iconHover};
-    }
-`;
-
-const TreeContainer = styled.div`
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 8px 12px;
-    display: flex;
-    flex-direction: column;
-
-    &::-webkit-scrollbar {
-        width: 6px;
-    }
-    &::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.scrollbarThumb};
-        border-radius: 3px;
-    }
-    scrollbar-width: thin;
-    scrollbar-color: ${(props) => props.theme.colors.scrollbarThumb} transparent;
-`;
+import { useScrollSemanticModelsQuery } from '@graphql/metricsBrowse.generated';
+import { EntityType } from '@types';
 
 const EmptyStateWrapper = styled.div`
     flex: 1;
@@ -126,103 +48,201 @@ const EmptyStateWrapper = styled.div`
     padding: 24px 12px;
 `;
 
-const ALL_OPTION = '__all__';
+const OwnerOptionRow = styled.span`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
 
 type Props = {
-    width: number;
     isCollapsed: boolean;
-    isEntityProfile?: boolean;
     onToggleCollapsed: () => void;
     onExpandSidebar: () => void;
 };
 
-export default function MetricsSidebar({
-    width,
-    isCollapsed,
-    isEntityProfile: _isEntityProfile,
-    onToggleCollapsed,
-    onExpandSidebar,
-}: Props) {
-    const isShowNavBarRedesign = useShowNavBarRedesign();
-
-    return (
-        <SidebarContainer
-            $width={width}
-            $isCollapsed={isCollapsed}
-            $isShowNavBarRedesign={isShowNavBarRedesign}
-            data-testid="metrics-sidebar"
-        >
-            {isCollapsed ? (
-                <CollapsedMetricsSidebar onToggleCollapsed={onToggleCollapsed} onExpandSidebar={onExpandSidebar} />
-            ) : (
-                <ExpandedMetricsSidebar onToggleCollapsed={onToggleCollapsed} />
-            )}
-        </SidebarContainer>
-    );
-}
-
-function CollapsedMetricsSidebar({
-    onToggleCollapsed,
-    onExpandSidebar,
-}: {
-    onToggleCollapsed: () => void;
-    onExpandSidebar: () => void;
-}) {
+export default function MetricsSidebar({ isCollapsed, onToggleCollapsed, onExpandSidebar }: Props) {
     const { t } = useTranslation('misc');
-
-    return (
-        <>
-            <HeaderControls $isCollapsed>
-                <Button
-                    variant="text"
-                    color="gray"
-                    size="lg"
-                    isCircle
-                    icon={{ icon: ArrowLineRight }}
-                    onClick={onToggleCollapsed}
-                    data-testid="metrics-sidebar-collapse-button"
-                />
-            </HeaderControls>
-            <Separator />
-            <SearchIconButton
-                onClick={onExpandSidebar}
-                data-testid="metrics-sidebar-search-icon"
-                aria-label={t('metrics.searchAriaLabel')}
-            >
-                <MagnifyingGlass size={20} weight="regular" />
-            </SearchIconButton>
-        </>
-    );
-}
-
-function ExpandedMetricsSidebar({ onToggleCollapsed }: { onToggleCollapsed: () => void }) {
-    const { t } = useTranslation('misc');
-    const history = useHistory();
     const location = useLocation();
     const [searchInput, setSearchInput] = useState('');
-    const [platformFilter, setPlatformFilter] = useState(ALL_OPTION);
+    const [debouncedQuery, setDebouncedQuery] = useState('');
+    const [selectedPlatformUrns, setSelectedPlatformUrns] = useState<string[]>([]);
+    const [selectedDomainUrns, setSelectedDomainUrns] = useState<string[]>([]);
+    const [selectedTagUrns, setSelectedTagUrns] = useState<string[]>([]);
+    const [selectedTermUrns, setSelectedTermUrns] = useState<string[]>([]);
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+    const [sortSelection, setSortSelection] = useState<MetricsSidebarSortValue>(DEFAULT_METRICS_SIDEBAR_SORT);
+    const [promotedBrowseFilters, setPromotedBrowseFilters] = useState<Set<SecondaryBrowseFilter>>(new Set());
+    const [filterToAutoOpen, setFilterToAutoOpen] = useState<SecondaryBrowseFilter | null>(null);
+    const [autoOpenNonce, setAutoOpenNonce] = useState(0);
+    const [isModelsExpanded, setIsModelsExpanded] = useState(true);
+    const isFirstSortEffectRef = useRef(true);
 
     const {
         expandedSemanticModelUrns,
         expandedMetricUrns,
         selectedUrn,
-        childMetricsByModelUrn,
-        childMetricsByParentUrn,
         toggleSemanticModel,
         toggleMetric,
-        setChildMetricsForModel,
-        setChildMetricsForParent,
+        collapseAllExpanded,
         refetchKey,
+        entityData,
     } = useMetricsEntityContext();
 
-    const isOverviewSelected = !!matchPath(location.pathname, { path: PageRoutes.METRICS, exact: true });
+    const { isSectionExpanded, isExpanding, toggleExpandAll } = useMetricsSectionExpansion(sortSelection);
 
-    // Fetch root semantic models.
-    const { data: modelsData, refetch: refetchModels } = useGetSemanticModelsBrowseQuery({
-        variables: { input: { count: 100, start: 0 } },
+    const isHomeSelected = !!matchPath(location.pathname, { path: PageRoutes.METRICS, exact: true });
+
+    useDebounce(() => setDebouncedQuery(searchInput), 200, [searchInput]);
+
+    useEffect(() => {
+        setPromotedBrowseFilters((prev) =>
+            nextPromotedBrowseFilters(prev, {
+                tagUrns: selectedTagUrns,
+                ownerUrns: selectedOwnerUrns,
+            }),
+        );
+    }, [selectedTagUrns, selectedOwnerUrns]);
+
+    useEffect(() => {
+        if (isFirstSortEffectRef.current) {
+            isFirstSortEffectRef.current = false;
+            return;
+        }
+        collapseAllExpanded();
+    }, [sortSelection, collapseAllExpanded]);
+
+    const demoteBrowseFilter = useCallback((key: SecondaryBrowseFilter) => {
+        setPromotedBrowseFilters((prev) => {
+            if (!prev.has(key)) return prev;
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+        });
+    }, []);
+
+    const promoteBrowseFilter = useCallback((key: SecondaryBrowseFilter) => {
+        setPromotedBrowseFilters((prev) => {
+            if (prev.has(key)) return prev;
+            const next = new Set(prev);
+            next.add(key);
+            return next;
+        });
+    }, []);
+
+    const handleAddBrowseFilter = useCallback(
+        (value: string) => {
+            if (!isSecondaryBrowseFilter(value)) return;
+            promoteBrowseFilter(value);
+            setFilterToAutoOpen(value);
+            setAutoOpenNonce((n) => n + 1);
+        },
+        [promoteBrowseFilter],
+    );
+
+    const handleTagsChange = useCallback(
+        (urns: string[]) => {
+            setSelectedTagUrns(urns);
+            setFilterToAutoOpen(null);
+            if (urns.length === 0) demoteBrowseFilter('tag');
+        },
+        [demoteBrowseFilter],
+    );
+
+    const handleOwnersChange = useCallback(
+        (urns: string[]) => {
+            setSelectedOwnerUrns(urns);
+            setFilterToAutoOpen(null);
+            if (urns.length === 0) demoteBrowseFilter('owners');
+        },
+        [demoteBrowseFilter],
+    );
+
+    const searchModeInput = useMemo(
+        () => ({
+            platformUrns: selectedPlatformUrns,
+            domainUrns: selectedDomainUrns,
+            tagUrns: selectedTagUrns,
+            termUrns: selectedTermUrns,
+            ownerUrns: selectedOwnerUrns,
+        }),
+        [selectedPlatformUrns, selectedDomainUrns, selectedTagUrns, selectedTermUrns, selectedOwnerUrns],
+    );
+
+    const isSearchActive = isMetricsSidebarSearchActive({
+        ...searchModeInput,
+        searchInput,
+    });
+    const shouldFetchSearch = isMetricsSidebarSearchActive({
+        ...searchModeInput,
+        searchInput: debouncedQuery,
     });
 
-    // Re-fetch root when refetchKey changes.
+    const { platformOptions, domainOptions, tagOptions, termOptions, ownerOptions } = useMetricsSidebarFacetOptions({
+        searchQuery: debouncedQuery,
+        platformUrns: selectedPlatformUrns,
+        domainUrns: selectedDomainUrns,
+        tagUrns: selectedTagUrns,
+        termUrns: selectedTermUrns,
+        ownerUrns: selectedOwnerUrns,
+        includeTagFacets: promotedBrowseFilters.has('tag') || selectedTagUrns.length > 0,
+        includeOwnerFacets: promotedBrowseFilters.has('owners') || selectedOwnerUrns.length > 0,
+    });
+
+    const {
+        metrics: searchResults,
+        total: searchTotal,
+        loading: searchLoading,
+        isRefreshing: searchRefreshing,
+        scrollRef: searchScrollRef,
+    } = useMetricsSidebarSearch({
+        searchQuery: debouncedQuery,
+        platformUrns: selectedPlatformUrns,
+        domainUrns: selectedDomainUrns,
+        tagUrns: selectedTagUrns,
+        termUrns: selectedTermUrns,
+        ownerUrns: selectedOwnerUrns,
+        sort: sortSelection,
+        skip: !shouldFetchSearch,
+    });
+
+    const searchResultsLoading =
+        (isSearchActive && !shouldFetchSearch) || (searchLoading && searchResults.length === 0);
+
+    const {
+        data: rootModels,
+        scrollRef: rootScrollRef,
+        refetch: refetchModels,
+    } = useSemanticModelRoots(sortSelection, isSearchActive);
+
+    const missingModelUrn =
+        entityData?.entityType === EntityType.Metric && entityData.semanticModel?.urn
+            ? entityData.semanticModel.urn
+            : null;
+    const isMissingFromRoots = missingModelUrn != null && !rootModels.some((m) => m.urn === missingModelUrn);
+
+    const { data: fallbackData } = useScrollSemanticModelsQuery({
+        skip: !isMissingFromRoots || missingModelUrn == null || isSearchActive,
+        variables: {
+            input: {
+                query: '*',
+                types: [EntityType.SemanticModel],
+                count: 1,
+                orFilters: [{ and: [{ field: 'urn', condition: 'EQUAL' as any, values: [missingModelUrn ?? ''] }] }],
+            },
+        },
+    });
+
+    const allModels: SemanticModel[] = useMemo(() => {
+        if (!isMissingFromRoots) return rootModels;
+        const fallbackModels = (fallbackData?.scrollAcrossEntities?.searchResults ?? [])
+            .map((r) => r.entity)
+            .filter((e): e is SemanticModel => e?.__typename === 'SemanticModel');
+        if (fallbackModels.length === 0) return rootModels;
+        const existingUrns = new Set(rootModels.map((m) => m.urn));
+        const newModels = fallbackModels.filter((m) => !existingUrns.has(m.urn));
+        return newModels.length > 0 ? [...newModels, ...rootModels] : rootModels;
+    }, [rootModels, fallbackData, isMissingFromRoots]);
+
     useEffect(() => {
         if (refetchKey > 0) {
             refetchModels();
@@ -230,135 +250,201 @@ function ExpandedMetricsSidebar({ onToggleCollapsed }: { onToggleCollapsed: () =
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [refetchKey]);
 
-    const allModels = useMemo(() => modelsData?.getSemanticModels?.semanticModels ?? [], [modelsData]);
+    const handleToggleExpandAll = useCallback(() => {
+        // Opening nested rows is useless if the section itself is collapsed.
+        if (!isSectionExpanded) {
+            setIsModelsExpanded(true);
+        }
+        toggleExpandAll(allModels);
+    }, [isSectionExpanded, toggleExpandAll, allModels]);
 
-    // Derive unique platforms for the Platform filter.
-    const platformOptions = useMemo(() => {
-        const seen = new Map<string, string>();
-        allModels.forEach((m) => {
-            const urn = m.platform?.urn;
-            const label = m.platform?.properties?.displayName ?? m.platform?.info?.displayName ?? m.platform?.name;
-            if (urn && label && !seen.has(urn)) seen.set(urn, label);
-        });
-        return Array.from(seen.entries()).map(([urn, label]) => ({ value: urn, label }));
-    }, [allModels]);
+    const handleClearSearch = useCallback(() => {
+        setSearchInput('');
+        setDebouncedQuery('');
+        setSelectedPlatformUrns([]);
+        setSelectedDomainUrns([]);
+        setSelectedTagUrns([]);
+        setSelectedTermUrns([]);
+        setSelectedOwnerUrns([]);
+        setPromotedBrowseFilters(new Set());
+        setFilterToAutoOpen(null);
+    }, []);
 
-    // Filter semantic models by platform + search.
-    const visibleModels = useMemo(() => {
-        return allModels.filter((m) => {
-            if (platformFilter !== ALL_OPTION && m.platform?.urn !== platformFilter) return false;
-            if (searchInput) {
-                const q = searchInput.toLowerCase();
-                const nameMatch = (m.info?.name ?? '').toLowerCase().includes(q);
-                if (!nameMatch) {
-                    // Keep the model visible if any of its cached child metrics match.
-                    const childMetrics = childMetricsByModelUrn[m.urn] ?? [];
-                    const childMatch = childMetrics.some((metric) =>
-                        (metric.info?.name ?? '').toLowerCase().includes(q),
-                    );
-                    if (!childMatch) return false;
-                }
-            }
-            return true;
-        });
-    }, [allModels, platformFilter, searchInput, childMetricsByModelUrn]);
+    const sortOptions = useMemo(
+        () => [
+            { value: METRICS_SIDEBAR_SORT.NAME_ASC, label: t('sidebarSort.nameAtoZ') },
+            { value: METRICS_SIDEBAR_SORT.NAME_DESC, label: t('sidebarSort.nameZtoA') },
+            { value: METRICS_SIDEBAR_SORT.LAST_MODIFIED_DESC, label: t('sidebarSort.lastModified') },
+        ],
+        [t],
+    );
 
-    // Auto-expand the semantic model that directly contains the selected metric.
-    // Deeper metric-in-metric ancestors are handled properly in subsequent PR.
-    useEffect(() => {
-        if (!selectedUrn) return;
-        allModels.forEach((m) => {
-            const topLevelMetrics = childMetricsByModelUrn[m.urn] ?? [];
-            const isDirectChild = topLevelMetrics.some((metric) => metric.urn === selectedUrn);
-            if (isDirectChild && !expandedSemanticModelUrns.has(m.urn)) {
-                toggleSemanticModel(m.urn);
-            }
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedUrn, allModels, childMetricsByModelUrn]);
+    const addFilterOptions = useMemo(() => {
+        const labels: Record<SecondaryBrowseFilter, string> = {
+            tag: t('context.tagFilter.label'),
+            owners: t('metrics.ownersFilter.label'),
+        };
+        return SECONDARY_BROWSE_FILTERS.filter((key) => !promotedBrowseFilters.has(key)).map((key) => ({
+            value: key,
+            label: labels[key],
+        }));
+    }, [promotedBrowseFilters, t]);
 
     return (
-        <>
-            <HeaderControls $isCollapsed={false}>
-                <SidebarTitle>{t('metrics.sidebarTitle')}</SidebarTitle>
-                <HeaderButtons>
-                    <Button
-                        variant="text"
-                        color="gray"
-                        size="lg"
-                        isCircle
-                        icon={{ icon: ArrowLineLeft }}
-                        isActive
-                        onClick={onToggleCollapsed}
-                        data-testid="metrics-sidebar-collapse-button"
-                    />
-                </HeaderButtons>
-            </HeaderControls>
-            <Separator />
-
-            <SearchInputWrapper>
+        <HierarchicalBrowseSidebar
+            title={t('metrics.sidebarTitle')}
+            isCollapsed={isCollapsed}
+            onToggleCollapsed={onToggleCollapsed}
+            onExpandSidebar={onExpandSidebar}
+            dataTestId="metrics-sidebar"
+            collapseButtonTestId="metrics-sidebar-collapse-button"
+            collapsedSearchAriaLabel={t('metrics.searchAriaLabel')}
+            collapsedSearchTestId="metrics-sidebar-search-icon"
+            search={
                 <SearchBar
                     placeholder={t('metrics.searchPlaceholder')}
                     value={searchInput}
                     onChange={setSearchInput}
                     data-testid="metrics-sidebar-search-input"
                 />
-            </SearchInputWrapper>
-
-            {platformOptions.length > 1 && (
-                <FiltersWrapper>
-                    <SimpleSelect
-                        size="sm"
-                        width="full"
-                        showClear={false}
-                        selectLabelProps={{ variant: 'labeled', label: t('metrics.filterPlatform') }}
-                        options={[{ value: ALL_OPTION, label: t('metrics.filterAll') }, ...platformOptions]}
-                        values={[platformFilter]}
-                        onUpdate={(vals) => setPlatformFilter(vals[0] ?? ALL_OPTION)}
-                        dataTestId="metrics-sidebar-platform-filter"
-                    />
-                </FiltersWrapper>
-            )}
-
-            <Separator />
-            <TreeContainer data-testid="metrics-sidebar-tree">
-                <MetricsTreeItem
-                    level={0}
-                    icon={SquaresFour}
-                    title={t('metrics.overview')}
-                    isSelected={isOverviewSelected}
-                    onClick={() => history.push(PageRoutes.METRICS)}
-                    testId="metrics-sidebar-overview"
+            }
+            sort={
+                <SidebarSortSelect
+                    options={sortOptions}
+                    value={sortSelection}
+                    onChange={(next) => setSortSelection(next as MetricsSidebarSortValue)}
+                    dataTestId="metrics-sidebar-sort"
                 />
-
-                {modelsData && visibleModels.length === 0 && (
-                    <EmptyStateWrapper>
-                        <EmptyState
-                            icon={Sigma}
-                            title={t('metrics.emptyTreeTitle')}
-                            description={t('metrics.emptyTreeDescription')}
-                            size="sm"
-                        />
-                    </EmptyStateWrapper>
-                )}
-                {visibleModels.map((model) => (
-                    <SemanticModelRow
-                        key={model.urn}
-                        model={model}
-                        searchInput={searchInput}
-                        isExpanded={expandedSemanticModelUrns.has(model.urn)}
-                        isSelected={selectedUrn === model.urn}
-                        cachedMetrics={childMetricsByModelUrn[model.urn]}
-                        expandedMetricUrns={expandedMetricUrns}
-                        childMetricsByParentUrn={childMetricsByParentUrn}
-                        selectedUrn={selectedUrn}
-                        onToggle={() => toggleSemanticModel(model.urn)}
-                        onMetricsFetched={setChildMetricsForModel}
-                        onToggleMetric={toggleMetric}
-                        onChildMetricsFetched={setChildMetricsForParent}
+            }
+            filters={
+                <>
+                    <MetricsSidebarSearchFilters
+                        selectedPlatformUrns={selectedPlatformUrns}
+                        selectedDomainUrns={selectedDomainUrns}
+                        selectedTagUrns={selectedTagUrns}
+                        selectedTermUrns={selectedTermUrns}
+                        platformOptions={platformOptions}
+                        domainOptions={domainOptions}
+                        tagOptions={tagOptions}
+                        termOptions={termOptions}
+                        onPlatformsChange={setSelectedPlatformUrns}
+                        onDomainsChange={setSelectedDomainUrns}
+                        onTagsChange={handleTagsChange}
+                        onTermsChange={setSelectedTermUrns}
+                        showTagFilter={promotedBrowseFilters.has('tag')}
+                        defaultOpenTagFilter={filterToAutoOpen === 'tag'}
+                        tagFilterKey={filterToAutoOpen === 'tag' ? `tag-${autoOpenNonce}` : 'tag'}
                     />
-                ))}
-            </TreeContainer>
-        </>
+                    {promotedBrowseFilters.has('owners') && (
+                        <SimpleSelect
+                            key={filterToAutoOpen === 'owners' ? `owners-${autoOpenNonce}` : 'owners'}
+                            size="sm"
+                            width="fit-content"
+                            isMultiSelect
+                            showSearch
+                            filterResultsByQuery
+                            defaultOpen={filterToAutoOpen === 'owners'}
+                            isDisabled={
+                                ownerOptions.length === 0 &&
+                                selectedOwnerUrns.length === 0 &&
+                                filterToAutoOpen !== 'owners'
+                            }
+                            placeholder={t('metrics.ownersFilter.placeholder')}
+                            selectLabelProps={{ variant: 'labeled', label: t('metrics.ownersFilter.label') }}
+                            options={ownerOptions}
+                            values={selectedOwnerUrns}
+                            onUpdate={handleOwnersChange}
+                            renderCustomOptionText={(option) => {
+                                const { creator } = option as (typeof ownerOptions)[number];
+                                return (
+                                    <OwnerOptionRow>
+                                        <Avatar
+                                            name={creator.displayName}
+                                            imageUrl={creator.pictureLink ?? undefined}
+                                            type={
+                                                creator.type === EntityType.CorpGroup
+                                                    ? AvatarType.group
+                                                    : AvatarType.user
+                                            }
+                                            showInPill
+                                            size="sm"
+                                        />
+                                    </OwnerOptionRow>
+                                );
+                            }}
+                            dataTestId="metrics-sidebar-owners-filter"
+                        />
+                    )}
+                    <SidebarAddFilter
+                        options={addFilterOptions}
+                        onAdd={handleAddBrowseFilter}
+                        dataTestId="metrics-sidebar-add-filter"
+                    />
+                </>
+            }
+            homeNav={
+                <SidebarHomeNavLink
+                    to={PageRoutes.METRICS}
+                    isSelected={isHomeSelected}
+                    label={t('metrics.allMetrics')}
+                    data-testid="metrics-sidebar-home"
+                />
+            }
+        >
+            {isSearchActive ? (
+                <MetricsSidebarSearchResults
+                    metrics={searchResults}
+                    total={searchTotal}
+                    loading={searchResultsLoading}
+                    isRefreshing={searchRefreshing}
+                    selectedUrn={selectedUrn}
+                    scrollRef={searchScrollRef}
+                    onClear={handleClearSearch}
+                />
+            ) : (
+                <div data-testid="metrics-sidebar-tree" key={sortSelection}>
+                    <TreeSectionHeader
+                        level={0}
+                        label={t('metrics.semanticModelsSection')}
+                        isExpanded={isModelsExpanded}
+                        onToggle={() => setIsModelsExpanded((v) => !v)}
+                        onToggleExpandAll={handleToggleExpandAll}
+                        isAllExpanded={isSectionExpanded}
+                        expandAllLoading={isExpanding}
+                        expandAllLabel={t('metrics.expandAll')}
+                        collapseAllLabel={t('metrics.collapseAll')}
+                        testId="metrics-sidebar-models-section"
+                    />
+                    {isModelsExpanded && (
+                        <>
+                            {allModels.length === 0 && (
+                                <EmptyStateWrapper>
+                                    <EmptyState
+                                        icon={Sigma}
+                                        title={t('metrics.emptyTreeTitle')}
+                                        description={t('metrics.emptyTreeDescription')}
+                                        size="sm"
+                                    />
+                                </EmptyStateWrapper>
+                            )}
+                            {allModels.map((model) => (
+                                <SemanticModelRow
+                                    key={model.urn}
+                                    model={model}
+                                    isExpanded={expandedSemanticModelUrns.has(model.urn)}
+                                    isSelected={selectedUrn === model.urn}
+                                    expandedMetricUrns={expandedMetricUrns}
+                                    selectedUrn={selectedUrn}
+                                    sort={sortSelection}
+                                    onToggle={() => toggleSemanticModel(model.urn)}
+                                    onToggleMetric={toggleMetric}
+                                />
+                            ))}
+                            <div ref={rootScrollRef} style={{ height: 1 }} />
+                        </>
+                    )}
+                </div>
+            )}
+        </HierarchicalBrowseSidebar>
     );
 }

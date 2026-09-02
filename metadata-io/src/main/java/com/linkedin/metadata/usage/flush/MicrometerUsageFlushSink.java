@@ -3,6 +3,7 @@ package com.linkedin.metadata.usage.flush;
 import com.linkedin.metadata.usage.UsageDimensions;
 import com.linkedin.metadata.usage.registry.metrics.UsageMetricIncrementResolver;
 import com.linkedin.metadata.usage.registry.metrics.UsageMetricRegistry;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.usage.UsageActorClass;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
@@ -29,7 +30,7 @@ public class MicrometerUsageFlushSink implements UsageFlushSink {
   }
 
   @Override
-  public void publish(@Nonnull UsageFlushBatch batch) {
+  public void publish(@Nonnull OperationContext opContext, @Nonnull UsageFlushBatch batch) {
     for (AdditiveUsageRow row : batch.additiveRows()) {
       UsageMetricRegistry.MetricDefinition metricDefinition =
           metricRegistry.apiUsageMetrics().get(row.metricName());
@@ -77,6 +78,7 @@ public class MicrometerUsageFlushSink implements UsageFlushSink {
         withTag(
             tags, UsageDimensions.USAGE_OPERATION, dimensions.get(UsageDimensions.USAGE_OPERATION));
     tags = withTag(tags, UsageDimensions.AGENT_CLASS, dimensions.get(UsageDimensions.AGENT_CLASS));
+    tags = withTag(tags, UsageDimensions.AGENT_NAME, dimensions.get(UsageDimensions.AGENT_NAME));
     tags = withTag(tags, UsageDimensions.REQUEST_API, dimensions.get(UsageDimensions.REQUEST_API));
     tags =
         withTag(tags, UsageDimensions.AUTH_CHANNEL, dimensions.get(UsageDimensions.AUTH_CHANNEL));

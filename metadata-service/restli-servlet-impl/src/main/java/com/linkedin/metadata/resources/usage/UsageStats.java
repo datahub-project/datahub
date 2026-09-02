@@ -9,7 +9,6 @@ import static com.linkedin.metadata.timeseries.elastic.UsageServiceUtil.USAGE_ST
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -21,7 +20,7 @@ import com.linkedin.dataset.DatasetFieldUsageCountsArray;
 import com.linkedin.dataset.DatasetUsageStatistics;
 import com.linkedin.dataset.DatasetUserUsageCounts;
 import com.linkedin.dataset.DatasetUserUsageCountsArray;
-import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.resources.restli.RestliUtils;
@@ -103,19 +102,18 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   @WithSpan
   public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets) {
     log.info("Ingesting {} usage stats aggregations", buckets.length);
-    return RestliUtils.toTask(systemOperationContext,
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    String actorUrnStr = auth.getActor().toUrnStr();
+    Set<Urn> urns = Arrays.stream(buckets).map(UsageAggregation::getResource).collect(Collectors.toSet());
+    final OperationContext opContext = RestliUtils.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
+                    ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList()))
+                .withUsageOperation(UsageOperation.METADATA_INGEST)
+                .withUsageQuantity(buckets.length),
+            _authorizer,
+            auth, true);
+    return RestliUtils.toTask(opContext,
         () -> {
-
-          final Authentication auth = AuthenticationContext.getAuthentication();
-          String actorUrnStr = auth.getActor().toUrnStr();
-          Set<Urn> urns = Arrays.stream(buckets).sequential().map(UsageAggregation::getResource).collect(Collectors.toSet());
-          final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
-                          ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList()))
-                      .withUsageOperation(UsageOperation.METADATA_INGEST)
-                      .withUsageQuantity(buckets.length),
-                  _authorizer,
-                  auth, true);
 
           if (!isAPIAuthorizedEntityUrns(
                   opContext,
@@ -148,19 +146,21 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     log.info(
         "Querying usage stats for resource: {}, duration: {}, start time: {}, end time: {}, max buckets: {}",
         resource, duration, startTime, endTime, maxBuckets);
-    return RestliUtils.toTask(systemOperationContext,
+    Urn resourceUrn = UrnUtils.getUrn(resource);
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = RestliUtils.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    ACTION_QUERY, resourceUrn.getEntityType())
+                .withUsageOperation(UsageOperation.METADATA_QUERY),
+            _authorizer, auth, true);
+    return RestliUtils.toTask(opContext,
         () -> {
 
-          Urn resourceUrn = UrnUtils.getUrn(resource);
-          final Authentication auth = AuthenticationContext.getAuthentication();
-          final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                          ACTION_QUERY, resourceUrn.getEntityType()).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, auth, true);
-
-          if (!isAPIAuthorized(
+          if (!TimeseriesAuthUtil.canViewAspect(
                   opContext,
-                  PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
-                  new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()))) {
+                  resourceUrn,
+                  resourceUrn.getEntityType(),
+                  USAGE_STATS_ASPECT_NAME)) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
           }
@@ -182,20 +182,21 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     Urn resourceUrn = UrnUtils.getUrn(resource);
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_QUERY_RANGE, resourceUrn.getEntityType()).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, auth, true);
 
 
-    if (!isAPIAuthorized(
+    if (!TimeseriesAuthUtil.canViewAspect(
             opContext,
-            PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
-            new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()))) {
+            resourceUrn,
+            resourceUrn.getEntityType(),
+            USAGE_STATS_ASPECT_NAME)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
     }
 
-    return RestliUtils.toTask(systemOperationContext,
+    return RestliUtils.toTask(opContext,
             () -> UsageServiceUtil.queryRange(opContext, _timeseriesAspectService, resource, duration, range, timeZone), MetricRegistry.name(this.getClass(), "queryRange"));
   }
 

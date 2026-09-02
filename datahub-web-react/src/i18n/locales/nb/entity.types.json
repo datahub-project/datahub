@@ -308,6 +308,7 @@
     "tab.properties": "Egenskaper",
     "tab.queries": "Spørringer",
     "tab.runs": "Kjøringer",
+    "tab.definition": "Definisjon",
     "tab.summary": "Sammendrag",
     "tag.name": "Tag",
     "tag.namePlural": "Tagger",
@@ -326,5 +327,6 @@
     "user.tab.ownerOf": "Eier av",
     "user.teamLabel": "Team",
     "user.teamsHeading": "Team",
-    "user.titleRoleLabel": "Tittel/rolle"
+    "user.titleRoleLabel": "Tittel/rolle",
+    "dataProduct.parentLabel": "Overordnet Data Product"
 }

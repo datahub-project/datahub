@@ -1,5 +1,24 @@
 {
   "entities": {
+    "repository": {
+      "repositoryLineage": {
+        "aspect": "repositoryLineage",
+        "fields": [
+          {
+            "name": "forkOf",
+            "path": "forkOf",
+            "isLineage": true,
+            "relationship": {
+              "name": "RepositoryForkOf",
+              "entityTypes": [
+                "repository"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
     "dataJob": {
       "dataJobInputOutput": {
         "aspect": "dataJobInputOutput",
@@ -188,6 +207,42 @@
         ]
       }
     },
+    "aiAgent": {
+      "upstreamLineage": {
+        "aspect": "upstreamLineage",
+        "fields": [
+          {
+            "name": "dataset",
+            "path": "upstreams.dataset",
+            "isLineage": true,
+            "relationship": {
+              "name": "DownstreamOf",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "aiAgentDependencies": {
+        "aspect": "aiAgentDependencies",
+        "fields": [
+          {
+            "name": "tools",
+            "path": "tools",
+            "isLineage": true,
+            "relationship": {
+              "name": "AgentUsesTool",
+              "entityTypes": [
+                "api"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
     "chart": {
       "chartInfo": {
         "aspect": "chartInfo",
@@ -287,24 +342,90 @@
         ]
       }
     },
-    "metric": {
-      "metricInfo": {
-        "aspect": "metricInfo",
+    "api": {
+      "apiProperties": {
+        "aspect": "apiProperties",
         "fields": [
           {
-            "name": "semanticModel",
-            "path": "semanticModel",
+            "name": "sourceRepository",
+            "path": "sourceRepository",
             "isLineage": true,
             "relationship": {
-              "name": "ModeledBy",
+              "name": "SourcedFrom",
               "entityTypes": [
-                "semanticModel"
+                "repository"
               ],
               "isLineage": true
             }
           }
         ]
-      },
+      }
+    },
+    "application": {
+      "applicationLineage": {
+        "aspect": "applicationLineage",
+        "fields": [
+          {
+            "name": "inputEdges",
+            "path": "inputEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "api",
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "outputEdges",
+            "path": "outputEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "Produces",
+              "entityTypes": [
+                "api",
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "service": {
+      "serviceProperties": {
+        "aspect": "serviceProperties",
+        "fields": [
+          {
+            "name": "apis",
+            "path": "apis",
+            "isLineage": true,
+            "relationship": {
+              "name": "ServiceComposesApi",
+              "entityTypes": [
+                "api"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "sourceRepository",
+            "path": "sourceRepository",
+            "isLineage": true,
+            "relationship": {
+              "name": "SourcedFrom",
+              "entityTypes": [
+                "repository"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "metric": {
       "metricUpstreams": {
         "aspect": "metricUpstreams",
         "fields": [
@@ -470,5 +591,5 @@
     }
   },
   "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
-  "generated_at": "2026-07-10T00:23:09.000683+00:00"
+  "generated_at": "2026-08-07T02:19:15.674276+00:00"
 }

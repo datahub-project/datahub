@@ -1,7 +1,11 @@
 package com.linkedin.metadata.resources.restli;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.util.exception.DatabaseTransactionConflictException;
+import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import com.linkedin.metadata.dao.throttle.DatabaseTransactionConflictRestLiServiceException;
 import com.linkedin.metadata.dao.throttle.ThrottledRestLiServiceException;
 import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -9,6 +13,7 @@ import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -40,18 +45,49 @@ public class RestliUtils {
       if (throwable instanceof IllegalArgumentException
           || throwable.getCause() instanceof IllegalArgumentException) {
         finalException = badRequestException(throwable.getMessage());
+      } else if (throwable instanceof ActorAccessException) {
+        finalException = forbidden(throwable.getMessage());
       } else if (throwable.getCause() instanceof ActorAccessException) {
-          finalException = forbidden(throwable.getCause().getMessage());
+        finalException = forbidden(throwable.getCause().getMessage());
       } else if (throwable instanceof APIThrottleException apiThrottleException) {
         finalException = apiThrottled(apiThrottleException);
-      } else if (throwable instanceof RestLiServiceException) {
-        finalException = (RestLiServiceException) throwable;
       } else {
-        finalException = new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
+        DatabaseTransactionConflictException conflict =
+            findDatabaseTransactionConflict(throwable);
+        if (conflict != null) {
+          finalException = databaseTransactionConflict(conflict);
+        } else if (throwable instanceof RestLiServiceException) {
+          finalException = (RestLiServiceException) throwable;
+        } else {
+          finalException =
+              new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
+        }
       }
 
       throw finalException;
     }
+  }
+
+
+  @Nonnull
+  private static RestLiServiceException databaseTransactionConflict(
+      @Nonnull DatabaseTransactionConflictException conflict) {
+    // RestLiServiceException has no setHeader(); Retry-After is exposed via
+    // DatabaseTransactionConflictRestLiServiceException.getResponseHeaders() and applied by
+    // RestliThrottleResponseFilter (same pattern as ThrottledRestLiServiceException).
+    return new DatabaseTransactionConflictRestLiServiceException(conflict);
+  }
+
+  @Nullable
+  private static DatabaseTransactionConflictException findDatabaseTransactionConflict(
+      @Nonnull Throwable throwable) {
+    while (throwable != null) {
+      if (throwable instanceof DatabaseTransactionConflictException conflict) {
+        return conflict;
+      }
+      throwable = throwable.getCause();
+    }
+    return null;
   }
 
   @Nonnull
@@ -69,6 +105,34 @@ public class RestliUtils {
                         return orig;
                       });
     }, MetricUtils.DROPWIZARD_METRIC, "true");
+  }
+
+  /**
+   * Builds a request-scoped session {@link OperationContext} at the Rest.li resource boundary and
+   * maps {@link ActorAccessException} (inactive/denied actor) to a 403, matching the HTTP semantics
+   * that {@link #toTask(Supplier)} already applies for exceptions thrown inside the supplier.
+   *
+   * <p>Call on the Rest.li request thread (typically before {@link #toTask}). The 403 is thrown
+   * directly on the calling thread so Rest.li maps it to the response; it is not wrapped as a failed
+   * Task.
+   */
+  @Nonnull
+  public static OperationContext asSession(
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull RequestContext.RequestContextBuilder requestContext,
+      @Nonnull Authorizer authorizer,
+      @Nonnull Authentication sessionAuthentication,
+      boolean allowSystemAuthentication) {
+    try {
+      return OperationContext.asSession(
+          systemOperationContext,
+          requestContext,
+          authorizer,
+          sessionAuthentication,
+          allowSystemAuthentication);
+    } catch (ActorAccessException e) {
+      throw forbidden(e.getMessage());
+    }
   }
 
   /**

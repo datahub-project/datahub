@@ -25,7 +25,9 @@ extend type Mutation {
   ): Boolean
 
   """
-  Update an existing data incident. Any fields that are omitted will simply not be updated.
+  Patch an existing data incident. Omitted fields, and null scalar fields, remain unchanged.
+  An empty assigneeUrns list clears assignees; priority cannot be cleared by this mutation. Use
+  upsertIncident to apply the editor's complete field snapshot, which can clear priority.
   """
   updateIncident(
     """
@@ -37,6 +39,22 @@ extend type Mutation {
     Input required to update an existing incident
     """
     input: UpdateIncidentInput!
+  ): Boolean
+
+  """
+  Overwrite the Incident. Nullable fields are cleared when omitted or set to null.  Use
+  updateIncident when omitted fields must remain unchanged.
+  """
+  upsertIncident(
+    """
+    The urn for an existing incident
+    """
+    urn: String!
+
+    """
+    Complete editable incident state
+    """
+    input: UpsertIncidentInput!
   ): Boolean
 }
 
@@ -72,83 +90,84 @@ type Incident implements Entity {
   """
   The primary key of the Incident
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The type of incident
   """
-  incidentType: IncidentType!
+  incidentType: IncidentType! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   A custom type of incident. Present only if type is 'CUSTOM'
   """
-  customType: String
+  customType: String @aspectMapping(aspects: ["incidentInfo"])
 
   """
   An optional title associated with the incident
   """
-  title: String
+  title: String @aspectMapping(aspects: ["incidentInfo"])
 
   """
   An optional description associated with the incident
   """
-  description: String
+  description: String @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The status of an incident
   """
-  incidentStatus: IncidentStatus!
+  incidentStatus: IncidentStatus! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The status of an incident
   @deprecated, use incidentStatus instead
   """
-  status: IncidentStatus!
+  status: IncidentStatus! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   Optional priority of the incident.
   """
-  priority: IncidentPriority
+  priority: IncidentPriority @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The users or groups are assigned to resolve the incident
   """
-  assignees: [OwnerType!]
+  assignees: [OwnerType!] @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The entity that the incident is associated with.
   """
-  entity: Entity!
+  entity: Entity! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The source of the incident, i.e. how it was generated
   """
-  source: IncidentSource
+  source: IncidentSource @aspectMapping(aspects: ["incidentInfo"])
 
   """
   An optional time at which the incident actually started (may be before the date it was raised).
   """
-  startedAt: Long
+  startedAt: Long @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The time at which the incident was initially created
   """
-  created: AuditStamp!
+  created: AuditStamp! @aspectMapping(aspects: ["incidentInfo"])
 
   """
   The standard tags for the Incident
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -197,26 +216,31 @@ enum IncidentStage {
 }
 
 """
-The priority of the incident
+The priority of the incident.
+
+This API accepts and returns only the enum names below. The underlying
+'incidentInfo' aspect stores priority as an integer where a *lower* number is
+more severe: CRITICAL = 0, HIGH = 1, MEDIUM = 2, LOW = 3. Callers writing the
+aspect directly (OpenAPI / RestLI) use those integers instead.
 """
 enum IncidentPriority {
   """
-  A low priority incident (P3)
+  A low priority incident (P3). Stored as 3 on the 'incidentInfo' aspect.
   """
   LOW
 
   """
-  A medium priority incident (P2)
+  A medium priority incident (P2). Stored as 2 on the 'incidentInfo' aspect.
   """
   MEDIUM
 
   """
-  A high priority incident (P1)
+  A high priority incident (P1). Stored as 1 on the 'incidentInfo' aspect.
   """
   HIGH
 
   """
-  A critical priority incident (P0)
+  A critical priority incident (P0). Stored as 0 on the 'incidentInfo' aspect.
   """
   CRITICAL
 }
@@ -323,11 +347,19 @@ Input required to create a new incident in the 'Active' state.
 """
 input RaiseIncidentInput {
   """
+  Optional! A caller-provided id to use as the primary key identifier for the Incident. If not
+  provided, a random UUID will be generated as the id. If an Incident already exists at the given
+  id, the mutation fails with a conflict rather than updating or returning the existing Incident,
+  so raiseIncident stays create-only.
+  """
+  id: String
+  """
   The type of incident
   """
   type: IncidentType!
   """
-  A custom type of incident. Present only if type is 'CUSTOM'
+  A custom type of incident. Required when type is CUSTOM; omit for other incident types.
+  Free-text label naming your incident category (for example ML_LEAKAGE).
   """
   customType: String
   """
@@ -361,7 +393,8 @@ input RaiseIncidentInput {
   """
   status: IncidentStatusInput
   """
-  An optional priority for the incident.
+  An optional priority for the incident: CRITICAL, HIGH, MEDIUM or LOW.
+  Must be one of these enum names, not the integer stored on the 'incidentInfo' aspect.
   """
   priority: IncidentPriority
   """
@@ -371,31 +404,35 @@ input RaiseIncidentInput {
 }
 
 """
-Input required to update an existing incident.
+Input for patching an existing incident. Omitted fields and null scalar values are unchanged.
+Use upsertIncident when a nullable editor-owned field must be cleared.
 """
 input UpdateIncidentInput {
   """
-  An optional title associated with the incident
+  A replacement title. Omit or set to null to leave the current title unchanged.
   """
   title: String
 
   """
-  An optional description associated with the incident
+  A replacement description. Omit or set to null to leave the current description unchanged.
   """
   description: String
 
   """
-  An optional time at which the incident actually started (may be before the date it was raised).
+  A replacement start time. Omit or set to null to leave it unchanged; this mutation cannot clear
+  an existing value. Use this to set or backdate when the incident actually began.
   """
   startedAt: Long
 
   """
-  The status of the incident
+  A replacement status. Omit or set to null to leave the current status unchanged. Only the
+  supplied sub-fields (state, stage, message) are patched; unsupplied sub-fields are preserved.
   """
   status: IncidentStatusInput
 
   """
-  An optional priority for the incident.
+  A replacement priority. Omit or set to null to leave it unchanged; this mutation cannot clear an
+  existing value. Must be an enum name, not the integer stored on the 'incidentInfo' aspect.
   """
   priority: IncidentPriority
 
@@ -406,9 +443,46 @@ input UpdateIncidentInput {
   resourceUrns: [String!]
 
   """
-  An optional set of user or group assignee urns
+  A replacement set of user or group assignee urns. An empty list clears assignees.
   """
   assigneeUrns: [String!]
+}
+
+"""
+Complete editable state for an existing incident. The editor uses this operation so nullable
+fields such as priority can be intentionally cleared. The incident type, source, creation audit,
+and startedAt value are preserved because they are not editable in this form.
+"""
+input UpsertIncidentInput {
+  """
+  The title associated with the incident. Omit or set to null to clear it.
+  """
+  title: String
+
+  """
+  The description associated with the incident. Omit or set to null to clear it.
+  """
+  description: String
+
+  """
+  The complete status of the incident.
+  """
+  status: IncidentStatusInput!
+
+  """
+  An optional priority for the incident. Omit or set to null to clear it.
+  """
+  priority: IncidentPriority
+
+  """
+  The complete set of resources associated with the incident. It must not be empty.
+  """
+  resourceUrns: [String!]!
+
+  """
+  The complete set of user or group assignee urns. Use an empty list to clear assignees.
+  """
+  assigneeUrns: [String!]!
 }
 
 """
@@ -488,7 +562,7 @@ extend type Dataset {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type DataJob {
@@ -520,7 +594,7 @@ extend type DataJob {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type DataFlow {
@@ -552,7 +626,7 @@ extend type DataFlow {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type Dashboard {
@@ -584,7 +658,7 @@ extend type Dashboard {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
 }
 
 extend type Chart {
@@ -616,5 +690,133 @@ extend type Chart {
     Optional start offset, defaults to 20.
     """
     count: Int
-  ): EntityIncidentsResult
+  ): EntityIncidentsResult @noAspects
+}
+
+extend type MLModel {
+  """
+  Incidents associated with the MLModel
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
+    """
+    Optional incident stage to filter by, defaults to any stage.
+    """
+    stage: IncidentStage
+    """
+    Optional incident priority to filter by, defaults to any priority.
+    """
+    priority: IncidentPriority
+    """
+    Optional assignee urns for an incident.
+    """
+    assigneeUrns: [String!]
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional number of results to return, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult @noAspects
+}
+
+extend type MLFeature {
+  """
+  Incidents associated with the MLFeature
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
+    """
+    Optional incident stage to filter by, defaults to any stage.
+    """
+    stage: IncidentStage
+    """
+    Optional incident priority to filter by, defaults to any priority.
+    """
+    priority: IncidentPriority
+    """
+    Optional assignee urns for an incident.
+    """
+    assigneeUrns: [String!]
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional number of results to return, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult @noAspects
+}
+
+extend type SchemaFieldEntity {
+  """
+  Incidents associated with the SchemaField
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
+    """
+    Optional incident stage to filter by, defaults to any stage.
+    """
+    stage: IncidentStage
+    """
+    Optional incident priority to filter by, defaults to any priority.
+    """
+    priority: IncidentPriority
+    """
+    Optional assignee urns for an incident.
+    """
+    assigneeUrns: [String!]
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional number of results to return, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult @noAspects
+}
+
+extend type MLFeatureTable {
+  """
+  Incidents associated with the MLFeatureTable
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
+    """
+    Optional incident stage to filter by, defaults to any stage.
+    """
+    stage: IncidentStage
+    """
+    Optional incident priority to filter by, defaults to any priority.
+    """
+    priority: IncidentPriority
+    """
+    Optional assignee urns for an incident.
+    """
+    assigneeUrns: [String!]
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional number of results to return, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult @noAspects
 }

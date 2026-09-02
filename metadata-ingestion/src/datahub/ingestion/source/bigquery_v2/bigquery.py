@@ -19,7 +19,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryShardPatternMatcher,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    EXTRACT_COLUMN_LINEAGE_IGNORED_MESSAGE,
+    BigQueryV2Config,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQuerySchemaApi,
@@ -36,7 +39,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
-from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractor,
     BigQueryQueriesExtractorConfig,
@@ -62,7 +65,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(  # DataPlatformAspect is set to project id, but not added to urns as project id is in the container path
     SourceCapability.PLATFORM_INSTANCE,
     "Platform instance is pre-set to the BigQuery project id",
@@ -237,11 +240,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         batch_size=self.config.schema_resolution_batch_size,
                     )
                 except Exception as e:
-                    self.report.report_warning(
+                    self.report.warning(
                         message="Failed to bulk-load schemas from DataHub for SQL lineage. "
                         "Lineage resolution will proceed with an empty schema resolver.",
-                        context=str(e),
                         exc=e,
+                        log=False,
                     )
             else:
                 logger.warning(
@@ -257,12 +260,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             and self.config.schema_pattern is not None
             and self.config.schema_pattern != AllowDenyPattern.allow_all()
         ):
-            self.report.report_warning(
+            self.report.warning(
                 message="Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
                 "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
                 "The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.",
                 context="Config option deprecation warning",
                 title="Config option deprecation warning",
+                log=False,
             )
 
         # Unlike the forwarded usage.start_time/end_time/bucket_duration/max_query_duration
@@ -271,18 +275,29 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # in the UI), not just the config-validation-time logger.warning.
         if self.config.use_queries_v2:
             if self.config.usage.include_read_operational_stats:
-                self.report.report_warning(
+                self.report.warning(
                     message="`usage.include_read_operational_stats` is only supported with the legacy extraction path "
                     "(`use_queries_v2: False`) and is ignored under queries-v2.",
                     context="Config option deprecation warning",
                     title="Config option deprecation warning",
+                    log=False,
                 )
             if self.config.usage.apply_view_usage_to_tables:
-                self.report.report_warning(
+                self.report.warning(
                     message="`usage.apply_view_usage_to_tables` is only supported with the legacy extraction path "
                     "(`use_queries_v2: False`) and is ignored under queries-v2.",
                     context="Config option deprecation warning",
                     title="Config option deprecation warning",
+                    log=False,
+                )
+            # `extract_column_lineage` defaults to False, so an explicit False is only
+            # detectable via `model_fields_set`.
+            if "extract_column_lineage" in self.config.model_fields_set:
+                self.report.warning(
+                    message=EXTRACT_COLUMN_LINEAGE_IGNORED_MESSAGE,
+                    context="Config option deprecation warning",
+                    title="Config option deprecation warning",
+                    log=False,
                 )
 
     def _build_queries_extractor_config(self) -> BigQueryQueriesExtractorConfig:

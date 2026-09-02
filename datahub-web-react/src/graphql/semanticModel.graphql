@@ -1,58 +1,23 @@
-fragment semanticFieldFields on SemanticField {
-    schemaField {
-        fieldPath
-        type
+fragment modelMetricFields on Metric {
+    id
+    path
+    platform {
+        ...platformFields
+    }
+    info {
+        name
         description
-        nativeDataType
-        tags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-    }
-    type
-    expression {
-        dialects {
-            dialect
-            expression
-        }
-    }
-    dimension {
-        isTime
-    }
-    aiContext {
-        synonyms
-        instructions
-        examples
-        customInstructions
-    }
-}
-
-fragment modelDatasetFields on ModelDataset {
-    name
-    source {
-        urn
-        type
-        ... on Dataset {
-            name
-            platform {
-                ...platformFields
-            }
-            editableProperties {
-                description
-            }
-            properties {
-                name
-                description
-            }
-            tags {
-                ...globalTagsFields
+        expression {
+            dialects {
+                dialect
             }
         }
+        lastModified {
+            time
+        }
     }
-    fields {
-        ...semanticFieldFields
+    subTypes {
+        typeNames
     }
 }
 
@@ -89,15 +54,6 @@ fragment semanticModelInfoFields on SemanticModelInfo {
         }
     }
     nativeDefinition
-    aiContext {
-        synonyms
-        instructions
-        examples
-        customInstructions
-    }
-    datasets {
-        ...modelDatasetFields
-    }
     relationships {
         ...semanticModelRelationshipFields
     }
@@ -121,11 +77,44 @@ fragment semanticModelProfileInfoFields on SemanticModelInfo {
         }
     }
     nativeDefinition
-    aiContext {
-        synonyms
-        instructions
-        examples
-        customInstructions
+}
+
+# Member datasets for SM summary modules (Datasets, Relationships, Dimensions).
+fragment semanticModelMemberDatasetFields on Dataset {
+    urn
+    type
+    name
+    platform {
+        ...platformFields
+    }
+    editableProperties {
+        description
+    }
+    properties {
+        name
+        description
+    }
+    semanticModelProperties {
+        alias
+    }
+    schema {
+        fields {
+            fieldPath
+            schemaFieldEntity {
+                semanticFieldAnnotation {
+                    type
+                    dimension {
+                        isTime
+                    }
+                    expression {
+                        dialects {
+                            dialect
+                            expression
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -134,11 +123,18 @@ fragment semanticModelFields on SemanticModel {
     type
     id
     path
+    lastIngested
     platform {
         ...platformFields
     }
     info {
-        ...semanticModelProfileInfoFields
+        ...semanticModelInfoFields
+    }
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
     }
     ownership {
         ...ownershipFields
@@ -175,5 +171,66 @@ fragment semanticModelFields on SemanticModel {
 query getSemanticModel($urn: String!) {
     semanticModel(urn: $urn) {
         ...semanticModelFields
+    }
+}
+
+# Member datasets for Datasets, Relationships, and Dimensions summary modules.
+query getSemanticModelMemberDatasets($urn: String!, $start: Int!, $count: Int!) {
+    semanticModel(urn: $urn) {
+        urn
+        entities(input: { types: [DATASET], start: $start, count: $count, query: "*" }) {
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        ...semanticModelMemberDatasetFields
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getSemanticModelMetricsPage($urn: String!, $input: ScrollAcrossEntitiesInput!) {
+    semanticModel(urn: $urn) {
+        urn
+        metrics(input: $input) {
+            total
+            nextScrollId
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Metric {
+                        ...modelMetricFields
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getSemanticModelEntitiesForLineage($urn: String!, $start: Int!, $count: Int!) {
+    semanticModel(urn: $urn) {
+        urn
+        type
+        exists
+        info {
+            name
+        }
+        platform {
+            ...platformFields
+        }
+        entities(input: { start: $start, count: $count, query: "*" }) {
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                }
+            }
+        }
     }
 }

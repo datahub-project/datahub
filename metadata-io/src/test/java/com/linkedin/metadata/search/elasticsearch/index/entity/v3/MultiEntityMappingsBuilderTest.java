@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -141,6 +142,13 @@ public class MultiEntityMappingsBuilderTest {
     assertTrue(
         mappingProperties.containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD),
         "Should include structured properties field");
+    Map<String, Object> structuredPropsMapping =
+        (Map<String, Object>) mappingProperties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    assertEquals(
+        structuredPropsMapping.get("dynamic"),
+        false,
+        "structuredProperties root must have dynamic=false so unmapped property values stay"
+            + " unindexed instead of being dynamic-mapped as text");
   }
 
   @Test
@@ -197,6 +205,9 @@ public class MultiEntityMappingsBuilderTest {
     Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
     assertNotNull(fieldMapping.get("type"), "URN structured property must have type for reindex");
     assertEquals(fieldMapping.get("type"), "keyword", "URN type should map to keyword");
+    assertFalse(
+        fieldMapping.containsKey("fields"),
+        "URN structured property uses parent keyword; query time skips .keyword");
   }
 
   /**
@@ -557,5 +568,75 @@ public class MultiEntityMappingsBuilderTest {
     when(property.getEntityTypes()).thenReturn(entityTypes);
 
     return property;
+  }
+
+  @Test
+  public void testGetIndexMappingsForStructuredPropertySameTypeCollisionKeepsLowestUrn()
+      throws URISyntaxException {
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition defDot =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification.status")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    StructuredPropertyDefinition defUnderscore =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification_status")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
+            List.of(Pair.of(urnUnderscore, defUnderscore), Pair.of(urnDot, defDot)));
+
+    assertEquals(mappings.size(), 1);
+    assertTrue(mappings.containsKey("certification_status"));
+  }
+
+  @Test
+  public void testGetIndexMappingsForStructuredPropertyDifferentTypeCollisionOmitsField()
+      throws URISyntaxException {
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition defString =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification.status")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    StructuredPropertyDefinition defNumber =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification_status")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.number"));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
+            List.of(Pair.of(urnDot, defString), Pair.of(urnUnderscore, defNumber)));
+
+    assertFalse(mappings.containsKey("certification_status"));
+  }
+
+  @Test
+  public void testCollisionKeepsSingleDeterministicField() throws URISyntaxException {
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition defDot =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification.status")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    StructuredPropertyDefinition defUnderscore =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification_status")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    List<Pair<Urn, StructuredPropertyDefinition>> properties =
+        List.of(Pair.of(urnUnderscore, defUnderscore), Pair.of(urnDot, defDot));
+
+    Map<String, Object> v3Mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(properties);
+
+    assertEquals(v3Mappings.keySet(), Set.of("certification_status"));
   }
 }

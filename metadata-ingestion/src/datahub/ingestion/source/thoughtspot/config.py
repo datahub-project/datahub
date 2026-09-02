@@ -240,6 +240,29 @@ class ExternalConnectionConfig(ConfigModel):
         ),
     )
 
+    convert_urns_to_lowercase: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Whether to lowercase database/schema/table components when "
+            "building this connection's upstream dataset URN. Default "
+            "``null`` uses the target platform's own verified default "
+            "(e.g. lowercase for Snowflake, conditional for Oracle/HANA, "
+            "unchanged for everything else). Set explicitly to override — "
+            "e.g. ``false`` if the target source was ingested with "
+            "``convert_urns_to_lowercase: false``, or ``true`` if your "
+            "warehouse connector (e.g. MSSQL, Teradata) was run with "
+            "lowercasing turned on."
+            "\n\n"
+            "Note: this only controls casing, not URN shape. Oracle "
+            "upstream URNs are always built as schema.table (matching "
+            "Oracle's own ``add_database_name_to_urn`` default of False) "
+            "— if your Oracle source was run with "
+            "``add_database_name_to_urn: true`` instead, its URNs will be "
+            "database.schema.table and won't match; there is currently no "
+            "override for this."
+        ),
+    )
+
     # Inherits ``extra="forbid"`` from ``ConfigModel`` plus its
     # ``ignored_types=(cached_property, ...)`` and ``json_schema_extra``.
     # Don't override ``model_config`` here — doing so would replace the

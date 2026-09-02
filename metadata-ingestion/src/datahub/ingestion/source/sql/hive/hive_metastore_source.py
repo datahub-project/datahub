@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("Hive Metastore")
 @config_class(HiveMetastore)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
@@ -292,14 +292,16 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
 
         if isinstance(self._fetcher, ThriftDataFetcher):
             for db_name, error_msg in self._fetcher.get_database_failures():
-                self.report.report_warning(
-                    f"database-{db_name}",
-                    f"Failed to process database: {error_msg}",
+                self.report.warning(
+                    message="Failed to process database",
+                    context=f"database-{db_name}: {error_msg}",
+                    log=False,
                 )
             for db_name, table_name, error_msg in self._fetcher.get_table_failures():
-                self.report.report_warning(
-                    f"table-{db_name}.{table_name}",
-                    f"Failed to process table: {error_msg}",
+                self.report.warning(
+                    message="Failed to process table",
+                    context=f"table-{db_name}.{table_name}: {error_msg}",
+                    log=False,
                 )
 
         # Close fetcher

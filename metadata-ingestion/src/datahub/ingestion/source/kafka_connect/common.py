@@ -3,7 +3,7 @@ import io
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, Final, List, Optional
+from typing import TYPE_CHECKING, Callable, ClassVar, Dict, Final, List, Optional
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -19,6 +19,7 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
 from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
     parse_comma_separated_list,
@@ -55,6 +56,26 @@ SOURCE: Final[str] = "source"
 SINK: Final[str] = "sink"
 CONNECTOR_CLASS: Final[str] = "connector.class"
 JDBC_PREFIX: Final[str] = "jdbc:"
+
+# Regex patterns for non-standard JDBC URL formats (see normalize_jdbc_url)
+_ORACLE_THIN_RE: Final = re.compile(
+    r"^(?:jdbc:)?oracle:(?:thin|oci):@/?"
+    r"/?(?P<host>[^:/@\s]+)"
+    r":(?P<port>\d+)"
+    r"(?:[:/](?P<db>[^@?;\s]+))?"
+    r"(?:[;?].*)?$"
+)
+_SQLSERVER_RE: Final = re.compile(
+    r"^(?:jdbc:)?sqlserver://(?P<host>[^:;/\s]+)"
+    r"(?::(?P<port>\d+))?"
+    r"(?:;(?P<params>.*))?$"
+)
+_JTDS_RE: Final = re.compile(
+    r"^(?:jdbc:)?jtds:sqlserver://(?P<host>[^:/@\s]+)"
+    r"(?::(?P<port>\d+))?"
+    r"(?:/(?P<db>[^;?\s]+))?"
+    r"(?:[;?].*)?$"
+)
 
 # Default connection settings
 DEFAULT_CONNECT_URI: Final[str] = "http://localhost:8083/"
@@ -134,6 +155,46 @@ class GenericConnectorConfig(ConfigModel):
     connector_name: str
     source_dataset: str
     source_platform: str
+    target_dataset: Optional[str] = None
+    target_platform: Optional[str] = None
+
+    @model_validator(mode="after")
+    def target_fields_together(self) -> "GenericConnectorConfig":
+        if self.target_dataset is None and self.target_platform is None:
+            return self
+        if not self.target_dataset or not self.target_platform:
+            raise ValueError(
+                "target_dataset and target_platform must be provided together"
+            )
+        return self
+
+
+class ConfluentCatalogConfig(ConfluentStreamCatalogConfig):
+    include_lineage: bool = Field(
+        default=False,
+        description="Take connector -> topic lineage from the catalog rather than inferring it from "
+        "connector config. The catalog reports topic names after any topic-routing transform has been "
+        "applied, so the topic is exact rather than predicted. "
+        "Off by default because it is a trade-off: the catalog does not know which source table the "
+        "data came from, so enabling this replaces a source connector's `table -> topic` lineage, and "
+        "the column-level lineage that comes with it, with a `connector -> topic` edge only. "
+        "Sink connectors are unaffected.",
+    )
+    include_tags: bool = Field(
+        default=True,
+        description="Emit Confluent Cloud tags on connectors as DataHub tags.",
+    )
+    include_business_metadata: bool = Field(
+        default=True,
+        description="Emit Confluent Cloud business metadata attributes on connectors as DataHub "
+        "custom properties.",
+    )
+
+    @model_validator(mode="after")
+    def validate_catalog_connection(self) -> "ConfluentCatalogConfig":
+        if self.enabled:
+            self.validate_connection()
+        return self
 
 
 class KafkaConnectSourceConfig(
@@ -259,6 +320,12 @@ class KafkaConnectSourceConfig(
         "When use_schema_resolver=True, this controls whether to generate column-level lineage "
         "by matching schemas between source tables and Kafka topics. Only applies when use_schema_resolver is enabled. "
         "Defaults to True when use_schema_resolver is enabled.",
+    )
+
+    confluent_catalog: ConfluentCatalogConfig = Field(
+        default_factory=ConfluentCatalogConfig,
+        description="Confluent Cloud Stream Catalog settings, used to read connector -> topic lineage, "
+        "tags and business metadata from Stream Governance.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -473,11 +540,26 @@ class KafkaConnectSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
     filtered: LossyList[str] = field(default_factory=LossyList)
 
+    catalog_connectors_indexed: int = 0
+    catalog_lineage_connectors: int = 0
+    catalog_tagged_flows: int = 0
+    catalog_connectors_with_business_metadata: int = 0
+    catalog_lineage_fallbacks: LossyList[str] = field(default_factory=LossyList)
+
     def report_connector_scanned(self, connector: str) -> None:
         self.connectors_scanned += 1
 
     def report_dropped(self, connector: str) -> None:
         self.filtered.append(connector)
+
+    def report_catalog_lineage_fallback(self, connector: str) -> None:
+        self.catalog_lineage_fallbacks.append(connector)
+        self.warning(
+            message="The Stream Catalog entry for this connector listed no topics, so its "
+            "lineage was inferred from the connector config instead. Topic names produced by a "
+            "topic-routing SMT may not be reflected.",
+            context=f"connector={connector}",
+        )
 
 
 @dataclass
@@ -535,14 +617,55 @@ def unquote(
     return string
 
 
+def normalize_jdbc_url(url: str) -> str:
+    """Convert a JDBC URL to a form SQLAlchemy can parse.
+
+    Non-standard formats handled:
+    - Oracle thin/OCI (oracle:thin:@[//]host:port/service) → oracle://host:port/service
+    - SQL Server JDBC (sqlserver://host[:port][;databaseName=db;...]) → mssql://host:port/db
+    - jTDS SQL Server (jtds:sqlserver://host[:port][/db]) → mssql://host:port/db
+
+    All other URLs are returned unchanged after stripping a leading jdbc:.
+    """
+    m = _ORACLE_THIN_RE.match(url)
+    if m:
+        host = m.group("host")
+        port = m.group("port")
+        db = m.group("db") or ""
+        return f"oracle://{host}:{port}/{db}"
+
+    m = _SQLSERVER_RE.match(url)
+    if m:
+        host = m.group("host")
+        port = m.group("port") or "1433"
+        db = ""
+        params_str = m.group("params") or ""
+        for param in params_str.split(";"):
+            if "=" in param:
+                k, _, v = param.partition("=")
+                if k.strip().lower() == "databasename":
+                    db = v.strip()
+                    break
+        return f"mssql://{host}:{port}/{db}"
+
+    m = _JTDS_RE.match(url)
+    if m:
+        host = m.group("host")
+        port = m.group("port") or "1433"
+        db = m.group("db") or ""
+        return f"mssql://{host}:{port}/{db}"
+
+    return remove_prefix(url, JDBC_PREFIX)
+
+
 def validate_jdbc_url(url: str) -> bool:
-    """Validate JDBC URL format and return whether it's well-formed."""
+    """Return whether url is a JDBC URL format we can parse."""
     if not url or not isinstance(url, str):
         return False
-
+    if _ORACLE_THIN_RE.match(url) or _SQLSERVER_RE.match(url) or _JTDS_RE.match(url):
+        return True
     if not url.startswith(JDBC_PREFIX):
         return False
-
     parts = url.split(":", 3)
     return len(parts) >= 3  # jdbc:protocol:connection_details
 
@@ -693,7 +816,7 @@ def transform_connector_config(
 
 # TODO: Find a more automated way to discover new platforms with 3 level naming hierarchy.
 def has_three_level_hierarchy(platform: str) -> bool:
-    return platform in ["postgres", "trino", "redshift", "snowflake"]
+    return platform in ["postgres", "trino", "redshift", "snowflake", "mssql"]
 
 
 @dataclass
@@ -707,6 +830,11 @@ class BaseConnector:
     - supports_connector_class(): Checks if this connector handles the given class
     """
 
+    # Opt in when lineage inference needs the live Kafka REST topic list on
+    # Confluent Cloud (topic_names is always empty there). Sinks are always
+    # opted in via requires_cluster_topics(); EventRouter Debezium overrides it.
+    needs_cluster_topics: ClassVar[bool] = False
+
     connector_manifest: ConnectorManifest
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
@@ -714,6 +842,25 @@ class BaseConnector:
     all_cluster_topics: Optional[List[str]] = (
         None  # All topics from Kafka cluster (Confluent Cloud only, for validation)
     )
+
+    def requires_cluster_topics(self) -> bool:
+        if self.connector_manifest.type == SINK:
+            return True
+        return self.needs_cluster_topics
+
+    def available_topics(self) -> List[str]:
+        # None = list unavailable (fall back to connector topic_names); [] = empty cluster.
+        return self.topics_for_regex_expansion() or []
+
+    def topics_for_regex_expansion(self) -> Optional[List[str]]:
+        # Prefer the live cluster list (including empty). Fall back to connector
+        # topic_names only when they are non-empty; otherwise None so callers can
+        # try DataHub / warn instead of treating "unknown" as an empty match set.
+        if self.all_cluster_topics is not None:
+            return list(self.all_cluster_topics)
+        if self.connector_manifest.topic_names:
+            return list(self.connector_manifest.topic_names)
+        return None
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         """Extract lineage mappings for this connector. Override in subclasses."""
@@ -747,12 +894,17 @@ class BaseConnector:
         if topics_regex:
             return self._expand_topic_regex_patterns(
                 topics_regex,
-                available_topics=self.connector_manifest.topic_names
-                if self.connector_manifest.topic_names
-                else None,
+                available_topics=self.topics_for_regex_expansion(),
             )
 
         return []
+
+    def _sink_has_topic_subscription(self) -> bool:
+        config = self.connector_manifest.config
+        return bool(
+            config.get(ConnectorConfigKeys.TOPICS)
+            or config.get(ConnectorConfigKeys.TOPICS_REGEX)
+        )
 
     def _resolve_subscribed_topics(
         self, connector_manifest: ConnectorManifest, subscribed_topics: List[str]
@@ -762,30 +914,43 @@ class BaseConnector:
 
         Applies three-way fallback logic:
         1. Intersect subscribed topics with runtime topics (exclude stale subscriptions)
-        2. Use subscribed topics if runtime data unavailable
-        3. Use all runtime topics if no subscription config
-        """
-        available_topics = set(
-            self.all_cluster_topics or connector_manifest.topic_names
-        )
-        subscribed_topics_set = set(subscribed_topics)
+        2. Use subscribed topics only when the runtime list is unavailable (None)
+        3. Use all runtime topics only when no topics / topics.regex subscription is set
 
-        if subscribed_topics_set:
-            if available_topics:
-                topic_list = list(available_topics.intersection(subscribed_topics_set))
+        An empty result from a configured subscription (e.g. topics.regex matched
+        nothing) must not fall through to the whole-cluster list. Results are sorted
+        so downstream lineage ordering is deterministic across processes.
+        """
+        # None = cluster list unavailable (fall back to the subscription); [] = an
+        # authoritative empty cluster, so a configured subscription resolves to nothing.
+        runtime_topics = self.topics_for_regex_expansion()
+        subscribed_topics_set = set(subscribed_topics)
+        subscription_configured = self._sink_has_topic_subscription()
+
+        if subscription_configured or subscribed_topics_set:
+            if not subscribed_topics_set:
                 logger.debug(
-                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
-                    f"(intersection of {len(available_topics)} runtime topics and "
-                    f"{len(subscribed_topics_set)} configured topics)"
+                    f"Configured topic subscription for {connector_manifest.name} "
+                    f"resolved to zero topics; not falling back to the cluster list"
                 )
-            else:
-                topic_list = list(subscribed_topics_set)
+                return []
+            if runtime_topics is None:
+                topic_list = sorted(subscribed_topics_set)
                 logger.debug(
-                    f"Runtime topics empty for {connector_manifest.name}, "
+                    f"Runtime topics unavailable for {connector_manifest.name}, "
                     f"using {len(topic_list)} topics from connector config"
                 )
+            else:
+                topic_list = sorted(
+                    set(runtime_topics).intersection(subscribed_topics_set)
+                )
+                logger.debug(
+                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
+                    f"(intersection of {len(runtime_topics)} runtime topics and "
+                    f"{len(subscribed_topics_set)} configured topics)"
+                )
         else:
-            topic_list = list(available_topics)
+            topic_list = sorted(runtime_topics or [])
             logger.debug(
                 f"No subscription config found for {connector_manifest.name}, "
                 f"using all {len(topic_list)} available topics"
@@ -1100,8 +1265,8 @@ class BaseConnector:
 
         except Exception as e:
             self.report.warning(
-                "Failed to extract source column-level lineage — asset-level lineage is unaffected",
-                f"connector={self.connector_manifest.name}, source_platform={source_platform}, "
+                message="Failed to extract source column-level lineage — asset-level lineage is unaffected",
+                context=f"connector={self.connector_manifest.name}, source_platform={source_platform}, "
                 f"source={source_dataset}, target={target_dataset}",
                 exc=e,
             )
@@ -1201,8 +1366,8 @@ class BaseConnector:
 
         except Exception as e:
             self.report.warning(
-                "Failed to extract sink column-level lineage — asset-level lineage is unaffected",
-                f"connector={self.connector_manifest.name}, source_topic={source_topic}, "
+                message="Failed to extract sink column-level lineage — asset-level lineage is unaffected",
+                context=f"connector={self.connector_manifest.name}, source_topic={source_topic}, "
                 f"target_platform={target_platform}, target={target_dataset}",
                 exc=e,
             )
@@ -1377,15 +1542,15 @@ class BaseConnector:
         """
         matcher = JavaRegexMatcher()
 
-        # Priority 1: Use provided available_topics (from Kafka API)
-        if available_topics:
+        # Distinguish None (unavailable → try DataHub) from [] (empty cluster).
+        if available_topics is not None:
             matched_topics = matcher.filter_matches([topics_regex], available_topics)
             if matched_topics:
                 logger.info(
                     f"Expanded topics.regex '{topics_regex}' to {len(matched_topics)} topics "
                     f"from {len(available_topics)} available Kafka topics"
                 )
-            elif not matched_topics:
+            else:
                 logger.warning(
                     f"Java regex pattern '{topics_regex}' did not match any of the {len(available_topics)} available topics"
                 )

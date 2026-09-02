@@ -35,10 +35,12 @@ import org.springframework.core.env.Environment;
       "com.linkedin.metadata.service",
       "com.datahub.event",
       "com.linkedin.gms.factory.config",
+      "com.linkedin.gms.factory.system_telemetry.context",
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.usage",
       "com.linkedin.gms.factory.entity",
+      "com.linkedin.gms.factory.buffer",
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.gms.factory.messaging",
       "com.linkedin.gms.factory.kafka.common",
@@ -77,8 +79,6 @@ import org.springframework.core.env.Environment;
 @Slf4j
 @Configuration
 @PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
-// NOTE: the optional rate-limit override file is @PropertySource'd on RateLimitEngineFactory, not
-// here, so it loads wherever the engine is built (not only the war).
 public class CommonApplicationConfig {
 
   @Autowired private Environment environment;

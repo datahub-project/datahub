@@ -29,7 +29,7 @@ import org.testng.annotations.Test;
 public class ReportedUsageTest {
 
   @Test
-  public void record_mcpQuery_incrementsMcpQueriesWithoutApiCalls() {
+  public void record_mcpQuery_incrementsMcpQueryWithoutApiCalls() {
     RecordingUsageFlushSink recordingSink = new RecordingUsageFlushSink();
     InMemoryUsageAggregationStore store = newStore(recordingSink);
     OperationContext systemContext = TestOperationContexts.systemContextNoValidate();
@@ -61,12 +61,12 @@ public class ReportedUsageTest {
     Assert.assertTrue(recorded);
 
     store.recordRequest(httpSession(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_ingest"));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     var batch = recordingSink.batches().get(0);
-    long mcpQueries =
+    long mcpQuery =
         batch.additiveRows().stream()
-            .filter(row -> row.metricName().equals("mcp_queries"))
+            .filter(row -> row.metricName().equals("mcp_query"))
             .mapToLong(AdditiveUsageRow::valueSum)
             .sum();
     long apiCalls =
@@ -74,12 +74,12 @@ public class ReportedUsageTest {
             .filter(row -> row.metricName().equals("api_calls"))
             .mapToLong(AdditiveUsageRow::valueSum)
             .sum();
-    Assert.assertEquals(mcpQueries, 3L);
+    Assert.assertEquals(mcpQuery, 3L);
     Assert.assertEquals(apiCalls, 1L);
 
     AdditiveUsageRow mcpRow =
         batch.additiveRows().stream()
-            .filter(row -> row.metricName().equals("mcp_queries"))
+            .filter(row -> row.metricName().equals("mcp_query"))
             .findFirst()
             .orElseThrow();
     Assert.assertEquals(mcpRow.dimensions().get(UsageDimensions.USAGE_OPERATION), "mcp_query");
@@ -162,13 +162,13 @@ public class ReportedUsageTest {
                 "mcp"));
     Assert.assertTrue(recorded);
 
-    store.flush(FlushTrigger.SCHEDULED);
-    long mcpQueries =
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
+    long mcpQuery =
         recordingSink.batches().get(0).additiveRows().stream()
-            .filter(row -> row.metricName().equals("mcp_queries"))
+            .filter(row -> row.metricName().equals("mcp_query"))
             .mapToLong(AdditiveUsageRow::valueSum)
             .sum();
-    Assert.assertEquals(mcpQueries, 2L);
+    Assert.assertEquals(mcpQuery, 2L);
   }
 
   @Test
@@ -185,10 +185,10 @@ public class ReportedUsageTest {
             Map.of(
                 UsageDimensions.USAGE_OPERATION, "mcp_query", UsageDimensions.REQUEST_API, "mcp")));
 
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
     AdditiveUsageRow mcpRow =
         recordingSink.batches().get(0).additiveRows().stream()
-            .filter(row -> row.metricName().equals("mcp_queries"))
+            .filter(row -> row.metricName().equals("mcp_query"))
             .findFirst()
             .orElseThrow();
     Assert.assertEquals(

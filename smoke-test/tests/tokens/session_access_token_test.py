@@ -6,6 +6,7 @@ from requests.exceptions import HTTPError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import AuditStampClass, CorpUserStatusClass
+from tests.utilities.domains import Domain
 from tests.utils import (
     get_admin_credentials,
     get_frontend_url,
@@ -15,7 +16,7 @@ from tests.utils import (
 
 from .token_utils import getUserId, listUsers, removeUser
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"

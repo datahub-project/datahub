@@ -24,6 +24,7 @@ import {
 } from '@app/permissions/policy/policyUtils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { ENTER_KEY_CODE } from '@app/shared/constants';
+import useDebouncedCallback from '@app/shared/hooks/useDebouncedCallback';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
@@ -366,7 +367,7 @@ export default function PolicyPrivilegeForm({
     };
 
     // Handle resource search, if the resource type has an associated EntityType mapping.
-    const handleResourceSearch = (text: string) => {
+    const handleResourceSearch = useDebouncedCallback((text: string) => {
         const trimmedText: string = text.trim();
         const entityTypes = resourceTypeSelectValue
             .map((resourceType) => mapResourceTypeToEntityType(resourceType, resourcePrivileges))
@@ -381,12 +382,10 @@ export default function PolicyPrivilegeForm({
                 },
             },
         });
-    };
+    });
 
     // Handle domain search, if the domain type has an associated EntityType mapping.
-    const handleDomainSearch = (text: string) => {
-        const trimmedText: string = text.trim();
-        setDomainInputValue(trimmedText);
+    const searchDomainsDebounced = useDebouncedCallback((trimmedText: string) => {
         searchDomains({
             variables: {
                 input: {
@@ -397,11 +396,16 @@ export default function PolicyPrivilegeForm({
                 },
             },
         });
+    });
+
+    const handleDomainSearch = (text: string) => {
+        const trimmedText: string = text.trim();
+        // Kept synchronous: this drives whether the domain navigator or the search dropdown shows.
+        setDomainInputValue(trimmedText);
+        searchDomainsDebounced(trimmedText);
     };
 
-    const handleContainerSearch = (text: string) => {
-        const trimmedText: string = text.trim();
-        setContainerInputValue(trimmedText);
+    const searchContainersDebounced = useDebouncedCallback((trimmedText: string) => {
         searchContainers({
             variables: {
                 input: {
@@ -412,6 +416,13 @@ export default function PolicyPrivilegeForm({
                 },
             },
         });
+    });
+
+    const handleContainerSearch = (text: string) => {
+        const trimmedText: string = text.trim();
+        // Kept synchronous: this drives whether the container navigator or the search dropdown shows.
+        setContainerInputValue(trimmedText);
+        searchContainersDebounced(trimmedText);
     };
 
     const renderSearchResult = (result) => {
@@ -527,7 +538,7 @@ export default function PolicyPrivilegeForm({
     };
 
     const type = EntityType.Tag;
-    const handleSearch = (text: string) => {
+    const handleSearch = useDebouncedCallback((text: string) => {
         if (text.length > 0) {
             tagTermSearch({
                 variables: {
@@ -540,7 +551,7 @@ export default function PolicyPrivilegeForm({
                 },
             });
         }
-    };
+    });
 
     const tagSearchOptions = tagResult?.map((result) => {
         return renderSearchResultTags(result);
