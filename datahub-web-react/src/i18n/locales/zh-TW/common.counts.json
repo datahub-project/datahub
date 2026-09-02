@@ -1,16 +1,9 @@
 {
-    "columnCount_one": "{{count}} 個欄位",
     "columnCount_other": "{{count}} 個欄位",
-    "matchCount_one": "{{count}} 筆相符",
     "matchCount_other": "{{count}} 筆相符",
-    "ownerCount_one": "{{count}} 位擁有者",
     "ownerCount_other": "{{count}} 位擁有者",
-    "queryCount_one": "{{count}} 筆查詢",
     "queryCount_other": "{{count}} 筆查詢",
-    "rowCount_one": "{{count}} 列",
     "rowCount_other": "{{count}} 列",
-    "tagCount_one": "{{count}} 個標籤",
     "tagCount_other": "{{count}} 個標籤",
-    "termCount_one": "{{count}} 個詞彙",
     "termCount_other": "{{count}} 個詞彙"
 }

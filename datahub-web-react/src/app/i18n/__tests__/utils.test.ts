@@ -64,6 +64,8 @@ describe('detectBrowserLanguage', () => {
         expect(detectBrowserLanguage()).toBe('zh-TW');
         stubLanguages(['zh-HK']);
         expect(detectBrowserLanguage()).toBe('zh-TW');
+        stubLanguages(['zh-MO']);
+        expect(detectBrowserLanguage()).toBe('zh-TW');
     });
 
     it('does not map Simplified Chinese tags to zh-TW', () => {

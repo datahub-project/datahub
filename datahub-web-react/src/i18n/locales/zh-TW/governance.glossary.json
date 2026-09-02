@@ -1,7 +1,5 @@
 {
-    "card.nodeGroupCountTooltip_one": "包含 {{count}} 個詞彙群組",
     "card.nodeGroupCountTooltip_other": "包含 {{count}} 個詞彙群組",
-    "card.termCountTooltip_one": "包含 {{count}} 個詞彙",
     "card.termCountTooltip_other": "包含 {{count}} 個詞彙",
     "empty.addTerm": "新增詞彙",
     "empty.addTermGroup": "新增詞彙群組",

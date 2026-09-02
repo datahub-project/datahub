@@ -1,6 +1,5 @@
 {
     "graph.empty": "目前尚未收集此資料資產的統計資料。",
-    "graph.rowCount_one": "{{formattedCount}} 列",
     "graph.rowCount_other": "{{formattedCount}} 列",
     "graph.statName": "列數",
     "graph.title": "列數",
