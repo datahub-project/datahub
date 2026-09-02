@@ -247,6 +247,17 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             response = session.get(url=f"{config.tenant_url}/api/v1/dataimport/models")
             response.raise_for_status()
 
+            # Acquired-model schema ingestion (on by default) reads the Data Export Service,
+            # which needs its own "Data Export Service" access on the OAuth client. Probe it
+            # here so a missing grant fails the connection test up front instead of silently
+            # dropping schema for every acquired model at ingestion time.
+            if config.ingest_acquired_data_model_schema_metadata:
+                response = session.get(
+                    url=f"{config.tenant_url}/api/v1/dataexport/administration/Namespaces(NamespaceID='sac')/Providers",
+                    params={"$top": "1"},
+                )
+                response.raise_for_status()
+
             session.close()
 
             test_report.basic_connectivity = CapabilityReport(capable=True)

@@ -154,6 +154,55 @@ def test_acquired_model_schema_transport_error_degrades_gracefully(requests_mock
     assert source.report.acquired_model_schema_failed == 1
 
 
+def _register_test_connection_mocks(requests_mock) -> None:
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/Resources", json={"d": {"results": []}}
+    )
+    requests_mock.get(f"{MOCK_TENANT_URL}/api/v1/dataimport/models", json={})
+
+
+def _test_connection_config() -> Dict[str, str]:
+    return {
+        "tenant_url": MOCK_TENANT_URL,
+        "token_url": MOCK_TOKEN_URL,
+        "client_id": MOCK_CLIENT_ID,
+        "client_secret": MOCK_CLIENT_SECRET,
+    }
+
+
+def test_connection_probes_data_export_service(requests_mock):
+    # With acquired-model schema ingestion enabled (default), test_connection must probe the
+    # Data Export Service; a missing "Data Export Service" OAuth grant (403) surfaces here.
+    _register_test_connection_mocks(requests_mock)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataexport/administration/Namespaces(NamespaceID='sac')/Providers",
+        status_code=403,
+    )
+
+    report = SACSource.test_connection(_test_connection_config())
+
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    assert "403" in (report.basic_connectivity.failure_reason or "")
+
+
+def test_connection_skips_data_export_service_when_disabled(requests_mock):
+    # When acquired-model schema ingestion is disabled, the Data Export Service is not used,
+    # so its access must not be required for a successful connection test.
+    _register_test_connection_mocks(requests_mock)
+
+    report = SACSource.test_connection(
+        {
+            **_test_connection_config(),
+            "ingest_acquired_data_model_schema_metadata": False,
+        }
+    )
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+
+
 def match_token_url(request, context):
     form = parse_qs(request.text, strict_parsing=True)
 

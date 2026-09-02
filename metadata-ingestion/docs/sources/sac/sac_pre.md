@@ -12,6 +12,7 @@ Before running ingestion, ensure network connectivity to the source, valid authe
    - Access:
      - Story Listing
      - Data Import Service
+     - Data Export Service (required when `ingest_acquired_data_model_schema_metadata` is enabled, which is the default - the schema of acquired Data Models is read via the Data Export Service)
    - Authorization Grant: Client Credentials
 
 2. Maintain connection mappings (optional):
