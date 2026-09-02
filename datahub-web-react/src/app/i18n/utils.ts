@@ -23,16 +23,10 @@ export function detectBrowserLanguage(): SupportedLanguage | undefined {
         if (base === 'zh') {
             if (lower.includes('hant') || lower === 'zh-tw' || lower === 'zh-hk' || lower === 'zh-mo') {
                 // Prefer zh-TW when registered (companion PR); never fold Traditional to zh-CN.
-                if ('zh-TW' in LOCALE_MAP) {
-                    return 'zh-TW';
-                }
-                return undefined;
+                return supported.find((locale) => locale === 'zh-TW');
             }
-            if ('zh-CN' in LOCALE_MAP) {
-                // zh-Hans, zh-CN, zh-SG, bare zh
-                return 'zh-CN';
-            }
-            return undefined;
+            // zh-Hans, zh-CN, zh-SG, bare zh — only when zh-CN is registered.
+            return supported.find((locale) => locale === 'zh-CN');
         }
         // Exact (case-insensitive) match first, then fold region variants to their base language.
         return (
