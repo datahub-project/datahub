@@ -30,6 +30,19 @@ class ProcessingContext:
         """Track step processing for debugging."""
         self.step_sequence.append({"name": step_name, "type": step_type})
 
+    def sorted_input_datasets(self) -> List[str]:
+        """Input dataset URNs in a stable order.
+
+        Set iteration order depends on per-process string hashing, so emitting
+        the sets directly makes DataJobInputOutput differ between runs over the
+        same file and churns the aspect on every ingestion.
+        """
+        return sorted(self.input_datasets)
+
+    def sorted_output_datasets(self) -> List[str]:
+        """Output dataset URNs in a stable order. See sorted_input_datasets."""
+        return sorted(self.output_datasets)
+
     def get_custom_properties(self) -> Dict[str, str]:
         return {
             "source": "Pentaho",

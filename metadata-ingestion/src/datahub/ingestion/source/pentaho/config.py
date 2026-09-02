@@ -4,10 +4,10 @@ from typing import Dict, Optional
 
 from pydantic import Field
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.source_common import EnvConfigMixin
 
 
-class PentahoSourceConfig(ConfigModel):
+class PentahoSourceConfig(EnvConfigMixin):
     """Configuration for the Pentaho ingestion source."""
 
     base_folder: str = Field(
@@ -16,10 +16,6 @@ class PentahoSourceConfig(ConfigModel):
 
     platform_instance: Optional[str] = Field(
         default=None, description="Platform instance name"
-    )
-
-    env: str = Field(
-        default="PROD", description="Environment name for dataset and job URNs"
     )
 
     default_owner: str = Field(

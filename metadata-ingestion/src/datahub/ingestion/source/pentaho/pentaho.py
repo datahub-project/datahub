@@ -10,7 +10,8 @@ from xml.etree.ElementTree import (
 import defusedxml.ElementTree as ET
 
 from datahub.emitter.mce_builder import (
-    make_data_job_urn,
+    make_data_flow_urn,
+    make_data_job_urn_with_flow,
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_user_urn,
@@ -28,9 +29,11 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.pentaho.config import PentahoSourceConfig
 from datahub.ingestion.source.pentaho.context import ProcessingContext
-from datahub.ingestion.source.pentaho.step_processors import (
-    StepProcessor,
+from datahub.ingestion.source.pentaho.step_processors.base import StepProcessor
+from datahub.ingestion.source.pentaho.step_processors.table_input import (
     TableInputProcessor,
+)
+from datahub.ingestion.source.pentaho.step_processors.table_output import (
     TableOutputProcessor,
 )
 from datahub.metadata.schema_classes import (
@@ -54,7 +57,7 @@ logger = logging.getLogger(__name__)
 @config_class(PentahoSourceConfig)
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Emits dataset-level lineage for TableInput and TableOutput steps in Pentaho .ktr/.kjb files only when the table names have no variable references like ${table}.",
+    "Emits dataset-level lineage for TableInput and TableOutput steps in Pentaho .ktr transformations. TableInput lineage is derived from the step's SQL when present, and otherwise from its explicit table name; TableOutput lineage uses the step's table name, schema-qualified when a schema is set. Pentaho variables such as ${table} are not resolved and are carried into the dataset URN literally. .kjb job files contribute step dependencies as properties, not lineage.",
     supported=True,
 )
 @capability(
@@ -124,6 +127,22 @@ class PentahoSource(Source):
             logger.warning(f"Error checking file {file_path}: {e}")
             return False
 
+    def _flow_id(self, file_path: str) -> str:
+        """Build a stable, platform-independent flow id for a Pentaho file.
+
+        Two files can declare the same internal transformation or job name, so
+        the declared name alone is not a usable identity. The path is taken
+        relative to base_folder and normalized to forward slashes so the same
+        repository ingested on Windows and Linux produces identical URNs.
+        """
+        try:
+            relative_path = os.path.relpath(file_path, self.config.base_folder)
+        except ValueError:
+            # os.path.relpath raises on Windows when the two paths sit on
+            # different drives; the bare filename is the best identity left.
+            relative_path = os.path.basename(file_path)
+        return relative_path.replace(os.sep, "/")
+
     def _normalize_platform_name(self, raw_platform: str) -> str:
         """Normalize platform name using configuration mappings."""
         if not raw_platform:
@@ -188,9 +207,6 @@ class PentahoSource(Source):
         clean_name = name.strip()
         if not clean_name:
             return None
-
-        # Normalize platform name
-        platform = self._normalize_platform_name(platform)
 
         if platform == "file":
             # If it's a full path, extract just the filename
@@ -271,13 +287,14 @@ class PentahoSource(Source):
                 root.findtext("info/name")
                 or os.path.splitext(os.path.basename(file_path))[0]
             )
-            job_urn = make_data_job_urn(
+            flow_id = self._flow_id(file_path)
+            flow_urn = make_data_flow_urn(
                 orchestrator="pentaho",
-                flow_id=trans_name,
-                job_id=trans_name,
+                flow_id=flow_id,
                 cluster=self.config.env,
                 platform_instance=self.config.platform_instance,
             )
+            job_urn = make_data_job_urn_with_flow(flow_urn, trans_name)
 
             context = ProcessingContext(file_path, self.config)
 
@@ -295,7 +312,7 @@ class PentahoSource(Source):
 
             # Build aspects
             aspects: List[Any] = [
-                DataJobKeyClass(flow=trans_name, jobId=trans_name),
+                DataJobKeyClass(flow=flow_urn, jobId=trans_name),
                 DataJobInfoClass(
                     name=trans_name,
                     type="TRANSFORMATION",
@@ -317,13 +334,13 @@ class PentahoSource(Source):
             if context.input_datasets or context.output_datasets:
                 aspects.append(
                     DataJobInputOutputClass(
-                        inputDatasets=list(context.input_datasets),
-                        outputDatasets=list(context.output_datasets),
+                        inputDatasets=context.sorted_input_datasets(),
+                        outputDatasets=context.sorted_output_datasets(),
                     )
                 )
 
             yield MetadataWorkUnit(
-                id=f"pentaho-ktr-{trans_name}",
+                id=f"pentaho-ktr-{flow_id}",
                 mce=MetadataChangeEventClass(
                     proposedSnapshot=DataJobSnapshotClass(urn=job_urn, aspects=aspects)
                 ),
@@ -349,13 +366,14 @@ class PentahoSource(Source):
                 root.findtext("name")
                 or os.path.splitext(os.path.basename(file_path))[0]
             )
-            job_urn = make_data_job_urn(
+            flow_id = self._flow_id(file_path)
+            flow_urn = make_data_flow_urn(
                 orchestrator="pentaho",
-                flow_id=job_name,
-                job_id=job_name,
+                flow_id=flow_id,
                 cluster=self.config.env,
                 platform_instance=self.config.platform_instance,
             )
+            job_urn = make_data_job_urn_with_flow(flow_urn, job_name)
 
             context = ProcessingContext(file_path, self.config)
 
@@ -382,7 +400,7 @@ class PentahoSource(Source):
 
             # Build aspects
             aspects: List[Any] = [
-                DataJobKeyClass(flow=job_name, jobId=job_name),
+                DataJobKeyClass(flow=flow_urn, jobId=job_name),
                 DataJobInfoClass(
                     name=job_name,
                     type="JOB",
@@ -403,13 +421,13 @@ class PentahoSource(Source):
             if context.input_datasets or context.output_datasets:
                 aspects.append(
                     DataJobInputOutputClass(
-                        inputDatasets=list(context.input_datasets),
-                        outputDatasets=list(context.output_datasets),
+                        inputDatasets=context.sorted_input_datasets(),
+                        outputDatasets=context.sorted_output_datasets(),
                     )
                 )
 
             yield MetadataWorkUnit(
-                id=f"pentaho-kjb-{job_name}",
+                id=f"pentaho-kjb-{flow_id}",
                 mce=MetadataChangeEventClass(
                     proposedSnapshot=DataJobSnapshotClass(urn=job_urn, aspects=aspects)
                 ),

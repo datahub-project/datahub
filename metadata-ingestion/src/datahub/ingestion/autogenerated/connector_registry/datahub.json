@@ -3311,7 +3311,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Emits dataset-level lineage for TableInput and TableOutput steps in Pentaho .ktr/.kjb files only when the table names have no variable references like ${table}.",
+          "description": "Emits dataset-level lineage for TableInput and TableOutput steps in Pentaho .ktr transformations. TableInput lineage is derived from the step's SQL when present, and otherwise from its explicit table name; TableOutput lineage uses the step's table name, schema-qualified when a schema is set. Pentaho variables such as ${table} are not resolved and are carried into the dataset URN literally. .kjb job files contribute step dependencies as properties, not lineage.",
           "subtype_modifier": null,
           "supported": true
         }

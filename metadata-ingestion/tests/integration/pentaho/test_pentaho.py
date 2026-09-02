@@ -222,7 +222,7 @@ class TestPentahoSourceIntegration:
         assert len(work_units) == 1
 
         work_unit = work_units[0]
-        assert work_unit.id == "pentaho-ktr-test_transformation"
+        assert work_unit.id == "pentaho-ktr-test.ktr"
 
         # Check snapshot
         snapshot_event = cast(MetadataChangeEventClass, work_unit.metadata)
@@ -311,10 +311,10 @@ class TestPentahoSourceIntegration:
         assert job_info.name == "variable_transformation"
 
         # Should have lineage even with variables (though URNs may contain variables)
-        if input_output:
-            # Variables should be preserved in the URN since they can't be resolved
-            for dataset_urn in input_output.inputDatasets + input_output.outputDatasets:
-                assert "bigquery" in dataset_urn or "unknown" in dataset_urn
+        assert input_output is not None
+        # Variables should be preserved in the URN since they can't be resolved
+        for dataset_urn in input_output.inputDatasets + input_output.outputDatasets:
+            assert "bigquery" in dataset_urn or "unknown" in dataset_urn
 
     def test_kjb_processing(self, temp_dir, sample_kjb_content, default_config):
         """Test processing a KJB file."""
@@ -332,7 +332,7 @@ class TestPentahoSourceIntegration:
         assert len(work_units) == 1
 
         work_unit = work_units[0]
-        assert work_unit.id == "pentaho-kjb-test_job"
+        assert work_unit.id == "pentaho-kjb-test.kjb"
 
         # Check snapshot
         snapshot_event = cast(MetadataChangeEventClass, work_unit.metadata)
@@ -468,16 +468,48 @@ class TestPentahoSourceIntegration:
             if isinstance(aspect, DataJobInputOutputClass):
                 input_output = aspect
 
-        if input_output:
-            input_urn = (
-                input_output.inputDatasets[0] if input_output.inputDatasets else ""
-            )
-            output_urn = (
-                input_output.outputDatasets[0] if input_output.outputDatasets else ""
-            )
+        assert input_output is not None
+        assert input_output.inputDatasets
+        assert input_output.outputDatasets
 
-            assert "oracle" in input_urn
-            assert "snowflake" in output_urn
+        assert "oracle" in input_output.inputDatasets[0]
+        assert "snowflake" in input_output.outputDatasets[0]
+
+    def test_same_job_name_in_different_files_does_not_collide(
+        self, temp_dir, sample_ktr_content, default_config
+    ):
+        """Two files declaring the same transformation name must stay distinct.
+
+        The Pentaho <info><name> is not unique across a repository, so a
+        name-only identity collapses both files onto one DataJob URN and one
+        work-unit ID, silently dropping a job.
+        """
+        nested_dir = os.path.join(temp_dir, "nested")
+        os.makedirs(nested_dir)
+        self.create_test_file(temp_dir, "first.ktr", sample_ktr_content)
+        self.create_test_file(nested_dir, "second.ktr", sample_ktr_content)
+
+        ctx = PipelineContext(run_id="test_run")
+        source = PentahoSource(PentahoSourceConfig.parse_obj(default_config), ctx)
+
+        work_units = list(source.get_workunits())
+        assert len(work_units) == 2
+
+        urns = set()
+        for work_unit in work_units:
+            snapshot_event = cast(MetadataChangeEventClass, work_unit.metadata)
+            snapshot = snapshot_event.proposedSnapshot
+            assert snapshot is not None
+            urns.add(snapshot.urn)
+
+        assert len(urns) == 2
+        assert len({work_unit.id for work_unit in work_units}) == 2
+        # The path qualifier is relative to base_folder and slash-normalized,
+        # so the URNs are identical on Windows and Linux.
+        assert {work_unit.id for work_unit in work_units} == {
+            "pentaho-ktr-first.ktr",
+            "pentaho-ktr-nested/second.ktr",
+        }
 
     def test_empty_directory(self, temp_dir, default_config):
         """Test processing empty directory."""

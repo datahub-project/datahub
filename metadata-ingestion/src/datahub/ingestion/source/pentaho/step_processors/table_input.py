@@ -1,6 +1,5 @@
 """Table Input step processor for Pentaho transformations."""
 
-import logging
 from typing import Optional
 from xml.etree.ElementTree import (
     Element,  # nosec B405 - only for type hints; parsing goes through defusedxml
@@ -9,8 +8,6 @@ from xml.etree.ElementTree import (
 from datahub.ingestion.source.pentaho.context import ProcessingContext
 from datahub.ingestion.source.pentaho.step_processors.base import StepProcessor
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
-
-logger = logging.getLogger(__name__)
 
 
 class TableInputProcessor(StepProcessor):
@@ -41,31 +38,35 @@ class TableInputProcessor(StepProcessor):
 
         # If we have SQL, use the SQL parser
         if sql and sql.strip():
-            try:
-                parsed_result = create_lineage_sql_parsed_result(
-                    query=sql,
-                    default_db=None,
-                    default_schema=None,
-                    platform=platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                )
+            parsed_result = create_lineage_sql_parsed_result(
+                query=sql,
+                default_db=None,
+                default_schema=None,
+                platform=platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                # This processor only consumes in_tables; column lineage would be
+                # computed and discarded.
+                generate_column_lineage=False,
+            )
 
-                # Add all input tables from the parsed SQL
+            # create_lineage_sql_parsed_result never raises: parse failures come
+            # back as a result carrying table_error, so this must be checked
+            # explicitly rather than caught.
+            table_error = parsed_result.debug_info.table_error
+            if table_error is None:
                 for table_urn in parsed_result.in_tables:
                     context.add_input_dataset(table_urn)
+                return
 
-            except Exception as e:
-                logger.warning(
-                    f"Failed to parse SQL with DataHub parser: {e}, falling back to table name"
-                )
-                # Fallback to explicit table name if SQL parsing fails
-                if table_name:
-                    dataset_urn = self.source._create_dataset_urn(platform, table_name)
-                    if dataset_urn:
-                        context.add_input_dataset(dataset_urn)
-        elif table_name:
-            # Use explicit table name
+            self.source.report.warning(
+                message="Failed to parse TableInput SQL; falling back to the step's table name",
+                context=f"{context.file_path}: {table_error}",
+                exc=table_error,
+            )
+
+        # Reached when there is no SQL, or when SQL parsing failed above.
+        if table_name:
             dataset_urn = self.source._create_dataset_urn(platform, table_name)
             if dataset_urn:
                 context.add_input_dataset(dataset_urn)

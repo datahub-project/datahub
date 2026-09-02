@@ -172,6 +172,81 @@ class TestStepProcessors:
             in context.input_datasets
         )
 
+    def test_table_input_processor_sql_parse_failure_falls_back_to_table_name(self):
+        """Unparseable SQL must fall back to the step's explicit table name.
+
+        create_lineage_sql_parsed_result reports parse failures via
+        debug_info.table_error rather than raising, so the fallback only runs
+        if that field is inspected.
+        """
+        source = PentahoSource(self.config, PipelineContext(run_id="test_run"))
+        processor = TableInputProcessor(source)
+
+        step_xml = ET.fromstring(
+            """
+            <step>
+                <type>TableInput</type>
+                <connection>mysql_conn</connection>
+                <table>orders</table>
+                <sql>SELECT FROM WHERE ((</sql>
+            </step>
+        """
+        )
+        root = ET.fromstring(
+            """
+            <transformation>
+                <connection>
+                    <name>mysql_conn</name>
+                    <type>MYSQL</type>
+                </connection>
+            </transformation>
+        """
+        )
+
+        context = ProcessingContext("/test/file.ktr", self.config)
+        processor.process(step_xml, context, root)
+
+        assert context.input_datasets == {
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,orders,PROD)"
+        }
+        # The parse failure must be operator-visible, not silently swallowed.
+        assert len(source.report.warnings) == 1
+
+    def test_table_input_processor_with_valid_sql(self):
+        """Parseable SQL yields the parsed tables and reports no warning."""
+        source = PentahoSource(self.config, PipelineContext(run_id="test_run"))
+        processor = TableInputProcessor(source)
+
+        step_xml = ET.fromstring(
+            """
+            <step>
+                <type>TableInput</type>
+                <connection>mysql_conn</connection>
+                <table>orders</table>
+                <sql>SELECT id FROM analytics.orders</sql>
+            </step>
+        """
+        )
+        root = ET.fromstring(
+            """
+            <transformation>
+                <connection>
+                    <name>mysql_conn</name>
+                    <type>MYSQL</type>
+                </connection>
+            </transformation>
+        """
+        )
+
+        context = ProcessingContext("/test/file.ktr", self.config)
+        processor.process(step_xml, context, root)
+
+        # The SQL-derived table wins; the bare <table> fallback is not applied.
+        assert context.input_datasets == {
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,analytics.orders,PROD)"
+        }
+        assert len(source.report.warnings) == 0
+
     def test_table_output_processor_with_schema_and_table(self):
         """Test TableOutputProcessor with schema and table name."""
         processor = TableOutputProcessor(self.mock_source)
@@ -303,12 +378,44 @@ class TestPentahoSource:
         assert self.source._create_dataset_urn("platform", "") is None
         assert self.source._create_dataset_urn("platform", None or "") is None
 
-    @patch("os.path.exists")
+    def test_resolved_platform_survives_urn_creation(self):
+        """A platform resolved from a connection must reach the URN unchanged.
+
+        _get_platform_from_connection already returns a DataHub platform name.
+        Re-applying the Pentaho connection alias table to that value maps any
+        platform that is not itself a mapping key to "unknown", which silently
+        breaks the built-in db2 alias and every user-supplied custom mapping.
+        """
+        # Built-in alias whose target is not also a mapping key: db2 -> db
+        platform = self.source._get_platform_from_connection(
+            "warehouse_conn", "TableInput", "DB2"
+        )
+        assert platform == "db"
+        assert (
+            self.source._create_dataset_urn(platform, "schema.orders")
+            == "urn:li:dataset:(urn:li:dataPlatform:db,schema.orders,PROD)"
+        )
+
+        # User-supplied custom mapping to a platform outside the default table
+        custom_source = PentahoSource(
+            PentahoSourceConfig(
+                base_folder="/test",
+                platform_mappings={"mycon": "athena"},
+            ),
+            self.ctx,
+        )
+        platform = custom_source._get_platform_from_connection(
+            "analytics_conn", "TableInput", "MyCon"
+        )
+        assert platform == "athena"
+        assert (
+            custom_source._create_dataset_urn(platform, "db.events")
+            == "urn:li:dataset:(urn:li:dataPlatform:athena,db.events,PROD)"
+        )
+
     @patch("os.path.getsize")
-    def test_should_process_file(self, mock_getsize, mock_exists):
+    def test_should_process_file(self, mock_getsize):
         """Test file processing decision."""
-        # Mock file existence and size for valid files
-        mock_exists.return_value = True
         mock_getsize.return_value = 1024
 
         # Test valid file extensions
@@ -316,10 +423,10 @@ class TestPentahoSource:
         assert self.source._should_process_file("test.kjb") is True
         assert self.source._should_process_file("test.txt") is False
 
-        # Test with non-existent file
-        mock_exists.return_value = False
-        assert self.source._should_process_file("nonexistent.ktr") is True
-        assert self.source._should_process_file("nonexistent.kjb") is True
+        # A missing file surfaces as FileNotFoundError from os.path.getsize.
+        mock_getsize.side_effect = FileNotFoundError
+        assert self.source._should_process_file("nonexistent.ktr") is False
+        assert self.source._should_process_file("nonexistent.kjb") is False
 
     def test_get_connection_type(self):
         """Test connection type extraction from XML."""
