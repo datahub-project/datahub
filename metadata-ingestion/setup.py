@@ -263,6 +263,17 @@ datacatalog_lineage_common = {
     "protobuf>=5.0.0,<7.0.0",
 }
 
+bigquery_sharing_common = {
+    # Only reached when `extract_subscriptions_from_analytics_hub` is enabled. It is
+    # not part of bigquery_common because bigquery-slim, bigquery-queries and fivetran
+    # all pull that set and none of them use this code path.
+    # The floor is set by the newest symbol the handler touches, not the oldest:
+    # list_subscriptions/Subscription.listing/state land in 0.4.3, SharedResourceType
+    # in 0.4.18, and Subscription.destination_dataset in 0.4.19. Below that last one
+    # subscription matching silently finds nothing.
+    "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
+}
+
 dataplex_common = {
     "google-cloud-dataplex<3.0.0",
     "google-cloud-resource-manager<2.0.0",
@@ -603,7 +614,11 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | usage_common,
     "bigid": {"requests>=2.28.0,<3.0"},
-    "bigquery": sql_common | bigquery_common | sqlglot_lib | datacatalog_lineage_common,
+    "bigquery": sql_common
+    | bigquery_common
+    | sqlglot_lib
+    | datacatalog_lineage_common
+    | bigquery_sharing_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,

@@ -141,6 +141,7 @@ all = [
     { name = "google-auth" },
     { name = "google-cloud-aiplatform" },
     { name = "google-cloud-bigquery" },
+    { name = "google-cloud-bigquery-analyticshub" },
     { name = "google-cloud-datacatalog" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
@@ -258,6 +259,7 @@ bigid = [
 bigquery = [
     { name = "cachetools" },
     { name = "google-cloud-bigquery" },
+    { name = "google-cloud-bigquery-analyticshub" },
     { name = "google-cloud-datacatalog" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-logging" },
@@ -513,6 +515,7 @@ dev = [
     { name = "google-auth" },
     { name = "google-cloud-aiplatform" },
     { name = "google-cloud-bigquery" },
+    { name = "google-cloud-bigquery-analyticshub" },
     { name = "google-cloud-datacatalog" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
@@ -708,6 +711,7 @@ docs = [
     { name = "google-auth" },
     { name = "google-cloud-aiplatform" },
     { name = "google-cloud-bigquery" },
+    { name = "google-cloud-bigquery-analyticshub" },
     { name = "google-cloud-datacatalog" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
@@ -1970,6 +1974,10 @@ requires-dist = [
     { name = "google-cloud-bigquery", marker = "extra == 'dev'", specifier = "<4.0.0" },
     { name = "google-cloud-bigquery", marker = "extra == 'docs'", specifier = "<4.0.0" },
     { name = "google-cloud-bigquery", marker = "extra == 'fivetran'", specifier = "<4.0.0" },
+    { name = "google-cloud-bigquery-analyticshub", marker = "extra == 'all'", specifier = ">=0.4.19,<1.0.0" },
+    { name = "google-cloud-bigquery-analyticshub", marker = "extra == 'bigquery'", specifier = ">=0.4.19,<1.0.0" },
+    { name = "google-cloud-bigquery-analyticshub", marker = "extra == 'dev'", specifier = ">=0.4.19,<1.0.0" },
+    { name = "google-cloud-bigquery-analyticshub", marker = "extra == 'docs'", specifier = ">=0.4.19,<1.0.0" },
     { name = "google-cloud-datacatalog", marker = "extra == 'all'", specifier = ">=1.5.0,<4.0.0" },
     { name = "google-cloud-datacatalog", marker = "extra == 'bigquery'", specifier = ">=1.5.0,<4.0.0" },
     { name = "google-cloud-datacatalog", marker = "extra == 'bigquery-queries'", specifier = ">=1.5.0,<4.0.0" },
@@ -5454,6 +5462,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/11/0c/153ee546c288949fcc6794d58811ab5420f3ecad5fa7f9e73f78d9512a6e/google_cloud_bigquery-3.40.1.tar.gz", hash = "sha256:75afcfb6e007238fe1deefb2182105249321145ff921784fe7b1de2b4ba24506", size = 511761, upload-time = "2026-02-12T18:44:18.958Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7c/f5/081cf5b90adfe524ae0d671781b0d497a75a0f2601d075af518828e22d8f/google_cloud_bigquery-3.40.1-py3-none-any.whl", hash = "sha256:9082a6b8193aba87bed6a2c79cf1152b524c99bb7e7ac33a785e333c09eac868", size = 262018, upload-time = "2026-02-12T18:44:16.913Z" },
+]
+
+[[package]]
+name = "google-cloud-bigquery-analyticshub"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "grpc-google-iam-v1" },
+    { name = "grpcio" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4a/92/97cf7b0f619eb7996d909cdd5503537f1606cc7d118eb27bc26d59ee6f50/google_cloud_bigquery_analyticshub-0.9.0.tar.gz", hash = "sha256:ba88c4a45d083a71c4d3d1d0dc0f39708d83e1af942f99b89dde28b6d6c8ac70", size = 110664, upload-time = "2026-06-03T15:12:52.281Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/78/5edc9e68d0cb9e7faf651516bfe546367f04d02c0ec9ed23f3aef6072f71/google_cloud_bigquery_analyticshub-0.9.0-py3-none-any.whl", hash = "sha256:c848cbe3f139e93cfe1aea2e58e459f7e90e4303e8288c415df2f3f776a0fac9", size = 91304, upload-time = "2026-06-03T15:12:02.813Z" },
 ]
 
 [[package]]
