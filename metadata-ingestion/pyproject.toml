@@ -1235,7 +1235,6 @@ all = [
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
     "pycarlo>=0.10.0,<1.0.0",
-    "pydeequ>=1.1.0,<2.0.0",
     "pydruid>=0.6.2,<=0.6.9",
     "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
     "pymetastore>=0.4.2,<1.0.0",

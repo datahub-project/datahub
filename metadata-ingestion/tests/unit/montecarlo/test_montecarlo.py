@@ -1459,7 +1459,7 @@ def test_partial_build_failures_trip_soft_delete_interlock() -> None:
     assert source.report.build_failures == 1
     assert len(source.report.failures) >= 1
     failure_titles = [f.title for f in source.report.failures]
-    assert any("Partial build failures" in t for t in failure_titles)
+    assert any(t and "Partial build failures" in t for t in failure_titles)
 
 
 def test_no_build_failures_does_not_trip_interlock() -> None:
@@ -2149,3 +2149,82 @@ def test_iter_ingested_monitors_yields_pairs() -> None:
     assert monitor_uuid == "mon-a"
     assert ingested.mcon == mcon
     assert ingested.definition.uuid == "mon-a"
+
+
+def test_auto_map_connection_types_disabled_skips_auto_mapping() -> None:
+    """When auto_map_connection_types is false, a warehouse whose connectionType
+    is in CONNECTION_TYPE_TO_PLATFORM is NOT auto-mapped — it is skipped with a
+    warning, matching the config's contract that an explicit
+    connection_to_platform_map entry (or default_platform) is required."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-1++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    config = make_config(auto_map_connection_types=False)
+    resolver = MconResolver(config, client, report)
+    assert resolver.dataset_urn_for_mcon(mcon) is None
+    assert mcon in report.mcons_unmapped_platform
+    assert report.warnings_count >= 1
+
+
+def test_auto_map_connection_types_disabled_uses_default_platform() -> None:
+    """default_platform still applies when auto_map is disabled — it is an
+    explicit fallback, not an auto-mapping."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-1++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    config = make_config(auto_map_connection_types=False, default_platform="bigquery")
+    resolver = MconResolver(config, client, report)
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is not None
+    assert "bigquery" in urn
+
+
+def test_auto_map_connection_types_disabled_uses_explicit_map() -> None:
+    """connection_to_platform_map still applies when auto_map is disabled —
+    explicit mappings are independent of the auto-mapping toggle."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-1++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    config = make_config(
+        auto_map_connection_types=False,
+        connection_to_platform_map={"wh-1": {"platform": "redshift"}},
+    )
+    resolver = MconResolver(config, client, report)
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is not None
+    assert "redshift" in urn
+
+
+def test_report_dropped_and_warning_counters_increment() -> None:
+    """dropped_count and warnings_count are exact totals, complementing the
+    inherited LossyList samples that cap stored entries. The inherited
+    `warnings` LossyList groups identical messages by message text (so three
+    warnings with the same message collapse to one entry with three contexts),
+    which is exactly why a separate exact counter is needed."""
+    report = MonteCarloSourceReport()
+    report.report_dropped("monitor-a")
+    report.report_dropped("monitor-b")
+    report.warning(message="skipped one", context="mcon-1")
+    report.warning(message="skipped two", context="mcon-2")
+    report.warning(message="skipped three", context="mcon-3")
+    assert report.dropped_count == 2
+    assert report.warnings_count == 3
+    assert len(report.filtered) == 2

@@ -1,5 +1,9 @@
 from dataclasses import dataclass, field
+from typing import Optional
 
+from typing_extensions import LiteralString
+
+from datahub.ingestion.api.source import StructuredLogCategory
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
@@ -19,10 +23,16 @@ class MonteCarloSourceReport(StaleEntityRemovalSourceReport):
     mcons_resolved: int = 0
     mcons_resolution_failed: int = 0
     build_failures: int = 0
+    # Operator-visible skip counters. The inherited `warnings` / `filtered`
+    # LossyLists cap stored samples; these ints give an exact total so the
+    # ingestion report can show how much was skipped without the LossyList cap.
+    warnings_count: int = 0
+    dropped_count: int = 0
     mcons_unmapped_platform: LossyList[str] = field(default_factory=LossyList)
     filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, name: str) -> None:
+        self.dropped_count += 1
         self.filtered.append(name)
 
     def report_monitor_scanned(self) -> None:
@@ -54,3 +64,24 @@ class MonteCarloSourceReport(StaleEntityRemovalSourceReport):
 
     def report_build_failure(self) -> None:
         self.build_failures += 1
+
+    def warning(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
+    ) -> None:
+        # Keep an exact running count alongside the inherited LossyList so the
+        # report can surface "N warnings" without the LossyList's sample cap.
+        self.warnings_count += 1
+        super().warning(
+            message=message,
+            context=context,
+            title=title,
+            exc=exc,
+            log=log,
+            log_category=log_category,
+        )

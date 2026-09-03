@@ -148,6 +148,15 @@ class MonteCarloSourceConfig(
         "connection_to_platform_map, set the env per entry instead.",
     )
 
+    auto_map_connection_types: bool = Field(
+        default=True,
+        description="Auto-map a warehouse's Monte Carlo connectionType to a DataHub platform "
+        "when the warehouse is not listed in connection_to_platform_map. Set to false to "
+        "require an explicit connection_to_platform_map entry (or default_platform) for "
+        "every warehouse — unmapped warehouses are then skipped with a warning rather "
+        "than auto-resolved. The auto-mappings are listed in the connector docs "
+        "('Auto-mapped connection types').",
+    )
     include_assertions: bool = Field(
         default=True,
         description="Ingest Monte Carlo monitors and custom rules as DataHub assertions.",

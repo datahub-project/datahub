@@ -67,6 +67,13 @@ query getCustomRules($first: Int, $after: String) {
 }
 """
 
+# Monte Carlo surfaces both "alerts" and "incidents" through the same getAlerts
+# connection — an incident is an alert whose `type` field is incident-related
+# (e.g. "incident", "freshness_incident", "volume_anomaly"). There is no
+# separate getIncidents endpoint; the builder maps every entry to an
+# AssertionRunEvent failure regardless of its `type`, so this single query
+# covers both. The `type`/`subTypes` fields are carried on nativeResults so the
+# UI can distinguish an incident from a generic alert.
 ALERTS_QUERY = """
 query getAlerts($first: Int, $after: String, $createdTime: DateTimeRangeInput) {
   getAlerts(first: $first, after: $after, createdTime: $createdTime) {
