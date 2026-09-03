@@ -50,7 +50,16 @@ class ProfilingConnection:
         return self._conn.execute(single_row_query(query))
 
     def execute_rows(self, query: Any) -> Any:
-        """Execute a statement returning zero, one, or many rows. Never batched."""
+        """Execute a statement returning zero, one, or many rows. Never batched.
+
+        Also the right choice on the methods QueryCombinerRunner calls directly
+        rather than scheduling -- get_column_quantiles, get_column_histogram,
+        the *_frequencies pair and get_column_sample_values. Those run on the
+        main greenlet, where _handle_execute returns before it ever reads the
+        tag, so nothing there can be batched whatever its row shape. Some of
+        those queries are single-row, but tagging them would assert a batching
+        contract that no code path can exercise or test.
+        """
         return self._conn.execute(query)
 
     def execute_statement(self, statement: Any) -> Any:
@@ -613,8 +622,10 @@ class PlatformAdapter(ABC):
         for q in quantiles:
             try:
                 quoted_column = self.quote_identifier(column)
-                # Use literal_column with label() to preserve column metadata
-                # which is needed for the query combiner to work correctly.
+                # label() keeps the column named for result extraction. It used
+                # to be described as required by the query combiner, which is
+                # wrong: quantiles run on the main greenlet (see
+                # ProfilingConnection.execute_rows) and are never combined.
                 percentile_expr = sa.literal_column(
                     f"PERCENTILE_CONT({q}) WITHIN GROUP (ORDER BY {quoted_column})"
                 ).label("percentile")
@@ -712,6 +723,8 @@ class PlatformAdapter(ABC):
             buckets.append(sa.func.sum(bucket_case_expr).label(f"bucket_{i}"))
 
         query = sa.select(buckets).select_from(table)
+        # Single-row, but on the main greenlet, so not batchable regardless --
+        # see ProfilingConnection.execute_rows.
         result = conn.execute_rows(query).fetchone()
 
         # Convert to list of tuples

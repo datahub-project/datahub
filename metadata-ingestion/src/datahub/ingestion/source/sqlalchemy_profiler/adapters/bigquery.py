@@ -429,6 +429,8 @@ class BigQueryAdapter(PlatformAdapter):
             for q, idx in zip(quantiles, indices, strict=False)
         ]
         query = sa.select(selects).select_from(table)
+        # Single-row, but on the main greenlet, so not batchable regardless --
+        # see ProfilingConnection.execute_rows.
         result = conn.execute_rows(query).fetchone()
         if result is None:
             return [None] * len(quantiles)
