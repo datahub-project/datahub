@@ -33,7 +33,6 @@ from datahub.executor.common.env_config import (
 )
 from datahub.executor.execution.venv_utils import (
     ReqKind,
-    is_moving_requirement,
     partition_requirements,
 )
 
@@ -495,7 +494,7 @@ async def resolve_moving_pins(
         )
     except Exception as e:
         logger.warning(
-            f"Could not resolve {len(moving)} moving requirement(s) for the venv cache key; "
+            f"Could not resolve {len(parts[ReqKind.MOVING])} moving requirement(s) for the venv cache key; "
             f"reusing any existing venv. A newer release will not be picked up until this "
             f"succeeds. Cause: {e}"
         )

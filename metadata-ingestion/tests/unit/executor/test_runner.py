@@ -1502,7 +1502,6 @@ class TestSetupVenvResolvesBeforeNaming:
     async def test_venv_name_changes_when_resolved_pins_change(
         self, tmp_path: pathlib.Path
     ):
-        from unittest.mock import AsyncMock, call
 
         logs = LogHolder()
         runner = SubprocessRunner(logs)
