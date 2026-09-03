@@ -45,7 +45,7 @@ fi
 
 # SMOKE_TIER: which criticality tier to run. "p0" runs only tests carrying the
 # p0 marker -- the pull-request gate; "full" or unset runs the whole suite. CI
-# sets it from the P0_SMOKE_RUN repository variable. Applied inside
+# sets it from the PYTEST_P0_SMOKE repository variable. Applied inside
 # run_pytest_policy_phases only: the other strategies below are already narrow,
 # explicit test selections that a tier filter would just gut.
 tier_args=()
@@ -106,6 +106,16 @@ run_pytest_policy_phases() {
   set -e
   if ! _pytest_ok "$rc2"; then
     echo "Phase 2 failed with exit code $rc2"
+  fi
+
+  # rc 5 from ONE phase is normal -- most batches hold no policy mutators
+  # (empty phase 2), and a batch of only serial modules has an empty phase 1.
+  # rc 5 from BOTH means the batch collected nothing at all, which _pytest_ok
+  # would otherwise report as success: a green job that tested nothing.
+  if [[ "$rc1" -eq 5 && "$rc2" -eq 5 ]]; then
+    echo "ERROR: both pytest phases collected 0 tests for this batch." \
+         "Refusing to report an empty run as success." >&2
+    return 1
   fi
 
   _pytest_ok "$rc1" || return "$rc1"

@@ -3,6 +3,7 @@ pytest_plugins = ["tests.utilities.agent_reporter"]
 import json
 import logging
 import os
+import statistics
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -244,6 +245,18 @@ def pytest_configure(config: pytest.Config) -> None:
         raise pytest.UsageError(str(exc)) from exc
 
 
+def _module_is_changed(item: Item, changed: List[str]) -> bool:
+    """True when the item's module is one this PR touched.
+
+    ``changed`` holds repo-relative paths while ``item.fspath`` is absolute, so
+    match by suffix -- the same approach the FILTERED_TESTS retry path uses.
+    """
+    if not changed:
+        return False
+    module_path = str(item.fspath)
+    return any(module_path.endswith(path) for path in changed)
+
+
 def _apply_tier_filter(config: pytest.Config, items: List[Item]) -> None:
     """Deselect tests outside the criticality tier requested with --tier.
 
@@ -255,11 +268,26 @@ def _apply_tier_filter(config: pytest.Config, items: List[Item]) -> None:
     if config.getoption("--tier") != "p0":
         return
 
+    # A PR's own new or edited tests are not p0, so a tier-only selection would
+    # merge them without ever running them: they would first execute post-merge,
+    # where a failure lands on the default branch instead of on the author's PR.
+    # CI passes the touched modules in SMOKE_CHANGED_TESTS. Known gap -- a changed
+    # non-test helper, fixture or conftest pulls in no test module of its own, so
+    # a PR that needs broader coverage than its own touched modules asks for the
+    # whole suite with the full-suite PR label.
+    changed = env_vars.get_smoke_changed_tests()
+
     selected: List[Item] = []
     deselected: List[Item] = []
+    changed_only = 0
     for item in items:
-        target = selected if item.get_closest_marker("p0") else deselected
-        target.append(item)
+        is_p0 = item.get_closest_marker("p0") is not None
+        if is_p0 or _module_is_changed(item, changed):
+            selected.append(item)
+            if not is_p0:
+                changed_only += 1
+        else:
+            deselected.append(item)
 
     if items and not selected:
         # Otherwise every batch collects nothing, pytest exits 5, and smoke.sh
@@ -270,9 +298,34 @@ def _apply_tier_filter(config: pytest.Config, items: List[Item]) -> None:
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
 
+    if changed:
+        collected = {str(item.fspath) for item in items}
+        unmatched = [
+            path
+            for path in changed
+            if not any(module.endswith(path) for module in collected)
+        ]
+        if unmatched:
+            # Deleted test files land here harmlessly, but so would a change in
+            # the path format CI emits -- which would silently stop unioning a
+            # PR's own tests, the exact failure this union exists to prevent.
+            logger.warning(
+                "SMOKE_CHANGED_TESTS: %s of %s path(s) matched no collected module: %s",
+                len(unmatched),
+                len(changed),
+                ", ".join(sorted(unmatched)[:5]),
+            )
+
     if deselected:
         config.hook.pytest_deselected(items=deselected)
-    logger.info("--tier p0: selected %s of %s test(s)", len(selected), len(items))
+    logger.info(
+        "--tier p0: selected %s of %s test(s); %s of them from the %s module(s) "
+        "this PR touched",
+        len(selected),
+        len(items),
+        changed_only,
+        len(changed),
+    )
     items[:] = selected
 
 
@@ -370,7 +423,18 @@ def load_pytest_test_weights() -> Dict[str, float]:
         return {}
 
 
-def get_pytest_test_weight(item: Item, test_weights: Dict[str, float]) -> float:
+def find_pytest_test_weight(
+    item: Item, test_weights: Dict[str, float]
+) -> Optional[float]:
+    """Recorded weight for a test, or None when the weights file has no entry.
+
+    Includes the OSS class-refactor fallback: when tests move into classes junit
+    nodeids gain a class segment, while weights files may still key by
+    module::test_name.
+
+    Returning None rather than a default is what lets callers both count
+    uncovered tests and derive a tier-appropriate fallback weight.
+    """
     nodeid = item.nodeid
     test_id = nodeid.replace("/", ".").replace(".py::", "::")
     weight = test_weights.get(test_id)
@@ -380,15 +444,55 @@ def get_pytest_test_weight(item: Item, test_weights: Dict[str, float]) -> float:
     nodeid_parts = nodeid.split("::")
     if len(nodeid_parts) > 2:
         module_id = nodeid_parts[0].replace("/", ".").removesuffix(".py")
-        weight = test_weights.get(f"{module_id}::{nodeid_parts[-1]}")
-        if weight is not None:
-            return weight
+        return test_weights.get(f"{module_id}::{nodeid_parts[-1]}")
 
+    return None
+
+
+def get_pytest_test_weight(
+    item: Item, test_weights: Dict[str, float], default_weight: float = 1.0
+) -> float:
+    """Recorded weight for a test, or ``default_weight`` when it has no entry."""
+    found = find_pytest_test_weight(item, test_weights)
+    return default_weight if found is None else found
+
+
+def compute_default_test_weight(
+    test_weights: Dict[str, float], tier_items: Optional[List[Item]] = None
+) -> float:
+    """Weight for a test with no entry in pytest_test_weights.json.
+
+    The flat 1.0s fallback under-weights an uncovered module by ~an order of
+    magnitude, so a batch that draws several of them overruns what the packer
+    predicted and becomes the critical path. That bias is diluted across a full
+    suite but dominates a tier-narrowed run, where the surviving tests are the
+    heavy end-to-end ones. When ``tier_items`` is given, derive the default from
+    the weights actually known for those items instead.
+    """
+    if tier_items:
+        known = [
+            weight
+            for weight in (
+                find_pytest_test_weight(item, test_weights) for item in tier_items
+            )
+            if weight is not None
+        ]
+        if known:
+            # Mean rather than median: the packer *sums* weights per module, so
+            # the unbiased estimator for a sum is the mean. These distributions
+            # are heavily right-skewed -- a handful of multi-minute end-to-end
+            # tests among many fast ones -- so the median can sit below even the
+            # suite-wide default and would under-weight uncovered modules, the
+            # one direction that makes a batch overrun its prediction.
+            # Floored at 1.0s so narrowing a run can never lower the fallback.
+            return max(statistics.fmean(known), 1.0)
     return 1.0
 
 
 def aggregate_module_weights(
-    items: List[Item], test_weights: Dict[str, float]
+    items: List[Item],
+    test_weights: Dict[str, float],
+    tier_narrowed: bool = False,
 ) -> List[Tuple[str, List[Item], float, float]]:
     """
     Group test items by module, splitting each module's weight by execution phase.
@@ -401,6 +505,9 @@ def aggregate_module_weights(
     Args:
         items: List of pytest test items
         test_weights: Dictionary mapping test IDs to durations
+        tier_narrowed: True when a tier filter (``--tier``) already reduced
+            ``items``, so the fallback weight is derived from those items
+            rather than from the whole suite.
 
     Returns:
         List of (module_path, items_in_module, parallel_seconds, serial_seconds)
@@ -413,13 +520,17 @@ def aggregate_module_weights(
         module_path = str(item.fspath)
         modules[module_path].append(item)
 
+    default_weight = compute_default_test_weight(
+        test_weights, items if tier_narrowed else None
+    )
+
     # Each item's weight is looked up exactly once, here.
     module_data = []
     for module_path, module_items in modules.items():
         parallel_seconds = 0.0
         serial_seconds = 0.0
         for item in module_items:
-            weight = get_pytest_test_weight(item, test_weights)
+            weight = get_pytest_test_weight(item, test_weights, default_weight)
             if _is_global_policy_mutator(item):
                 serial_seconds += weight
             else:
@@ -543,7 +654,9 @@ def pytest_collection_modifyitems(
     test_weights = load_pytest_test_weights()
 
     # Group items by module and aggregate weights
-    module_data = aggregate_module_weights(items, test_weights)
+    module_data = aggregate_module_weights(
+        items, test_weights, tier_narrowed=config.getoption("--tier") == "p0"
+    )
 
     # Sort modules by path for stability
     module_data.sort(key=lambda x: x[0])

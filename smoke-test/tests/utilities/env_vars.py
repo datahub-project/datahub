@@ -3,7 +3,7 @@
 
 import os
 import re
-from typing import Optional
+from typing import List, Optional
 
 # ============================================================================
 # Core DataHub Configuration
@@ -265,6 +265,17 @@ def get_datahub_usage_event_topic() -> str:
 def get_filtered_tests_file() -> Optional[str]:
     """Path to file containing filtered test paths (one per line)."""
     return os.getenv("FILTERED_TESTS")
+
+
+def get_smoke_changed_tests() -> List[str]:
+    """Test modules the PR under test touches (CI sets SMOKE_CHANGED_TESTS).
+
+    Space-separated repo-relative paths. Used to union a PR's own new or edited
+    tests into a tier-narrowed selection, so they still run on their author's PR
+    instead of first executing post-merge.
+    """
+    raw = os.getenv("SMOKE_CHANGED_TESTS", "").strip()
+    return raw.split() if raw else []
 
 
 def get_smoke_policy_phase() -> Optional[str]:

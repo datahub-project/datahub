@@ -91,8 +91,15 @@ pytest --tier p0 --domain catalog -vv
 
 `--tier full` is the default and runs everything. CI drives the choice through
 the `SMOKE_TIER` env var that `smoke.sh` reads: `docker-unified.yml` sets it to
-`p0` for pull requests while the `P0_SMOKE_RUN` repository variable is `true`,
+`p0` for pull requests while the `PYTEST_P0_SMOKE` repository variable is `true`,
 and leaves post-merge runs on the full suite.
+
+On a pull request CI additionally runs any test module the PR itself touches,
+even when it carries no `p0` marker, so a newly added or edited test runs on its
+author's PR instead of first executing post-merge. That union is per-module: a
+change to a shared fixture or to `conftest.py` pulls in no test module of its
+own, so a PR needing broader coverage than its own touched modules asks for the
+whole suite with the full-suite PR label.
 
 ## Test Categories
 
