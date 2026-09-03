@@ -84,11 +84,13 @@ def test_default_platform_accepts_known_platform() -> None:
     assert cfg.default_platform == "snowflake"
 
 
-def test_default_platform_accepts_spark_not_in_registry() -> None:
-    # spark is emitted by the connection-type map but has no registered connector,
-    # so it is not in the registry platform_ids — it must still be accepted.
-    cfg = make_config(default_platform="spark")
-    assert cfg.default_platform == "spark"
+def test_default_platform_rejects_spark_absent_from_registry() -> None:
+    # spark is emitted by the connection-type map internally but has no
+    # registered connector, so it is not in the registry platform_ids. With the
+    # registry as the only validation source, a user-supplied spark platform is
+    # rejected (auto-mapping still uses it directly, bypassing the validator).
+    with pytest.raises(ValueError, match="Unknown DataHub platform"):
+        make_config(default_platform="spark")
 
 
 def test_connection_map_rejects_unknown_platform() -> None:

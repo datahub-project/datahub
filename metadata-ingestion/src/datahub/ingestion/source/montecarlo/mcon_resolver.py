@@ -82,7 +82,7 @@ class MconResolver:
         platform = platform or self.config.default_platform
         if platform is None:
             return None
-        return MonteCarloPlatformDetail(
+        return MonteCarloPlatformDetail.model_construct(
             platform=platform,
             # The warehouse dataset URN's platform instance/env must be the
             # warehouse's, not Monte Carlo's own (self.config.platform_instance is
@@ -90,6 +90,15 @@ class MconResolver:
             # to datasets that do not exist). Warehouses listed in
             # connection_to_platform_map carry their own instance/env per entry;
             # this fallback only covers auto-mapped / default_platform warehouses.
+            #
+            # model_construct skips the platform field_validator on purpose: the
+            # platform here is either from CONNECTION_TYPE_TO_PLATFORM (a trusted
+            # hardcoded map, not user input) or from default_platform (already
+            # validated at config load). The registry is the only validation
+            # source for *user-supplied* platforms; the connector's own internal
+            # mappings must not be rejected for being absent from the registry
+            # (e.g. spark has no registered connector). env/platform_instance are
+            # likewise already validated/normalized at config load.
             platform_instance=self.config.target_platform_instance,
             env=self.config.target_env
             if self.config.target_env is not None
