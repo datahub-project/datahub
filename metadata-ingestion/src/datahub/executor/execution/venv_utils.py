@@ -6,6 +6,7 @@ performing any actual venv creation or management.
 """
 
 import hashlib
+from enum import Enum, auto
 from typing import Union
 
 from packaging.requirements import InvalidRequirement, Requirement
@@ -26,34 +27,63 @@ def should_use_bundled_venv(version: str) -> bool:
     return is_bundled_version(version)
 
 
-def is_moving_requirement(requirement: str) -> bool:
-    """Whether this requirement can resolve to a different build over time.
+class ReqKind(Enum):
+    """Three-way classification of requirement lines.
 
-    A venv is cached under a hash of the requirement *strings*, so a requirement whose text is
-    stable but whose resolution is not -- ``acryl-datahub-cloud-docs==2.1.*``, ``>=1.2``, or a
-    bare package name -- would keep the first venv forever and never see a newer release. The
-    caller resolves these to concrete versions before naming the venv; everything else is already
-    pinned and needs no lookup.
-
-    Direct references (``pkg @ file:///path``, ``pkg @ https://...``) count as pinned: they name
-    exactly one artifact, and re-resolving them would cost a network round trip to learn nothing.
+    The install path writes all lines verbatim to a requirements file (option lines are valid
+    there). The resolve path needs only MOVING lines but must forward OPTION lines so the
+    resolver sees the same indexes and constraints. PINNED lines are skipped entirely — they
+    name exactly one artifact and re-resolving them costs a round trip to learn nothing.
     """
+
+    PINNED = auto()
+    MOVING = auto()
+    OPTION = auto()
+
+
+def classify_requirement(requirement: str) -> ReqKind:
+    """Classify a single requirement line."""
+    stripped = requirement.lstrip()
+    if stripped.startswith("-"):
+        return ReqKind.OPTION
+
     try:
         parsed = Requirement(requirement)
     except InvalidRequirement:
-        # Not something we can reason about (a bare path, an option line). Treat it as pinned
-        # rather than resolving it on every run -- the previous behaviour, unchanged.
-        return False
+        return ReqKind.PINNED
 
     if parsed.url:
-        return False
+        return ReqKind.PINNED
 
     specs = list(parsed.specifier)
     if len(specs) != 1:
-        # No specifier at all, or a compound range. Either way the resolution can move.
-        return True
+        return ReqKind.MOVING
     only = specs[0]
-    return only.operator not in ("==", "===") or "*" in only.version
+    if only.operator not in ("==", "===") or "*" in only.version:
+        return ReqKind.MOVING
+    return ReqKind.PINNED
+
+
+def partition_requirements(
+    reqs: list[str],
+) -> dict[ReqKind, list[str]]:
+    """Partition a list of requirement lines into PINNED, MOVING, and OPTION.
+
+    Used by both the resolve path (feeds OPTION + MOVING to uv pip compile)
+    and the install path (writes all lines verbatim).
+    """
+    result: dict[ReqKind, list[str]] = {k: [] for k in ReqKind}
+    for req in reqs:
+        result[classify_requirement(req)].append(req)
+    return result
+
+
+def is_moving_requirement(requirement: str) -> bool:
+    """Whether this requirement can resolve to a different build over time.
+
+    Convenience wrapper around classify_requirement for callers that only need the boolean.
+    """
+    return classify_requirement(requirement) == ReqKind.MOVING
 
 
 def get_venv_name(

@@ -213,3 +213,70 @@ class TestIsMovingRequirement:
         assert not venv_utils.is_moving_requirement(
             "--extra-index-url https://example.invalid"
         )
+
+
+class TestClassifyRequirement:
+    """Three-way classification: PINNED, MOVING, or OPTION."""
+
+    def test_option_lines(self):
+        assert (
+            venv_utils.classify_requirement("--extra-index-url https://host/simple")
+            == venv_utils.ReqKind.OPTION
+        )
+        assert (
+            venv_utils.classify_requirement("-c constraints.txt")
+            == venv_utils.ReqKind.OPTION
+        )
+        assert (
+            venv_utils.classify_requirement("  --find-links /local/wheels")
+            == venv_utils.ReqKind.OPTION
+        )
+
+    def test_pinned(self):
+        assert (
+            venv_utils.classify_requirement("pkg==1.2.3")
+            == venv_utils.ReqKind.PINNED
+        )
+        assert (
+            venv_utils.classify_requirement("pkg @ https://example.invalid/pkg.whl")
+            == venv_utils.ReqKind.PINNED
+        )
+
+    def test_moving(self):
+        assert (
+            venv_utils.classify_requirement("pkg>=1.0") == venv_utils.ReqKind.MOVING
+        )
+        assert (
+            venv_utils.classify_requirement("pkg==2.1.*") == venv_utils.ReqKind.MOVING
+        )
+        assert (
+            venv_utils.classify_requirement("bare-package")
+            == venv_utils.ReqKind.MOVING
+        )
+
+
+class TestPartitionRequirements:
+    def test_mixed_list(self):
+        reqs = [
+            "--extra-index-url https://private.host/simple",
+            "pinned-pkg==1.0.0",
+            "moving-pkg>=2.0",
+            "-c constraints.txt",
+            "bare-name",
+        ]
+        parts = venv_utils.partition_requirements(reqs)
+        assert parts[venv_utils.ReqKind.OPTION] == [
+            "--extra-index-url https://private.host/simple",
+            "-c constraints.txt",
+        ]
+        assert parts[venv_utils.ReqKind.PINNED] == ["pinned-pkg==1.0.0"]
+        assert parts[venv_utils.ReqKind.MOVING] == ["moving-pkg>=2.0", "bare-name"]
+
+    def test_empty_list(self):
+        parts = venv_utils.partition_requirements([])
+        assert all(v == [] for v in parts.values())
+
+    def test_all_pinned(self):
+        parts = venv_utils.partition_requirements(["a==1.0", "b==2.0"])
+        assert parts[venv_utils.ReqKind.MOVING] == []
+        assert parts[venv_utils.ReqKind.OPTION] == []

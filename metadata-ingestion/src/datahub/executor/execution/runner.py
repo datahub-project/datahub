@@ -31,7 +31,11 @@ from datahub.executor.common.env_config import (
     get_bundled_venv_path,
     get_dependency_resolution_enabled,
 )
-from datahub.executor.execution.venv_utils import is_moving_requirement
+from datahub.executor.execution.venv_utils import (
+    ReqKind,
+    is_moving_requirement,
+    partition_requirements,
+)
 
 
 def _expand_pip_req(req: str) -> str:
@@ -457,7 +461,7 @@ class SubprocessRunner:
 # support for handling bundled venvs.
 async def resolve_moving_pins(
     expanded_pip_reqs: list[str],
-    extra_env_vars: dict[str, str],
+    env: dict[str, str],
 ) -> list[str]:
     """Resolve requirements that can move to the concrete versions available right now.
 
@@ -469,22 +473,24 @@ async def resolve_moving_pins(
     Best effort by design. If the index is unreachable this returns nothing, the venv keeps the
     name it had, and a warm venv is reused -- so a registry outage leaves an ingestion source
     running on slightly stale dependencies rather than failing it outright.
+
+    Args:
+        expanded_pip_reqs: The full list of requirement lines (including option lines).
+        env: The shared environment dict (os.environ + extra_env_vars), same as the install path.
     """
-    # Option lines (--extra-index-url, -c, etc.) must reach the resolver so it sees the same
-    # indexes and constraints the install path does. Without them, sources with private indexes
-    # in extra_pip_requirements 401 on every resolve.
-    option_lines = [req for req in expanded_pip_reqs if req.lstrip().startswith("-")]
-    moving = [req for req in expanded_pip_reqs if is_moving_requirement(req)]
-    if not moving:
+    parts = partition_requirements(expanded_pip_reqs)
+    if not parts[ReqKind.MOVING]:
         return []
 
-    compile_input = option_lines + moving
+    # Option lines (--extra-index-url, -c, etc.) reach the resolver so it sees the same
+    # indexes and constraints the install path does.
+    compile_input = parts[ReqKind.OPTION] + parts[ReqKind.MOVING]
 
     try:
         result = await anyio.run_process(
             [_find_uv(), "pip", "compile", "--no-deps", "--refresh", "--quiet", "-"],
             input="\n".join(compile_input).encode("utf-8"),
-            env={**os.environ, **extra_env_vars},
+            env=env,
             check=True,
         )
     except Exception as e:
@@ -568,13 +574,15 @@ async def setup_venv(
     # requirements file see the same os.environ snapshot.
     expanded_pip_reqs = venv_config.resolve_pip_requirements()
 
+    # Shared base env for both the resolve and install paths. Built once so
+    # they cannot diverge on index URLs, auth tokens, or uv configuration.
+    base_env = {**os.environ, **venv_config.extra_env_vars}
+
     # Resolve before naming, because the name decides whether the venv below is reused. A range
     # pin resolves to a concrete version here, so publishing a new release changes the name and
     # forces a rebuild; naming first would answer "does this venv exist?" from a string that can
     # never change.
-    resolved_pins = await resolve_moving_pins(
-        expanded_pip_reqs, venv_config.extra_env_vars
-    )
+    resolved_pins = await resolve_moving_pins(expanded_pip_reqs, base_env)
     if resolved_pins:
         runner._logs.append(
             f"Resolved moving requirements: {', '.join(resolved_pins)}\n"
@@ -611,7 +619,7 @@ async def setup_venv(
     )
 
     try:
-        await _install_into_venv(venv_config, runner, venv_loc, expanded_pip_reqs)
+        await _install_into_venv(venv_config, runner, venv_loc, expanded_pip_reqs, base_env)
     except Exception:
         # Delete the half-built venv so it can't be adopted as warm on the next run.
         # A venv with bin/python but missing packages would pass the exists() check
@@ -629,14 +637,13 @@ async def _install_into_venv(
     runner: SubprocessRunner,
     venv_loc: pathlib.Path,
     expanded_pip_reqs: list[str],
+    base_env: dict[str, str],
 ) -> None:
     """Install packages into a freshly created venv. Extracted so setup_venv can clean up on failure."""
 
-    venv_env = {
-        **os.environ,
-        **venv_config.extra_env_vars,
-        "VIRTUAL_ENV": str(venv_loc),
-    }
+    # Extend the shared base env with the venv-specific VIRTUAL_ENV. The base_env is the same
+    # dict the resolve path uses, so indexes and auth agree by construction.
+    venv_env = {**base_env, "VIRTUAL_ENV": str(venv_loc)}
 
     version = venv_config.version
 
