@@ -319,6 +319,68 @@ def test_build_assertion_emits_custom_and_platform_instance() -> None:
     assert report.assertions_emitted == 1
 
 
+def test_build_assertion_description_falls_back_to_name() -> None:
+    # When Monte Carlo returns no description, the connector falls back to the
+    # monitor name so the UI never renders its generic "A custom externally
+    # reported Assertion" placeholder for an MC assertion.
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config()
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+
+    definition = MonteCarloAssertionDef(
+        uuid="mon-vol",
+        name="Volume on orders",
+        description=None,
+        monitor_type="VOLUME",
+        entity_mcons=[mcon],
+        resource_id="wh-2",
+    )
+    wus = _build_assertion_workunits(builder, definition)
+    info = next(
+        a for a in (_aspect(wu) for wu in wus) if isinstance(a, AssertionInfoClass)
+    )
+    assert info.description == "Volume on orders"
+
+
+def test_build_assertion_description_prefers_explicit_description() -> None:
+    # An explicit MC description wins over the name fallback.
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config()
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+
+    definition = MonteCarloAssertionDef(
+        uuid="mon-1",
+        name="Freshness on orders",
+        description="orders should be fresh",
+        monitor_type="FRESHNESS",
+        entity_mcons=[mcon],
+        resource_id="wh-2",
+    )
+    wus = _build_assertion_workunits(builder, definition)
+    info = next(
+        a for a in (_aspect(wu) for wu in wus) if isinstance(a, AssertionInfoClass)
+    )
+    assert info.description == "orders should be fresh"
+
+
 def test_build_assertion_oss_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     # Force the cloud SDK to appear unavailable; the OSS fallback must still emit
     # the assertionInfo + dataPlatformInstance aspects.

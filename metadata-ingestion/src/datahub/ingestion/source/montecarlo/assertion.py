@@ -100,6 +100,21 @@ def _string_map(value: Dict[str, Any]) -> Dict[str, str]:
     return {k: str(v) for k, v in value.items() if v is not None}
 
 
+def _effective_description(definition: MonteCarloAssertionDef) -> Optional[str]:
+    """The description to set on ``assertionInfo``.
+
+    Monte Carlo monitors carry an optional free-text ``description``; when it is
+    absent the connector falls back to the monitor's ``name`` so the UI never
+    renders its generic "A custom externally reported Assertion" placeholder for
+    an MC assertion (that placeholder is DataHub's fallback for a null
+    description, not a meaningful label). Monte Carlo monitor names are required
+    at creation, so this is non-None for every real monitor; if both are absent
+    the definition is malformed and None is returned unchanged rather than
+    fabricating a label from the uuid.
+    """
+    return definition.description or definition.name
+
+
 def _native_parameters(definition: MonteCarloAssertionDef) -> Dict[str, str]:
     """Native MC fields that don't map to the structured assertion slots, carried
     on nativeParameters so the UI can render them. severity / data_quality_dimension
@@ -329,7 +344,7 @@ class MonteCarloAssertionBuilder:
         yield from self._emit_assertion(
             assertion_urn=assertion_urn,
             custom_assertion=custom_assertion,
-            description=definition.description,
+            description=_effective_description(definition),
             custom_properties=custom_properties,
         )
         self.report.report_assertion_emitted()
