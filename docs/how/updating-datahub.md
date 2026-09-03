@@ -133,6 +133,81 @@ Requirements:
 
 - `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED` (default `true`) — Schema-driven GraphQL aspect fetching. See Other Notable Changes above and [Environment Variables](../deploy/environment-vars.md).
 
+## v1.7.0.1
+
+Patch release for v1.7.0 — security and authorization hardening, CVE dependency bumps, graph-cache and lineage fixes, optional optimistic locking, and the remainder of the custom-assertion stack. Full changelog: [v1.7.0...v1.7.0.1](https://github.com/datahub-project/datahub/compare/v1.7.0...v1.7.0.1).
+
+Requirements:
+
+- CLI / Python SDK: 1.7.0.9
+- Helm Chart: 1.1.0
+
+### Breaking Changes
+
+- #18886 **(GMS / Auth)** The hardcoded `systemClientSecret` default (`JohnSnowKnowsNothing`) has been removed from the server configs. **Action:** set `DATAHUB_SYSTEM_CLIENT_SECRET` on GMS, MAE/MCE/PE consumers, the frontend, and Actions before upgrading — services relying on the built-in default will fail to authenticate.
+
+- #19508 **(GMS / Timeseries read authorization)** Dataset profile, usage, and operations timeseries (and dashboard usage statistics) now require the matching **View Dataset Profile / Usage / Operations** privileges on Rest.li and OpenAPI as well as GraphQL. Dedicated timeseries APIs (`getTimeseriesAspectValues`, OpenAPI timeseries scroll, `getTimeseriesStats` with a URN filter) also require **Get Timeseries Aspect API** when REST API authorization is enabled. **Action:** grant those privileges (or rely on the default `view-dataset-sensitive` policy) to API clients that previously read these aspects with only entity GET. Chart usage statistics are unchanged.
+
+- #19360 **(GMS / Role and group membership writes)** Writes to aspects that grant privileges are now authorized at the aspect layer across GraphQL, OpenAPI, and Rest.li. Adding a role (`roleMembership`) requires **Manage Policies**; adding a user to a group (`groupMembership` / `nativeGroupMembership`) requires **Edit Group Members**; adding a corpGroup owner (`ownership`) requires **Edit Owners** — or **Manage Users & Groups** when the actor is adding themselves. Only additions are checked; removals, unchanged re-ingestion, and system writes pass. Previously **Edit Entity** on a user was enough to grant that user the Admin role. **Action:** grant **Manage Policies** to automation that writes `roleMembership` outside the UI; membership-only sync (LDAP, Okta, Azure AD, `datahub user upsert`) needs **Edit Group Members** or **Manage Users & Groups**. Toggle via `metadataChangeProposal.validation.aspectAuthorization.privilegeGrant.enabled` (default `true`).
+
+- #19212 **(GMS / View Authorization)** When `VIEW_AUTHORIZATION_ENABLED=true`, `container` and `schemaField` are view-restricted by default (they are no longer on the stock unrestricted overlay; `container` is no longer `viewUnrestricted` in the registry). **View Entity Page** on a schema field inherits from the parent dataset encoded in the schemaField URN, then falls back to a direct grant on the column. GraphQL container loads use field-strip redaction when the actor lacks View Entity Page. **Action:** ensure View Entity Page policies cover containers (and parent datasets for columns) you still want users to open. Do not re-add `document` / `schemaField` / `container` via `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD` unless you intentionally want them to bypass view checks. OSS gates entity pages / post-search masking only — it does not get Cloud query-time search pushdown.
+
+### Known Issues
+
+### Potential Downtime
+
+### Deprecations
+
+- #18882 **(Assertions / Metadata Model + Ingestion)** `AssertionType.DATASET` and `DatasetAssertionInfo` are deprecated for new writes. External / self-reported assertions must use `AssertionType.CUSTOM` with expanded `CustomAssertionInfo`. On the next run after upgrade, dbt, Great Expectations, and YAML data-contract writers emit `CUSTOM` instead of `DATASET` for the same checks. **Assertion URNs are unchanged** and run history is preserved. Assertions that are never re-ingested stay as stored `DATASET` aspects until overwritten. See [Custom Assertions](../api/tutorials/custom-assertions.md).
+
+### Other Notable Changes
+
+**Custom assertions:**
+
+- #18882 **(Assertions)** Completes the custom-assertion stack on the v1.7.0 line (API/SDK, UI, `assertionNote` aspect, and dbt/GX/data-contract writers). User-authored assertion notes are stored in a dedicated `assertionNote` aspect so ingestion can fully upsert `assertionInfo` without overwriting notes. A resumable system-update step copies existing embedded notes to the new aspect. Operators can tune the migration with `SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_ENABLED`, `_BATCH_SIZE`, `_DELAY_MS`, and `_LIMIT`.
+
+**Security fixes:**
+
+- #19297 **(Auth)** The built-in self policy granted to every actor on their own entity was flattening the full ENTITY READ privilege map, which also handed out edit privileges on your own corpuser entity. It is now limited to `VIEW_ENTITY_PAGE` and `GET_ENTITY`.
+- #19316 **(Auth)** `POST /auth/signUp`, `/auth/resetNativeUserCredentials`, `/auth/verifyNativeUserCredentials`, and `/auth/getSsoSettings` now require GMS **system client** credentials, matching `/auth/generateSessionTokenForUser`. A user session token calling these GMS helpers directly gets **401**; frontend login, signup, password reset, and SSO are unaffected.
+- #19384 **(Auth)** Aspect authorization no longer trusts client-supplied `appSource` system metadata to identify system writes.
+- #19405 **(Auth)** Incidents raised on a schema field are now authorized against the parent entity.
+- #19463 **(OpenAPI)** Unauthorized lineage scroll endpoints are redacted as restricted rather than leaking relationship data.
+- #19298, #19299, #19300 **(UI)** Stored XSS fixes: query and incident descriptions are sanitized (the legacy `MarkdownViewer` is removed), the documentation editor's PDF preview iframe `src` is sanitized, and dangerous `renderUrl` schemes on embeds are rejected.
+- #19515, #19526, #19561 **(Ingestion)** CLI report secret masking is unified, idempotent, and fail-closed (mask before truncation; install once per process so concurrent runs cannot unmask). #19332 scrubs secrets from recorded HTTP cassettes.
+- #19483 **(GMS / AWS)** Share a process-wide AWS credential provider and S3/STS client lifecycle so OpenSearch IAM signing, Bedrock embeddings, STS, and object storage do not leak IRSA refresh tasks.
+
+**GMS, graph cache, and lineage:**
+
+- #19489 **(GraphQL)** `Container.relationships(types: [IsPartOf], direction: INCOMING)` again returns all contained entities from the live graph.
+- #19498, #19288, #19301, #19412 **(GMS)** Entity-graph cache no longer silently drops relationships; indexed search fields are fetched for the cache; null relationship endpoints are skipped; hierarchy graph fallback batches frontier scrolls.
+- #19268 **(Graph)** `relatedEntityTypes` matching is case-insensitive.
+- #19413 **(Lineage)** `scrollAcrossLineage` traversal is bounded to prevent GMS OOM.
+- #19404, #19476, #18266 **(Perf)** Cache corpGroup `roleMembership` via `SystemEntityClient`; use a cached aspect for per-request CorpUserFlags; batch-load Dashboard `usageStats` buckets and metrics.
+- #19249 **(GMS / writes)** Optional optimistic locking (`OPTIMISTIC_LOCKING_ENABLED`, default `false`) replaces `SELECT FOR UPDATE` with compare-and-set on `SystemMetadata.version` for Ebean storage. Optional `SCOPED_RETRY_ENABLED` and `ENTITY_WRITE_LOCK_BACKEND=hazelcast` mitigate write thundering-herd; PostgreSQL aspect writes also acquire row locks in consistent primary-key order. All of these default off. See [Environment Variables](../deploy/environment-vars.md).
+
+**Ingestion:**
+
+- #18889 **(Ingestion)** Exclude nltk 3.10.1, which silently breaks document chunking.
+- #19506 **(Ingestion)** Raise the GitPython floor to 3.1.58 for upstream security fixes.
+- #19605 **(CLI)** Bundled default CLI / Python SDK is **1.7.0.9**.
+
+**Dependency CVE bumps:**
+
+- Logback 1.5.38 (CVE-2026-9828, CVE-2026-10532), Log4j 2.25.5 (CVE-2026-49844), Netty 4.2.17.Final (CVE-2026-59902), libthrift 0.23.0 (CVE-2026-43869), Jetty 12.1.10 (CVE-2026-10050), httpcore5 5.4.3 (CVE-2026-54399), micrometer-core 1.16.6 (CVE-2026-40983, CVE-2026-40984), reactor-netty-core 1.3.6, netty-reactive-streams 3.0.9, wire-runtime 6.3.0 (CVE-2026-45799).
+- Apache Parquet 1.18.0, which refreshes its shaded Jackson to jackson-databind 2.22.1 (CVE-2026-54512, CVE-2026-54513).
+- httpclient5 5.6.3 (CVE-2026-64607), Spring Boot / Spring Kafka 4.0.7 (CVE-2026-41001), OpenTelemetry Java agent 2.28.0 (CVE-2026-54704), mariadb-java-client 2.7.14 (CVE-2026-55856 / 55857 / 55858).
+- Python ingestion: nltk 3.10.3 (CVE-2026-12075); datahub-actions image cache-bust for setuptools CVE-2025-47273.
+
+### Environment Variables
+
+- `OPTIMISTIC_LOCKING_ENABLED` (default `false`) — Use CAS aspect writes instead of `SELECT FOR UPDATE` with Ebean storage.
+- `SCOPED_RETRY_ENABLED` (default `false`) — Requires optimistic locking. Retry only the conflicted URN's branch on conflict instead of the whole batch.
+- `ENTITY_WRITE_LOCK_BACKEND` (default `none`) — `none` | `hazelcast`: per-`(urn, aspect)` write gate. Requires optimistic locking.
+- `ENTITY_WRITE_LOCK_ACQUIRE_TIMEOUT_SECONDS` (default `10`) — Bounds the write-lock acquire wait before proceeding lockless (CAS still guards).
+- `ENTITY_WRITE_LOCK_LEASE_SECONDS` (default `300`) — Maximum gate hold before auto-release.
+- `SYSTEM_UPDATE_ASSERTION_NOTE_MIGRATION_ENABLED` / `_BATCH_SIZE` / `_DELAY_MS` / `_LIMIT` — Tune the assertion-note aspect backfill.
+
 ## v1.7.0
 
 Requirements:
