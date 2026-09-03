@@ -82,6 +82,9 @@ DATAHUB_PGTIMESERIES_ENABLED=true
 TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION=postgres
 ```
 
+Switching the source of truth does not copy Elasticsearch history into PostgreSQL. Backfill or
+re-ingest timeseries aspects before flipping, or existing points stay only in Elasticsearch.
+
 Default table: `{postgres.schema}.{DATAHUB_PGTIMESERIES_TABLE_PREFIX}_aspect` →
 `public.metadata_timeseries_aspect`.
 
@@ -278,13 +281,13 @@ maintenance, retention config is written but partitions accumulate.
 
 ## Trade-offs vs Elasticsearch
 
-|                          | Elasticsearch / OpenSearch              | pgTimeseries                                           |
-| ------------------------ | --------------------------------------- | ------------------------------------------------------ |
-| Ops footprint            | Search cluster + timeseries indices     | Postgres + `pg_partman` (+ optional `pg_cron`)         |
-| Query model              | Full ES DSL / existing search stack     | SQL over `document jsonb` (subset parity)              |
-| Scroll                   | `search_after` on hit sort values       | Keyset on active sort keys (+ `message_id` tiebreaker) |
-| Scaling writes           | Bulk processor, horizontal search nodes | DB IOPS + dedicated pool size                          |
-| Retention                | Index ILM / delete-by-query             | Partman ceiling + per-aspect DELETE (via GC)           |
-| Truncate large ranges    | delete-by-query or reindex              | Delete-by-query only (no reindex)                      |
-| Migration                | Native today                            | Switch the configured source of truth                  |
-| Exploded collection docs | One ES doc per explosion                | May collapse when sharing `messageId`                  |
+|                          | Elasticsearch / OpenSearch              | pgTimeseries                                                |
+| ------------------------ | --------------------------------------- | ----------------------------------------------------------- |
+| Ops footprint            | Search cluster + timeseries indices     | Postgres + `pg_partman` (+ optional `pg_cron`)              |
+| Query model              | Full ES DSL / existing search stack     | SQL over `document jsonb` (subset parity)                   |
+| Scroll                   | `search_after` on hit sort values       | Keyset on active sort keys (+ `message_id` tiebreaker)      |
+| Scaling writes           | Bulk processor, horizontal search nodes | DB IOPS + dedicated pool size                               |
+| Retention                | Index ILM / delete-by-query             | Partman ceiling + per-aspect DELETE (via GC)                |
+| Truncate large ranges    | delete-by-query or reindex              | Delete-by-query only (no reindex)                           |
+| Migration                | Native today                            | No automatic backfill; backfill PostgreSQL before switching |
+| Exploded collection docs | One ES doc per explosion                | May collapse when sharing `messageId`                       |
