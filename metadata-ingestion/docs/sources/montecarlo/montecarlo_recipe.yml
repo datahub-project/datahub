@@ -32,6 +32,9 @@ source:
     run_events_lookback_days: 7 # query window in days
     run_events_first: 5 # max runs fetched per monitor (default: 5)
 
+    # Opt in to soft-delete assertions that no longer exist in Monte Carlo.
+    # Leave disabled until you have confirmed the run is healthy end-to-end;
+    # a partial run with transient errors skips deletion automatically.
     # stateful_ingestion:
     #   enabled: true
 

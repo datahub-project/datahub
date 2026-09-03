@@ -136,3 +136,24 @@ Verify that:
 2. At least one monitor is active and has fired an alert (the connector ingests only monitors that
    have associated assets and alerts).
 3. The `connection_to_platform_map` covers the warehouse connections used by your monitored assets.
+
+#### Stateful ingestion and soft-deletion
+
+Stateful ingestion (the `stateful_ingestion` config block) is **opt-in** — the starter recipes
+ship it commented out. When enabled, assertions that no longer exist in Monte Carlo are
+soft-deleted from DataHub at the end of a run.
+
+Two safety guards prevent soft-deletion from a bad run:
+
+- **Zero-assertion guard.** If the run attempted to build assertions but emitted none
+  (every monitor failed to resolve), the run records a failure and stale removal is skipped.
+- **Partial-failure guard.** If any monitor or custom rule failed to build due to a transient
+  error (network blip, API error, unexpected exception during `getTable`), the run records a
+  failure and stale removal is skipped — even if most monitors built successfully. This
+  covers the band the zero-assertion guard misses (e.g. 40 of 100 monitors hit a transient
+  `getTable` error). Permanent failures (the table is genuinely gone, or the platform is
+  unmapped) do **not** trip this guard — those are legitimate deletions.
+
+Transient `getTable` failures are also **not cached**, so a later monitor sharing the same
+MCON retries instead of inheriting a stale `None`. Leave `stateful_ingestion` disabled until
+you have confirmed a run is healthy end-to-end; the guards make it safe to enable afterwards.
