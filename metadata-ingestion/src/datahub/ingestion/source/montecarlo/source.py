@@ -277,11 +277,13 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
             # per-run join is not possible — best-effort temporal correlation).
             latest_metrics: List[MonteCarloMetricPoint] = []
             for metric_name in metric_names:
-                cache_key = f"{ingested.mcon}:{metric_name}"
+                field = self.builder.field_for_metric(ingested.definition, metric_name)
+                # Include the field in the cache key so two monitors on the same
+                # table measuring the same metric on different columns don't reuse
+                # each other's getMetricsV4 result (which would put the wrong
+                # measured value on the second assertion's SUCCESS run event).
+                cache_key = f"{ingested.mcon}:{metric_name}:{field}"
                 if cache_key not in metric_cache:
-                    field = self.builder.field_for_metric(
-                        ingested.definition, metric_name
-                    )
                     metric_cache[cache_key] = self.client.get_metrics_v4(
                         mcon=ingested.mcon,
                         metric_name=metric_name,
@@ -298,9 +300,14 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_job_execution_scanned()
                 # Only the latest SUCCESS run carries the measured value.
                 points = latest_metrics if i == 0 else []
+                # Materialize build() inside the try so a build failure for THIS
+                # run event is demoted to a warning; yield OUTSIDE the try so an
+                # exception raised by the downstream consumer at the yield point
+                # (sink/processor error) propagates instead of being swallowed as
+                # a fake per-run-event build failure — same rule _emit follows.
                 try:
-                    yield from self.builder.build_run_events_from_execution(
-                        execution, points
+                    built = list(
+                        self.builder.build_run_events_from_execution(execution, points)
                     )
                 except _FATAL_RUN_ERRORS:
                     raise
@@ -313,6 +320,8 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
                         f"job_execution_uuid={execution.job_execution_uuid}",
                         exc=e,
                     )
+                    continue
+                yield from built
 
     def get_report(self) -> MonteCarloSourceReport:
         return self.report

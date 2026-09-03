@@ -1,64 +1,82 @@
 source:
   type: montecarlo
   config:
+    # --- Authentication ---
     api_id: ${MCD_ID} # Monte Carlo API key id (mcd_id)
     api_token: ${MCD_TOKEN} # Monte Carlo API key token (mcd_token)
     # api_endpoint: https://api.getmontecarlo.com/graphql # override the MCD endpoint
 
+    # --- Warehouse -> DataHub platform mapping ---
     # Map each Monte Carlo warehouse/resource UUID to a DataHub platform so the
-    # monitored-asset URNs match those emitted by your warehouse sources.
+    # monitored-asset URNs match those emitted by your warehouse sources. The
+    # key is the warehouse resource UUID (the resource segment of an asset's
+    # MCON; visible on the warehouse in the Monte Carlo settings UI).
     connection_to_platform_map:
       "<mc-warehouse-uuid>":
-        platform: snowflake
-        platform_instance: prod
+        platform: snowflake # DataHub platform name (snowflake, bigquery, redshift, ...)
+        platform_instance: prod # warehouse platform instance (NOT Monte Carlo's)
         env: PROD
-        # Override URN casing for this warehouse only. Set to false to preserve
-        # case for a case-preserving Snowflake/Redshift deployment whose warehouse
-        # source runs with convert_urns_to_lowercase: false.
+        # Override URN casing for this warehouse only. true forces lowercase,
+        # false preserves the case Monte Carlo reports (needed for a
+        # case-preserving Snowflake/Redshift deployment whose warehouse source
+        # runs with convert_urns_to_lowercase: false). Leave unset to inherit
+        # the top-level convert_urns_to_lowercase flag.
         # convert_urns_to_lowercase: false
 
-    # Fallback platform + instance/env for warehouses NOT listed in the map above
-    # (auto-mapped from the connection type, or via default_platform). These apply
-    # to the warehouse dataset URN, NOT Monte Carlo's own assertion entity.
-    # default_platform: postgres
-    # target_platform_instance: prod
-    # target_env: PROD
+    # Fallbacks for warehouses NOT listed in the map above. These stamp the
+    # warehouse dataset URN (NOT Monte Carlo's own assertion entity).
+    # default_platform: postgres # fallback platform for unmapped connection types
+    # target_platform_instance: prod # warehouse platform instance for auto-mapped warehouses
+    # target_env: PROD # env for auto-mapped warehouses (defaults to top-level env)
 
-    # Auto-map a warehouse's Monte Carlo connectionType to a DataHub platform when
-    # the warehouse is not in connection_to_platform_map. Set to false to require
-    # an explicit mapping for every warehouse (unmapped warehouses are skipped).
+    # Auto-map a warehouse's Monte Carlo connectionType to a DataHub platform
+    # when the warehouse is not in connection_to_platform_map. Set to false to
+    # require an explicit mapping for every warehouse (unmapped ones are
+    # skipped with a warning). default_platform is only consulted when this is
+    # enabled.
     auto_map_connection_types: true
 
+    # --- What to ingest ---
     include_assertions: true # monitors + custom rules -> Assertion entities
     include_alerts: true # alerts/incidents -> AssertionRunEvent failures
     alerts_lookback_days: 30 # how far back to fetch alerts (default: 30 days)
-    emit_incidents_on_failure: true # also create Incident entities (Incidents tab)
+    # Opt in to also create Incident entities (Incidents tab). Off by default —
+    # see the Limitations section (incidents stay ACTIVE with no RESOLVED signal).
+    emit_incidents_on_failure: true
 
     # Ingest monitor run history + measured metric values as SUCCESS
-    # AssertionRunEvents. Leave unset to keep the FAILURE-only behaviour.
-    run_events_lookback_days: 7 # query window in days
+    # AssertionRunEvents. Leave unset (None) to keep the FAILURE-only behaviour.
+    run_events_lookback_days: 7 # query window in days (must be a positive integer)
     run_events_first: 5 # max runs fetched per monitor (default: 5)
 
-    # Filter monitors/rules by name and by Monte Carlo monitor type.
+    # --- Filtering ---
+    # Regex allow/deny patterns for monitor/rule names.
     # monitor_pattern:
     #   allow:
     #     - ".*freshness.*"
+    # Regex allow/deny patterns for Monte Carlo monitor types (FRESHNESS, VOLUME, ...).
     # monitor_type_pattern:
     #   deny:
     #     - "VOLUME"
+    # Scope ingestion to specific Monte Carlo domain UUIDs.
     # domain_ids:
     #   - "<mc-domain-uuid>"
 
-    # Client-side rate limiting against the Monte Carlo API.
+    # --- Rate limiting (client-side) ---
+    # Sustained token bucket refill rate (requests/second). Leave unset to disable.
     # rate_limit_requests_per_second: 5
+    # Token bucket capacity — burst size above the sustained rate.
     # rate_limit_burst: 10
+    # Max API calls per UTC calendar day (per-run cap; exceeding it fails the run).
     # rate_limit_daily: 5000
 
-    # Top-level URN casing flag. Forces lowercase dataset URNs everywhere when
-    # true (overrides the per-platform default). Leave unset to use the platform
-    # default (lowercase for snowflake/redshift, case-preserving otherwise).
+    # --- URN casing (recipe level) ---
+    # Forces lowercase dataset URNs everywhere when true. Per-warehouse
+    # convert_urns_to_lowercase overrides (above) take precedence. Leave unset
+    # to preserve case (set true for Snowflake/Redshift whose source lowercases).
     # convert_urns_to_lowercase: true
 
+    # --- Stateful ingestion / soft-deletion ---
     # Opt in to soft-delete assertions that no longer exist in Monte Carlo.
     # Leave disabled until you have confirmed the run is healthy end-to-end;
     # a partial run with transient errors skips deletion automatically.

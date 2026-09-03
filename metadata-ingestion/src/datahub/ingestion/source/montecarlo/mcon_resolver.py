@@ -13,7 +13,6 @@ from datahub.ingestion.source.montecarlo.config import (
 )
 from datahub.ingestion.source.montecarlo.constants import (
     CONNECTION_TYPE_TO_PLATFORM,
-    LOWERCASE_URN_PLATFORMS,
 )
 from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
 from datahub.utilities.ratelimiter import DailyCallBudgetExceeded
@@ -163,11 +162,12 @@ class MconResolver:
                 return None, True
 
             # Match the casing the warehouse source emits so the assertion attaches
-            # to the same dataset entity. The per-warehouse convert_urns_to_lowercase
-            # override (on connection_to_platform_map entries) wins when set — it is
-            # the only way to preserve case for Snowflake/Redshift (whose platform
-            # default lowercases). Without it the top-level flag forces lowercase
-            # everywhere when true, and otherwise the platform default applies.
+            # to the same dataset entity. Casing is controlled at recipe level only:
+            # the per-warehouse convert_urns_to_lowercase override (on
+            # connection_to_platform_map entries) wins when set — it is the way
+            # to preserve case for a case-preserving Snowflake/Redshift deployment.
+            # Without it the top-level convert_urns_to_lowercase flag applies
+            # (true forces lowercase everywhere; false/unset preserves case).
             # Monte Carlo's full_table_id uses its own "database:schema.table" form;
             # DataHub dataset URNs use dot-separated "database.schema.table" for
             # warehouse platforms, so the first colon must become a dot for the
@@ -186,13 +186,11 @@ class MconResolver:
                     context=f"{mcon} (full_table_id={resolved.full_table_id})",
                 )
                 return None, True
-            if detail.convert_urns_to_lowercase is not None:
-                lowercase = detail.convert_urns_to_lowercase
-            else:
-                lowercase = (
-                    self.config.convert_urns_to_lowercase
-                    or detail.platform in LOWERCASE_URN_PLATFORMS
-                )
+            lowercase = (
+                detail.convert_urns_to_lowercase
+                if detail.convert_urns_to_lowercase is not None
+                else self.config.convert_urns_to_lowercase
+            )
             if lowercase:
                 table_id = table_id.lower()
             self.report.report_mcon_resolved()

@@ -458,9 +458,11 @@ def test_build_assertion_skips_unresolvable_asset() -> None:
     assert report.assertions_emitted == 0
 
 
-def test_resolver_lowercases_snowflake_by_default() -> None:
-    # Snowflake emits lowercased URNs, so MC must lowercase to match even without
-    # the convert_urns_to_lowercase flag set.
+def test_resolver_preserves_case_unless_configured() -> None:
+    # Casing is controlled at recipe level, not hardcoded per platform: without
+    # the convert_urns_to_lowercase flag (top-level or per-warehouse), the
+    # resolver preserves the case Monte Carlo reports — even for Snowflake,
+    # whose source lowercases only when the user opts in via the flag.
     mcon = "MCON++acct++wh-1++table++DB.SCH.TBL"
     client = FakeResolverClient(
         {
@@ -473,7 +475,7 @@ def test_resolver_lowercases_snowflake_by_default() -> None:
     resolver = MconResolver(cfg, client, MonteCarloSourceReport())
     urn = resolver.dataset_urn_for_mcon(mcon)
     assert urn is not None
-    assert "db.sch.tbl" in urn and "DB.SCH.TBL" not in urn
+    assert "DB.SCH.TBL" in urn and "db.sch.tbl" not in urn
 
 
 def test_resolver_preserves_case_for_case_sensitive_platform() -> None:
@@ -1068,7 +1070,10 @@ def test_build_run_event_links_to_ingested_monitor() -> None:
             )
         }
     )
-    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+    cfg = make_config(
+        connection_to_platform_map={"wh-2": {"platform": "snowflake"}},
+        emit_incidents_on_failure=True,
+    )
     resolver = MconResolver(cfg, client, report)
     builder = MonteCarloAssertionBuilder(cfg, report, resolver)
     _build_assertion_workunits(
@@ -1123,7 +1128,10 @@ def test_build_run_event_uses_first_ingested_monitor_uuid() -> None:
             )
         }
     )
-    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+    cfg = make_config(
+        connection_to_platform_map={"wh-2": {"platform": "snowflake"}},
+        emit_incidents_on_failure=True,
+    )
     resolver = MconResolver(cfg, client, report)
     builder = MonteCarloAssertionBuilder(cfg, report, resolver)
     # Ingest only "mon-2"; "mon-1" and "mon-3" are not ingested (filtered /
@@ -1243,7 +1251,10 @@ def test_incident_emitted_on_alert() -> None:
             )
         }
     )
-    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+    cfg = make_config(
+        connection_to_platform_map={"wh-2": {"platform": "snowflake"}},
+        emit_incidents_on_failure=True,
+    )
     resolver = MconResolver(cfg, client, report)
     builder = MonteCarloAssertionBuilder(cfg, report, resolver)
     _ingest_one_monitor(builder, mcon)
@@ -1311,7 +1322,10 @@ def test_incident_urn_is_deterministic() -> None:
             )
         }
     )
-    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+    cfg = make_config(
+        connection_to_platform_map={"wh-2": {"platform": "snowflake"}},
+        emit_incidents_on_failure=True,
+    )
     resolver = MconResolver(cfg, client, report)
     builder = MonteCarloAssertionBuilder(cfg, report, resolver)
     _ingest_one_monitor(builder, mcon)
@@ -1345,7 +1359,10 @@ def test_incident_links_to_assertion() -> None:
             )
         }
     )
-    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+    cfg = make_config(
+        connection_to_platform_map={"wh-2": {"platform": "snowflake"}},
+        emit_incidents_on_failure=True,
+    )
     resolver = MconResolver(cfg, client, report)
     builder = MonteCarloAssertionBuilder(cfg, report, resolver)
     _ingest_one_monitor(builder, mcon)

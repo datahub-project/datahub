@@ -29,6 +29,15 @@ class MonteCarloSourceReport(StaleEntityRemovalSourceReport):
     mcons_resolved: int = 0
     mcons_resolution_failed: int = 0
     build_failures: int = 0
+    # Granular skip counters so the ingestion report shows *why* items were
+    # skipped, not just how many. Each corresponds to a distinct warning site
+    # in the assertion builder / resolver, so an operator can tell a pattern
+    # filter (intentional) from an unresolved-MCON skip (config issue) from an
+    # alert with no ingested monitor (timing/filtering) without reading logs.
+    monitors_dropped_no_mcons: int = 0
+    monitors_dropped_unresolved: int = 0
+    alerts_skipped_no_monitor: int = 0
+    alerts_skipped_no_timestamp: int = 0
     # Operator-visible skip counters. The inherited `warnings` / `filtered`
     # LossyLists cap stored samples; these ints give an exact total so the
     # ingestion report can show how much was skipped without the LossyList cap.
@@ -72,6 +81,18 @@ class MonteCarloSourceReport(StaleEntityRemovalSourceReport):
 
     def report_build_failure(self) -> None:
         self.build_failures += 1
+
+    def report_monitor_dropped_no_mcons(self) -> None:
+        self.monitors_dropped_no_mcons += 1
+
+    def report_monitor_dropped_unresolved(self) -> None:
+        self.monitors_dropped_unresolved += 1
+
+    def report_alert_skipped_no_monitor(self) -> None:
+        self.alerts_skipped_no_monitor += 1
+
+    def report_alert_skipped_no_timestamp(self) -> None:
+        self.alerts_skipped_no_timestamp += 1
 
     def warning(
         self,

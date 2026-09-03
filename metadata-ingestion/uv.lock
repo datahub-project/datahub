@@ -2307,9 +2307,9 @@ requires-dist = [
     { name = "pyathena", extras = ["sqlalchemy"], marker = "extra == 'dev'", specifier = ">=2.6.0,<3.0.0" },
     { name = "pyathena", extras = ["sqlalchemy"], marker = "extra == 'docs'", specifier = ">=2.6.0,<3.0.0" },
     { name = "pyathena", extras = ["sqlalchemy"], marker = "extra == 'integration-tests'", specifier = ">=2.6.0,<3.0.0" },
-    { name = "pycarlo", marker = "extra == 'all'", specifier = ">=0.10.0,<1.0.0" },
-    { name = "pycarlo", marker = "extra == 'integration-tests'", specifier = ">=0.10.0,<1.0.0" },
-    { name = "pycarlo", marker = "extra == 'montecarlo'", specifier = ">=0.10.0,<1.0.0" },
+    { name = "pycarlo", marker = "extra == 'all'", specifier = ">=0.15.262,<1.0.0" },
+    { name = "pycarlo", marker = "extra == 'integration-tests'", specifier = ">=0.15.262,<1.0.0" },
+    { name = "pycarlo", marker = "extra == 'montecarlo'", specifier = ">=0.15.262,<1.0.0" },
     { name = "pydantic", specifier = ">=2.4.0,<3.0.0" },
     { name = "pydantic", marker = "extra == 'dev'", specifier = ">=2.4.0,<3.0.0" },
     { name = "pydantic", marker = "extra == 'docs'", specifier = ">=2.4.0,<3.0.0" },
@@ -8600,7 +8600,7 @@ sqlalchemy = [
 
 [[package]]
 name = "pycarlo"
-version = "0.14.12"
+version = "0.15.262"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dataclasses-json" },
@@ -8609,9 +8609,9 @@ dependencies = [
     { name = "responses" },
     { name = "sgqlc" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d3/cc/70ca3d59a783e68bd008fffd94888d4e9d6b213ae25b98ea85280783a427/pycarlo-0.14.12.tar.gz", hash = "sha256:c3ff589c17565530a17fbeb5d42c92d129e624a6f043d9b328f29d23466a1faf", size = 1688122, upload-time = "2026-07-10T16:19:20.622Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/94/f17961f6cbd3f33c76a3ed5bb144131249195f71add1d872493dc226da18/pycarlo-0.15.262.tar.gz", hash = "sha256:cd25d75572f438396828afae309050c18181640672e3ee35932075f549cc6abc", size = 1969179, upload-time = "2026-09-02T18:52:37.562Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/d6/60a2bf65183c4d83a145b82cf28320f56b69e382ffa57a04974e002cd1bf/pycarlo-0.14.12-py3-none-any.whl", hash = "sha256:9726d803526da3aabf066eef33b102844c980c38ea4c2041449a41a5965128be", size = 1103771, upload-time = "2026-07-10T16:19:18.858Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/20/99f674c1b63eeaf8e2304b1f2f93fd6e134af12a3c7e03b79f21025502a1/pycarlo-0.15.262-py3-none-any.whl", hash = "sha256:60c674c9021edad8f09f76af964603c494980f093a1c1af269f82b8309aa8b25", size = 1289053, upload-time = "2026-09-02T18:52:35.927Z" },
 ]
 
 [[package]]

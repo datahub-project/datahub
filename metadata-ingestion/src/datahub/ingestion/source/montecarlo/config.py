@@ -73,9 +73,9 @@ class MonteCarloPlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         description="Override the dataset URN casing for this warehouse only. Set to "
         "true to force lowercase, false to preserve the case Monte Carlo reports (needed "
         "for case-preserving Snowflake/Redshift deployments whose warehouse source runs "
-        "with convert_urns_to_lowercase=false). Leave unset to inherit the connector "
-        "default: lowercase for snowflake/redshift, case-preserving otherwise, with the "
-        "top-level convert_urns_to_lowercase flag forcing lowercase everywhere when true.",
+        "with convert_urns_to_lowercase=false). Leave unset to inherit the top-level "
+        "convert_urns_to_lowercase flag, which forces lowercase everywhere when true and "
+        "preserves case otherwise.",
     )
 
     @field_validator("platform", mode="after")
@@ -177,7 +177,7 @@ class MonteCarloSourceConfig(
         "include_alerts is enabled.",
     )
     emit_incidents_on_failure: bool = Field(
-        default=True,
+        default=False,
         description="Emit a DataHub Incident entity (``urn:li:incident:…``) for each "
         "Monte Carlo alert/incident, in addition to the AssertionRunEvent failure. "
         "The incident links back to the assertion via "
@@ -185,10 +185,15 @@ class MonteCarloSourceConfig(
         "Incidents tab on the dataset shows the failure history. Standard DataHub "
         "entity — works regardless of edition. Re-emitting the same alert is "
         "idempotent because the incident URN is derived from a hash of "
-        "(assertion_urn, alert_uuid).",
+        "(assertion_urn, alert_uuid). Disabled by default: Monte Carlo alerts "
+        "resolve over time but the connector fetches them only within "
+        "alerts_lookback_days and has no signal to emit an IncidentState.RESOLVED "
+        "transition, so enabling this can accumulate stale ACTIVE incidents. "
+        "Enable it only if your workflow tolerates that and manages incident "
+        "resolution separately.",
     )
 
-    run_events_lookback_days: Optional[int] = Field(
+    run_events_lookback_days: Optional[pydantic.PositiveInt] = Field(
         default=None,
         description="Ingest Monte Carlo monitor run history (getJobExecutions) plus "
         "measured metric values (getMetricsV4) as AssertionRunEvents. When set to a "

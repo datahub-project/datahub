@@ -968,7 +968,7 @@ pyasn1-modules==0.4.2
     #   python-ldap
 pyathena==2.25.2
     # via acryl-datahub
-pycarlo==0.14.12
+pycarlo==0.15.262
     # via acryl-datahub
 pycparser==3.0 ; implementation_name != 'PyPy'
     # via cffi

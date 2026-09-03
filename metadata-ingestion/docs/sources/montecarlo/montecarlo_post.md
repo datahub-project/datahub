@@ -45,14 +45,16 @@ Monte Carlo alerts and incidents are ingested as `AssertionRunEvent` failures on
 corresponding assertion. Each event carries a timestamp, the Monte Carlo alert ID, and the
 alert's native severity/priority/sub-type on `nativeResults`.
 
-When `emit_incidents_on_failure` is enabled (default), the connector also creates a DataHub
+When `emit_incidents_on_failure` is enabled (disabled by default), the connector also creates a DataHub
 `Incident` entity (`urn:li:incident:…`) for each alert/incident. The incident links back to the
 assertion via `IncidentSource(type=ASSERTION_FAILURE, sourceUrn=<assertion>)`, so the failure
 appears on the **Incidents** tab of the monitored dataset in addition to the Assertions tab. The
 incident URN is derived deterministically from a hash of `(assertion_urn, alert_uuid)`, so
 re-ingesting the same alert updates the existing incident rather than creating a duplicate. Set
-`emit_incidents_on_failure: false` to suppress incident entities and keep only the
-`AssertionRunEvent` failures.
+`emit_incidents_on_failure: true` to enable incident entities. It is off by default because Monte
+Carlo alerts resolve over time but the connector has no signal to emit an
+`IncidentState.RESOLVED` transition (see [Limitations](#limitations)), so enabling it can
+accumulate stale `ACTIVE` incidents.
 
 #### Run history and measured metric values
 
@@ -102,6 +104,14 @@ path) if the monitor disappears from Monte Carlo, but its run history is preserv
   typed freshness/volume/SQL/field assertion schemas.
 - **Monte Carlo Cloud only:** Requires a Monte Carlo Cloud account and API key pair. Self-hosted
   deployments are not supported.
+- **Incidents stay ACTIVE:** When `emit_incidents_on_failure` is enabled, each Monte Carlo
+  alert creates a DataHub `Incident` in the `ACTIVE` state. The connector fetches alerts only
+  within `alerts_lookback_days`, and resolved alerts typically no longer appear in Monte Carlo's
+  alert feed, so there is no signal to emit an `IncidentState.RESOLVED` transition. As a result,
+  DataHub incidents can accumulate in the `ACTIVE` state after the underlying Monte Carlo alert has
+  resolved. This is why `emit_incidents_on_failure` is disabled by default; leave it off if your
+  workflow does not tolerate stale active incidents, and only enable it if you manage incident
+  resolution in DataHub separately.
 
 ### Troubleshooting
 
@@ -131,11 +141,15 @@ A few specifics that commonly cause silent mis-attachment:
 - **`env` for auto-mapped warehouses.** `target_env` controls the env on auto-mapped warehouse URNs
   independently of Monte Carlo's own `env`; when unset it falls back to the top-level `env` (the values
   usually coincide). Set it explicitly if your warehouse source uses a different env.
-- **Identifier casing.** Snowflake and Redshift dataset URNs are lowercased by default to match those
-  warehouses' sources. If your warehouse source preserves case (e.g. Snowflake with
-  `convert_urns_to_lowercase: false`), set `convert_urns_to_lowercase: false` on the matching
-  `connection_to_platform_map` entry so the assertion targets the same-cased dataset. The top-level
-  `convert_urns_to_lowercase: true` still forces lowercase everywhere.
+- **Identifier casing.** Dataset URN casing is controlled at recipe level, not
+  hardcoded per platform. The per-warehouse `convert_urns_to_lowercase` override on
+  the matching `connection_to_platform_map` entry takes precedence when set — set
+  it to `false` for a case-preserving Snowflake/Redshift deployment whose warehouse
+  source runs with `convert_urns_to_lowercase: false`, so the assertion targets the
+  same-cased dataset. Otherwise the top-level `convert_urns_to_lowercase` flag applies:
+  `true` forces lowercase everywhere; leaving it unset preserves case. Set the
+  top-level flag to `true` if your warehouse source lowercases (e.g. Snowflake with
+  `convert_urns_to_lowercase: true`).
 - **Malformed table ids.** A Monte Carlo `full_table_id` that does not resolve to
   `database.schema.table` (three dot-separated segments) is skipped with a warning rather than
   producing a URN for a dataset that does not exist.

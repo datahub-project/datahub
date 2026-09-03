@@ -86,8 +86,10 @@ CONNECTION_TYPE_TO_PLATFORM: Dict[str, str] = {
     "bigquery": "bigquery",
     "redshift": "redshift",
     "databricks": "databricks",
-    "databricks-metastore": "databricks",
-    "databricks-sql": "databricks",
+    # Monte Carlo's enum uses UPPER_UNDERSCORE (e.g. DATABRICKS_METASTORE), which
+    # the resolver lowercases to databricks_metastore — underscore, not hyphen.
+    "databricks_metastore": "databricks",
+    "databricks_sql": "databricks",
     "spark": "spark",
     "presto": "presto",
     "hive": "hive",
@@ -103,13 +105,14 @@ CONNECTION_TYPE_TO_PLATFORM: Dict[str, str] = {
     "starburst_galaxy": "trino",
 }
 
-# Warehouse platforms whose DataHub source emits lowercased dataset URNs by
-# default (Snowflake sets convert_urns_to_lowercase=True; Redshift folds unquoted
-# identifiers to lowercase). MC assertion URNs must match those exactly to attach
-# to the right dataset, so we lowercase the table path for these platforms only.
-# Case-preserving platforms (e.g. BigQuery) keep the original case. The
-# convert_urns_to_lowercase config flag forces lowercase everywhere when set.
-LOWERCASE_URN_PLATFORMS: Set[str] = {"snowflake", "redshift"}
+# Dataset URN casing is controlled at recipe level, not hardcoded per platform:
+# the per-warehouse ``convert_urns_to_lowercase`` override on
+# ``connection_to_platform_map`` entries wins when set, otherwise the
+# top-level ``convert_urns_to_lowercase`` flag applies (see MconResolver).
+# Snowflake/Redshift users whose warehouse source lowercases URNs should set
+# ``convert_urns_to_lowercase: true`` (top-level or per-warehouse); those
+# running a case-preserving warehouse source should set it to false on the
+# matching entry.
 
 # Monte Carlo comparison operators -> DataHub AssertionStdOperator. MC operators
 # not in this map (AUTO, AUTO_HIGH, AUTO_LOW, NOOP, OUTSIDE_RANGE) have no clean

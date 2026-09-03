@@ -336,6 +336,7 @@ class MonteCarloAssertionBuilder:
                 message="Skipping monitor with no entity_mcons; cannot build a dataset URN.",
                 context=f"monitor_uuid={definition.uuid}",
             )
+            self.report.report_monitor_dropped_no_mcons()
             return
 
         dataset_urn: Optional[str] = None
@@ -346,6 +347,7 @@ class MonteCarloAssertionBuilder:
                 resolved_mcon = mcon
                 break
         if dataset_urn is None:
+            self.report.report_monitor_dropped_unresolved()
             return
 
         assertion_urn = self._assertion_urn(definition.uuid)
@@ -466,6 +468,7 @@ class MonteCarloAssertionBuilder:
                 f"monitor_uuids={alert.monitor_uuids}, "
                 f"asset_mcons={alert.asset_mcons}",
             )
+            self.report.report_alert_skipped_no_monitor()
             return
         assertion_urn = ingested.assertion_urn
         dataset_urn = ingested.dataset_urn
@@ -475,6 +478,7 @@ class MonteCarloAssertionBuilder:
                 message="Alert has no createdTime and cannot be emitted as a run event.",
                 context=f"alert_uuid={alert.uuid}",
             )
+            self.report.report_alert_skipped_no_timestamp()
             return
 
         native_results: Dict[str, str] = {}
