@@ -18,7 +18,7 @@ export const OKTA_API_TOKEN: RecipeField = {
     tooltip: 'An API token generated for the DataHub application inside your Okta Developer Console.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.okta_api_token',
-    placeholder: 'd0121d0000882411234e11166c6aaa23ed5d74e0',
+    placeholder: '<YOUR_OKTA_API_TOKEN>',
     rules: null,
     required: true,
 };
