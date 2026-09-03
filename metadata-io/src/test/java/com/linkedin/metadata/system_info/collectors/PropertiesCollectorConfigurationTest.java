@@ -1284,7 +1284,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "postgres.pgTimeseries.enabled",
           "postgres.pgTimeseries.defaultStore",
           "postgres.pgTimeseries.tablePrefix",
-          "postgres.pgTimeseries.dualWriteFailOnError",
           "postgres.pgTimeseries.stores",
           "postgres.pgTimeseries.routing",
           "postgres.pgTimeseries.partitioning.partmanPartitionInterval",

@@ -1113,13 +1113,6 @@ public class PostgresSqlSetupProperties {
     /** Prefix for the default-store SqlSetup timeseries table, e.g. {@code metadata_timeseries}. */
     private String tablePrefix;
 
-    /**
-     * When true, PostgreSQL dual-write upsert/delete failures throw instead of only logging. Use
-     * during migration to fail loud when ES and PG diverge; default false preserves best-effort
-     * dual-write.
-     */
-    private boolean dualWriteFailOnError;
-
     private Partitioning partitioning = new Partitioning();
     private Retention retention = new Retention();
     private Maintenance maintenance = new Maintenance();

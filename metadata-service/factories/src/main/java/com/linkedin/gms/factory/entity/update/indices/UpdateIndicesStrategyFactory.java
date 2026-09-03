@@ -14,7 +14,6 @@ import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
 import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -52,7 +51,6 @@ public class UpdateIndicesStrategyFactory {
       ElasticSearchService elasticSearchService,
       SearchDocumentTransformer searchDocumentTransformer,
       TimeseriesAspectService timeseriesAspectService,
-      TimeseriesAspectWriteSink timeseriesAspectWriteSink,
       ConfigurationProvider configProvider,
       @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       @Qualifier("legacyMappingsBuilder") V2MappingsBuilder mappingsBuilder,
@@ -92,7 +90,6 @@ public class UpdateIndicesStrategyFactory {
         elasticSearchService,
         searchDocumentTransformer,
         timeseriesAspectService,
-        timeseriesAspectWriteSink,
         idHashAlgo,
         semanticSearchConfig,
         indexConvention,
@@ -108,7 +105,6 @@ public class UpdateIndicesStrategyFactory {
       ElasticSearchService elasticSearchService,
       SearchDocumentTransformer searchDocumentTransformer,
       TimeseriesAspectService timeseriesAspectService,
-      TimeseriesAspectWriteSink timeseriesAspectWriteSink,
       TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
       @Value("${elasticsearch.idHashAlgo}") String idHashAlgo,
       @Value("${elasticsearch.entityIndex.v3.cleanup:false}") boolean v3Cleanup,
@@ -123,7 +119,6 @@ public class UpdateIndicesStrategyFactory {
         elasticSearchService,
         searchDocumentTransformer,
         timeseriesAspectService,
-        timeseriesAspectWriteSink,
         idHashAlgo,
         v2Enabled,
         timeseriesWriteThrottleCache);

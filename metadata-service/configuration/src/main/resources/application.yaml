@@ -628,8 +628,6 @@ postgres:
     defaultStore: ${DATAHUB_PGTIMESERIES_DEFAULT_STORE:default}
     # SqlSetup table name prefix for the default store (table: {prefix}_aspect)
     tablePrefix: ${DATAHUB_PGTIMESERIES_TABLE_PREFIX:metadata_timeseries}
-    # When true, dual-write upsert/delete SQLException fails the caller (migration fail-loud). Default logs + metric only.
-    dualWriteFailOnError: ${DATAHUB_PGTIMESERIES_DUAL_WRITE_FAIL_ON_ERROR:false}
     partitioning:
       # Allowlisted: 1 hour, 6 hours, 12 hours, 1 day, 1 week, 1 month (pg_partman time interval on event_time)
       # Interval/premake apply on first create_parent only unless forceOverwritePartmanConfig is true.

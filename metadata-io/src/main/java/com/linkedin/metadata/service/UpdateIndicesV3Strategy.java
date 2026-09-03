@@ -1,7 +1,6 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_TYPES;
-import static com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder.IS_EXPLODED_FIELD;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -24,7 +23,6 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMap
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
-import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -52,7 +50,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final ElasticSearchService elasticSearchService;
   private final SearchDocumentTransformer searchDocumentTransformer;
   private final TimeseriesAspectService timeseriesAspectService;
-  private final TimeseriesAspectWriteSink timeseriesAspectWriteSink;
   private final String idHashAlgo;
   private final MultiEntityMappingsBuilder mappingsBuilder;
   private final boolean v2Enabled;
@@ -63,7 +60,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
-      @Nonnull TimeseriesAspectWriteSink timeseriesAspectWriteSink,
       @Nonnull String idHashAlgo,
       boolean v2Enabled,
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache) {
@@ -71,7 +67,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
     this.timeseriesAspectService = timeseriesAspectService;
-    this.timeseriesAspectWriteSink = timeseriesAspectWriteSink;
     this.idHashAlgo = idHashAlgo;
     this.v2Enabled = v2Enabled;
     this.timeseriesThrottleCache = timeseriesThrottleCache;
@@ -109,7 +104,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       log.debug("Processing {} events for URN: {} with V3 unified batch", urnEvents.size(), urn);
 
       if (!v2Enabled) {
-        processTimeseriesAspectEventsForUrnGroup(opContext, urnEvents, throttleSummary);
+        processTimeseriesAspectUpdatesForUrnGroup(opContext, urnEvents, throttleSummary);
       }
 
       // V3 optimization: single operation per URN regardless of aspect count
@@ -122,69 +117,44 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   }
 
   /**
-   * When V2 is disabled, V3 must drive dedicated timeseries indices (and optional Postgres sink)
-   * the same way V2 does. When V2 is enabled, that strategy already handles these writes.
-   *
-   * <p>Apply events in original list order. A same-URN batch of no-snapshot DELETE then timeseries
-   * UPSERT must not run {@code deleteByUrn} after the upsert, which would wipe the later row.
-   *
-   * <p>Timeseries-index throttle (including the dual-write sink) matches V2: upserts and deletes
-   * consult {@link TimeseriesWriteThrottleCache}. Entity-index throttle for V3 search documents is
-   * applied separately in {@link #buildV3SearchDocument}.
+   * When V2 is disabled, V3 must drive dedicated timeseries index upserts. Timeseries MCL deletes
+   * retain the historical Elasticsearch behavior and are not applied here.
    */
-  private void processTimeseriesAspectEventsForUrnGroup(
+  private void processTimeseriesAspectUpdatesForUrnGroup(
       @Nonnull OperationContext opContext,
       @Nonnull List<MCLItem> urnEvents,
       @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
     for (MCLItem event : urnEvents) {
-      if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
-        boolean timeseries;
-        try {
-          timeseries = event.getAspectSpec().isTimeseries();
-        } catch (RuntimeException e) {
-          handleTimeseriesWriteFailure(opContext, event, e, "timeseries_update_failed", "update");
-          continue;
-        }
-        if (!timeseries) {
-          continue;
-        }
-        runTimeseriesIndexWriteThrottled(
-            event,
-            throttleSummary,
-            () -> {
-              try {
-                updateTimeseriesFieldsForEvent(opContext, event);
-              } catch (RuntimeException e) {
-                handleTimeseriesWriteFailure(
-                    opContext, event, e, "timeseries_update_failed", "update");
-              }
-            });
-      } else if (event.getChangeType() == ChangeType.DELETE) {
-        try {
-          Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(event);
-          if (specPair.getSecond().isTimeseries()) {
-            runTimeseriesIndexWriteThrottled(
-                event,
-                throttleSummary,
-                () -> {
-                  try {
-                    deleteTimeseriesFieldsForDeleteEvent(opContext, event);
-                  } catch (RuntimeException e) {
-                    handleTimeseriesWriteFailure(
-                        opContext, event, e, "timeseries_delete_failed", "delete");
-                  }
-                });
-          }
-        } catch (RuntimeException e) {
-          handleTimeseriesWriteFailure(opContext, event, e, "timeseries_delete_failed", "delete");
-        }
+      if (!UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
+        continue;
       }
+      boolean timeseries;
+      try {
+        timeseries = event.getAspectSpec().isTimeseries();
+      } catch (RuntimeException e) {
+        handleTimeseriesWriteFailure(opContext, event, e, "timeseries_update_failed", "update");
+        continue;
+      }
+      if (!timeseries) {
+        continue;
+      }
+      runTimeseriesIndexWriteThrottled(
+          event,
+          throttleSummary,
+          () -> {
+            try {
+              updateTimeseriesFieldsForEvent(opContext, event);
+            } catch (RuntimeException e) {
+              handleTimeseriesWriteFailure(
+                  opContext, event, e, "timeseries_update_failed", "update");
+            }
+          });
     }
   }
 
   /**
-   * Gate dedicated timeseries index / sink writes the same way V2 gates {@code
-   * timeseriesIndexWrite}. Entity-index suppression is handled in {@link #buildV3SearchDocument}.
+   * Gate dedicated timeseries index writes the same way V2 gates {@code timeseriesIndexWrite}.
+   * Entity-index suppression is handled in {@link #buildV3SearchDocument}.
    */
   private void runTimeseriesIndexWriteThrottled(
       @Nonnull MCLItem event,
@@ -230,17 +200,14 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     }
   }
 
-  /**
-   * Postgres SoT and fail-loud dual-write must fail the MCL path (design doc). Soft dual-write /
-   * non-throwing ES paths keep warn+metric so the rest of the URN batch can proceed.
-   */
+  /** Postgres SoT fails the MCL path; Elasticsearch keeps historical warn-and-skip behavior. */
   private void handleTimeseriesWriteFailure(
       @Nonnull OperationContext opContext,
       @Nonnull MCLItem event,
       @Nonnull RuntimeException e,
       @Nonnull String metricName,
       @Nonnull String opLabel) {
-    if (shouldPropagateTimeseriesFailure()) {
+    if (timeseriesAspectService.shouldPropagateWriteFailures()) {
       throw e;
     }
     log.warn(
@@ -252,70 +219,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     opContext
         .getMetricUtils()
         .ifPresent(metricUtils -> metricUtils.increment(this.getClass(), metricName, 1));
-  }
-
-  private boolean shouldPropagateTimeseriesFailure() {
-    return timeseriesAspectService.applyDocumentDeleteOnMclDelete()
-        || timeseriesAspectWriteSink.failOnError();
-  }
-
-  private void deleteTimeseriesFieldsForDeleteEvent(
-      @Nonnull OperationContext opContext, @Nonnull MCLItem deleteEvent) {
-    AspectSpec aspectSpec = deleteEvent.getAspectSpec();
-    if (!aspectSpec.isTimeseries()) {
-      return;
-    }
-    RecordTemplate previous = deleteEvent.getPreviousRecordTemplate();
-    if (previous == null) {
-      String entityType = deleteEvent.getEntitySpec().getName();
-      String aspectName = aspectSpec.getName();
-      String urn = deleteEvent.getUrn().toString();
-      if (timeseriesAspectService.applyDocumentDeleteOnMclDelete()) {
-        var urnFilter =
-            com.linkedin.metadata.search.utils.QueryUtils.getFilterFromCriteria(
-                java.util.List.of(
-                    com.linkedin.metadata.utils.CriterionUtils.buildCriterion(
-                        "urn", com.linkedin.metadata.query.filter.Condition.EQUAL, urn)));
-        timeseriesAspectService.deleteAspectValues(opContext, entityType, aspectName, urnFilter);
-      } else {
-        log.debug(
-            "Timeseries delete has no previous aspect snapshot; skipping timeseries index delete for urn {} aspect {}",
-            deleteEvent.getUrn(),
-            aspectName);
-      }
-      timeseriesAspectWriteSink.deleteByUrn(opContext, entityType, aspectName, urn);
-      return;
-    }
-    Urn urn = deleteEvent.getUrn();
-    String entityType = deleteEvent.getEntitySpec().getName();
-    String aspectName = aspectSpec.getName();
-    SystemMetadata prevSys =
-        deleteEvent.getPreviousSystemMetadata() != null
-            ? deleteEvent.getPreviousSystemMetadata()
-            : deleteEvent.getSystemMetadata();
-    Map<String, JsonNode> documents;
-    try {
-      documents =
-          TimeseriesAspectTransformer.transform(urn, previous, aspectSpec, prevSys, idHashAlgo);
-    } catch (JsonProcessingException e) {
-      handleTimeseriesWriteFailure(
-          opContext,
-          deleteEvent,
-          new IllegalStateException("Failed to resolve timeseries documents for delete event", e),
-          "timeseries_delete_failed",
-          "delete");
-      return;
-    }
-    for (Map.Entry<String, JsonNode> entry : documents.entrySet()) {
-      JsonNode doc = entry.getValue();
-      boolean exploded = doc.has(IS_EXPLODED_FIELD) && doc.get(IS_EXPLODED_FIELD).asBoolean(false);
-      if (timeseriesAspectService.applyDocumentDeleteOnMclDelete()) {
-        timeseriesAspectService.deleteDocument(
-            opContext, entityType, aspectName, entry.getKey(), doc, exploded);
-      }
-      timeseriesAspectWriteSink.deleteDocument(
-          opContext, entityType, aspectName, entry.getKey(), doc, exploded);
-    }
   }
 
   private void updateTimeseriesFieldsForEvent(
@@ -355,12 +258,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     documents
         .entrySet()
         .forEach(
-            document -> {
-              timeseriesAspectService.upsertDocument(
-                  opContext, entityType, aspectName, document.getKey(), document.getValue());
-              timeseriesAspectWriteSink.upsertDocument(
-                  opContext, entityType, aspectName, document.getKey(), document.getValue());
-            });
+            document ->
+                timeseriesAspectService.upsertDocument(
+                    opContext, entityType, aspectName, document.getKey(), document.getValue()));
   }
 
   public void updateIndexMappings(
