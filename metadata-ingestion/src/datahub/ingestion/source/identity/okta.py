@@ -66,7 +66,7 @@ class OktaConfig(StatefulIngestionConfigBase):
     )
     # Required: An API token generated from Okta.
     okta_api_token: TransparentSecretStr = Field(
-        description="An API token generated for the DataHub application inside your Okta Developer Console. e.g. <YOUR_OKTA_API_TOKEN>",
+        description="An API token generated for the DataHub application inside your Okta Developer Console.",
     )
 
     # Optional: Whether to ingest users, groups, or both.
