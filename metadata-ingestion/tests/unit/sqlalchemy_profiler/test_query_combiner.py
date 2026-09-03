@@ -497,6 +497,36 @@ class TestSingleRowTagging:
 
         assert combiner.report.uncombined_queries_in_greenlet == 0
 
+    @pytest.mark.parametrize(
+        "clause,build",
+        [
+            ("LIMIT", lambda t: sa.select([t.c.value]).limit(2)),
+            ("OFFSET", lambda t: sa.select([t.c.value]).offset(1)),
+            (
+                "GROUP BY",
+                lambda t: (
+                    sa.select([sa.func.count()]).select_from(t).group_by(t.c.name)
+                ),
+            ),
+            ("DISTINCT", lambda t: sa.select([t.c.value]).select_from(t).distinct()),
+        ],
+    )
+    def test_every_vetoed_clause_is_detected(self, engine, test_table, clause, build):
+        """One case per clause the veto claims to catch.
+
+        Each is read off a private SQLAlchemy attribute, so a version bump could
+        silently rename one and turn its branch into dead code -- with no
+        symptom until a mis-tag slipped through and poisoned a batch.
+        """
+        combiner = _make_combiner(catch_exceptions=False)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap = _schedule(qc, conn, build(test_table))
+            qc.flush()
+
+        assert isinstance(cap.exc, MisTaggedQueryError), (
+            f"{clause} was not vetoed; the attribute it reads may have been renamed"
+        )
+
     def test_mistagged_query_raises_for_the_developer(self, engine, test_table):
         # A tag the SQL contradicts is a call-site bug, so it fails loudly
         # rather than being counted. catch_exceptions=False is what dev and CI
