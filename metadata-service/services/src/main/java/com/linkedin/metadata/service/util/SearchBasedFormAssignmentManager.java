@@ -46,7 +46,7 @@ public class SearchBasedFormAssignmentManager {
           Constants.ML_PRIMARY_KEY_ENTITY_NAME,
           Constants.DATA_PRODUCT_ENTITY_NAME);
 
-  public static void apply(final FormAssignmentScrollRequest request) throws Exception {
+  public static void apply(final FormAssignmentScrollRequest request) throws Throwable {
     final OperationContext opContext = request.getOpContext();
     final DynamicFormAssignment formFilters = request.getFormFilters();
     final Urn formUrn = request.getFormUrn();
@@ -116,7 +116,7 @@ public class SearchBasedFormAssignmentManager {
       // Wrap preserved: runner + callers treat this path as RuntimeException; inspect getCause()
       // if the typed RemoteInvocationException is needed upstream.
       throw new RuntimeException(e);
-    } catch (Exception e) {
+    } catch (Throwable e) {
       // FormService.verifyEntitiesExist wraps client RIEs in RuntimeException — unwrap so the
       // error taxonomy stays remote_invocation instead of unexpected.
       if (isRemoteInvocationFailure(e)) {

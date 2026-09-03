@@ -28,7 +28,7 @@ public class SearchBasedFormAssignmentRunner {
                       .batchFormEntityCount(batchFormEntityCount)
                       .entityClient(entityClient)
                       .build());
-            } catch (Exception e) {
+            } catch (Throwable e) {
               log.error(
                   "SearchBasedFormAssignmentRunner failed to run. "
                       + "Options: formFilters: {}, "
