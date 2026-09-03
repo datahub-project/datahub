@@ -2,6 +2,7 @@ import logging
 import re
 from base64 import b32decode
 from collections import defaultdict
+from dataclasses import replace
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
 
 from google.cloud.bigquery.table import TableListItem
@@ -780,16 +781,22 @@ class BigQuerySchemaGenerator:
                 f"Table doesn't have any column or unable to get columns for table: {table_identifier}"
             )
 
-        # If table has time partitioning, set the data type of the partitioning field
-        if table.partition_info:
-            table.partition_info.column = next(
-                (
-                    column
-                    for column in columns
-                    if column.name == table.partition_info.field
-                ),
-                None,
+        # If table has partitioning, attach the resolved partition columns. Build the
+        # tuple in partition-field order (not physical schema order) so columns[i]
+        # corresponds to fields[i], and only attach when every field resolved to a
+        # column: a partial tuple is a fields/columns length mismatch that PartitionInfo
+        # rejects, and there is no correct positional mapping for it anyway.
+        if table.partition_info and table.partition_info.fields:
+            columns_by_name = {column.name: column for column in columns}
+            matched_columns = tuple(
+                columns_by_name[field]
+                for field in table.partition_info.fields
+                if field in columns_by_name
             )
+            if len(matched_columns) == len(table.partition_info.fields):
+                table.partition_info = replace(
+                    table.partition_info, columns=matched_columns
+                )
         yield from self.gen_table_dataset_workunits(
             table, columns, project_id, dataset_name
         )
