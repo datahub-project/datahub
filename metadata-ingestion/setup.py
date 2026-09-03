@@ -38,11 +38,8 @@ base_requirements = {
     "sentry-sdk>=1.33.1,<3.0.0",
     # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
     "python-json-logger>=2.0.0,<5.0.0",
-    # setuptools 82.0.0 deprecated pkg_resource
-    # CVE-2025-47273 floor (>=78.1.1) is enforced for Docker via
-    # docker/snippets/ingestion/constraints.txt only — avoid a lower bound here so
-    # installs alongside Airflow constraints remain satisfiable.
-    "setuptools<82.0.0",
+    # No setuptools bound: Airflow constraint files pin it, so a floor here would
+    # break those installs. The CVE-2026-59890 floor lives in the Docker snippet.
     # Floor at 2.5.0 — the highest the airflow-plugin CI
     # tolerates (Airflow 3.0.x/3.1.x pin urllib3==2.5.0, 3.2.x pins 2.6.3). The stronger
     # >=2.7.0 floor for the remaining CVEs is applied at lock time via pyproject
@@ -402,14 +399,6 @@ s3_base = {
     *path_spec_common,
     # cachetools is used by operation_config which is imported by profiling config
     *cachetools_lib,
-}
-
-threading_timeout_common = {
-    "stopit==1.1.2",
-    # stopit uses pkg_resources internally, which means there's an implied
-    # dependency on setuptools.
-    # setuptools 82 removed pkg_resources.
-    "setuptools<82",
 }
 
 abs_base = {
@@ -834,7 +823,6 @@ plugins: Dict[str, Set[str]] = {
         microsoft_common
         | {"sqlparse>=0.6.0,<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
         | sqlglot_lib
-        | threading_timeout_common
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},

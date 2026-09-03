@@ -1,13 +1,8 @@
-import pytest
+import importlib.metadata
 
 import datahub._version as datahub_version
 
 
-@pytest.mark.filterwarnings(
-    "ignore:pkg_resources is deprecated as an API:DeprecationWarning"
-)
 def test_datahub_version():
-    # Simply importing pkg_resources checks for unsatisfied dependencies.
-    import pkg_resources  # type: ignore[import-untyped]
-
-    assert pkg_resources.get_distribution(datahub_version.__package_name__).version
+    # Checks that the installed distribution metadata is present and resolvable.
+    assert importlib.metadata.version(datahub_version.__package_name__)

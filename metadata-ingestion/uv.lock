@@ -27,6 +27,7 @@ constraints = [
     { name = "jaraco-context", specifier = ">=6.1.0,<7" },
     { name = "pyjwt", specifier = ">=2.13.0,<3.0.0" },
     { name = "pypdf", specifier = ">=6.10.2" },
+    { name = "setuptools", specifier = ">=83.0.0" },
     { name = "urllib3", specifier = ">=2.7.0,<3.0.0" },
 ]
 
@@ -63,7 +64,6 @@ dependencies = [
     { name = "requests-file" },
     { name = "ruamel-yaml" },
     { name = "sentry-sdk" },
-    { name = "setuptools" },
     { name = "tabulate" },
     { name = "toml" },
     { name = "typing-extensions" },
@@ -200,7 +200,6 @@ all = [
     { name = "requests-file" },
     { name = "requests-gssapi" },
     { name = "requests-ntlm" },
-    { name = "setuptools" },
     { name = "simple-salesforce" },
     { name = "slack-sdk" },
     { name = "smart-open", extra = ["azure", "gcs", "s3"] },
@@ -216,7 +215,6 @@ all = [
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "starrocks" },
-    { name = "stopit" },
     { name = "tableauserverclient" },
     { name = "tableschema" },
     { name = "tenacity" },
@@ -600,7 +598,6 @@ dev = [
     { name = "ruamel-yaml" },
     { name = "ruff" },
     { name = "sentry-sdk" },
-    { name = "setuptools" },
     { name = "simple-salesforce" },
     { name = "slack-sdk" },
     { name = "smart-open", extra = ["azure", "s3"] },
@@ -615,7 +612,6 @@ dev = [
     { name = "sqlalchemy2-stubs" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
-    { name = "stopit" },
     { name = "tableauserverclient" },
     { name = "tableschema" },
     { name = "tabulate" },
@@ -796,7 +792,6 @@ docs = [
     { name = "ruamel-yaml" },
     { name = "ruff" },
     { name = "sentry-sdk" },
-    { name = "setuptools" },
     { name = "simple-salesforce" },
     { name = "slack-sdk" },
     { name = "smart-open", extra = ["azure", "s3"] },
@@ -811,7 +806,6 @@ docs = [
     { name = "sqlalchemy2-stubs" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
-    { name = "stopit" },
     { name = "tableauserverclient" },
     { name = "tableschema" },
     { name = "tabulate" },
@@ -1282,10 +1276,8 @@ powerbi = [
     { name = "mini-racer" },
     { name = "more-itertools" },
     { name = "msal" },
-    { name = "setuptools" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
-    { name = "stopit" },
 ]
 powerbi-report-server = [
     { name = "requests" },
@@ -2477,11 +2469,6 @@ requires-dist = [
     { name = "sentry-sdk", specifier = ">=1.33.1,<3.0.0" },
     { name = "sentry-sdk", marker = "extra == 'dev'", specifier = ">=1.33.1,<3.0.0" },
     { name = "sentry-sdk", marker = "extra == 'docs'", specifier = ">=1.33.1,<3.0.0" },
-    { name = "setuptools", specifier = "<82.0.0" },
-    { name = "setuptools", marker = "extra == 'all'", specifier = "<82" },
-    { name = "setuptools", marker = "extra == 'dev'", specifier = "<82.0.0" },
-    { name = "setuptools", marker = "extra == 'docs'", specifier = "<82.0.0" },
-    { name = "setuptools", marker = "extra == 'powerbi'", specifier = "<82" },
     { name = "simple-salesforce", marker = "extra == 'all'", specifier = "<2.0.0" },
     { name = "simple-salesforce", marker = "extra == 'dev'", specifier = "<2.0.0" },
     { name = "simple-salesforce", marker = "extra == 'docs'", specifier = "<2.0.0" },
@@ -2716,10 +2703,6 @@ requires-dist = [
     { name = "starrocks", marker = "extra == 'all'", specifier = ">=1.3.3,<2.0" },
     { name = "starrocks", marker = "extra == 'integration-tests'", specifier = ">=1.3.3,<2.0" },
     { name = "starrocks", marker = "extra == 'starrocks'", specifier = ">=1.3.3,<2.0" },
-    { name = "stopit", marker = "extra == 'all'", specifier = "==1.1.2" },
-    { name = "stopit", marker = "extra == 'dev'", specifier = "==1.1.2" },
-    { name = "stopit", marker = "extra == 'docs'", specifier = "==1.1.2" },
-    { name = "stopit", marker = "extra == 'powerbi'", specifier = "==1.1.2" },
     { name = "tableauserverclient", marker = "extra == 'all'", specifier = ">=0.34,<=0.40" },
     { name = "tableauserverclient", marker = "extra == 'dev'", specifier = ">=0.34,<=0.40" },
     { name = "tableauserverclient", marker = "extra == 'docs'", specifier = ">=0.34,<=0.40" },
@@ -10306,11 +10289,11 @@ wheels = [
 
 [[package]]
 name = "setuptools"
-version = "81.0.0"
+version = "84.0.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0d/1c/73e719955c59b8e424d015ab450f51c0af856ae46ea2da83eba51cc88de1/setuptools-81.0.0.tar.gz", hash = "sha256:487b53915f52501f0a79ccfd0c02c165ffe06631443a886740b91af4b7a5845a", size = 1198299, upload-time = "2026-02-06T21:10:39.601Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/44/f5da03a8ef95d369145c5bb53050e7877c9f3d312e128605fd9504829143/setuptools-84.0.0.tar.gz", hash = "sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73", size = 1168449, upload-time = "2026-08-08T18:27:58.365Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e1/e3/c164c88b2e5ce7b24d667b9bd83589cf4f3520d97cad01534cd3c4f55fdb/setuptools-81.0.0-py3-none-any.whl", hash = "sha256:fdd925d5c5d9f62e4b74b30d6dd7828ce236fd6ed998a08d81de62ce5a6310d6", size = 1062021, upload-time = "2026-02-06T21:10:37.175Z" },
+    { url = "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl", hash = "sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670", size = 818216, upload-time = "2026-08-08T18:27:56.719Z" },
 ]
 
 [[package]]
@@ -10748,12 +10731,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/db/35/c99b2eb4f5a94bd5c
 wheels = [
     { url = "https://files.pythonhosted.org/packages/93/b5/0d81ff72dfd5dabd844b0d8f1a50055e1b4671e3a72588c66f2e19a9ee9b/starrocks-1.3.3-py3-none-any.whl", hash = "sha256:b3ff89ed838d7f9ce07c7f97bd175d71e3539252a455314b6826636085573324", size = 109638, upload-time = "2026-01-14T11:18:44.201Z" },
 ]
-
-[[package]]
-name = "stopit"
-version = "1.1.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/35/58/e8bb0b0fb05baf07bbac1450c447d753da65f9701f551dca79823ce15d50/stopit-1.1.2.tar.gz", hash = "sha256:f7f39c583fd92027bd9d06127b259aee7a5b7945c1f1fa56263811e1e766996d", size = 18281, upload-time = "2018-02-09T00:32:14.204Z" }
 
 [[package]]
 name = "strictyaml"

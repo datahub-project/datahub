@@ -8,8 +8,7 @@ apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
-  // Constrain setuptools<82 in build isolation environments (e.g. when building flatdict from source)
-  uv_constraints = '--build-constraint build-constraints.txt --constraint constraints.txt'
+  uv_constraints = '--constraint constraints.txt'
 }
 
 ext.venv_activate_command = "set +x && source ${venv_name}/bin/activate && set -x && "

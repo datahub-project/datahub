@@ -1271,9 +1271,8 @@ semver==3.0.4
     # via dlt
 sentry-sdk==2.54.0
     # via acryl-datahub
-setuptools==81.0.0
+setuptools==84.0.0
     # via
-    #   acryl-datahub
     #   dlt
     #   grpcio-tools
     #   redshift-connector
@@ -1369,8 +1368,6 @@ sspilib==0.5.0 ; sys_platform == 'win32'
 starlette==0.52.1
     # via fastapi
 starrocks==1.3.3
-    # via acryl-datahub
-stopit==1.1.2
     # via acryl-datahub
 strictyaml==1.7.3
     # via pyiceberg
