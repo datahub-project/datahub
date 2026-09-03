@@ -4,13 +4,13 @@ import logging
 from typing import Any, List, Optional
 
 import sqlalchemy as sa
-from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
+    ProfilingConnection,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class MSSQLAdapter(PlatformAdapter):
     # =========================================================================
 
     def get_column_stdev(
-        self, table: sa.Table, column: str, conn: Connection
+        self, table: sa.Table, column: str, conn: ProfilingConnection
     ) -> Optional[Any]:
         """
         Get sample standard deviation using MSSQL's `STDEV()` function.
@@ -73,7 +73,7 @@ class MSSQLAdapter(PlatformAdapter):
         all-null → adapter-specific `get_stdev_null_value()` hook.
         """
         query = sa.select([sa.func.stdev(sa.column(column))]).select_from(table)
-        result = conn.execute(query).scalar()
+        result = conn.execute_single_row(query).scalar()
         if result is None:
             non_null_count = self.get_column_non_null_count(table, column, conn)
             if non_null_count == 1:
@@ -87,7 +87,7 @@ class MSSQLAdapter(PlatformAdapter):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         """
@@ -119,7 +119,7 @@ class MSSQLAdapter(PlatformAdapter):
         query = sa.select(selects).select_from(table).distinct()
 
         try:
-            row = conn.execute(query).fetchone()
+            row = conn.execute_rows(query).fetchone()
         except SQLAlchemyError as e:
             logger.warning(
                 f"Failed to compute MSSQL quantiles for {column}: "
