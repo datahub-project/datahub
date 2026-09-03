@@ -285,11 +285,9 @@ For self-managed deployments, set the flag on GMS and restart:
 SPARQL_API_ENABLED=true
 ```
 
-Or via Helm, as an `extraEnvs` entry on the GMS deployment:
+Or via Helm:
 
 ```yaml
 datahub-gms:
-  extraEnvs:
-    - name: SPARQL_API_ENABLED
-      value: "true"
+  sparqlApiEnabled: true
 ```

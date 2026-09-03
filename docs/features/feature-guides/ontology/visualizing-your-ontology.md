@@ -115,11 +115,9 @@ For self-managed deployments, set the flag on GMS and restart:
 SHOW_ONTOLOGY_GRAPH=true
 ```
 
-Or via Helm, as an `extraEnvs` entry on the GMS deployment:
+Or via Helm:
 
 ```yaml
 datahub-gms:
-  extraEnvs:
-    - name: SHOW_ONTOLOGY_GRAPH
-      value: "true"
+  showOntologyGraph: true
 ```

@@ -173,17 +173,18 @@ Contact your DataHub representative to have this enabled for your instance.
 Without the flag, DataHub rejects attempts to define a new relationship property rather than letting
 you declare a relationship that would silently never materialize any edges.
 
-For self-managed deployments, set the flag on GMS and restart:
+For self-managed deployments, set the flag and restart:
 
 ```bash
 STRUCTURED_PROPERTY_GRAPH_EDGES_ENABLED=true
 ```
 
-Or via Helm, as an `extraEnvs` entry on the GMS deployment:
+The flag has to match across GMS and, if you run standalone consumers, the MAE and MCE consumers:
+the MAE consumer materializes the edges and the MCE consumer gates defining relationship properties.
+Via Helm, the single global value covers all three:
 
 ```yaml
-datahub-gms:
-  extraEnvs:
-    - name: STRUCTURED_PROPERTY_GRAPH_EDGES_ENABLED
-      value: "true"
+global:
+  datahub:
+    structuredPropertyGraphEdgesEnabled: true
 ```
