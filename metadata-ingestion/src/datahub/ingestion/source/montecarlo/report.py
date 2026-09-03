@@ -13,9 +13,12 @@ class MonteCarloSourceReport(StaleEntityRemovalSourceReport):
     assertions_emitted: int = 0
     alerts_scanned: int = 0
     run_events_emitted: int = 0
+    job_executions_scanned: int = 0
+    metric_points_fetched: int = 0
 
     mcons_resolved: int = 0
     mcons_resolution_failed: int = 0
+    build_failures: int = 0
     mcons_unmapped_platform: LossyList[str] = field(default_factory=LossyList)
     filtered: LossyList[str] = field(default_factory=LossyList)
 
@@ -37,8 +40,17 @@ class MonteCarloSourceReport(StaleEntityRemovalSourceReport):
     def report_run_event_emitted(self) -> None:
         self.run_events_emitted += 1
 
+    def report_job_execution_scanned(self) -> None:
+        self.job_executions_scanned += 1
+
+    def report_metric_point_fetched(self, count: int = 1) -> None:
+        self.metric_points_fetched += count
+
     def report_mcon_resolved(self) -> None:
         self.mcons_resolved += 1
 
     def report_mcon_resolution_failed(self) -> None:
         self.mcons_resolution_failed += 1
+
+    def report_build_failure(self) -> None:
+        self.build_failures += 1

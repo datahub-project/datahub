@@ -164,7 +164,10 @@ def test_resolver_warns_on_unmapped_platform() -> None:
 
 
 def test_resolver_handles_get_table_exception() -> None:
-    """Exceptions from client.get_table are caught, warned, and cached as None."""
+    """Exceptions from client.get_table are caught, warned, and NOT cached —
+    the next call retries getTable instead of inheriting a stale None. The
+    failure is recorded as a build_failure (transient) so the partial-run
+    guard in source.py trips the soft-delete interlock."""
     report = MonteCarloSourceReport()
     mcon = "MCON++acct++wh-err++table++db.sch.tbl"
 
@@ -177,10 +180,11 @@ def test_resolver_handles_get_table_exception() -> None:
 
     resolver = MconResolver(make_config(), ErrorClient(), report)
     assert resolver.dataset_urn_for_mcon(mcon) is None
-    assert report.mcons_resolution_failed == 1
-    # Second call should use the cache, not call the client again.
+    assert report.build_failures == 1
+    # Transient failures are not cached — the second call retries getTable.
     assert resolver.dataset_urn_for_mcon(mcon) is None
-    assert ErrorClient.calls == 1
+    assert ErrorClient.calls == 2
+    assert report.build_failures == 2
 
 
 def test_resolver_caches_results() -> None:
@@ -205,6 +209,29 @@ def test_resolver_caches_results() -> None:
     resolver.dataset_urn_for_mcon(mcon)
     resolver.dataset_urn_for_mcon(mcon)
     assert CountingClient.calls == 1
+
+
+def test_resolver_caches_permanent_none() -> None:
+    """When getTable returns None (table genuinely gone), the result is
+    permanent and IS cached — the next call for the same MCON must not
+    re-call getTable. This is distinct from a transient exception, which
+    must not be cached."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-gone++table++db.sch.tbl"
+
+    class NoneClient:
+        calls = 0
+
+        def get_table(self, mcon: str) -> Optional[ResolvedTable]:
+            NoneClient.calls += 1
+            return None
+
+    resolver = MconResolver(make_config(), NoneClient(), report)
+    assert resolver.dataset_urn_for_mcon(mcon) is None
+    assert resolver.dataset_urn_for_mcon(mcon) is None
+    assert NoneClient.calls == 1
+    assert report.mcons_resolution_failed == 1
+    assert report.build_failures == 0
 
 
 def _build_assertion_workunits(
@@ -1289,6 +1316,79 @@ def test_emit_skips_failing_item_and_continues() -> None:
     assert wus == ["wu-b"]  # 'b' still emitted after 'a' failed
     assert source.report.monitors_scanned == 2
     assert len(source.report.warnings) == 1
+    assert source.report.build_failures == 1
+
+
+def test_partial_build_failures_trip_soft_delete_interlock() -> None:
+    """When some monitors fail to build (transient errors), the source records
+    a failure so stale_entity_removal_handler skips soft-deletion — preventing
+    the scenario where 40/100 monitors hit a transient getTable error and the
+    handler soft-deletes the 40 absent URNs even though those monitors still
+    exist in Monte Carlo."""
+    source = _bare_source()
+    # Simulate two monitors: one builds fine, one raises a transient error.
+    items = [MonteCarloAssertionDef(uuid="ok"), MonteCarloAssertionDef(uuid="bad")]
+
+    def build(item: MonteCarloAssertionDef) -> Iterator[MetadataWorkUnit]:
+        if item.uuid == "bad":
+            raise RuntimeError("transient getTable error")
+        yield cast(MetadataWorkUnit, "wu-ok")
+
+    source.config = make_config()
+    source.config.include_assertions = True
+    source.config.include_alerts = False
+    source.client = cast(MonteCarloClient, None)
+    source.builder = cast(MonteCarloAssertionBuilder, None)
+    source.resolver = cast(MconResolver, None)
+
+    # Monkeypatch the client/builder to use our _emit directly.
+    from unittest.mock import MagicMock
+
+    source.client = MagicMock()
+    source.client.get_monitors = lambda: iter(items)
+    source.client.get_custom_rules = lambda: iter([])
+    source.client.get_alerts = lambda: iter([])
+    source.builder = MagicMock()
+    source.builder.build_assertion = build
+    source.builder.build_run_event = lambda alert: iter(())
+    source.builder.iter_ingested_monitors = lambda: iter(())
+
+    list(source.get_workunits_internal())
+
+    # The partial-failure guard should have recorded a source-level failure.
+    assert source.report.build_failures == 1
+    assert len(source.report.failures) >= 1
+    failure_titles = [f.title for f in source.report.failures]
+    assert any("Partial build failures" in t for t in failure_titles)
+
+
+def test_no_build_failures_does_not_trip_interlock() -> None:
+    """When all monitors build successfully, no partial-failure is recorded
+    and the soft-delete interlock is not tripped."""
+    source = _bare_source()
+    items = [MonteCarloAssertionDef(uuid="ok1"), MonteCarloAssertionDef(uuid="ok2")]
+
+    def build(item: MonteCarloAssertionDef) -> Iterator[MetadataWorkUnit]:
+        yield cast(MetadataWorkUnit, f"wu-{item.uuid}")
+
+    from unittest.mock import MagicMock
+
+    source.config = make_config()
+    source.config.include_assertions = True
+    source.config.include_alerts = False
+    source.client = MagicMock()
+    source.client.get_monitors = lambda: iter(items)
+    source.client.get_custom_rules = lambda: iter([])
+    source.client.get_alerts = lambda: iter([])
+    source.builder = MagicMock()
+    source.builder.build_assertion = build
+    source.builder.build_run_event = lambda alert: iter(())
+    source.builder.iter_ingested_monitors = lambda: iter(())
+
+    list(source.get_workunits_internal())
+
+    assert source.report.build_failures == 0
+    assert len(source.report.failures) == 0
 
 
 def test_alert_tolerates_malformed_created_time() -> None:

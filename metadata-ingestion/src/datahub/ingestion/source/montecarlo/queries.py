@@ -133,3 +133,55 @@ query getTable($dwId: UUID, $fullTableId: String) {
   }
 }
 """
+
+# Monitor run history. Returns a Relay connection (most-recent-first) of
+# JobExecutionHistoryLog nodes. monitorUuid is String (not UUID!) per the MCD
+# schema. historyDays bounds the query window; first caps the page size — it
+# does NOT bound the total count, so callers that want only the latest N runs
+# should set first=N and not paginate.
+GET_JOB_EXECUTIONS_QUERY = """
+query getJobExecutions($monitorUuid: String, $historyDays: Int, $first: Int) {
+  getJobExecutions(monitorUuid: $monitorUuid, historyDays: $historyDays, first: $first) {
+    edges {
+      node {
+        jobExecutionUuid
+        startTime
+        endTime
+        status
+        exceptions
+        totalResultCount
+        evaluatedRecordCount
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+"""
+
+# Measured metric values (time-series). metricName and metricsFilter are
+# required; startTime is also required (DateTime!). metricsFilter.mcon is a
+# single String (not a list). jobExecutionUuid is present on the schema but is
+# null for table-level metrics, so a per-run join is not possible — the value
+# is a best-effort temporal correlation to the latest run, not a proven join.
+# first=1 + deduplicateValues=true returns only the most-recent point.
+GET_METRICS_V4_QUERY = """
+query getMetricsV4($metricName: String!, $metricsFilter: MetricsFilter!, $startTime: DateTime!, $endTime: DateTime, $first: Int, $deduplicateValues: Boolean) {
+  getMetricsV4(metricName: $metricName, metricsFilter: $metricsFilter, startTime: $startTime, endTime: $endTime, first: $first, deduplicateValues: $deduplicateValues) {
+    metrics {
+      metric
+      value
+      field
+      timestamp
+      measurementTimestamp
+      thresholds {
+        upper
+        lower
+      }
+      jobExecutionUuid
+    }
+  }
+}
+"""

@@ -6,12 +6,12 @@ This connector ingests Monte Carlo **monitors**, **custom (SQL) rules** and **al
 
 ## Concept Mapping
 
-| Monte Carlo Concept    | DataHub Concept                                                                           | Notes                                                                     |
-| ---------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `"montecarlo"`         | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                                                                           |
+| Monte Carlo Concept    | DataHub Concept                                                                           | Notes                                                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `"montecarlo"`         | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                                                                                                             |
 | Monitor                | [Assertion](https://docs.datahub.com/docs/generated/metamodel/entities/assertion/)        | One `CUSTOM` assertion per monitor; native `comparisons` mapped to structured `CustomAssertionInfo` fields. |
-| Custom (SQL) rule      | [Assertion](https://docs.datahub.com/docs/generated/metamodel/entities/assertion/)        | One `CUSTOM` assertion per rule; SQL captured in `customAssertion.logic`. |
-| Monitored asset (MCON) | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            | Resolved via `getTable` and `connection_to_platform_map`.                 |
-| Alert / Incident       | Assertion Run Event                                                                       | Emitted as an `AssertionRunEvent` failure on the corresponding assertion. |
+| Custom (SQL) rule      | [Assertion](https://docs.datahub.com/docs/generated/metamodel/entities/assertion/)        | One `CUSTOM` assertion per rule; SQL captured in `customAssertion.logic`.                                   |
+| Monitored asset (MCON) | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            | Resolved via `getTable` and `connection_to_platform_map`.                                                   |
+| Alert / Incident       | Assertion Run Event                                                                       | Emitted as an `AssertionRunEvent` failure on the corresponding assertion.                                   |
 
 Every monitor/rule is modeled as a `CUSTOM` assertion (matching the established connector pattern, e.g. Snowflake DMFs and dbt tests). The Monte Carlo native `comparisons` data is mapped onto DataHub's structured `CustomAssertionInfo` fields (`scope`, `operator`, `aggregation`, `fields`, `parameters`) so Monte Carlo assertions render through the same shared description component as dbt and Great Expectations. The native type, severity, resource id and data-quality dimension are carried on `nativeType`/`nativeParameters`; `customProperties` keeps only the `mc_monitor_uuid` correlation key.

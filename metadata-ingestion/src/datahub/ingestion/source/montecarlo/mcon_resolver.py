@@ -99,11 +99,24 @@ class MconResolver:
     def dataset_urn_for_mcon(self, mcon: str) -> Optional[str]:
         if mcon in self._cache:
             return self._cache[mcon]
-        urn = self._resolve(mcon)
-        self._cache[mcon] = urn
+        urn, cached = self._resolve(mcon)
+        # Only cache permanent results (success or "table genuinely gone").
+        # A transient exception must not be cached — the next monitor sharing
+        # this MCON would inherit the stale None instead of retrying getTable.
+        if cached:
+            self._cache[mcon] = urn
         return urn
 
-    def _resolve(self, mcon: str) -> Optional[str]:
+    def _resolve(self, mcon: str) -> "tuple[Optional[str], bool]":
+        """Resolve an MCON to a dataset URN.
+
+        Returns ``(urn, cached)`` where ``cached`` indicates whether the
+        result is permanent (safe to cache) or transient (must not be
+        cached so the next call retries). Permanent results: a successful
+        URN, or None because the table genuinely doesn't exist or the
+        platform is unmapped. Transient results: None because an
+        unexpected exception occurred during the getTable call.
+        """
         try:
             resolved = self.client.get_table(mcon)
             parsed = parse_mcon(mcon)
@@ -114,7 +127,7 @@ class MconResolver:
                     message="Could not resolve MCON to a warehouse table; skipping.",
                     context=mcon,
                 )
-                return None
+                return None, True
 
             detail = self._platform_detail(parsed.resource_id, resolved.connection_type)
             if detail is None:
@@ -125,7 +138,7 @@ class MconResolver:
                     "Add it to connection_to_platform_map or set default_platform.",
                     context=f"{mcon} (connection_type={resolved.connection_type})",
                 )
-                return None
+                return None, True
 
             # Match the casing the warehouse source emits so the assertion attaches
             # to the same dataset entity. The per-warehouse convert_urns_to_lowercase
@@ -150,7 +163,7 @@ class MconResolver:
                     "cannot build a matching warehouse dataset URN. Skipping.",
                     context=f"{mcon} (full_table_id={resolved.full_table_id})",
                 )
-                return None
+                return None, True
             if detail.convert_urns_to_lowercase is not None:
                 lowercase = detail.convert_urns_to_lowercase
             else:
@@ -166,18 +179,22 @@ class MconResolver:
                 name=table_id,
                 platform_instance=detail.platform_instance,
                 env=detail.env,
-            )
+            ), True
         except (DailyCallBudgetExceeded, MonteCarloAuthError):
             # Run-level failures (quota exhausted, bad credentials) that fail for
             # every MCON alike — propagate to abort rather than logging one
             # warning per asset and reporting a misleading empty success.
             raise
         except Exception as e:
-            self.report.report_mcon_resolution_failed()
+            # Transient failure (network blip, transient API error): do NOT
+            # cache — the next monitor sharing this MCON should retry getTable
+            # instead of inheriting the stale None. Record as a build failure so
+            # the partial-run guard in source.py trips the soft-delete interlock.
+            self.report.report_build_failure()
             self.report.warning(
                 title="Error resolving Monte Carlo asset",
                 message="Failed to resolve MCON to a dataset URN; skipping.",
                 context=mcon,
                 exc=e,
             )
-            return None
+            return None, False

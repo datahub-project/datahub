@@ -9,6 +9,8 @@ from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
 from datahub.ingestion.source.montecarlo.queries import (
     ALERTS_QUERY,
     CUSTOM_RULES_QUERY,
+    GET_JOB_EXECUTIONS_QUERY,
+    GET_METRICS_V4_QUERY,
     GET_TABLE_BY_FULL_TABLE_ID_QUERY,
     GET_TABLE_QUERY,
     MONITORS_QUERY,
@@ -162,6 +164,35 @@ class ResolvedTable(BaseModel):
     mcon: str
     full_table_id: str = Field(min_length=1)
     connection_type: Optional[str] = None
+
+
+class MonteCarloJobExecution(BaseModel):
+    """A single monitor run from getJobExecutions. monitor_uuid is carried from
+    the caller (the API is queried per-monitor and the response doesn't echo it
+    back), so the builder can join the execution to the ingested assertion."""
+
+    job_execution_uuid: str
+    monitor_uuid: str
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    status: Optional[str] = None  # JobExecutionStatus enum value as string
+    exceptions: Optional[str] = None
+    total_result_count: Optional[int] = None
+    evaluated_record_count: Optional[int] = None
+
+
+class MonteCarloMetricPoint(BaseModel):
+    """One measured metric value from getMetricsV4. job_execution_uuid is null
+    for table-level metrics, so a per-run join is not possible — the value is a
+    best-effort temporal correlation to the latest run, not a proven join."""
+
+    metric: str
+    value: float
+    field: Optional[str] = None
+    measurement_timestamp: Optional[datetime] = None
+    upper_threshold: Optional[float] = None
+    lower_threshold: Optional[float] = None
+    job_execution_uuid: Optional[str] = None
 
 
 class MonteCarloClient:
@@ -477,3 +508,101 @@ class MonteCarloClient:
             full_table_id=full_table_id,
             connection_type=warehouse.get("connection_type"),
         )
+
+    def get_job_executions(
+        self, monitor_uuid: str, history_days: int, first: int
+    ) -> List[MonteCarloJobExecution]:
+        """Fetch the most-recent monitor runs (most-recent-first). Does NOT
+        paginate — first caps the page, so callers wanting only the latest N
+        runs should set first=N. Returns all runs in the page (any status);
+        the builder filters for SUCCESS."""
+        response = self._safe_call(
+            GET_JOB_EXECUTIONS_QUERY,
+            {
+                "monitorUuid": monitor_uuid,
+                "historyDays": history_days,
+                "first": first,
+            },
+            title="Could not fetch monitor run history",
+            message="getJobExecutions call failed; run events for this "
+            "monitor will not be emitted.",
+            context=f"monitor_uuid={monitor_uuid}",
+        )
+        if response is None:
+            return []
+        edges = ((response.get("get_job_executions") or {}).get("edges")) or []
+        executions: List[MonteCarloJobExecution] = []
+        for edge in edges:
+            node = (edge or {}).get("node") or {}
+            uuid = node.get("job_execution_uuid")
+            if not uuid:
+                continue
+            executions.append(
+                MonteCarloJobExecution(
+                    job_execution_uuid=uuid,
+                    monitor_uuid=monitor_uuid,
+                    start_time=node.get("start_time"),
+                    end_time=node.get("end_time"),
+                    status=node.get("status"),
+                    exceptions=node.get("exceptions"),
+                    total_result_count=node.get("total_result_count"),
+                    evaluated_record_count=node.get("evaluated_record_count"),
+                )
+            )
+        return executions
+
+    def get_metrics_v4(
+        self,
+        mcon: str,
+        metric_name: str,
+        start_time: datetime,
+        field: Optional[str] = None,
+        first: int = 1,
+    ) -> List[MonteCarloMetricPoint]:
+        """Fetch measured values for one metric on one asset. startTime is
+        required by the MCD schema. first=1 + deduplicateValues=true returns
+        only the most-recent point. field is required for field-level metrics
+        (null_rate, distinct_count, etc.); omit for table-level metrics."""
+        metrics_filter: Dict[str, Any] = {"mcon": mcon}
+        if field:
+            metrics_filter["field"] = field
+        response = self._safe_call(
+            GET_METRICS_V4_QUERY,
+            {
+                "metricName": metric_name,
+                "metricsFilter": metrics_filter,
+                "startTime": start_time.isoformat(),
+                "first": first,
+                "deduplicateValues": True,
+            },
+            title="Could not fetch Monte Carlo metrics",
+            message="getMetricsV4 call failed; measured values for this "
+            "monitor will not be attached to its run events.",
+            context=f"mcon={mcon}, metric={metric_name}",
+        )
+        if response is None:
+            return []
+        points = ((response.get("get_metrics_v4") or {}).get("metrics")) or []
+        parsed: List[MonteCarloMetricPoint] = []
+        for p in points:
+            try:
+                thresholds = p.get("thresholds") or []
+                upper = lower = None
+                if thresholds:
+                    t0 = thresholds[0] or {}
+                    upper = t0.get("upper")
+                    lower = t0.get("lower")
+                parsed.append(
+                    MonteCarloMetricPoint(
+                        metric=p.get("metric") or metric_name,
+                        value=float(p.get("value")),
+                        field=p.get("field"),
+                        measurement_timestamp=p.get("measurement_timestamp"),
+                        upper_threshold=upper,
+                        lower_threshold=lower,
+                        job_execution_uuid=p.get("job_execution_uuid"),
+                    )
+                )
+            except (TypeError, ValueError):
+                continue
+        return parsed

@@ -1,7 +1,7 @@
 import functools
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Set, Type
 
 from datahub.emitter.mce_builder import (
     make_assertion_source,
@@ -17,11 +17,17 @@ from datahub.ingestion.source.montecarlo.client import (
     MonteCarloAlert,
     MonteCarloAssertionDef,
     MonteCarloComparison,
+    MonteCarloJobExecution,
+    MonteCarloMetricPoint,
 )
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
 from datahub.ingestion.source.montecarlo.constants import (
+    CUSTOM_METRIC_PREFIX,
+    MC_METRIC_TO_AGG_VALUE,
+    MC_METRIC_TO_RESULT_SLOT,
     MC_METRIC_TO_STD_AGGREGATION,
     MC_OPERATOR_TO_STD_OPERATOR,
+    TABLE_METRICS_TO_FETCH,
 )
 from datahub.ingestion.source.montecarlo.mcon_resolver import MconResolver
 from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
@@ -55,11 +61,15 @@ _NATIVE_AGGREGATION = AssertionStdAggregationClass._NATIVE_
 
 @dataclass(frozen=True)
 class _IngestedAssertion:
-    """An assertion emitted for a monitor, plus the dataset it targets, so a later
-    alert can build a run event against both."""
+    """An assertion emitted for a monitor, plus the dataset it targets and the
+    resolved mcon / definition, so a later run-event phase can fetch measured
+    metric values via getMetricsV4 (which needs the mcon) and know which metric
+    names to query (from the definition's comparisons)."""
 
     assertion_urn: str
     dataset_urn: str
+    mcon: Optional[str]
+    definition: MonteCarloAssertionDef
 
 
 @functools.lru_cache(maxsize=1)
@@ -289,16 +299,21 @@ class MonteCarloAssertionBuilder:
             return
 
         dataset_urn: Optional[str] = None
+        resolved_mcon: Optional[str] = None
         for mcon in definition.entity_mcons:
             dataset_urn = self.resolver.dataset_urn_for_mcon(mcon)
             if dataset_urn:
+                resolved_mcon = mcon
                 break
         if dataset_urn is None:
             return
 
         assertion_urn = self._assertion_urn(definition.uuid)
         self._ingested_by_monitor[definition.uuid] = _IngestedAssertion(
-            assertion_urn=assertion_urn, dataset_urn=dataset_urn
+            assertion_urn=assertion_urn,
+            dataset_urn=dataset_urn,
+            mcon=resolved_mcon,
+            definition=definition,
         )
 
         # customProperties keeps only the DataHub-side correlation key; native MC
@@ -423,3 +438,141 @@ class MonteCarloAssertionBuilder:
             aspect=run_event,
         ).as_workunit(is_primary_source=False)
         self.report.report_run_event_emitted()
+
+    def build_run_events_from_execution(
+        self,
+        execution: MonteCarloJobExecution,
+        metric_points: List[MonteCarloMetricPoint],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit an AssertionRunEvent for a SUCCESS monitor run, carrying the
+        measured metric values on AssertionResult.
+
+        The measured value is attached to the latest SUCCESS run as a best-effort
+        temporal correlation. getMetricsV4 does not populate jobExecutionUuid
+        for table-level metrics, so a per-run join is not possible — the value
+        is "the most recent measurement" on "the most recent successful run",
+        approximately but not provably from the same run.
+
+        Emitted with is_primary_source=False so stale entity removal never
+        touches run events — they are not tracked in the stale-removal state
+        and are added to urns_to_skip, matching the alert path (build_run_event).
+        The assertion entity itself is still subject to stale removal via the
+        primary-source definition path (build_assertion), which is correct: if
+        the monitor disappears from Monte Carlo, the assertion should be
+        soft-deleted.
+        """
+        ingested = self._ingested_by_monitor.get(execution.monitor_uuid)
+        if ingested is None:
+            return
+        assertion_urn = ingested.assertion_urn
+        dataset_urn = ingested.dataset_urn
+
+        ts = execution.start_time or execution.end_time
+        if ts is None:
+            self.report.warning(
+                title="Run event skipped: missing timestamp",
+                message="Job execution has no startTime/endTime; cannot emit "
+                "a run event.",
+                context=f"job_execution_uuid={execution.job_execution_uuid}",
+            )
+            return
+
+        native_results: Dict[str, str] = {}
+        row_count: Optional[int] = None
+        missing_count: Optional[int] = None
+        unexpected_count: Optional[int] = None
+        actual_agg: Optional[float] = None
+
+        for mp in metric_points:
+            slot = MC_METRIC_TO_RESULT_SLOT.get(mp.metric.lower())
+            key = mp.field or mp.metric
+            if slot == "rowCount":
+                row_count = int(mp.value)
+            elif slot == "missingCount":
+                missing_count = int(mp.value)
+            elif slot == "unexpectedCount":
+                unexpected_count = int(mp.value)
+            elif mp.metric.lower() in MC_METRIC_TO_AGG_VALUE:
+                actual_agg = mp.value
+            else:
+                native_results[key] = str(mp.value)
+            if mp.upper_threshold is not None:
+                native_results[f"{key}_threshold_upper"] = str(mp.upper_threshold)
+            if mp.lower_threshold is not None:
+                native_results[f"{key}_threshold_lower"] = str(mp.lower_threshold)
+
+        if execution.exceptions:
+            native_results["exceptions"] = execution.exceptions
+        if execution.total_result_count is not None:
+            native_results["totalResultCount"] = str(execution.total_result_count)
+        if execution.evaluated_record_count is not None:
+            native_results["evaluatedRecordCount"] = str(
+                execution.evaluated_record_count
+            )
+
+        run_event = AssertionRunEvent(
+            timestampMillis=datetime_to_ts_millis(ts),
+            runId=execution.job_execution_uuid,
+            asserteeUrn=dataset_urn,
+            status=AssertionRunStatus.COMPLETE,
+            assertionUrn=assertion_urn,
+            result=AssertionResult(
+                type=AssertionResultType.SUCCESS,
+                rowCount=row_count,
+                missingCount=missing_count,
+                unexpectedCount=unexpected_count,
+                actualAggValue=actual_agg,
+                nativeResults=native_results or None,
+            ),
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn,
+            aspect=run_event,
+        ).as_workunit(is_primary_source=False)
+        self.report.report_run_event_emitted()
+
+    def metric_names_for_monitor(self, definition: MonteCarloAssertionDef) -> List[str]:
+        """Return the getMetricsV4 metricName values to fetch for a monitor,
+        filtered per decision 1c: skip custom_value_based_metric_* (returns 0
+        points), and for TABLE monitors fetch only total_row_count (the other
+        three comparison metrics are non-standard names that return 0 points).
+        """
+        if not definition.comparisons:
+            return []
+        is_table = (definition.monitor_type or "").upper() == "TABLE"
+        names: List[str] = []
+        seen: Set[str] = set()
+        for comp in definition.comparisons:
+            metric = (comp.metric or "").lower()
+            if not metric or metric.startswith(CUSTOM_METRIC_PREFIX):
+                continue
+            if is_table and metric not in TABLE_METRICS_TO_FETCH:
+                continue
+            if metric not in seen:
+                seen.add(metric)
+                names.append(metric)
+        return names
+
+    @staticmethod
+    def field_for_metric(
+        definition: MonteCarloAssertionDef, metric_name: str
+    ) -> Optional[str]:
+        """Return the field for a given metric name from the definition's
+        comparisons, for field-level metrics (null_rate, distinct_count, etc.)
+        that require a field filter on getMetricsV4."""
+        target = metric_name.lower()
+        for comp in definition.comparisons:
+            if (comp.metric or "").lower() == target:
+                if comp.field:
+                    return comp.field
+                if comp.fields:
+                    return comp.fields[0]
+        return None
+
+    def iter_ingested_monitors(
+        self,
+    ) -> Iterable[tuple]:
+        """Yield (monitor_uuid, _IngestedAssertion) pairs for all monitors
+        ingested in this run, so the source's run-event phase can iterate
+        them without accessing the private map directly."""
+        yield from self._ingested_by_monitor.items()
