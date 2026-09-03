@@ -11,10 +11,13 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReinde
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesUpgradeStrategy;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -71,13 +74,13 @@ public class UpdateIndicesUpgradeStrategyFactory {
               startTimeMillis);
         };
 
-    // Targets are derived by the strategy itself, which reconciles them against persisted state on
-    // construction and on every poll, so a read that fails at startup recovers instead of leaving
-    // dual-write permanently off.
+    final Map<String, String> oldIndexTargets =
+        loadOldIndexTargets(upgradeResultStore, systemOpContext, upgradeIdUrn);
+
     return new UpdateIndicesUpgradeStrategy(
         elasticSearchService,
         searchDocumentTransformer,
-        Map.of(),
+        oldIndexTargets,
         callback,
         systemOpContext,
         upgradeResultStore,
@@ -86,42 +89,104 @@ public class UpdateIndicesUpgradeStrategyFactory {
   }
 
   /**
-   * Throws on failure by design. The caller only records the start time once per index, so
-   * swallowing a transient read or write error here would lose it permanently — the exception is
-   * what lets the caller reset its flag and try again on the next batch.
+   * Reads Phase 1 upgrade result and builds entity name → old backing index mappings. After Phase 1
+   * swaps the alias to the next index, dual-write keeps the OLD backing index current for rollback.
+   *
+   * <p>Phase 1 state is keyed by index name (e.g. "datasetindex_v2"), but the dual-write strategy
+   * matches MCL events by entity name (e.g. "dataset"). This method resolves the mapping using the
+   * index convention.
    */
+  private Map<String, String> loadOldIndexTargets(
+      @Nonnull final DataHubUpgradeResultStore upgradeResultStore,
+      OperationContext opContext,
+      @Nonnull final Urn upgradeIdUrn) {
+    final Map<String, String> entityToOldIndex = new HashMap<>();
+
+    try {
+      Optional<DataHubUpgradeResult> upgradeResult =
+          getUpgradeResult(upgradeResultStore, opContext, upgradeIdUrn);
+
+      if (upgradeResult.isEmpty() || upgradeResult.get().getResult() == null) {
+        log.info("No Phase 1 incremental reindex state found");
+        return entityToOldIndex;
+      }
+
+      Map<String, Map<String, String>> allStates =
+          IncrementalReindexState.getAllIndexStates(upgradeResult.get().getResult());
+      IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+
+      for (Map.Entry<String, Map<String, String>> entry : allStates.entrySet()) {
+        String indexName = entry.getKey();
+        Map<String, String> indexState = entry.getValue();
+
+        String status = indexState.get(IncrementalReindexState.STATUS);
+        String oldBackingIndexName = indexState.get(IncrementalReindexState.OLD_BACKING_INDEX_NAME);
+
+        // Only dual-write to indices that completed Phase 1 and have an old backing index recorded
+        if (oldBackingIndexName == null || oldBackingIndexName.isEmpty()) {
+          continue;
+        }
+        if (!IncrementalReindexState.Status.COMPLETED.name().equals(status)) {
+          continue;
+        }
+
+        indexConvention
+            .getEntityName(opContext, indexName)
+            .ifPresent(name -> entityToOldIndex.put(name, oldBackingIndexName));
+      }
+
+      log.info(
+          "Loaded {} old index targets for rollback dual-write: {}",
+          entityToOldIndex.size(),
+          entityToOldIndex);
+    } catch (Exception e) {
+      log.warn("Failed to load Phase 1 incremental reindex state: {}", e.getMessage());
+    }
+
+    return entityToOldIndex;
+  }
+
   private void persistDualWriteStartTime(
       @Nonnull final DataHubUpgradeResultStore upgradeResultStore,
       OperationContext opContext,
       @Nonnull final Urn upgradeIdUrn,
       @Nonnull final String indexName,
-      final long startTimeMillis)
-      throws Exception {
-
-    // Read failures propagate rather than being flattened into "no upgrade record": the latter
-    // looks like success to the caller, which then never asks again.
-    final DataHubUpgradeResult prior =
-        DataHubUpgradeResultConditionalPersist.fromEnveloped(
-            upgradeResultStore.readLatest(opContext, upgradeIdUrn));
-
-    if (prior == null || prior.getResult() == null) {
-      // Genuinely no upgrade record: nothing to merge into, and retrying will not change that.
-      log.warn(
-          "No incremental reindex state at {} while recording dual-write start for index '{}'",
+      final long startTimeMillis) {
+    try {
+      Optional<DataHubUpgradeResult> existing =
+          getUpgradeResult(upgradeResultStore, opContext, upgradeIdUrn);
+      if (existing.isEmpty() || existing.get().getResult() == null) {
+        return;
+      }
+      DataHubUpgradeResult prior = existing.get();
+      DataHubUpgradeResultConditionalPersist.mergeAndPersist(
+          opContext,
+          upgradeResultStore,
           upgradeIdUrn,
-          indexName);
-      return;
+          DataHubUpgradeResultConditionalPersist.putResultEntry(
+              IncrementalReindexState.key(indexName, IncrementalReindexState.DUAL_WRITE_START_TIME),
+              String.valueOf(startTimeMillis),
+              prior.getState()),
+          DataHubUpgradeResultConditionalPersist.CLIENT_MAX_ATTEMPTS);
+      log.info("Persisted dual-write start time for index '{}': {}", indexName, startTimeMillis);
+    } catch (Exception e) {
+      log.error(
+          "Failed to persist dual-write start time for index '{}': {}", indexName, e.getMessage());
     }
+  }
 
-    DataHubUpgradeResultConditionalPersist.mergeAndPersist(
-        opContext,
-        upgradeResultStore,
-        upgradeIdUrn,
-        DataHubUpgradeResultConditionalPersist.putResultEntry(
-            IncrementalReindexState.key(indexName, IncrementalReindexState.DUAL_WRITE_START_TIME),
-            String.valueOf(startTimeMillis),
-            prior.getState()),
-        DataHubUpgradeResultConditionalPersist.CLIENT_MAX_ATTEMPTS);
-    log.info("Persisted dual-write start time for index '{}': {}", indexName, startTimeMillis);
+  /** Shared read helper, so the load and the persist path resolve the aspect the same way. */
+  private Optional<DataHubUpgradeResult> getUpgradeResult(
+      @Nonnull final DataHubUpgradeResultStore upgradeResultStore,
+      OperationContext opContext,
+      @Nonnull final Urn upgradeIdUrn) {
+    try {
+      return Optional.ofNullable(
+          DataHubUpgradeResultConditionalPersist.fromEnveloped(
+              upgradeResultStore.readLatest(opContext, upgradeIdUrn)));
+    } catch (Exception e) {
+      log.debug("Could not fetch upgrade result for {}: {}", upgradeIdUrn, e.getMessage());
+    }
+    return Optional.empty();
   }
 }

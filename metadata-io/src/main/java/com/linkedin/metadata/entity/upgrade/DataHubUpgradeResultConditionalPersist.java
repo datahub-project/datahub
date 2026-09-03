@@ -40,14 +40,11 @@ public final class DataHubUpgradeResultConditionalPersist {
   public static final int DEFAULT_MAX_ATTEMPTS = 10;
 
   /**
-   * Attempt cap for client-backed writes, deliberately far below {@link #DEFAULT_MAX_ATTEMPTS}.
-   *
-   * <p>{@code BaseClient.sendClientRequest} retries anything outside its own tiny non-retryable set
-   * — a 422 precondition rejection included — {@code entityClient.numRetries} times (default 3)
-   * with a backoff between each. Those retries multiply with the attempts here, and a version
-   * conflict is the *expected* case for this aspect because the upgrade job writes it concurrently.
-   * At 10 attempts one conflict cost up to ~40 HTTP calls and over a minute of blocking, on the
-   * synchronous MCL consumer thread.
+   * Attempt cap for client-backed writes. {@code BaseClient} treats a 422 precondition rejection as
+   * retryable and burns ~14s of exponential backoff per call, which multiplies with the attempts
+   * here: 3 bounds a conflict at ~42s on the synchronous MCL consumer thread, against ~140s at
+   * {@link #DEFAULT_MAX_ATTEMPTS}. Exhausting it is not terminal — callers retry on their next
+   * batch.
    */
   public static final int CLIENT_MAX_ATTEMPTS = 3;
 
