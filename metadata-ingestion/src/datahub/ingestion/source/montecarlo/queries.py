@@ -10,6 +10,7 @@ query getMonitors($domainIds: [UUID!], $limit: Int, $offset: Int) {
     name
     description
     monitorType
+    customSql
     entityMcons
     resourceId
     severity

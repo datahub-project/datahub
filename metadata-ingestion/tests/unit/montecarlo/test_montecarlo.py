@@ -1380,6 +1380,44 @@ def test_incident_no_emit_on_skipped_alert() -> None:
     assert report.incidents_emitted == 0
 
 
+def test_custom_sql_monitor_carries_sql_in_logic() -> None:
+    """A monitor of type CUSTOM_SQL must carry its SQL query in the assertion's
+    ``logic`` field so the UI can display it. Before this fix, the MONITORS_QUERY
+    did not fetch customSql and get_monitors did not pass it through, so the
+    SQL was silently dropped."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+
+    sql = "SELECT count(*) FROM db.sch.tbl WHERE amount < 0"
+    definition = MonteCarloAssertionDef(
+        uuid="mon-sql-1",
+        name="Negative payments",
+        description="Detects negative payment amounts",
+        monitor_type="CUSTOM_SQL",
+        custom_sql=sql,
+        entity_mcons=[mcon],
+        resource_id="wh-2",
+    )
+    wus = _build_assertion_workunits(builder, definition)
+    info = next(
+        a for a in (_aspect(w) for w in wus) if isinstance(a, AssertionInfoClass)
+    )
+    assert info.customAssertion is not None
+    assert info.customAssertion.logic is not None
+    assert sql in info.customAssertion.logic
+    assert info.customAssertion.type == "CUSTOM_SQL"
+
+
 def _client_with_responses(responses: List[Dict[str, Any]]) -> MonteCarloClient:
     client = MonteCarloClient.__new__(MonteCarloClient)
     client.config = make_config()

@@ -480,6 +480,7 @@ class MonteCarloClient:
                     name=raw.get("name"),
                     description=raw.get("description"),
                     monitor_type=monitor_type,
+                    custom_sql=raw.get("custom_sql"),
                     entity_mcons=entity_mcons,
                     resource_id=resource_id,
                     severity=raw.get("severity"),
