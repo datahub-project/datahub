@@ -11,6 +11,7 @@ import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePath
 import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatformInstances;
 import com.linkedin.datahub.upgrade.system.dataplatforms.IndexDataPlatforms;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
+import com.linkedin.datahub.upgrade.system.dataproducts.BackfillDataProductIndices;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
 import com.linkedin.datahub.upgrade.system.homepagelinks.MigrateHomePageLinks;
@@ -129,6 +130,19 @@ public class NonBlockingConfigs {
       @Value("${systemUpdate.ingestionIndices.delayMs}") final Integer delayMs,
       @Value("${systemUpdate.ingestionIndices.limit}") final Integer limit) {
     return new BackfillIngestionSourceInfoIndices(
+        opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade backfillDataProductIndices(
+      final OperationContext opContext,
+      final EntityService<?> entityService,
+      final AspectDao aspectDao,
+      @Value("${systemUpdate.dataProductIndices.enabled}") final boolean enabled,
+      @Value("${systemUpdate.dataProductIndices.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.dataProductIndices.delayMs}") final Integer delayMs,
+      @Value("${systemUpdate.dataProductIndices.limit}") final Integer limit) {
+    return new BackfillDataProductIndices(
         opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
   }
 
