@@ -1,3 +1,4 @@
+import logging
 import subprocess
 import sys
 import textwrap
@@ -124,6 +125,32 @@ def test_max_distinct_per_statement_default_matches_combiner_constant() -> None:
 
     config = GEProfilingConfig()
     assert config.max_distinct_per_statement == DEFAULT_MAX_DISTINCT_PER_STATEMENT
+
+
+def test_flatten_without_query_combiner_warns_but_does_not_raise(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # The combiner short-circuits when disabled, so the flatten flag silently
+    # does nothing. Warn rather than raise: turning the combiner off is a
+    # legitimate way to troubleshoot a run.
+    config = GEProfilingConfig.model_validate(
+        {"query_combiner_enabled": False, "query_combiner_flatten_enabled": True}
+    )
+    assert config.query_combiner_flatten_enabled
+
+    with caplog.at_level(logging.WARNING):
+        GEProfilingConfig.model_validate(
+            {"query_combiner_enabled": False, "query_combiner_flatten_enabled": True}
+        )
+    assert any("has no effect" in r.message for r in caplog.records)
+
+
+def test_flatten_with_query_combiner_is_silent(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        GEProfilingConfig.model_validate({"query_combiner_flatten_enabled": True})
+    assert not [r for r in caplog.records if "has no effect" in r.message]
 
 
 def test_ge_profiling_and_kafka_config_import_without_sqlalchemy_or_greenlet() -> None:

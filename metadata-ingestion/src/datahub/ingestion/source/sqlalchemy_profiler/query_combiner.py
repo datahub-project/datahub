@@ -124,13 +124,14 @@ def is_single_row_query(query: Any) -> bool:
     return bool(query.get_execution_options().get(SINGLE_ROW_EXECUTION_OPTION, False))
 
 
-# Cap on the number of COUNT(DISTINCT) futures that may coexist in a single
+# Cap on the number of COUNT(DISTINCT) columns that may coexist in a single
 # flattened statement. Each COUNT(DISTINCT) materializes a distinct-value tree
 # on the server; letting all of them coexist trades a scan problem for a memory
-# problem. Cheap aggregates (COUNT/MIN/MAX/AVG/STDDEV) coexist
-# freely; distinct-heavy futures are split into chunks of at most this many.
-# Starting value, not yet measured. Overridable via a hidden config
-# knob (see SQLAlchemyQueryCombiner.max_distinct_per_statement).
+# problem. The budget is over columns, not queries: one query may carry
+# several, and it is the trees that cost memory. Cheap aggregates (see
+# _FLATTENABLE_AGGREGATES) coexist freely. Starting value, not yet measured.
+# Overridable via a hidden config knob
+# (see SQLAlchemyQueryCombiner.max_distinct_per_statement).
 DEFAULT_MAX_DISTINCT_PER_STATEMENT = 5
 
 # Aggregates the flatten path may emit. Every emitted column must be one of
@@ -148,15 +149,33 @@ _FLATTENABLE_AGGREGATES = frozenset(
 )
 
 
-def _chunked(seq: List[Any], n: int) -> Iterator[List[Any]]:
-    # Yield successive n-sized chunks. Makes the ceil(len(seq) / n) claim in
-    # _execute_flat_group self-evident. Reject n < 1 by raising so a
-    # misconfigured cap re-routes through the flat-group except's CTE path
-    # instead of yielding nothing and leaving distinct-heavy futures undone.
-    if n < 1:
-        raise ValueError(f"chunk size must be >= 1, got {n}")
-    for i in range(0, len(seq), n):
-        yield seq[i : i + n]
+def _chunk_by_distinct_budget(
+    members: List[Tuple[str, "_QueryFuture", int]], budget: int
+) -> Iterator[List[Tuple[str, "_QueryFuture"]]]:
+    # Pack futures into statements carrying at most `budget` distinct trees
+    # between them. The budget is over trees, not futures: one query may
+    # carry several COUNT(DISTINCT) columns, and it is the trees that cost
+    # server memory.
+    #
+    # A single future whose own distinct count exceeds the budget still forms
+    # a statement of its own rather than being dropped -- its distincts
+    # already coexist in the query the caller built, so splitting it is not
+    # ours to do. Reject budget < 1 by raising so a misconfigured cap
+    # re-routes through the flat-group except's CTE path instead of yielding
+    # nothing and leaving distinct-heavy futures undone.
+    if budget < 1:
+        raise ValueError(f"distinct budget must be >= 1, got {budget}")
+    chunk: List[Tuple[str, "_QueryFuture"]] = []
+    used = 0
+    for k, fut, n in members:
+        if chunk and used + n > budget:
+            yield chunk
+            chunk = []
+            used = 0
+        chunk.append((k, fut))
+        used += n
+    if chunk:
+        yield chunk
 
 
 # We need to make sure that only one query combiner attempts to patch
@@ -294,6 +313,18 @@ class SQLAlchemyQueryCombinerReport(Report):
     # scans fall (~80 -> 9). Without this counter the rise in
     # combined_queries_issued reads as a regression on a round-trip dashboard.
     scans_avoided: int = 0
+
+    # Why queued queries did not flatten, split so the two causes are
+    # distinguishable during validation. Without them a gate that rejects
+    # everything looks identical to a workload with nothing to flatten.
+    #
+    # flatten_rejected: refused by the _is_flattenable allowlist (an extra
+    # clause, or a non-allowlisted aggregate). flatten_singletons: passed the
+    # gate but was alone in its FROM group, so it was demoted to the CTE path
+    # rather than emit a statement of its own. Both route through the same
+    # unmatched CTE combine, so neither is a failure.
+    flatten_rejected: int = 0
+    flatten_singletons: int = 0
 
     query_exceptions: int = 0
 
@@ -627,7 +658,7 @@ class SQLAlchemyQueryCombiner:
         # use the default dialect, so the str() comparison is sound.
         try:
             rebuilt = sqlalchemy.select(get_query_columns(query))
-            for f in query.froms:
+            for f in query.get_final_froms():
                 rebuilt.append_from(f)
             if str(query) != str(rebuilt):
                 return False
@@ -688,12 +719,14 @@ class SQLAlchemyQueryCombiner:
         # mix in one flat tuple. The connection is folded in because
         # _execute_flat_select runs the whole group on members[0].conn; mixing
         # connections in one group would run some futures on the wrong one.
-        return (tuple(fut.query.froms), fut.conn)
+        return (tuple(fut.query.get_final_froms()), fut.conn)
 
     @staticmethod
-    def _has_count_distinct(query: Any) -> bool:
-        # True if any column expression in the query contains a
-        # count(distinct(...)) sub-expression. COUNT(DISTINCT) has three
+    def _count_distinct_columns(query: Any) -> int:
+        # How many column expressions in the query contain a
+        # count(distinct(...)) sub-expression. Counted rather than merely
+        # detected because the cap bounds distinct-value trees on the server
+        # and one query may carry several. COUNT(DISTINCT) has three
         # spellings in SQLAlchemy, all of which must trip the cap:
         #   sa.func.count(sa.func.distinct(c))  -> FunctionElement name "distinct"
         #   sa.func.count(sa.distinct(c))       -> UnaryExpression, operator distinct_op
@@ -701,19 +734,19 @@ class SQLAlchemyQueryCombiner:
         # Matching only the first silently bypasses max_distinct_per_statement
         # for the other two — the server-memory failure mode the cap exists to
         # prevent. SELECT-level DISTINCT is excluded by _is_flattenable.
+        total = 0
         for col in get_query_columns(query):
             for elem in sqlalchemy.sql.visitors.iterate(col):
                 if (
                     isinstance(elem, sqlalchemy.sql.functions.FunctionElement)
                     and elem.name == "distinct"
-                ):
-                    return True
-                if (
+                ) or (
                     isinstance(elem, sqlalchemy.sql.elements.UnaryExpression)
                     and elem.operator is sqlalchemy.sql.operators.distinct_op
                 ):
-                    return True
-        return False
+                    total += 1
+                    break
+        return total
 
     def _execute_queue_flattened(self, pending_queue: Dict[str, _QueryFuture]) -> None:
         # Partition the capped pending queue into flatten groups (by FROM
@@ -726,7 +759,21 @@ class SQLAlchemyQueryCombiner:
             if self._is_flattenable(fut.query):
                 groups[self._flatten_signature(fut)].append((k, fut))
             else:
+                self.report.flatten_rejected += 1
                 unmatched[k] = fut
+
+        # A one-member group has nothing to collapse: flattening it emits a
+        # statement per group where the CTE path would have cross-joined them
+        # all into one. With a flush window spanning N tables that trades one
+        # round trip for N at identical scan count (measured: 40 tables ->
+        # 1 statement flag-off, 40 flag-on, scans_avoided 0 either way).
+        # runner.batch() normally scopes a flush to one table so groups are
+        # plural, but nothing here enforces that, so demote singletons rather
+        # than rely on the caller.
+        for sig in [sig for sig, members in groups.items() if len(members) == 1]:
+            k, fut = groups.pop(sig)[0]
+            self.report.flatten_singletons += 1
+            unmatched[k] = fut
 
         # Each sub-unit is independently recoverable. A failing unit does not
         # cancel the others: a single bad query must not zero out the
@@ -750,7 +797,9 @@ class SQLAlchemyQueryCombiner:
                     raise
                 self.report.query_exceptions += 1
                 logger.warning(
-                    "Failed to execute flat group; will attempt CTE re-route."
+                    f"Failed to execute flat group of {len(members)} queries "
+                    f"over {members[0][1].query.get_final_froms()}; "
+                    f"will attempt CTE re-route."
                 )
                 logger.debug("Failed to execute flat group", exc_info=e)
                 group_queue = {k: fut for k, fut in members if not fut.done}
@@ -758,9 +807,14 @@ class SQLAlchemyQueryCombiner:
                     try:
                         self._execute_cte_combine(group_queue)
                     except Exception as e2:
+                        # Warning, not debug: the first failure already warned,
+                        # so a silent second one reads as a successful recovery.
+                        logger.warning(
+                            f"Flat-group CTE re-route also failed for "
+                            f"{len(group_queue)} queries; running them serially."
+                        )
                         logger.debug(
-                            "Flat-group CTE re-route also failed; "
-                            "running this group's futures serially",
+                            "Flat-group CTE re-route also failed",
                             exc_info=e2,
                         )
                         self._execute_futures_serially(
@@ -785,19 +839,23 @@ class SQLAlchemyQueryCombiner:
 
     def _execute_flat_group(self, members: List[Tuple[str, _QueryFuture]]) -> None:
         # Split a flatten group into cheap and distinct-heavy aggregates and
-        # emit one flat SELECT for the cheap ones plus ceil(n / K) flat SELECTs
-        # for the distinct-heavy ones, each carrying at most K distinct trees.
+        # emit one flat SELECT for the cheap ones plus enough flat SELECTs for
+        # the distinct-heavy ones that no statement carries more than
+        # max_distinct_per_statement distinct trees.
         cheap: List[Tuple[str, _QueryFuture]] = []
-        distinct_heavy: List[Tuple[str, _QueryFuture]] = []
+        distinct_heavy: List[Tuple[str, _QueryFuture, int]] = []
         for k, fut in members:
-            if self._has_count_distinct(fut.query):
-                distinct_heavy.append((k, fut))
+            n_distinct = self._count_distinct_columns(fut.query)
+            if n_distinct:
+                distinct_heavy.append((k, fut, n_distinct))
             else:
                 cheap.append((k, fut))
 
         if cheap:
             self._execute_flat_select(cheap)
-        for chunk in _chunked(distinct_heavy, self.max_distinct_per_statement):
+        for chunk in _chunk_by_distinct_budget(
+            distinct_heavy, self.max_distinct_per_statement
+        ):
             self._execute_flat_select(chunk)
 
     def _execute_flat_select(self, members: List[Tuple[str, _QueryFuture]]) -> None:
@@ -832,7 +890,7 @@ class SQLAlchemyQueryCombiner:
 
         # All members share the same FROM by signature; use one representative
         # so we append exactly one table and avoid a cross-join.
-        rep_froms = members[0][1].query.froms
+        rep_froms = members[0][1].query.get_final_froms()
         combined_query = sqlalchemy.select(labeled_cols)
         for f in rep_froms:
             combined_query.append_from(f)

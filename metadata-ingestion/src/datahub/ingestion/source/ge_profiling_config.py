@@ -198,15 +198,17 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     # SELECT per FROM group, instead of one CTE per query. Each CTE in the
     # legacy path is an independent aggregate over the same table, so the DB
     # scans the table once per CTE; flattening collapses those into one scan.
-    # COUNT(DISTINCT) futures are capped at max_distinct_per_statement per
+    # COUNT(DISTINCT) columns are capped at max_distinct_per_statement per
     # flat statement to avoid coexisting distinct-value trees (server memory).
+    # Requires query_combiner_enabled: the combiner short-circuits when
+    # disabled, so this flag never gets a chance to run on its own.
     # Off by default — flip in a separate follow-up PR after validation.
     query_combiner_flatten_enabled: bool = Field(
         default=False,
-        description="*Experimental.* Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Off by default. Cheap aggregates (COUNT/MIN/MAX/AVG/STDDEV) coexist freely; COUNT(DISTINCT) is capped per statement to bound server memory.",
+        description="*Experimental.* Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. Cheap aggregates (COUNT/MIN/MAX/AVG/SUM/STDDEV) coexist freely; COUNT(DISTINCT) columns are capped per statement to bound server memory.",
     )
 
-    # Hidden option - starting cap on COUNT(DISTINCT) futures per flat statement.
+    # Hidden option - starting cap on COUNT(DISTINCT) columns per flat statement.
     # Exposed so the right value can be measured without a release
     # cycle. The module default lives at DEFAULT_MAX_DISTINCT_PER_STATEMENT in
     # the profiler's query_combiner module (kept here as a literal so
@@ -310,6 +312,19 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         "Lower values prevent recursion errors but may truncate deeply nested data. "
         "Applies to connectors that process dynamic JSON content (e.g., Kafka, MongoDB, Elasticsearch).",
     )
+
+    @model_validator(mode="after")
+    def warn_if_flatten_without_query_combiner(self) -> "GEProfilingConfig":
+        # Warn rather than raise: disabling the combiner is a legitimate way to
+        # troubleshoot a profiling run, and that should not start failing just
+        # because the flatten flag was left on.
+        if self.query_combiner_flatten_enabled and not self.query_combiner_enabled:
+            logger.warning(
+                "query_combiner_flatten_enabled has no effect while "
+                "query_combiner_enabled is false: the combiner short-circuits "
+                "before the flatten path runs, so no queries will be flattened."
+            )
+        return self
 
     @model_validator(mode="before")
     @classmethod
