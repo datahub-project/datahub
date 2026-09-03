@@ -210,8 +210,15 @@ class AasMapper:
                 continue
             emitted_keys.add(key)
             try:
-                yield from self._map_table(
-                    model, table, model_key, dataset_urn_by_table, intra_model_fgl
+                # Materialize inside the try so the except only guards the mapping
+                # work. Yielding inside the try would also catch exceptions the
+                # consumer throws back into this generator (a sink/pipeline error),
+                # misreporting them as a table-mapping failure and dropping the
+                # remaining work units for this table.
+                workunits = list(
+                    self._map_table(
+                        model, table, model_key, dataset_urn_by_table, intra_model_fgl
+                    )
                 )
             except Exception as e:
                 self.report.tables_skipped += 1
@@ -221,6 +228,8 @@ class AasMapper:
                     context=f"catalog={model.catalog}, table={table.name}",
                     exc=e,
                 )
+                continue
+            yield from workunits
 
         yield from self._map_cube_dataset(model, model_key)
 
