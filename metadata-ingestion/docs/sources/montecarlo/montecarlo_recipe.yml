@@ -11,10 +11,26 @@ source:
         platform: snowflake
         platform_instance: prod
         env: PROD
+        # Override URN casing for this warehouse only. Set to false to preserve
+        # case for a case-preserving Snowflake/Redshift deployment whose warehouse
+        # source runs with convert_urns_to_lowercase: false.
+        # convert_urns_to_lowercase: false
+
+    # Fallback platform + instance/env for warehouses NOT listed in the map above
+    # (auto-mapped from the connection type, or via default_platform). These apply
+    # to the warehouse dataset URN, NOT Monte Carlo's own assertion entity.
+    # default_platform: postgres
+    # target_platform_instance: prod
+    # target_env: PROD
 
     include_assertions: true # monitors + custom rules -> Assertion entities
     include_alerts: true # alerts/incidents -> AssertionRunEvent failures
     alerts_lookback_days: 30 # how far back to fetch alerts (default: 30 days)
+
+    # Ingest monitor run history + measured metric values as SUCCESS
+    # AssertionRunEvents. Leave unset to keep the FAILURE-only behaviour.
+    run_events_lookback_days: 7 # query window in days
+    run_events_first: 5 # max runs fetched per monitor (default: 5)
 
     # stateful_ingestion:
     #   enabled: true

@@ -45,11 +45,42 @@ Monte Carlo alerts and incidents are ingested as `AssertionRunEvent` failures on
 corresponding assertion. Each event carries a timestamp, the Monte Carlo alert ID, and a link back
 to the Monte Carlo UI via `externalUrl`.
 
+#### Run history and measured metric values
+
+By default the connector emits only the alert-driven `FAILURE` run events above. To also ingest
+Monte Carlo's monitor **run history** (`getJobExecutions`) together with the **measured metric
+values** (`getMetricsV4`) — i.e. the actual numbers Monte Carlo computed for each monitor run —
+set `run_events_lookback_days` to a positive integer N.
+
+When enabled, for each ingested monitor the connector:
+
+- Fetches the most recent runs (capped by `run_events_first`, default `5`) within the last N days.
+- Emits every `SUCCESS` run as an `AssertionRunEvent` with `status = COMPLETE` and
+  `result.type = SUCCESS`. The **latest** SUCCESS run carries the measured metric value on
+  `AssertionResult` — standard metrics land on the typed slots (`rowCount`, `missingCount`,
+  `unexpectedCount`, `actualAggValue`) and the rest fall back to `nativeResults`. Older SUCCESS
+  runs carry only per-run execution metadata (`totalResultCount`, `evaluatedRecordCount`,
+  `exceptions`).
+- Leaves `FAILURE` runs to the alert-driven path above (no duplicate events).
+
+`run_events_lookback_days` bounds the **query window**, not the run count — `run_events_first`
+caps the count. Enabling this adds roughly one `getJobExecutions` call plus one `getMetricsV4` call
+per metric per ingested monitor; set `rate_limit_daily` to bound the extra API spend. Leave
+`run_events_lookback_days` unset (`None`) to keep the historical FAILURE-only behaviour.
+
+Run events are emitted with `is_primary_source = False`, so stale entity removal never touches
+them — the assertion entity itself is still subject to soft-deletion (via the monitor-definition
+path) if the monitor disappears from Monte Carlo, but its run history is preserved.
+
 ### Limitations
 
-- **Failures only:** Monte Carlo's API does not expose a per-run "pass" stream, so the connector
-  emits only `FAILURE` run events (from alerts/incidents). Periodic `SUCCESS` events are not
-  synthesized.
+- **Run history is opt-in:** Without `run_events_lookback_days`, the connector emits only
+  `FAILURE` run events (from alerts/incidents); periodic `SUCCESS` events and measured metric
+  values are not synthesized. Set `run_events_lookback_days` to ingest them.
+- **Best-effort metric correlation:** `getMetricsV4` does not populate `jobExecutionUuid` for
+  table-level metrics, so a per-run join is not possible. The measured value is attached to the
+  latest SUCCESS run as a best-effort temporal correlation ("most recent measurement" on "most
+  recent successful run"), not a proven same-run match.
 - **MCON resolution:** Each monitored asset requires one `getTable` call to resolve its MCON to a
   warehouse table (results are cached per MCON). Assets whose warehouse connection type is not in
   `connection_to_platform_map` (and not auto-mappable) are skipped with a warning.
@@ -71,10 +102,31 @@ for the connection name shown in the warning.
 
 #### Assertion URNs do not match your warehouse source
 
-Assertion URNs are derived from the dataset URN resolved via `connection_to_platform_map`. If the
-`platform`, `platform_instance`, or `env` values differ from those used by your warehouse source
-connector, the assertions will not appear on the correct dataset. Align the values in
-`connection_to_platform_map` with the config of your warehouse source.
+Assertion URNs are keyed from the Monte Carlo monitor ID, but they target the dataset URN resolved
+via `connection_to_platform_map` (or auto-mapped from the warehouse connection type, falling back to
+`default_platform`). If the `platform`, `platform_instance`, or `env` values differ from those used by
+your warehouse source connector, the assertions will not appear on the correct dataset. Align the
+values in `connection_to_platform_map` with the config of your warehouse source.
+
+A few specifics that commonly cause silent mis-attachment:
+
+- **`platform_instance` is Monte Carlo's, not the warehouse's.** The top-level `platform_instance`
+  field is Monte Carlo's own instance (it stamps the `dataPlatformInstance` aspect on the assertion
+  entity). It is **not** applied to warehouse dataset URNs. For warehouses listed in
+  `connection_to_platform_map`, set the instance per entry. For auto-mapped warehouses (those not in
+  the map), use `target_platform_instance` instead — leaving it unset means no platform instance on
+  those URNs, which is safer than guessing.
+- **`env` for auto-mapped warehouses.** `target_env` controls the env on auto-mapped warehouse URNs
+  independently of Monte Carlo's own `env`; when unset it falls back to the top-level `env` (the values
+  usually coincide). Set it explicitly if your warehouse source uses a different env.
+- **Identifier casing.** Snowflake and Redshift dataset URNs are lowercased by default to match those
+  warehouses' sources. If your warehouse source preserves case (e.g. Snowflake with
+  `convert_urns_to_lowercase: false`), set `convert_urns_to_lowercase: false` on the matching
+  `connection_to_platform_map` entry so the assertion targets the same-cased dataset. The top-level
+  `convert_urns_to_lowercase: true` still forces lowercase everywhere.
+- **Malformed table ids.** A Monte Carlo `full_table_id` that does not resolve to
+  `database.schema.table` (three dot-separated segments) is skipped with a warning rather than
+  producing a URN for a dataset that does not exist.
 
 #### No assertions appear after ingestion
 
