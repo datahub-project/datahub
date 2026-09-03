@@ -16,12 +16,13 @@ source:
         platform: snowflake # DataHub platform name (snowflake, bigquery, redshift, ...)
         platform_instance: prod # warehouse platform instance (NOT Monte Carlo's)
         env: PROD
-        # Override URN casing for this warehouse only. true forces lowercase,
-        # false preserves the case Monte Carlo reports (needed for a
-        # case-preserving Snowflake/Redshift deployment whose warehouse source
-        # runs with convert_urns_to_lowercase: false). Leave unset to inherit
-        # the top-level convert_urns_to_lowercase flag.
-        # convert_urns_to_lowercase: false
+        # Override URN casing for this warehouse only. The Snowflake connector
+        # lowercases dataset URNs by default, so set true here to make Monte
+        # Carlo's assertion URNs attach to the same datasets. Set false only
+        # for a case-preserving Snowflake/Redshift deployment whose warehouse
+        # source runs with convert_urns_to_lowercase: false. Leave unset to
+        # inherit the top-level convert_urns_to_lowercase flag.
+        convert_urns_to_lowercase: true
 
     # Fallbacks for warehouses NOT listed in the map above. These stamp the
     # warehouse dataset URN (NOT Monte Carlo's own assertion entity).
@@ -41,8 +42,10 @@ source:
     include_alerts: true # alerts/incidents -> AssertionRunEvent failures
     alerts_lookback_days: 30 # how far back to fetch alerts (default: 30 days)
     # Opt in to also create Incident entities (Incidents tab). Off by default —
-    # see the Limitations section (incidents stay ACTIVE with no RESOLVED signal).
-    emit_incidents_on_failure: true
+    # see the Limitations section (incidents stay ACTIVE with no RESOLVED
+    # signal). Uncomment to enable once you have a workflow that manages
+    # incident resolution in DataHub separately.
+    # emit_incidents_on_failure: true
 
     # Ingest monitor run history + measured metric values as SUCCESS
     # AssertionRunEvents. Leave unset (None) to keep the FAILURE-only behaviour.
