@@ -2116,10 +2116,6 @@
     "duration": "0.034s"
   },
   {
-    "testId": "com.linkedin.gms.factory.aws.AwsAuthEfficiencyTest",
-    "duration": "0.043s"
-  },
-  {
     "testId": "com.linkedin.gms.factory.aws.AwsClientFactoryBedrockCredentialsTest",
     "duration": "0.011s"
   },
