@@ -45,12 +45,42 @@ describe('detectBrowserLanguage', () => {
     });
 
     it('returns the first supported language in preference order', () => {
-        stubLanguages(['ja-JP', 'fr-FR', 'de']);
+        // Use unsupported tags first so preference order is exercised past them.
+        stubLanguages(['ko-KR', 'th-TH', 'fr-FR', 'de']);
         expect(detectBrowserLanguage()).toBe('fr');
     });
 
+    it('maps Japanese region variants to ja', () => {
+        stubLanguages(['ja-JP']);
+        expect(detectBrowserLanguage()).toBe('ja');
+        stubLanguages(['ja']);
+        expect(detectBrowserLanguage()).toBe('ja');
+    });
+
     it('returns undefined when no preferred language is supported', () => {
-        stubLanguages(['ja-JP', 'zh-CN']);
+        stubLanguages(['ko-KR', 'th-TH']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+    });
+
+    it('maps Simplified Chinese tags to zh-CN', () => {
+        stubLanguages(['zh-CN']);
+        expect(detectBrowserLanguage()).toBe('zh-CN');
+        stubLanguages(['zh-Hans']);
+        expect(detectBrowserLanguage()).toBe('zh-CN');
+        stubLanguages(['zh']);
+        expect(detectBrowserLanguage()).toBe('zh-CN');
+        stubLanguages(['zh-SG']);
+        expect(detectBrowserLanguage()).toBe('zh-CN');
+    });
+
+    it('does not map Traditional Chinese tags to zh-CN', () => {
+        stubLanguages(['zh-TW']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+        stubLanguages(['zh-Hant']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+        stubLanguages(['zh-HK']);
+        expect(detectBrowserLanguage()).toBeUndefined();
+        stubLanguages(['zh-MO']);
         expect(detectBrowserLanguage()).toBeUndefined();
     });
 

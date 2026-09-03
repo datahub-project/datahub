@@ -25,6 +25,7 @@ from datahub.ingestion.source.datahub_documents.datahub_documents_config import 
 from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
     EMBED_SOURCE_ASPECT_NAMES,
     DataHubDocumentsSource,
+    DocumentEnumerationError,
 )
 from datahub.ingestion.source.datahub_documents.document_chunking_state import (
     DocumentChunkingCheckpointState,
@@ -39,6 +40,10 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     ServerEmbeddingConfig,
     ServerSemanticSearchConfig,
 )
+from datahub.ingestion.source.unstructured.chunking_source import (
+    compute_source_text_sha256,
+)
+from datahub.metadata.schema_classes import SemanticContentClass
 
 
 def _mock_fetch(source, entities, urns=None):
@@ -84,6 +89,21 @@ class TestTextPartitioner:
 
         assert elements == []
 
+    @pytest.mark.skipif(
+        sys.version_info < (3, 10),
+        reason="unstructured requires Python 3.10+",
+    )
+    def test_partition_single_character_falls_back(self):
+        """A single-character document yields zero elements from the markdown
+        partitioner; the fallback keeps it embeddable instead of silently
+        dropping it."""
+        partitioner = TextPartitioner()
+
+        elements = partitioner.partition_text("x")
+
+        assert len(elements) == 1
+        assert elements[0]["text"] == "x"
+
 
 class TestDataHubDocumentsConfig:
     """Test configuration validation."""
@@ -95,7 +115,7 @@ class TestDataHubDocumentsConfig:
         assert config.platform_filter is None  # Default: None = all NATIVE documents
         assert config.incremental.enabled is True
         assert config.skip_empty_text is True
-        assert config.min_text_length == 50
+        assert config.min_text_length == 0
         assert config.event_mode.enabled is False
         assert config.chunking.strategy == "by_title"
         assert config.partition_strategy == "markdown"
@@ -890,6 +910,197 @@ class TestStateStorage:
                 hash2 = source._calculate_text_hash("Document 2 content")
                 assert calls[0][0][1] == hash1
                 assert calls[1][0][1] == hash2
+
+    def test_failed_document_not_recorded_in_state(self, ctx, config, mock_graph):
+        """A document whose processing fails must NOT get its hash recorded,
+        otherwise every later run skips it as "unchanged" even though no
+        semanticContent was ever written for it."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_document_hash.return_value = None
+            mock_state_handler.update_document_state = Mock()
+
+            mock_docs = [
+                {"urn": "urn:li:document:failing", "text": "Some document content"},
+            ]
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(
+                    source.text_partitioner, "partition_text", return_value=[Mock()]
+                ),
+                patch.object(
+                    source.chunking_source,
+                    "process_elements_inline",
+                    side_effect=RuntimeError("embedding provider unavailable"),
+                ),
+            ):
+                workunits = list(source._process_batch_mode())
+
+                assert workunits == []
+                mock_state_handler.update_document_state.assert_not_called()
+
+    def test_partial_emission_then_failure_not_recorded(self, ctx, config, mock_graph):
+        """A failure after some work units were already emitted must also skip
+        the state update, so the document is fully reprocessed next run."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_document_hash.return_value = None
+            mock_state_handler.update_document_state = Mock()
+
+            def _yield_then_fail(document_urn, elements, source_text_sha256=None):
+                yield Mock()
+                raise RuntimeError("embedding provider unavailable")
+
+            mock_docs = [
+                {"urn": "urn:li:document:failing", "text": "Some document content"},
+            ]
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(
+                    source.text_partitioner, "partition_text", return_value=[Mock()]
+                ),
+                patch.object(
+                    source.chunking_source,
+                    "process_elements_inline",
+                    side_effect=_yield_then_fail,
+                ),
+            ):
+                workunits = list(source._process_batch_mode())
+
+                # The pre-failure work unit is still emitted, but the document
+                # is not marked as done.
+                assert len(workunits) == 1
+                mock_state_handler.update_document_state.assert_not_called()
+
+    def test_chunking_failure_not_recorded_in_state(self, ctx, config, mock_graph):
+        """A crash inside the chunker itself (below process_elements_inline) must
+        propagate as a failure, not read as a successfully-processed empty
+        document that gets its hash recorded."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_document_hash.return_value = None
+            mock_state_handler.update_document_state = Mock()
+
+            mock_docs = [
+                {"urn": "urn:li:document:failing", "text": "Some document content"},
+            ]
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(
+                    source.text_partitioner,
+                    "partition_text",
+                    return_value=[{"type": "NarrativeText", "text": "content"}],
+                ),
+                patch(
+                    "unstructured.staging.base.elements_from_dicts",
+                    side_effect=RuntimeError("chunker crashed"),
+                ),
+            ):
+                workunits = list(source._process_batch_mode())
+
+                assert workunits == []
+                assert source.report.num_documents_failed == 1
+                mock_state_handler.update_document_state.assert_not_called()
+
+    def test_event_failure_suppresses_offset_commit(self, ctx, config, mock_graph):
+        """A document that fails during event-mode processing must hold the offset
+        commit: its hash is not recorded, so acknowledging its event anyway would
+        mean it is never retried."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.config.event_mode.enabled = True
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_event_offset.return_value = "offset-1"
+
+            def _fail_event(event):
+                source.report.report_document_failed()
+                return iter([])
+
+            with (
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.DocumentEventConsumer"
+                ) as mock_consumer_cls,
+                patch.object(source, "_process_single_event", side_effect=_fail_event),
+            ):
+                consumer = mock_consumer_cls.return_value
+                consumer.consume_events.return_value = iter([{"entityUrn": "urn:x"}])
+                consumer.suppress_offset_commits = False
+
+                list(source._process_event_mode())
+
+                assert consumer.suppress_offset_commits is True
+
+    def test_event_exception_suppresses_offset_commit(self, ctx, config, mock_graph):
+        """An exception escaping the event loop (e.g. the max-document limit
+        abort) leaves events unprocessed with no per-document failure counted —
+        offsets must still be held so those events are not acknowledged."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.config.event_mode.enabled = True
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_event_offset.return_value = "offset-1"
+
+            with (
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.DocumentEventConsumer"
+                ) as mock_consumer_cls,
+                patch.object(
+                    source,
+                    "_process_single_event",
+                    side_effect=RuntimeError("Document limit of 100000 reached"),
+                ),
+                patch.object(source, "_process_batch_mode", return_value=iter([])),
+            ):
+                consumer = mock_consumer_cls.return_value
+                consumer.consume_events.return_value = iter([{"entityUrn": "urn:x"}])
+                consumer.suppress_offset_commits = False
+
+                list(source._process_event_mode())
+
+                assert consumer.suppress_offset_commits is True
+
+    def test_event_success_commits_offsets(self, ctx, config, mock_graph):
+        """Successful event processing must not suppress offset commits."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.config.event_mode.enabled = True
+
+            mock_state_handler = patch.object(source, "state_handler").start()
+            mock_state_handler.is_checkpointing_enabled.return_value = True
+            mock_state_handler.get_event_offset.return_value = "offset-1"
+
+            with (
+                patch(
+                    "datahub.ingestion.source.datahub_documents.datahub_documents_source.DocumentEventConsumer"
+                ) as mock_consumer_cls,
+                patch.object(source, "_process_single_event", return_value=iter([])),
+            ):
+                consumer = mock_consumer_cls.return_value
+                consumer.consume_events.return_value = iter([{"entityUrn": "urn:x"}])
+                consumer.suppress_offset_commits = False
+
+                list(source._process_event_mode())
+
+                assert consumer.suppress_offset_commits is False
 
     def test_fallback_stores_document_hashes(self, ctx, config, mock_graph):
         """Test that fallback to batch mode stores document hashes."""
@@ -1940,7 +2151,7 @@ class TestConfigFingerprintInHash:
                 ],
             )
 
-            documents = source._fetch_documents_graphql()
+            documents = list(source._fetch_documents_graphql())
 
             # Both NATIVE and EXTERNAL documents are returned by default
             assert len(documents) == 2
@@ -1999,7 +2210,7 @@ class TestConfigFingerprintInHash:
                 ],
             )
 
-            documents = source._fetch_documents_graphql()
+            documents = list(source._fetch_documents_graphql())
 
             # Should only return notion document (confluence filtered out)
             assert len(documents) == 1
@@ -2063,7 +2274,7 @@ class TestPartialEntityHandling:
                 ],
             )
 
-            documents = source._fetch_documents_graphql()
+            documents = list(source._fetch_documents_graphql())
 
             assert len(documents) == 1
             assert documents[0]["urn"] == "urn:li:document:complete1"
@@ -2088,7 +2299,7 @@ class TestPartialEntityHandling:
                 ],
             )
 
-            documents = source._fetch_documents_graphql()
+            documents = list(source._fetch_documents_graphql())
 
             assert len(documents) == 0
 
@@ -2099,7 +2310,7 @@ class TestPartialEntityHandling:
 
             _mock_fetch(source, [None], urns=["urn:li:document:orphan"])
 
-            documents = source._fetch_documents_graphql()
+            documents = list(source._fetch_documents_graphql())
 
             assert len(documents) == 0
             assert source.report.num_documents_skipped_orphaned == 1
@@ -2280,10 +2491,260 @@ class TestPartialEntityHandling:
                 ],
             )
 
-            documents = source._fetch_documents_graphql()
+            documents = list(source._fetch_documents_graphql())
 
-            assert len(documents) == 1
-            assert documents[0]["urn"] == "urn:li:document:valid"
+            # Null info/contents are hydration anomalies and stay silently skipped;
+            # empty TEXT is yielded so _process_single_document can stamp a skip marker.
+            assert len(documents) == 2
+            assert documents[0]["urn"] == "urn:li:document:empty_text"
+            assert documents[1]["urn"] == "urn:li:document:valid"
+
+
+class TestSkipMarkersAndProvenance:
+    """Skip markers for never-embeddable documents + sourceTextSha256 provenance."""
+
+    @pytest.fixture
+    def config(self):
+        return DataHubDocumentsSourceConfig(
+            platform_filter=None,
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            min_text_length=10,
+            stateful_ingestion={"enabled": False},
+        )
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    @staticmethod
+    def _drain(gen):
+        """Collect a generator's yields and its StopIteration return value."""
+        items = []
+        try:
+            while True:
+                items.append(next(gen))
+        except StopIteration as stop:
+            return items, stop.value
+
+    def test_skip_marker_emitted_for_empty_text(self, ctx, config, mock_graph):
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            wus, result = self._drain(
+                source._process_single_document(
+                    {"urn": "urn:li:document:empty", "text": ""}
+                )
+            )
+
+        # True: the skip is deterministic for this text, so state should advance.
+        assert result is True
+        assert len(wus) == 1
+        aspect = wus[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.embeddings == {}
+        assert aspect.skipReason == "EMPTY_TEXT"
+        assert isinstance(aspect.skippedAt, int)
+
+    def test_skip_marker_emitted_below_min_text_length(self, ctx, config, mock_graph):
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            wus, result = self._drain(
+                source._process_single_document(
+                    {"urn": "urn:li:document:short", "text": "tiny"}
+                )
+            )
+
+        assert result is True
+        assert len(wus) == 1
+        aspect = wus[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.skipReason == "BELOW_MIN_TEXT_LENGTH"
+
+    def test_source_text_sha256_passed_to_chunking(self, ctx, config, mock_graph):
+        text = "This document has enough content to be partitioned and embedded."
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.chunking_source = Mock()
+            source.chunking_source.process_elements_inline.return_value = iter([])
+            wus, result = self._drain(
+                source._process_single_document(
+                    {"urn": "urn:li:document:hashed", "text": text}
+                )
+            )
+
+        assert result is True
+        kwargs = source.chunking_source.process_elements_inline.call_args.kwargs
+        assert kwargs["source_text_sha256"] == compute_source_text_sha256(text)
+
+    def test_skip_marker_emitted_when_no_elements(self, ctx, config, mock_graph):
+        text = "long enough text that still partitions into nothing"
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            with patch.object(
+                source.text_partitioner, "partition_text", return_value=[]
+            ):
+                wus, result = self._drain(
+                    source._process_single_document(
+                        {"urn": "urn:li:document:no-elements", "text": text}
+                    )
+                )
+
+        assert result is True
+        assert len(wus) == 1
+        aspect = wus[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.embeddings == {}
+        assert aspect.skipReason == "NO_INDEXABLE_CONTENT"
+
+    def test_skip_empty_text_false_embeds_short_documents(self, ctx, mock_graph):
+        """skip_empty_text=False keeps short-but-non-empty documents embeddable
+        (its pre-existing semantics); empty documents are always skipped."""
+        cfg = DataHubDocumentsSourceConfig(
+            platform_filter=None,
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            min_text_length=10,
+            skip_empty_text=False,
+            stateful_ingestion={"enabled": False},
+        )
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, cfg)
+            source.chunking_source = Mock()
+            source.chunking_source.process_elements_inline.return_value = iter([])
+
+            wus, result = self._drain(
+                source._process_single_document(
+                    {"urn": "urn:li:document:short-but-wanted", "text": "tiny"}
+                )
+            )
+            assert result is True
+            source.chunking_source.process_elements_inline.assert_called_once()
+
+            # Fresh source (real chunking_source) for the marker path: the marker is
+            # built by chunking_source, which is mocked out above.
+            marker_source = DataHubDocumentsSource(ctx, cfg)
+            wus_empty, result_empty = self._drain(
+                marker_source._process_single_document(
+                    {"urn": "urn:li:document:still-empty", "text": ""}
+                )
+            )
+
+        assert result_empty is True
+        assert len(wus_empty) == 1
+        aspect = wus_empty[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.skipReason == "EMPTY_TEXT"
+
+    def test_empty_override_event_with_null_contents_skips_silently(
+        self, ctx, config, mock_graph
+    ):
+        """A semanticText event with an empty override on a partial entity (null
+        documentInfo.contents) must skip silently -- not stamp an EMPTY_TEXT marker
+        from a body that was never readable (mirrors the batch/documentInfo guards)."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            with patch.object(
+                source,
+                "_fetch_document_info_dict",
+                return_value={"source": {"sourceType": "NATIVE"}, "contents": None},
+            ):
+                event: dict[str, Any] = {
+                    "entityUrn": "urn:li:document:partial-override",
+                    "aspectName": "semanticText",
+                    "aspect": json.dumps({"text": ""}),
+                }
+                workunits = list(source._process_single_event(event))
+
+        assert workunits == []
+
+    def test_threshold_change_reevaluates_skipped_documents(self, ctx, mock_graph):
+        """Recorded state for a skipped document must become invalid when
+        min_text_length changes, so the document is re-evaluated (and embedded once
+        eligible) instead of staying 'unchanged' forever. Embedded documents' hashes
+        must NOT change with the threshold (no re-embed wave)."""
+
+        def make_source(min_len):
+            cfg = DataHubDocumentsSourceConfig(
+                platform_filter=None,
+                datahub={"server": "http://test-server:8080"},
+                embedding={
+                    "provider": "bedrock",
+                    "model": "cohere.embed-english-v3",
+                    "aws_region": "us-west-2",
+                    "allow_local_embedding_config": True,
+                },
+                min_text_length=min_len,
+                stateful_ingestion={"enabled": False},
+            )
+            return DataHubDocumentsSource(ctx, cfg)
+
+        with mock_graph:
+            at_50 = make_source(50)
+            at_0 = make_source(0)
+
+        short_text = "tiny"
+        long_text = "x" * 100
+        # Skipped-at-50 doc: hash differs once threshold changes -> re-evaluated.
+        assert at_50._calculate_text_hash(short_text) != at_0._calculate_text_hash(
+            short_text
+        )
+        # Embedded doc (above both thresholds): hash identical -> no re-embed wave.
+        assert at_50._calculate_text_hash(long_text) == at_0._calculate_text_hash(
+            long_text
+        )
+
+        # End to end: the same short document is marker-skipped at 50 and reaches the
+        # embed path at 0 (the state-hash difference above is what re-triggers it).
+        doc = {"urn": "urn:li:document:threshold", "text": short_text}
+        wus_50, result_50 = self._drain(at_50._process_single_document(doc))
+        assert result_50 is True
+        aspect = wus_50[0].metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.skipReason == "BELOW_MIN_TEXT_LENGTH"
+
+        at_0.chunking_source = Mock()
+        at_0.chunking_source.process_elements_inline.return_value = iter([])
+        wus_0, result_0 = self._drain(at_0._process_single_document(doc))
+        assert result_0 is True
+        at_0.chunking_source.process_elements_inline.assert_called_once()
+
+    def test_source_text_sha256_cross_language_vector(self, ctx, config, mock_graph):
+        """Pinned vector shared with the Java projection test (UpdateIndicesV2Strategy):
+        the digest the connector actually passes to the chunking source must be
+        byte-identical to the server-side resolvedTextSha256 stamp."""
+        text = "héllo \U0001f680\r\nworld"
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.chunking_source = Mock()
+            source.chunking_source.process_elements_inline.return_value = iter([])
+            wus, result = self._drain(
+                source._process_single_document(
+                    {"urn": "urn:li:document:unicode", "text": text}
+                )
+            )
+
+        assert result is True
+        kwargs = source.chunking_source.process_elements_inline.call_args.kwargs
+        assert (
+            kwargs["source_text_sha256"]
+            == "f319ae6318b99bf8c83d79fe08bdcbc42928dc83c0d9e23145440c83141321a9"
+        )
 
 
 class TestMaxDocumentsLimit:
@@ -2436,6 +2897,36 @@ class TestMaxDocumentsLimit:
                 list(source._process_batch_mode())
 
             assert source.chunking_source.report.num_documents_processed == 2
+
+
+class TestOffsetCommitSuppression:
+    """Offsets must not be committed when a document in the window failed."""
+
+    @staticmethod
+    def _consumer(state_handler):
+        consumer = DocumentEventConsumer(
+            graph=Mock(),
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+            state_handler=state_handler,
+        )
+        consumer.offset_ids["MetadataChangeLog_Versioned_v1"] = "offset-42"
+        return consumer
+
+    def test_close_commits_offsets_by_default(self):
+        state_handler = Mock()
+        consumer = self._consumer(state_handler)
+        consumer.close()
+        state_handler.update_event_offset.assert_called_once_with(
+            "MetadataChangeLog_Versioned_v1", "offset-42"
+        )
+
+    def test_close_skips_commit_when_suppressed(self):
+        state_handler = Mock()
+        consumer = self._consumer(state_handler)
+        consumer.suppress_offset_commits = True
+        consumer.close()
+        state_handler.update_event_offset.assert_not_called()
 
 
 class TestGetCurrentOffset:
@@ -2770,19 +3261,20 @@ class TestFetchDocumentsPagination:
             assert second_scroll_id == "cursor-1"
 
     def test_stops_when_no_next_scroll_id(self, ctx, config, mock_graph):
-        """A single page with no nextScrollId issues only one call."""
+        """A partial page with no nextScrollId issues only one call and is clean."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            response = self._make_scroll_page(0, 1000, next_scroll_id=None)
+            response = self._make_scroll_page(0, 500, next_scroll_id=None)
 
             with patch.object(
                 source.graph, "execute_graphql", return_value=response
             ) as mock_execute:
                 urns = list(source._scroll_document_urns())
 
-            assert len(urns) == 1000
+            assert len(urns) == 500
             assert mock_execute.call_count == 1
+            assert not source.report.failures
 
     def test_requests_hidden_lifecycle_stages(self, ctx, config, mock_graph):
         """Enumeration requests hidden-lifecycle stages so hidden documents are included."""
@@ -2882,7 +3374,7 @@ class TestScrollPaginationConfig:
             with patch.object(
                 source.graph, "execute_graphql", return_value=response
             ) as mock_execute:
-                source._fetch_documents_graphql()
+                list(source._fetch_documents_graphql())
             assert mock_execute.call_args[0][1]["batchSize"] == 250
 
     def test_scroll_delay_sleeps_between_pages(self, ctx, mock_graph):
@@ -2909,7 +3401,7 @@ class TestScrollPaginationConfig:
                     "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
                 ) as mock_sleep,
             ):
-                source._fetch_documents_graphql()
+                list(source._fetch_documents_graphql())
             # Sleep happens before the second page only (not before the first).
             mock_sleep.assert_called_once_with(0.5)
 
@@ -2937,7 +3429,7 @@ class TestScrollPaginationConfig:
                     "datahub.ingestion.source.datahub_documents.datahub_documents_source.time.sleep"
                 ) as mock_sleep,
             ):
-                source._fetch_documents_graphql()
+                list(source._fetch_documents_graphql())
             mock_sleep.assert_not_called()
 
 
@@ -3797,8 +4289,13 @@ class TestDocumentEventConsumerAspectFilter:
 
 
 class TestOrphanedDocumentResilience:
-    """A single orphaned index entry (a URN present in the index but with no
-    resolvable backing entity) must not abort the embedding run."""
+    """Where the line sits between orphan drift and a broken document set.
+
+    A single orphaned index entry (a URN present in the index with no resolvable
+    backing entity) must be skipped, not abort the run. A systemic failure —
+    enumeration breaking, or GMS returning a response that can't be aligned with
+    the request — must abort instead of finishing SUCCESS over a silent subset.
+    """
 
     @pytest.fixture
     def config(self):
@@ -3869,7 +4366,7 @@ class TestOrphanedDocumentResilience:
 
         source.graph.execute_graphql.side_effect = _graphql
 
-        documents = source._fetch_documents_graphql()
+        documents = list(source._fetch_documents_graphql())
 
         assert [d["urn"] for d in documents] == [
             "urn:li:document:real-1",
@@ -3895,7 +4392,7 @@ class TestOrphanedDocumentResilience:
 
         source.graph.execute_graphql.side_effect = _graphql
 
-        source._fetch_documents_graphql()
+        list(source._fetch_documents_graphql())
 
         scroll_query = captured["scroll"]
         assert "info" not in scroll_query
@@ -3967,21 +4464,59 @@ class TestOrphanedDocumentResilience:
             "Cannot query field 'semanticText'"
         )
 
-        hydrated = list(
-            source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"])
-        )
+        with pytest.raises(DocumentEnumerationError) as excinfo:
+            list(source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"]))
 
-        assert hydrated == []
+        # The originating GraphError is kept as the cause so the GMS message
+        # (e.g. the missing field) survives in the traceback.
+        assert isinstance(excinfo.value.__cause__, GraphError)
         assert any(
             "entire batch" in (f.title or "").lower() for f in source.report.failures
         )
 
-    def test_hydration_entity_count_mismatch_warns(self, ctx, config):
-        # GMS returning fewer entities than requested URNs must be surfaced, not
-        # silently dropped by the zip.
+    def test_systemic_hydration_failure_stops_after_first_batch(self, ctx, config):
+        # A systemic failure must abort instead of thrashing GMS: every later
+        # batch would repeat the batch call plus a doomed per-URN retry for each
+        # of its URNs, i.e. O(total URNs) failing requests on a large catalog.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.side_effect = GraphError(
+            "Cannot query field 'semanticText'"
+        )
+        urns = [f"urn:li:document:doc-{i}" for i in range(250)]
+
+        with pytest.raises(DocumentEnumerationError):
+            list(source._hydrate_documents(urns))
+
+        # One batch call + one retry per URN in that batch — nothing beyond it.
+        assert source.graph.execute_graphql.call_count == 1 + 100
+
+    def test_hydration_matches_entities_by_urn_not_position(self, ctx, config):
+        # A reordered response must not shift one document's content onto
+        # another's URN, as a positional zip would.
         source = self._make_source(ctx, config)
         source.graph.execute_graphql.return_value = {
-            "entities": [self._native_notion_doc("urn:li:document:a")]
+            "entities": [
+                self._native_notion_doc("urn:li:document:b"),
+                self._native_notion_doc("urn:li:document:a"),
+            ]
+        }
+
+        hydrated = list(
+            source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"])
+        )
+
+        assert sorted(e["urn"] for e in hydrated) == [
+            "urn:li:document:a",
+            "urn:li:document:b",
+        ]
+        assert source.report.num_documents_skipped_orphaned == 0
+
+    def test_full_length_response_with_null_slot_orphans(self, ctx, config):
+        # The contract-honouring shape: one slot per URN, null where the entity
+        # can't be resolved. That single null is orphan drift, not a failure.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.return_value = {
+            "entities": [self._native_notion_doc("urn:li:document:a"), None]
         }
 
         hydrated = list(
@@ -3989,6 +4524,232 @@ class TestOrphanedDocumentResilience:
         )
 
         assert [e["urn"] for e in hydrated] == ["urn:li:document:a"]
+        assert source.report.num_documents_skipped_orphaned == 1
+        assert not source.report.failures
+
+    def test_short_entity_response_is_fatal(self, ctx, config):
+        # GMS returns exactly one slot per requested URN, so a short list is a
+        # broken contract, not orphans. Booking the missing URNs as orphans would
+        # let the run finish SUCCESS having embedded only the returned subset.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.return_value = {
+            "entities": [self._native_notion_doc("urn:li:document:a")]
+        }
+
+        with pytest.raises(DocumentEnumerationError):
+            list(source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"]))
+
+        assert source.report.num_documents_skipped_orphaned == 0
         assert any(
-            "entity count" in (w.title or "").lower() for w in source.report.warnings
+            "unexpected entity count" in (f.title or "").lower()
+            for f in source.report.failures
         )
+
+    def test_empty_entity_response_is_fatal(self, ctx, config):
+        # An empty entity list for a non-empty batch is the degenerate short
+        # response: a serving problem, not a batch of orphans.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.return_value = {"entities": []}
+
+        with pytest.raises(DocumentEnumerationError):
+            list(source._hydrate_documents(["urn:li:document:a"]))
+
+        assert source.report.num_documents_skipped_orphaned == 0
+        assert any(
+            "unexpected entity count" in (f.title or "").lower()
+            for f in source.report.failures
+        )
+
+    def test_all_null_batch_fails_but_does_not_abort(self, ctx, config):
+        # Right length, every slot null. Unlike a length mismatch this is
+        # interpretable, and the rest of the catalog may be healthy — so the run
+        # goes red without one drifted page taking down the whole run.
+        source = self._make_source(ctx, config)
+        urns = [f"urn:li:document:doc-{i}" for i in range(150)]
+        batch1 = {"entities": [None] * 100}
+        batch2 = {"entities": [self._native_notion_doc(u) for u in urns[100:]]}
+        source.graph.execute_graphql.side_effect = [batch1, batch2]
+
+        hydrated = list(source._hydrate_documents(urns))
+
+        # Second batch still hydrated: the failure did not abort the run.
+        assert len(hydrated) == 50
+        assert source.report.num_documents_skipped_orphaned == 100
+        assert any(
+            "resolved nothing" in (f.title or "").lower()
+            for f in source.report.failures
+        )
+
+    def test_missing_scroll_payload_is_fatal(self, ctx, config):
+        # scrollAcrossEntities is nullable and a null payload carries no GraphQL
+        # `errors`, so it arrives as an ordinary response. Enumeration is broken:
+        # the run must fail, not quietly embed whatever it managed to enumerate.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.return_value = {"scrollAcrossEntities": None}
+
+        with pytest.raises(DocumentEnumerationError):
+            list(source._fetch_documents_graphql())
+
+        assert any(
+            "no scroll payload" in (f.title or "").lower()
+            for f in source.report.failures
+        )
+
+    def test_truncated_scroll_page_fails_the_run(self, ctx, config):
+        # A full page with no continuation cursor means enumeration stopped
+        # early. The page is still usable, so keep its documents, but the run
+        # must not report success over a silent gap.
+        source = self._make_source(ctx, config)
+        page_size = source.config.scroll_batch_size
+        urns = [f"urn:li:document:doc-{i}" for i in range(page_size)]
+        source.graph.execute_graphql.return_value = {
+            "scrollAcrossEntities": {
+                "nextScrollId": None,
+                "searchResults": [{"entity": {"urn": u}} for u in urns],
+            }
+        }
+
+        enumerated = list(source._scroll_document_urns())
+
+        assert len(enumerated) == page_size
+        assert any(
+            "without a scroll cursor" in (f.title or "").lower()
+            for f in source.report.failures
+        )
+
+    def test_enumeration_and_hydration_interleave(self, ctx, config):
+        # Regression guard for streaming: URNs must not be materialized up front.
+        # Hydration of the first window has to happen before the last scroll page
+        # is requested, so memory stays bounded by the hydrate batch size.
+        source = self._make_source(ctx, config)
+        pages = [
+            [f"urn:li:document:p{page}-{i}" for i in range(150)] for page in range(2)
+        ]
+        calls: list[str] = []
+
+        def _graphql(query, variables=None):
+            if "scrollAcrossEntities" in query:
+                page = len([c for c in calls if c == "scroll"])
+                calls.append("scroll")
+                return {
+                    "scrollAcrossEntities": {
+                        "nextScrollId": "cursor-1" if page == 0 else None,
+                        "searchResults": [{"entity": {"urn": u}} for u in pages[page]],
+                    }
+                }
+            calls.append("hydrate")
+            return {"entities": [self._native_notion_doc(u) for u in variables["urns"]]}
+
+        source.graph.execute_graphql.side_effect = _graphql
+
+        hydrated = list(source._hydrate_documents(source._scroll_document_urns()))
+
+        assert len(hydrated) == 300
+        # First page (150 URNs) fills a 100-URN window, which is hydrated before
+        # the second scroll page is fetched.
+        assert calls[:2] == ["scroll", "hydrate"]
+        assert "scroll" in calls[2:]
+
+
+class TestSystemicAbortHandling:
+    """A systemic abort is already reported under a specific title, so it must
+    surface once and must not be retried."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    def test_abort_is_not_double_reported(self, ctx, mock_graph):
+        # get_workunits_internal's catch-all would otherwise append a generic
+        # "Failed to run Unstructured pipeline" after the specific failure,
+        # leaving operators with the vaguer of two entries last.
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, _make_config())
+
+            def _abort_like_enumeration():
+                source.report.failure(
+                    title="Document enumeration returned no scroll payload",
+                    message="scrollAcrossEntities was missing from the response.",
+                )
+                raise DocumentEnumerationError("enumeration broke")
+
+            with patch.object(
+                source, "_process_batch_mode", side_effect=_abort_like_enumeration
+            ):
+                list(source.get_workunits_internal())
+
+        assert len(source.report.failures) == 1
+        assert "no scroll payload" in (source.report.failures[0].title or "").lower()
+
+    def test_event_mode_does_not_retry_batch_after_abort(self, ctx, mock_graph):
+        # Event mode falls back to batch when a poll yields no events. That
+        # fallback sits inside an `except Exception` that falls back *again*, so
+        # a systemic abort would replay a full enumeration + hydration storm.
+        config = _make_config(event_mode={"enabled": True})
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            with (
+                patch.object(
+                    source, "_should_fallback_to_batch_mode", return_value=False
+                ),
+                patch(
+                    "datahub.ingestion.source.unstructured.event_consumer.DocumentEventConsumer.consume_events",
+                    return_value=iter([]),
+                ),
+                patch.object(
+                    source,
+                    "_process_batch_mode",
+                    side_effect=DocumentEnumerationError("enumeration broke"),
+                ) as mock_batch,
+            ):
+                with pytest.raises(DocumentEnumerationError):
+                    list(source._process_event_mode())
+
+            assert mock_batch.call_count == 1
+
+
+class TestTotalProcessingFailure:
+    """A run where every attempted document failed is systemic, not bad data."""
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    def _run(
+        self, ctx: PipelineContext, failed: int, processed: int
+    ) -> DataHubDocumentsSource:
+        source = DataHubDocumentsSource(ctx, _make_config())
+        with patch.object(source, "_process_batch_mode", return_value=iter([])):
+            source.report.num_documents_failed = failed
+            source.chunking_source.report.num_documents_processed = processed
+            list(source.get_workunits_internal())
+        return source
+
+    def test_all_documents_failed_fails_the_run(self, ctx, mock_graph):
+        # Otherwise the run exits 0 having indexed nothing, and a dependency
+        # break looks identical to "there was nothing to do".
+        with mock_graph:
+            source = self._run(ctx, failed=3, processed=0)
+
+        assert source.report.failures
+
+    def test_partial_failure_does_not_fail_the_run(self, ctx, mock_graph):
+        # Also pins the counter this reads: self.report.num_documents_processed is
+        # only populated in get_report(), so reading it here would still be 0 and
+        # would fail every run that had any per-document error.
+        with mock_graph:
+            source = self._run(ctx, failed=2, processed=5)
+
+        assert not source.report.failures

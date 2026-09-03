@@ -154,7 +154,7 @@ def _parse_iso_to_millis(iso_str: str) -> int:
 
 @platform_name("Fabric Data Factory")
 @config_class(FabricDataFactorySourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
@@ -262,7 +262,11 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             # Pass 2: resolve edges and emit (cache is now fully populated)
             for workspace, pipeline_items in workspace_pipelines:
                 try:
-                    yield from self._create_workspace_container(workspace)
+                    yield from build_workspace_container(
+                        workspace=workspace,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
 
                     if self.config.extract_pipelines and pipeline_items:
                         invoke_pipeline_lineage = self._resolve_invoke_pipeline_edges(
@@ -344,15 +348,6 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 exc=e,
                 log=False,
             )
-
-    def _create_workspace_container(
-        self, workspace: FabricWorkspace
-    ) -> Iterable[Entity]:
-        yield from build_workspace_container(
-            workspace=workspace,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
 
     @staticmethod
     def _get_pipeline_url(workspace_id: str, pipeline_id: str) -> str:

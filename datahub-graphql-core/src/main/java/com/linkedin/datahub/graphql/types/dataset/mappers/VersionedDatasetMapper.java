@@ -186,6 +186,10 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
     graphqlProperties.setMaterialized(properties.isMaterialized());
     graphqlProperties.setLanguage(properties.getViewLanguage());
     graphqlProperties.setLogic(properties.getViewLogic());
+    // Keep parity with DatasetMapper so dbt compiled SQL (formattedViewLogic) is exposed.
+    if (properties.hasFormattedViewLogic()) {
+      graphqlProperties.setFormattedLogic(properties.getFormattedViewLogic());
+    }
     dataset.setViewProperties(graphqlProperties);
   }
 

@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.objectstorage;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertNotNull;
@@ -10,24 +9,19 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.ObjectStorageConfiguration;
-import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.utils.objectstorage.GcsObjectStorageClient;
 import com.linkedin.metadata.utils.objectstorage.LocalObjectStorageClient;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageProvider;
 import com.linkedin.metadata.utils.objectstorage.S3ObjectStorageClient;
-import java.time.Instant;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.testng.SkipException;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import software.amazon.awssdk.services.sts.StsClient;
-import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
-import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
-import software.amazon.awssdk.services.sts.model.Credentials;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 public class ObjectStorageClientFactoryTest {
 
@@ -35,6 +29,8 @@ public class ObjectStorageClientFactoryTest {
 
   private ObjectStorageClientFactory factory;
   private DataHubConfiguration dataHubConfiguration;
+  private S3Client sharedS3Client;
+  private S3Presigner sharedS3Presigner;
 
   @BeforeMethod
   public void setUp() {
@@ -42,12 +38,14 @@ public class ObjectStorageClientFactoryTest {
     factory = new ObjectStorageClientFactory();
     ReflectionTestUtils.setField(factory, "configurationProvider", configurationProvider);
 
-    dataHubConfiguration = new DataHubConfiguration();
-    S3Configuration s3Configuration = new S3Configuration();
-    s3Configuration.setBucketName("");
-    dataHubConfiguration.setS3(s3Configuration);
+    sharedS3Client = mock(S3Client.class);
+    sharedS3Presigner = mock(S3Presigner.class);
+    ReflectionTestUtils.setField(factory, "objectStorageS3Client", sharedS3Client);
+    ReflectionTestUtils.setField(factory, "objectStorageS3Presigner", sharedS3Presigner);
 
+    dataHubConfiguration = new DataHubConfiguration();
     ObjectStorageConfiguration objectStorageConfiguration = new ObjectStorageConfiguration();
+    objectStorageConfiguration.setBucket("");
     dataHubConfiguration.setObjectStorage(objectStorageConfiguration);
 
     when(configurationProvider.getDatahub()).thenReturn(dataHubConfiguration);
@@ -84,47 +82,13 @@ public class ObjectStorageClientFactoryTest {
   }
 
   @Test
-  public void testCreatesS3ClientFromUriWithAwsRegion() {
+  public void testCreatesS3ClientFromUriWithSharedBean() {
     dataHubConfiguration.getObjectStorage().setUri("s3://my-bucket/prefix");
-    System.setProperty("aws.region", "us-east-1");
 
     ObjectStorageClient client = factory.getInstance();
     assertNotNull(client);
     assertTrue(client instanceof S3ObjectStorageClient);
     assertTrue(client.provider() == ObjectStorageProvider.S3);
-  }
-
-  @Test
-  public void testCreatesS3ClientFromUriWithEndpointOnly() {
-    dataHubConfiguration.getObjectStorage().setUri("s3://my-bucket");
-    System.setProperty("AWS_ENDPOINT_URL", "http://localhost:9999");
-
-    ObjectStorageClient client = factory.getInstance();
-    assertNotNull(client);
-    assertTrue(client instanceof S3ObjectStorageClient);
-  }
-
-  @Test
-  public void testCreatesS3ClientWithRoleArn() {
-    dataHubConfiguration.getObjectStorage().setUri("s3://my-bucket");
-    dataHubConfiguration.getS3().setRoleArn("arn:aws:iam::123456789012:role/test-role");
-    System.setProperty("aws.region", "us-east-1");
-
-    StsClient stsClient = mock(StsClient.class);
-    Credentials credentials =
-        Credentials.builder()
-            .accessKeyId("test-access-key")
-            .secretAccessKey("test-secret-key")
-            .sessionToken("test-session-token")
-            .expiration(Instant.now().plusSeconds(3600))
-            .build();
-    when(stsClient.assumeRole(any(AssumeRoleRequest.class)))
-        .thenReturn(AssumeRoleResponse.builder().credentials(credentials).build());
-    ReflectionTestUtils.setField(factory, "stsClient", stsClient);
-
-    ObjectStorageClient client = factory.getInstance();
-    assertNotNull(client);
-    assertTrue(client instanceof S3ObjectStorageClient);
   }
 
   @Test
@@ -138,23 +102,13 @@ public class ObjectStorageClientFactoryTest {
   }
 
   @Test
-  public void testReturnsNullWhenS3LocationWithoutAwsConfig() {
-    if (hasAwsEnvironmentConfig()) {
-      throw new SkipException("AWS env vars are set; cannot assert null S3 client");
-    }
+  public void testReturnsNullWhenS3LocationWithoutSharedClient() {
+    ReflectionTestUtils.setField(factory, "objectStorageS3Client", null);
+    ReflectionTestUtils.setField(factory, "objectStorageS3Presigner", null);
     dataHubConfiguration.getObjectStorage().setUri("s3://my-bucket");
 
     ObjectStorageClient client = factory.getInstance();
     assertNull(client);
-  }
-
-  private static boolean hasAwsEnvironmentConfig() {
-    String awsRegion = System.getenv("AWS_REGION");
-    if (awsRegion != null && !awsRegion.isBlank()) {
-      return true;
-    }
-    String endpointUrl = System.getenv("AWS_ENDPOINT_URL");
-    return endpointUrl != null && !endpointUrl.isBlank();
   }
 
   @Test

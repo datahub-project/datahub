@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -133,6 +134,7 @@ import org.opensearch.search.suggest.phrase.PhraseSuggestion;
 import org.opensearch.search.suggest.phrase.PhraseSuggestionBuilder;
 import org.opensearch.search.suggest.term.TermSuggestion;
 import org.opensearch.search.suggest.term.TermSuggestionBuilder;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 /**
  * Factory for creating appropriate SearchClientShim implementations based on the target search
@@ -453,7 +455,10 @@ public class SearchClientShimUtil {
 
     // Create a new config with the detected engine type
     ShimConfiguration detectedConfig =
-        new ShimConfigurationBuilder(config).withEngineType(detectedType).build();
+        new ShimConfigurationBuilder(config)
+            .withEngineType(detectedType)
+            .withEngineTypeAutoDetected(true)
+            .build();
 
     return createShim(detectedConfig, objectMapper);
   }
@@ -477,6 +482,7 @@ public class SearchClientShimUtil {
       ShimConfiguration testConfig =
           new ShimConfigurationBuilder(config)
               .withEngineType(SearchEngineType.OPENSEARCH_2)
+              .withEngineTypeAutoDetected(true)
               .build();
 
       try (SearchClientShim<?> testShim = new OpenSearch2SearchClientShim(testConfig)) {
@@ -498,6 +504,7 @@ public class SearchClientShimUtil {
       ShimConfiguration testConfig =
           new ShimConfigurationBuilder(config)
               .withEngineType(SearchEngineType.ELASTICSEARCH_7)
+              .withEngineTypeAutoDetected(true)
               .build();
 
       try (SearchClientShim<?> testShim = new Es7CompatibilitySearchClientShim(testConfig)) {
@@ -519,6 +526,7 @@ public class SearchClientShimUtil {
       ShimConfiguration testConfig =
           new ShimConfigurationBuilder(config)
               .withEngineType(SearchEngineType.ELASTICSEARCH_8)
+              .withEngineTypeAutoDetected(true)
               .build();
 
       try (SearchClientShim<?> testShim = new Es8SearchClientShim(testConfig, objectMapper)) {
@@ -563,10 +571,12 @@ public class SearchClientShimUtil {
     private String pathPrefix;
     private boolean useAwsIamAuth = false;
     private String region;
+    @Nullable private AwsCredentialsProvider awsCredentialsProvider;
     private Integer threadCount = 1;
     private Integer connectionRequestTimeout = 5000;
     private Integer socketTimeout = 30000;
     private SSLContext sSLContext;
+    private boolean engineTypeAutoDetected = false;
 
     public ShimConfigurationBuilder() {}
 
@@ -580,10 +590,12 @@ public class SearchClientShimUtil {
       this.pathPrefix = existing.getPathPrefix();
       this.useAwsIamAuth = existing.isUseAwsIamAuth();
       this.region = existing.getRegion();
+      this.awsCredentialsProvider = existing.getAwsCredentialsProvider();
       this.threadCount = existing.getThreadCount();
       this.connectionRequestTimeout = existing.getConnectionRequestTimeout();
       this.socketTimeout = existing.getSocketTimeout();
       this.sSLContext = existing.getSSLContext();
+      this.engineTypeAutoDetected = existing.isEngineTypeAutoDetected();
     }
 
     public ShimConfigurationBuilder withEngineType(SearchEngineType engineType) {
@@ -623,6 +635,12 @@ public class SearchClientShimUtil {
       return this;
     }
 
+    public ShimConfigurationBuilder withAwsCredentialsProvider(
+        @Nullable AwsCredentialsProvider awsCredentialsProvider) {
+      this.awsCredentialsProvider = awsCredentialsProvider;
+      return this;
+    }
+
     public ShimConfigurationBuilder withThreadCount(Integer threadCount) {
       this.threadCount = threadCount;
       return this;
@@ -643,6 +661,11 @@ public class SearchClientShimUtil {
       return this;
     }
 
+    public ShimConfigurationBuilder withEngineTypeAutoDetected(boolean engineTypeAutoDetected) {
+      this.engineTypeAutoDetected = engineTypeAutoDetected;
+      return this;
+    }
+
     public ShimConfiguration build() {
       return new ShimConfigurationImpl(
           engineType,
@@ -657,7 +680,9 @@ public class SearchClientShimUtil {
           threadCount,
           connectionRequestTimeout,
           socketTimeout,
-          sSLContext);
+          sSLContext,
+          engineTypeAutoDetected,
+          awsCredentialsProvider);
     }
   }
 
@@ -677,6 +702,8 @@ public class SearchClientShimUtil {
     private final Integer connectionRequestTimeout;
     private final Integer socketTimeout;
     private final SSLContext sSLContext;
+    private final boolean engineTypeAutoDetected;
+    @Nullable private final AwsCredentialsProvider awsCredentialsProvider;
 
     public ShimConfigurationImpl(
         SearchEngineType engineType,
@@ -691,7 +718,9 @@ public class SearchClientShimUtil {
         Integer threadCount,
         Integer connectionRequestTimeout,
         Integer socketTimeout,
-        SSLContext sslContext) {
+        SSLContext sslContext,
+        boolean engineTypeAutoDetected,
+        @Nullable AwsCredentialsProvider awsCredentialsProvider) {
       this.engineType = engineType;
       this.host = host;
       this.port = port;
@@ -705,6 +734,8 @@ public class SearchClientShimUtil {
       this.connectionRequestTimeout = connectionRequestTimeout;
       this.socketTimeout = socketTimeout;
       this.sSLContext = sslContext;
+      this.engineTypeAutoDetected = engineTypeAutoDetected;
+      this.awsCredentialsProvider = awsCredentialsProvider;
     }
   }
 }

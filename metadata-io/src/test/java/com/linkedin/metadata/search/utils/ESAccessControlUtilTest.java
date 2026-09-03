@@ -10,6 +10,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -37,6 +39,7 @@ import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -114,6 +117,8 @@ public class ESAccessControlUtilTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
   private static final Urn RESTRICTED_RESULT_URN =
       UrnUtils.getUrn("urn:li:restricted:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
+  private static final Urn SCHEMA_FIELD_RESULT_URN =
+      UrnUtils.getUrn("urn:li:schemaField:(" + UNRESTRICTED_RESULT_URN + ",field_foo)");
 
   private static final String PREFIX_MATCH =
       "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.human";
@@ -551,6 +556,17 @@ public class ESAccessControlUtilTest {
     assertEquals(result.getEntities().get(1).getEntity(), PREFIX_NO_MATCH_URN);
   }
 
+  @Test
+  public void testSchemaFieldRestrictUrnInheritsParentDataset()
+      throws RemoteInvocationException, URISyntaxException {
+    OperationContext allowedContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("allUsers")));
+    assertFalse(ESAccessControlUtil.restrictUrn(allowedContext, SCHEMA_FIELD_RESULT_URN));
+
+    OperationContext deniedContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("domainA")));
+    assertTrue(ESAccessControlUtil.restrictUrn(deniedContext, SCHEMA_FIELD_RESULT_URN));
+  }
+
   private static RestrictedService mockRestrictedService() {
     RestrictedService mockRestrictedService = mock(RestrictedService.class);
     when(mockRestrictedService.encryptRestrictedUrn(any()))
@@ -627,7 +643,8 @@ public class ESAccessControlUtilTest {
           new GroupService(
               mockUserGroupEntityClient(userGroups, resourceOwnerTypes),
               mock(EntityService.class),
-              mock(GraphClient.class)),
+              mock(GraphClient.class),
+              mock(GraphService.class)),
           0,
           0,
           AuthorizationMode.DEFAULT,
@@ -640,7 +657,10 @@ public class ESAccessControlUtilTest {
               opContext,
               specEntityClient,
               new GroupService(
-                  specEntityClient, mock(EntityService.class), mock(GraphClient.class)));
+                  specEntityClient,
+                  mock(EntityService.class),
+                  mock(GraphClient.class),
+                  mock(GraphService.class)));
 
       AuthorizerContext ctx = mock(AuthorizerContext.class);
       when(ctx.getEntitySpecResolver()).thenReturn(specResolver);

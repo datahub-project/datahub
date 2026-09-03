@@ -12,7 +12,11 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchSetApplicationInput;
 import com.linkedin.metadata.service.ApplicationService;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -30,6 +34,7 @@ public class BatchSetApplicationResolverTest {
   private BatchSetApplicationResolver resolver;
   private QueryContext mockContext;
   private DataFetchingEnvironment mockEnv;
+  private Set<Urn> existingUrns;
 
   @BeforeMethod
   public void setupTest() {
@@ -38,9 +43,22 @@ public class BatchSetApplicationResolverTest {
     mockContext = getMockAllowContext(TEST_ACTOR_URN);
     mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    existingUrns = new HashSet<>();
+    // Mirrors the real contract: returns the subset of the requested urns that exist.
+    Mockito.when(mockApplicationService.filterExistingEntities(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Collection<Urn> requested = invocation.getArgument(1);
+              return requested.stream().filter(existingUrns::contains).collect(Collectors.toSet());
+            });
   }
 
   private void mockExists(Urn urn, boolean exists) {
+    if (exists) {
+      existingUrns.add(urn);
+    } else {
+      existingUrns.remove(urn);
+    }
     Mockito.when(mockApplicationService.verifyEntityExists(any(), eq(urn))).thenReturn(exists);
   }
 
@@ -78,12 +96,14 @@ public class BatchSetApplicationResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
 
+    // All resources must be cleared in a single ingest batch, not one call per resource.
     Mockito.verify(mockApplicationService, Mockito.times(1))
-        .unsetApplication(
-            any(), eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)), eq(UrnUtils.getUrn(TEST_ACTOR_URN)));
-    Mockito.verify(mockApplicationService, Mockito.times(1))
-        .unsetApplication(
-            any(), eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)), eq(UrnUtils.getUrn(TEST_ACTOR_URN)));
+        .batchUnsetAllApplications(
+            any(),
+            eq(
+                ImmutableList.of(
+                    UrnUtils.getUrn(TEST_ENTITY_URN_1), UrnUtils.getUrn(TEST_ENTITY_URN_2))),
+            eq(UrnUtils.getUrn(TEST_ACTOR_URN)));
   }
 
   @Test

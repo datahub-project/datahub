@@ -273,6 +273,28 @@ def test_should_skip_file_empty_document():
 
 
 def test_should_skip_file_text_too_short():
+    # min_text_length is opt-in (default 0); set it explicitly to exercise the filter.
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        database_ids=["abcdef01234567890123456789012345"],
+        filtering={"min_text_length": 50},
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+    )
+    ctx = PipelineContext(run_id="test")
+    source = NotionSource(config=config, ctx=ctx)
+
+    data = {"elements": [{"text": "Short"}], "metadata": {}}
+
+    assert source._should_skip_file(data, set()) is True
+
+
+def test_should_not_skip_short_file_by_default():
+    # With the default min_text_length of 0, short (non-empty) docs are embedded.
     config = NotionSourceConfig(
         api_key=SecretStr("secret_test_key"),
         database_ids=["abcdef01234567890123456789012345"],
@@ -288,7 +310,7 @@ def test_should_skip_file_text_too_short():
 
     data = {"elements": [{"text": "Short"}], "metadata": {}}
 
-    assert source._should_skip_file(data, set()) is True
+    assert source._should_skip_file(data, set()) is False
 
 
 def test_should_skip_file_text_long_enough():
@@ -1053,3 +1075,45 @@ def test_icon_dispatcher_unknown_types_preserves_known_types():
     emoji_result = Icon.from_dict({"type": "emoji", "emoji": "📝"})
     assert isinstance(emoji_result, EmojiIcon)
     assert emoji_result.emoji == "📝"
+
+
+def test_skip_marker_read_error_leaves_document_retryable(notion_source):
+    """A SkipMarkerReadError from the chunking sub-source must not record document
+    state (or count the document processed): state would permanently drop the skip
+    marker; returning early leaves the document retryable next run."""
+    from datahub.ingestion.source.unstructured.chunking_source import (
+        SkipMarkerReadError,
+    )
+
+    data = {
+        "elements": [{"type": "NarrativeText", "text": "hello", "metadata": {}}],
+        "metadata": {
+            "data_source": {"record_locator": {"page_id": "p1"}},
+            "filetype": "notion",
+        },
+    }
+    doc = MagicMock()
+    doc.urn = "urn:li:document:p1"
+    doc.as_workunits.return_value = []
+    notion_source.document_builder = MagicMock()
+    notion_source.document_builder.build_document_entity.return_value = doc
+    notion_source.document_builder.content_mapper.extract_text_content.return_value = (
+        "hello"
+    )
+    notion_source.chunking_source = MagicMock()
+    notion_source.chunking_source.process_elements_inline.side_effect = (
+        SkipMarkerReadError("read failed")
+    )
+    notion_source.chunking_source.report.num_documents_limit_reached = False
+    # Enable the stateful gate so _update_document_state WOULD be reached on the
+    # swallow-and-continue path — without this the assertion below is vacuous.
+    notion_source.config.stateful_ingestion = MagicMock(enabled=True)
+
+    with patch.object(notion_source, "_update_document_state") as update_state:
+        list(notion_source._create_document_entity(data))
+
+    # Discriminates the dedicated SkipMarkerReadError handler: if it were removed,
+    # the generic RuntimeError handler swallows the error and execution falls
+    # through to report accounting and the (enabled) state update.
+    update_state.assert_not_called()
+    assert notion_source.report.num_files_processed == 0

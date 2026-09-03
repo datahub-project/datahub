@@ -23,11 +23,6 @@ module.exports = {
           id: "docs/quickstart",
         },
         {
-          type: "doc",
-          label: "Use Docs with AI",
-          id: "docs/use-docs-with-ai",
-        },
-        {
           type: "link",
           label: "Demo",
           href: "https://demo.datahub.com/",
@@ -36,26 +31,6 @@ module.exports = {
           type: "link",
           label: "Customer Stories",
           href: "https://datahub.com/resources/?2004611554=dh-stories",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Core Capabilities",
-      link: {
-        type: "generated-index",
-        title: "Core Capabilities",
-        description:
-          "AI-powered discovery, governance, and observability unify across your data estate to deliver data quality, compliance, and AI readiness.",
-      },
-      items: [
-        {
-          label: "Data Quality & Observability",
-          type: "doc",
-          id: "docs/features/feature-guides/observe",
-          customProps: {
-            icon: "🔍",
-          },
         },
       ],
     },
@@ -576,6 +551,11 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          label: "Metrics & Semantic Models",
+          type: "doc",
+          id: "docs/features/feature-guides/metrics-and-semantic-models",
+        },
+        {
           label: "MCP Server",
           type: "category",
           link: {
@@ -682,6 +662,11 @@ module.exports = {
         },
       ],
     },
+    {
+      type: "doc",
+      label: "Use Docs with AI Tools",
+      id: "docs/use-docs-with-ai",
+    },
     // DataHub Cloud.
     {
       type: "html",
@@ -696,6 +681,14 @@ module.exports = {
     {
       type: "doc",
       id: "docs/managed-datahub/welcome-acryl",
+    },
+    {
+      label: "Data Quality & Observability",
+      type: "doc",
+      id: "docs/managed-datahub/observe/overview",
+      customProps: {
+        icon: "🔍",
+      },
     },
     {
       label: "Upgrading from DataHub Core to Cloud",
@@ -726,6 +719,11 @@ module.exports = {
         {
           type: "doc",
           id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/best-practices",
           className: "saasOnly",
         },
         {
@@ -817,6 +815,8 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_2_0",
+        "docs/managed-datahub/release-notes/v_2_1_0",
         "docs/managed-datahub/release-notes/v_2_0_0",
         "docs/managed-datahub/release-notes/v_1_1_0",
         "docs/managed-datahub/release-notes/v_1_0_0",
@@ -1271,6 +1271,12 @@ module.exports = {
         { type: "doc", id: "docs/cli-commands/graphql", label: "graphql" },
         { type: "doc", id: "docs/cli-commands/dataset", label: "dataset" },
         { type: "doc", id: "docs/cli-commands/datapack", label: "datapack" },
+        {
+          type: "doc",
+          id: "docs/cli-commands/evals",
+          label: "evals",
+          className: "saasOnly",
+        },
         { type: "doc", id: "docs/datahub_lite", label: "lite" },
       ],
     },
@@ -1336,6 +1342,7 @@ module.exports = {
         "docs/api/tutorials/dashboard-chart",
         "docs/api/tutorials/dataflow-datajob",
         "docs/api/tutorials/mlmodel-mlmodelgroup",
+        "docs/api/tutorials/semantic-models",
         "docs/api/tutorials/applications",
         "docs/api/tutorials/agent-registry",
         "docs/api/tutorials/service-catalog",
@@ -1543,6 +1550,7 @@ module.exports = {
       },
       items: [
         "docs/slack",
+        { type: "doc", label: "Otto (Community Assistant)", id: "docs/otto" },
         "docs/townhalls",
         //        "docs/townhall-history",
         "docs/CODE_OF_CONDUCT",
@@ -1618,10 +1626,8 @@ module.exports = {
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
     // "smoke-test/tests/openapi/README"
-    // "smoke-test/tests/cypress/README"
     // "docs/SECURITY_STANCE"
     // "metadata-integration/java/datahub-schematron/README"
-    // "smoke-test/tests/cypress/README"
     // ],
   ],
 };

@@ -15,8 +15,11 @@ from datahub.metadata.schema_classes import (
     MetadataAttributionClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _make_domain_urn() -> str:

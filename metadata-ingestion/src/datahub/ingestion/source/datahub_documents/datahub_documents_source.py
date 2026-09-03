@@ -17,8 +17,9 @@ import re
 import time
 from dataclasses import field
 from datetime import datetime
+from itertools import islice
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional, cast
+from typing import Any, Dict, Generator, Iterable, Optional, cast
 
 from datahub.configuration.common import GraphError, OperationalError
 from datahub.ingestion.api.common import PipelineContext
@@ -52,7 +53,10 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     DataHubConnectionConfig,
     DocumentChunkingSourceConfig,
 )
-from datahub.ingestion.source.unstructured.chunking_source import DocumentChunkingSource
+from datahub.ingestion.source.unstructured.chunking_source import (
+    DocumentChunkingSource,
+    compute_source_text_sha256,
+)
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
 
 logger = logging.getLogger(__name__)
@@ -64,11 +68,21 @@ logger = logging.getLogger(__name__)
 EMBED_SOURCE_ASPECT_NAMES = ("documentInfo", "semanticText")
 
 
+class DocumentEnumerationError(Exception):
+    """Raised when document enumeration or hydration breaks systemically.
+
+    Distinct from ``GraphError``, which hydration treats as a per-document data
+    problem worth retrying URN by URN. This one means the document set can no
+    longer be trusted, so the run must abort rather than embed a silent subset.
+    """
+
+
 class DataHubDocumentsReport(StatefulIngestionReport):
     """Report for DataHub documents source."""
 
     num_documents_fetched: int = 0
     num_documents_processed: int = 0
+    num_documents_failed: int = 0
     num_documents_skipped: int = 0
     num_documents_skipped_unchanged: int = 0
     num_documents_skipped_empty: int = 0
@@ -88,6 +102,9 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     def report_document_processed(self, num_chunks: int) -> None:
         self.num_documents_processed += 1
         self.num_chunks_created += num_chunks
+
+    def report_document_failed(self) -> None:
+        self.num_documents_failed += 1
 
     def report_document_skipped(self) -> None:
         self.num_documents_skipped += 1
@@ -116,7 +133,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
 
 
 @platform_name("DataHubDocuments", id="datahub-documents")
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @config_class(DataHubDocumentsSourceConfig)
 class DataHubDocumentsSource(StatefulIngestionSourceBase):
     """
@@ -310,10 +327,34 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 yield from self._process_event_mode()
             else:
                 yield from self._process_batch_mode()
+        except DocumentEnumerationError as e:
+            # Already surfaced by the enumeration/hydration path under a specific
+            # title. Adding the generic failure below would give operators two
+            # entries for one problem, the vaguer one last.
+            logger.error(f"Aborting run: {e}", exc_info=True)
         except Exception as e:
             logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
             self.report.failure(message="Failed to run Unstructured pipeline", exc=e)
         finally:
+            # Every attempted document failing the same way is a systemic problem --
+            # a dependency or environment break -- not per-document data. Without
+            # this the run exits 0 having indexed nothing, and the only trace is a
+            # pile of per-document warnings. Same reasoning as the whole-batch
+            # hydration failure above. Read the chunking source's counter directly:
+            # self.report.num_documents_processed is only populated in get_report(),
+            # so it is still stale here.
+            if (
+                self.report.num_documents_failed > 0
+                and self.chunking_source.report.num_documents_processed == 0
+            ):
+                self.report.failure(
+                    title="Every document failed to process",
+                    message="No document could be processed, so nothing was "
+                    "indexed. This usually means a dependency or environment "
+                    "problem rather than bad document data; see the per-document "
+                    "warnings for the underlying error.",
+                    context=f"attempted={self.report.num_documents_failed}",
+                )
             # Save state after processing
             if self.config.incremental.enabled:
                 self._save_state()
@@ -358,10 +399,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     continue
 
             # Process document and yield workunits
-            yield from self._process_document_with_throttle(doc)
+            processed_ok = yield from self._process_document_with_throttle(doc)
 
-            # Update state after successful processing (we own this document now).
-            if self.config.incremental.enabled:
+            # Update state only when processing did not fail. Recording the hash for a
+            # failed document would make every later run skip it as "unchanged" even
+            # though no semanticContent was ever written for it.
+            if self.config.incremental.enabled and processed_ok:
                 self._update_document_state(doc["urn"], doc.get("text", ""))
 
     def _bootstrap_event_mode_offsets(self, consumer_id: str) -> None:
@@ -455,23 +498,40 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     f"semanticText event for {entity_urn} without readable documentInfo, skipping"
                 )
                 return
-            contents = dict(info_dict.get("contents") or {})
-            contents["semanticText"] = aspect_dict.get("text")
+            raw_info_contents = info_dict.get("contents")
+            override_text = aspect_dict.get("text")
+            if raw_info_contents is None and not override_text:
+                # Partial entity (null contents) with no usable override: skip silently,
+                # mirroring the batch and documentInfo-event guards, rather than stamping
+                # an EMPTY_TEXT marker from a body we could not read.
+                logger.debug(
+                    f"semanticText event for {entity_urn} with empty override and null "
+                    f"contents, skipping"
+                )
+                return
+            contents = dict(raw_info_contents or {})
+            contents["semanticText"] = override_text
             # Downstream source-type filtering reads from the documentInfo shape.
             aspect_dict = info_dict
         else:
             # documentInfo event: the override (if any) lives in the standalone
-            # semanticText aspect, so fetch it. Contents may be null for
-            # partial entities.
-            contents = dict(aspect_dict.get("contents") or {})
+            # semanticText aspect, so fetch it.
+            raw_contents = aspect_dict.get("contents")
+            if raw_contents is None:
+                # Partial aspect with no contents: skip silently (mirroring batch mode)
+                # rather than stamping a skip marker from content we could not read.
+                logger.debug(
+                    f"documentInfo event for {entity_urn} has null contents, skipping"
+                )
+                return
+            contents = dict(raw_contents)
             contents["semanticText"] = self._fetch_semantic_text(entity_urn)
 
         # semanticText overrides text as the embedding source; see _resolve_embed_text.
+        # Empty text is NOT an early return: _process_single_document emits a skip marker
+        # for it (and for too-short text) so the document is classified rather than
+        # silently invisible, and incremental state stops re-visiting it.
         text = self._resolve_embed_text(contents)
-
-        if not text:
-            logger.debug(f"No text content in document {entity_urn}")
-            return
 
         # Filter by source type (NATIVE vs EXTERNAL)
         # Default to NATIVE if source or sourceType is not set (backward compatibility with old documents)
@@ -510,10 +570,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         self.report.report_document_fetched()
 
         # Process document and yield work units
-        yield from self._process_document_with_throttle(doc)
+        processed_ok = yield from self._process_document_with_throttle(doc)
 
-        # Update state (we own this document now).
-        if self.config.incremental.enabled:
+        # Update state only when processing did not fail (see _process_batch_mode).
+        if self.config.incremental.enabled and processed_ok:
             self._update_document_state(entity_urn, text)
 
     def _process_event_mode(self) -> Iterable[MetadataWorkUnit]:
@@ -572,6 +632,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         try:
             # Track if we've processed any events
             events_processed = False
+            failures_before = self.report.num_documents_failed
 
             # Process events
             # consume_events() already yields parsed MCL dicts with entityUrn, aspectName, etc.
@@ -581,6 +642,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     self.lock.heartbeat()
                 events_processed = True
                 yield from self._process_single_event(event)
+                # A failed document gets no state hash, but consuming its event would
+                # still acknowledge it — with no later event, it would never be
+                # retried. Hold the offsets so the window is re-polled next run.
+                if self.report.num_documents_failed > failures_before:
+                    event_consumer.suppress_offset_commits = True
 
             # If no events were processed and no lookback window, fall back to batch
             if not events_processed and not self.config.event_mode.lookback_days:
@@ -591,7 +657,18 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 yield from self._process_batch_mode()
                 return
 
+        except DocumentEnumerationError:
+            # A batch fallback above aborted systemically and already reported a
+            # specific failure. Falling back again would replay a full
+            # enumeration + hydration storm against GMS for the same outcome.
+            # Do not acknowledge events we did not finish processing.
+            event_consumer.suppress_offset_commits = True
+            raise
         except Exception as e:
+            # An exception escaping the loop (e.g. the max-document limit abort)
+            # leaves events unprocessed with no failure counted per document —
+            # committing offsets would drop them, so hold the window here too.
+            event_consumer.suppress_offset_commits = True
             # Catch any errors during event processing and fall back to batch mode
             error_msg = str(e)
             logger.error(
@@ -904,65 +981,68 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     # URNs hydrated per GraphQL request. Kept modest so a single response stays
     # within GMS's GraphQL limits even for large documents.
+    #
+    # Deliberately fixed and independent of the configurable `scroll_batch_size`:
+    # that one sizes an Elasticsearch page of URNs (cheap, tuned for scroll
+    # pressure on ES), this one sizes a payload of full document bodies (tuned
+    # for GMS response size). Tying them together would make raising the scroll
+    # page size silently inflate hydration responses.
     _HYDRATE_BATCH_SIZE = 100
 
-    def _fetch_documents_graphql(self) -> list[dict[str, Any]]:
-        """Fetch Document entities from DataHub with their text content.
+    def _fetch_documents_graphql(self) -> Iterable[dict[str, Any]]:
+        """Stream Document entities from DataHub with their text content.
 
-        URNs are enumerated first (``_scroll_document_urns``) and then hydrated
-        in batches (``_hydrate_documents``), so a single orphaned index entry can
-        no longer abort the whole run.
+        URNs are enumerated (``_scroll_document_urns``) and hydrated
+        (``_hydrate_documents``) lazily, so a single orphaned index entry can no
+        longer abort the whole run and the catalog is never materialized in
+        memory: at most one hydration batch is held at a time.
+
+        Enumeration and hydration own their own error reporting, so failures
+        propagate from here untouched rather than being re-wrapped around a
+        ``yield``.
         """
-        try:
-            documents: list[dict[str, Any]] = []
+        num_documents = 0
 
-            urns = list(self._scroll_document_urns())
-            logger.info(f"Enumerated {len(urns)} document URN(s) from DataHub")
+        for entity in self._hydrate_documents(self._scroll_document_urns()):
+            urn = entity.get("urn")
+            if not urn:
+                continue
 
-            for entity in self._hydrate_documents(urns):
-                urn = entity.get("urn")
-                if not urn:
-                    continue
+            # Filter by specific URNs if provided
+            if self.config.document_urns and urn not in self.config.document_urns:
+                continue
 
-                # Filter by specific URNs if provided
-                if self.config.document_urns and urn not in self.config.document_urns:
-                    continue
+            # Extract text content (GraphQL returns null for missing aspects).
+            # semanticText overrides text as the embedding source; see _resolve_embed_text.
+            info = entity.get("info") or {}
+            contents = info.get("contents")
+            if contents is None:
+                # Null info/contents is a partial entity or hydration anomaly, not a
+                # document with empty text: skip silently rather than stamping a skip
+                # marker onto an entity whose content we could not read.
+                continue
+            text = self._resolve_embed_text(contents)
 
-                # Extract text content (GraphQL returns null for missing aspects).
-                # semanticText overrides text as the embedding source; see _resolve_embed_text.
-                info = entity.get("info") or {}
-                contents = info.get("contents") or {}
-                text = self._resolve_embed_text(contents)
+            # Default to NATIVE when sourceType is absent (older documents).
+            source = info.get("source") or {}
+            source_type = source.get("sourceType") or "NATIVE"
 
-                # Default to NATIVE when sourceType is absent (older documents).
-                source = info.get("source") or {}
-                source_type = source.get("sourceType") or "NATIVE"
+            # Filter by source type (NATIVE vs EXTERNAL) for batch mode
+            if not self._should_process_by_source_type(entity, info):
+                continue
 
-                # Filter by source type (NATIVE vs EXTERNAL) for batch mode
-                if not self._should_process_by_source_type(entity, info):
-                    continue
+            # Empty/too-short documents are NOT filtered here: they flow to
+            # _process_single_document, which emits a semanticContent skip marker for them
+            # (so coverage consumers can tell never-embeddable documents from indexing lag)
+            # and records incremental state so they are not re-visited every run.
 
-                # Skip if no text or too short
-                if not text or (
-                    self.config.skip_empty_text
-                    and len(text) < self.config.min_text_length
-                ):
-                    logger.debug(
-                        f"Skipping document {urn} (empty or too short: {len(text)} chars)"
-                    )
-                    continue
+            num_documents += 1
+            self.report.report_document_fetched()
+            yield {"urn": urn, "text": text, "source_type": source_type}
 
-                documents.append({"urn": urn, "text": text, "source_type": source_type})
-                self.report.report_document_fetched()
-
-            logger.info(
-                f"Fetched {len(documents)} documents with text content from platforms: {self.config.platform_filter}"
-            )
-            return documents
-
-        except Exception as e:
-            logger.error(f"Failed to fetch documents from DataHub: {e}", exc_info=True)
-            raise
+        logger.info(
+            f"Fetched {num_documents} documents with text content from platforms: {self.config.platform_filter}"
+        )
 
     def _scroll_document_urns(self) -> Iterable[str]:
         """Enumerate Document URNs via scrollAcrossEntities.
@@ -1047,27 +1127,37 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             response = self.graph.execute_graphql(query, variables)
             scroll_data = response.get("scrollAcrossEntities")
             if scroll_data is None:
-                # A response missing the scroll payload (vs. one with an empty
-                # page) means enumeration broke; surface it rather than silently
-                # reporting success with too few documents embedded.
-                self.report.warning(
+                # scrollAcrossEntities is nullable and execute_graphql only
+                # raises when the response carries GraphQL `errors`, so a null
+                # payload arrives here as an ordinary response. It means
+                # enumeration itself broke (vs. an empty page, which is a valid
+                # `searchResults: []`), so abort: a warning would leave the run
+                # free to finish SUCCESS having embedded a silent subset.
+                self.report.failure(
                     title="Document enumeration returned no scroll payload",
                     message="scrollAcrossEntities was missing from the GraphQL "
-                    "response; document enumeration may be incomplete.",
+                    "response, so the document set is incomplete; aborting the "
+                    "run rather than embedding an unknown subset.",
                 )
-                break
+                raise DocumentEnumerationError(
+                    "scrollAcrossEntities missing from the GraphQL response"
+                )
             scroll_id = scroll_data.get("nextScrollId")
             search_results = scroll_data.get("searchResults") or []
             logger.debug(
                 f"Scrolled page of {len(search_results)} document URN(s) (scrollId={scroll_id})"
             )
             # A full page with no continuation cursor is suspicious: the scroll
-            # likely truncated, so some documents may never be enumerated.
+            # likely truncated, so some documents may never be enumerated. The
+            # page itself is usable, so keep embedding what was enumerated, but
+            # fail the run — a warning would let a large silent gap pass as a
+            # successful run.
             if not scroll_id and len(search_results) >= self.config.scroll_batch_size:
-                self.report.warning(
+                self.report.failure(
                     title="Document enumeration ended without a scroll cursor",
                     message="A full page returned no nextScrollId; enumeration "
-                    "may have stopped early and some documents may be missing.",
+                    "stopped early and some documents are likely missing from "
+                    "this run.",
                 )
             for result in search_results:
                 entity = result.get("entity") or {}
@@ -1075,8 +1165,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 if urn:
                     yield urn
 
-    def _hydrate_documents(self, urns: list[str]) -> Iterable[dict[str, Any]]:
+    def _hydrate_documents(self, urns: Iterable[str]) -> Iterable[dict[str, Any]]:
         """Resolve document URNs to entities in batches.
+
+        Consumes ``urns`` lazily in ``_HYDRATE_BATCH_SIZE`` windows so the full
+        catalog is never materialized: enumeration and hydration interleave, one
+        batch at a time.
 
         Uses the nullable ``entities(urns:)`` query: an orphaned URN comes back
         as null and is counted and skipped, instead of aborting the run as the
@@ -1110,8 +1204,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
           }
         }
         """
-        for start in range(0, len(urns), self._HYDRATE_BATCH_SIZE):
-            batch = urns[start : start + self._HYDRATE_BATCH_SIZE]
+        urn_iter = iter(urns)
+        while True:
+            # islice pulls one window from the enumerator, so scrolling and
+            # hydration interleave instead of enumerating everything up front.
+            batch = list(islice(urn_iter, self._HYDRATE_BATCH_SIZE))
+            if not batch:
+                break
             if self.lock is not None:
                 self.lock.heartbeat()
 
@@ -1121,7 +1220,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 # Transport/outage error — abort rather than silently skipping
                 # every document (which would report success with 0 embeddings).
                 raise
-            except GraphError:
+            except GraphError as batch_error:
                 # One document with an unexpected null in a non-null field (e.g.
                 # DocumentContent.text) makes GMS fail the whole batch. Retry the
                 # batch one URN at a time so a single bad document can't drop the
@@ -1136,8 +1235,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 if not hydrated_any:
                     # Every URN in the batch failed the same way — a systemic
                     # error (typically a GraphQL schema mismatch, e.g. the GMS is
-                    # missing a queried field), not per-document data. Fail loudly
-                    # rather than reporting a successful run that embedded nothing.
+                    # missing a queried field), not per-document data. Abort:
+                    # continuing would repeat batch-fail plus a per-URN retry
+                    # storm for every remaining batch, hammering GMS with O(N)
+                    # doomed requests before the run finally ends.
                     self.report.failure(
                         title="Document hydration failed for an entire batch",
                         message="Every URN in a hydration batch failed to resolve; "
@@ -1145,23 +1246,56 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                         "missing a queried field) rather than per-document issues.",
                         context=batch[0],
                     )
+                    raise DocumentEnumerationError(
+                        "every URN in a hydration batch failed to resolve"
+                    ) from batch_error
                 continue
 
             entities = response.get("entities") or []
             if len(entities) != len(batch):
-                # GMS returns one (possibly null) entity per requested URN, in
-                # order. A different count means entities can't be lined up with
-                # URNs — surface it instead of silently dropping the tail.
-                self.report.warning(
-                    title="Hydration returned an unexpected entity count",
+                # GMS returns exactly one (possibly null) slot per requested URN —
+                # BatchGetEntitiesResolver sizes its array from the input list. Any
+                # other length means the response cannot be aligned with the
+                # request, so nothing in it is trustworthy. That includes an empty
+                # list, which would otherwise read as a batch of orphans.
+                self.report.failure(
+                    title="Document hydration returned an unexpected entity count",
                     message="GMS returned a different number of entities than URNs "
-                    "requested; some documents may be missing from this run.",
+                    "requested, so the hydrated document set is incomplete.",
+                    context=f"requested={len(batch)}, returned={len(entities)}",
                 )
-            for urn, entity in zip(batch, entities, strict=False):
-                if entity is None:
+                raise DocumentEnumerationError(
+                    "entities(urns:) length did not match the hydration batch"
+                )
+
+            # Match on each entity's own URN rather than zipping positionally: a
+            # reordered response would otherwise attribute one document's content
+            # to another URN. Requested URNs with no entity in the response are
+            # counted as orphans, never silently dropped.
+            entities_by_urn = {
+                entity["urn"]: entity
+                for entity in entities
+                if entity and entity.get("urn")
+            }
+            if not entities_by_urn:
+                # Right length, but every slot came back null. Unlike a length
+                # mismatch this is interpretable — every requested URN was
+                # unresolvable — and the rest of the catalog may be healthy, so
+                # fail the run without aborting it. A page of index drift must not
+                # take down a run that can still embed everything else.
+                self.report.failure(
+                    title="Document hydration resolved nothing in a batch",
+                    message="Every URN in a hydration batch resolved to null, which "
+                    "is usually a serving problem rather than that many orphans; "
+                    "the batch was skipped and the run continues.",
+                    context=batch[0],
+                )
+            for urn in batch:
+                hydrated = entities_by_urn.get(urn)
+                if hydrated is None:
                     self._skip_orphaned(urn)
                     continue
-                yield entity
+                yield hydrated
 
     def _hydrate_individually(
         self, query: str, urns: list[str]
@@ -1181,8 +1315,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     context=urn,
                 )
                 continue
+            # Match by URN for the same reason the batch path does, rather than
+            # trusting the first slot to be the document we asked for.
             entities = response.get("entities") or []
-            entity = entities[0] if entities else None
+            entity = next(
+                (e for e in entities if e and e.get("urn") == urn),
+                None,
+            )
             if entity is None:
                 self._skip_orphaned(urn)
                 continue
@@ -1287,13 +1426,35 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         Returns:
             SHA256 hash hex string
         """
-        hash_input = {
+        hash_input: Dict[str, Any] = {
             "content": text,
             "config": self._get_processing_config_fingerprint(),
         }
+        # The deliberate-skip decision is part of what recorded state means, so its inputs
+        # join the hash -- but only for documents that WOULD be skipped. Raising or lowering
+        # min_text_length then re-evaluates exactly the affected population (skip markers
+        # re-stamped or documents finally embedded) without invalidating the hash of every
+        # already-embedded document, which would trigger a full re-embed wave on upgrade.
+        if self._is_below_embed_minimum(text):
+            hash_input["skip_threshold"] = self.config.min_text_length
         # Deterministic JSON serialization
         hash_str = json.dumps(hash_input, sort_keys=True)
         return hashlib.sha256(hash_str.encode("utf-8")).hexdigest()
+
+    def _is_below_embed_minimum(self, text: str) -> bool:
+        """Single decider for the deliberate length skip.
+
+        Used both by _process_single_document (to emit the skip marker) and by
+        _calculate_text_hash (to make recorded state threshold-aware) -- keep them in
+        lockstep through this helper.
+
+        skip_empty_text gates only the length check (its pre-existing semantics):
+        empty documents are always skipped, but skip_empty_text=False keeps
+        short-but-non-empty documents embeddable regardless of min_text_length.
+        """
+        return not text or (
+            self.config.skip_empty_text and len(text) < self.config.min_text_length
+        )
 
     def _update_document_state(self, document_urn: str, text: str) -> None:
         """Update state after processing document."""
@@ -1379,30 +1540,61 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     def _process_document_with_throttle(
         self, doc: dict[str, Any]
-    ) -> Iterable[MetadataWorkUnit]:
-        """Process one document and throttle only when it produced work units."""
+    ) -> Generator[MetadataWorkUnit, None, bool]:
+        """Process one document and throttle only when it produced work units.
+
+        Returns False when processing failed, so callers must not record
+        incremental state for the document (it should be retried next run).
+        """
         indexed = False
-        for wu in self._process_single_document(doc):
-            indexed = True
-            yield wu
+        gen = self._process_single_document(doc)
+        try:
+            while True:
+                try:
+                    wu = next(gen)
+                except StopIteration as stop:
+                    # _process_single_document returns False on a swallowed failure;
+                    # any other return (True, or None from a plain iterator) is ok.
+                    processed_ok = stop.value is not False
+                    break
+                indexed = True
+                yield wu
+        finally:
+            # Deterministic cleanup if our own generator is closed early. Plain
+            # iterators (test mocks) have no close().
+            close = getattr(gen, "close", None)
+            if close is not None:
+                close()
         if indexed:
             self._throttle_after_indexing()
+        return processed_ok
 
     def _process_single_document(
         self, doc: dict[str, Any]
-    ) -> Iterable[MetadataWorkUnit]:
-        """Process a single document: partition text → chunk → embed → emit SemanticContent."""
+    ) -> Generator[MetadataWorkUnit, None, bool]:
+        """Process a single document: partition text → chunk → embed → emit SemanticContent.
+
+        Returns False when processing failed (the failure is swallowed and
+        reported); returns True on success or a legitimate skip.
+        """
         try:
             document_urn = doc["urn"]
             text = doc.get("text", "")
 
-            # Skip if empty or too short
-            if not text or len(text) < self.config.min_text_length:
+            # Deliberate skip: emit a marker so consumers (e.g. coverage reporting) can tell
+            # never-embeddable documents apart from indexing lag or failures. Returning True
+            # records incremental state -- the decision is deterministic for this text, so
+            # retrying without a content change is pointless.
+            if self._is_below_embed_minimum(text):
                 logger.debug(
                     f"Skipping document {document_urn} (text too short: {len(text)} chars)"
                 )
                 self.report.report_document_skipped_empty()
-                return
+                yield self.chunking_source.build_skip_marker_workunit(
+                    document_urn,
+                    "EMPTY_TEXT" if not text else "BELOW_MIN_TEXT_LENGTH",
+                )
+                return True
 
             # Partition text as markdown into unstructured elements
             logger.debug(f"Partitioning text for document {document_urn}")
@@ -1413,20 +1605,38 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     f"No elements created from text for document {document_urn}"
                 )
                 self.report.report_document_skipped()
-                return
+                yield self.chunking_source.build_skip_marker_workunit(
+                    document_urn, "NO_INDEXABLE_CONTENT"
+                )
+                return True
 
             # Delegate chunking + embedding + SemanticContent emission to chunking_source.
             # DocumentChunkingSource enforces max_documents and raises RuntimeError when exceeded.
+            # The hash is over the exact resolved text (semanticText override else body) and is
+            # stored on the embeddings as staleness provenance: consumers compare it against a
+            # hash of the current resolved text instead of modification timestamps.
             yield from self.chunking_source.process_elements_inline(
-                document_urn=document_urn, elements=elements
+                document_urn=document_urn,
+                elements=elements,
+                source_text_sha256=compute_source_text_sha256(text),
             )
 
         except Exception as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
                 raise
-            error_msg = f"Failed to process document {doc.get('urn', 'unknown')}: {e}"
-            logger.warning(error_msg, exc_info=True)
+            # Structured rather than a bare logger call: a document that silently
+            # produces no semanticContent is invisible to operators otherwise.
+            self.report.report_document_failed()
+            self.report.warning(
+                title="Failed to process document",
+                message="The document could not be partitioned or chunked, so no "
+                "semanticContent was written for it.",
+                context=doc.get("urn", "unknown"),
+                exc=e,
+            )
+            return False
+        return True
 
     def get_report(self) -> SourceReport:
         # Forward stats from the chunking sub-component into our report

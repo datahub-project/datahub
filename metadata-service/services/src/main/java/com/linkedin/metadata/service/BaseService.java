@@ -226,9 +226,11 @@ public class BaseService {
   protected void ingestChangeProposals(
       @Nonnull OperationContext opContext, @Nonnull List<MetadataChangeProposal> changes)
       throws Exception {
-    // TODO: Replace this with a batch ingest proposals endpoint.
-    for (MetadataChangeProposal change : changes) {
-      this.entityClient.ingestProposal(opContext, change);
+    if (changes.isEmpty()) {
+      return;
     }
+    // Ingested as a single batch: the client chunks by its configured batch size and each chunk
+    // becomes one AspectsBatch, i.e. one transaction, instead of one transaction per proposal.
+    this.entityClient.batchIngestProposals(opContext, changes, false);
   }
 }

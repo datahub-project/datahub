@@ -9,7 +9,10 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RawSearchFilter
 from datahub.ingestion.graph.openapi import SortCriterionDict
 from datahub.metadata.schema_classes import DatasetKeyClass
+from tests.utilities.domains import Domain
 from tests.utils import with_test_retry
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 PLATFORM = "urn:li:dataPlatform:scrolltest"
 ALPHA = "urn:li:dataset:(urn:li:dataPlatform:scrolltest,alpha,PROD)"

@@ -294,7 +294,7 @@ public class V2MappingsBuilderTest {
   }
 
   @Test
-  public void testStructuredPropertiesMappingHasDynamicTrue() throws URISyntaxException {
+  public void testStructuredPropertiesMappingHasDynamicFalse() throws URISyntaxException {
     when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
     StructuredPropertyDefinition structPropForThisEntity =
         new StructuredPropertyDefinition()
@@ -332,8 +332,9 @@ public class V2MappingsBuilderTest {
         "structuredProperties root must be type object");
     assertEquals(
         structuredPropsMapping.get("dynamic"),
-        true,
-        "structuredProperties root must have dynamic=true for nested indexing");
+        false,
+        "structuredProperties root must have dynamic=false so unmapped property values stay"
+            + " unindexed instead of being dynamic-mapped as text");
   }
 
   @Test
@@ -781,6 +782,100 @@ public class V2MappingsBuilderTest {
   }
 
   @Test
+  public void testGetIndexMappingsWithNewStructuredPropertyTargetsDeclaredEntityIndex()
+      throws URISyntaxException {
+    when(entityIndexConfiguration.getV2().isEnabled()).thenReturn(true);
+
+    StructuredPropertyDefinition property =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("myTargetedProp")
+            .setDisplayName("My Targeted Prop")
+            .setEntityTypes(
+                new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "datahub.dataset")))
+            .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:myTargetedProp");
+
+    Collection<IndexMapping> result =
+        mappingsBuilder.getIndexMappingsWithNewStructuredProperty(
+            operationContext, propertyUrn, property);
+
+    assertEquals(
+        result.size(), 1, "Should produce one mapping for the single declared entity type");
+    IndexMapping mapping = result.iterator().next();
+    EntitySpec datasetSpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
+    String datasetIndex =
+        operationContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getIndexName(operationContext, datasetSpec);
+    assertEquals(
+        mapping.getIndexName(),
+        datasetIndex,
+        "Mapping must target the declared entity type's index, not the structuredProperty entity's own index");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mapping.getMappings().get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> structuredPropsMapping =
+        (Map<String, Object>) properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    assertNotNull(
+        structuredPropsMapping, "Mapping should include the structuredProperties container");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> structuredPropsChildren =
+        (Map<String, Object>) structuredPropsMapping.get("properties");
+    assertTrue(
+        structuredPropsChildren.containsKey("myTargetedProp"),
+        "structuredProperties container should include the new property's field mapping");
+  }
+
+  @Test
+  public void testGetIndexMappingsWithNewStructuredPropertyMultipleEntityTypes()
+      throws URISyntaxException {
+    when(entityIndexConfiguration.getV2().isEnabled()).thenReturn(true);
+
+    // Mixes the legacy (un-prefixed) and current (datahub.-prefixed) entity type URN forms.
+    StructuredPropertyDefinition property =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("myMultiProp")
+            .setDisplayName("My Multi Prop")
+            .setEntityTypes(
+                new UrnArray(
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset"),
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "datahub.chart")))
+            .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:myMultiProp");
+
+    Collection<IndexMapping> result =
+        mappingsBuilder.getIndexMappingsWithNewStructuredProperty(
+            operationContext, propertyUrn, property);
+
+    assertEquals(result.size(), 2, "Should produce one mapping per declared entity type");
+  }
+
+  @Test
+  public void testGetIndexMappingsWithNewStructuredPropertyEmptyEntityTypes()
+      throws URISyntaxException {
+    when(entityIndexConfiguration.getV2().isEnabled()).thenReturn(true);
+
+    StructuredPropertyDefinition property =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("myEmptyTypesProp")
+            .setDisplayName("My Empty Types Prop")
+            .setEntityTypes(new UrnArray())
+            .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:myEmptyTypesProp");
+
+    Collection<IndexMapping> result =
+        mappingsBuilder.getIndexMappingsWithNewStructuredProperty(
+            operationContext, propertyUrn, property);
+
+    assertTrue(result.isEmpty(), "Should return empty for a property with no entity types");
+  }
+
+  @Test
   public void testNullEntityIndexConfiguration() {
     // Test that constructor properly handles null EntityIndexConfiguration
     // The constructor doesn't actually throw an exception, so this test should pass
@@ -804,6 +899,51 @@ public class V2MappingsBuilderTest {
           e instanceof NullPointerException || e instanceof IllegalArgumentException,
           "Should throw appropriate exception for null OperationContext");
     }
+  }
+
+  @Test
+  public void testUrnStructuredPropertyMapsToKeywordParent() throws URISyntaxException {
+    // URN SPs use the shared URN mapping (parent keyword + delimited/ngram). Facets/filters
+    // target the parent via query-time logic (usesKeywordSubfield), not a .keyword subfield.
+    StructuredPropertyDefinition urnProp =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("steward")
+            .setDisplayName("Steward")
+            .setEntityTypes(new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+            .setValueType(Urn.createFromString("urn:li:dataType:datahub.urn"));
+
+    Urn spUrn = UrnUtils.getUrn("urn:li:structuredProperty:steward");
+    EntityRegistry entityRegistry = operationContext.getEntityRegistry();
+    EntitySpec datasetSpec = entityRegistry.getEntitySpec("dataset");
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappings(
+            entityRegistry, datasetSpec, List.of(Pair.of(spUrn, urnProp)));
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> spProps = (Map<String, Object>) properties.get("structuredProperties");
+    assertNotNull(spProps, "Dataset mapping must have structuredProperties for a URN prop");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> spFields = (Map<String, Object>) spProps.get("properties");
+
+    assertTrue(spFields.containsKey("steward"), "Should contain the steward field");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> stewardMapping = (Map<String, Object>) spFields.get("steward");
+    assertEquals(stewardMapping.get("type"), "keyword", "Top-level type should be keyword");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> subFields = (Map<String, Object>) stewardMapping.get("fields");
+    assertNotNull(subFields, "URN structured property must have subfields");
+    assertFalse(
+        subFields.containsKey("keyword"),
+        "URN structured property must not require .keyword; query time targets the parent");
+    assertTrue(
+        subFields.containsKey("delimited"),
+        "URN structured property must have .delimited subfield for URN component search");
   }
 
   private EntityRegistry getTestEntityRegistry() {

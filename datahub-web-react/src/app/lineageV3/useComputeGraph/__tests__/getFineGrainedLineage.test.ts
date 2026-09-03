@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { LineageEntity } from '@app/lineageV3/common';
-import { schemaFieldExists } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
+import getFineGrainedLineage, { schemaFieldExists } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
 
 import { EntityType } from '@types';
 
@@ -158,5 +158,110 @@ describe('schemaFieldExists', () => {
         expect(schemaFieldExists('urn:li:dataset:1', 'UserId', nodes)).toBe(true);
         expect(schemaFieldExists('urn:li:dataset:1', 'userid', nodes)).toBe(false);
         expect(schemaFieldExists('urn:li:dataset:1', 'USERID', nodes)).toBe(false);
+    });
+});
+
+describe('getFineGrainedLineage', () => {
+    const TABLE = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,db.addresses,PROD)';
+    const SIBLING = 'urn:li:dataset:(urn:li:dataPlatform:dbt,db.addresses,PROD)';
+    const DOWNSTREAM = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,db.order_details,PROD)';
+    const FIELD = 'address_id';
+    const OTHER_FIELD = 'customer_id';
+
+    interface Overrides {
+        siblings?: string[];
+        /** Siblings arrive as a search for a combined entity and as properties for a separated one,
+         *  depending on whether `hideDbtSourceInLineage` is what merged the pair. */
+        siblingShape?: 'search' | 'properties';
+        fields?: string[];
+        fineGrainedLineages?: {
+            upstreams: { urn: string; path: string }[];
+            downstreams: { urn: string; path: string }[];
+        }[];
+    }
+
+    function node(
+        urn: string,
+        { siblings, siblingShape = 'search', fields = [FIELD], fineGrainedLineages }: Overrides = {},
+    ): LineageEntity {
+        const siblingEntities = siblings?.map((sibling) => ({ urn: sibling }));
+        return {
+            id: urn,
+            urn,
+            type: EntityType.Dataset,
+            entity: {
+                urn,
+                type: EntityType.Dataset,
+                name: urn,
+                schemaMetadata: { fields: fields.map((fieldPath) => ({ fieldPath })) },
+                fineGrainedLineages,
+                genericEntityProperties:
+                    siblingEntities &&
+                    (siblingShape === 'search'
+                        ? { siblingsSearch: { searchResults: siblingEntities.map((entity) => ({ entity })) } }
+                        : { siblings: { isPrimary: true, siblings: siblingEntities } }),
+            } as any,
+            isExpanded: {} as any,
+            fetchStatus: {} as any,
+            filters: {} as any,
+        };
+    }
+
+    function run(nodes: Map<string, LineageEntity>) {
+        return getFineGrainedLineage({ nodes, edges: new Map(), rootType: EntityType.Dataset }).indirect;
+    }
+
+    function columnEdge(fromUrn: string, fromField: string, toUrn: string, toField: string) {
+        return {
+            upstreams: [{ urn: fromUrn, path: fromField }],
+            downstreams: [{ urn: toUrn, path: toField }],
+        };
+    }
+
+    // Only dbt emits this edge. It is kept: siblings are drawn as separate nodes (e.g. a dbt model
+    // as a transformation node), so the edge is drawable, and it lets column lineage pass through
+    // a hidden sibling.
+    it.each(['search', 'properties'] as const)(
+        'keeps the edge between a column and the same column on a sibling, given as a sibling %s',
+        (siblingShape) => {
+            const fgl = run(
+                new Map([
+                    [TABLE, node(TABLE, { siblings: [SIBLING], siblingShape })],
+                    [SIBLING, node(SIBLING, { fineGrainedLineages: [columnEdge(TABLE, FIELD, SIBLING, FIELD)] })],
+                ]),
+            );
+
+            expect(Array.from(fgl.downstream.get(`${TABLE}::${FIELD}`)?.keys() ?? [])).toEqual([
+                `${SIBLING}::${FIELD}`,
+            ]);
+        },
+    );
+
+    it('keeps an edge between different columns on siblings, which is real lineage', () => {
+        const fields = [FIELD, OTHER_FIELD];
+        const fgl = run(
+            new Map([
+                [TABLE, node(TABLE, { siblings: [SIBLING], fields })],
+                [
+                    SIBLING,
+                    node(SIBLING, { fields, fineGrainedLineages: [columnEdge(TABLE, FIELD, SIBLING, OTHER_FIELD)] }),
+                ],
+            ]),
+        );
+
+        expect(Array.from(fgl.downstream.get(`${TABLE}::${FIELD}`)?.keys() ?? [])).toEqual([
+            `${SIBLING}::${OTHER_FIELD}`,
+        ]);
+    });
+
+    it('keeps an edge to a column on a node of its own', () => {
+        const fgl = run(
+            new Map([
+                [TABLE, node(TABLE, { siblings: [SIBLING] })],
+                [DOWNSTREAM, node(DOWNSTREAM, { fineGrainedLineages: [columnEdge(TABLE, FIELD, DOWNSTREAM, FIELD)] })],
+            ]),
+        );
+
+        expect(Array.from(fgl.downstream.get(`${TABLE}::${FIELD}`)?.keys() ?? [])).toEqual([`${DOWNSTREAM}::${FIELD}`]);
     });
 });

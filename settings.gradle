@@ -23,7 +23,18 @@ def apkRepoUrl      = getProperty('datahub.dependencies.apkrepo.url')
 def githubBaseUrl    = hasProperty('githubMirrorUrl')    ? getProperty('githubMirrorUrl')    : getProperty('datahub.dependencies.github.baseURL')
 def pipMirrorUrl     = hasProperty('pipMirrorUrl')       ? getProperty('pipMirrorUrl')       : getProperty('datahub.dependencies.python.pipMirrorUrl')
 def pipExtraIndexUrl = hasProperty('pipExtraIndexUrls')  ? getProperty('pipExtraIndexUrls')  : getProperty('datahub.dependencies.python.pipExtraIndexUrl')
-def uvProfile        = getProperty('datahub.dependencies.python.uvProfile')
+// UV profile resolution (shared by gradle/python/python-uv.gradle and
+// gradle/docker/python-docker.gradle). Precedence (highest first):
+//   1. CLI -P (explicit) — startParameter.projectProperties is CLI-only, so it
+//      excludes gradle.properties defaults and ORG_GRADLE_PROJECT_*.
+//   2. UV_DOCKER_PROFILE / UV_INSTALL_PROFILE env var (e.g. from mise / shell).
+//   3. gradle.properties default — getProperty also picks up ORG_GRADLE_PROJECT_*.
+def cliProps = gradle.startParameter.projectProperties
+def resolveProfile = { String name, String envVar ->
+  cliProps[name] ?: System.getenv(envVar) ?: getProperty(name)
+}
+def uvDockerProfile  = resolveProfile('datahub.dependencies.python.uvDockerProfile',  'UV_DOCKER_PROFILE')
+def uvInstallProfile = resolveProfile('datahub.dependencies.python.uvInstallProfile', 'UV_INSTALL_PROFILE')
 
 // Validate all URL overrides before storing — catches typos and blocks non-http(s) values.
 def validate  = gradle.ext.validateUrl
@@ -45,7 +56,30 @@ gradle.ext['datahub.dependencies.apkrepo.url']                = apkRepoUrl
 gradle.ext['datahub.dependencies.github.baseURL']             = githubBaseUrl
 gradle.ext['datahub.dependencies.python.pipMirrorUrl']        = pipMirrorUrl
 gradle.ext['datahub.dependencies.python.pipExtraIndexUrl']    = pipExtraIndexUrl
-gradle.ext['datahub.dependencies.python.uvProfile']           = uvProfile
+gradle.ext['datahub.dependencies.python.uvDockerProfile']     = uvDockerProfile
+gradle.ext['datahub.dependencies.python.uvInstallProfile']    = uvInstallProfile
+
+// Shared file-existence check for UV profiles. Returns the absolute path to
+// profiles/<name>.toml, or null for 'custom' when allowCustom is true. Throws a
+// GradleException when the profile is not 'custom' and its file is missing, and
+// when 'custom' is passed with allowCustom=false (install side: custom can't be
+// honored on the runner — no generate-config step, and pipMirrorUrl/pipExtraIndexUrl
+// are docker-only).
+gradle.ext['resolveUvProfileFile'] = { String profile, boolean allowCustom = false ->
+  if (profile == 'custom') {
+    if (allowCustom) return null
+    throw new GradleException(
+      "UV profile 'custom' is not supported for runner-side installs (no generate-config step on the runner; pipMirrorUrl/pipExtraIndexUrl are only honored for Docker builds). Use an existing profile (default/chainguard/chainguard-ci) or set UV_CONFIG_FILE directly."
+    )
+  }
+  def f = new File(new File(rootDir, 'docker/snippets/uv/profiles'), "${profile}.toml")
+  if (!f.isFile()) {
+    throw new GradleException(
+      "UV profile '${profile}' has no profile file at ${f}. Set datahub.dependencies.python.uv(Docker|Install)Profile to 'custom' or an existing profile (default/chainguard/chainguard-ci)."
+    )
+  }
+  return f.absolutePath
+}
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
@@ -149,8 +183,16 @@ buildCache {
 
     remote(HttpBuildCache) {
         url = 'https://cache.depot.dev'
-        enabled = depotSecret != null
-        push = isCi // Push only on CI. Local development only pulls
+        // Truthiness, not a null check: GitHub sets secrets that are unavailable
+        // (fork PRs) to the empty string, not to nothing. `"" != null` is true, so
+        // a null check enables the cache with an empty password and every build
+        // opens with a 403 that Gradle swallows before disabling the cache.
+        enabled = depotSecret ? true : false
+        // Push only from master. PR runs pull but never write: with push enabled
+        // on any CI run, code executing in a same-repo PR could populate cache
+        // entries that trusted master builds later consume (cache poisoning).
+        // Master-only writes match every other cache in this repo.
+        push = isCi && System.getenv('GITHUB_REF') == 'refs/heads/master'
         credentials {
             username = ''
             password = depotSecret

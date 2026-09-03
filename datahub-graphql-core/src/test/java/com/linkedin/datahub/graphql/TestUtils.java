@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -151,6 +153,46 @@ public class TestUtils {
         .build(operationContext.getSessionActorContext(), false);
   }
 
+  /**
+   * Returns a context that allows a single privilege on a single resource URN and denies everything
+   * else. Lets a test assert which URN a check was actually made against, rather than only whether
+   * it passed.
+   */
+  public static QueryContext getMockAllowContextForResource(
+      @Nonnull final String actorUrn,
+      @Nonnull final String privilege,
+      @Nonnull final Urn allowedResourceUrn) {
+    Authorizer mockAuthorizer = mock(Authorizer.class);
+    when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            args -> {
+              AuthorizationRequest request = args.getArgument(0);
+              boolean allowed =
+                  privilege.equals(request.getPrivilege())
+                      && request
+                          .getResourceSpec()
+                          .map(spec -> allowedResourceUrn.toString().equals(spec.getEntity()))
+                          .orElse(false);
+              return new AuthorizationResult(
+                  request,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  "");
+            });
+
+    Authentication authentication =
+        new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
+
+    QueryContext mockContext = mock(QueryContext.class);
+    when(mockContext.getActorUrn()).thenReturn(actorUrn);
+    when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
+    when(mockContext.getAuthentication()).thenReturn(authentication);
+    OperationContext operationContext =
+        withDefaultSearchEntityTypes(
+            TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication));
+    when(mockContext.getOperationContext()).thenReturn(operationContext);
+    return mockContext;
+  }
+
   public static QueryContext getMockDenyContext() {
     return getMockDenyContext("urn:li:corpuser:test");
   }
@@ -221,6 +263,41 @@ public class TestUtils {
     when(mockContext.getOperationContext()).thenReturn(operationContext);
 
     return mockContext;
+  }
+
+  /**
+   * Stubs batched existence resolution so that exactly the given urns are reported as existing.
+   * Batch mutations resolve existence for a whole group of urns in one call, so the stub answers
+   * with the requested urns intersected against {@code existing} rather than a fixed set.
+   */
+  public static void stubExistingUrns(EntityService<?> mockService, Urn... existing) {
+    final Set<Urn> existingUrns = Set.of(existing);
+    when(mockService.exists(any(), anyCollection(), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              final Collection<Urn> requested = invocation.getArgument(1);
+              return requested.stream().filter(existingUrns::contains).collect(Collectors.toSet());
+            });
+  }
+
+  /**
+   * Asserts that existence was resolved in {@code expectedBatchCalls} batched calls and never one
+   * urn at a time. Use this where the number of groups is the point of the test; prefer {@link
+   * #verifyExistenceResolvedInBatches(EntityService)} elsewhere, so tests do not pin down a call
+   * count they are not actually asserting anything about.
+   */
+  public static void verifyExistenceResolvedInBatches(
+      EntityService<?> mockService, int expectedBatchCalls) {
+    Mockito.verify(mockService, Mockito.times(expectedBatchCalls))
+        .exists(any(), anyCollection(), eq(true));
+    verifyExistenceResolvedInBatches(mockService);
+  }
+
+  /** Asserts that existence was resolved via the batched call and never one urn at a time. */
+  public static void verifyExistenceResolvedInBatches(EntityService<?> mockService) {
+    Mockito.verify(mockService, Mockito.atLeastOnce()).exists(any(), anyCollection(), eq(true));
+    Mockito.verify(mockService, Mockito.never())
+        .exists(any(), any(Urn.class), Mockito.anyBoolean());
   }
 
   public static void verifyIngestProposal(
