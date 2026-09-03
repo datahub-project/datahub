@@ -1,7 +1,7 @@
 package com.linkedin.metadata.timeseries.postgres;
 
 import com.linkedin.metadata.config.postgres.PgTimeseriesStoreOptions;
-import com.linkedin.metadata.timeseries.write.AbstractTimeseriesAspectWriteSink.TimeseriesAspectRowPayload;
+import com.linkedin.metadata.timeseries.postgres.TimeseriesPgDocumentMapper.TimeseriesAspectRowPayload;
 import io.ebean.Database;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -14,11 +14,7 @@ import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-/**
- * JDBC access for SqlSetup {@code {prefix}_aspect} (pgTimeseries) — shared by {@code
- * PostgresTimeseriesAspectWriteSink} (ES dual-write) and {@link PostgresTimeseriesAspectService}
- * (primary store). Scoped to one named store.
- */
+/** JDBC access for SqlSetup {@code {prefix}_aspect} (pgTimeseries). Scoped to one named store. */
 @RequiredArgsConstructor
 public final class PostgresTimeseriesAspectDao {
 
@@ -37,65 +33,6 @@ public final class PostgresTimeseriesAspectDao {
       conn.setAutoCommit(true);
       try (PreparedStatement ps = conn.prepareStatement(sql)) {
         bindRow(ps, row);
-        ps.executeUpdate();
-      }
-    }
-  }
-
-  public void deleteByMessageId(
-      @Nonnull String entityName, @Nonnull String aspectName, @Nonnull String messageId)
-      throws SQLException {
-    String table = qualifiedTable();
-    String sql =
-        "DELETE FROM " + table + " WHERE entity_name = ? AND aspect_name = ? AND message_id = ?";
-    try (Connection conn = database.dataSource().getConnection()) {
-      conn.setAutoCommit(true);
-      try (PreparedStatement ps = conn.prepareStatement(sql)) {
-        ps.setString(1, entityName);
-        ps.setString(2, aspectName);
-        ps.setString(3, messageId);
-        ps.executeUpdate();
-      }
-    }
-  }
-
-  /** Deletes the single conflict-key row (entity, aspect, message_id, event_time). */
-  public void deleteByMessageIdAndEventTime(
-      @Nonnull String entityName,
-      @Nonnull String aspectName,
-      @Nonnull String messageId,
-      long timestampMillis)
-      throws SQLException {
-    String table = qualifiedTable();
-    String sql =
-        "DELETE FROM "
-            + table
-            + " WHERE entity_name = ? AND aspect_name = ? AND message_id = ? AND event_time = ?";
-    try (Connection conn = database.dataSource().getConnection()) {
-      conn.setAutoCommit(true);
-      try (PreparedStatement ps = conn.prepareStatement(sql)) {
-        ps.setString(1, entityName);
-        ps.setString(2, aspectName);
-        ps.setString(3, messageId);
-        ps.setObject(
-            4, OffsetDateTime.ofInstant(Instant.ofEpochMilli(timestampMillis), ZoneOffset.UTC));
-        ps.executeUpdate();
-      }
-    }
-  }
-
-  /** Deletes all rows for an entity URN within one entity/aspect pair. */
-  public void deleteByUrn(
-      @Nonnull String entityName, @Nonnull String aspectName, @Nonnull String urn)
-      throws SQLException {
-    String table = qualifiedTable();
-    String sql = "DELETE FROM " + table + " WHERE entity_name = ? AND aspect_name = ? AND urn = ?";
-    try (Connection conn = database.dataSource().getConnection()) {
-      conn.setAutoCommit(true);
-      try (PreparedStatement ps = conn.prepareStatement(sql)) {
-        ps.setString(1, entityName);
-        ps.setString(2, aspectName);
-        ps.setString(3, urn);
         ps.executeUpdate();
       }
     }
