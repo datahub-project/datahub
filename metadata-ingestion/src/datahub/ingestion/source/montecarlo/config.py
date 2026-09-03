@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List, Optional
 
 import pydantic
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -10,6 +10,9 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
+)
+from datahub.ingestion.source.montecarlo.constants import (
+    get_known_data_platforms,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -19,6 +22,33 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_platform_value(platform: str) -> str:
+    """Validate a user-configured warehouse platform name against the known
+    DataHub platforms. Raises ``ValueError`` on an unknown value so a typo
+    (e.g. ``snowflke``) fails fast at config load instead of producing a
+    phantom ``urn:li:dataPlatform:snowflke`` that assertions can never attach
+    to. No-ops when the registry cannot be loaded (see
+    ``get_known_data_platforms``).
+    """
+    known = get_known_data_platforms()
+    if known is None:
+        return platform
+    if platform not in known:
+        # Suggest the closest match to make a typo self-evident.
+        import difflib
+
+        suggestions = difflib.get_close_matches(platform, sorted(known), n=3)
+        hint = f" Did you mean one of: {', '.join(suggestions)}?" if suggestions else ""
+        raise ValueError(
+            f"Unknown DataHub platform {platform!r}. It must match a platform "
+            f"name a DataHub source connector emits (e.g. snowflake, bigquery, "
+            f"redshift).{hint} If this is a custom platform registered in your "
+            f"DataHub instance, the MonteCarlo connector cannot currently "
+            f"validate it; see the connector docs."
+        )
+    return platform
 
 
 class MonteCarloPlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
@@ -47,6 +77,13 @@ class MonteCarloPlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         "default: lowercase for snowflake/redshift, case-preserving otherwise, with the "
         "top-level convert_urns_to_lowercase flag forcing lowercase everywhere when true.",
     )
+
+    @field_validator("platform", mode="after")
+    @classmethod
+    def _validate_platform(cls, v: str) -> str:
+        # Catches a typo in a connection_to_platform_map entry before it produces
+        # assertion URNs that point at a platform no warehouse source emits.
+        return _validate_platform_value(v)
 
 
 class MonteCarloSourceConfig(
@@ -81,6 +118,15 @@ class MonteCarloSourceConfig(
         "connection_to_platform_map and the warehouse connection type cannot be mapped "
         "automatically. Leave unset to skip (and warn about) unresolvable assets.",
     )
+
+    @field_validator("default_platform", mode="after")
+    @classmethod
+    def _validate_default_platform(cls, v: Optional[str]) -> Optional[str]:
+        # Same typo guard as MonteCarloPlatformDetail.platform, applied to the
+        # fallback platform that covers auto-mapped / unmapped warehouses.
+        if v is None:
+            return v
+        return _validate_platform_value(v)
 
     target_platform_instance: Optional[str] = Field(
         default=None,

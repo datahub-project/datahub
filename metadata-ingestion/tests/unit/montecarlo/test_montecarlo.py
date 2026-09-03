@@ -70,6 +70,42 @@ def test_include_alerts_requires_include_assertions() -> None:
         make_config(include_alerts=True, include_assertions=False)
 
 
+def test_default_platform_rejects_unknown_platform() -> None:
+    # A typo in default_platform fails fast at config load rather than producing
+    # assertion URNs that point at a platform no warehouse source emits.
+    with pytest.raises(ValueError, match="Unknown DataHub platform"):
+        make_config(default_platform="snowflke")
+
+
+def test_default_platform_accepts_known_platform() -> None:
+    # snowflake is in the connector registry; the connector's own connection-type
+    # map values (e.g. spark, which has no registered connector) are always valid.
+    cfg = make_config(default_platform="snowflake")
+    assert cfg.default_platform == "snowflake"
+
+
+def test_default_platform_accepts_spark_not_in_registry() -> None:
+    # spark is emitted by the connection-type map but has no registered connector,
+    # so it is not in the registry platform_ids — it must still be accepted.
+    cfg = make_config(default_platform="spark")
+    assert cfg.default_platform == "spark"
+
+
+def test_connection_map_rejects_unknown_platform() -> None:
+    # Same typo guard applied to per-warehouse connection_to_platform_map entries.
+    with pytest.raises(ValueError, match="Unknown DataHub platform"):
+        make_config(connection_to_platform_map={"wh-1": {"platform": "bigquerry"}})
+
+
+def test_connection_map_accepts_known_platform() -> None:
+    cfg = make_config(
+        connection_to_platform_map={
+            "wh-1": {"platform": "bigquery", "platform_instance": "inst", "env": "PROD"}
+        }
+    )
+    assert cfg.connection_to_platform_map["wh-1"].platform == "bigquery"
+
+
 def test_parse_mcon() -> None:
     parsed = parse_mcon("MCON++acct++warehouse-1++table++db.schema.tbl")
     assert parsed is not None
