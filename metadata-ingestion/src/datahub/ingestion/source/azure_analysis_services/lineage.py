@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.azure_analysis_services import constants
 from datahub.ingestion.source.azure_analysis_services.config import (
     AzureAnalysisServicesConfig,
 )
@@ -79,12 +80,26 @@ class AasLineageExtractor:
         if not self.config.extract_lineage:
             return result
 
+        # Calculated tables are defined by in-model DAX, not an external M/Power
+        # Query source, so they have no upstream source lineage (their in-model
+        # references are captured separately as intra-model column lineage).
+        # Feeding DAX to the M-Query engine only yields parse warnings/timeouts
+        # and would mislabel them as import tables missing lineage.
+        if table.is_calculated:
+            return result
+
         # A table can have several query partitions (e.g. incremental refresh),
         # each its own M expression against a different source slice. Parse every
         # partition so lineage captures all sources, not just the first. The
         # engine reads a single ``expression`` (the first partition's), so parse a
-        # one-partition copy per partition and merge the results.
-        query_partitions = [p for p in table.partitions if p.query_definition]
+        # one-partition copy per partition and merge the results. DAX (calculated)
+        # partitions are excluded — only M/Power Query partitions are import sources.
+        query_partitions = [
+            p
+            for p in table.partitions
+            if p.query_definition
+            and p.partition_type != constants.PartitionType.CALCULATED
+        ]
         if not query_partitions:
             return result
 
