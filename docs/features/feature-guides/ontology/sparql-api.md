@@ -256,24 +256,44 @@ curl -H "Authorization: Bearer $DATAHUB_TOKEN" \
   "$DATAHUB_GMS_URL/openapi/v3/relationship/schema?format=n-triples" > schema.nt
 ```
 
-**2. The edges.** Use a `CONSTRUCT` query per relationship type, with an `Accept` header for the
-serialization your triple store loads most easily:
+**2. The edges.** A `CONSTRUCT` with a variable predicate exports every relationship type:
 
 ```bash
 curl -H "Authorization: Bearer $DATAHUB_TOKEN" \
      -H "Accept: application/n-triples" \
      -G "$DATAHUB_GMS_URL/openapi/v3/sparql" \
-     --data-urlencode 'query=CONSTRUCT { ?s <urn:li:relationshipType:governedBy> ?o }
-                              WHERE     { ?s <urn:li:relationshipType:governedBy> ?o }' >> edges.nt
+     --data-urlencode 'query=CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }' > edges.nt
 ```
-
-Loop over the relationship types from step 1 to cover the whole graph. Each export is capped at
-**100,000 edges**; a relationship type with more than that is refused rather than silently
-truncated, so split it — for example by anchoring on a subject — rather than accepting a partial
-answer.
 
 Concatenating `schema.nt` and `edges.nt` gives you a self-contained RDF graph to load into the tool
 of your choice.
+
+### If the export is too large
+
+Any single scan is capped at **100,000 edges**. Over that, the query is refused with a `501` rather
+than silently truncated:
+
+```json
+{
+  "error": "scan exceeds the supported result cap of 100000; add a bound endpoint or narrow the query."
+}
+```
+
+The cap is per query, not per export, so a graph larger than 100,000 edges has to come out in
+pieces. Narrow along whichever axis splits your graph most evenly:
+
+```bash
+# One relationship type at a time
+--data-urlencode 'query=CONSTRUCT { ?s <urn:li:relationshipType:governedBy> ?o }
+                        WHERE     { ?s <urn:li:relationshipType:governedBy> ?o }'
+
+# Everything attached to one entity, across all relationship types
+--data-urlencode 'query=CONSTRUCT { <urn:li:glossaryTerm:customer> ?p ?o }
+                        WHERE     { <urn:li:glossaryTerm:customer> ?p ?o }'
+```
+
+Append each result to the same file. A relationship type that is on its own over the cap has to be
+split by anchoring, since there is no paging on this endpoint.
 
 ## Enabling this feature
 
