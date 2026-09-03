@@ -1371,21 +1371,18 @@ class TestSkipMarkersAndEmbedAccounting:
         assert aspect.embeddings["other_model"].modelVersion == "other/model-v1"
         assert own_key not in aspect.embeddings
 
-    def test_skip_marker_read_failure_falls_back_to_empty(
+    def test_skip_marker_read_failure_raises_instead_of_erasing(
         self, pipeline_context, chunking_config
     ):
-        """An unreadable existing aspect must not block the marker: fall back to an
-        empty map (the pre-read behavior) rather than failing the skip."""
+        """A transient read failure must NOT produce a marker with an empty map (a
+        full-aspect UPSERT that would erase other models' entries); it fails the
+        operation so the document is retried next run."""
         source = self._source(pipeline_context, chunking_config)
         graph = MagicMock()
         graph.get_aspect.side_effect = RuntimeError("boom")
         source.graph = graph
 
-        wu = source.build_skip_marker_workunit(
-            "urn:li:document:unreadable", "EMPTY_TEXT"
-        )
-
-        aspect = wu.metadata.aspect
-        assert isinstance(aspect, SemanticContentClass)
-        assert aspect.embeddings == {}
-        assert aspect.skipReason == "EMPTY_TEXT"
+        with pytest.raises(RuntimeError, match="not emitting a skip marker"):
+            source.build_skip_marker_workunit(
+                "urn:li:document:unreadable", "EMPTY_TEXT"
+            )

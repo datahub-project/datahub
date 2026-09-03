@@ -890,10 +890,14 @@ class DocumentChunkingSource(Source):
                         if key != own_key
                     }
             except Exception as e:
-                logger.warning(
+                # Do NOT fall back to an empty map: the marker is a full-aspect UPSERT, so
+                # emitting it after a transient read failure would erase other models'
+                # entries. Raising leaves the document unprocessed; the caller reports it
+                # failed and it is retried next run.
+                raise RuntimeError(
                     f"Could not read existing semanticContent for {document_urn}; "
-                    f"skip marker will not preserve other models' entries: {e}"
-                )
+                    f"not emitting a skip marker that could erase other models' entries"
+                ) from e
 
         mcp = MetadataChangeProposalWrapper(
             entityUrn=document_urn,
