@@ -117,6 +117,12 @@ class PlatformAdapter(ABC):
     )
     """Aggregate function names this adapter emits that may be flattened.
 
+    Cover every emit that reaches execute_single_row, not just the obvious
+    ones. get_column_unique_count and get_column_median both go through it, so
+    an adapter overriding get_approx_unique_count_expr or get_median_expr must
+    declare its replacement -- unique count is the most scan-expensive metric,
+    and leaving it undeclared forfeits most of the benefit on that platform.
+
     The flatten path merges same-table aggregates into one
     `SELECT count(*), min(v), max(v) FROM t`, which is only sound for plain
     aggregates. This declares which names qualify for *this* platform, because

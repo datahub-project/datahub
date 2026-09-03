@@ -205,7 +205,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     # Off by default — flip in a separate follow-up PR after validation.
     query_combiner_flatten_enabled: bool = Field(
         default=False,
-        description="*Experimental.* Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. Cheap aggregates (COUNT/MIN/MAX/AVG/SUM/STDDEV) coexist freely; COUNT(DISTINCT) columns are capped per statement to bound server memory.",
+        description="*Experimental.* Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. Cheap aggregates (COUNT/MIN/MAX/AVG/STDDEV) coexist freely; COUNT(DISTINCT) columns are capped per statement to bound server memory.",
     )
 
     # Hidden option - starting cap on COUNT(DISTINCT) columns per flat statement.

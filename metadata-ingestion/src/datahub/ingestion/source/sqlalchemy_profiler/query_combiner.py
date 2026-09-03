@@ -671,16 +671,27 @@ class SQLAlchemyQueryCombiner:
         # of which render extra SQL), rebuild the minimal
         # `SELECT <cols> FROM <froms>` and require it to render identically.
         # Anything carrying additional state renders differently and falls
-        # through to the CTE path, so a SQLAlchemy clause we have never
-        # heard of is safe by default. HAVING is the reason this must fail
-        # closed: the flat path would drop the clause and fabricate a row
+        # through to the CTE path, so an unqualified SQLAlchemy clause we have
+        # never heard of is safe by default. HAVING is the reason this must
+        # fail closed: the flat path would drop the clause and fabricate a row
         # that must not exist (verified).
         #
-        # The subquery().columns access guards a query with duplicate
-        # explicit .label() names makes .columns raise InvalidRequestError.
-        # The CTE path hits the same raise and recovers via serial fallback;
-        # route there rather than demoting a whole flat batch inside
-        # _execute_flat_select.
+        # LIMITATION: both sides render under the *default* dialect, while the
+        # statement executes under the real one. A construct scoped to a
+        # dialect -- with_hint(..., dialect_name="mysql"),
+        # prefix_with(..., dialect="mysql") -- renders as nothing here, passes
+        # the compare, and is then dropped from the flat statement. Nothing in
+        # this codebase emits one today (the only suffix_with, the sampling
+        # clause in get_row_count, is unqualified and correctly rejected), so
+        # this is future-proofing rather than a live bug. Compiling both sides
+        # with fut.conn.dialect would close it, at the cost of a dialect-aware
+        # gate.
+        #
+        # The subquery().columns access guards against a query with duplicate
+        # explicit .label() names, which makes .columns raise
+        # InvalidRequestError. The CTE path hits the same raise and recovers
+        # via serial fallback; route there rather than demoting a whole flat
+        # batch inside _execute_flat_select.
         #
         # Cost: two str() compiles plus one subquery build per queued query
         # per flush pass. Cheap against a table scan, not free. Both sides
@@ -773,7 +784,13 @@ class SQLAlchemyQueryCombiner:
         # How many column expressions in the query contain a
         # count(distinct(...)) sub-expression. Counted rather than merely
         # detected because the cap bounds distinct-value trees on the server
-        # and one query may carry several. COUNT(DISTINCT) has three
+        # and one query may carry several.
+        #
+        # Columns, not trees: this stops at the first distinct in a column, so
+        # a single column holding two of them counts as one. Such a column is
+        # a BinaryExpression, which the aggregate allowlist rejects before the
+        # budget is ever consulted, so the two can only diverge on a query that
+        # never reaches here. COUNT(DISTINCT) has three
         # spellings in SQLAlchemy, all of which must trip the cap:
         #   sa.func.count(sa.func.distinct(c))  -> FunctionElement name "distinct"
         #   sa.func.count(sa.distinct(c))       -> UnaryExpression, operator distinct_op

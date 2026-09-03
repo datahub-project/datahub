@@ -2017,3 +2017,68 @@ class TestFlattenableAggregates:
         assert (
             GenericAdapter.FLATTENABLE_AGGREGATES == MySQLAdapter.FLATTENABLE_AGGREGATES
         )
+
+
+class TestProfilingConnectionTagging:
+    """execute_single_row is the only place the allowlist reaches a query."""
+
+    @staticmethod
+    def _executed(conn_spy: Any) -> Any:
+        return conn_spy.execute.call_args.args[0]
+
+    def test_execute_single_row_attaches_both_tags(self) -> None:
+        from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+            ProfilingConnection,
+        )
+        from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+            FLATTENABLE_AGGREGATES_EXECUTION_OPTION,
+            SINGLE_ROW_EXECUTION_OPTION,
+        )
+
+        names = frozenset({"count", "min"})
+        raw = MagicMock()
+        query = sa.select(sa.func.count()).select_from(sa.table("t"))
+
+        ProfilingConnection(raw, flattenable_aggregates=names).execute_single_row(query)
+
+        opts = self._executed(raw).get_execution_options()
+        assert opts[SINGLE_ROW_EXECUTION_OPTION] is True
+        assert opts[FLATTENABLE_AGGREGATES_EXECUTION_OPTION] == names
+
+    def test_default_allowlist_is_empty_not_absent(self) -> None:
+        # Fail-closed: a connection built without the adapter's set tags an
+        # empty allowlist, so nothing flattens rather than everything.
+        from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+            ProfilingConnection,
+        )
+        from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+            FLATTENABLE_AGGREGATES_EXECUTION_OPTION,
+        )
+
+        raw = MagicMock()
+        query = sa.select(sa.func.count()).select_from(sa.table("t"))
+
+        ProfilingConnection(raw).execute_single_row(query)
+
+        opts = self._executed(raw).get_execution_options()
+        assert opts[FLATTENABLE_AGGREGATES_EXECUTION_OPTION] == frozenset()
+
+    def test_execute_rows_is_not_tagged(self) -> None:
+        # execute_rows is for statements that may return many rows; tagging one
+        # would assert a batching contract it cannot honour.
+        from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+            ProfilingConnection,
+        )
+        from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+            FLATTENABLE_AGGREGATES_EXECUTION_OPTION,
+            SINGLE_ROW_EXECUTION_OPTION,
+        )
+
+        raw = MagicMock()
+        query = sa.select(sa.column("v")).select_from(sa.table("t"))
+
+        ProfilingConnection(raw, frozenset({"count"})).execute_rows(query)
+
+        opts = self._executed(raw).get_execution_options()
+        assert SINGLE_ROW_EXECUTION_OPTION not in opts
+        assert FLATTENABLE_AGGREGATES_EXECUTION_OPTION not in opts

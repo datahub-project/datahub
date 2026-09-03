@@ -35,6 +35,15 @@ class BigQueryAdapter(PlatformAdapter):
     5. Supports 3-part identifiers (project.dataset.table) via inherited quote_identifier()
     """
 
+    # APPROX_COUNT_DISTINCT replaces the base count(distinct ...), and unlike
+    # an exact distinct it builds no distinct-value tree, so it flattens
+    # freely without consuming max_distinct_per_statement.
+    # get_median_expr returns None here (APPROX_QUANTILES yields an array,
+    # not a scalar), so median never reaches the flatten path.
+    FLATTENABLE_AGGREGATES = PlatformAdapter.FLATTENABLE_AGGREGATES | {
+        "approx_count_distinct"
+    }
+
     def setup_profiling(
         self, context: ProfilingContext, conn: Connection
     ) -> ProfilingContext:

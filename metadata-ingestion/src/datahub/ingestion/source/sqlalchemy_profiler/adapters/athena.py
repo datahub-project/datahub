@@ -33,6 +33,14 @@ class AthenaAdapter(PlatformAdapter):
     3. approx_percentile() for median and quantiles
     """
 
+    # approx_distinct replaces the base count(distinct ...) and builds no
+    # distinct-value tree, so it does not consume max_distinct_per_statement.
+    # approx_percentile(col, 0.5) is this platform's median.
+    FLATTENABLE_AGGREGATES = PlatformAdapter.FLATTENABLE_AGGREGATES | {
+        "approx_distinct",
+        "approx_percentile",
+    }
+
     def setup_profiling(
         self, context: ProfilingContext, conn: Connection
     ) -> ProfilingContext:
