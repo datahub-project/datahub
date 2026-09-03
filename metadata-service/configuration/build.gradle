@@ -5,6 +5,14 @@ plugins {
 apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
 
+sourceSets {
+    productUpdateCiGate
+    test {
+        compileClasspath += sourceSets.productUpdateCiGate.output
+        runtimeClasspath += sourceSets.productUpdateCiGate.output
+    }
+}
+
 dependencies {
     implementation platform(externalDependency.jacksonBom)
     implementation externalDependency.jacksonDataBind
@@ -29,13 +37,18 @@ dependencies {
     testImplementation externalDependency.graphqlJava
     testImplementation project(':metadata-operation-context')
     testImplementation project(':metadata-io')
+
+    // Isolated from :metadata-io so docs-only CI can run the release-sync gate cheaply.
+    productUpdateCiGateImplementation platform(externalDependency.jacksonBom)
+    productUpdateCiGateImplementation externalDependency.jacksonDataBind
+    productUpdateCiGateImplementation externalDependency.testng
+    productUpdateCiGateCompileOnly externalDependency.findbugsAnnotations
 }
 
 test {
     exclude '**/cigate/GraphqlUsageRegistryCiGateTest.class'
     exclude '**/cigate/OpenApiUsageRegistryCiGateTest.class'
     exclude '**/cigate/RestliUsageRegistryCiGateTest.class'
-    exclude '**/productupdate/ProductUpdateReleaseSyncTest.class'
 }
 
 // Declare the docs/ release history as inputs too, so promoting release notes re-runs this gate.
@@ -50,14 +63,15 @@ def productUpdateStamp = layout.buildDirectory.file("product-update-release-sync
 tasks.register('productUpdateReleaseSyncCheck', Test) {
     description = 'Validate bundled product update ("What\'s New" toast) JSONs advertise the latest release.'
     group = 'verification'
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath
+    testClassesDirs = sourceSets.productUpdateCiGate.output.classesDirs
+    classpath = sourceSets.productUpdateCiGate.runtimeClasspath
     include '**/productupdate/ProductUpdateReleaseSyncTest.class'
     inputs.files productUpdateInputs
     outputs.file(productUpdateStamp)
     systemProperty 'datahub.repoRoot', rootProject.projectDir.absolutePath
     reports.junitXml.required = true
     reports.html.required = true
+    jacoco.enabled = false
     // Only write the declared output after the test succeeds, so changed inputs rerun the gate
     // while an unchanged successful result can be UP-TO-DATE.
     doLast {
