@@ -1020,7 +1020,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
 
-        platform = connection.platform or _DATASPHERE_PLATFORM
+        platform = _DATASPHERE_PLATFORM
 
         # Match the Datasphere connector's urn casing so the upstream stitches.
         dataset_name = f"{connection.datasphere_space}.{object_name}"
