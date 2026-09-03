@@ -13,7 +13,9 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.PrivateKey;
 import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -92,7 +94,22 @@ public final class PrivateKeyJwtUtils {
             "Unsupported PEM object type: " + pemObject.getClass().getName());
       }
 
-      return (RSAPrivateKey) converter.getPrivateKey(privateKeyInfo);
+      try {
+        PrivateKey privateKey = converter.getPrivateKey(privateKeyInfo);
+        if (!(privateKey instanceof RSAPrivateKey rsaPrivateKey)) {
+          throw new IllegalArgumentException(
+              "Private key must be RSA for private_key_jwt, got "
+                  + privateKey.getAlgorithm()
+                  + " in file: "
+                  + filePath);
+        }
+        return rsaPrivateKey;
+      } catch (IllegalArgumentException e) {
+        throw e;
+      } catch (Exception e) {
+        throw new IllegalArgumentException(
+            "Failed to load RSA private key from file: " + filePath, e);
+      }
 
     } catch (OperatorCreationException | PKCSException e) {
       throw new IllegalArgumentException("Failed to decrypt private key: " + e.getMessage(), e);
@@ -119,6 +136,20 @@ public final class PrivateKeyJwtUtils {
         chain.add((X509Certificate) c);
       }
       return chain;
+    }
+  }
+
+  /** Rejects a key/cert pair that will not verify the same RSA modulus. */
+  public static void verifyKeyMatchesCertificate(
+      @Nonnull RSAPrivateKey privateKey, @Nonnull X509Certificate certificate) {
+    if (!(certificate.getPublicKey() instanceof RSAPublicKey publicKey)) {
+      throw new IllegalArgumentException(
+          "Certificate public key must be RSA for private_key_jwt, got "
+              + certificate.getPublicKey().getAlgorithm());
+    }
+    if (!privateKey.getModulus().equals(publicKey.getModulus())) {
+      throw new IllegalArgumentException(
+          "Private key does not match the leaf certificate public key");
     }
   }
 

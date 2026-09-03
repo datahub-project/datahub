@@ -15,18 +15,109 @@ import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.pac4j.core.context.CallContext;
+import org.pac4j.core.context.WebContext;
+import org.pac4j.core.context.session.SessionStore;
+import org.pac4j.core.credentials.Credentials;
 import org.pac4j.core.exception.TechnicalException;
 import org.pac4j.oidc.client.OidcClient;
 import org.pac4j.oidc.config.OidcConfiguration;
+import org.pac4j.oidc.credentials.OidcCredentials;
 import org.pac4j.oidc.metadata.OidcOpMetadataResolver;
 
-/** Tests for the {@code private_key_jwt} client authentication path. */
 public class CustomOidcAuthenticatorTest {
 
   private static final URI TOKEN_ENDPOINT = URI.create("https://example.com/token");
   private static final AuthorizationCodeGrant GRANT =
       new AuthorizationCodeGrant(new AuthorizationCode("abc"), URI.create("https://dh/cb"));
+
+  private OidcConfiguration configuration;
+  private OidcConfigs oidcConfigs;
+  private CustomOidcAuthenticator authenticator;
+  private OidcClient client;
+  private CallContext callContext;
+  private WebContext webContext;
+  private SessionStore sessionStore;
+  private OidcOpMetadataResolver metadataResolver;
+  private OIDCProviderMetadata providerMetadata;
+
+  @BeforeEach
+  void setUp() throws Exception {
+    configuration = mock(OidcConfiguration.class);
+    oidcConfigs = mock(OidcConfigs.class);
+    client = mock(OidcClient.class);
+    webContext = mock(WebContext.class);
+    sessionStore = mock(SessionStore.class);
+    callContext = new CallContext(webContext, sessionStore);
+
+    when(client.getConfiguration()).thenReturn(configuration);
+    when(oidcConfigs.getHttpRetryAttempts()).thenReturn("3");
+    when(oidcConfigs.getHttpRetryDelay()).thenReturn("100");
+    when(configuration.getClientId()).thenReturn("test-client-id");
+    when(configuration.getSecret()).thenReturn("test-secret");
+
+    metadataResolver = mock(OidcOpMetadataResolver.class);
+    providerMetadata = mock(OIDCProviderMetadata.class);
+    when(configuration.getOpMetadataResolver()).thenReturn(metadataResolver);
+    when(metadataResolver.load()).thenReturn(providerMetadata);
+
+    authenticator = new CustomOidcAuthenticator(client, oidcConfigs);
+  }
+
+  @Test
+  void testLoadWithRetrySuccessOnFirstAttempt() throws Exception {
+    OIDCProviderMetadata expectedMetadata = mock(OIDCProviderMetadata.class);
+    when(metadataResolver.load()).thenReturn(expectedMetadata);
+
+    OIDCProviderMetadata result = authenticator.loadWithRetry();
+
+    assertNotNull(result);
+    assertEquals(expectedMetadata, result);
+    verify(metadataResolver, times(2)).load();
+  }
+
+  @Test
+  void testLoadWithRetryRetriesOnFailure() throws Exception {
+    OIDCProviderMetadata expectedMetadata = mock(OIDCProviderMetadata.class);
+    reset(metadataResolver);
+    when(metadataResolver.load())
+        .thenThrow(new RuntimeException("Network error"))
+        .thenThrow(new RuntimeException("Network error"))
+        .thenReturn(expectedMetadata);
+
+    OIDCProviderMetadata result = authenticator.loadWithRetry();
+
+    assertNotNull(result);
+    assertEquals(expectedMetadata, result);
+    verify(metadataResolver, times(3)).load();
+  }
+
+  @Test
+  void testLoadWithRetryFailsAfterMaxAttempts() throws Exception {
+    reset(metadataResolver);
+    when(metadataResolver.load()).thenThrow(new RuntimeException("Persistent network error"));
+
+    assertThrows(RuntimeException.class, () -> authenticator.loadWithRetry());
+    verify(metadataResolver, times(3)).load();
+  }
+
+  @Test
+  void testValidateWithInvalidCredentials() throws Exception {
+    OidcCredentials credentials = mock(OidcCredentials.class);
+    when(credentials.toAuthorizationCode()).thenReturn(null);
+
+    Optional<Credentials> result = authenticator.validate(callContext, credentials);
+
+    assertTrue(result.isPresent());
+    assertEquals(credentials, result.get());
+  }
+
+  @Test
+  void testConstructorInitializesCorrectly() {
+    assertNotNull(authenticator);
+  }
 
   @Test
   void freshAssertionPerTokenRequest() throws Exception {
@@ -46,8 +137,10 @@ public class CustomOidcAuthenticatorTest {
     CustomOidcAuthenticator auth =
         newPkjAuthenticator(Optional.of("keycloak-client-kid-42"), "RS256");
 
-    SignedJWT jwt = signedAssertion(auth.createTokenRequest(GRANT));
+    TokenRequest request = auth.createTokenRequest(GRANT);
+    SignedJWT jwt = signedAssertion(request);
 
+    assertNull(request.getScope());
     assertEquals("keycloak-client-kid-42", jwt.getHeader().getKeyID());
     // x5t#S256 must still be populated alongside the override so thumbprint-matching IdPs still
     // work.
@@ -58,6 +151,21 @@ public class CustomOidcAuthenticatorTest {
   void unsupportedAlgorithmFailsAtStartup() {
     // Nimbus's JWSAlgorithm.parse silently accepts any string; we validate eagerly.
     assertThrows(TechnicalException.class, () -> newPkjAuthenticator(Optional.empty(), "NOPE"));
+  }
+
+  @Test
+  void mismatchedCertificateFailsAtStartup() {
+    OidcClient client = mock(OidcClient.class);
+    OidcConfigs configs = mock(OidcConfigs.class);
+    stubMetadataAndRetries(client, configs);
+    when(configs.getPrivateKeyFilePath()).thenReturn(Optional.of(TestKeyMaterial.PRIVATE_KEY_PATH));
+    when(configs.getCertificateFilePath())
+        .thenReturn(Optional.of(TestKeyMaterial.OTHER_CERTIFICATE_PATH));
+    when(configs.getPrivateKeyPassword()).thenReturn(Optional.empty());
+    when(configs.getPrivateKeyJwtKid()).thenReturn(Optional.empty());
+    when(configs.getPrivateKeyJwtAlgorithm()).thenReturn("RS256");
+
+    assertThrows(TechnicalException.class, () -> new CustomOidcAuthenticator(client, configs));
   }
 
   @Test

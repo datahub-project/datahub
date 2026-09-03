@@ -12,7 +12,6 @@ import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
 import com.nimbusds.oauth2.sdk.AuthorizationGrant;
 import com.nimbusds.oauth2.sdk.ParseException;
-import com.nimbusds.oauth2.sdk.Scope;
 import com.nimbusds.oauth2.sdk.TokenErrorResponse;
 import com.nimbusds.oauth2.sdk.TokenRequest;
 import com.nimbusds.oauth2.sdk.TokenResponse;
@@ -35,8 +34,8 @@ import com.nimbusds.openid.connect.sdk.token.OIDCTokens;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.security.PrivateKey;
 import java.security.cert.CertificateException;
+import java.security.interfaces.RSAPrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
@@ -164,12 +163,13 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
    */
   @Override
   protected TokenRequest createTokenRequest(AuthorizationGrant grant) {
-    final Scope scope = Scope.parse(configuration.getScope());
     try {
       final ClientAuthentication clientAuth = buildClientAuthentication();
+      // Do not attach authorization scopes to the token request. Pac4j's parent
+      // implementation omitted them; some IdPs reject a scope parameter on /token.
       return clientAuth == null
-          ? new TokenRequest(tokenEndpoint, clientID, grant, scope)
-          : new TokenRequest(tokenEndpoint, clientAuth, grant, scope);
+          ? new TokenRequest(tokenEndpoint, clientID, grant)
+          : new TokenRequest(tokenEndpoint, clientAuth, grant);
     } catch (JOSEException e) {
       throw new TechnicalException("Failed to sign private_key_jwt client assertion", e);
     }
@@ -230,10 +230,11 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
                       new IllegalArgumentException(
                           "certificateFilePath is required for private_key_jwt authentication"));
 
-      PrivateKey privateKey =
+      RSAPrivateKey privateKey =
           PrivateKeyJwtUtils.loadPrivateKey(
               privateKeyPath, oidcConfigs.getPrivateKeyPassword().orElse(null));
       List<X509Certificate> chain = PrivateKeyJwtUtils.loadCertificateChain(certificatePath);
+      PrivateKeyJwtUtils.verifyKeyMatchesCertificate(privateKey, chain.get(0));
       String thumbprintSha256 = PrivateKeyJwtUtils.computeSha256Thumbprint(chain.get(0));
       String kid = oidcConfigs.getPrivateKeyJwtKid().orElse(thumbprintSha256);
 
@@ -377,7 +378,7 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
 
   /** Pre-parsed signing material for {@code private_key_jwt}, immutable after startup. */
   private record PrivateKeyJwtMaterial(
-      PrivateKey privateKey,
+      RSAPrivateKey privateKey,
       JWSAlgorithm algorithm,
       String kid,
       Base64URL x5tS256,

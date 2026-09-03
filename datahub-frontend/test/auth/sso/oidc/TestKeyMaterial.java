@@ -34,6 +34,8 @@ public final class TestKeyMaterial {
   public static final String PRIVATE_KEY_PATH;
   public static final String ENCRYPTED_PRIVATE_KEY_PATH;
   public static final String CERTIFICATE_PATH;
+  public static final String OTHER_CERTIFICATE_PATH;
+  public static final String EC_PRIVATE_KEY_PATH;
 
   static {
     try {
@@ -59,9 +61,20 @@ public final class TestKeyMaterial {
       Path encKeyPath = dir.resolve("key-encrypted.pem");
       writeEncryptedPkcs8(encKeyPath, keyPair, ENCRYPTED_KEY_PASSWORD);
 
+      KeyPair otherPair = kpg.generateKeyPair();
+      Path otherCertPath = dir.resolve("other-cert.pem");
+      writePem(otherCertPath, generateSelfSignedCertificate(otherPair));
+
+      KeyPairGenerator ecKpg = KeyPairGenerator.getInstance("EC");
+      ecKpg.initialize(256);
+      Path ecKeyPath = dir.resolve("ec-key.pem");
+      writePem(ecKeyPath, ecKpg.generateKeyPair().getPrivate());
+
       PRIVATE_KEY_PATH = keyPath.toString();
       ENCRYPTED_PRIVATE_KEY_PATH = encKeyPath.toString();
       CERTIFICATE_PATH = certPath.toString();
+      OTHER_CERTIFICATE_PATH = otherCertPath.toString();
+      EC_PRIVATE_KEY_PATH = ecKeyPath.toString();
     } catch (Exception e) {
       throw new ExceptionInInitializerError(e);
     }

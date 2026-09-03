@@ -1352,7 +1352,7 @@ Reference Links:
 | ------------------------- | ------- | ---------------------------------------------------- | ---------- |
 | `AUTH_OIDC_ENABLED`       | `false` | Enable OIDC authentication                           | Frontend   |
 | `AUTH_OIDC_CLIENT_ID`     | `null`  | Unique client ID issued by the identity provider     | Frontend   |
-| `AUTH_OIDC_CLIENT_SECRET` | `null`  | Unique client secret issued by the identity provider | Frontend   |
+| `AUTH_OIDC_CLIENT_SECRET` | `null`  | Unique client secret issued by the identity provider. Not required when `AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD` is `private_key_jwt`. | Frontend   |
 | `AUTH_OIDC_DISCOVERY_URI` | `null`  | The IdP OIDC discovery URL                           | Frontend   |
 | `AUTH_OIDC_BASE_URL`      | `null`  | The base URL associated with your DataHub deployment | Frontend   |
 
@@ -1363,7 +1363,12 @@ Reference Links:
 | `AUTH_OIDC_USER_NAME_CLAIM`                 | `preferred_username`  | The attribute/claim used to derive the DataHub username                                                               | Frontend   |
 | `AUTH_OIDC_USER_NAME_CLAIM_REGEX`           | `(.*)`                | The regex used to parse the DataHub username from the user name claim                                                 | Frontend   |
 | `AUTH_OIDC_SCOPE`                           | `oidc email profile`  | String representing the requested scope from the IdP                                                                  | Frontend   |
-| `AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD`    | `client_secret_basic` | Authentication method to pass credentials to token endpoint                                                           | Frontend   |
+| `AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD`    | `client_secret_basic` | Authentication method to pass credentials to token endpoint. Use `private_key_jwt` for RFC 7523 PEM client assertions. | Frontend   |
+| `AUTH_OIDC_PRIVATE_KEY_FILE_PATH`           | `null`                | PEM RSA private key path. Required when using `private_key_jwt`.                                                       | Frontend   |
+| `AUTH_OIDC_CERTIFICATE_FILE_PATH`           | `null`                | PEM X.509 certificate path (leaf first if a chain). Required when using `private_key_jwt`.                             | Frontend   |
+| `AUTH_OIDC_PRIVATE_KEY_PASSWORD`            | `null`                | Password for an encrypted private key PEM. Leave unset for unencrypted keys.                                           | Frontend   |
+| `AUTH_OIDC_PRIVATE_KEY_JWT_ALGORITHM`       | `RS256`               | Client assertion JWS algorithm: `RS256`, `RS384`, or `RS512`.                                                          | Frontend   |
+| `AUTH_OIDC_PRIVATE_KEY_JWT_KID`             | `null`                | Optional JWT `kid`. Defaults to the leaf certificate SHA-256 thumbprint.                                               | Frontend   |
 | `AUTH_OIDC_JIT_PROVISIONING_ENABLED`        | `true`                | Whether DataHub users should be provisioned on login if they don't exist                                              | Frontend   |
 | `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`       | `false`               | Whether the user should already exist in DataHub on login                                                             | Frontend   |
 | `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`          | `true`                | Whether groups should be extracted from a claim in the OIDC profile                                                   | Frontend   |
