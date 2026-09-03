@@ -25,7 +25,6 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
@@ -185,13 +184,28 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
     if (!ChangeType.UPSERT.equals(mclItem.getChangeType())
         || previous == null
         || isSystemUpdate(mclItem.getSystemMetadata())) {
-      Stream<MCPItem> adds =
-          addUnsynced(operationContext, newByAsset, dataProductUrn, mclItem, retrieverContext);
+      // Materialize ADDs first: removeStaleMirrors may throw on scroll failure, and Stream.concat
+      // evaluates args eagerly — without this, a REMOVE-heal failure would discard already-built
+      // ADDs. MigrateAspects / Resync enqueue async MCPs and FailedMCP has no retry, so keep ADDs.
+      List<MCPItem> adds =
+          addUnsynced(operationContext, newByAsset, dataProductUrn, mclItem, retrieverContext)
+              .collect(Collectors.toList());
       if (isSystemUpdate(mclItem.getSystemMetadata())) {
-        return Stream.concat(
-            adds, removeStaleMirrors(dataProductUrn, newByAsset, mclItem, retrieverContext));
+        try {
+          List<MCPItem> removes =
+              removeStaleMirrors(dataProductUrn, newByAsset, mclItem, retrieverContext)
+                  .collect(Collectors.toList());
+          return Stream.concat(adds.stream(), removes.stream());
+        } catch (RuntimeException e) {
+          log.warn(
+              "REMOVE heal failed for {}; emitting {} ADD(s) anyway",
+              dataProductUrn,
+              adds.size(),
+              e);
+          return adds.stream();
+        }
       }
-      return adds;
+      return adds.stream();
     }
 
     final Map<Urn, DataProductAssociation> oldByAsset = associationsByAsset(previous);
@@ -293,25 +307,18 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
 
     Filter filter =
         FilterUtils.createValuesFilter("dataProduct", List.of(dataProductUrn.toString()));
-    // Same as RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS but include soft-deleted so a
-    // later restore cannot resurrect a stale membership that was skipped while removed.
-    SearchFlags healFlags =
-        new SearchFlags()
-            .setFulltext(false)
-            .setMaxAggValues(20)
-            .setSkipCache(true)
-            .setSkipAggregates(true)
-            .setSkipHighlighting(true)
-            .setIncludeSoftDeleted(true)
-            .setIncludeRestricted(false)
-            .setFilterNonLatestVersions(false);
     List<MCPItem> removes = new ArrayList<>();
     try {
       String scrollId = null;
       do {
         ScrollResult scrollResult =
             searchRetriever.scroll(
-                entities, filter, scrollId, maxFanoutPerCommit, List.of(), healFlags);
+                entities,
+                filter,
+                scrollId,
+                maxFanoutPerCommit,
+                List.of(),
+                SearchRetriever.RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS_INCLUDE_SOFT_DELETED);
 
         if (scrollResult.getEntities() == null || scrollResult.getEntities().isEmpty()) {
           break;

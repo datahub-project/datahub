@@ -294,6 +294,42 @@ public class DataProductAssetsSideEffectTest {
   }
 
   @Test
+  public void testSystemUpdateEmitsAddsWhenStaleMirrorScrollFails() {
+    SearchRetriever mockSearchRetriever = mock(SearchRetriever.class);
+    when(mockSearchRetriever.scroll(any(), any(), any(), any(), any(), any()))
+        .thenThrow(new RuntimeException("search unavailable"));
+
+    retrieverContext =
+        RetrieverContext.builder()
+            .searchRetriever(mockSearchRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
+            .graphRetriever(mock(GraphRetriever.class))
+            .build();
+
+    SystemMetadata systemMetadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
+    systemMetadata.setProperties(properties);
+
+    ChangeItemImpl change =
+        changeItem(propsWith(DATASET_1, DATASET_2), ChangeType.UPSERT, systemMetadata);
+    List<MCPItem> output = run(change, propsWith(DATASET_1, DATASET_2));
+
+    assertEquals(
+        output.size(),
+        2,
+        "Scroll failure should still emit ADD patches for current members: " + output);
+    assertTrue(
+        output.stream()
+            .allMatch(
+                item ->
+                    expectedAssetPatch(item.getUrn(), PatchOperationType.ADD, false, change)
+                        .equals(item)));
+    assertTrue(output.stream().anyMatch(item -> DATASET_1.equals(item.getUrn())));
+    assertTrue(output.stream().anyMatch(item -> DATASET_2.equals(item.getUrn())));
+  }
+
+  @Test
   public void testDeleteScrubsPreviousAssets() {
     DataProductAssetsSideEffect test = new DataProductAssetsSideEffect();
     test.setConfig(CONFIG);
