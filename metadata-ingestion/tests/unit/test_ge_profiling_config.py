@@ -127,6 +127,11 @@ def test_max_distinct_per_statement_default_matches_combiner_constant() -> None:
     assert config.max_distinct_per_statement == DEFAULT_MAX_DISTINCT_PER_STATEMENT
 
 
+def test_flatten_is_off_by_default() -> None:
+    # The flag ships off. Flipping the default is a separate, deliberate PR.
+    assert GEProfilingConfig().query_combiner_flatten_enabled is False
+
+
 def test_flatten_without_query_combiner_warns_but_does_not_raise(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

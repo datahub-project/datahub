@@ -1,6 +1,7 @@
 import collections
 import contextlib
 import dataclasses
+import enum
 import itertools
 import logging
 import random
@@ -134,19 +135,50 @@ def is_single_row_query(query: Any) -> bool:
 # (see SQLAlchemyQueryCombiner.max_distinct_per_statement).
 DEFAULT_MAX_DISTINCT_PER_STATEMENT = 5
 
-# Aggregates the flatten path may emit. Every emitted column must be one of
-# these (or a Label wrapping one); a clause-free non-aggregate like
+# Aggregates the flatten path may emit, lowercased. Every emitted column must
+# be one of these (or a Label wrapping one); a clause-free non-aggregate like
 # `SELECT v FROM t` would otherwise pass the clause gate and group with
 # real aggregates, emitting `SELECT count(*), v FROM t` — one row on
 # SQLite/MySQL, silently dropping the non-aggregate's rows. upper(v) is a
 # FunctionElement but returns N rows, so the check is on the function name,
-# not the type. Exotic per-platform aggregates (approx_distinct, uniq,
-# approx_percentile, approx_quantiles, median) are intentionally omitted —
-# they fall to the CTE path, which is correct-but-slower and consistent
-# with fail-closed. MySQL-motivated; flag is off by default.
+# not the type.
+#
+# Entries are matched case-insensitively because SQLAlchemy only normalises
+# names it has a GenericFunction for: count/min/max/sum come back lowercase
+# whatever the caller wrote, but avg and every platform spelling below keep
+# the caller's casing. ClickHouse's stddevSamp is the one that bites — it
+# needs the folded "stddevsamp" entry, not "stddev_samp".
+#
+# Per-platform sample-stddev spellings are all here (base stddev_samp, MSSQL
+# stdev, ClickHouse stddevSamp) so enabling the flag does not silently leave
+# one platform's stddev on the CTE path. Exotic aggregates (approx_distinct,
+# uniq, approx_percentile, approx_quantiles, median) are intentionally
+# omitted — they fall to the CTE path, which is correct-but-slower and
+# consistent with fail-closed. MySQL-motivated; flag is off by default.
 _FLATTENABLE_AGGREGATES = frozenset(
-    {"count", "min", "max", "avg", "sum", "stddev", "stddev_samp", "std"}
+    {
+        "count",
+        "min",
+        "max",
+        "avg",
+        "sum",
+        "stddev",
+        "stddev_samp",
+        "stddevsamp",
+        "stdev",
+        "std",
+    }
 )
+
+
+class _FlattenVerdict(enum.Enum):
+    # Why a queued query did or did not take the flatten path. REJECTED and
+    # GATE_ERROR both route to the CTE path, but they mean different things:
+    # REJECTED is the gate working as designed, GATE_ERROR is the gate
+    # falling over. Conflating them hides a gate that throws on everything.
+    FLATTENABLE = "flattenable"
+    REJECTED = "rejected"
+    GATE_ERROR = "gate_error"
 
 
 def _chunk_by_distinct_budget(
@@ -318,12 +350,17 @@ class SQLAlchemyQueryCombinerReport(Report):
     # distinguishable during validation. Without them a gate that rejects
     # everything looks identical to a workload with nothing to flatten.
     #
-    # flatten_rejected: refused by the _is_flattenable allowlist (an extra
-    # clause, or a non-allowlisted aggregate). flatten_singletons: passed the
-    # gate but was alone in its FROM group, so it was demoted to the CTE path
-    # rather than emit a statement of its own. Both route through the same
-    # unmatched CTE combine, so neither is a failure.
+    # flatten_rejected: refused by the allowlist (an extra clause, or a
+    # non-allowlisted aggregate) -- the gate working as designed.
+    # flatten_gate_errors: the gate itself raised. Same routing, different
+    # meaning: non-zero here means the gate is falling over, which would
+    # otherwise be indistinguishable from a workload with nothing to flatten.
+    # flatten_singletons: passed the gate but was alone in its FROM group, so
+    # it was demoted to the CTE path rather than emit a statement of its own.
+    # All three route through the same unmatched CTE combine; only
+    # flatten_gate_errors is a defect signal.
     flatten_rejected: int = 0
+    flatten_gate_errors: int = 0
     flatten_singletons: int = 0
 
     query_exceptions: int = 0
@@ -349,7 +386,7 @@ class SQLAlchemyQueryCombiner:
     # max_distinct_per_statement per statement) instead of one CTE per query.
     # Default False — off for everyone.
     flatten_enabled: bool = False
-    # Cap on the number of COUNT(DISTINCT) futures that may coexist in one
+    # Cap on the number of COUNT(DISTINCT) columns that may coexist in one
     # flat statement, to bound server-side memory. Module-level
     # DEFAULT_MAX_DISTINCT_PER_STATEMENT is the starting value (5); a hidden
     # config knob threads an override through so the right value can be
@@ -627,15 +664,26 @@ class SQLAlchemyQueryCombiner:
             res = _ResultProxyFake([_RowProxyFake(data)])
 
             query_future.res = res
-            query_future.done = True
 
-        # Verify that we consumed all the columns.
+        # Verify that we consumed all the columns before marking futures done.
+        # A failing assert would otherwise leave wrong-but-done futures, which
+        # the `if not fut.done` filters in the recovery paths then skip --
+        # returning the wrong result instead of re-running the query.
         assert index == len(row)
+        for _, query_future in pending_queue.items():
+            query_future.done = True
 
     # -- flatten path -------------------------------------------------------
 
     @staticmethod
     def _is_flattenable(query: Any) -> bool:
+        return (
+            SQLAlchemyQueryCombiner._flatten_verdict(query)
+            is _FlattenVerdict.FLATTENABLE
+        )
+
+    @staticmethod
+    def _flatten_verdict(query: Any) -> "_FlattenVerdict":
         # Fail-closed allowlist. Rather than enumerating clauses to reject
         # (a denylist silently misses OFFSET, HAVING, FOR UPDATE,
         # prefix_with("DISTINCT"), suffix_with, with_hint, and fetch() — all
@@ -661,7 +709,7 @@ class SQLAlchemyQueryCombiner:
             for f in query.get_final_froms():
                 rebuilt.append_from(f)
             if str(query) != str(rebuilt):
-                return False
+                return _FlattenVerdict.REJECTED
             # Aggregate allowlist on the select list. A clause-free non-
             # aggregate (`SELECT v FROM t`) passes the clause gate above;
             # grouped with real aggregates it would emit
@@ -678,9 +726,9 @@ class SQLAlchemyQueryCombiner:
                 )
                 if not (
                     isinstance(elem, sqlalchemy.sql.functions.FunctionElement)
-                    and elem.name in _FLATTENABLE_AGGREGATES
+                    and elem.name.lower() in _FLATTENABLE_AGGREGATES
                 ):
-                    return False
+                    return _FlattenVerdict.REJECTED
             # Parity between emit-side columns (get_query_columns) and
             # subquery().columns (name-side). A bare sa.text() column gives
             # emit=1, names=0 and would trip the assert in _execute_flat_select
@@ -688,16 +736,22 @@ class SQLAlchemyQueryCombiner:
             # local and that assert stays unreachable. Same reasoning as the
             # duplicate .label() check below.
             if len(get_query_columns(query)) != len(query.subquery().columns):
-                return False
+                return _FlattenVerdict.REJECTED
             # Accessing .columns on the subquery raises InvalidRequestError
             # when the query has duplicate explicit .label() names; that
             # routes the query to the CTE path (which recovers via serial
             # fallback) instead of demoting a whole flat batch.
             _ = query.subquery().columns
-            return True
+            return _FlattenVerdict.FLATTENABLE
         except Exception as e:
-            logger.debug("_is_flattenable rejected query", exc_info=e)
-            return False
+            # The gate itself failed, which is not the same as deciding the
+            # query is unflattenable. Counted separately so a gate that throws
+            # on every query is distinguishable from a workload with nothing
+            # to flatten.
+            logger.debug(
+                "flatten gate raised; treating query as unflattenable", exc_info=e
+            )
+            return _FlattenVerdict.GATE_ERROR
 
     @staticmethod
     def _flatten_signature(fut: "_QueryFuture") -> Tuple[Tuple[Any, ...], Any]:
@@ -739,7 +793,7 @@ class SQLAlchemyQueryCombiner:
             for elem in sqlalchemy.sql.visitors.iterate(col):
                 if (
                     isinstance(elem, sqlalchemy.sql.functions.FunctionElement)
-                    and elem.name == "distinct"
+                    and elem.name.lower() == "distinct"
                 ) or (
                     isinstance(elem, sqlalchemy.sql.elements.UnaryExpression)
                     and elem.operator is sqlalchemy.sql.operators.distinct_op
@@ -756,10 +810,14 @@ class SQLAlchemyQueryCombiner:
         )
         unmatched: Dict[str, _QueryFuture] = {}
         for k, fut in pending_queue.items():
-            if self._is_flattenable(fut.query):
+            verdict = self._flatten_verdict(fut.query)
+            if verdict is _FlattenVerdict.FLATTENABLE:
                 groups[self._flatten_signature(fut)].append((k, fut))
             else:
-                self.report.flatten_rejected += 1
+                if verdict is _FlattenVerdict.GATE_ERROR:
+                    self.report.flatten_gate_errors += 1
+                else:
+                    self.report.flatten_rejected += 1
                 unmatched[k] = fut
 
         # A one-member group has nothing to collapse: flattening it emits a
@@ -798,8 +856,8 @@ class SQLAlchemyQueryCombiner:
                 self.report.query_exceptions += 1
                 logger.warning(
                     f"Failed to execute flat group of {len(members)} queries "
-                    f"over {members[0][1].query.get_final_froms()}; "
-                    f"will attempt CTE re-route."
+                    f"over {members[0][1].query.get_final_froms()} "
+                    f"({type(e).__name__}); will attempt CTE re-route."
                 )
                 logger.debug("Failed to execute flat group", exc_info=e)
                 group_queue = {k: fut for k, fut in members if not fut.done}
@@ -811,7 +869,8 @@ class SQLAlchemyQueryCombiner:
                         # so a silent second one reads as a successful recovery.
                         logger.warning(
                             f"Flat-group CTE re-route also failed for "
-                            f"{len(group_queue)} queries; running them serially."
+                            f"{len(group_queue)} queries ({type(e2).__name__}); "
+                            f"running them serially."
                         )
                         logger.debug(
                             "Flat-group CTE re-route also failed",
@@ -829,8 +888,8 @@ class SQLAlchemyQueryCombiner:
                     raise
                 self.report.query_exceptions += 1
                 logger.warning(
-                    "Failed to execute unmatched CTE combine; "
-                    "will fallback its futures."
+                    f"Failed to execute unmatched CTE combine "
+                    f"({type(e).__name__}); will fallback its futures."
                 )
                 logger.debug("Failed to execute unmatched CTE combine", exc_info=e)
                 self._execute_futures_serially(

@@ -64,6 +64,26 @@ def test_table(engine):
     return table
 
 
+@pytest.fixture
+def cardinality_table(engine):
+    """A table whose column c{k} holds exactly k distinct values.
+
+    Distinct-chunking tests need results that differ per column: if every
+    COUNT(DISTINCT) returns the same number, a chunk-to-future mapping bug
+    hands each future the wrong column and every assertion still passes.
+    """
+    metadata = sa.MetaData()
+    cols = [Column(f"c{k}", Integer) for k in range(1, 8)]
+    table = sa.Table("cardinality_table", metadata, *cols)
+    metadata.create_all(engine)
+    with engine.connect() as conn, conn.begin():
+        conn.execute(
+            sa.insert(table),
+            [{f"c{k}": min(row, k) for k in range(1, 8)} for row in range(1, 8)],
+        )
+    return table
+
+
 def _make_combiner(**overrides: Any) -> SQLAlchemyQueryCombiner:
     defaults: Dict[str, Any] = {
         "enabled": True,
@@ -342,18 +362,23 @@ class TestResultExtraction:
             with pytest.raises(sa.exc.InvalidRequestError):
                 row["v"]
 
-    def test_duplicate_labels_across_queries_do_not_collide(self, engine, test_table):
+    @pytest.mark.parametrize("flatten_enabled", [False, True])
+    def test_duplicate_labels_across_queries_do_not_collide(
+        self, engine, test_table, flatten_enabled
+    ):
         # Two separate queries, each with a single column labelled 'v', combine
         # into one statement. Each query gets its own result dict, so identical
-        # labels across queries must not collide. This is the case that matters
-        # for the flattening change.
+        # labels across queries must not collide. Run on both paths: the flat
+        # path relabels columns with generated uids and rebuilds the result
+        # dicts from its own plan, so it can collide in a way the CTE path
+        # cannot.
         q_min = sa.select(sa.func.min(test_table.c.value).label("v")).select_from(
             test_table
         )
         q_max = sa.select(sa.func.max(test_table.c.value).label("v")).select_from(
             test_table
         )
-        combiner = _make_combiner()
+        combiner = _make_combiner(flatten_enabled=flatten_enabled)
         with engine.connect() as conn, combiner.activate() as qc:
             cap_min = _schedule(qc, conn, q_min)
             cap_max = _schedule(qc, conn, q_max)
@@ -735,17 +760,23 @@ class TestFlattenPath:
         assert combiner.report.total_queries == 2
 
     def test_count_distinct_cap_splits_into_multiple_statements(
-        self, engine, test_table
+        self, engine, cardinality_table
     ):
         # 7 COUNT(DISTINCT) aggregates with MAX_DISTINCT_PER_STATEMENT = 5 must
-        # split into ceil(7/5) = 2 flat statements, each carrying at most 5
-        # distinct trees. This bounds server memory by capping distinct-value
-        # trees per statement.
+        # split into 2 flat statements, each carrying at most 5 distinct trees.
+        # This bounds server memory by capping distinct-value trees per
+        # statement.
+        #
+        # Each query counts a column of different cardinality, so a chunk that
+        # hands results to the wrong futures fails here rather than passing on
+        # identical numbers.
         queries = [
             sa.select(
-                sa.func.count(sa.func.distinct(test_table.c.id)).label(f"uc{i}")
-            ).select_from(test_table)
-            for i in range(7)
+                sa.func.count(sa.func.distinct(cardinality_table.c[f"c{k}"])).label(
+                    f"uc{k}"
+                )
+            ).select_from(cardinality_table)
+            for k in range(1, 8)
         ]
         combiner = _make_combiner(flatten_enabled=True)
         with engine.connect() as conn, combiner.activate() as qc:
@@ -753,7 +784,7 @@ class TestFlattenPath:
             qc.flush()
 
         assert all(c.done and c.exc is None for c in caps)
-        assert all(c.result.scalar() == 3 for c in caps)
+        assert [c.result.scalar() for c in caps] == [1, 2, 3, 4, 5, 6, 7]
         assert combiner.report.flat_queries_issued == 2
         assert combiner.report.scans_avoided == 5  # (5-1) + (2-1)
         assert combiner.report.query_exceptions == 0
@@ -908,17 +939,18 @@ class TestFlattenPath:
         ids=["func.distinct", "sa.distinct", "col.distinct()"],
     )
     def test_count_distinct_cap_covers_all_three_spellings(
-        self, engine, test_table, distinct_fn
+        self, engine, cardinality_table, distinct_fn
     ):
         # Item 2: COUNT(DISTINCT) has three SQLAlchemy spellings. The cap
         # must catch all three — a silent bypass trades a scan problem for a
         # server-memory problem. 7 aggregates with cap 5 -> 2 flat statements
-        # for every spelling.
+        # for every spelling. Distinguishable cardinalities so a chunk-to-
+        # future mapping bug cannot pass on identical results.
         queries = [
-            sa.select(distinct_fn(test_table.c.id).label(f"uc{i}")).select_from(
-                test_table
-            )
-            for i in range(7)
+            sa.select(
+                distinct_fn(cardinality_table.c[f"c{k}"]).label(f"uc{k}")
+            ).select_from(cardinality_table)
+            for k in range(1, 8)
         ]
         combiner = _make_combiner(flatten_enabled=True)
         with engine.connect() as conn, combiner.activate() as qc:
@@ -926,7 +958,7 @@ class TestFlattenPath:
             qc.flush()
 
         assert all(c.done and c.exc is None for c in caps)
-        assert all(c.result.scalar() == 3 for c in caps)
+        assert [c.result.scalar() for c in caps] == [1, 2, 3, 4, 5, 6, 7]
         assert combiner.report.flat_queries_issued == 2
         assert combiner.report.query_exceptions == 0
 
@@ -1199,19 +1231,27 @@ class TestFlattenPath:
         # handles it. The flatten recovery must not swallow the exception
         # and leave futures un-done (the livelock). Same contract as the CTE
         # path.
+        # Two members over the same FROM, so this is a real flat group and the
+        # raise comes out of _execute_flat_group. A lone query would be
+        # demoted as a singleton and exercise the unmatched-CTE raise instead.
         bad = sa.select(
             sa.func.count(sa.column("no_such_col")).label("bad")
+        ).select_from(test_table)
+        bad2 = sa.select(
+            sa.func.max(sa.column("no_such_col")).label("bad2")
         ).select_from(test_table)
         combiner = _make_combiner(
             flatten_enabled=True, serial_execution_fallback_enabled=False
         )
         with engine.connect() as conn, combiner.activate() as qc:
             _schedule(qc, conn, bad)
+            _schedule(qc, conn, bad2)
             with pytest.raises(sa.exc.SQLAlchemyError):
                 qc.flush()
+        assert combiner.report.flatten_singletons == 0
 
     def test_max_distinct_per_statement_knob_splits_distinct_heavy(
-        self, engine, test_table
+        self, engine, cardinality_table
     ):
         # The cap knob is wired through to the distinct packer. K=3 with 7
         # one-distinct queries packs into 3 flat statements. A mutant that
@@ -1219,9 +1259,11 @@ class TestFlattenPath:
         # (5) would split into 2 and fail this.
         queries = [
             sa.select(
-                sa.func.count(sa.func.distinct(test_table.c.id)).label(f"uc{i}")
-            ).select_from(test_table)
-            for i in range(7)
+                sa.func.count(sa.func.distinct(cardinality_table.c[f"c{k}"])).label(
+                    f"uc{k}"
+                )
+            ).select_from(cardinality_table)
+            for k in range(1, 8)
         ]
         combiner = _make_combiner(flatten_enabled=True, max_distinct_per_statement=3)
         with engine.connect() as conn, combiner.activate() as qc:
@@ -1229,7 +1271,7 @@ class TestFlattenPath:
             qc.flush()
 
         assert all(c.done and c.exc is None for c in caps)
-        assert all(c.result.scalar() == 3 for c in caps)
+        assert [c.result.scalar() for c in caps] == [1, 2, 3, 4, 5, 6, 7]
         assert combiner.report.flat_queries_issued == 3
         assert combiner.report.scans_avoided == 4  # (3-1) + (3-1) + (1-1)
         assert combiner.report.query_exceptions == 0
@@ -1317,6 +1359,91 @@ class TestFlattenPath:
         text_query = sa.select(sa.text("name")).select_from(test_table)
         assert not SQLAlchemyQueryCombiner._is_flattenable(text_query)
 
+    @pytest.mark.parametrize(
+        "agg",
+        [
+            # The spellings the adapters actually emit. base_adapter uses
+            # stddev_samp, MSSQL stdev, ClickHouse stddevSamp -- and only
+            # count/min/max/sum are normalised to lowercase by SQLAlchemy, so
+            # a case-sensitive match silently drops the platform spellings.
+            lambda c: sa.func.count(),
+            lambda c: sa.func.min(c),
+            lambda c: sa.func.max(c),
+            lambda c: sa.func.avg(c),
+            lambda c: sa.func.sum(c),
+            lambda c: sa.func.stddev_samp(c),
+            lambda c: sa.func.stdev(c),
+            lambda c: sa.func.stddevSamp(c),
+            lambda c: sa.func.AVG(c),
+        ],
+    )
+    def test_adapter_emitted_aggregates_are_flattenable(self, test_table, agg):
+        query = sa.select(agg(test_table.c.value).label("m")).select_from(test_table)
+        assert SQLAlchemyQueryCombiner._is_flattenable(query)
+
+    @pytest.mark.parametrize(
+        "agg",
+        [
+            # Deliberately not allowlisted: they fall to the CTE path rather
+            # than risk a wrong flat emit.
+            lambda c: sa.func.median(c),
+            lambda c: sa.func.approx_distinct(c),
+            lambda c: sa.func.uniq(c),
+            lambda c: sa.func.approx_percentile(c, 0.5),
+            lambda c: sa.func.upper(c),
+        ],
+    )
+    def test_exotic_aggregates_are_not_flattenable(self, test_table, agg):
+        query = sa.select(agg(test_table.c.value).label("m")).select_from(test_table)
+        assert not SQLAlchemyQueryCombiner._is_flattenable(query)
+
+    def test_avg_and_sum_flatten_with_correct_values(self, engine, test_table):
+        # avg and sum are in the allowlist but were otherwise never executed
+        # through the flat path, so a mis-emit would not have been caught.
+        q_avg = sa.select(sa.func.avg(test_table.c.value).label("a")).select_from(
+            test_table
+        )
+        q_sum = sa.select(sa.func.sum(test_table.c.value).label("s")).select_from(
+            test_table
+        )
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap_avg = _schedule(qc, conn, q_avg)
+            cap_sum = _schedule(qc, conn, q_sum)
+            qc.flush()
+
+        assert cap_avg.result.scalar() == pytest.approx(20.5)
+        assert cap_sum.result.scalar() == pytest.approx(61.5)
+        assert combiner.report.flat_queries_issued == 1
+        assert combiner.report.query_exceptions == 0
+
+    def test_gate_crash_is_counted_apart_from_allowlist_rejection(
+        self, engine, test_table
+    ):
+        # A gate that throws must not look like a workload with nothing to
+        # flatten. Duplicate labels within one query make subquery().columns
+        # raise InvalidRequestError inside the gate -- a real crash, not a
+        # designed rejection -- while a WHERE clause is a designed rejection.
+        # Only the split counters tell them apart.
+        crashes = sa.select(
+            sa.func.min(test_table.c.value).label("x"),
+            sa.func.max(test_table.c.value).label("x"),
+        ).select_from(test_table)
+        rejected = (
+            sa.select(sa.func.count().label("c"))
+            .select_from(test_table)
+            .where(test_table.c.id > 1)
+        )
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap_crash = _schedule(qc, conn, crashes)
+            cap_rej = _schedule(qc, conn, rejected)
+            qc.flush()
+
+        assert cap_crash.done and cap_rej.done
+        assert combiner.report.flatten_gate_errors == 1
+        assert combiner.report.flatten_rejected == 1
+
     def test_singleton_groups_are_demoted_to_one_cte_combine(self, engine):
         # A flush window spanning many tables produces one group per table.
         # Flattening each would emit a statement apiece at identical scan
@@ -1369,15 +1496,30 @@ class TestFlattenPath:
         # A single query carrying more distinct columns than the budget cannot
         # be split -- its distincts already coexist in the query the caller
         # built. It must still run rather than be dropped.
+        #
+        # Scheduled with a partner over the same FROM so the group survives
+        # singleton demotion and actually reaches the packer.
         big = sa.select(
             sa.func.count(sa.func.distinct(test_table.c.id)).label("a"),
             sa.func.count(sa.func.distinct(test_table.c.name)).label("b"),
             sa.func.count(sa.func.distinct(test_table.c.value)).label("c"),
         ).select_from(test_table)
+        partner = sa.select(
+            sa.func.count(sa.func.distinct(test_table.c.id)).label("d")
+        ).select_from(test_table)
         combiner = _make_combiner(flatten_enabled=True, max_distinct_per_statement=1)
         with engine.connect() as conn, combiner.activate() as qc:
             cap = _schedule(qc, conn, big)
+            cap_partner = _schedule(qc, conn, partner)
             qc.flush()
 
         assert cap.done and cap.exc is None
+        assert cap_partner.done and cap_partner.exc is None
+        # 3 columns in one query > budget of 1, so it forms its own statement
+        # rather than being dropped; the partner takes a second.
+        assert combiner.report.flat_queries_issued == 2
+        assert combiner.report.flatten_singletons == 0
+        row = cap.result.one()
+        assert (row["a"], row["b"], row["c"]) == (3, 3, 3)
+        assert cap_partner.result.scalar() == 3
         assert combiner.report.query_exceptions == 0
