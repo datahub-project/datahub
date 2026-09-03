@@ -70,7 +70,7 @@ public class SearchBasedFormAssignmentManagerMetricsTest {
   }
 
   @Test
-  public void testThreePageScrollEmitsEntitiesAndDuration() throws Exception {
+  public void testThreePageScrollEmitsEntitiesAndDuration() throws Throwable {
     final List<Urn> page1 = datasetUrns(0, 2);
     final List<Urn> page2 = datasetUrns(2, 2);
     final List<Urn> page3 = datasetUrns(4, 2);
@@ -117,7 +117,7 @@ public class SearchBasedFormAssignmentManagerMetricsTest {
   }
 
   @Test
-  public void testNullMetricUtilsStillAssigns() throws Exception {
+  public void testNullMetricUtilsStillAssigns() throws Throwable {
     OperationContext noMetrics =
         TestOperationContexts.systemContextTraceNoSearchAuthorization(
             null,
@@ -142,7 +142,7 @@ public class SearchBasedFormAssignmentManagerMetricsTest {
   }
 
   @Test
-  public void testRemoteInvocationRecordsErrorAndRethrows() throws Exception {
+  public void testRemoteInvocationRecordsErrorAndRethrows() throws Throwable {
     final SystemEntityClient client = mockClientFailingOnSecondScrollWithRemoteInvocation();
 
     try {
@@ -165,7 +165,7 @@ public class SearchBasedFormAssignmentManagerMetricsTest {
   }
 
   @Test
-  public void testWrappedRemoteInvocationStillTaggedRemote() throws Exception {
+  public void testWrappedRemoteInvocationStillTaggedRemote() throws Throwable {
     // FormService.verifyEntitiesExist wraps client RIE in RuntimeException — must not become
     // error_type=unexpected.
     final SystemEntityClient client = mock(SystemEntityClient.class);
@@ -203,7 +203,7 @@ public class SearchBasedFormAssignmentManagerMetricsTest {
   }
 
   @Test
-  public void testFailedRunRecordsDurationTaggedFailed() throws Exception {
+  public void testFailedRunRecordsDurationTaggedFailed() throws Throwable {
     final SystemEntityClient client = mockClientFailingOnSecondScrollWithRemoteInvocation();
 
     try {
@@ -225,7 +225,7 @@ public class SearchBasedFormAssignmentManagerMetricsTest {
   }
 
   @Test
-  public void testUnexpectedFailureRecordsErrorAndFailedDuration() throws Exception {
+  public void testUnexpectedFailureRecordsErrorAndFailedDuration() throws Throwable {
     final SystemEntityClient client = mock(SystemEntityClient.class);
     stubFormDefinition(client);
     when(client.filterExistingUrns(any(), anyCollection()))
