@@ -31,8 +31,14 @@ extend type Query {
   """
   Fetch the latest product update information from configured JSON source.
   Returns null if the JSON source is unavailable or feature is disabled.
+
+  Optional locale (e.g. "ja", "pt-BR") selects translated copy from the JSON
+  i18n map. Missing translations fall back to the default English fields.
   """
-  latestProductUpdate(refreshCache: Boolean = false): ProductUpdate
+  latestProductUpdate(
+    refreshCache: Boolean = false
+    locale: String
+  ): ProductUpdate
 }
 
 extend type Mutation {
