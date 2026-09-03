@@ -2168,9 +2168,21 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
         # Generate embeddings inline using ChunkingSource.
         # DocumentChunkingSource enforces max_documents and raises RuntimeError when exceeded.
+        from datahub.ingestion.source.unstructured.chunking_source import (
+            compute_source_text_sha256,
+        )
+
+        # Hash the exact text build_document_entity put on DocumentInfo (the same
+        # extraction over the same elements), so the embeddings' sourceTextSha256
+        # byte-matches the server-stamped resolvedTextSha256 of the indexed body.
+        source_text = self.document_builder.content_mapper.extract_text_content(
+            elements
+        )
         try:
             yield from self.chunking_source.process_elements_inline(
-                document_urn=document_urn, elements=elements
+                document_urn=document_urn,
+                elements=elements,
+                source_text_sha256=compute_source_text_sha256(source_text),
             )
         except RuntimeError as e:
             if self.chunking_source.report.num_documents_limit_reached:

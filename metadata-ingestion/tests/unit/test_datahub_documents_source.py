@@ -40,6 +40,10 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     ServerEmbeddingConfig,
     ServerSemanticSearchConfig,
 )
+from datahub.ingestion.source.unstructured.chunking_source import (
+    compute_source_text_sha256,
+)
+from datahub.metadata.schema_classes import SemanticContentClass
 
 
 def _mock_fetch(source, entities, urns=None):
@@ -2535,8 +2539,6 @@ class TestSkipMarkersAndProvenance:
             return items, stop.value
 
     def test_skip_marker_emitted_for_empty_text(self, ctx, config, mock_graph):
-        from datahub.metadata.schema_classes import SemanticContentClass
-
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
             wus, result = self._drain(
@@ -2555,8 +2557,6 @@ class TestSkipMarkersAndProvenance:
         assert isinstance(aspect.skippedAt, int)
 
     def test_skip_marker_emitted_below_min_text_length(self, ctx, config, mock_graph):
-        from datahub.metadata.schema_classes import SemanticContentClass
-
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
             wus, result = self._drain(
@@ -2572,10 +2572,6 @@ class TestSkipMarkersAndProvenance:
         assert aspect.skipReason == "BELOW_MIN_TEXT_LENGTH"
 
     def test_source_text_sha256_passed_to_chunking(self, ctx, config, mock_graph):
-        from datahub.ingestion.source.unstructured.chunking_source import (
-            compute_source_text_sha256,
-        )
-
         text = "This document has enough content to be partitioned and embedded."
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
@@ -2592,8 +2588,6 @@ class TestSkipMarkersAndProvenance:
         assert kwargs["source_text_sha256"] == compute_source_text_sha256(text)
 
     def test_skip_marker_emitted_when_no_elements(self, ctx, config, mock_graph):
-        from datahub.metadata.schema_classes import SemanticContentClass
-
         text = "long enough text that still partitions into nothing"
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
@@ -2616,8 +2610,6 @@ class TestSkipMarkersAndProvenance:
     def test_skip_empty_text_false_embeds_short_documents(self, ctx, mock_graph):
         """skip_empty_text=False keeps short-but-non-empty documents embeddable
         (its pre-existing semantics); empty documents are always skipped."""
-        from datahub.metadata.schema_classes import SemanticContentClass
-
         cfg = DataHubDocumentsSourceConfig(
             platform_filter=None,
             datahub={"server": "http://test-server:8080"},
@@ -2719,8 +2711,6 @@ class TestSkipMarkersAndProvenance:
 
         # End to end: the same short document is marker-skipped at 50 and reaches the
         # embed path at 0 (the state-hash difference above is what re-triggers it).
-        from datahub.metadata.schema_classes import SemanticContentClass
-
         doc = {"urn": "urn:li:document:threshold", "text": short_text}
         wus_50, result_50 = self._drain(at_50._process_single_document(doc))
         assert result_50 is True

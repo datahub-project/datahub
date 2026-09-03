@@ -21,7 +21,10 @@ from datahub.ingestion.source.unstructured.chunking_source import (
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingResult,
 )
-from datahub.metadata.schema_classes import SemanticContentClass
+from datahub.metadata.schema_classes import (
+    EmbeddingModelDataClass,
+    SemanticContentClass,
+)
 
 
 def _semantic_embeddings(workunit: "MetadataWorkUnit") -> dict:
@@ -1329,3 +1332,60 @@ class TestSkipMarkersAndEmbedAccounting:
             compute_source_text_sha256("héllo \U0001f680\r\nworld")
             == "f319ae6318b99bf8c83d79fe08bdcbc42928dc83c0d9e23145440c83141321a9"
         )
+
+    def test_skip_marker_preserves_other_models_embeddings(
+        self, pipeline_context, chunking_config
+    ):
+        """SemanticContent.embeddings is a multi-model map written as a full-aspect
+        UPSERT: a skip marker must carry forward other models' existing entries
+        (dropping only this pipeline's own), otherwise one pipeline's skip erases
+        another model's embeddings and the index projection clears its vectors."""
+        source = self._source(pipeline_context, chunking_config)
+        own_key = source.get_model_embedding_key()
+        assert own_key is not None
+        graph = MagicMock()
+        graph.get_aspect.return_value = SemanticContentClass(
+            embeddings={
+                own_key: EmbeddingModelDataClass(
+                    modelVersion="own/model-v1",
+                    generatedAt=456,
+                    totalChunks=0,
+                    chunks=[],
+                ),
+                "other_model": EmbeddingModelDataClass(
+                    modelVersion="other/model-v1",
+                    generatedAt=123,
+                    totalChunks=0,
+                    chunks=[],
+                ),
+            }
+        )
+        source.graph = graph
+
+        wu = source.build_skip_marker_workunit("urn:li:document:multi", "EMPTY_TEXT")
+
+        aspect = wu.metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.skipReason == "EMPTY_TEXT"
+        assert "other_model" in aspect.embeddings
+        assert aspect.embeddings["other_model"].modelVersion == "other/model-v1"
+        assert own_key not in aspect.embeddings
+
+    def test_skip_marker_read_failure_falls_back_to_empty(
+        self, pipeline_context, chunking_config
+    ):
+        """An unreadable existing aspect must not block the marker: fall back to an
+        empty map (the pre-read behavior) rather than failing the skip."""
+        source = self._source(pipeline_context, chunking_config)
+        graph = MagicMock()
+        graph.get_aspect.side_effect = RuntimeError("boom")
+        source.graph = graph
+
+        wu = source.build_skip_marker_workunit(
+            "urn:li:document:unreadable", "EMPTY_TEXT"
+        )
+
+        aspect = wu.metadata.aspect
+        assert isinstance(aspect, SemanticContentClass)
+        assert aspect.embeddings == {}
+        assert aspect.skipReason == "EMPTY_TEXT"

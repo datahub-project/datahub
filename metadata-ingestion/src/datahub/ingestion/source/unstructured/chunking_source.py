@@ -43,6 +43,11 @@ from datahub.ingestion.source.unstructured.embedding_providers.factory import (
     create_embedding_provider,
     derive_model_id,
 )
+from datahub.metadata.schema_classes import (
+    EmbeddingChunkClass,
+    EmbeddingModelDataClass,
+    SemanticContentClass,
+)
 from datahub.utilities.ratelimiter import RateLimiter
 
 if TYPE_CHECKING:
@@ -861,17 +866,39 @@ class DocumentChunkingSource(Source):
     ) -> MetadataWorkUnit:
         """Build a semanticContent skip marker for a deliberately-skipped document.
 
-        An empty embeddings map plus skipReason lets downstream consumers (e.g. coverage
-        reporting) tell never-embeddable documents apart from indexing lag or failures.
-        The marker is overwritten with real embeddings if the document later becomes
-        embeddable and is processed.
+        A skipReason (with no entry for this pipeline's model) lets downstream consumers
+        (e.g. coverage reporting) tell never-embeddable documents apart from indexing lag
+        or failures. The marker is overwritten with real embeddings if the document later
+        becomes embeddable and is processed.
+
+        SemanticContent.embeddings is a multi-model map written as a full-aspect UPSERT,
+        so the marker carries forward every other model's existing entry (dropping only
+        this pipeline's own) — otherwise one pipeline's skip would erase other models'
+        embeddings, and the index projection would clear their vectors.
         """
-        from datahub.metadata.schema_classes import SemanticContentClass
+        preserved_embeddings: dict[str, EmbeddingModelDataClass] = {}
+        if self.graph is not None:
+            own_key = self.get_model_embedding_key()
+            try:
+                existing = self.graph.get_aspect(
+                    entity_urn=document_urn, aspect_type=SemanticContentClass
+                )
+                if existing is not None and existing.embeddings:
+                    preserved_embeddings = {
+                        key: value
+                        for key, value in existing.embeddings.items()
+                        if key != own_key
+                    }
+            except Exception as e:
+                logger.warning(
+                    f"Could not read existing semanticContent for {document_urn}; "
+                    f"skip marker will not preserve other models' entries: {e}"
+                )
 
         mcp = MetadataChangeProposalWrapper(
             entityUrn=document_urn,
             aspect=SemanticContentClass(
-                embeddings={},
+                embeddings=preserved_embeddings,
                 skipReason=reason,
                 # Timezone-aware: .timestamp() on a naive utcnow() reinterprets the
                 # value as local time, skewing skippedAt on non-UTC hosts.
@@ -892,12 +919,6 @@ class DocumentChunkingSource(Source):
         source_text_sha256: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit SemanticContent aspect for the document."""
-        from datahub.metadata.schema_classes import (
-            EmbeddingChunkClass,
-            EmbeddingModelDataClass,
-            SemanticContentClass,
-        )
-
         # Use the provider's canonical model_id (e.g. "bedrock/cohere.embed-english-v3").
         # Going through derive_model_id keeps the "local" → "openai/..." mapping
         # consistent with self.embedding_model and the provider instance.

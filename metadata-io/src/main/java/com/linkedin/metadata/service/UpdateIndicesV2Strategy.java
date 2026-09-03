@@ -41,7 +41,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -535,12 +534,11 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       return;
     }
 
-    Optional<String> searchDocument;
+    Optional<ObjectNode> searchDocument;
     try {
       searchDocument =
-          searchDocumentTransformer
-              .transformAspect(opContext, urn, aspect, aspectSpec, true, auditStamp)
-              .map(Objects::toString);
+          searchDocumentTransformer.transformAspect(
+              opContext, urn, aspect, aspectSpec, true, auditStamp);
     } catch (Exception e) {
       log.error(
           "Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
@@ -551,7 +549,21 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       return;
     }
 
-    elasticSearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId);
+    // Serialized before any semantic-only augmentation below, mirroring the upsert path, so the
+    // base V2 index never sees semantic-only fields such as resolvedTextSha256.
+    elasticSearchService.upsertDocument(
+        opContext, entityName, searchDocument.get().toString(), docId);
+
+    // Mirror the upsert path's semantic dual-write for non-key aspect deletes. Without this,
+    // deleting the semanticText override leaves the old override text and resolvedTextSha256 in
+    // the semantic index, and deleting semanticContent leaves vectors and skip fields behind.
+    // writeToSemanticIndex re-stamps resolvedTextSha256 from the surviving aspects (a deleted
+    // override falls back to the document body), and the delete-shaped document nulls the
+    // removed aspect's fields via doc_as_upsert.
+    if (shouldWriteToSemanticIndex(opContext, entityName)) {
+      writeToSemanticIndex(
+          opContext, urn, entityName, aspectSpec.getName(), searchDocument.get(), docId);
+    }
   }
 
   void updateTimeseriesFieldsForEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {

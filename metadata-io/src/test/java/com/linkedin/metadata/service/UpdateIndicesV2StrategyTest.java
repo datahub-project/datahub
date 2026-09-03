@@ -745,6 +745,62 @@ public class UpdateIndicesV2StrategyTest {
             eq(operationContext), eq("datasetindex_v2_semantic"), anyString());
   }
 
+  @Test
+  public void testDeleteSearchData_NonKeyAspectDualWritesSemanticIndex() throws Exception {
+    // Setup: Create strategy with semantic search enabled
+    SemanticSearchConfiguration semanticConfig = mock(SemanticSearchConfiguration.class);
+    when(semanticConfig.isEnabled()).thenReturn(true);
+    when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataset"))
+        .thenReturn("datasetindex_v2_semantic");
+    when(elasticSearchService.indexExists(
+            any(OperationContext.class), eq("datasetindex_v2_semantic")))
+        .thenReturn(true);
+
+    UpdateIndicesV2Strategy strategyWithSemantic =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            semanticConfig,
+            indexConvention,
+            false,
+            mockMappingsBuilder,
+            null);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(true),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+    when(mockSearchDocument.toString()).thenReturn("{\"semanticText\": null}");
+
+    // Execute with isKeyAspect = false (single-aspect delete)
+    strategyWithSemantic.deleteSearchData(
+        operationContext,
+        testUrn,
+        "dataset",
+        mockAspectSpec,
+        mockAspect,
+        false, // isKeyAspect
+        mockAuditStamp);
+
+    // Verify: the delete-shaped document must reach BOTH indices. Deleting a semantic
+    // aspect (semanticText override, semanticContent embeddings) has to clear/restamp
+    // the semantic index too, not just the base V2 index.
+    verify(elasticSearchService)
+        .upsertDocument(eq(operationContext), eq("dataset"), anyString(), anyString());
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq("datasetindex_v2_semantic"), anyString(), anyString());
+  }
+
   // ==================== processBatch coalescing tests ====================
 
   private MCLItem makeEvent(
