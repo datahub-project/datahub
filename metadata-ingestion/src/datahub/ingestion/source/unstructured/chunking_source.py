@@ -56,6 +56,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class SkipMarkerReadError(RuntimeError):
+    """Raised when the existing semanticContent aspect cannot be read while building a
+    skip marker. Callers must leave the document's incremental state unrecorded so the
+    marker is retried next run, instead of swallowing this like a generic embed failure
+    (which would record state and permanently drop the marker)."""
+
+
 def compute_source_text_sha256(text: str) -> str:
     """Fingerprint of the exact resolved source text that was embedded.
 
@@ -894,7 +901,7 @@ class DocumentChunkingSource(Source):
                 # emitting it after a transient read failure would erase other models'
                 # entries. Raising leaves the document unprocessed; the caller reports it
                 # failed and it is retried next run.
-                raise RuntimeError(
+                raise SkipMarkerReadError(
                     f"Could not read existing semanticContent for {document_urn}; "
                     f"not emitting a skip marker that could erase other models' entries"
                 ) from e

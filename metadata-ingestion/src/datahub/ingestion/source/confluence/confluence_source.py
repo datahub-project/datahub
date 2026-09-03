@@ -1086,6 +1086,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         document_urn = f"urn:li:document:{doc_id}"
 
         from datahub.ingestion.source.unstructured.chunking_source import (
+            SkipMarkerReadError,
             compute_source_text_sha256,
         )
 
@@ -1097,6 +1098,11 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 # sourceTextSha256 byte-matches the server-stamped resolvedTextSha256.
                 source_text_sha256=compute_source_text_sha256(text),
             )
+        except SkipMarkerReadError as e:
+            # Do not record this page as processed: the skip marker was not written and
+            # must be retried next run rather than swallowed like an embed failure.
+            logger.warning(f"Skip marker deferred for {document_urn}: {e}")
+            return
         except RuntimeError as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True

@@ -16,6 +16,7 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 )
 from datahub.ingestion.source.unstructured.chunking_source import (
     DocumentChunkingSource,
+    SkipMarkerReadError,
     compute_source_text_sha256,
 )
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
@@ -1382,7 +1383,7 @@ class TestSkipMarkersAndEmbedAccounting:
         graph.get_aspect.side_effect = RuntimeError("boom")
         source.graph = graph
 
-        with pytest.raises(RuntimeError, match="not emitting a skip marker"):
+        with pytest.raises(SkipMarkerReadError, match="not emitting a skip marker"):
             source.build_skip_marker_workunit(
                 "urn:li:document:unreadable", "EMPTY_TEXT"
             )
