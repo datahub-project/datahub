@@ -187,6 +187,22 @@ def test_connection_probes_data_export_service(requests_mock):
     assert "403" in (report.basic_connectivity.failure_reason or "")
 
 
+def test_connection_succeeds_when_data_export_service_is_reachable(requests_mock):
+    _register_test_connection_mocks(requests_mock)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataexport/administration/Namespaces(NamespaceID='sac')/Providers",
+        json={"value": []},
+    )
+
+    report = SACSource.test_connection(_test_connection_config())
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert any(
+        "dataexport/administration" in req.url for req in requests_mock.request_history
+    )
+
+
 def test_connection_skips_data_export_service_when_disabled(requests_mock):
     # When acquired-model schema ingestion is disabled, the Data Export Service is not used,
     # so its access must not be required for a successful connection test.
