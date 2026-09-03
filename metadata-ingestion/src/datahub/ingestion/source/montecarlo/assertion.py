@@ -1,4 +1,5 @@
 import functools
+import hashlib
 import json
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Set, Type
@@ -9,6 +10,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_schema_field_urn,
+    make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatahubKey
@@ -23,6 +25,8 @@ from datahub.ingestion.source.montecarlo.client import (
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
 from datahub.ingestion.source.montecarlo.constants import (
     CUSTOM_METRIC_PREFIX,
+    INCIDENT_CUSTOM_TYPE_PREFIX,
+    INGEST_ACTOR,
     MC_METRIC_TO_AGG_VALUE,
     MC_METRIC_TO_RESULT_SLOT,
     MC_METRIC_TO_STD_AGGREGATION,
@@ -45,8 +49,15 @@ from datahub.metadata.schema_classes import (
     AssertionStdParameterClass,
     AssertionStdParametersClass,
     AssertionTypeClass,
+    AuditStampClass,
     CustomAssertionInfoClass,
     DatasetAssertionScopeClass,
+    IncidentInfoClass,
+    IncidentSourceClass,
+    IncidentSourceTypeClass,
+    IncidentStateClass,
+    IncidentStatusClass,
+    IncidentTypeClass,
 )
 from datahub.utilities.time import datetime_to_ts_millis
 
@@ -490,6 +501,81 @@ class MonteCarloAssertionBuilder:
             aspect=run_event,
         ).as_workunit(is_primary_source=False)
         self.report.report_run_event_emitted()
+
+        yield from self._emit_incident_for_alert(
+            assertion_urn=assertion_urn,
+            dataset_urn=dataset_urn,
+            alert=alert,
+            ts_ms=datetime_to_ts_millis(alert.created_time),
+        )
+
+    def _emit_incident_for_alert(
+        self,
+        *,
+        assertion_urn: str,
+        dataset_urn: str,
+        alert: MonteCarloAlert,
+        ts_ms: int,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a DataHub Incident entity pointing at the failing dataset + assertion.
+
+        Mirrors the SQLMesh connector's ``_emit_incident_for_failure`` so Monte
+        Carlo alerts/incidents appear on the Incidents tab, not just the
+        Assertions tab. The URN is derived deterministically from
+        (assertion_urn, alert_uuid), so re-ingesting the same alert produces the
+        same incident URN and updates the existing entity instead of creating a
+        duplicate.
+
+        Incident type is CUSTOM with customType="MONTE_CARLO/<alert_type>" so
+        the UI can distinguish Monte Carlo incidents from other sources. The
+        alert's subTypes and severity are carried in the description for context.
+        """
+        if not self.config.emit_incidents_on_failure:
+            return
+
+        incident_id = hashlib.md5(f"{assertion_urn}:{alert.uuid}".encode()).hexdigest()
+        incident_urn = f"urn:li:incident:{incident_id}"
+
+        alert_type = alert.alert_type or "alert"
+        title = f"Monte Carlo {alert_type} on monitored dataset"
+        description = f"Monte Carlo alert {alert.uuid} (type={alert_type})"
+        if alert.sub_types:
+            description += f" subTypes={','.join(alert.sub_types)}"
+        if alert.severity:
+            description += f" severity={alert.severity}"
+        if alert.priority:
+            description += f" priority={alert.priority}"
+
+        created = AuditStampClass(
+            time=ts_ms,
+            actor=make_user_urn(INGEST_ACTOR),
+        )
+        incident_info = IncidentInfoClass(
+            type=IncidentTypeClass.CUSTOM,
+            customType=f"{INCIDENT_CUSTOM_TYPE_PREFIX}/{alert_type}",
+            title=title,
+            description=description,
+            entities=[dataset_urn],
+            status=IncidentStatusClass(
+                state=IncidentStateClass.ACTIVE,
+                lastUpdated=created,
+            ),
+            source=IncidentSourceClass(
+                type=IncidentSourceTypeClass.ASSERTION_FAILURE,
+                sourceUrn=assertion_urn,
+            ),
+            startedAt=ts_ms,
+            created=created,
+        )
+        # Deliberately NOT emitting StatusClass on the incident entity — OSS GMS
+        # registers IncidentInfo as an aspect on Incident but doesn't accept
+        # Status on it, returning HTTP 422 "Unknown aspect status for entity
+        # incident". The incidentInfo aspect alone is sufficient to create the
+        # entity.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=incident_urn, aspect=incident_info
+        ).as_workunit(is_primary_source=False)
+        self.report.report_incident_emitted()
 
     def build_run_events_from_execution(
         self,

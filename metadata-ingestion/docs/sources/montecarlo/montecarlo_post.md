@@ -45,6 +45,15 @@ Monte Carlo alerts and incidents are ingested as `AssertionRunEvent` failures on
 corresponding assertion. Each event carries a timestamp, the Monte Carlo alert ID, and the
 alert's native severity/priority/sub-type on `nativeResults`.
 
+When `emit_incidents_on_failure` is enabled (default), the connector also creates a DataHub
+`Incident` entity (`urn:li:incident:…`) for each alert/incident. The incident links back to the
+assertion via `IncidentSource(type=ASSERTION_FAILURE, sourceUrn=<assertion>)`, so the failure
+appears on the **Incidents** tab of the monitored dataset in addition to the Assertions tab. The
+incident URN is derived deterministically from a hash of `(assertion_urn, alert_uuid)`, so
+re-ingesting the same alert updates the existing incident rather than creating a duplicate. Set
+`emit_incidents_on_failure: false` to suppress incident entities and keep only the
+`AssertionRunEvent` failures.
+
 #### Run history and measured metric values
 
 By default the connector emits only the alert-driven `FAILURE` run events above. To also ingest

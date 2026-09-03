@@ -189,3 +189,9 @@ TABLE_METRICS_TO_FETCH: Set[str] = {"total_row_count"}
 # from getMetricsV4 — custom metrics use a separate surface. Skip fetching
 # metrics for any comparison whose metric starts with this prefix.
 CUSTOM_METRIC_PREFIX = "custom_value_based_metric_"
+
+# Incident entity constants — mirror the SQLMesh connector's pattern so Monte
+# Carlo alerts/incidents appear on the Incidents tab, not just the Assertions
+# tab. The customType prefix identifies the source connector in the UI.
+INCIDENT_CUSTOM_TYPE_PREFIX = "MONTE_CARLO"
+INGEST_ACTOR = "__montecarlo_ingest__"

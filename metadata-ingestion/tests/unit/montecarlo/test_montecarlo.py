@@ -38,6 +38,7 @@ from datahub.metadata.schema_classes import (
     CustomAssertionInfoClass,
     DataPlatformInstanceClass,
     DatasetAssertionScopeClass,
+    IncidentInfoClass,
 )
 from datahub.utilities.ratelimiter import DailyCallBudget, DailyCallBudgetExceeded
 
@@ -1081,7 +1082,7 @@ def test_build_run_event_links_to_ingested_monitor() -> None:
         created_time="2026-05-01T00:00:00+00:00",
     )
     wus = list(builder.build_run_event(alert))
-    assert len(wus) == 1
+    assert len(wus) == 2  # run event + incident
     run_event = _aspect(wus[0])
     assert isinstance(run_event, AssertionRunEventClass)
     assert run_event.runId == "alert-1"
@@ -1091,6 +1092,7 @@ def test_build_run_event_links_to_ingested_monitor() -> None:
     assert run_event.assertionUrn == builder._assertion_urn("mon-1")
     assert run_event.asserteeUrn == resolver.dataset_urn_for_mcon(mcon)
     assert report.run_events_emitted == 1
+    assert report.incidents_emitted == 1
 
 
 def test_build_run_event_skips_unknown_monitor() -> None:
@@ -1137,13 +1139,14 @@ def test_build_run_event_uses_first_ingested_monitor_uuid() -> None:
         created_time="2026-05-01T00:00:00+00:00",
     )
     wus = list(builder.build_run_event(alert))
-    assert len(wus) == 1
+    assert len(wus) == 2  # run event + incident
     run_event = _aspect(wus[0])
     assert isinstance(run_event, AssertionRunEventClass)
     assert run_event.runId == "alert-1"
     # The run event attaches to mon-2's assertion, proving the second UUID was used.
     assert run_event.assertionUrn == builder._assertion_urn("mon-2")
     assert report.run_events_emitted == 1
+    assert report.incidents_emitted == 1
 
 
 def test_build_assertion_failed_emit_does_not_register_monitor() -> None:
@@ -1215,6 +1218,166 @@ def test_build_run_event_warns_on_unmatched_alert() -> None:
     # The drop must be visible in the report, not silent.
     titles = [w.title for w in report.warnings]
     assert any("no ingested monitor" in (t or "") for t in titles)
+
+
+# --- Incident emission ---
+
+
+def _ingest_one_monitor(
+    builder: MonteCarloAssertionBuilder, mcon: str, monitor_uuid: str = "mon-1"
+) -> None:
+    _build_assertion_workunits(
+        builder, MonteCarloAssertionDef(uuid=monitor_uuid, entity_mcons=[mcon])
+    )
+
+
+def test_incident_emitted_on_alert() -> None:
+    """An alert produces an Incident entity in addition to the AssertionRunEvent,
+    so the failure appears on the Incidents tab, not just the Assertions tab."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+    _ingest_one_monitor(builder, mcon)
+
+    alert = MonteCarloAlert(
+        uuid="alert-inc-1",
+        alert_type="freshness_incident",
+        sub_types=["freshness"],
+        severity="SEV-1",
+        priority="P1",
+        monitor_uuids=["mon-1"],
+        created_time="2026-05-01T00:00:00+00:00",
+    )
+    wus = list(builder.build_run_event(alert))
+    assert len(wus) == 2
+    incident = _aspect(wus[1])
+    assert isinstance(incident, IncidentInfoClass)
+    assert incident.type == "CUSTOM"
+    assert incident.customType == "MONTE_CARLO/freshness_incident"
+    assert incident.entities == [resolver.dataset_urn_for_mcon(mcon)]
+    assert incident.startedAt is not None
+    assert report.incidents_emitted == 1
+
+
+def test_incident_not_emitted_when_disabled() -> None:
+    """emit_incidents_on_failure=False suppresses the incident entity; only the
+    AssertionRunEvent is emitted."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config(
+        connection_to_platform_map={"wh-2": {"platform": "snowflake"}},
+        emit_incidents_on_failure=False,
+    )
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+    _ingest_one_monitor(builder, mcon)
+
+    alert = MonteCarloAlert(
+        uuid="alert-inc-2",
+        monitor_uuids=["mon-1"],
+        created_time="2026-05-01T00:00:00+00:00",
+    )
+    wus = list(builder.build_run_event(alert))
+    assert len(wus) == 1  # only the run event, no incident
+    assert isinstance(_aspect(wus[0]), AssertionRunEventClass)
+    assert report.incidents_emitted == 0
+
+
+def test_incident_urn_is_deterministic() -> None:
+    """Re-ingesting the same alert produces the same incident URN, so the
+    entity is updated rather than duplicated."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+    _ingest_one_monitor(builder, mcon)
+
+    alert = MonteCarloAlert(
+        uuid="alert-inc-3",
+        monitor_uuids=["mon-1"],
+        created_time="2026-05-01T00:00:00+00:00",
+    )
+    wus1 = list(builder.build_run_event(alert))
+    wus2 = list(builder.build_run_event(alert))
+    mcp1 = wus1[1].metadata
+    mcp2 = wus2[1].metadata
+    assert isinstance(mcp1, MetadataChangeProposalWrapper)
+    assert isinstance(mcp2, MetadataChangeProposalWrapper)
+    urn1 = mcp1.entityUrn
+    urn2 = mcp2.entityUrn
+    assert urn1 == urn2
+    assert urn1 is not None and urn1.startswith("urn:li:incident:")
+
+
+def test_incident_links_to_assertion() -> None:
+    """The incident's source.sourceUrn must point to the assertion so the UI
+    can navigate from the Incidents tab to the assertion definition."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+    _ingest_one_monitor(builder, mcon)
+
+    alert = MonteCarloAlert(
+        uuid="alert-inc-4",
+        monitor_uuids=["mon-1"],
+        created_time="2026-05-01T00:00:00+00:00",
+    )
+    wus = list(builder.build_run_event(alert))
+    incident = _aspect(wus[1])
+    assert isinstance(incident, IncidentInfoClass)
+    assert incident.source is not None
+    assert incident.source.type == "ASSERTION_FAILURE"
+    assert incident.source.sourceUrn == builder._assertion_urn("mon-1")
+
+
+def test_incident_no_emit_on_skipped_alert() -> None:
+    """An alert that matches no ingested monitor produces neither a run event
+    nor an incident — the early return in build_run_event fires before the
+    incident emission path."""
+    report = MonteCarloSourceReport()
+    cfg = make_config()
+    resolver = MconResolver(cfg, FakeResolverClient({}), report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+    alert = MonteCarloAlert(
+        uuid="alert-inc-5",
+        monitor_uuids=["ghost"],
+        created_time="2026-05-01T00:00:00+00:00",
+    )
+    assert list(builder.build_run_event(alert)) == []
+    assert report.incidents_emitted == 0
 
 
 def _client_with_responses(responses: List[Dict[str, Any]]) -> MonteCarloClient:

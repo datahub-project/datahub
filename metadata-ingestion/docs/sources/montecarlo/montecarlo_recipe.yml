@@ -32,6 +32,7 @@ source:
     include_assertions: true # monitors + custom rules -> Assertion entities
     include_alerts: true # alerts/incidents -> AssertionRunEvent failures
     alerts_lookback_days: 30 # how far back to fetch alerts (default: 30 days)
+    emit_incidents_on_failure: true # also create Incident entities (Incidents tab)
 
     # Ingest monitor run history + measured metric values as SUCCESS
     # AssertionRunEvents. Leave unset to keep the FAILURE-only behaviour.

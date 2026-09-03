@@ -17,6 +17,7 @@ class MonteCarloSourceReport(StaleEntityRemovalSourceReport):
     assertions_emitted: int = 0
     alerts_scanned: int = 0
     run_events_emitted: int = 0
+    incidents_emitted: int = 0
     job_executions_scanned: int = 0
     metric_points_fetched: int = 0
 
@@ -53,6 +54,9 @@ class MonteCarloSourceReport(StaleEntityRemovalSourceReport):
 
     def report_run_event_emitted(self) -> None:
         self.run_events_emitted += 1
+
+    def report_incident_emitted(self) -> None:
+        self.incidents_emitted += 1
 
     def report_job_execution_scanned(self) -> None:
         self.job_executions_scanned += 1

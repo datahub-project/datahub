@@ -176,6 +176,17 @@ class MonteCarloSourceConfig(
         description="How many days back to fetch alerts/incidents for. Only applies when "
         "include_alerts is enabled.",
     )
+    emit_incidents_on_failure: bool = Field(
+        default=True,
+        description="Emit a DataHub Incident entity (``urn:li:incident:…``) for each "
+        "Monte Carlo alert/incident, in addition to the AssertionRunEvent failure. "
+        "The incident links back to the assertion via "
+        "``IncidentSource(type=ASSERTION_FAILURE, sourceUrn=<assertion>)`` so the "
+        "Incidents tab on the dataset shows the failure history. Standard DataHub "
+        "entity — works regardless of edition. Re-emitting the same alert is "
+        "idempotent because the incident URN is derived from a hash of "
+        "(assertion_urn, alert_uuid).",
+    )
 
     run_events_lookback_days: Optional[int] = Field(
         default=None,
