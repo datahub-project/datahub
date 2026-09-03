@@ -1105,8 +1105,15 @@ def test_skip_marker_read_error_leaves_document_retryable(notion_source):
         SkipMarkerReadError("read failed")
     )
     notion_source.chunking_source.report.num_documents_limit_reached = False
+    # Enable the stateful gate so _update_document_state WOULD be reached on the
+    # swallow-and-continue path — without this the assertion below is vacuous.
+    notion_source.config.stateful_ingestion = MagicMock(enabled=True)
 
     with patch.object(notion_source, "_update_document_state") as update_state:
         list(notion_source._create_document_entity(data))
 
+    # Discriminates the dedicated SkipMarkerReadError handler: if it were removed,
+    # the generic RuntimeError handler swallows the error and execution falls
+    # through to report accounting and the (enabled) state update.
     update_state.assert_not_called()
+    assert notion_source.report.num_files_processed == 0
