@@ -329,6 +329,10 @@ class DataplexEntriesProcessor:
         if result.main_entity is not None:
             if result.lineage_entry is not None:
                 self._ctx.append_entry(result.lineage_entry)
+            # Registered for BOTH Dataset and Container entities, unlike
+            # lineage_entry, so the glossary stage can attach terms to a linked
+            # BigQuery dataset (a DataHub Container) and not just to tables.
+            self._ctx.register_entry_urn(entry.name, result.main_entity.urn.urn())
             results.append(result.main_entity)
 
         return results

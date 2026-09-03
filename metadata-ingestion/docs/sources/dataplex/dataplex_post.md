@@ -224,18 +224,11 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 
 #### Entity Type Support
 
-**Lineage Extraction:**
+Dataplex entries map to either DataHub **Dataset** entities (BigQuery tables and views, Cloud SQL tables, Spanner tables and graphs, Bigtable tables, Pub/Sub topics, Vertex AI datasets, Dataproc Metastore tables) or DataHub **Container** entities (BigQuery datasets, Cloud SQL instances and databases, Spanner instances and databases, Bigtable instances, Dataproc Metastore services and databases).
 
-Lineage is currently extracted only for Dataplex entries that map to DataHub **Dataset** entities (e.g., BigQuery tables). Lineage is not available for entries that map to Container entities (e.g., BigQuery datasets, GCS buckets) or other entity types.
+**Lineage extraction** applies to Dataset entities only. Containers have no lineage in Dataplex, so no lineage is emitted for them.
 
-**Glossary Term Associations:**
-
-Glossary terms can be associated with Dataplex entries that map to either:
-
-- DataHub **Dataset** entities (e.g., BigQuery tables)
-- DataHub **Container** entities (e.g., BigQuery datasets, GCS buckets)
-
-Terms cannot be associated with entries that map to other entity types.
+**Glossary term associations** apply to both Dataset and Container entities, so a term attached to a BigQuery dataset in Dataplex appears on the corresponding DataHub container. Only assets already discovered by the entries stage can be linked — a term pointing at an entry outside the configured projects, `entries_locations`, or `entries` pattern is reported under `term_links_unmatched` and skipped.
 
 ### Troubleshooting
 
