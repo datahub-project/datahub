@@ -167,6 +167,15 @@ class DataplexGlossaryReport(Report):
     )
     glossary_terms_processed: int = 0
     glossary_terms_processed_samples: LossyList[str] = field(default_factory=LossyList)
+    # Term-asset association funnel, in pipeline order: a definition link returned by
+    # lookupEntryLinks either matches an entity ingested in this run or does not, and
+    # matched links are then emitted as glossaryTerms aspects. An unmatched link means
+    # the asset lives outside the configured projects/locations or was filtered out by
+    # entries.pattern; matched == 0 with unmatched > 0 means the links resolve but
+    # nothing binds, which is silent unless it is counted here.
+    term_links_matched: int = 0
+    term_links_unmatched: int = 0
+    term_links_unmatched_samples: LossyList[str] = field(default_factory=LossyList)
     term_associations_emitted: int = 0
     terms_reconciled: int = 0
     # Externally-authored (managed_by_datahub=false) term links recorded so the
@@ -174,13 +183,6 @@ class DataplexGlossaryReport(Report):
     # high volume with no reconciliation is expected in the pre-sync-back-deploy window.
     external_term_links_recorded: int = 0
     external_term_links_samples: LossyList[str] = field(default_factory=LossyList)
-    # Term links whose SOURCE entry could not be matched to an entity ingested in
-    # this run -- e.g. the asset lives outside the configured projects/locations, or
-    # was filtered out by entries.pattern. matched == 0 with unmatched > 0 means the
-    # links resolve but nothing binds, which is silent unless it is counted here.
-    term_links_matched: int = 0
-    term_links_unmatched: int = 0
-    term_links_unmatched_samples: LossyList[str] = field(default_factory=LossyList)
     glossary_api: Dict[str, Tuple[int, float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
