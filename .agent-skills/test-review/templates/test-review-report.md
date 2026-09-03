@@ -3,23 +3,24 @@
 **Review Date:** {{DATE}}
 **Review Mode:** Full Review
 **Files Analyzed:** {{FILE_COUNT}} files
-**Smoke Tests (Python):** {{SMOKE_COUNT}} | **Integration Tests (Cypress):** {{INTEGRATION_COUNT}}
+**Smoke Tests (Python):** {{SMOKE_COUNT}}
 
 ---
 
 ## Summary
 
-| Category               | Status               | Issues               |
-| ---------------------- | -------------------- | -------------------- |
-| Data Lifecycle         | {{LIFECYCLE_STATUS}} | {{LIFECYCLE_ISSUES}} |
-| Fixture Usage          | {{FIXTURE_STATUS}}   | {{FIXTURE_ISSUES}}   |
-| Assertion Quality      | {{ASSERT_STATUS}}    | {{ASSERT_ISSUES}}    |
-| Retry & Consistency    | {{RETRY_STATUS}}     | {{RETRY_ISSUES}}     |
-| Environment Discipline | {{ENV_STATUS}}       | {{ENV_ISSUES}}       |
-| Golden File Compliance | {{GOLDEN_STATUS}}    | {{GOLDEN_ISSUES}}    |
-| Anti-Pattern Detection | {{ANTI_STATUS}}      | {{ANTI_ISSUES}}      |
+| Category                | Status               | Issues               |
+| ----------------------- | -------------------- | -------------------- |
+| Isolation / unique URNs | {{ISOLATION_STATUS}} | {{ISOLATION_ISSUES}} |
+| Data Lifecycle          | {{LIFECYCLE_STATUS}} | {{LIFECYCLE_ISSUES}} |
+| Fixture Usage           | {{FIXTURE_STATUS}}   | {{FIXTURE_ISSUES}}   |
+| Assertion Quality       | {{ASSERT_STATUS}}    | {{ASSERT_ISSUES}}    |
+| Retry & Consistency     | {{RETRY_STATUS}}     | {{RETRY_ISSUES}}     |
+| Markers                 | {{MARKER_STATUS}}    | {{MARKER_ISSUES}}    |
+| Environment Discipline  | {{ENV_STATUS}}       | {{ENV_ISSUES}}       |
+| Anti-Pattern Detection  | {{ANTI_STATUS}}      | {{ANTI_ISSUES}}      |
 
-**Legend:** ✅ Pass | ⚠️ Warnings | ❌ Issues Found
+**Legend:** Pass | Warnings | Issues Found
 
 ---
 
@@ -36,7 +37,7 @@ No blocker issues found.
 ### {{INDEX}}. {{TITLE}}
 
 - **Location:** `{{FILE_PATH}}:{{LINE}}`
-- **Standard:** `standards/smoke-and-integration.md` - {{SECTION}}
+- **Standard:** `standards/smoke.md` - {{SECTION}}
 - **Issue:** {{DESCRIPTION}}
 - **Evidence:** {{CODE_SNIPPET}}
 - **Fix:** {{RECOMMENDATION}}
@@ -89,26 +90,17 @@ No warning issues found.
 
 ### Smoke Test Standards
 
-- [{{SMOKE_LIFECYCLE}}] Uses `_ingest_cleanup_data_impl` data lifecycle pattern
-- [{{SMOKE_FIXTURE}}] Module-scoped `ingest_cleanup_data` fixture with `autouse=True`
+- [{{SMOKE_ISOLATION}}] Run-unique names (`unique_suffix` / unique ingest); no shared hardcoded URNs
+- [{{SMOKE_FIXTURE}}] Unique ingest (`_ingest_cleanup_unique_dataset_impl` / `materialize_*`) or `_ingest_cleanup_data_impl` only when keys are already unique
+- [{{SMOKE_LIFECYCLE}}] Fixture `yield` teardown (`_ingest_cleanup_unique_dataset_impl` or `_ingest_cleanup_data_impl` when keys are already unique)
 - [{{SMOKE_AUTH}}] Uses `auth_session` fixture (no inline credentials)
 - [{{SMOKE_RETRY}}] Uses `@with_test_retry()` or `wait_for_writes_to_sync()` (no bare `time.sleep`)
-- [{{SMOKE_GRAPHQL}}] Uses `execute_graphql()` with proper assertion checks
-- [{{SMOKE_REST}}] Uses `restli_default_headers` for REST API calls
+- [{{SMOKE_GRAPHQL}}] Uses `execute_graphql()` with specific field assertions
+- [{{SMOKE_REST}}] Uses `restli_default_headers` / `ingest_file_via_rest()` where applicable
 - [{{SMOKE_ENV}}] Uses `env_vars.py` registry (no direct `os.getenv`)
-- [{{SMOKE_MARKERS}}] Appropriate pytest markers applied
-- [{{SMOKE_NAMES}}] Descriptive test function names
-- [{{SMOKE_CLEANUP}}] Cleanup of created entities in fixture teardown
-
-### Integration Test Standards (Cypress)
-
-- [{{CY_LAUNCHER}}] Launcher `integration_test.py` has proper data lifecycle (ingest + cleanup)
-- [{{CY_BATCHING}}] Batching via `bin_pack_tasks` with `test_weights.json`
-- [{{CY_ISOLATION}}] Specs use unique random IDs per `describe` block
-- [{{CY_LOGIN}}] Each `it` block uses `cy.login()` or `beforeEach` auth
-- [{{CY_SELECTORS}}] Uses `data-testid` selectors (not fragile CSS classes)
-- [{{CY_ASSERTIONS}}] Non-trivial assertions (`cy.waitTextVisible`, `.should()`)
-- [{{CY_CLEANUP}}] Tests that create entities clean up in `after()` blocks
+- [{{SMOKE_MARKERS}}] Declares `domain(...)`; `global_policy_mutator` if mutating shared policy
+- [{{SMOKE_CLEANUP}}] Cleanup of created entities in fixture teardown or `try/finally`
+- [{{SMOKE_LOG}}] Uses `logger.info()`, not `print()`
 
 ---
 

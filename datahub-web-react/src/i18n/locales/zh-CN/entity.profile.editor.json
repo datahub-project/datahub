@@ -1,0 +1,22 @@
+{
+    "addImage.altText": "替代文本",
+    "addImage.imageUrl": "图片 URL",
+    "addImage.title": "添加图片",
+    "heading.heading1": "标题 1",
+    "heading.heading2": "标题 2",
+    "heading.heading3": "标题 3",
+    "heading.heading4": "标题 4",
+    "heading.heading5": "标题 5",
+    "heading.normal": "正文",
+    "link.linkUrl": "链接 URL",
+    "link.text": "文本",
+    "link.title": "添加链接",
+    "mentions.failedToFindEntity": "未找到实体",
+    "table.deleteColumn": "删除列",
+    "table.deleteRow": "删除行",
+    "table.deleteTable": "删除表格",
+    "table.insertColumnLeft": "在左侧插入列",
+    "table.insertColumnRight": "在右侧插入列",
+    "table.insertRowAbove": "在上方插入行",
+    "table.insertRowBelow": "在下方插入行"
+}

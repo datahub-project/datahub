@@ -1,6 +1,173 @@
 // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
 // this will fix errors like `Error: File not accounted for in sidebar: ...`
 // smoke-test/tests/library_examples/README.md
+
+const fs = require("fs");
+const path = require("path");
+
+// ---------------------------------------------------------------------------
+// Ingestion source grouping
+//
+// The connector pages under docs/generated/ingestion/sources/ are produced by
+// docgen. Rather than hand-listing ~110 of them here (which goes stale every
+// time a connector is added), the groups below are derived at build time from
+// the `platform_type` field in the connector catalog -- the same field that
+// drives the filters on the /integrations page, so the two stay consistent.
+//
+// Files are never moved: grouping lives only in the sidebar, so a connector can
+// be recategorised without changing its URL.
+// ---------------------------------------------------------------------------
+
+const SOURCES_ID_PREFIX = "docs/generated/ingestion/sources";
+const SOURCES_DIR = path.join(__dirname, "..", SOURCES_ID_PREFIX);
+const CONNECTOR_CATALOG = require("../metadata-ingestion/docs/sources/integrations_catalog.json");
+
+// Render order. "Other" catches anything without a usable platform_type so a
+// new connector is always reachable, never silently dropped from the nav.
+const SOURCE_GROUP_ORDER = [
+  "Databases & Warehouses",
+  "Data Lakes & Query Engines",
+  "BI & Visualization",
+  "ETL, Transformation & Orchestration",
+  "Streaming & Messaging",
+  "AI & ML",
+  "Files, Schemas & Formats",
+  "Catalogs, Governance & Quality",
+  "Identity & Access",
+  "Business & Collaboration Apps",
+  "DataHub Utilities",
+  "Other",
+];
+
+const PLATFORM_TYPE_TO_GROUP = {
+  Database: "Databases & Warehouses",
+  "Data Lake": "Data Lakes & Query Engines",
+  "BI Tool": "BI & Visualization",
+  "ETL/ELT": "ETL, Transformation & Orchestration",
+  Orchestrator: "ETL, Transformation & Orchestration",
+  Messaging: "Streaming & Messaging",
+  "AI+ML": "AI & ML",
+  "Metadata Systems": "Files, Schemas & Formats",
+  "Data Catalog": "Catalogs, Governance & Quality",
+  "Data Quality": "Catalogs, Governance & Quality",
+  "Identity Provider": "Identity & Access",
+  Collaboration: "Business & Collaboration Apps",
+  CRM: "Business & Collaboration Apps",
+  Internal: "DataHub Utilities",
+};
+
+// platform_type is a single free-text field and is too coarse in two places:
+// object stores and query engines are all tagged "Database", and a few
+// governance tools are tagged "Metadata Systems". Redraw those here.
+const SOURCE_GROUP_OVERRIDES = {
+  abs: "Data Lakes & Query Engines",
+  athena: "Data Lakes & Query Engines",
+  "delta-lake": "Data Lakes & Query Engines",
+  dremio: "Data Lakes & Query Engines",
+  "fabric-onelake": "Data Lakes & Query Engines",
+  gcs: "Data Lakes & Query Engines",
+  hive: "Data Lakes & Query Engines",
+  "hive-metastore": "Data Lakes & Query Engines",
+  iceberg: "Data Lakes & Query Engines",
+  presto: "Data Lakes & Query Engines",
+  s3: "Data Lakes & Query Engines",
+  trino: "Data Lakes & Query Engines",
+  bigid: "Catalogs, Governance & Quality",
+  dataplex: "Catalogs, Governance & Quality",
+  glue: "Catalogs, Governance & Quality",
+  odcs: "Catalogs, Governance & Quality",
+};
+
+// Integrations documented outside the generated tree (push-based connectors and
+// schema tooling). Listed explicitly because docgen does not produce them.
+const EXTRA_SOURCE_ENTRIES = {
+  "ETL, Transformation & Orchestration": [
+    { type: "doc", id: "docs/lineage/airflow", label: "Airflow" },
+    { type: "doc", id: "docs/lineage/dagster", label: "Dagster" },
+    { type: "doc", id: "docs/lineage/prefect", label: "Prefect" },
+    {
+      type: "doc",
+      id: "metadata-integration/java/acryl-spark-lineage/README",
+      label: "Spark",
+    },
+  ],
+  "Streaming & Messaging": [
+    // Discoverability alias: "Amazon Data Firehose" is ingested by the same
+    // `kinesis` connector, but users searching for "Firehose" expect their own
+    // entry. `ref` lets docusaurus point at the same doc twice.
+    {
+      type: "ref",
+      id: "docs/generated/ingestion/sources/kinesis",
+      label: "Amazon Data Firehose",
+    },
+  ],
+  "Files, Schemas & Formats": [
+    {
+      type: "doc",
+      id: "metadata-integration/java/datahub-protobuf/README",
+      label: "Protobuf Schemas",
+    },
+  ],
+  "Catalogs, Governance & Quality": [
+    {
+      type: "doc",
+      id: "metadata-ingestion/integration_docs/great-expectations",
+      label: "Great Expectations",
+    },
+  ],
+};
+
+function groupForConnector(platformId) {
+  if (SOURCE_GROUP_OVERRIDES[platformId]) {
+    return SOURCE_GROUP_OVERRIDES[platformId];
+  }
+  const entry = CONNECTOR_CATALOG[platformId];
+  let rawType = entry && entry.platform_type;
+  if (Array.isArray(rawType)) {
+    rawType = rawType[0];
+  }
+  return PLATFORM_TYPE_TO_GROUP[rawType] || "Other";
+}
+
+function buildSourceGroups() {
+  // If docgen has not run yet there is nothing to group; fall back to letting
+  // docusaurus enumerate the directory so the build still works.
+  if (!fs.existsSync(SOURCES_DIR)) {
+    return [{ type: "autogenerated", dirName: SOURCES_ID_PREFIX }];
+  }
+
+  const grouped = {};
+  for (const file of fs.readdirSync(SOURCES_DIR)) {
+    if (!file.endsWith(".md")) continue;
+    const platformId = file.slice(0, -3);
+    const group = groupForConnector(platformId);
+    (grouped[group] = grouped[group] || []).push(
+      `${SOURCES_ID_PREFIX}/${platformId}`
+    );
+  }
+  for (const [group, entries] of Object.entries(EXTRA_SOURCE_ENTRIES)) {
+    (grouped[group] = grouped[group] || []).push(...entries);
+  }
+
+  const known = new Set(SOURCE_GROUP_ORDER);
+  const order = [
+    ...SOURCE_GROUP_ORDER,
+    ...Object.keys(grouped).filter((g) => !known.has(g)),
+  ];
+
+  return order
+    .filter((group) => grouped[group] && grouped[group].length)
+    .map((group) => ({
+      type: "category",
+      label: group,
+      collapsed: true,
+      items: grouped[group].sort((a, b) => {
+        const key = (x) => (typeof x === "string" ? x : x.label || x.id);
+        return key(a).localeCompare(key(b));
+      }),
+    }));
+}
+
 module.exports = {
   overviewSidebar: [
     // Getting Started.
@@ -233,6 +400,16 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          // Incidents are available in DataHub Core as a manual signal on an
+          // asset. DataHub Cloud additionally raises them automatically from
+          // failing assertions -- that behaviour is documented under
+          // DataHub Cloud > Data Quality & Observability. Kept here, unmarked,
+          // so self-hosted users can find a feature they already have.
+          label: "Incidents",
+          type: "doc",
+          id: "docs/incidents/incidents",
+        },
+        {
           label: "Logical Models",
           type: "category",
           link: {
@@ -263,131 +440,6 @@ module.exports = {
           type: "doc",
           id: "docs/features/feature-guides/service-catalog",
           className: "saasOnly",
-        },
-      ],
-    },
-    {
-      label: "Data Quality & Observability",
-      type: "category",
-      collapsed: true,
-      link: {
-        type: "doc",
-        id: "docs/features/feature-guides/observe",
-      },
-      items: [
-        {
-          label: "Assertions",
-          type: "category",
-          className: "saasOnly",
-          link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
-          items: [
-            {
-              label: "Overview",
-              type: "doc",
-              id: "docs/managed-datahub/observe/assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Column Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/column-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Custom SQL Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/custom-sql-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Freshness Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/freshness-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Schema Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/schema-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Volume Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/volume-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Anomaly Detection ⚡",
-              type: "doc",
-              id: "docs/managed-datahub/observe/anomaly-detection",
-              className: "saasOnly",
-            },
-            {
-              label: "Backfill Assertion History",
-              type: "doc",
-              id: "docs/managed-datahub/observe/assertion-backfill",
-              className: "saasOnly",
-            },
-            {
-              label: "Adding Notes to Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/assertion-notes",
-              className: "saasOnly",
-            },
-            {
-              label: "Assertion Query Attribution",
-              type: "doc",
-              id: "docs/managed-datahub/observe/assertion-query-attribution",
-              className: "saasOnly",
-            },
-            {
-              label: "Open Assertions Specification",
-              type: "category",
-              link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
-              items: [
-                {
-                  label: "Snowflake",
-                  type: "doc",
-                  id: "docs/assertions/snowflake/snowflake_dmfs",
-                },
-              ],
-            },
-          ],
-        },
-        {
-          label: "Data Contract",
-          type: "doc",
-          id: "docs/managed-datahub/observe/data-contract",
-          className: "saasOnly",
-        },
-        {
-          label: "Incidents",
-          type: "doc",
-          id: "docs/incidents/incidents",
-        },
-        {
-          label: "Data Health Dashboard",
-          type: "doc",
-          id: "docs/managed-datahub/observe/data-health-dashboard",
-          className: "saasOnly",
-        },
-        {
-          label: "Subscriptions & Notifications",
-          type: "category",
-          className: "saasOnly",
-          link: {
-            type: "doc",
-            id: "docs/managed-datahub/subscription-and-notification",
-          },
-          items: [
-            {
-              label: "SMTP Email Notifications",
-              type: "doc",
-              id: "docs/managed-datahub/smtp-email",
-              className: "saasOnly",
-            },
-          ],
         },
       ],
     },
@@ -757,6 +809,129 @@ module.exports = {
       id: "docs/managed-datahub/welcome-acryl",
     },
     {
+      label: "Data Quality & Observability",
+      type: "category",
+      collapsed: true,
+      customProps: {
+        icon: "🔍",
+      },
+      link: {
+        type: "doc",
+        id: "docs/managed-datahub/observe/overview",
+      },
+      items: [
+        {
+          label: "Assertions",
+          type: "category",
+          className: "saasOnly",
+          link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
+          items: [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Column Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/column-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Custom SQL Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/custom-sql-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Freshness Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/freshness-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Schema Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/schema-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Volume Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/volume-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Anomaly Detection ⚡",
+              type: "doc",
+              id: "docs/managed-datahub/observe/anomaly-detection",
+              className: "saasOnly",
+            },
+            {
+              label: "Backfill Assertion History",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertion-backfill",
+              className: "saasOnly",
+            },
+            {
+              label: "Adding Notes to Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertion-notes",
+              className: "saasOnly",
+            },
+            {
+              label: "Assertion Query Attribution",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertion-query-attribution",
+              className: "saasOnly",
+            },
+            {
+              label: "Open Assertions Specification",
+              type: "category",
+              link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
+              items: [
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/assertions/snowflake/snowflake_dmfs",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          label: "Data Contract",
+          type: "doc",
+          id: "docs/managed-datahub/observe/data-contract",
+          className: "saasOnly",
+        },
+        {
+          label: "Data Health Dashboard",
+          type: "doc",
+          id: "docs/managed-datahub/observe/data-health-dashboard",
+          className: "saasOnly",
+        },
+        {
+          label: "Subscriptions & Notifications",
+          type: "category",
+          className: "saasOnly",
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/subscription-and-notification",
+          },
+          items: [
+            {
+              label: "SMTP Email Notifications",
+              type: "doc",
+              id: "docs/managed-datahub/smtp-email",
+              className: "saasOnly",
+            },
+          ],
+        },
+      ],
+    },
+    {
       label: "Upgrading from DataHub Core to Cloud",
       type: "doc",
       id: "docs/managed-datahub/upgrade_core_to_cloud",
@@ -900,6 +1075,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_2_0",
         "docs/managed-datahub/release-notes/v_2_1_0",
         "docs/managed-datahub/release-notes/v_2_0_0",
         "docs/managed-datahub/release-notes/v_1_1_0",
@@ -1038,47 +1214,7 @@ module.exports = {
       type: "category",
       label: "Sources",
       link: { type: "doc", id: "metadata-ingestion/source_overview" },
-      items: [
-        // collapse these; add push-based at top
-        {
-          type: "doc",
-          id: "docs/lineage/airflow",
-          label: "Airflow",
-        },
-        {
-          type: "doc",
-          id: "docs/lineage/dagster",
-          label: "Dagster",
-        },
-        {
-          type: "doc",
-          id: "docs/lineage/prefect",
-          label: "Prefect",
-        },
-        {
-          type: "doc",
-          id: "metadata-integration/java/acryl-spark-lineage/README",
-          label: "Spark",
-        },
-        //"docker/airflow/local_airflow",
-        "metadata-ingestion/integration_docs/great-expectations",
-        "metadata-integration/java/datahub-protobuf/README",
-        //"metadata-ingestion/source-docs-template",
-        // Discoverability alias: "Amazon Data Firehose" is ingested by
-        // the same `kinesis` connector, but users searching for "Firehose"
-        // expect to see it as its own sidebar entry. Use `ref` so
-        // docusaurus allows pointing at the same doc twice (the autogen
-        // list below produces the "Amazon Kinesis Data Streams" entry).
-        {
-          type: "ref",
-          id: "docs/generated/ingestion/sources/kinesis",
-          label: "Amazon Data Firehose",
-        },
-        {
-          type: "autogenerated",
-          dirName: "docs/generated/ingestion/sources", // '.' means the current docs folder
-        },
-      ],
+      items: buildSourceGroups(),
     },
     {
       type: "category",

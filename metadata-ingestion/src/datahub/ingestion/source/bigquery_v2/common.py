@@ -28,6 +28,23 @@ BQ_EXTERNAL_TABLE_URL_TEMPLATE = "https://console.cloud.google.com/bigquery?proj
 BQ_EXTERNAL_DATASET_URL_TEMPLATE = "https://console.cloud.google.com/bigquery?project={project}&ws=!1m4!1m3!3m2!1s{project}!2s{dataset}"
 
 BQ_SYSTEM_TABLES_PATTERN = [r".*\.INFORMATION_SCHEMA\..*", r".*\.__TABLES__.*"]
+# The system-tables deny pattern never changes, so build it once instead of on every
+# is_allowed() call (invoked per table during ingestion).
+_SYSTEM_TABLES_ALLOW_DENY = AllowDenyPattern(deny=BQ_SYSTEM_TABLES_PATTERN)
+
+# BigQuery sentinel partition IDs that represent unreal/virtual partitions.
+# These appear in INFORMATION_SCHEMA.PARTITIONS and should be excluded when
+# determining the latest real partition or generating partition filter clauses.
+BQ_NULL_PARTITION_ID = "__NULL__"
+BQ_UNPARTITIONED_PARTITION_ID = "__UNPARTITIONED__"
+BQ_STREAMING_UNPARTITIONED_PARTITION_ID = "__STREAMING_UNPARTITIONED__"
+BQ_SPECIAL_PARTITION_IDS = frozenset(
+    {
+        BQ_NULL_PARTITION_ID,
+        BQ_UNPARTITIONED_PARTITION_ID,
+        BQ_STREAMING_UNPARTITIONED_PARTITION_ID,
+    }
+)
 
 
 class BigQueryIdentifierBuilder:
@@ -103,9 +120,7 @@ class BigQueryFilter:
         )
 
     def is_allowed(self, table_id: BigqueryTableIdentifier) -> bool:
-        return AllowDenyPattern(deny=BQ_SYSTEM_TABLES_PATTERN).allowed(
-            str(table_id)
-        ) and (
+        return _SYSTEM_TABLES_ALLOW_DENY.allowed(str(table_id)) and (
             gcp_is_project_allowed(self.filter_config, table_id.project_id)
             and is_schema_allowed(
                 self.filter_config.dataset_pattern,
