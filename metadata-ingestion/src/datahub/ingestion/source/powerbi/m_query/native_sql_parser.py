@@ -215,6 +215,15 @@ def _is_single_statement(query: str, platform: str) -> bool:
     return len(statements) <= 1
 
 
+def _is_string_literal(node: Optional[exp.Expression]) -> bool:
+    # BigQuery raw strings (r'...') parse as exp.RawString, which is not an exp.Literal
+    # subclass, so a plain isinstance(node, exp.Literal) check drops EXTERNAL_QUERY
+    # federations written with raw strings. Both carry the text in `.this`.
+    return isinstance(node, exp.RawString) or (
+        isinstance(node, exp.Literal) and node.is_string
+    )
+
+
 def extract_external_queries(query: str, platform: str) -> ExternalQueryExtraction:
     """Extract EXTERNAL_QUERY federations and rewrite them to inert placeholders."""
     dialect = _resolve_dialect(platform)
@@ -248,10 +257,7 @@ def extract_external_queries(query: str, platform: str) -> ExternalQueryExtracti
             if len(args) < 2:
                 reason: Optional[str] = f"unexpected argument count {len(args)}"
             elif not (
-                isinstance(connection_arg, exp.Literal)
-                and connection_arg.is_string
-                and isinstance(inner_arg, exp.Literal)
-                and inner_arg.is_string
+                _is_string_literal(connection_arg) and _is_string_literal(inner_arg)
             ):
                 reason = "non-string-literal arguments"
             elif not in_table_position:

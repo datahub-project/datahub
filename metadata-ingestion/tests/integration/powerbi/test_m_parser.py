@@ -1155,6 +1155,56 @@ def test_bigquery_external_query_resolves_to_external_platform():
 
 
 @pytest.mark.integration
+def test_bigquery_external_query_raw_string_args_resolve():
+    # BigQuery raw-string literals (r'...') for the EXTERNAL_QUERY connection and inner
+    # SQL parse as exp.RawString, not exp.Literal. Extraction must still treat them as
+    # string literals; otherwise the federation is reported as non-literal arguments and
+    # all upstream lineage is dropped.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select * from EXTERNAL_QUERY(r'my_project.us-east1.my_connection', r'SELECT account_name FROM ext_schema.usage_report')", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+    )
+    assert reporter.m_query_external_query_connections_resolved == 1
+    # Raw-string args must not be misreported as non-literal (which drops lineage).
+    assert reporter.m_query_external_query_parse_errors == 0
+
+
+@pytest.mark.integration
 def test_bigquery_external_query_tsql_control_statements_not_corrupted():
     # remove_drop_statement must not run on the outer BigQuery text before
     # EXTERNAL_QUERY extraction: its USE/GO/SET/DROP regexes ignore string
