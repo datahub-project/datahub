@@ -127,6 +127,12 @@ Requirements:
 
 - **(Metadata Model / Data Products)** `dataProductProperties` now includes an optional `parentDataProduct` URN so Data Products can nest in a parent-child taxonomy (mirroring Domains' `parentDomain`). The field is additive; existing Data Products are unchanged (null parent). No migration or reindex is required. Free-text search may match child products on the parent URN string, the same way `parentDomain` already behaves.
 
+- #18987 **(GMS / GraphQL)** GraphQL entity hydration now fetches only the aspects a query's selection set requires (schema-driven aspect mapping), instead of each entity loader's full default aspect set. Reduces primary-store reads on search cards, entity profiles, and browse. **Action:** none; set `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED=false` to revert to legacy full-aspect hydration if a specific query or page regresses.
+
+### Environment Variables
+
+- `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED` (default `true`) — Schema-driven GraphQL aspect fetching. See Other Notable Changes above and [Environment Variables](../deploy/environment-vars.md).
+
 ## v1.7.0
 
 Requirements:
