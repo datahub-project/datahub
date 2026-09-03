@@ -53,7 +53,7 @@ The legacy Great Expectations profiler (`profiling.method: ge`) has been removed
 
 ## Reducing profiling cost
 
-Profiling issues one query per metric per column, so a wide table can cost hundreds of round trips and hundreds of table scans. Two independent options reduce that; they address different costs and can be combined.
+Profiling issues one query per metric per column, so a wide table can cost hundreds of round trips and hundreds of table scans. Three independent options reduce that; they address different costs and can be combined.
 
 ### Query combining
 
