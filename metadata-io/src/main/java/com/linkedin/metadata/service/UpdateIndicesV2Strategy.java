@@ -11,6 +11,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -32,12 +33,14 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -65,6 +68,18 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
 
   /** Cache TTL for semantic index existence checks (5 minutes) */
   private static final long SEMANTIC_INDEX_CACHE_TTL_MINUTES = 5;
+
+  /** Searchable field carrying the document body ({@code documentInfo.contents.text}). */
+  private static final String BODY_TEXT_FIELD = "text";
+
+  /** Searchable field carrying the curated embed-text override ({@code semanticText.text}). */
+  private static final String SEMANTIC_TEXT_FIELD = "semanticText";
+
+  /**
+   * Semantic-index-only field: SHA-256 hex of the current resolved embed text. See {@link
+   * #withResolvedTextSha256}.
+   */
+  private static final String RESOLVED_TEXT_SHA256_FIELD = "resolvedTextSha256";
 
   private final EntityIndexVersionConfiguration v2Config;
   private final ElasticSearchService elasticSearchService;
@@ -455,10 +470,12 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       }
     }
 
-    String finalDocument =
+    ObjectNode finalDocumentNode =
         SearchDocumentTransformer.handleRemoveFields(
-                searchDocument.get(), previousSearchDocument.orElse(null))
-            .toString();
+            searchDocument.get(), previousSearchDocument.orElse(null));
+    // Serialized before any semantic-only augmentation below, so the base V2 index never sees
+    // semantic-only fields such as resolvedTextSha256.
+    String finalDocument = finalDocumentNode.toString();
 
     // Write to V2 index
     elasticSearchService.upsertDocument(opContext, entityName, finalDocument, docId);
@@ -477,7 +494,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
 
     // Dual-write to semantic index if enabled for this entity
     if (shouldWrite) {
-      writeToSemanticIndex(opContext, entityName, finalDocument, docId);
+      writeToSemanticIndex(
+          opContext, urn, entityName, aspectSpec.getName(), finalDocumentNode, docId);
     }
 
     // Append runId to search document so rollback/list runs can find touched URNs (MAE path)
@@ -516,12 +534,11 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       return;
     }
 
-    Optional<String> searchDocument;
+    Optional<ObjectNode> searchDocument;
     try {
       searchDocument =
-          searchDocumentTransformer
-              .transformAspect(opContext, urn, aspect, aspectSpec, true, auditStamp)
-              .map(Objects::toString);
+          searchDocumentTransformer.transformAspect(
+              opContext, urn, aspect, aspectSpec, true, auditStamp);
     } catch (Exception e) {
       log.error(
           "Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
@@ -532,7 +549,21 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       return;
     }
 
-    elasticSearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId);
+    // Serialized before any semantic-only augmentation below, mirroring the upsert path, so the
+    // base V2 index never sees semantic-only fields such as resolvedTextSha256.
+    elasticSearchService.upsertDocument(
+        opContext, entityName, searchDocument.get().toString(), docId);
+
+    // Mirror the upsert path's semantic dual-write for non-key aspect deletes. Without this,
+    // deleting the semanticText override leaves the old override text and resolvedTextSha256 in
+    // the semantic index, and deleting semanticContent leaves vectors and skip fields behind.
+    // writeToSemanticIndex re-stamps resolvedTextSha256 from the surviving aspects (a deleted
+    // override falls back to the document body), and the delete-shaped document nulls the
+    // removed aspect's fields via doc_as_upsert.
+    if (shouldWriteToSemanticIndex(opContext, entityName)) {
+      writeToSemanticIndex(
+          opContext, urn, entityName, aspectSpec.getName(), searchDocument.get(), docId);
+    }
   }
 
   void updateTimeseriesFieldsForEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
@@ -755,9 +786,13 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
    */
   private void writeToSemanticIndex(
       @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
       @Nonnull String entityName,
-      @Nonnull String document,
+      @Nonnull String aspectName,
+      @Nonnull ObjectNode documentNode,
       @Nonnull String docId) {
+    withResolvedTextSha256(opContext, urn, entityName, aspectName, documentNode);
+    String document = documentNode.toString();
     String semanticIndexName = indexConvention.getEntityIndexNameSemantic(opContext, entityName);
     log.info(
         "Semantic dual-write: UPSERT to '{}' for entity '{}', docId='{}', docSize={}",
@@ -766,6 +801,132 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         docId,
         document.length());
     elasticSearchService.upsertDocumentByIndexName(opContext, semanticIndexName, document, docId);
+  }
+
+  /**
+   * Stamps {@code resolvedTextSha256} -- the SHA-256 hex digest (UTF-8 bytes) of the entity's
+   * resolved embed text, with the {@code semanticText} override winning over the document body --
+   * onto the semantic-index document. The embedding pipeline records the same digest of the text it
+   * embedded ({@code embeddings.<model>.sourceTextSha256}), so consumers such as coverage reporting
+   * can detect genuinely stale embeddings by comparing the two hashes instead of relying on
+   * modification timestamps that move on non-content writes.
+   *
+   * <p>The resolved embed text spans two aspects ({@code semanticText} override and {@code
+   * documentInfo} body) that project on separate MCLs, so the side not carried by the current
+   * document is fetched via the aspect retriever rather than derived from the partial document --
+   * deriving per-aspect would permanently mis-stamp documents whose override is written once and
+   * never re-projected. {@code semanticContent} projections also stamp (fetching both sides), so
+   * re-embedding refreshes pre-existing index documents. Other aspects (neither field present) are
+   * left untouched: {@code doc_as_upsert} merging preserves the existing stamp. On a retrieval
+   * failure the field is set to an explicit null, overwriting any previous stamp -- a stale stamp
+   * could misreport a changed document as current, while null reads as unknown.
+   */
+  @VisibleForTesting
+  void withResolvedTextSha256(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull ObjectNode document) {
+    if (!Constants.DOCUMENT_ENTITY_NAME.equals(entityName)) {
+      return;
+    }
+    boolean hasOverrideField = document.has(SEMANTIC_TEXT_FIELD);
+    boolean hasBodyField = document.has(BODY_TEXT_FIELD);
+    // semanticContent projections (the embedding pipeline's own writes) also stamp, so a re-embed
+    // or force_reprocess run refreshes the field for documents indexed before this change.
+    boolean isSemanticContentAspect =
+        SearchDocumentTransformer.SEMANTIC_DATA_ASPECTS.contains(aspectName);
+    if (!hasOverrideField && !hasBodyField && !isSemanticContentAspect) {
+      return;
+    }
+    try {
+      String override =
+          hasOverrideField
+              ? textValue(document.get(SEMANTIC_TEXT_FIELD))
+              : fetchSemanticTextOverride(opContext, urn);
+      final String resolved;
+      if (override != null && !override.isEmpty()) {
+        resolved = override;
+      } else if (hasBodyField) {
+        String body = textValue(document.get(BODY_TEXT_FIELD));
+        resolved = body != null ? body : "";
+      } else {
+        String body = fetchDocumentBodyText(opContext, urn);
+        resolved = body != null ? body : "";
+      }
+      document.put(RESOLVED_TEXT_SHA256_FIELD, sha256Hex(resolved));
+    } catch (Exception e) {
+      // Explicit null (not absent): index updates merge via doc_as_upsert, so leaving the field
+      // out would preserve a previously stamped value -- a stale stamp could misreport a changed
+      // document as current, while null reads as unknown.
+      log.warn(
+          "Failed to resolve embed text for {}; clearing {} (reads as unknown, never stale)",
+          urn,
+          RESOLVED_TEXT_SHA256_FIELD,
+          e);
+      document.set(
+          RESOLVED_TEXT_SHA256_FIELD,
+          com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.nullNode());
+    }
+  }
+
+  @Nullable
+  private String fetchSemanticTextOverride(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    com.linkedin.entity.Aspect aspect =
+        opContext
+            .getAspectRetriever()
+            .getLatestAspectObject(opContext, urn, Constants.SEMANTIC_TEXT_ASPECT_NAME);
+    if (aspect == null) {
+      return null;
+    }
+    Object text = aspect.data().get("text");
+    return text != null ? text.toString() : null;
+  }
+
+  @Nullable
+  private String fetchDocumentBodyText(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    com.linkedin.entity.Aspect aspect =
+        opContext
+            .getAspectRetriever()
+            .getLatestAspectObject(opContext, urn, Constants.DOCUMENT_INFO_ASPECT_NAME);
+    if (aspect == null) {
+      return null;
+    }
+    Object contents = aspect.data().get("contents");
+    if (!(contents instanceof DataMap)) {
+      return null;
+    }
+    Object text = ((DataMap) contents).get("text");
+    return text != null ? text.toString() : null;
+  }
+
+  @Nullable
+  private static String textValue(@Nullable JsonNode node) {
+    return node != null && node.isTextual() ? node.asText() : null;
+  }
+
+  /**
+   * SHA-256 hex (lowercase) over the UTF-8 bytes of the text -- byte-for-byte identical to Python's
+   * {@code hashlib.sha256(text.encode("utf-8")).hexdigest()} used by the embedding pipeline, so the
+   * two sides of the staleness comparison agree.
+   */
+  @Nonnull
+  @VisibleForTesting
+  static String sha256Hex(@Nonnull String text) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest(text.getBytes(StandardCharsets.UTF_8));
+      StringBuilder sb = new StringBuilder(hash.length * 2);
+      for (byte b : hash) {
+        sb.append(Character.forDigit((b >> 4) & 0xF, 16));
+        sb.append(Character.forDigit(b & 0xF, 16));
+      }
+      return sb.toString();
+    } catch (NoSuchAlgorithmException e) {
+      // SHA-256 is a mandatory JCA algorithm; this cannot happen on a compliant JVM.
+      throw new IllegalStateException("SHA-256 unavailable", e);
+    }
   }
 
   /**
