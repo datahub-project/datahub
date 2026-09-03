@@ -1,5 +1,7 @@
 from typing import Dict
 
+import pytest
+
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure_analysis_services import constants
@@ -331,3 +333,28 @@ def test_map_table_swallows_and_continues() -> None:
     # The healthy table still emits despite the sibling failing.
     assert mapper._table_dataset_urn("SalesModel", "Good") in urns
     assert mapper.report.tables_skipped == 1
+
+
+def test_map_model_does_not_swallow_consumer_errors() -> None:
+    # A sink/pipeline error thrown back into the generator while consuming a
+    # table's work units must propagate — not be recorded as a table-mapping
+    # failure (which would also drop the rest of that table's work units).
+    mapper = _mapper()
+    model = AasTabularModel(
+        catalog="SalesModel",
+        name="Sales Model",
+        tables=[AasTable(name="Sales")],
+    )
+    sales_urn = mapper._table_dataset_urn("SalesModel", "Sales")
+
+    gen = mapper.map_model(model)
+    for wu in gen:
+        if wu.get_urn() == sales_urn:
+            # Simulate the consumer (a sink) raising while pulling this work unit.
+            with pytest.raises(RuntimeError, match="sink boom"):
+                gen.throw(RuntimeError("sink boom"))
+            break
+    else:
+        raise AssertionError("table work unit was never yielded")
+
+    assert mapper.report.tables_skipped == 0

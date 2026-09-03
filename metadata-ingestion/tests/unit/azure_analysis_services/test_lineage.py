@@ -3,6 +3,7 @@ from unittest import mock
 
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.azure_analysis_services import constants
 from datahub.ingestion.source.azure_analysis_services.config import (
     AzureAnalysisServicesConfig,
 )
@@ -275,3 +276,34 @@ def test_upstream_skipped_when_disabled() -> None:
     )
     assert result.upstreams == []
     assert result.fine_grained == []
+
+
+def test_upstream_skips_calculated_table_dax_partition() -> None:
+    # A calculated table's partition holds DAX, not M/Power Query. It must not be
+    # sent to the M-Query engine (which would warn or time out), nor counted as an
+    # import table missing upstream lineage.
+    extractor = _extractor()
+    table = AasTable(
+        name="SalesSummary",
+        is_calculated=True,
+        partitions=[
+            AasPartition(
+                name="c",
+                query_definition="SUMMARIZE(Sales, Sales[Region])",
+                partition_type=constants.PartitionType.CALCULATED,
+            )
+        ],
+    )
+    dataset_urn = builder.make_dataset_urn(
+        "azure-analysis-services", "SalesModel.SalesSummary"
+    )
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_analysis_services.lineage.parser.get_upstream_tables",
+    ) as mocked_parser:
+        result = extractor.extract_upstream_for_table(table, dataset_urn)
+
+    mocked_parser.assert_not_called()
+    assert result.upstreams == []
+    assert result.fine_grained == []
+    assert extractor.report.tables_without_upstream_lineage == 0
