@@ -266,6 +266,11 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
 
+    # Populated only when emit_semantic_model_entities is enabled.
+    semantic_models_emitted: int = 0
+    semantic_model_datasets_emitted: int = 0
+    metrics_emitted: int = 0
+
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
 
@@ -625,6 +630,22 @@ class PowerBiDashboardSourceConfig(
     extract_datasets_to_containers: bool = pydantic.Field(
         default=False,
         description="PBI tables will be grouped under a Datahub Container, the container reflect a PBI Dataset",
+    )
+    emit_semantic_model_entities: bool = pydantic.Field(
+        default=False,
+        description=(
+            "If true, emit each Power BI semantic model (dataset) as a first-class "
+            "`semanticModel` entity: its tables become logical datasets with subtype "
+            "`Semantic Model Dataset`, and each measure becomes a `metric` entity "
+            "(with its DAX expression and lineage to the logical dataset it reads "
+            "from). The tables keep the same dataset URNs and the same upstream "
+            "warehouse lineage, so `Metric -> Semantic Model Dataset -> physical "
+            "table` resolves end to end. Default is false, which keeps the legacy "
+            "shape (a `Semantic Model` container with `Table` datasets and measures "
+            "as schema fields). Requires a DataHub server that registers "
+            "semanticModel/metric (Cloud >= 2.1.0, or OSS with `METRICS_ENABLED=true`). "
+            "Re-ingest with stateful ingestion so the previous container is removed."
+        ),
     )
     # Enable/Disable extracting lineage information from PowerBI Native query
     native_query_parsing: bool = pydantic.Field(
