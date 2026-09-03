@@ -1054,3 +1054,34 @@ class TestBatchContextManager:
                     batch.get_row_count(test_table)
                     runner.flush = exploding_flush  # type: ignore[method-assign]
                     raise ValueError("the real failure")
+
+    def test_interrupt_does_not_trigger_a_flush(
+        self, sqlite_engine, test_adapter, test_table
+    ):
+        """KeyboardInterrupt must not issue more queries on its way out.
+
+        Flushing is not cleanup: it runs a combined query, and on failure the
+        fallback re-runs every pending query serially. Doing that during an
+        interrupt would delay it by however long the database takes -- which is
+        often why the interrupt was sent. Deliberately narrower than the
+        ordinary-Exception path above.
+        """
+        with (
+            sqlite_engine.connect() as conn,
+            SQLAlchemyQueryCombiner(
+                enabled=True,
+                catch_exceptions=False,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
+
+            with pytest.raises(KeyboardInterrupt):
+                with runner.batch() as batch:
+                    batch.get_row_count(test_table)
+                    raise KeyboardInterrupt
+
+            assert query_combiner.report.combined_queries_issued == 0
+            assert query_combiner.report.uncombined_queries_issued == 0

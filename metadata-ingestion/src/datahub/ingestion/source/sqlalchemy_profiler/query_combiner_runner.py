@@ -211,6 +211,15 @@ class QueryCombinerRunner:
             # never let a failure here replace the exception already on its way
             # out. The body's error is the one that explains the failure; a
             # flush error at this point is usually a consequence of it.
+            #
+            # Exception, not BaseException, on purpose. Flushing is not cleanup;
+            # it issues a combined query, and if that fails the fallback re-runs
+            # every pending query one at a time. On KeyboardInterrupt that could
+            # mean dozens of round trips before the interrupt takes effect --
+            # worst of all when the interrupt was a response to a hung database.
+            # An ordinary Exception leaves the run going, so the queue must be
+            # drained before the next table reuses it; an interrupt ends the run,
+            # and the parked greenlets die with it.
             try:
                 self.flush()
             except Exception:
