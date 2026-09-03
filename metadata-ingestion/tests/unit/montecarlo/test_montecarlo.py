@@ -1150,9 +1150,23 @@ def test_client_get_table_parses_connection_type() -> None:
 
 
 def test_resolver_non_obvious_connection_types() -> None:
-    """sql-server and synapse both map to mssql (non-obvious aliases)."""
-    mcon = "MCON++acct++wh++table++db.sch.tbl"
-    for connection_type in ("sql-server", "synapse"):
+    """Every auto-mapped connection type resolves to a real DataHub platform.
+
+    Table-driven over CONNECTION_TYPE_TO_PLATFORM so a new entry that maps to
+    a non-platform value (empty, whitespace, or mixed-case) is caught, and so a
+    removed entry is noticed. Asserts the platform name appears in the resolved
+    URN for each mapped connection type.
+    """
+    from datahub.ingestion.source.montecarlo.constants import (
+        CONNECTION_TYPE_TO_PLATFORM,
+    )
+
+    assert CONNECTION_TYPE_TO_PLATFORM, "map should not be empty"
+    for connection_type, platform in CONNECTION_TYPE_TO_PLATFORM.items():
+        assert platform, f"{connection_type} maps to empty platform"
+        assert platform == platform.lower(), f"{platform} must be lowercase"
+        assert " " not in platform, f"{platform} must have no spaces"
+        mcon = "MCON++acct++wh++table++db.sch.tbl"
         client = FakeResolverClient(
             {
                 mcon: ResolvedTable(
@@ -1165,8 +1179,71 @@ def test_resolver_non_obvious_connection_types() -> None:
         urn = MconResolver(
             make_config(), client, MonteCarloSourceReport()
         ).dataset_urn_for_mcon(mcon)
-        assert urn is not None
-        assert "mssql" in urn, f"{connection_type} should resolve to mssql"
+        assert urn is not None, f"{connection_type} did not resolve"
+        assert f":{platform}," in urn or urn.endswith(f":{platform}"), (
+            f"{connection_type} -> URN {urn} missing platform {platform}"
+        )
+
+
+def test_resolver_new_connection_types_resolve() -> None:
+    """clickhouse, dremio, db2, and starburst (-> trino) auto-map correctly."""
+    cases = {
+        "clickhouse": "clickhouse",
+        "dremio": "dremio",
+        "db2": "db2",
+        "starburst_enterprise": "trino",
+        "starburst_galaxy": "trino",
+    }
+    for connection_type, platform in cases.items():
+        mcon = "MCON++acct++wh++table++db.sch.tbl"
+        client = FakeResolverClient(
+            {
+                mcon: ResolvedTable(
+                    mcon=mcon,
+                    full_table_id="db.sch.tbl",
+                    connection_type=connection_type,
+                )
+            }
+        )
+        urn = MconResolver(
+            make_config(), client, MonteCarloSourceReport()
+        ).dataset_urn_for_mcon(mcon)
+        assert urn is not None, f"{connection_type} did not resolve"
+        assert platform in urn, f"{connection_type} should resolve to {platform}"
+
+
+def test_resolver_transactional_db_is_unmapped_not_guessed() -> None:
+    """TRANSACTIONAL_DB (the real enum value, underscore) is a category spanning
+    postgres/sql-server/synapse/sap-hana/azure-sql and must NOT auto-map to a
+    single platform. It warns and skips so the user configures
+    connection_to_platform_map for the specific warehouse.
+    """
+    from datahub.ingestion.source.montecarlo.constants import (
+        CONNECTION_TYPE_TO_PLATFORM,
+    )
+
+    # The real enum value lowercased is transactional_db (underscore), which
+    # must not be in the map. The old transactional-db (hyphen) key was dead
+    # code that could never match and is now removed.
+    assert "transactional_db" not in CONNECTION_TYPE_TO_PLATFORM
+    assert "transactional-db" not in CONNECTION_TYPE_TO_PLATFORM
+
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon,
+                full_table_id="db.sch.tbl",
+                connection_type="transactional_db",
+            )
+        }
+    )
+    resolver = MconResolver(make_config(), client, report)
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is None, "transactional_db must not auto-map to a guessed platform"
+    assert report.mcons_unmapped_platform, "should record unmapped platform"
+    assert report.mcons_unmapped_platform[-1] == mcon
 
 
 def _bare_source() -> MonteCarloSource:

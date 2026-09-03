@@ -1,10 +1,25 @@
 from typing import Dict, Set
 
-# Monte Carlo connection/warehouse types -> DataHub platform names. There is no
-# canonical DataHub platform-name enum/registry usable from Python ingestion
-# code (the closest, common/data_platforms.py's KNOWN_VALID_PLATFORM_NAMES, is
-# incomplete and documented as unsuitable for validation), so this maps plain
-# strings, matching every other connector's platform-name fields.
+# Monte Carlo warehouse connection types -> DataHub platform names.
+#
+# The keys are the lowercased values of Monte Carlo's GraphQL
+# ``WarehouseModelConnectionType`` enum (returned by ``getTable.warehouse
+# .connectionType``), which uses UPPER_UNDERSCORE names — e.g. ``SNOWFLAKE``,
+# ``BIGQUERY``, ``TRANSACTIONAL_DB``. The resolver lowercases the value before
+# lookup, so every key here is lowercase with underscores.
+#
+# There is no canonical DataHub platform-name enum/registry usable from Python
+# ingestion code (the closest, common/data_platforms.py's
+# KNOWN_VALID_PLATFORM_NAMES, is incomplete and documented as unsuitable for
+# validation), so the values are plain strings matching the platform name each
+# warehouse's DataHub source connector emits in its dataset URNs.
+#
+# ``TRANSACTIONAL_DB`` is deliberately NOT mapped: it is a category spanning
+# postgres, sql-server, synapse, sap-hana, azure-sql and others, so mapping it
+# to any single platform would silently mis-attach most assertions. Users with
+# a transactional-db warehouse must set ``connection_to_platform_map`` for the
+# specific warehouse resource id. Unmapped connection types warn and skip
+# rather than guess.
 CONNECTION_TYPE_TO_PLATFORM: Dict[str, str] = {
     "snowflake": "snowflake",
     "bigquery": "bigquery",
@@ -17,13 +32,14 @@ CONNECTION_TYPE_TO_PLATFORM: Dict[str, str] = {
     "hive": "hive",
     "glue": "glue",
     "athena": "athena",
-    "postgres": "postgres",
     "mysql": "mysql",
     "oracle": "oracle",
-    "sql-server": "mssql",
-    "synapse": "mssql",
     "teradata": "teradata",
-    "transactional-db": "postgres",
+    "clickhouse": "clickhouse",
+    "dremio": "dremio",
+    "db2": "db2",
+    "starburst_enterprise": "trino",
+    "starburst_galaxy": "trino",
 }
 
 # Warehouse platforms whose DataHub source emits lowercased dataset URNs by
@@ -71,3 +87,44 @@ MC_METRIC_TO_STD_AGGREGATION: Dict[str, str] = {
     "stddev": "STDDEV",
     "sum": "SUM",
 }
+
+# getMetricsV4 metricName -> AssertionResult typed slot. AssertionResult has
+# exactly four typed slots: rowCount (long), missingCount (long),
+# unexpectedCount (long), actualAggValue (float). Metrics not in either map
+# degrade to nativeResults (map[string, string]) — the only catch-all on
+# AssertionResult. This is the *measurement* path; MC_METRIC_TO_STD_AGGREGATION
+# above is the *definition* path (monitor -> CustomAssertionInfo.aggregation).
+MC_METRIC_TO_RESULT_SLOT: Dict[str, str] = {
+    "total_row_count": "rowCount",
+    "row_count": "rowCount",
+    "null_count": "missingCount",
+    "missing_count": "missingCount",
+    "unexpected_count": "unexpectedCount",
+}
+
+# Metrics that carry a single scalar aggregate -> actualAggValue (float). No
+# per-field typed slot exists on AssertionResult (DatasetFieldProfile is off
+# the table per the no-external-entity-update constraint), so field-level
+# metrics land here as the scalar aggregate, not as per-field profiles.
+MC_METRIC_TO_AGG_VALUE: Set[str] = {
+    "null_rate",
+    "distinct_count",
+    "unique_count",
+    "min",
+    "max",
+    "mean",
+    "median",
+    "stddev",
+    "sum",
+}
+
+# TABLE monitors declare four comparison metrics, but only total_row_count
+# returns points from getMetricsV4; the other three are non-standard names
+# that return zero points. Fetching only total_row_count for TABLE monitors
+# avoids three wasted API calls per TABLE monitor per ingestion.
+TABLE_METRICS_TO_FETCH: Set[str] = {"total_row_count"}
+
+# Custom metric names (custom_value_based_metric_<uuid>) return zero points
+# from getMetricsV4 — custom metrics use a separate surface. Skip fetching
+# metrics for any comparison whose metric starts with this prefix.
+CUSTOM_METRIC_PREFIX = "custom_value_based_metric_"

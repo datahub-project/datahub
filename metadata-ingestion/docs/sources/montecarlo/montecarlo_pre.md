@@ -6,7 +6,10 @@ alerts/incidents when they breach.
 
 This connector ingests Monte Carlo **monitors**, **custom (SQL) rules** and **alerts/incidents** and
 models them as DataHub **Assertions**, so the native "Validation" tab on a dataset reflects Monte
-Carlo's observability coverage and incident history.
+Carlo's observability coverage and incident history. Optionally, it can also ingest Monte Carlo's
+monitor **run history** with the **measured metric values** behind each run, so a dataset's
+assertion timeline shows both failures (from alerts) and successes (with the actual measured
+numbers).
 
 ### Prerequisites
 
@@ -36,3 +39,37 @@ warehouse's display name. You can find it in any of these ways:
   resource UUID shown for that connection.
 - **From the API:** query your warehouses (for example `getUser { account { warehouses { uuid name connectionType } } }`
   in the Monte Carlo GraphQL playground); each warehouse's `uuid` is the value to use as the key.
+
+#### Auto-mapped connection types
+
+When a warehouse is **not** listed in `connection_to_platform_map`, the connector auto-maps its
+Monte Carlo `connectionType` (the `WarehouseModelConnectionType` enum value returned by `getTable`)
+to a DataHub platform. The supported auto-mappings are:
+
+| Monte Carlo connection type                              | DataHub platform |
+| -------------------------------------------------------- | ---------------- |
+| `snowflake`                                              | `snowflake`      |
+| `bigquery`                                               | `bigquery`       |
+| `redshift`                                               | `redshift`       |
+| `mysql`                                                  | `mysql`          |
+| `oracle`                                                 | `oracle`         |
+| `teradata`                                               | `teradata`       |
+| `clickhouse`                                             | `clickhouse`     |
+| `dremio`                                                 | `dremio`         |
+| `db2`                                                    | `db2`            |
+| `starburst_enterprise`                                   | `trino`          |
+| `starburst_galaxy`                                       | `trino`          |
+| `databricks` / `databricks-sql` / `databricks-metastore` | `databricks`     |
+| `spark`                                                  | `spark`          |
+| `presto`                                                 | `presto`         |
+| `hive`                                                   | `hive`           |
+| `glue`                                                   | `glue`           |
+| `athena`                                                 | `athena`         |
+
+Any other connection type (and warehouses whose `connectionType` Monte Carlo reports as
+`transactional_db`) is **not** auto-mapped: the connector logs a warning and skips the asset rather
+than guessing a platform. `transactional_db` is a category that spans PostgreSQL, SQL Server,
+Synapse, SAP HANA, Azure SQL and others, so it cannot be mapped to a single DataHub platform — you
+must add an explicit `connection_to_platform_map` entry for each such warehouse. The same applies to
+Azure SQL and SAP HANA, which Monte Carlo reports under `transactional_db` rather than as a distinct
+type.
