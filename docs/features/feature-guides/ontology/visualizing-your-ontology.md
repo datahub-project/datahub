@@ -71,8 +71,7 @@ This is the view to reach for when you are answering a question about one concep
 Customer?_, _what does Revenue connect to?_ The anchor term is badged as **Home**, and the graph
 starts one hop out. Expand any neighbour to walk further.
 
-Because the tab is anchored, search is hidden here — searching would detach the graph from the term
-you came to look at. The relationship-type filter still applies.
+Because the tab is anchored, search is hidden here. The relationship-type filter still applies.
 
 You can also deep-link to the focused view directly, which opens the same graph on the full-width
 Ontology page:
@@ -80,10 +79,6 @@ Ontology page:
 ```text
 https://<your-datahub>/ontology?urn=urn:li:glossaryTerm:customer
 ```
-
-<p align="center">
-  <img width="90%" src="/imgs/ontology/ontology-focused-view.png" alt="The focused ontology view for a single glossary term"/>
-</p>
 
 ## Related Terms vs. Relationships
 
