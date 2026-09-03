@@ -127,9 +127,17 @@ jobs:
       # Pull requests run only the p0 tier while the PYTEST_P0_SMOKE repository
       # variable is 'true'; post-merge pushes -- and the default with the
       # variable unset -- always run the full suite. smoke.sh reads it as
-      # SMOKE_TIER. A PR that needs the whole suite asks for it with the
-      # full-suite label rather than by any path-based escalation here.
-      smoke_tier: ${{ (github.event_name == 'pull_request' && vars.PYTEST_P0_SMOKE == 'true') && 'p0' || 'full' }}
+      # SMOKE_TIER.
+      #
+      # The `smoke-full` label opts a single PR back into the whole suite, for
+      # changes whose blast radius is wider than their own touched modules
+      # (shared fixtures, conftest, a broad refactor). Like every other label
+      # this workflow honours (`depot`, `publish`, `build-images`, ...) it is
+      # read from the event payload, so it takes effect on the PR's next push
+      # rather than the moment it is applied -- `labeled` is deliberately absent
+      # from the trigger types above, because pr-labeler.yml labels every PR on
+      # open and would double this workflow's runs.
+      smoke_tier: ${{ (github.event_name == 'pull_request' && vars.PYTEST_P0_SMOKE == 'true' && !contains(github.event.pull_request.labels.*.name, 'smoke-full')) && 'p0' || 'full' }}
       # Test modules this PR touches; conftest runs these alongside the p0
       # tier. Empty on a full run.
       smoke_changed_tests: ${{ steps.smoke-tier.outputs.changed_tests }}
@@ -265,6 +273,11 @@ jobs:
             | grep -E '^smoke-test/(.*/)?(test_.*|.*_test)\.py$' || true)
           echo "changed_tests=$(printf '%s' "$changed" | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
           echo "Changed smoke test modules: $(printf '%s' "$changed" | tr '\n' ' ')"
+
+          # Which knobs decided this run's tier, so a surprising selection is
+          # diagnosable from the log alone.
+          echo "PYTEST_P0_SMOKE=${{ vars.PYTEST_P0_SMOKE }}" \
+               "smoke-full label=${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'smoke-full') }}"
 
       - name: Determine runner type
         id: set-runner
