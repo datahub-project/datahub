@@ -2,7 +2,6 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.search.transformer.SearchDocumentTransformer.withSystemCreated;
 import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_TYPES;
-import static com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder.IS_EXPLODED_FIELD;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -21,17 +20,12 @@ import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
-import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
-import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -91,7 +85,6 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   private final ElasticSearchService elasticSearchService;
   private final SearchDocumentTransformer searchDocumentTransformer;
   private final TimeseriesAspectService timeseriesAspectService;
-  private final TimeseriesAspectWriteSink timeseriesAspectWriteSink;
 
   private final String idHashAlgo;
   private final V2MappingsBuilder mappingsBuilder;
@@ -132,7 +125,6 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
-      @Nonnull TimeseriesAspectWriteSink timeseriesAspectWriteSink,
       @Nonnull String idHashAlgo,
       @Nullable SemanticSearchConfiguration semanticSearchConfig,
       @Nonnull IndexConvention indexConvention,
@@ -143,7 +135,6 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
     this.timeseriesAspectService = timeseriesAspectService;
-    this.timeseriesAspectWriteSink = timeseriesAspectWriteSink;
     this.idHashAlgo = idHashAlgo;
     this.semanticSearchConfig = semanticSearchConfig;
     this.indexConvention = indexConvention;
@@ -180,15 +171,10 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     // Process each group of events for the same URN
     for (List<MCLItem> urnEvents : groupedEvents.values()) {
 
-      // Timeseries writes must follow input order (DELETE then UPSERT must not invert).
-      processTimeseriesEventsInUrnOrder(
-          opContext, urnEvents, structuredPropertiesHookEnabled, throttleSummary);
-
-      // Process non-timeseries update events
+      // Process update events
       List<MCLItem> updateEvents =
           urnEvents.stream()
               .filter(e -> UPDATE_CHANGE_TYPES.contains(e.getMetadataChangeLog().getChangeType()))
-              .filter(e -> !e.getAspectSpec().isTimeseries())
               .collect(Collectors.toList());
 
       if (!updateEvents.isEmpty()) {
@@ -215,7 +201,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         }
       }
 
-      // Process non-timeseries delete events
+      // Process delete events
       for (MCLItem deleteEvent :
           urnEvents.stream()
               .filter(e -> e.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
@@ -239,40 +225,6 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
 
     if (throttleSummary != null) {
       throttleSummary.logIfSuppressed();
-    }
-  }
-
-  /**
-   * Apply timeseries index and optional Postgres sink writes in the original MCL list order for one
-   * URN group. A same-URN batch of DELETE then UPSERT must not run deletes after all upserts.
-   */
-  private void processTimeseriesEventsInUrnOrder(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<MCLItem> urnEvents,
-      boolean structuredPropertiesHookEnabled,
-      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
-    for (MCLItem event : urnEvents) {
-      if (!event.getAspectSpec().isTimeseries()) {
-        continue;
-      }
-      if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
-        if (structuredPropertiesHookEnabled) {
-          updateIndexMappings(opContext, event);
-        }
-        processTimeseriesThrottled(
-            opContext,
-            event,
-            throttleSummary,
-            () -> updateSearchIndicesForEvent(opContext, event),
-            () -> updateTimeseriesFieldsForEvent(opContext, event));
-      } else if (event.getChangeType() == ChangeType.DELETE) {
-        processTimeseriesThrottled(
-            opContext,
-            event,
-            throttleSummary,
-            () -> {},
-            () -> deleteTimeseriesFieldsForDeleteEvent(opContext, event));
-      }
     }
   }
 
@@ -614,66 +566,6 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     }
   }
 
-  void deleteTimeseriesFieldsForDeleteEvent(
-      @Nonnull OperationContext opContext, @Nonnull MCLItem deleteEvent) {
-    AspectSpec aspectSpec = deleteEvent.getAspectSpec();
-    if (!aspectSpec.isTimeseries()) {
-      return;
-    }
-    RecordTemplate previous = deleteEvent.getPreviousRecordTemplate();
-    if (previous == null) {
-      String entityType = deleteEvent.getEntitySpec().getName();
-      String aspectName = aspectSpec.getName();
-      String urn = deleteEvent.getUrn().toString();
-      if (timeseriesAspectService.applyDocumentDeleteOnMclDelete()) {
-        // Postgres SoT: delete all rows for this URN/aspect when the MCL lacks a prior snapshot.
-        Filter urnFilter =
-            QueryUtils.getFilterFromCriteria(
-                java.util.List.of(CriterionUtils.buildCriterion("urn", Condition.EQUAL, urn)));
-        timeseriesAspectService.deleteAspectValues(opContext, entityType, aspectName, urnFilter);
-      } else {
-        log.debug(
-            "Timeseries delete has no previous aspect snapshot; skipping timeseries index delete for urn {} aspect {}",
-            deleteEvent.getUrn(),
-            aspectName);
-      }
-      // Dual-write secondary store: always attempt URN delete (NOOP when sink disabled).
-      timeseriesAspectWriteSink.deleteByUrn(opContext, entityType, aspectName, urn);
-      return;
-    }
-    Urn urn = deleteEvent.getUrn();
-    String entityType = deleteEvent.getEntitySpec().getName();
-    String aspectName = aspectSpec.getName();
-    SystemMetadata prevSys =
-        deleteEvent.getPreviousSystemMetadata() != null
-            ? deleteEvent.getPreviousSystemMetadata()
-            : deleteEvent.getSystemMetadata();
-    Map<String, JsonNode> documents;
-    try {
-      documents =
-          TimeseriesAspectTransformer.transform(urn, previous, aspectSpec, prevSys, idHashAlgo);
-    } catch (JsonProcessingException e) {
-      log.error(
-          "Failed to resolve timeseries documents for delete event for urn {} aspect {}: {}",
-          urn,
-          aspectName,
-          e.toString());
-      return;
-    }
-    for (Map.Entry<String, JsonNode> entry : documents.entrySet()) {
-      JsonNode doc = entry.getValue();
-      boolean exploded = doc.has(IS_EXPLODED_FIELD) && doc.get(IS_EXPLODED_FIELD).asBoolean(false);
-      // ES keeps historical UpdateIndices behavior (no per-doc delete on MCL DELETE). Postgres SoT
-      // opts in via applyDocumentDeleteOnMclDelete(); dual-write uses the sink when enabled.
-      if (timeseriesAspectService.applyDocumentDeleteOnMclDelete()) {
-        timeseriesAspectService.deleteDocument(
-            opContext, entityType, aspectName, entry.getKey(), doc, exploded);
-      }
-      timeseriesAspectWriteSink.deleteDocument(
-          opContext, entityType, aspectName, entry.getKey(), doc, exploded);
-    }
-  }
-
   void updateTimeseriesFieldsForEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     // V2 timeseries update logic - uses the existing TimeseriesAspectTransformer
     log.debug(
@@ -700,19 +592,43 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
           TimeseriesAspectTransformer.transform(
               urn, (RecordTemplate) aspect, aspectSpec, systemMetadata, idHashAlgo);
     } catch (JsonProcessingException e) {
-      log.error("Failed to generate V2 timeseries document from aspect: {}", e.toString());
+      handleTimeseriesWriteFailure(
+          opContext,
+          event,
+          new IllegalStateException("Failed to generate timeseries document from aspect", e),
+          "timeseries_update_failed");
       return;
     }
 
-    documents
-        .entrySet()
-        .forEach(
-            document -> {
-              timeseriesAspectService.upsertDocument(
-                  opContext, entityType, aspectName, document.getKey(), document.getValue());
-              timeseriesAspectWriteSink.upsertDocument(
-                  opContext, entityType, aspectName, document.getKey(), document.getValue());
-            });
+    try {
+      documents
+          .entrySet()
+          .forEach(
+              document ->
+                  timeseriesAspectService.upsertDocument(
+                      opContext, entityType, aspectName, document.getKey(), document.getValue()));
+    } catch (RuntimeException e) {
+      handleTimeseriesWriteFailure(opContext, event, e, "timeseries_update_failed");
+    }
+  }
+
+  /** Postgres SoT fails the MCL path; Elasticsearch keeps historical warn-and-skip behavior. */
+  private void handleTimeseriesWriteFailure(
+      @Nonnull OperationContext opContext,
+      @Nonnull MCLItem event,
+      @Nonnull RuntimeException e,
+      @Nonnull String metricName) {
+    if (timeseriesAspectService.shouldPropagateWriteFailures()) {
+      throw e;
+    }
+    log.warn(
+        "V2 timeseries update failed for urn {} aspect {}: {}",
+        event.getUrn(),
+        event.getAspectName(),
+        e.getMessage());
+    opContext
+        .getMetricUtils()
+        .ifPresent(metricUtils -> metricUtils.increment(this.getClass(), metricName, 1));
   }
 
   void updateIndexMappings(OperationContext opContext, MCLItem event) {

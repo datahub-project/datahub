@@ -3,6 +3,7 @@ package com.linkedin.metadata.timeseries.postgres;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.ByteString;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
@@ -18,11 +19,30 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 /** Maps `{prefix}_aspect` columns to {@link EnvelopedAspect} (parity with ES parseDocument). */
 @Slf4j
 public final class TimeseriesPgDocumentMapper {
+
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+
+  /** Column bundle for {@code {prefix}_aspect} SqlSetup tables. */
+  @Value
+  public static class TimeseriesAspectRowPayload {
+    @Nonnull String entityName;
+    @Nonnull String aspectName;
+    @Nonnull String urn;
+    @Nonnull String messageId;
+    long timestampMillis;
+    String runId;
+    String eventGranularity;
+    String partitionSpecJson;
+    String eventJson;
+    String systemMetadataJson;
+    @Nonnull String documentJson;
+  }
 
   /**
    * Same field set as {@link
@@ -45,6 +65,79 @@ public final class TimeseriesPgDocumentMapper {
           MappingsBuilder.EVENT_FIELD);
 
   private TimeseriesPgDocumentMapper() {}
+
+  @Nonnull
+  public static TimeseriesAspectRowPayload parsePayload(
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull String docId,
+      @Nonnull JsonNode document) {
+    String urn = requiredText(document, MappingsBuilder.URN_FIELD);
+    JsonNode tsNode = document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD);
+    if (tsNode == null || !tsNode.isNumber()) {
+      throw new IllegalArgumentException("timeseries document missing timestampMillis");
+    }
+    String partitionSpecJson = serializeOptional(document, MappingsBuilder.PARTITION_SPEC, false);
+    String eventJson = serializeOptional(document, MappingsBuilder.EVENT_FIELD, true);
+    String systemMetadataJson =
+        serializeOptional(document, MappingsBuilder.SYSTEM_METADATA_FIELD, false);
+    String documentJson;
+    try {
+      documentJson = MAPPER.writeValueAsString(document);
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException("Failed to serialize full timeseries document", e);
+    }
+    return new TimeseriesAspectRowPayload(
+        entityName,
+        aspectName,
+        urn,
+        resolveMessageId(docId, document),
+        tsNode.asLong(),
+        document.hasNonNull(MappingsBuilder.RUN_ID_FIELD)
+            ? document.get(MappingsBuilder.RUN_ID_FIELD).asText()
+            : null,
+        document.hasNonNull(MappingsBuilder.EVENT_GRANULARITY)
+            ? document.get(MappingsBuilder.EVENT_GRANULARITY).asText()
+            : null,
+        partitionSpecJson,
+        eventJson,
+        systemMetadataJson,
+        documentJson);
+  }
+
+  @Nonnull
+  public static String resolveMessageId(@Nonnull String docId, @Nullable JsonNode document) {
+    if (document != null && document.hasNonNull(MappingsBuilder.MESSAGE_ID_FIELD)) {
+      return document.get(MappingsBuilder.MESSAGE_ID_FIELD).asText();
+    }
+    return docId;
+  }
+
+  @Nullable
+  private static String serializeOptional(
+      @Nonnull JsonNode document, @Nonnull String field, boolean failOnError) {
+    JsonNode value = document.get(field);
+    if (value == null || value.isNull()) {
+      return null;
+    }
+    try {
+      return MAPPER.writeValueAsString(value);
+    } catch (JsonProcessingException e) {
+      if (failOnError) {
+        throw new IllegalArgumentException("Failed to serialize " + field + " field", e);
+      }
+      log.warn("Failed to serialize {}: {}", field, e.toString());
+      return null;
+    }
+  }
+
+  private static String requiredText(@Nonnull JsonNode document, @Nonnull String field) {
+    JsonNode value = document.get(field);
+    if (value == null || value.isNull() || !value.isTextual()) {
+      throw new IllegalArgumentException("timeseries document missing required field: " + field);
+    }
+    return value.asText();
+  }
 
   @Nonnull
   public static EnvelopedAspect envelopedAspectFromRow(

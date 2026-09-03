@@ -24,8 +24,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.timeseries.postgres.PgTimeseriesStoreRegistry.StoreHandle;
-import com.linkedin.metadata.timeseries.write.AbstractTimeseriesAspectWriteSink;
-import com.linkedin.metadata.timeseries.write.AbstractTimeseriesAspectWriteSink.TimeseriesAspectRowPayload;
+import com.linkedin.metadata.timeseries.postgres.TimeseriesPgDocumentMapper.TimeseriesAspectRowPayload;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
@@ -545,7 +544,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nonnull String docId,
       @Nonnull JsonNode document) {
     TimeseriesAspectRowPayload row =
-        AbstractTimeseriesAspectWriteSink.parsePayload(entityName, aspectName, docId, document);
+        TimeseriesPgDocumentMapper.parsePayload(entityName, aspectName, docId, document);
     try {
       store(entityName, aspectName).getDao().upsert(row);
     } catch (SQLException e) {
@@ -554,24 +553,8 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   }
 
   @Override
-  public boolean applyDocumentDeleteOnMclDelete() {
+  public boolean shouldPropagateWriteFailures() {
     return true;
-  }
-
-  @Override
-  public void deleteDocument(
-      @Nonnull OperationContext opContext,
-      @Nonnull String entityName,
-      @Nonnull String aspectName,
-      @Nonnull String docId,
-      @Nullable JsonNode document,
-      @SuppressWarnings("unused") boolean isExploded) {
-    String messageId = AbstractTimeseriesAspectWriteSink.resolveMessageId(docId, document);
-    try {
-      store(entityName, aspectName).getDao().deleteByMessageId(entityName, aspectName, messageId);
-    } catch (SQLException e) {
-      throw new IllegalStateException("PostgreSQL timeseries deleteDocument failed", e);
-    }
   }
 
   @Override
