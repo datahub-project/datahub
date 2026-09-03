@@ -45,27 +45,12 @@ through its relationships:
 | **Built-in relationships** | The relationship vocabulary DataHub ships with — inheritance, containment, synonyms, antonyms, translations, and valid values.                            |
 | **Custom relationships**   | Relationship types you define yourself, for vocabulary your business needs that the built-ins do not cover — _governed by_, _derived from_, _supersedes_. |
 
-Every relationship you create becomes an edge in DataHub's metadata graph — the same graph that
-holds lineage, ownership, and domains. That is what makes the ontology queryable alongside the rest
-of your metadata rather than as a side artifact.
+Built-in and custom relationships behave the same once created. Every relationship becomes an edge
+in DataHub's metadata graph — the same graph that holds lineage, ownership, and domains — so your
+ontology is drawn in the same views and queried through the same APIs as the rest of your metadata.
 
-## Relationship semantics
-
-Each relationship type carries semantics that govern how it is traversed and displayed:
-
-- **Direction.** A **directed** relationship runs source → destination and reads differently in each
-  direction (_Individual Customer_ **inherits** _Customer_; read backwards, _Customer_ is
-  **inherited by** _Individual Customer_). An **undirected** (symmetric) relationship reads the same
-  both ways — _Client_ is a **synonym of** _Customer_ implies the reverse without a second edge.
-- **Transitivity.** Some relationships chain: if A is a kind of B and B is a kind of C, then A is a
-  kind of C. Marking a relationship transitive tells DataHub that closure over it is meaningful.
-- **Standard vocabulary.** A relationship type can declare the RDF predicate it corresponds to (for
-  example `skos:broader`, `rdfs:subClassOf`), so queries written against W3C standard vocabularies
-  resolve to your relationships.
-
-Both kinds behave identically once created: they materialize as edges in the same graph, are drawn
-in the same views, and are traversed by the same APIs. Which relationships exist and when to use
-each is covered in [Relating Glossary Terms](relating-glossary-terms.md) and
+Which relationships exist and when to use each is covered in
+[Relating Glossary Terms](relating-glossary-terms.md) and
 [Adding Custom Relationships](custom-relationships.md).
 
 ## Where to go next

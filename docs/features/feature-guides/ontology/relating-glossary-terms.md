@@ -43,13 +43,6 @@ Use **Related to** only when nothing else fits. It records that two terms are co
 so there is nothing for a traversal to act on. If you find yourself using it a lot, you probably want
 a [custom relationship type](custom-relationships.md).
 
-### Inherits vs. term group nesting
-
-These are easy to confuse. Nesting a term inside a **Term Group** just organizes the glossary for
-people browsing it. **Inherits** says something stronger: everything true of the parent concept is
-true of the child. A term can sit in the "Marketing" term group without inheriting anything from
-marketing. Only use _Inherits_ when "is a kind of" is actually true.
-
 ## Adding a relationship in the UI
 
 1. Open the glossary term you want to relate.
