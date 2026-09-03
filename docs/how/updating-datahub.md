@@ -127,6 +127,12 @@ Requirements:
 
 - **(Metadata Model / Data Products)** `dataProductProperties` now includes an optional `parentDataProduct` URN so Data Products can nest in a parent-child taxonomy (mirroring Domains' `parentDomain`). The field is additive; existing Data Products are unchanged (null parent). No migration or reindex is required. Free-text search may match child products on the parent URN string, the same way `parentDomain` already behaves.
 
+- #18987 **(GMS / GraphQL)** GraphQL entity hydration now fetches only the aspects a query's selection set requires (schema-driven aspect mapping), instead of each entity loader's full default aspect set. Reduces primary-store reads on search cards, entity profiles, and browse. **Action:** none; set `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED=false` to revert to legacy full-aspect hydration if a specific query or page regresses.
+
+### Environment Variables
+
+- `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED` (default `true`) — Schema-driven GraphQL aspect fetching. See Other Notable Changes above and [Environment Variables](../deploy/environment-vars.md).
+
 ## v1.7.0
 
 Requirements:
@@ -366,6 +372,12 @@ Requirements:
 - **(GMS / primary storage read pool)** Optional second connection pool (Ebean) or Cassandra session for entity-aspect **reads**, while writes and `FOR UPDATE` reads stay on PRIMARY. Enable with `EBEAN_READ_POOL_ENABLED` / `CASSANDRA_READ_POOL_ENABLED` (default off). Use split-pool (same URL/hosts) to isolate connection limits, or set `EBEAN_READ_POOL_URL` / `CASSANDRA_READ_POOL_HOSTS` to offload to a replica. Separate from `DATAHUB_READ_ONLY=true`, which disables writes and does not register the read pool. See [Primary storage read pool](../deploy/primary-storage-read-pool.md).
 
 - #18393 / #18421: **(Operations / logging)** Core services and the frontend can optionally ship logs to a Loki-compatible aggregator. Set `LOG_AGGREGATOR_ENDPOINT` to enable shipping (also used for support-bundle log collection without relying on the Kubernetes API). Opt-in; unset leaves local logging unchanged.
+
+- **(GMS / Groups)** Fixed native group membership becoming permanently unrecoverable after a group was deleted and recreated under the same identifier. Deleting a group removed its membership edges from the graph but left each member's `nativeGroupMembership` aspect still referencing it; re-adding those members then wrote unchanged aspect content, which is suppressed both at change-log emission and by graph diff mode, so the membership never took effect — `addGroupMembers` reported success while the group stayed empty. Group deletion now clears the member-side references it is responsible for, and re-adding a member repairs a membership whose graph edge is missing. Because policies evaluate membership from the aspect while the UI and notifications read the graph, affected users could retain a deleted group's privileges while appearing to belong to no group. **Action:** none for new deletions. Members stranded by an earlier delete are repaired by re-adding them to the group; a `restore-indices` run over `corpuser` / `nativeGroupMembership` also rebuilds the missing edges, but it rebuilds references to groups that no longer exist too, so clear those aspect entries first where the group was intentionally deleted.
+
+- **(GMS / Groups)** Adding members to a group is now all-or-nothing with respect to unknown users. Previously members were processed one at a time, so a request naming a user that does not exist added the users listed before it and then failed, leaving a partial application. The request now fails without adding anyone, and names the users it could not find. **Action:** none, unless you relied on the partial-application behavior — split such requests per user to get the old semantics.
+
+- **(GMS / Groups)** Adding members to a group is now written in a single batched request rather than one write per member, so a large `addGroupMembers` call is substantially faster. The writes stay synchronous, so the member list is readable immediately afterwards. Note that a very large request is still partitioned by the entity client's configured batch size, so a failure part-way through can leave earlier members added — the all-or-nothing guarantee above covers unknown users, which are rejected before anything is written. **Action:** none.
 
 ### Environment Variables
 

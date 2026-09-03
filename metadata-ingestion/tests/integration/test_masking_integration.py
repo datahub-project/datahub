@@ -12,15 +12,11 @@ from typing import Generator
 
 import pytest
 
-from datahub.masking.bootstrap import (
-    initialize_secret_masking,
-    shutdown_secret_masking,
-)
-from datahub.masking.masking_filter import (
-    SecretMaskingFilter,
-)
+from datahub.masking.bootstrap import initialize_secret_masking
+from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
 from datahub.utilities.perf_timer import PerfTimer
+from tests.test_helpers.masking_state_helpers import reset_masking_process_state
 
 
 @contextmanager
@@ -43,18 +39,9 @@ def capture_masked_logs(
             logger.info("Secret: my_secret")
             assert "my_secret" not in output.getvalue()
     """
-    # Get masking filter from root logger
-    root_logger = logging.getLogger()
-    masking_filter = None
-    for f in root_logger.filters:
-        if isinstance(f, SecretMaskingFilter):
-            masking_filter = f
-            break
-
-    if masking_filter is None:
-        raise RuntimeError(
-            "Masking filter not installed. Call initialize_secret_masking() first."
-        )
+    # Filters are stateless views over the registry, so a fresh instance
+    # behaves identically to the installed ones
+    masking_filter = SecretMaskingFilter(SecretRegistry.get_instance())
 
     # Create test logger
     test_logger = logging.getLogger(logger_name)
@@ -77,20 +64,67 @@ def capture_masked_logs(
 
 class TestBootstrapIntegration:
     def setup_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
+        reset_masking_process_state()
 
     def teardown_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
+        reset_masking_process_state()
 
     def test_basic_initialization(self):
+        probe_handler = logging.NullHandler()
+        logging.getLogger().addHandler(probe_handler)
+        try:
+            initialize_secret_masking()
+
+            filters = [
+                f for f in probe_handler.filters if isinstance(f, SecretMaskingFilter)
+            ]
+            assert len(filters) == 1
+        finally:
+            logging.getLogger().removeHandler(probe_handler)
+
+    def test_installed_filter_masks_records_end_to_end(self):
+        """The filter initialize_secret_masking() attaches to handlers - not a
+        hand-attached one - must mask real records."""
+        stream = StringIO()
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        test_logger = logging.getLogger("masking.e2e.preexisting")
+        test_logger.setLevel(logging.INFO)
+        test_logger.addHandler(handler)
+        try:
+            initialize_secret_masking()
+            SecretRegistry.get_instance().register_secret(
+                "E2E_SECRET", "e2e-secret-value"
+            )
+            test_logger.info("the value is e2e-secret-value")
+
+            output = stream.getvalue()
+            assert "e2e-secret-value" not in output
+            assert "***REDACTED:E2E_SECRET***" in output
+        finally:
+            test_logger.removeHandler(handler)
+
+    def test_reinitialization_covers_late_handler_end_to_end(self):
         initialize_secret_masking()
 
-        # Check that filter is installed
-        root_logger = logging.getLogger()
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-        assert len(filters) > 0
+        stream = StringIO()
+        late_handler = logging.StreamHandler(stream)
+        late_handler.setFormatter(logging.Formatter("%(message)s"))
+        late_logger = logging.getLogger("masking.e2e.late")
+        late_logger.setLevel(logging.INFO)
+        late_logger.addHandler(late_handler)
+        try:
+            initialize_secret_masking()
+            SecretRegistry.get_instance().register_secret(
+                "LATE_SECRET", "late-secret-value"
+            )
+            late_logger.info("the value is late-secret-value")
+
+            output = stream.getvalue()
+            assert "late-secret-value" not in output
+            assert "***REDACTED:LATE_SECRET***" in output
+        finally:
+            late_logger.removeHandler(late_handler)
 
     def test_manual_secret_registration(self):
         initialize_secret_masking()
@@ -107,12 +141,10 @@ class TestBootstrapIntegration:
 
 class TestEndToEndMasking:
     def setup_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
+        reset_masking_process_state()
 
     def teardown_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
+        reset_masking_process_state()
 
     def test_end_to_end_logging(self):
         """Test that secrets are masked in actual log output."""
@@ -230,12 +262,10 @@ class TestEndToEndMasking:
 
 class TestPerformanceIntegration:
     def setup_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
+        reset_masking_process_state()
 
     def teardown_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
+        reset_masking_process_state()
 
     def test_many_secrets_performance(self):
         # Initialize
@@ -287,12 +317,10 @@ class TestPerformanceIntegration:
 
 class TestFailGracefully:
     def setup_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
+        reset_masking_process_state()
 
     def teardown_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
+        reset_masking_process_state()
 
     def test_initialization_failure_graceful(self):
         # This should not raise even if something goes wrong
@@ -315,43 +343,34 @@ class TestFailGracefully:
 
 class TestDoubleInitialization:
     def setup_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
+        reset_masking_process_state()
 
     def teardown_method(self):
-        shutdown_secret_masking()
-        SecretRegistry.reset_instance()
+        reset_masking_process_state()
 
     def test_double_initialization_safe(self):
-        # First initialization
-        initialize_secret_masking()
+        probe_handler = logging.NullHandler()
+        logging.getLogger().addHandler(probe_handler)
+        try:
+            initialize_secret_masking()
+            initialize_secret_masking()
 
-        # Second initialization (should be no-op)
-        initialize_secret_masking()
+            filters = [
+                f for f in probe_handler.filters if isinstance(f, SecretMaskingFilter)
+            ]
+            assert len(filters) == 1
+        finally:
+            logging.getLogger().removeHandler(probe_handler)
 
-        # Check that only one filter is installed
-        root_logger = logging.getLogger()
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-
-        # Should only have one filter (not duplicated)
-        assert len(filters) == 1
-
-    def test_force_reinitialization(self):
-        # First initialization
+    def test_reinitialization_preserves_registry(self):
         initialize_secret_masking()
 
         registry = SecretRegistry.get_instance()
-        initial_count = registry.get_count()
-
-        # Add a secret manually
         registry.register_secret("NEW_SECRET", "new_value")
 
-        # Force reinitialization
-        initialize_secret_masking(force=True)
+        initialize_secret_masking()
 
-        # Registry should still have the secret
-        new_count = registry.get_count()
-        assert new_count >= initial_count
+        assert registry.has_secret("NEW_SECRET")
 
 
 class TestFullPipelineIntegration:
@@ -359,14 +378,8 @@ class TestFullPipelineIntegration:
 
     def test_config_loading_with_secrets(self, tmp_path):
         from datahub.configuration.config_loader import load_config_file
-        from datahub.masking.bootstrap import (
-            initialize_secret_masking,
-            shutdown_secret_masking,
-        )
-        from datahub.masking.secret_registry import SecretRegistry
 
-        # Clean slate
-        shutdown_secret_masking()
+        reset_masking_process_state()
         initialize_secret_masking()
 
         # Create config with secrets
@@ -417,19 +430,14 @@ source:
         del os.environ["TEST_PASSWORD"]
         del os.environ["TEST_API_KEY"]
         del os.environ["TEST_HOST"]
-        shutdown_secret_masking()
+        reset_masking_process_state()
 
     def test_pydantic_config_with_nested_secrets(self):
         from pydantic import SecretStr
 
         from datahub.configuration.common import ConfigModel
-        from datahub.masking.bootstrap import (
-            initialize_secret_masking,
-            shutdown_secret_masking,
-        )
-        from datahub.masking.secret_registry import SecretRegistry
 
-        shutdown_secret_masking()
+        reset_masking_process_state()
         initialize_secret_masking()
 
         class DatabaseConfig(ConfigModel):
@@ -453,7 +461,7 @@ source:
         assert registry.get_secret_value("password") == "db_secret"
         assert registry.get_secret_value("api_key") == "api_secret_key"
 
-        shutdown_secret_masking()
+        reset_masking_process_state()
 
     def test_config_with_secret_str_fields(self, tmp_path):
         """Test that SecretStr fields in config are automatically masked in logs."""
@@ -461,14 +469,8 @@ source:
 
         from datahub.configuration.common import ConfigModel
         from datahub.configuration.config_loader import load_config_file
-        from datahub.masking.bootstrap import (
-            initialize_secret_masking,
-            shutdown_secret_masking,
-        )
-        from datahub.masking.secret_registry import SecretRegistry
 
-        # Clean slate
-        shutdown_secret_masking()
+        reset_masking_process_state()
         initialize_secret_masking()
 
         # Define config model with SecretStr fields
@@ -525,7 +527,7 @@ config:
             # Verify non-secret host is NOT masked
             assert "my-host" in log_output
 
-        shutdown_secret_masking()
+        reset_masking_process_state()
 
 
 if __name__ == "__main__":

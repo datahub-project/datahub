@@ -64,3 +64,11 @@ spotless:
   - added|modified: "**/*.java"
   - "**/*.gradle"
   - "**/*.gradle.kts"
+product-update-sync:
+  - docs/how/updating-datahub.md
+  - docs/managed-datahub/release-notes/**
+  - metadata-service/configuration/src/main/resources/product-update.json
+  - metadata-service/configuration/src/main/resources/product-update-saas.json
+  - metadata-service/configuration/src/productUpdateCiGate/**
+  - metadata-service/configuration/src/test/java/com/linkedin/metadata/config/productupdate/**
+  - metadata-service/configuration/build.gradle
