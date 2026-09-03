@@ -124,6 +124,7 @@ public class SearchBasedFormAssignmentManager {
         log.error("Error while assigning form to entities.", e);
       } else {
         metrics.failed("unexpected");
+        log.error("Unexpected error while assigning form to entities.", e);
       }
       throw e;
     } finally {

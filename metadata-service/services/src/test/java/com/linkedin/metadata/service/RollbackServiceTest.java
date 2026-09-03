@@ -324,9 +324,11 @@ public class RollbackServiceTest {
   public void testRollbackIngestion_MultiPageUnsafeEntitiesCoverAllPages()
       throws AuthenticationException {
     // Prove affected/unsafe entity math spans every page, not just the last. First page carries
-    // a key aspect for urn1; second page carries a key aspect for urn3. After the while-loop the
-    // last aspectRowsToDelete is empty, so a last-page-only keyAspects derivation would miss
-    // both — unsafeEntitiesCount would be 0. allKeyAspects must accumulate across pages.
+    // a key aspect for urn1; second page carries a key aspect for urn3. The while-loop exits when
+    // the second page (3 rows) drops below apiDefault (5), so the last aspectRowsToDelete is
+    // secondPageAspects — a last-page-only keyAspects derivation would find urn3's key only and
+    // undercount to unsafeEntitiesCount=1, missing urn1/urn2. allKeyAspects must accumulate
+    // across pages to cover all three.
     List<AspectRowSummary> firstPageAspects = createTestAspectRows(true); // keys for urn1, urn2
     AspectRowSummary extra = new AspectRowSummary();
     extra.setUrn(TEST_URN_2);

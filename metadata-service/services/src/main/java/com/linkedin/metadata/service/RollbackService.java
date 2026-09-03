@@ -303,7 +303,7 @@ public class RollbackService {
     } catch (AuthenticationException e) {
       metrics.failed("unauthorized");
       throw e;
-    } catch (RuntimeException e) {
+    } catch (Throwable e) {
       metrics.failed("unexpected");
       throw e;
     } finally {
