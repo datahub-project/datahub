@@ -393,12 +393,9 @@ class TestResultExtraction:
     def test_duplicate_labels_across_queries_do_not_collide(
         self, engine, test_table, flatten_enabled
     ):
-        # Two separate queries, each with a single column labelled 'v', combine
-        # into one statement. Each query gets its own result dict, so identical
-        # labels across queries must not collide. Run on both paths: the flat
-        # path relabels columns with generated uids and rebuilds the result
-        # dicts from its own plan, so it can collide in a way the CTE path
-        # cannot.
+        # Identical labels across two queries must not collide. Run on both
+        # paths: the flat path rebuilds result dicts from its own plan, so it
+        # can collide where the CTE path cannot.
         q_min = sa.select(sa.func.min(test_table.c.value).label("v")).select_from(
             test_table
         )
@@ -746,11 +743,8 @@ class TestFlattenPath:
         assert combiner.report.total_queries == 3
 
     def test_flat_path_unique_labels_for_anonymous_columns(self, engine, test_table):
-        # Two unlabeled COUNT() queries. The flat SELECT must assign unique
-        # generated labels and map results back by POSITION, so both futures
-        # get the right value despite the colliding inner-column name. This
-        # kills the "key by col.name" mutant (which would overwrite on the
-        # collision and return one wrong value).
+        # The flat SELECT must use generated labels and map back by position,
+        # so colliding inner-column names still resolve correctly.
         queries = [
             sa.select(sa.func.count()).select_from(test_table),
             sa.select(sa.func.count(sa.column("id"))).select_from(test_table),
@@ -791,14 +785,9 @@ class TestFlattenPath:
     def test_count_distinct_cap_splits_into_multiple_statements(
         self, engine, cardinality_table
     ):
-        # 7 COUNT(DISTINCT) aggregates with MAX_DISTINCT_PER_STATEMENT = 5 must
-        # split into 2 flat statements, each carrying at most 5 distinct trees.
-        # This bounds server memory by capping distinct-value trees per
-        # statement.
-        #
-        # Each query counts a column of different cardinality, so a chunk that
-        # hands results to the wrong futures fails here rather than passing on
-        # identical numbers.
+        # 7 COUNT(DISTINCT) with a cap of 5 -> 2 flat statements. Columns have
+        # distinct cardinalities so a chunk-to-future mapping bug fails here
+        # instead of passing on identical numbers.
         queries = [
             sa.select(
                 sa.func.count(sa.func.distinct(cardinality_table.c[f"c{k}"])).label(
@@ -852,11 +841,8 @@ class TestFlattenPath:
         assert combiner.report.total_queries == 10
 
     def test_unmatched_shape_falls_through_to_cte_path(self, engine, test_table):
-        # A query with a WHERE clause is not flattenable (conservative
-        # signature) and falls through to the legacy CTE path. The flat
-        # counter does not increment; the CTE combine handles both futures.
-        # Two flattenable queries so the group has something to collapse; a
-        # 1-member group would be demoted to the CTE path instead.
+        # A WHERE clause is not flattenable and falls through to the CTE path.
+        # Two flattenable queries so the group is not a demoted singleton.
         flat_query = sa.select(sa.func.count().label("rowcount")).select_from(
             test_table
         )
@@ -911,12 +897,10 @@ class TestFlattenPath:
     def test_duplicate_unlabeled_names_within_one_future(
         self, engine, test_table, flatten_enabled
     ):
-        # Item 1: two unlabeled COUNT() columns in ONE query share the inner
-        # column name "count". Keying the result dict by col.name would
-        # collapse them to one entry and lose a column with no signal. The
-        # flat path sources names from subquery().columns (which anon-labels
-        # duplicates), so both columns survive. Both flag states must agree
-        # on len(row) == 2 and on the values.
+        # Two unlabeled COUNT() columns in one query share the inner name
+        # "count". Keying results by col.name would silently collapse them to
+        # one; the flat path uses subquery().columns, which anon-labels
+        # duplicates. Both flags must agree on len(row) and the values.
         q = sa.select(
             sa.func.count(test_table.c.id), sa.func.count(test_table.c.value)
         ).select_from(test_table)
@@ -935,13 +919,9 @@ class TestFlattenPath:
     def test_duplicate_explicit_labels_route_away_from_flat_path(
         self, engine, test_table, flatten_enabled
     ):
-        # Item 1 guard: duplicate explicit .label() names make
-        # subquery().columns raise InvalidRequestError. _is_flattenable must
-        # exclude this query from the flat path (route to CTE/serial) rather
-        # than raising inside _execute_flat_select and demoting a whole batch.
-        # Under flatten=True the flat counter must NOT increment for this
-        # query; under both flags the values must be correct (the CTE path
-        # hits the same raise and recovers via serial fallback).
+        # Duplicate explicit .label() names make subquery().columns raise.
+        # The gate must reject the query rather than let it raise inside
+        # _execute_flat_select and demote a whole batch.
         q = sa.select(
             sa.func.min(test_table.c.value).label("v"),
             sa.func.max(test_table.c.value).label("v"),
@@ -970,11 +950,8 @@ class TestFlattenPath:
     def test_count_distinct_cap_covers_all_three_spellings(
         self, engine, cardinality_table, distinct_fn
     ):
-        # Item 2: COUNT(DISTINCT) has three SQLAlchemy spellings. The cap
-        # must catch all three — a silent bypass trades a scan problem for a
-        # server-memory problem. 7 aggregates with cap 5 -> 2 flat statements
-        # for every spelling. Distinguishable cardinalities so a chunk-to-
-        # future mapping bug cannot pass on identical results.
+        # All three COUNT(DISTINCT) spellings must trip the cap; missing one
+        # trades a scan problem for a server-memory problem.
         queries = [
             sa.select(
                 distinct_fn(cardinality_table.c[f"c{k}"]).label(f"uc{k}")
@@ -992,11 +969,9 @@ class TestFlattenPath:
         assert combiner.report.query_exceptions == 0
 
     def test_is_flattenable_rejects_every_clause_family(self, engine, test_table):
-        # Item 3: the allowlist must reject every clause that renders extra
-        # SQL. HAVING is a data-correctness break (the flat path would drop
-        # it and fabricate a row); the rest are missed optimizations that
-        # would silently change semantics. Asserted directly against the
-        # static helper because that is the contract being pinned.
+        # The gate must reject every clause that renders extra SQL. HAVING is
+        # the correctness case: the flat path would drop it and fabricate a
+        # row. The rest would silently change semantics.
         t = test_table
         non_flattenable = {
             "where": sa.select(sa.func.count().label("c"))
@@ -1053,12 +1028,8 @@ class TestFlattenPath:
     def test_having_query_returns_zero_rows_under_both_flags(
         self, engine, test_table, flatten_enabled
     ):
-        # Item 3 data-correctness probe: HAVING count(*) > 100 over a 3-row
-        # table must return zero rows. Under flatten=False the CTE combine
-        # fails and serial fallback returns []; under flatten=True the
-        # allowlist routes HAVING to the unmatched CTE path (which also
-        # fails) and the serial fallback returns []. Both flags must agree
-        # on [] — a fabricated row would be a silent data-correctness break.
+        # HAVING count(*) > 100 over 3 rows must return zero rows under both
+        # flags. A fabricated row here would be a silent correctness break.
         q = (
             sa.select(sa.func.count().label("c"))
             .select_from(test_table)
@@ -1075,12 +1046,8 @@ class TestFlattenPath:
     def test_bad_unflattenable_query_does_not_zero_out_flat_path(
         self, engine, test_table
     ):
-        # Item 4: one failing unflattenable query (WHERE on a missing table)
-        # plus five good flattenable ones. The bad query must not cancel the
-        # flat path for the good ones — flat_queries_issued > 0 and all good
-        # futures resolve. Under the old code the bad query's CTE combine
-        # failure escaped before any flat group ran, silently cancelling the
-        # whole optimization.
+        # One failing unflattenable query must not cancel the flat path for
+        # the good ones.
         missing = sa.Table("does_not_exist", sa.MetaData(), Column("x", Integer))
         bad = (
             sa.select(sa.func.count().label("c"))
@@ -1099,26 +1066,19 @@ class TestFlattenPath:
         assert caps[0].exc is not None  # the bad query fails
         assert all(c.done and c.exc is None for c in caps[1:])  # all 5 good resolve
         assert all(c.result.scalar() == 3 for c in caps[1:])
-        # flat_queries_issued counts ATTEMPTS, not successes (it increments
-        # before execution). The load-bearing assertion is scans_avoided: it
-        # increments only after extraction succeeds, so it is positive iff the
-        # flat path actually delivered the scan reduction. Do not prune the
-        # scans_avoided assertion as redundant with flat_queries_issued.
+        # scans_avoided is the load-bearing assertion: flat_queries_issued
+        # counts attempts, scans_avoided only successes. Do not prune it as
+        # redundant.
         assert combiner.report.flat_queries_issued > 0
         assert combiner.report.scans_avoided == 4  # 5 good - 1
 
     def test_failing_unit_does_not_demote_out_of_window_futures(
         self, engine, test_table
     ):
-        # Item 4 (round 2): the scoped fallback must operate on the FAILED
-        # UNIT's futures only, not the whole queue. The pending queue is
-        # islice'd to MAX_QUERIES_TO_COMBINE_AT_ONCE in _execute_queue, so
-        # futures beyond the cap were never attempted and must flatten on
-        # the next pass — a global fallback (the old code) would demote them
-        # to serial, zeroing scans_avoided. Here one bad query (referencing a
-        # nonexistent column on the same table, so it shares the FROM group
-        # with the good ones) poisons its whole in-window group, but the
-        # out-of-window good futures still flatten.
+        # The scoped fallback must resolve only the failed unit's futures.
+        # Futures beyond MAX_QUERIES_TO_COMBINE_AT_ONCE were never attempted
+        # and must still flatten next pass; a global fallback would demote
+        # them and zero scans_avoided.
         bad = sa.select(
             sa.func.count(sa.column("no_such_col")).label("bad")
         ).select_from(test_table)
@@ -1179,16 +1139,9 @@ class TestFlattenPath:
         assert combiner.report.query_exceptions == 1
 
     def test_same_name_different_object_tables_not_grouped(self, engine):
-        # Item 5: two distinct Table objects that share the name "t" (built
-        # against separate MetaData, as several adapters do) must NOT group
-        # into one flat statement — that would produce a self-cross-join
-        # (FROM t, t) the server rejects. Keying the signature on from
-        # objects (by identity) keeps them in separate groups. Both futures
-        # resolve and the flat counter reflects two statements, not one.
-        #
-        # SQLite in-memory shares one physical DB across MetaData, so both
-        # inserts land in the same physical "t" table (2 rows) — that is fine:
-        # the test asserts grouping (flat_queries_issued == 2), not distinct
+        # Two Table objects sharing the name "t" must not group together, or
+        # the flat SELECT becomes a self-cross-join (FROM t, t). SQLite shares
+        # one physical table across MetaData, so this asserts grouping, not
         # per-table data.
         md1 = sa.MetaData()
         t1 = sa.Table("t", md1, Column("id", Integer))
@@ -1228,11 +1181,9 @@ class TestFlattenPath:
     def test_negative_max_distinct_per_statement_does_not_hang(
         self, engine, test_table
     ):
-        # A cap < 1 would make the distinct packer yield nothing, leaving
-        # distinct-heavy futures un-done and flush() spinning on parked
-        # greenlets. It rejects budget < 1 by raising, which lands in the
-        # flat-group except and re-routes through the CTE path, so every
-        # future gets a result.
+        # A cap < 1 would yield nothing and leave futures un-done, spinning
+        # flush(). The packer raises instead, re-routing through the CTE
+        # path.
         queries = [
             sa.select(
                 sa.func.count(sa.func.distinct(test_table.c.id)).label(f"uc{i}")
@@ -1255,14 +1206,9 @@ class TestFlattenPath:
         assert combiner.report.query_exceptions == 1
 
     def test_no_fallback_raises_when_disabled_under_flatten(self, engine, test_table):
-        # serial_execution_fallback_enabled=False must propagate a failed
-        # flat group out of _execute_queue_flattened so flush()'s raise path
-        # handles it. The flatten recovery must not swallow the exception
-        # and leave futures un-done (the livelock). Same contract as the CTE
-        # path.
-        # Two members over the same FROM, so this is a real flat group and the
-        # raise comes out of _execute_flat_group. A lone query would be
-        # demoted as a singleton and exercise the unmatched-CTE raise instead.
+        # With fallback disabled the failure must propagate rather than leave
+        # futures un-done (a livelock). Two members so this is a real flat
+        # group, not a demoted singleton.
         bad = sa.select(
             sa.func.count(sa.column("no_such_col")).label("bad")
         ).select_from(test_table)
@@ -1282,10 +1228,8 @@ class TestFlattenPath:
     def test_max_distinct_per_statement_knob_splits_distinct_heavy(
         self, engine, cardinality_table
     ):
-        # The cap knob is wired through to the distinct packer. K=3 with 7
-        # one-distinct queries packs into 3 flat statements. A mutant that
-        # ignores self.max_distinct_per_statement and uses the module default
-        # (5) would split into 2 and fail this.
+        # K=3 with 7 one-distinct queries packs into 3 statements; ignoring
+        # the knob and using the module default of 5 would give 2.
         queries = [
             sa.select(
                 sa.func.count(sa.func.distinct(cardinality_table.c[f"c{k}"])).label(
@@ -1306,12 +1250,9 @@ class TestFlattenPath:
         assert combiner.report.query_exceptions == 0
 
     def test_two_connections_same_from_not_grouped(self, engine, test_table):
-        # The flatten signature keys on (froms, conn). Two futures over the
-        # same FROM on different connections must land in separate groups,
-        # emitting two flat statements. A FROM-only-key mutant would group
-        # them and emit one.
-        # Two queries per connection so neither group is a singleton, which
-        # would otherwise be demoted to the CTE path and hide the split.
+        # Same FROM on different connections must land in separate groups; a
+        # FROM-only key would merge them. Two per connection so neither group
+        # is a demoted singleton.
         q = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
         q2 = sa.select(sa.func.min(test_table.c.value).label("minv")).select_from(
             test_table
@@ -1337,13 +1278,9 @@ class TestFlattenPath:
         assert combiner.report.query_exceptions == 0
 
     def test_non_aggregate_column_rejected_by_allowlist(self, engine, test_table):
-        # _is_flattenable checks clauses, not the select list. A clause-
-        # free non-aggregate like `SELECT v FROM t` passes the clause gate;
-        # grouped with a real aggregate it would emit
-        # `SELECT count(*), v FROM t` and return one row on SQLite/MySQL,
-        # silently dropping the non-aggregate's rows. The aggregate
-        # allowlist rejects it so the query routes to the CTE path, whose
-        # cross-join returns N rows and `assert len(results) == 1` catches.
+        # A clause-free non-aggregate passes the clause gate, so the allowlist
+        # is what stops `SELECT count(*), v FROM t` silently dropping v's
+        # rows.
         non_agg = sa.select(test_table.c.name).select_from(test_table)
         assert not SQLAlchemyQueryCombiner._is_flattenable(non_agg)
 
@@ -1380,21 +1317,18 @@ class TestFlattenPath:
         assert combiner.report.uncombined_queries_issued == 1  # non-agg serial
 
     def test_text_clause_column_rejected_by_parity(self, engine, test_table):
-        # A bare sa.text() column gives emit-side columns (get_query_columns)
-        # of length 1 but subquery().columns of length 0, which would trip
-        # `assert len(emit_cols) == len(name_cols)` inside _execute_flat_select
-        # after the plan loop starts. The parity check rejects the query up
-        # front so the assert stays unreachable.
+        # A bare sa.text() column gives 1 emit-side column and 0 name-side,
+        # which would trip the assert inside _execute_flat_select. The parity
+        # check rejects it up front.
         text_query = sa.select(sa.text("name")).select_from(test_table)
         assert not SQLAlchemyQueryCombiner._is_flattenable(text_query)
 
     @pytest.mark.parametrize(
         "agg,names",
         [
-            # What each adapter declares must match what it emits. SQLAlchemy
-            # normalises only names it has a GenericFunction for -- count, min,
-            # max and sum come back lowercase whatever the caller wrote, while
-            # avg and the platform stddev spellings keep the caller's casing.
+            # SQLAlchemy lowercases only names it has a GenericFunction for,
+            # so avg and the platform stddev spellings keep the caller's
+            # casing and must be matched case-insensitively.
             (lambda c: sa.func.count(), BASE_SET),
             (lambda c: sa.func.min(c), BASE_SET),
             (lambda c: sa.func.max(c), BASE_SET),
@@ -1412,8 +1346,7 @@ class TestFlattenPath:
     @pytest.mark.parametrize(
         "agg,names",
         [
-            # The other half of the swap: a platform must not flatten a
-            # spelling it never emits, and must not be left flattening the
+            # A platform must not flatten a spelling it never emits, nor the
             # base spelling it replaced.
             (lambda c: sa.func.stddev_samp(c), MSSQL_SET),
             (lambda c: sa.func.stddev_samp(c), CLICKHOUSE_SET),
@@ -1443,22 +1376,6 @@ class TestFlattenPath:
             is _FlattenVerdict.REJECTED
         )
 
-    def test_tag_does_not_bypass_the_clause_gate(self, test_table):
-        # The two halves are independent: declaring count does not license a
-        # query that also carries a clause. HAVING is the one that matters --
-        # the flat path would drop it and fabricate a row.
-        t = test_table
-        for q in (
-            sa.select(sa.func.count().label("c")).select_from(t).where(t.c.id > 1),
-            sa.select(sa.func.count().label("c")).select_from(t).group_by(t.c.id),
-            sa.select(sa.func.count().label("c")).select_from(t).order_by(t.c.id),
-            sa.select(sa.func.count().label("c"))
-            .select_from(t)
-            .group_by(t.c.id)
-            .having(sa.func.count() > 1),
-        ):
-            assert not SQLAlchemyQueryCombiner._is_flattenable(flattenable_query(q))
-
     def test_untagged_query_still_cte_batches(self, engine, test_table):
         # Orthogonality: the flatten tag must not disturb the existing
         # combiner. A single-row query with an empty allowlist batches exactly
@@ -1483,73 +1400,12 @@ class TestFlattenPath:
         assert combiner.report.combined_queries_issued == 1
         assert combiner.report.query_exceptions == 0
 
-    @pytest.mark.parametrize(
-        "agg",
-        [
-            # Deliberately not allowlisted: they fall to the CTE path rather
-            # than risk a wrong flat emit.
-            lambda c: sa.func.median(c),
-            lambda c: sa.func.approx_distinct(c),
-            lambda c: sa.func.uniq(c),
-            lambda c: sa.func.approx_percentile(c, 0.5),
-            lambda c: sa.func.upper(c),
-        ],
-    )
-    def test_exotic_aggregates_are_not_flattenable(self, test_table, agg):
-        query = sa.select(agg(test_table.c.value).label("m")).select_from(test_table)
-        assert not SQLAlchemyQueryCombiner._is_flattenable(query)
-
-    def test_avg_flattens_with_correct_values(self, engine, test_table):
-        # avg is declared but was otherwise never executed through the flat
-        # path, so a mis-emit would not have been caught. Paired with min so
-        # the group survives singleton demotion.
-        q_avg = sa.select(sa.func.avg(test_table.c.value).label("a")).select_from(
-            test_table
-        )
-        q_min = sa.select(sa.func.min(test_table.c.value).label("m")).select_from(
-            test_table
-        )
-        combiner = _make_combiner(flatten_enabled=True)
-        with engine.connect() as conn, combiner.activate() as qc:
-            cap_avg = _schedule(qc, conn, q_avg)
-            cap_min = _schedule(qc, conn, q_min)
-            qc.flush()
-
-        assert cap_avg.result.scalar() == pytest.approx(20.5)
-        assert cap_min.result.scalar() == pytest.approx(10.5)
-        assert combiner.report.flat_queries_issued == 1
-        assert combiner.report.scans_avoided == 1
-        assert combiner.report.query_exceptions == 0
-
-    def test_sum_is_not_declared_and_falls_to_cte(self, engine, test_table):
-        # sum is deliberately absent from the base set: the only sum this
-        # profiler emits is in the histogram, which uses execute_rows and can
-        # never reach the flatten path. Declaring it would be a guess.
-        q_sum = sa.select(sa.func.sum(test_table.c.value).label("s")).select_from(
-            test_table
-        )
-        q_count = sa.select(sa.func.count().label("c")).select_from(test_table)
-        combiner = _make_combiner(flatten_enabled=True)
-        with engine.connect() as conn, combiner.activate() as qc:
-            cap_sum = _schedule(qc, conn, q_sum)
-            cap_count = _schedule(qc, conn, q_count)
-            qc.flush()
-
-        # Correct results either way -- an undeclared aggregate costs the
-        # optimisation, never the answer.
-        assert cap_sum.result.scalar() == pytest.approx(61.5)
-        assert cap_count.result.scalar() == 3
-        assert combiner.report.flatten_rejected == 1
-        assert combiner.report.flat_queries_issued == 0
-
     def test_gate_crash_is_counted_apart_from_allowlist_rejection(
         self, engine, test_table
     ):
         # A gate that throws must not look like a workload with nothing to
-        # flatten. Duplicate labels within one query make subquery().columns
-        # raise InvalidRequestError inside the gate -- a real crash, not a
-        # designed rejection -- while a WHERE clause is a designed rejection.
-        # Only the split counters tell them apart.
+        # flatten. Duplicate labels crash the gate; a WHERE clause is a
+        # designed rejection. Only the split counters tell them apart.
         crashes = sa.select(
             sa.func.min(test_table.c.value).label("x"),
             sa.func.max(test_table.c.value).label("x"),
@@ -1570,10 +1426,9 @@ class TestFlattenPath:
         assert combiner.report.flatten_rejected == 1
 
     def test_singleton_groups_are_demoted_to_one_cte_combine(self, engine):
-        # A flush window spanning many tables produces one group per table.
-        # Flattening each would emit a statement apiece at identical scan
-        # count -- N round trips where the CTE path needs one. Demoting
-        # singletons keeps that trade off the table.
+        # A window spanning N tables gives one group each. Flattening them
+        # would cost N round trips at identical scan count, where the CTE path
+        # needs one.
         md = sa.MetaData()
         tables = [sa.Table(f"st{i}", md, Column("id", Integer)) for i in range(5)]
         md.create_all(engine)
@@ -1597,10 +1452,9 @@ class TestFlattenPath:
         assert combiner.report.query_exceptions == 0
 
     def test_distinct_budget_counts_columns_not_queries(self, engine, test_table):
-        # The cap bounds distinct-value trees on the server. Two queries each
-        # carrying two COUNT(DISTINCT) columns are four trees, so a cap of 2
-        # must split them across two statements -- a per-future cap would see
-        # "2 futures <= 2" and emit one statement holding all four.
+        # Two queries with two COUNT(DISTINCT) each are four trees, so a cap
+        # of 2 must split them. A per-future cap would see "2 <= 2" and emit
+        # one statement holding all four.
         queries = [
             sa.select(
                 sa.func.count(sa.func.distinct(test_table.c.id)).label(f"a{i}"),
@@ -1618,12 +1472,8 @@ class TestFlattenPath:
         assert combiner.report.query_exceptions == 0
 
     def test_query_exceeding_the_budget_still_executes_alone(self, engine, test_table):
-        # A single query carrying more distinct columns than the budget cannot
-        # be split -- its distincts already coexist in the query the caller
-        # built. It must still run rather than be dropped.
-        #
-        # Scheduled with a partner over the same FROM so the group survives
-        # singleton demotion and actually reaches the packer.
+        # A query over budget cannot be split, so it must still run rather
+        # than be dropped. Given a partner so the group reaches the packer.
         big = sa.select(
             sa.func.count(sa.func.distinct(test_table.c.id)).label("a"),
             sa.func.count(sa.func.distinct(test_table.c.name)).label("b"),

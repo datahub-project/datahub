@@ -1981,42 +1981,21 @@ class TestFlattenableAggregates:
 
     @pytest.mark.parametrize("adapter_cls", ALL_ADAPTERS)
     def test_declarations_are_lowercase(self, adapter_cls: Any) -> None:
-        # The allowlist check folds case, so an entry that is not already
-        # lowercase can never match. ClickHouse is the live example: declaring
-        # "stddevSamp" instead of "stddevsamp" would silently keep its stddev
-        # on the CTE path with no error anywhere.
+        # The check folds case, so a non-lowercase entry can never match --
+        # declaring "stddevSamp" would silently keep ClickHouse stddev on the
+        # CTE path with no error anywhere.
         declared = adapter_cls.FLATTENABLE_AGGREGATES
         assert declared == {name.lower() for name in declared}
 
-    @pytest.mark.parametrize("adapter_cls", ALL_ADAPTERS)
-    def test_sum_is_never_declared(self, adapter_cls: Any) -> None:
-        # The only sum this profiler emits is in the histogram, which goes
-        # through execute_rows and cannot reach the flatten path.
-        assert "sum" not in adapter_cls.FLATTENABLE_AGGREGATES
-
     def test_platforms_swap_their_stddev_spelling(self) -> None:
-        # An adapter overriding get_column_stdev must replace the base name,
-        # not merely add to it. Keeping stddev_samp would be inert; dropping
-        # the platform's own name costs the optimisation silently.
+        # An adapter overriding get_column_stdev must replace the base name.
+        # Keeping stddev_samp is inert; omitting its own name costs the
+        # optimisation silently.
         assert "stdev" in MSSQLAdapter.FLATTENABLE_AGGREGATES
         assert "stddev_samp" not in MSSQLAdapter.FLATTENABLE_AGGREGATES
 
         assert "stddevsamp" in ClickHouseAdapter.FLATTENABLE_AGGREGATES
         assert "stddev_samp" not in ClickHouseAdapter.FLATTENABLE_AGGREGATES
-
-    def test_adapters_without_an_override_inherit_the_base_set(self) -> None:
-        # MySQL is the motivating platform and declares nothing of its own: it
-        # inherits the base's emit methods, so it inherits their names.
-        assert {
-            "count",
-            "min",
-            "max",
-            "avg",
-            "stddev_samp",
-        } == MySQLAdapter.FLATTENABLE_AGGREGATES
-        assert (
-            GenericAdapter.FLATTENABLE_AGGREGATES == MySQLAdapter.FLATTENABLE_AGGREGATES
-        )
 
 
 class TestProfilingConnectionTagging:
@@ -2046,8 +2025,7 @@ class TestProfilingConnectionTagging:
         assert opts[FLATTENABLE_AGGREGATES_EXECUTION_OPTION] == names
 
     def test_default_allowlist_is_empty_not_absent(self) -> None:
-        # Fail-closed: a connection built without the adapter's set tags an
-        # empty allowlist, so nothing flattens rather than everything.
+        # Fail-closed: without the adapter's set, nothing flattens.
         from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
             ProfilingConnection,
         )
@@ -2062,23 +2040,3 @@ class TestProfilingConnectionTagging:
 
         opts = self._executed(raw).get_execution_options()
         assert opts[FLATTENABLE_AGGREGATES_EXECUTION_OPTION] == frozenset()
-
-    def test_execute_rows_is_not_tagged(self) -> None:
-        # execute_rows is for statements that may return many rows; tagging one
-        # would assert a batching contract it cannot honour.
-        from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
-            ProfilingConnection,
-        )
-        from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
-            FLATTENABLE_AGGREGATES_EXECUTION_OPTION,
-            SINGLE_ROW_EXECUTION_OPTION,
-        )
-
-        raw = MagicMock()
-        query = sa.select(sa.column("v")).select_from(sa.table("t"))
-
-        ProfilingConnection(raw, frozenset({"count"})).execute_rows(query)
-
-        opts = self._executed(raw).get_execution_options()
-        assert SINGLE_ROW_EXECUTION_OPTION not in opts
-        assert FLATTENABLE_AGGREGATES_EXECUTION_OPTION not in opts

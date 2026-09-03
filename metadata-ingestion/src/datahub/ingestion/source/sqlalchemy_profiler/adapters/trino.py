@@ -35,9 +35,8 @@ class TrinoAdapter(PlatformAdapter):
     not conditionally (ge_data_profiler.py:1487-1490).
     """
 
-    # approx_distinct replaces the base count(distinct ...) and builds no
-    # distinct-value tree, so it does not consume max_distinct_per_statement.
-    # approx_percentile(col, 0.5) is this platform's median.
+    # approx_distinct builds no distinct tree, so it does not consume
+    # max_distinct_per_statement. approx_percentile is this platform's median.
     FLATTENABLE_AGGREGATES = PlatformAdapter.FLATTENABLE_AGGREGATES | {
         "approx_distinct",
         "approx_percentile",

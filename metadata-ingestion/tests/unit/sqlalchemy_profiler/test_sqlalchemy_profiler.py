@@ -1347,14 +1347,12 @@ class TestQueryCombinerWiring:
     def test_profiling_connection_gets_the_adapters_allowlist(
         self, mock_report: Any
     ) -> None:
-        # The other half of the wiring, and the one that fails silently:
-        # ProfilingConnection defaults the allowlist to frozenset(), so
-        # dropping the adapter argument turns flattening off entirely with
-        # correct results, no exception and a green suite.
+        # This wiring fails silently: ProfilingConnection defaults the
+        # allowlist to empty, so dropping the argument turns flattening off
+        # with correct results and no exception.
         #
-        # _generate_single_profile is where ProfilingConnection is built, and it
-        # runs on the calling thread -- generate_profiles would hand the work to
-        # a pool, and in-memory SQLite is thread-bound.
+        # _generate_single_profile builds it on the calling thread;
+        # generate_profiles uses a pool and in-memory SQLite is thread-bound.
         engine = create_engine("sqlite:///:memory:")
         metadata = sa.MetaData()
         table = sa.Table(

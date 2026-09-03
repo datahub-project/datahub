@@ -122,9 +122,8 @@ class DatabricksAdapter(PlatformAdapter):
     Uses default setup_profiling and cleanup from PlatformAdapter.
     """
 
-    # approx_count_distinct replaces the base count(distinct ...) and builds
-    # no distinct-value tree, so it does not consume
-    # max_distinct_per_statement. approx_percentile(col, 0.5) is the median.
+    # approx_count_distinct builds no distinct tree, so it does not consume
+    # max_distinct_per_statement. approx_percentile is the median.
     FLATTENABLE_AGGREGATES = PlatformAdapter.FLATTENABLE_AGGREGATES | {
         "approx_count_distinct",
         "approx_percentile",

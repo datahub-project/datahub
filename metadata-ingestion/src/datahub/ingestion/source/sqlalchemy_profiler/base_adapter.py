@@ -43,13 +43,8 @@ class ProfilingConnection:
         conn: Connection,
         flattenable_aggregates: FrozenSet[str] = frozenset(),
     ) -> None:
-        """
-        Args:
-            flattenable_aggregates: the emitting adapter's
-                FLATTENABLE_AGGREGATES. Defaults to empty, which is fail-closed:
-                a connection built without it flattens nothing and behaves
-                exactly as it did before the flatten path existed.
-        """
+        """flattenable_aggregates defaults to empty, which is fail-closed: a
+        connection built without it flattens nothing."""
         self._conn = conn
         self._flattenable_aggregates = flattenable_aggregates
 
@@ -61,8 +56,7 @@ class ProfilingConnection:
         WHERE -- see SINGLE_ROW_EXECUTION_OPTION.
 
         Also carries the adapter's flattenable-aggregate allowlist, so the
-        combiner can decide whether this statement may be merged into a flat
-        SELECT without knowing which platform built it. The query is not
+        combiner need not know which platform built the query. The query is not
         inspected here; that stays next to the clause gate in _flatten_verdict.
         """
         return self._conn.execute(
@@ -115,34 +109,16 @@ class PlatformAdapter(ABC):
     FLATTENABLE_AGGREGATES: FrozenSet[str] = frozenset(
         {"count", "min", "max", "avg", "stddev_samp"}
     )
-    """Aggregate function names this adapter emits that may be flattened.
+    """Aggregate names this adapter emits that the flatten path may merge.
 
-    Cover every emit that reaches execute_single_row, not just the obvious
-    ones. get_column_unique_count and get_column_median both go through it, so
-    an adapter overriding get_approx_unique_count_expr or get_median_expr must
-    declare its replacement -- unique count is the most scan-expensive metric,
-    and leaving it undeclared forfeits most of the benefit on that platform.
+    Covers every emit reaching execute_single_row, including
+    get_approx_unique_count_expr and get_median_expr. An adapter overriding one
+    must *swap* the name, not just add: an extra name is inert, but a missing
+    one silently keeps that metric on the CTE path.
 
-    The flatten path merges same-table aggregates into one
-    `SELECT count(*), min(v), max(v) FROM t`, which is only sound for plain
-    aggregates. This declares which names qualify for *this* platform, because
-    the spellings differ: MSSQL emits `stdev` and ClickHouse `stddevSamp` where
-    the base emits `stddev_samp`.
-
-    The base set is what PlatformAdapter's own methods emit through
-    execute_single_row, so an adapter that does not override those inherits a
-    correct set and declares nothing. An adapter that overrides an emit must
-    *swap* the name, not merely add: leaving `stddev_samp` in a set for a
-    platform that emits `stdev` is inert, but omitting `stdev` silently keeps
-    that platform's stddev on the CTE path.
-
-    Entries must be lowercase -- the check folds case, so `stddevSamp` here
-    would never match. `sum` is deliberately absent: the only sum this profiler
-    emits is in the histogram, which goes through execute_rows and can never
-    reach the flatten path.
-
-    Extra names are harmless (they can only match SQL this adapter never
-    builds); missing names cost the optimisation, never correctness.
+    Entries must be lowercase -- the check folds case, so `stddevSamp` would
+    never match. `sum` is absent because the only sum emitted is in the
+    histogram, which uses execute_rows and never reaches the flatten path.
     """
 
     def __init__(

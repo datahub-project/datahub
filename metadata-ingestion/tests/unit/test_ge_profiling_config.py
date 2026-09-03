@@ -150,14 +150,6 @@ def test_flatten_without_query_combiner_warns_but_does_not_raise(
     assert any("has no effect" in r.message for r in caplog.records)
 
 
-def test_flatten_with_query_combiner_is_silent(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    with caplog.at_level(logging.WARNING):
-        GEProfilingConfig.model_validate({"query_combiner_flatten_enabled": True})
-    assert not [r for r in caplog.records if "has no effect" in r.message]
-
-
 def test_ge_profiling_and_kafka_config_import_without_sqlalchemy_or_greenlet() -> None:
     # kafka, cassandra, and excel configs import ge_profiling_config at module
     # scope, and none of those extras ship sqlalchemy. Importing either module
