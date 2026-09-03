@@ -1,5 +1,6 @@
 import { Button } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import {
@@ -20,6 +21,8 @@ const ButtonWithoutWrapping = styled(Button)`
 `;
 
 export default function IngestionSourceNavigationButtons() {
+    const { t } = useTranslation('ingestion.sourceBuilder');
+    const { t: tc } = useTranslation('common.actions');
     const { submit, cancel, isFinalStep, isCurrentStepCompleted } = useMultiStepContext<
         MultiStepSourceBuilderState,
         IngestionSourceFormStep,
@@ -60,7 +63,7 @@ export default function IngestionSourceNavigationButtons() {
                 onClick={cancel}
                 data-testid="cancel-ingestion-source-button"
             >
-                Cancel
+                {tc('cancel')}
             </ButtonWithoutWrapping>,
         );
 
@@ -73,7 +76,7 @@ export default function IngestionSourceNavigationButtons() {
                     onClick={onSave}
                     data-testid="save-button"
                 >
-                    Save
+                    {tc('save')}
                 </ButtonWithoutWrapping>,
                 <ButtonWithoutWrapping
                     size="sm"
@@ -81,13 +84,13 @@ export default function IngestionSourceNavigationButtons() {
                     onClick={onSaveAndRun}
                     data-testid="save-and-run-button"
                 >
-                    Save and Run
+                    {t('multiStep.nav.saveAndRun')}
                 </ButtonWithoutWrapping>,
             );
         }
 
         return buttons;
-    }, [cancel, isFinalStep, isCurrentStepCompleted, isSaveAndRunInProgress, onSave, onSaveAndRun]);
+    }, [cancel, isFinalStep, isCurrentStepCompleted, isSaveAndRunInProgress, onSave, onSaveAndRun, t, tc]);
 
     return <ButtonsContainer>{navigationButtons}</ButtonsContainer>;
 }

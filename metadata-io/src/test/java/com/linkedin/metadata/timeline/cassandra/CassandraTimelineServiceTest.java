@@ -4,13 +4,16 @@ import static org.mockito.Mockito.mock;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.linkedin.metadata.CassandraTestUtils;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.timeline.TimelineServiceImpl;
 import com.linkedin.metadata.timeline.TimelineServiceTest;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.List;
 import org.testcontainers.cassandra.CassandraContainer;
 import org.testng.Assert;
@@ -59,14 +62,21 @@ public class CassandraTimelineServiceTest extends TimelineServiceTest<CassandraA
 
   private void configureComponents() {
     _currentSession = CassandraTestUtils.createTestSession(_cassandraContainer);
-    _aspectDao = new CassandraAspectDao(_currentSession, List.of(), null);
+    _aspectDao =
+        new CassandraAspectDao(
+            PrimaryStorageTestUtils.cassandraResolver(_currentSession), List.of(), null);
     _aspectDao.setConnectionValidated(true);
     _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
     _mockProducer = mock(EventProducer.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(_aspectDao, _mockProducer, true, preProcessHooks, true);
+        new EntityServiceImpl(
+            _aspectDao,
+            _mockProducer,
+            preProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+            mock(MetricUtils.class));
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
   }
 

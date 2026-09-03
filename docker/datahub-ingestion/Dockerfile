@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # This image has two variants: full and slim.
 # The full variant has a larger set of ingestion sources, but is a larger image.
 ARG APP_ENV=full
@@ -64,19 +65,12 @@ ENV UV_PYTHON_INSTALL_DIR=/opt/python
 ENV UV_NO_CACHE=1
 RUN uv python install ${PYTHON_VERSION}
 
-ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-ARG PIP_EXTRA_INDEX_URL=""
-# Persist settings for subsequent build layers and for optional venv builds
-ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
-ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
-ENV UV_DEFAULT_INDEX=${PIP_MIRROR_URL}
-# Also configure pip globally inside the image so tools without env still use the mirror
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
-    if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
-
 USER datahub
 WORKDIR $HOME
 RUN uv venv --python "$PYTHON_VERSION"
+# Pre-create as datahub so BuildKit cache mounts at $HOME/.cache/uv do not leave
+# the parent root-owned (siblings like puccinialin then hit PermissionError).
+RUN mkdir -p $HOME/.cache
 ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
@@ -85,6 +79,17 @@ ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 # uv uses a different mechanism. See https://github.com/astral-sh/uv/issues/1474.
 ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+
+ARG UV_PROFILE=default
+ARG DEFAULT_INDEX_URL=""
+ARG EXTRA_INDEX_URLS=""
+RUN --mount=type=bind,source=./docker/snippets/uv,target=/tmp/uv-config \
+    mkdir -p $HOME/.config/uv && \
+    if [ "${UV_PROFILE}" = "custom" ] || [ -n "${EXTRA_INDEX_URLS}" ]; then \
+        PROFILES_DIR=/tmp/uv-config/profiles BASE_PROFILE="${UV_PROFILE}" UV_PROFILE="${UV_PROFILE}" DEFAULT_INDEX_URL="${DEFAULT_INDEX_URL}" EXTRA_INDEX_URLS="${EXTRA_INDEX_URLS}" bash /tmp/uv-config/generate-config.sh > $HOME/.config/uv/uv.toml; \
+    else \
+        cp /tmp/uv-config/profiles/${UV_PROFILE}.toml $HOME/.config/uv/uv.toml; \
+    fi
 
 
 FROM python-base AS ingestion-base-slim
@@ -125,6 +130,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
+
+RUN --mount=type=bind,source=./docker/snippets/mssql_odbc.sh,target=/mssql_odbc.sh \
+    /mssql_odbc.sh
 
 USER datahub
 
@@ -170,17 +178,21 @@ FROM add-code-slim AS final-slim
 ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
+RUN rm -rf $HOME/.config/uv
 
 FROM add-code-full AS final-full
 
 ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install \
         -e "/metadata-ingestion/[all]" \
     && datahub --version
+RUN rm -rf $HOME/.config/uv
 
 FROM add-code-locked AS final-locked
 
@@ -188,8 +200,10 @@ ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 # Locked variant: minimal install with s3-slim, network will be blocked
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
     datahub --version
+RUN rm -rf $HOME/.config/uv
 
 # Block network access to PyPI in locked variant
 ENV UV_DEFAULT_INDEX=http://127.0.0.1:1/simple

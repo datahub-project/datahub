@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
@@ -100,9 +99,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
       log.debug("Processing {} events for URN: {} with V3 unified batch", urnEvents.size(), urn);
 
-      if (structuredPropertiesHookEnabled) {}
-
-      // V3 optimization: single operation per URN
+      // V3 optimization: single operation per URN regardless of aspect count
       processUrnBatch(opContext, urn, urnEvents, structuredPropertiesHookEnabled, throttleSummary);
     }
 
@@ -124,19 +121,16 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       if (Constants.STRUCTURED_PROPERTY_ENTITY_NAME.equals(entitySpec.getName())
           && Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectSpec.getName())) {
 
-        UrnArray oldEntityTypes =
-            Optional.ofNullable(oldValue)
-                .map(
-                    recordTemplate ->
-                        new StructuredPropertyDefinition(((RecordTemplate) recordTemplate).data())
-                            .getEntityTypes())
-                .orElse(new UrnArray());
-
         StructuredPropertyDefinition newDefinition =
             new StructuredPropertyDefinition(((RecordTemplate) newValue).data().copy());
-        newDefinition.getEntityTypes().removeAll(oldEntityTypes);
 
-        if (newDefinition.getEntityTypes().size() > 0) {
+        // Apply the mapping for the full set of currently-declared entity types on every
+        // definition upsert, not just types newly added since oldValue. applyMappings is an
+        // idempotent put_mapping, so re-saving a property re-applies (and thereby repairs) any
+        // mapping a previous attempt failed to write — the only convergence path when the
+        // structured-property system-update machinery is disabled (the default). Entity types
+        // removed from the definition are handled by the dedicated removal path, not here.
+        if (!newDefinition.getEntityTypes().isEmpty()) {
 
           // V3 uses the same approach as V2 but with V3 mappings and index convention
           log.info(
@@ -146,14 +140,23 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
               .buildReindexConfigsWithNewStructProp(opContext, urn, newDefinition)
               .forEach(
                   reindexState -> {
+                    // Isolate failures per index: the property may declare multiple entity
+                    // types, and one failing index must not prevent the mapping update from
+                    // reaching the remaining declared entity types' indexes.
                     try {
                       log.info(
                           "Applying new V3 structured property {} to index {}",
                           newDefinition,
                           reindexState.name());
-                      elasticSearchService.getIndexBuilder().applyMappings(reindexState, false);
-                    } catch (IOException e) {
-                      throw new RuntimeException(e);
+                      elasticSearchService
+                          .getIndexBuilder()
+                          .applyMappings(opContext, reindexState, false);
+                    } catch (Exception e) {
+                      log.error(
+                          "Failed to apply V3 structured property {} mapping to index {}",
+                          urn,
+                          reindexState.name(),
+                          e);
                     }
                   });
         }

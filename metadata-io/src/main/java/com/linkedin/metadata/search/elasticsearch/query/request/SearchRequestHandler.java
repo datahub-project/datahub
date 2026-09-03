@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
+import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,10 +33,13 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchSuggestion;
 import com.linkedin.metadata.search.SearchSuggestionArray;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.InvalidSearchHitException;
+import com.linkedin.metadata.search.utils.SearchResultUtils;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -47,6 +51,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -61,6 +66,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.text.Text;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -252,7 +258,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    searchSourceBuilder.fetchSource("urn", null);
+    applyFetchSource(searchSourceBuilder, searchFlags);
 
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
@@ -314,7 +320,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
 
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    searchSourceBuilder.fetchSource("urn", null);
+    applyFetchSource(searchSourceBuilder, searchFlags);
 
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
@@ -391,7 +397,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     searchSourceBuilder.size(0);
     searchSourceBuilder.aggregation(
         AggregationBuilders.terms(field)
-            .field(ESUtils.toKeywordField(field, false, opContext.getAspectRetriever()))
+            .field(ESUtils.toKeywordField(opContext, field, false, opContext.getAspectRetriever()))
             .size(ConfigUtils.applyLimit(searchServiceConfig, limit)));
     searchRequest.source(searchSourceBuilder);
 
@@ -401,6 +407,15 @@ public class SearchRequestHandler extends BaseRequestHandler {
   public QueryBuilder getQuery(
       @Nonnull OperationContext opContext, @Nonnull String query, boolean fulltext) {
     return searchQueryBuilder.buildQuery(opContext, entitySpecs, query, fulltext);
+  }
+
+  private static void applyFetchSource(
+      @Nonnull SearchSourceBuilder searchSourceBuilder, @Nullable SearchFlags searchFlags) {
+    String[] includes =
+        SearchDocFieldFetchConfig.resolve(
+                SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SCROLL, searchFlags)
+            .toArray(String[]::new);
+    searchSourceBuilder.fetchSource(includes, null);
   }
 
   @Override
@@ -422,6 +437,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       Filter filter,
       int from,
       @Nullable Integer size) {
+    handleShardFailures(opContext, searchResponse);
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
@@ -443,6 +459,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable String keepAlive,
       @Nullable Integer size,
       boolean supportsPointInTime) {
+    handleShardFailures(opContext, searchResponse);
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
 
@@ -458,17 +475,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
     List<SearchEntity> results = new ArrayList<>(searchHits.length);
     for (SearchHit hit : searchHits) {
       // Build base SearchEntity — skip hits with missing/invalid URN rather than crashing
-      SearchEntity entity;
-      try {
-        entity = getResult(hit);
-      } catch (Exception e) {
-        log.warn(
-            "Skipping scroll hit with invalid or missing URN. Index: {}, ID: {}. Error: {}",
-            hit.getIndex(),
-            hit.getId(),
-            e.getMessage());
+      Optional<SearchEntity> maybeEntity = getResultSafely(opContext, hit);
+      if (maybeEntity.isEmpty()) {
         continue;
       }
+      SearchEntity entity = maybeEntity.get();
       // Compute per-hit scrollId using this hit's sort values
       Object[] sort = hit.getSortValues();
       String perHitScrollId =
@@ -514,9 +525,80 @@ public class SearchRequestHandler extends BaseRequestHandler {
     return scrollResult;
   }
 
+  /**
+   * Surfaces per-shard failures that Elasticsearch reports inside an HTTP 200 response. Without
+   * this check, hits from failing shards are silently dropped and entities simply vanish from
+   * results. Deterministic failures (query/mapping bugs that fail on every retry, e.g. a terms
+   * aggregation on a dynamically-mapped text field) throw so callers see a loud error; transient
+   * failures (circuit breakers, timeouts, rejected executions on a busy cluster) keep the partial
+   * result and are surfaced via log + metric only.
+   */
+  @VisibleForTesting
+  void handleShardFailures(
+      @Nonnull OperationContext opContext, @Nonnull SearchResponse searchResponse) {
+    ShardSearchFailure[] shardFailures = searchResponse.getShardFailures();
+    if (shardFailures == null || shardFailures.length == 0) {
+      return;
+    }
+    for (ShardSearchFailure failure : shardFailures) {
+      if (isDeterministicShardFailure(failure)) {
+        throw new ESQueryException(
+            String.format(
+                "Search response had %d/%d failed shards with a deterministic query failure: %s",
+                shardFailures.length, searchResponse.getTotalShards(), shardFailureReason(failure)),
+            failure.getCause());
+      }
+    }
+    log.warn(
+        "Search response had {}/{} failed shards (transient). First failure: {}",
+        shardFailures.length,
+        searchResponse.getTotalShards(),
+        shardFailureReason(shardFailures[0]));
+    opContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils ->
+                metricUtils.increment(
+                    SearchRequestHandler.class, "transientShardFailures", shardFailures.length));
+  }
+
+  private static boolean isDeterministicShardFailure(@Nonnull ShardSearchFailure failure) {
+    String reason = shardFailureReason(failure).toLowerCase(Locale.ROOT);
+    // Covers both the REST-parsed form ("type=illegal_argument_exception") and the local/transport
+    // form (the cause's class name), plus the specific fielddata error Lucene emits when a terms
+    // aggregation hits a dynamically-mapped text field.
+    // NOTE: the ES8 client shim rebuilds shard failures from the reason message alone and drops the
+    // exception type, so on ES8 a non-fielddata illegal_argument error lacks the type token and
+    // falls through to the transient path (no regression vs pre-change — the text-fielddata symptom
+    // that causes the SP poisoning still matches on every backend). Carrying the type through the
+    // shim is a follow-up.
+    return reason.contains("illegal_argument_exception")
+        || reason.contains("illegalargumentexception")
+        || reason.contains("text fields are not optimised");
+  }
+
+  private static String shardFailureReason(@Nonnull ShardSearchFailure failure) {
+    StringBuilder reason = new StringBuilder();
+    if (failure.reason() != null) {
+      reason.append(failure.reason());
+    }
+    Throwable cause = failure.getCause();
+    if (cause != null) {
+      reason.append(' ').append(cause);
+    }
+    return reason.toString();
+  }
+
   @Nonnull
   private List<MatchedField> extractMatchedFields(@Nonnull SearchHit hit) {
+    // getHighlightFields() and getMatchedQueries() can be null for a valid hit (no highlight / no
+    // named-query match). Default them to empty: now that getResultSafely only catches
+    // InvalidSearchHitException, an unguarded NPE here would fail the whole search instead of
+    // skipping a single bad hit.
     Map<String, HighlightField> highlightedFields = hit.getHighlightFields();
+    if (highlightedFields == null) {
+      highlightedFields = Map.of();
+    }
     // Keep track of unique field values that matched for a given field name
     Map<String, Set<String>> highlightedFieldNamesAndValues = new HashMap<>();
     for (Map.Entry<String, HighlightField> entry : highlightedFields.entrySet()) {
@@ -533,7 +615,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
       }
     }
     // fallback matched query, non-analyzed field
-    for (String queryName : hit.getMatchedQueries()) {
+    String[] matchedQueries =
+        hit.getMatchedQueries() != null ? hit.getMatchedQueries() : new String[0];
+    for (String queryName : matchedQueries) {
       if (!highlightedFieldNamesAndValues.containsKey(queryName)) {
         if (hit.getFields().containsKey(queryName)) {
           for (Object fieldValue : hit.getFields().get(queryName).getValues()) {
@@ -608,12 +692,48 @@ public class SearchRequestHandler extends BaseRequestHandler {
         Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore());
   }
 
-  private SearchEntity getResult(@Nonnull SearchHit hit) {
-    return new SearchEntity()
-        .setEntity(getUrnFromSearchHit(hit))
-        .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit)))
-        .setScore(hit.getScore())
-        .setFeatures(new DoubleMap(extractFeatures(hit)));
+  private SearchEntity getResult(@Nonnull OperationContext opContext, @Nonnull SearchHit hit) {
+    SearchEntity entity =
+        new SearchEntity()
+            .setEntity(getUrnFromSearchHit(hit))
+            .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit)))
+            .setScore(hit.getScore())
+            .setFeatures(new DoubleMap(extractFeatures(hit)));
+    SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+    if (flags != null && CollectionUtils.isNotEmpty(flags.getFetchExtraFields())) {
+      entity.setExtraFields(
+          SearchResultUtils.toExtraFields(
+              opContext.getObjectMapper(), hit.getSourceAsMap(), flags.getFetchExtraFields()));
+    }
+    return entity;
+  }
+
+  /**
+   * Builds a {@link SearchEntity} for a hit, returning empty (and skipping the hit) only when its
+   * URN is missing or invalid — e.g. documents created by older bootstrap code (see issue #13181).
+   *
+   * <p>Any other failure is left to propagate: silently swallowing it would mask real bugs and
+   * could drop valid results without surfacing the cause. The narrow {@link
+   * InvalidSearchHitException} catch ensures only the known, recoverable data-quality condition is
+   * tolerated.
+   */
+  private Optional<SearchEntity> getResultSafely(
+      @Nonnull OperationContext opContext, @Nonnull SearchHit hit) {
+    try {
+      return Optional.of(getResult(opContext, hit));
+    } catch (InvalidSearchHitException e) {
+      log.warn(
+          "Skipping search hit with invalid or missing URN. Index: {}, ID: {}",
+          hit.getIndex(),
+          hit.getId(),
+          e);
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(SearchRequestHandler.class, "skippedInvalidSearchHit", 1));
+      return Optional.empty();
+    }
   }
 
   /**
@@ -629,19 +749,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull OperationContext opContext, @Nonnull SearchResponse searchResponse) {
     List<SearchEntity> results =
         Arrays.stream(searchResponse.getHits().getHits())
-            .flatMap(
-                hit -> {
-                  try {
-                    return Stream.of(getResult(hit));
-                  } catch (Exception e) {
-                    log.warn(
-                        "Skipping search hit with invalid or missing URN. Index: {}, ID: {}. Error: {}",
-                        hit.getIndex(),
-                        hit.getId(),
-                        e.getMessage());
-                    return Stream.empty();
-                  }
-                })
+            .flatMap(hit -> getResultSafely(opContext, hit).stream())
             .collect(Collectors.toList());
     return ESAccessControlUtil.restrictSearchResult(opContext, results);
   }
@@ -671,7 +779,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
       final List<AggregationMetadata> aggregationMetadataList =
           aggregationQueryBuilder.extractAggregationMetadata(
-              searchResponse, filter, opContext.getAspectRetriever());
+              searchResponse, filter, opContext, opContext.getAspectRetriever());
       searchResultMetadata.setAggregations(new AggregationMetadataArray(aggregationMetadataList));
     }
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useSearchQuery } from '@app/search/context/SearchContext';
@@ -48,6 +49,8 @@ interface Props {
 }
 
 export const GroupedMatch = ({ groupedMatch, limit, customFieldRenderer, onClick, isClickable }: Props) => {
+    const { t } = useTranslation('search');
+    const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const [isShowingMore, setIsShowingMore] = useState(false);
     const count = groupedMatch.matchedFields.length;
@@ -62,12 +65,12 @@ export const GroupedMatch = ({ groupedMatch, limit, customFieldRenderer, onClick
             ))}
             {!!moreCount && !isShowingMore && (
                 <FieldWrapper $isClickable onClick={() => setIsShowingMore(true)} $color={theme.colors.textBrand}>
-                    + {moreCount} more
+                    {t('matches.groupedMatch.showMoreCount', { count: moreCount })}
                 </FieldWrapper>
             )}
             {isShowingMore && (
                 <FieldWrapper $isClickable onClick={() => setIsShowingMore(false)} $color={theme.colors.textBrand}>
-                    Show less
+                    {tc('showLess')}
                 </FieldWrapper>
             )}
         </>

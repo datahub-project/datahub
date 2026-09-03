@@ -1,10 +1,9 @@
 package com.linkedin.gms.factory.event;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
+import io.datahubproject.event.ExternalEventsPollHandler;
 import io.datahubproject.event.ExternalEventsService;
-import io.datahubproject.event.kafka.KafkaConsumerPool;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -26,16 +25,13 @@ public class ExternalEventsServiceFactory {
 
   @Autowired private ConfigurationProvider configurationProvider;
 
-  @Autowired private KafkaConsumerPool consumerPool;
-
-  @Autowired private ObjectMapper objectMapper;
+  @Autowired private ExternalEventsPollHandler externalEventsPollHandler;
 
   @Bean
   public ExternalEventsService externalEventsService() {
     return new ExternalEventsService(
         buildPollAllowedTopics(),
-        consumerPool,
-        objectMapper,
+        externalEventsPollHandler,
         buildTopicNameMappings(),
         pollTimeout,
         defaultLimit);

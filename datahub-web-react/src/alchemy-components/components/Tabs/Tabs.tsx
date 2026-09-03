@@ -9,7 +9,6 @@ import { Pill } from '@components/components/Pills';
 import { Tooltip } from '@components/components/Tooltip';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
-import { colors } from '@src/alchemy-components/theme';
 import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 const ScrollableTabsContainer = styled.div<{ $maxHeight?: string }>`
@@ -45,7 +44,7 @@ const StyledTabsPrimary = styled(AntTabs)<{
     .ant-tabs-tab {
         padding: 8px 0;
         font-size: 14px;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.textSecondary};
         ${({ $tabBorderRadius }) => $tabBorderRadius && `border-radius: ${$tabBorderRadius};`};
     }
 
@@ -79,12 +78,12 @@ const StyledTabsPrimary = styled(AntTabs)<{
             }
         `}
     .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrand};
         font-weight: 600;
     }
 
     .ant-tabs-ink-bar {
-        background-color: ${(props) => props.theme.styles['primary-color']};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 
     .ant-tabs-content-holder {
@@ -138,7 +137,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
         padding: 8px 8px;
         border-radius: ${({ $tabBorderRadius }) => $tabBorderRadius || '4px'};
         font-size: 14px;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 
     ${({ $addPaddingLeft }) =>
@@ -161,11 +160,11 @@ const StyledTabsSecondary = styled(AntTabs)<{
             }
         `}
     .ant-tabs-tab-active {
-        background-color: ${(props) => props.theme.styles['primary-color-light']}80;
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand}80;
     }
 
     .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrand};
         font-weight: 600;
     }
 
@@ -192,17 +191,17 @@ const StyledTabsSecondary = styled(AntTabs)<{
         }
     }
 
-    ${({ $stickyHeader }) =>
+    ${({ $stickyHeader, theme }) =>
         $stickyHeader &&
         `
             .ant-tabs-nav::before {
                 display: none;
             }
-            
+    
             .ant-tabs-nav-wrap::before {
                 display: none;
             }
-            
+
             .ant-tabs-nav-list::after {
                 content: '';
                 position: absolute;
@@ -210,7 +209,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
                 left: 0;
                 right: 0;
                 height: 1px;
-                background-color: ${colors.gray[200]};
+                background-color: ${theme.colors.bgSelectedSubtle};
             }
         `}
 
@@ -236,7 +235,7 @@ const TabViewWrapper = styled.div<{ $disabled?: boolean; $width?: string; $maxWi
     display: flex;
     align-items: center;
     gap: 4px;
-    ${({ $disabled }) => $disabled && `color: ${colors.gray[1800]};`}
+    ${(props) => props.$disabled && `color: ${props.theme.colors.textDisabled};`}
     ${({ $width }) => $width && `width: ${$width};`}
     ${({ $maxWidth }) => $maxWidth && `max-width: ${$maxWidth};`}
     ${({ $minWidth }) => $minWidth && `min-width: ${$minWidth};`}

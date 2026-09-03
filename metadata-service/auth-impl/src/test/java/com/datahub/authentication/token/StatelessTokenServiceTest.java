@@ -6,6 +6,7 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.authenticator.DataHubTokenAuthenticator;
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -236,7 +237,9 @@ public class StatelessTokenServiceTest {
     assertNotNull(token);
 
     // No CorpUserKey aspect in the retriever response (metadata absent for that URN)
-    Mockito.when(mockAspectRetriever.getLatestAspectObjects(Mockito.any(), Mockito.any()))
+    Mockito.when(
+            mockAspectRetriever.getLatestAspectObjects(
+                Mockito.any(OperationFingerprint.class), Mockito.any(), Mockito.any()))
         .thenReturn(Map.of(UrnUtils.getUrn("urn:li:corpuser:deleteduser"), Collections.emptyMap()));
 
     // Validation should fail due to missing CorpUserKey aspect
@@ -266,7 +269,9 @@ public class StatelessTokenServiceTest {
 
     // Mock to return removed status
     Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:removeduser");
-    Mockito.when(mockAspectRetriever.getLatestAspectObjects(Mockito.any(), Mockito.any()))
+    Mockito.when(
+            mockAspectRetriever.getLatestAspectObjects(
+                Mockito.any(OperationFingerprint.class), Mockito.any(), Mockito.any()))
         .thenReturn(
             Map.of(
                 userUrn,
@@ -302,7 +307,9 @@ public class StatelessTokenServiceTest {
 
     // Mock to return suspended status
     Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:suspendeduser");
-    Mockito.when(mockAspectRetriever.getLatestAspectObjects(Mockito.any(), Mockito.any()))
+    Mockito.when(
+            mockAspectRetriever.getLatestAspectObjects(
+                Mockito.any(OperationFingerprint.class), Mockito.any(), Mockito.any()))
         .thenReturn(
             Map.of(
                 userUrn,
@@ -339,7 +346,9 @@ public class StatelessTokenServiceTest {
 
     // Mock to return active user
     Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:activeuser");
-    Mockito.when(mockAspectRetriever.getLatestAspectObjects(Mockito.any(), Mockito.any()))
+    Mockito.when(
+            mockAspectRetriever.getLatestAspectObjects(
+                Mockito.any(OperationFingerprint.class), Mockito.any(), Mockito.any()))
         .thenReturn(
             Map.of(
                 userUrn,
@@ -373,7 +382,9 @@ public class StatelessTokenServiceTest {
 
     // Mock to return only corpUserKey
     Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:minimaluser");
-    Mockito.when(mockAspectRetriever.getLatestAspectObjects(Mockito.any(), Mockito.any()))
+    Mockito.when(
+            mockAspectRetriever.getLatestAspectObjects(
+                Mockito.any(OperationFingerprint.class), Mockito.any(), Mockito.any()))
         .thenReturn(Map.of(userUrn, Map.of("corpUserKey", new Aspect(corpUserKey.data()))));
 
     // Validation should succeed - missing aspects use defaults (not removed, not suspended)

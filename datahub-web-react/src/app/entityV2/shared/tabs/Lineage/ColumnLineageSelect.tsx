@@ -2,6 +2,7 @@ import { CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button, Select } from 'antd';
 import * as React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
@@ -49,6 +50,7 @@ export default function ColumnsLineageSelect({
     setSelectedColumn,
     setIsColumnLevelLineage,
 }: Props) {
+    const { t } = useTranslation('lineage');
     const { entityData } = useEntityData();
     const location = useLocation();
     const history = useHistory();
@@ -59,23 +61,28 @@ export default function ColumnsLineageSelect({
         setSelectedColumn(column);
     }
 
-    const columnButtonTooltip = isColumnLevelLineage ? 'Hide column level lineage' : 'Show column level lineage';
+    const columnButtonTooltip = isColumnLevelLineage ? t('columnLineage.hideTooltip') : t('columnLineage.showTooltip');
 
     return (
         <>
             {isColumnLevelLineage && (
                 <StyledSelect
+                    data-testid="column-selector-dropdown"
                     value={selectedColumn}
                     onChange={selectColumn}
                     showSearch
                     allowClear
-                    placeholder="Select column"
+                    placeholder={t('columnLineage.selectColumnPlaceholder')}
                     optionFilterProp="label"
                 >
                     {entityWithSchema?.schemaMetadata?.fields?.map((field) => {
                         const fieldPath = downgradeV2FieldPath(field.fieldPath);
                         return (
-                            <Select.Option value={field.fieldPath} label={fieldPath}>
+                            <Select.Option
+                                value={field.fieldPath}
+                                label={fieldPath}
+                                data-testid={`column-option-${fieldPath}`}
+                            >
                                 <Tooltip title={fieldPath} showArrow={false}>
                                     {fieldPath}
                                 </Tooltip>
@@ -86,7 +93,12 @@ export default function ColumnsLineageSelect({
                         const fieldPath = downgradeV2FieldPath(field?.schemaField?.fieldPath);
                         const key = `${field?.schemaField?.fieldPath}-${idx}`;
                         return (
-                            <Select.Option key={key} value={field?.schemaField?.fieldPath || ''} label={fieldPath}>
+                            <Select.Option
+                                key={key}
+                                value={field?.schemaField?.fieldPath || ''}
+                                label={fieldPath}
+                                data-testid={`column-option-${fieldPath}`}
+                            >
                                 <Tooltip title={fieldPath} showArrow={false}>
                                     {fieldPath}
                                 </Tooltip>
@@ -104,7 +116,7 @@ export default function ColumnsLineageSelect({
                 >
                     <ImpactAnalysisIcon />
                     <TextWrapper>
-                        <b>Column Lineage</b>
+                        <Trans i18nKey="lineage:columnLineage.buttonLabel" components={{ b: <b /> }} />
                         <CaretDownOutlined style={{ fontSize: '10px', marginLeft: 4 }} />
                     </TextWrapper>
                 </StyledButton>

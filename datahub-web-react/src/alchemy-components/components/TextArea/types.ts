@@ -11,4 +11,5 @@ export interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
     isInvalid?: boolean;
     isReadOnly?: boolean;
     isRequired?: boolean;
+    inputTestId?: string;
 }

@@ -2,6 +2,7 @@ package io.datahubproject.openapi.test;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.DEFAULT_EVENT_CONSUMER_NAME;
+import static io.datahubproject.test.metadata.context.TestOperationContexts.systemContextNoSearchAuthorization;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
@@ -31,6 +32,7 @@ import com.linkedin.mxe.Topics;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.ServerSocket;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -61,7 +63,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testng.annotations.Test;
 
@@ -82,21 +84,36 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   @MockitoBean EntityRegistry entityRegistry;
   @MockitoBean MetricUtils metricUtils;
 
-  private static final String CONFLUENT_PLATFORM_VERSION = "7.4.10";
+  private static final String CONFLUENT_PLATFORM_VERSION = "8.2.2";
+  private static final int SERVER_PORT = allocateFreePort();
 
-  static KafkaContainer kafka =
-      new KafkaContainer(
+  // ConfluentKafkaContainer is KRaft-aware; the deprecated containers.KafkaContainer wait
+  // still looks for classic [KafkaServer id=…] logs and fails on cp-kafka 8.x.
+  static ConfluentKafkaContainer kafka =
+      new ConfluentKafkaContainer(
               DockerImageName.parse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION))
           .withReuse(true)
           .withStartupAttempts(5)
-          .withStartupTimeout(Duration.of(30, ChronoUnit.SECONDS));
+          .withStartupTimeout(Duration.of(60, ChronoUnit.SECONDS));
 
   @DynamicPropertySource
   static void kafkaProperties(DynamicPropertyRegistry registry) {
     kafka.start();
+    registry.add("server.port", () -> SERVER_PORT);
+    registry.add("local.server.port", () -> SERVER_PORT);
     registry.add("kafka.bootstrapServers", kafka::getBootstrapServers);
     registry.add("kafka.schemaRegistry.type", () -> "INTERNAL");
-    registry.add("kafka.schemaRegistry.url", () -> "http://localhost:53222/schema-registry/api/");
+    registry.add(
+        "kafka.schemaRegistry.url",
+        () -> "http://localhost:" + SERVER_PORT + "/schema-registry/api/");
+  }
+
+  private static int allocateFreePort() {
+    try (ServerSocket socket = new ServerSocket(0)) {
+      return socket.getLocalPort();
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to allocate free port for schema registry test", e);
+    }
   }
 
   @Autowired EventProducer _producer;
@@ -137,7 +154,9 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     genericAspect.setContentType("application/json");
     gmce.setAspect(genericAspect);
 
-    _producer.produceMetadataChangeProposal(entityUrn, gmce).get(10, TimeUnit.SECONDS);
+    _producer
+        .produceMetadataChangeProposal(systemContextNoSearchAuthorization(), entityUrn, gmce)
+        .get(10, TimeUnit.SECONDS);
     // Wait for message to be consumed and deserialized
     final boolean messageConsumed = getLatch(entityUrn.toString()).await(10, TimeUnit.SECONDS);
     assertTrue(messageConsumed);
@@ -185,7 +204,8 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
         entitySpec.createAspectSpec(datasetProperties, DATASET_PROPERTIES_ASPECT_NAME);
 
     _producer
-        .produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog)
+        .produceMetadataChangeLog(
+            systemContextNoSearchAuthorization(), entityUrn, aspectSpec, metadataChangeLog)
         .get(10, TimeUnit.SECONDS);
     final boolean messageConsumed = getLatch(entityUrn.toString()).await(10, TimeUnit.SECONDS);
     assertTrue(messageConsumed);
@@ -216,7 +236,11 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     platformEvent.setPayload(GenericRecordUtils.serializePayload(changeEvent));
 
     _producer
-        .producePlatformEvent(CHANGE_EVENT_PLATFORM_EVENT_NAME, "testPEConsumption", platformEvent)
+        .producePlatformEvent(
+            systemContextNoSearchAuthorization(),
+            CHANGE_EVENT_PLATFORM_EVENT_NAME,
+            "testPEConsumption",
+            platformEvent)
         .get(10, TimeUnit.SECONDS);
 
     final boolean messageConsumed = getLatch("testPEConsumption").await(10, TimeUnit.SECONDS);

@@ -17,6 +17,7 @@ import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import com.linkedin.metadata.config.kafka.SetupConfiguration;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import java.time.Duration;
 import java.util.Arrays;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AlterConfigsResult;
@@ -171,8 +172,17 @@ public class ConfluentSchemaRegistryCleanupPolicyStepTest {
 
   @Test
   public void testCreateAdminClientMethod() {
-    // Test that the createAdminClient method can be called
-    AdminClient adminClient = step.createAdminClient();
-    assertNotNull(adminClient);
+    // Verify createAdminClient() builds a client; close it immediately since there is no broker
+    // in tests -- otherwise its background network thread retries the broker for the rest of the
+    // JVM's life, spewing NetworkClient WARNs and burning CPU across the whole test run.
+    AdminClient adminClient = null;
+    try {
+      adminClient = step.createAdminClient();
+      assertNotNull(adminClient);
+    } finally {
+      if (adminClient != null) {
+        adminClient.close(Duration.ZERO);
+      }
+    }
   }
 }

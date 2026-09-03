@@ -1,5 +1,6 @@
 import { List, Typography } from 'antd';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
@@ -17,6 +18,7 @@ const ViewRawButtonContainer = styled.div`
 
 export default function SourcesView() {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.types');
     const baseEntity = useBaseEntity<GetMlFeatureTableQuery>();
     const featureTable = baseEntity?.mlFeatureTable;
 
@@ -70,7 +72,7 @@ export default function SourcesView() {
             <List
                 style={{ padding: '0 32px 16px 32px' }}
                 dataSource={sources}
-                header={<Typography.Title level={3}>Sources</Typography.Title>}
+                header={<Typography.Title level={3}>{t('mlFeatureTable.sourcesTab')}</Typography.Title>}
                 renderItem={(item) => (
                     <List.Item style={{ paddingTop: '20px' }}>
                         {entityRegistry.renderPreview(item?.type || EntityType.Dataset, PreviewType.PREVIEW, item)}

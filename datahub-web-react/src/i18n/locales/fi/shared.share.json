@@ -1,0 +1,9 @@
+{
+    "copyLink.tooltip": "Kopioi jaettava linkki tähän entiteettiin.",
+    "copyName.label": "Kopioi nimi",
+    "copyName.tooltip": "Kopioi kohteen {{type}} koko nimi",
+    "copyUrn.label": "Kopioi URN",
+    "copyUrn.tooltip": "Kopioi kohteen {{type}} URN. URN tunnistaa entiteetin yksilöllisesti DataHubissa.",
+    "email.label": "Sähköposti",
+    "email.tooltip": "Jaa kohteen {{type}} sähköpostitse"
+}

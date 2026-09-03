@@ -10,6 +10,7 @@ from typing import (
     Literal,
     Optional,
     Tuple,
+    Type,
     Union,
     get_args,
 )
@@ -240,7 +241,7 @@ class SchemaFieldSpecification(StrictModel):
 
         TemporalType = Literal["date", "time", "timestamp"]
 
-        type_mapping = {
+        type_mapping: Dict[str, Type] = {
             "string": models.StringTypeClass,
             "number": models.NumberTypeClass,
             "int": models.NumberTypeClass,

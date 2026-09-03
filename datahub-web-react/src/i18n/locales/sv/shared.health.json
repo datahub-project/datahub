@@ -1,0 +1,15 @@
+{
+    "failAssertions": "Se kontroller som har misslyckats →",
+    "failChecks": "Se misslyckade kontroller →",
+    "failIncidents": "Se aktiva incidenter →",
+    "passAssertions": "Alla kontroller är godkända",
+    "passChecks": "Alla kontroller är godkända",
+    "passIncidents": "Inga aktiva incidenter",
+    "summaryHealthy": "Den här tillgången är i gott skick",
+    "summaryUnhealthy": "Den här tillgången kan vara i dåligt skick",
+    "typeAssertions": "Kontroller",
+    "typeIncidents": "Incident",
+    "typeTests": "Test",
+    "warnAssertions": "Vissa kontroller har problem.",
+    "warnChecks": "Vissa kontroller har problem."
+}

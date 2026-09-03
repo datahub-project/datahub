@@ -1,7 +1,6 @@
 import { CodeOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button, Image, Typography } from 'antd';
-import cronstrue from 'cronstrue';
 import React from 'react';
 import styled, { useTheme } from 'styled-components/macro';
 
@@ -13,6 +12,7 @@ import {
     getExecutionRequestStatusIcon,
 } from '@app/ingest/source/utils';
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
+import { cronToString } from '@utils/cronstrue';
 
 const PreviewImage = styled(Image)`
     max-height: 28px;
@@ -113,7 +113,7 @@ function LastExecutionColumn({ time }: { time: number }) {
 export function ScheduleColumn(schedule: any, record: any) {
     let tooltip: string;
     try {
-        tooltip = schedule && `Runs ${cronstrue.toString(schedule).toLowerCase()} (${record.timezone})`;
+        tooltip = schedule && `Runs ${cronToString(schedule).toLowerCase()} (${record.timezone})`;
     } catch (e) {
         tooltip = 'Invalid cron schedule';
         console.debug('Error parsing cron schedule', e);

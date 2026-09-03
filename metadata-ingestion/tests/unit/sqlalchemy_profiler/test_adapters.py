@@ -1,13 +1,15 @@
 """Unit tests for platform adapters."""
 
 import re
-from typing import Any
+from typing import Any, Dict
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import sqlalchemy as sa
+from google.cloud.bigquery.dbapi import exceptions as bq_exceptions
 from sqlalchemy.dialects import mssql, mysql, postgresql
 from sqlalchemy.engine import Dialect
+from sqlalchemy.exc import SQLAlchemyError
 
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -423,13 +425,13 @@ class TestMySQLAdapter:
         mock_conn = MagicMock()
         mock_result = MagicMock()
         mock_result.scalar.return_value = 12345
-        mock_conn.execute.return_value = mock_result
+        mock_conn.execute_rows.return_value = mock_result
 
         row_count = adapter.get_estimated_row_count(mock_table, mock_conn)
 
         # Verify query was executed
-        assert mock_conn.execute.called
-        executed_query = mock_conn.execute.call_args[0][0]
+        assert mock_conn.execute_rows.called
+        executed_query = mock_conn.execute_rows.call_args[0][0]
         sql = compile_expr_to_sql(executed_query, mock_mysql_engine.dialect)
 
         # Validate information_schema.tables query
@@ -479,12 +481,12 @@ class TestMSSQLAdapter:
         mock_conn = MagicMock()
         mock_result = MagicMock()
         mock_result.scalar.return_value = 1.5
-        mock_conn.execute.return_value = mock_result
+        mock_conn.execute_single_row.return_value = mock_result
 
         adapter.get_column_stdev(real_table, "value_col", mock_conn)
 
-        assert mock_conn.execute.called
-        executed_query = mock_conn.execute.call_args[0][0]
+        assert mock_conn.execute_single_row.called
+        executed_query = mock_conn.execute_single_row.call_args[0][0]
         sql = compile_expr_to_sql(executed_query, mock_mssql_engine.dialect)
 
         # Must use STDEV (MSSQL's sample stddev function), never stddev_samp.
@@ -503,7 +505,7 @@ class TestMSSQLAdapter:
         stdev_result.scalar.return_value = None
         count_result = MagicMock()
         count_result.scalar.return_value = 1
-        mock_conn.execute.side_effect = [stdev_result, count_result]
+        mock_conn.execute_single_row.side_effect = [stdev_result, count_result]
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result is None
@@ -518,7 +520,7 @@ class TestMSSQLAdapter:
         stdev_result.scalar.return_value = None
         count_result = MagicMock()
         count_result.scalar.return_value = 5
-        mock_conn.execute.side_effect = [stdev_result, count_result]
+        mock_conn.execute_single_row.side_effect = [stdev_result, count_result]
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result == 0.0
@@ -533,7 +535,7 @@ class TestMSSQLAdapter:
         stdev_result.scalar.return_value = None
         count_result = MagicMock()
         count_result.scalar.return_value = 0
-        mock_conn.execute.side_effect = [stdev_result, count_result]
+        mock_conn.execute_single_row.side_effect = [stdev_result, count_result]
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result is None
@@ -545,14 +547,14 @@ class TestMSSQLAdapter:
         mock_conn = MagicMock()
         mock_result = MagicMock()
         mock_result.fetchone.return_value = (1.0, 2.0, 3.0, 4.0, 5.0)
-        mock_conn.execute.return_value = mock_result
+        mock_conn.execute_rows.return_value = mock_result
 
         quantiles = adapter.get_column_quantiles(
             real_table, "value_col", mock_conn, quantiles=DEFAULT_QUANTILES
         )
 
         assert quantiles == [1.0, 2.0, 3.0, 4.0, 5.0]
-        executed_query = mock_conn.execute.call_args[0][0]
+        executed_query = mock_conn.execute_rows.call_args[0][0]
         sql = compile_expr_to_sql(executed_query, mock_mssql_engine.dialect)
 
         # Verify PERCENTILE_DISC, WITHIN GROUP, OVER (), and DISTINCT all present.
@@ -612,12 +614,12 @@ class TestPostgresAdapter:
         mock_conn = MagicMock()
         mock_result = MagicMock()
         mock_result.scalar.return_value = 98765
-        mock_conn.execute.return_value = mock_result
+        mock_conn.execute_rows.return_value = mock_result
 
         row_count = adapter.get_estimated_row_count(mock_table, mock_conn)
 
-        assert mock_conn.execute.called
-        executed_query = mock_conn.execute.call_args[0][0]
+        assert mock_conn.execute_rows.called
+        executed_query = mock_conn.execute_rows.call_args[0][0]
         sql = compile_expr_to_sql(executed_query, mock_postgres_engine.dialect)
 
         # Validate query uses pg_class and pg_namespace for reltuples
@@ -716,6 +718,353 @@ class TestSnowflakeAdapter:
         # Should quote both parts
         assert '"schema"."table"' in quoted or "schema.table" in quoted
 
+    # =========================================================================
+    # setup_profiling tests
+    # =========================================================================
+
+    def test_setup_profiling_small_table_no_sampling(self, adapter, config):
+        """Small tables (row_count <= sample_size) are profiled directly without temp table."""
+        config.use_sampling = True
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="SMALL_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with (
+            patch.object(adapter, "_get_row_count_from_metadata", return_value=5000),
+            patch.object(
+                adapter, "_create_sqlalchemy_table", return_value=MagicMock()
+            ) as mock_create_table,
+        ):
+            result = adapter.setup_profiling(context, mock_conn)
+
+        assert result.sql_table is not None
+        assert not result.is_sampled
+        assert result.temp_table is None
+        mock_create_table.assert_called_once_with(
+            schema="MY_SCHEMA", table="SMALL_TABLE"
+        )
+
+    def test_setup_profiling_large_table_creates_temp_table(self, adapter, config):
+        """Large tables (row_count > sample_size) get sampled into a temp table."""
+        config.use_sampling = True
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="BIG_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        sampled_context = ProfilingContext(
+            schema="MY_SCHEMA",
+            table="BIG_TABLE",
+            pretty_name="test",
+            is_sampled=True,
+            temp_table="dh_sample_abc123",
+        )
+        sampled_context.sql_table = MagicMock()
+
+        with (
+            patch.object(
+                adapter, "_get_row_count_from_metadata", return_value=1_000_000
+            ),
+            patch.object(
+                adapter, "_create_sampled_temp_table", return_value=sampled_context
+            ) as mock_sample,
+        ):
+            result = adapter.setup_profiling(context, mock_conn)
+
+        assert result.is_sampled
+        assert result.temp_table == "dh_sample_abc123"
+        mock_sample.assert_called_once_with(context, mock_conn, 1_000_000)
+
+    def test_setup_profiling_no_row_count_conservative_sampling(self, adapter, config):
+        """When INFORMATION_SCHEMA row count is unavailable, be conservative and sample."""
+        config.use_sampling = True
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="UNKNOWN_SIZE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with (
+            patch.object(adapter, "_get_row_count_from_metadata", return_value=None),
+            patch.object(
+                adapter, "_create_sampled_temp_table", return_value=context
+            ) as mock_sample,
+        ):
+            adapter.setup_profiling(context, mock_conn)
+
+        # Should use sample_size * 10 as effective row count
+        mock_sample.assert_called_once_with(context, mock_conn, 100_000)
+
+    def test_setup_profiling_sampling_disabled(self, adapter, config):
+        """When use_sampling=False, profile the original table directly."""
+        config.use_sampling = False
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="ANY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch.object(
+            adapter, "_create_sqlalchemy_table", return_value=MagicMock()
+        ) as mock_create:
+            result = adapter.setup_profiling(context, mock_conn)
+
+        assert not result.is_sampled
+        mock_create.assert_called_once()
+
+    def test_setup_profiling_with_limit_skips_sampling(self, adapter, config):
+        """When config.limit is set, skip sampling and profile directly."""
+        config.use_sampling = True
+        config.limit = 100
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="ANY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch.object(
+            adapter, "_create_sqlalchemy_table", return_value=MagicMock()
+        ) as mock_create:
+            result = adapter.setup_profiling(context, mock_conn)
+
+        assert not result.is_sampled
+        mock_create.assert_called_once()
+
+    def test_setup_profiling_uses_context_row_count(self, adapter, config):
+        """When context.row_count is pre-populated, skip INFORMATION_SCHEMA query."""
+        config.use_sampling = True
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA",
+            table="BIG_TABLE",
+            pretty_name="test",
+            row_count=500_000,
+        )
+        mock_conn = MagicMock()
+
+        sampled_context = ProfilingContext(
+            schema="MY_SCHEMA",
+            table="BIG_TABLE",
+            pretty_name="test",
+            is_sampled=True,
+            temp_table="dh_sample_abc123",
+        )
+        sampled_context.sql_table = MagicMock()
+
+        with (
+            patch.object(adapter, "_get_row_count_from_metadata") as mock_metadata,
+            patch.object(
+                adapter, "_create_sampled_temp_table", return_value=sampled_context
+            ) as mock_sample,
+        ):
+            result = adapter.setup_profiling(context, mock_conn)
+
+        # Should NOT call _get_row_count_from_metadata since context already has it
+        mock_metadata.assert_not_called()
+        # Should sample using the pre-populated row count
+        mock_sample.assert_called_once_with(context, mock_conn, 500_000)
+        assert result.is_sampled
+
+    def test_setup_profiling_custom_sql_rejected(self, adapter):
+        """custom_sql is GE-only; the SQLAlchemy adapter rejects it."""
+        context = ProfilingContext(
+            schema="MY_SCHEMA",
+            table="MY_TABLE",
+            custom_sql="SELECT * FROM MY_SCHEMA.MY_TABLE WHERE x > 1",
+            pretty_name="test",
+        )
+        mock_conn = MagicMock()
+
+        with pytest.raises(AssertionError, match="custom_sql is not supported"):
+            adapter.setup_profiling(context, mock_conn)
+
+    # =========================================================================
+    # _create_sampled_temp_table SQL generation tests
+    # =========================================================================
+
+    def test_sampled_temp_table_bernoulli_sql(self, adapter, config):
+        """Moderate tables use BERNOULLI-only sampling."""
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MEDIUM_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_sampled_temp_table(context, mock_conn, row_count=100_000)
+
+        # Verify CREATE TEMPORARY TABLE with exact BERNOULLI percentage
+        # sample_size=10_000, row_count=100_000 → bernoulli_pc = 100 * 10_000/100_000 = 10%
+        executed_sql = str(mock_conn.execute.call_args[0][0])
+        assert "CREATE OR REPLACE TEMPORARY TABLE" in executed_sql
+        assert "dh_sample_" in executed_sql
+        assert "TABLESAMPLE BERNOULLI (10.00000000)" in executed_sql
+        assert "BLOCK" not in executed_sql
+        assert context.is_sampled
+        assert context.temp_table is not None
+
+    def test_sampled_temp_table_block_bernoulli_sql(self, adapter, config):
+        """Very large tables use two-tier BLOCK + BERNOULLI sampling."""
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="HUGE_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        # row_count must exceed both block_profiling_min_rows (50M) and
+        # sample_size * overgeneration_factor (10M)
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_sampled_temp_table(
+                context, mock_conn, row_count=100_000_000
+            )
+
+        # sample_size=10_000, row_count=100M → block_pc = 100*1000*(10_000/100M) = 10%
+        # bernoulli_pc = 100/1000 = 0.1%
+        executed_sql = str(mock_conn.execute.call_args[0][0])
+        assert "TABLESAMPLE BLOCK (10.00000000)" in executed_sql
+        assert "TABLESAMPLE BERNOULLI (0.10000000)" in executed_sql
+
+    def test_sampled_temp_table_block_fallback_to_bernoulli(self, adapter, config):
+        """When BLOCK sampling fails (views), falls back to BERNOULLI-only."""
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_VIEW", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        # First execute fails (BLOCK on view), second succeeds (BERNOULLI fallback)
+        mock_conn.execute.side_effect = [
+            SQLAlchemyError("BLOCK not supported on views"),
+            MagicMock(),  # fallback succeeds
+        ]
+
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_sampled_temp_table(
+                context, mock_conn, row_count=100_000_000
+            )
+
+        # Should have been called twice: first BLOCK (failed), then BERNOULLI (success)
+        assert mock_conn.execute.call_count == 2
+        fallback_sql = str(mock_conn.execute.call_args_list[1][0][0])
+        assert "TABLESAMPLE BERNOULLI" in fallback_sql
+        assert "BLOCK" not in fallback_sql
+
+    def test_sampled_temp_table_bernoulli_failure_raises(self, adapter, config):
+        """When BERNOULLI-only sampling fails, the error propagates."""
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="BAD_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = SQLAlchemyError("table not found")
+
+        # row_count below block threshold, so only BERNOULLI is tried
+        with pytest.raises(SQLAlchemyError, match="table not found"):
+            adapter._create_sampled_temp_table(context, mock_conn, row_count=50_000)
+
+    def test_sampled_temp_table_name_unquoted(self, adapter, config):
+        """Temp table name must be unquoted so Snowflake stores it as UPPERCASE."""
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_sampled_temp_table(context, mock_conn, row_count=100_000)
+
+        executed_sql = str(mock_conn.execute.call_args[0][0])
+        # Temp name should NOT be quoted (no double quotes around dh_sample_...)
+        assert '"dh_sample_' not in executed_sql
+        assert "dh_sample_" in executed_sql
+
+    # =========================================================================
+    # _get_row_count_from_metadata tests
+    # =========================================================================
+
+    def test_get_row_count_from_metadata_success(self, adapter):
+        """Successful INFORMATION_SCHEMA query returns int row count."""
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.return_value = 42000
+
+        result = adapter._get_row_count_from_metadata(context, mock_conn)
+
+        assert result == 42000
+        # Verify parameterized query (not string interpolation)
+        call_args = mock_conn.execute.call_args
+        params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
+        assert params["schema_name"] == "MY_SCHEMA"
+        assert params["table_name"] == "MY_TABLE"
+
+    def test_get_row_count_from_metadata_returns_none_on_error(self, adapter):
+        """SQLAlchemy errors return None (caller handles conservatively)."""
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = SQLAlchemyError("access denied")
+
+        result = adapter._get_row_count_from_metadata(context, mock_conn)
+
+        assert result is None
+
+    def test_get_row_count_from_metadata_null_result(self, adapter):
+        """NULL from INFORMATION_SCHEMA (e.g. view) returns None."""
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_VIEW", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.return_value = None
+
+        result = adapter._get_row_count_from_metadata(context, mock_conn)
+
+        assert result is None
+
+    # =========================================================================
+    # cleanup tests
+    # =========================================================================
+
+    def test_cleanup_is_noop(self, adapter):
+        """Snowflake temp tables auto-drop at session end; cleanup is a no-op."""
+        context = ProfilingContext(
+            schema="MY_SCHEMA",
+            table="MY_TABLE",
+            pretty_name="test",
+            temp_table="dh_sample_abc123",
+        )
+        # Should not raise
+        adapter.cleanup(context)
+
 
 class TestBigQueryAdapter:
     """Test cases for BigQueryAdapter."""
@@ -795,6 +1144,9 @@ class TestBigQueryAdapter:
             assert "my_dataset" in sql
             assert "my_table" in sql
             assert "SELECT" in sql.upper()
+
+            # The pooled raw connection must be returned to the pool.
+            mock_raw_conn.close.assert_called_once()
 
     def test_create_temp_table_includes_limit_and_offset(
         self, adapter, mock_bigquery_engine, config
@@ -886,6 +1238,121 @@ class TestBigQueryAdapter:
                 assert len(captured_sql) > 0
                 assert "TABLESAMPLE" in captured_sql[0].upper()
 
+    def test_create_temp_table_closes_connection_on_error(
+        self, adapter, mock_bigquery_engine
+    ):
+        """The pooled raw connection is closed even when the query fails."""
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = bq_exceptions.DatabaseError("boom")
+        mock_raw_conn = Mock()
+        mock_raw_conn.cursor.return_value = mock_cursor
+
+        with patch.object(
+            adapter.base_engine, "raw_connection", return_value=mock_raw_conn
+        ):
+            context = ProfilingContext(
+                schema="my_dataset", table="my_table", pretty_name="test"
+            )
+            # catch_exceptions defaults to True, so a temp-table failure surfaces
+            # as a RuntimeError (temp table is required — see the adapter).
+            with pytest.raises(RuntimeError):
+                adapter._create_temp_table_for_query(context)
+
+        mock_raw_conn.close.assert_called_once()
+
+    def test_setup_sampling_samples_partition_temp_table(self, adapter, config):
+        """A partition temp table (from step 1) is itself sampled, matching GE."""
+        config.use_sampling = True
+        config.sample_size = 1000
+        adapter.config = config
+
+        captured_sql = []
+
+        def mock_create_temp(ctx):
+            captured_sql.append(ctx.custom_sql)
+            ctx.temp_table = "sampled_anon"
+            ctx.temp_schema = "proj.anon_ds"
+            return ctx
+
+        # context already carries a partition temp table + the full-table row
+        # count from the source; the partition itself is what must be measured.
+        context = ProfilingContext(
+            schema="my_dataset",
+            table="my_table",
+            custom_sql="SELECT * FROM my_dataset.my_table WHERE dt = '2026-07-21'",
+            pretty_name="test",
+            row_count=10_000_000,
+            temp_table="partition_anon",
+            temp_schema="proj.anon_ds",
+        )
+
+        with (
+            patch.object(
+                adapter, "_get_quick_row_count", return_value=50000
+            ) as mock_count,
+            patch.object(
+                adapter, "_create_temp_table_for_query", side_effect=mock_create_temp
+            ),
+        ):
+            result = adapter._setup_sampling(context, Mock())
+
+        # Partition size is measured directly (not taken from the full-table
+        # context.row_count), and the sample targets the partition temp table.
+        mock_count.assert_called_once()
+        assert result.is_sampled
+        assert "TABLESAMPLE" in captured_sql[0].upper()
+        assert "partition_anon" in captured_sql[0]
+        assert "my_table" not in captured_sql[0]
+
+    def test_setup_sampling_prefers_context_row_count(self, adapter, config):
+        """Whole-table sampling uses the source row count, skipping COUNT(*)."""
+        config.use_sampling = True
+        config.sample_size = 1000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="my_dataset",
+            table="my_table",
+            pretty_name="test",
+            row_count=50000,
+        )
+
+        with (
+            patch.object(adapter, "_get_quick_row_count") as mock_count,
+            patch.object(
+                adapter, "_create_temp_table_for_query", side_effect=lambda ctx: ctx
+            ),
+        ):
+            result = adapter._setup_sampling(context, Mock())
+
+        mock_count.assert_not_called()
+        assert result.is_sampled
+        # sample_pc = 100 * 1000 / 50000 = 2.0
+        assert result.sample_percentage == pytest.approx(2.0)
+
+    def test_setup_sampling_counts_when_row_count_missing(self, adapter, config):
+        """Falls back to COUNT(*) when the source didn't provide a row count."""
+        config.use_sampling = True
+        config.sample_size = 1000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="my_dataset", table="my_table", pretty_name="test"
+        )
+
+        with (
+            patch.object(
+                adapter, "_get_quick_row_count", return_value=50000
+            ) as mock_count,
+            patch.object(
+                adapter, "_create_temp_table_for_query", side_effect=lambda ctx: ctx
+            ),
+        ):
+            result = adapter._setup_sampling(context, Mock())
+
+        mock_count.assert_called_once()
+        assert result.is_sampled
+
 
 class TestDatabricksAdapter:
     """Test cases for DatabricksAdapter."""
@@ -912,6 +1379,79 @@ class TestDatabricksAdapter:
         # Validate approx_percentile(latency, 0.5)
         pattern = r"\bapprox_percentile\b.*\blatency\b.*\b0\.5\b"
         assert_sql_matches_pattern(sql, pattern)
+
+    def test_map_databricks_column_type_variant(self, adapter):
+        from databricks.sqlalchemy.dialect import DatabricksDecimal, DatabricksTimestamp
+        from sqlalchemy.sql import sqltypes
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+            map_databricks_column_type,
+        )
+
+        assert map_databricks_column_type("variant") is sqltypes.NullType
+        assert map_databricks_column_type("VARIANT") is sqltypes.NullType
+        # ^\w+ strips the precision suffix so "decimal(10,2)" still resolves to decimal.
+        assert map_databricks_column_type("decimal(10,2)") is DatabricksDecimal
+        assert map_databricks_column_type("int") is sqltypes.Integer
+        assert map_databricks_column_type("timestamp_ntz") is DatabricksTimestamp
+        assert map_databricks_column_type("timestamp_ltz") is DatabricksTimestamp
+        # Unparseable / missing type names fall back to NULL instead of raising.
+        assert map_databricks_column_type("") is sqltypes.NullType
+        assert map_databricks_column_type(None) is sqltypes.NullType
+
+    def test_get_columns_tolerates_variant(self, adapter, mock_databricks_engine):
+        from databricks.sqlalchemy.dialect import DatabricksTimestamp
+        from sqlalchemy.sql import sqltypes
+
+        dialect = mock_databricks_engine.dialect
+        dialect.catalog = "my_catalog"
+        dialect.schema = "my_schema"
+
+        class _Col:
+            def __init__(self, name: str, type_name: str) -> None:
+                self.COLUMN_NAME = name
+                self.TYPE_NAME = type_name
+                self.NULLABLE = 1
+                self.COLUMN_DEF = None
+                self.IS_AUTO_INCREMENT = "NO"
+
+        class _Cursor:
+            def __init__(self) -> None:
+                self.calls = 0
+                self.captured_kwargs: Dict[str, Any] = {}
+
+            def columns(self, **kwargs: Any) -> "_Cursor":
+                self.calls += 1
+                self.captured_kwargs = kwargs
+                return self
+
+            def fetchall(self) -> list:
+                return [
+                    _Col("id", "int"),
+                    _Col("payload", "variant"),
+                    _Col("event_time", "timestamp_ntz"),
+                ]
+
+            def __enter__(self) -> "_Cursor":
+                return self
+
+            def __exit__(self, *args: Any) -> None:
+                return None
+
+        cursor = _Cursor()
+        dialect.get_connection_cursor = lambda connection: cursor
+        columns = dialect.get_columns(None, "events_with_variant")
+        assert cursor.calls == 1
+        # The patched reflection resolves catalog/schema off the dialect.
+        assert cursor.captured_kwargs == {
+            "catalog_name": "my_catalog",
+            "schema_name": "my_schema",
+            "table_name": "events_with_variant",
+        }
+        assert [col["name"] for col in columns] == ["id", "payload", "event_time"]
+        assert columns[0]["type"] is sqltypes.Integer
+        assert columns[1]["type"] is sqltypes.NullType
+        assert columns[2]["type"] is DatabricksTimestamp
 
 
 class TestTrinoAdapter:
@@ -1058,12 +1598,12 @@ class TestClickHouseAdapter:
     ):
         """stddevSamp() result is returned directly when ClickHouse returns a number."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = 12.5
+        mock_conn.execute_single_row.return_value.scalar.return_value = 12.5
 
         result = adapter.get_column_stdev(real_table, "score", mock_conn)
 
         assert result == 12.5
-        executed = mock_conn.execute.call_args[0][0]
+        executed = mock_conn.execute_single_row.call_args[0][0]
         sql = compile_expr_to_sql(executed, mock_clickhouse_engine.dialect)
         assert_sql_matches_pattern(sql, r"\bstddevSamp\s*\(\s*score\s*\)")
 
@@ -1072,7 +1612,7 @@ class TestClickHouseAdapter:
     ):
         """stddevSamp returns NULL with ≤1 non-null row → None (mathematically undefined)."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.side_effect = [
+        mock_conn.execute_single_row.return_value.scalar.side_effect = [
             None,  # stddevSamp result
             1,  # non-null count
         ]
@@ -1086,7 +1626,7 @@ class TestClickHouseAdapter:
     ):
         """stddevSamp returns NULL with >1 non-null row → 0.0 (no variance)."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.side_effect = [None, 10]
+        mock_conn.execute_single_row.return_value.scalar.side_effect = [None, 10]
 
         result = adapter.get_column_stdev(mock_table, "score", mock_conn)
 
@@ -1097,7 +1637,9 @@ class TestClickHouseAdapter:
     ):
         """SQLAlchemyError surfaces via SQLSourceReport.warning, not silent logger."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = sa.exc.SQLAlchemyError("permission denied")
+        mock_conn.execute_single_row.side_effect = sa.exc.SQLAlchemyError(
+            "permission denied"
+        )
 
         result = adapter.get_column_stdev(mock_table, "score", mock_conn)
 
@@ -1179,15 +1721,15 @@ class TestClickHouseAdapter:
     ):
         """Default quantiles use batched quantiles(...) call returning a list."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = [
+        mock_conn.execute_rows.return_value.scalar.return_value = [
             float(i) for i in range(len(DEFAULT_QUANTILES))
         ]
 
         result = adapter.get_column_quantiles(real_table, "value", mock_conn)
 
         assert result == [float(i) for i in range(len(DEFAULT_QUANTILES))]
-        assert mock_conn.execute.call_count == 1
-        executed = mock_conn.execute.call_args[0][0]
+        assert mock_conn.execute_rows.call_count == 1
+        executed = mock_conn.execute_rows.call_args[0][0]
         sql = compile_expr_to_sql(executed, mock_clickhouse_engine.dialect)
         levels_pattern = ", ".join(re.escape(str(q)) for q in DEFAULT_QUANTILES)
         assert_sql_matches_pattern(
@@ -1199,7 +1741,7 @@ class TestClickHouseAdapter:
     ):
         """Result list ordering matches the input quantile ordering."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = [10.0, 20.0]
+        mock_conn.execute_rows.return_value.scalar.return_value = [10.0, 20.0]
 
         result = adapter.get_column_quantiles(
             mock_table, "value", mock_conn, quantiles=[0.9, 0.1]
@@ -1210,7 +1752,7 @@ class TestClickHouseAdapter:
     def test_get_column_quantiles_empty_table_returns_nones(self, adapter, mock_table):
         """Driver returning None for empty table → list of Nones with correct length."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = None
+        mock_conn.execute_rows.return_value.scalar.return_value = None
 
         result = adapter.get_column_quantiles(
             mock_table, "value", mock_conn, quantiles=[0.25, 0.5, 0.75]
@@ -1229,12 +1771,12 @@ class TestClickHouseAdapter:
             adapter.get_column_quantiles(
                 mock_table, "value", mock_conn, quantiles=[-0.1]
             )
-        mock_conn.execute.assert_not_called()
+        mock_conn.execute_rows.assert_not_called()
 
     def test_get_column_quantiles_accepts_boundary_values(self, adapter, mock_table):
         """Boundary quantiles 0.0 and 1.0 are mathematically valid and accepted."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = [0.0, 1.0]
+        mock_conn.execute_rows.return_value.scalar.return_value = [0.0, 1.0]
         result = adapter.get_column_quantiles(
             mock_table, "value", mock_conn, quantiles=[0.0, 1.0]
         )
@@ -1245,7 +1787,7 @@ class TestClickHouseAdapter:
     ):
         """Batch failure triggers per-quantile fallback; results length preserved."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = [
+        mock_conn.execute_rows.side_effect = [
             sa.exc.SQLAlchemyError("batch failed"),
             MagicMock(scalar=MagicMock(return_value=11.0)),
             MagicMock(scalar=MagicMock(return_value=22.0)),
@@ -1264,7 +1806,7 @@ class TestClickHouseAdapter:
     ):
         """When fallback succeeds for some and fails for others, per-position None."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = [
+        mock_conn.execute_rows.side_effect = [
             sa.exc.SQLAlchemyError("batch"),
             MagicMock(scalar=MagicMock(return_value=1.0)),
             sa.exc.SQLAlchemyError("q2"),
@@ -1285,7 +1827,7 @@ class TestClickHouseAdapter:
     ):
         """Non-numeric value in batch result (ValueError on float()) triggers fallback."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = [
+        mock_conn.execute_rows.side_effect = [
             MagicMock(scalar=MagicMock(return_value=["not_a_number"])),
             MagicMock(scalar=MagicMock(return_value=5.0)),
         ]
@@ -1297,31 +1839,12 @@ class TestClickHouseAdapter:
         assert result == [5.0]
         assert any("non-numeric" in w.title.lower() for w in report.warnings)
 
-    def test_profiling_method_defaults_to_sqlalchemy(self):
-        """ClickHouse inherits the SQLAlchemy profiler default."""
-        from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
-
-        cfg = ClickHouseConfig(host_port="localhost:28123", username="u", password="p")
-        assert cfg.profiling.method == "sqlalchemy"
-
-    def test_profiling_method_explicit_sqlalchemy_respected(self):
-        """Users opt into the new SQLAlchemy profiler explicitly."""
-        from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
-
-        cfg = ClickHouseConfig(
-            host_port="localhost:28123",
-            username="u",
-            password="p",
-            profiling={"enabled": True, "method": "sqlalchemy"},
-        )
-        assert cfg.profiling.method == "sqlalchemy"
-
     def test_get_column_stdev_non_null_count_failure_reports_warning(
         self, adapter, report, mock_table
     ):
         """If the inner non_null_count query fails, the failure is still reported."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = [
+        mock_conn.execute_single_row.side_effect = [
             MagicMock(scalar=MagicMock(return_value=None)),  # stddev → NULL
             sa.exc.SQLAlchemyError("count denied"),  # non-null lookup fails
         ]
@@ -1334,7 +1857,7 @@ class TestClickHouseAdapter:
     ):
         """Successful stdev should not pollute the report."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = 7.5
+        mock_conn.execute_single_row.return_value.scalar.return_value = 7.5
 
         adapter.get_column_stdev(real_table, "score", mock_conn)
 
@@ -1345,7 +1868,7 @@ class TestClickHouseAdapter:
     ):
         """Successful batched quantiles should not emit any warnings."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = [1.0, 2.0, 3.0]
+        mock_conn.execute_rows.return_value.scalar.return_value = [1.0, 2.0, 3.0]
 
         adapter.get_column_quantiles(
             real_table, "value", mock_conn, quantiles=[0.25, 0.5, 0.75]
@@ -1356,7 +1879,10 @@ class TestClickHouseAdapter:
     def test_get_column_quantiles_arity_mismatch_raises(self, adapter, real_table):
         """If the driver returns a wrong-length list, raise rather than silently truncate."""
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.scalar.return_value = [1.0, 2.0]  # wrong length
+        mock_conn.execute_rows.return_value.scalar.return_value = [
+            1.0,
+            2.0,
+        ]  # wrong length
 
         with pytest.raises(RuntimeError, match=r"returned \d+ values for \d+"):
             adapter.get_column_quantiles(
@@ -1369,7 +1895,7 @@ class TestClickHouseAdapter:
         """Non-iterable batch result (TypeError on `for v in raw`) triggers fallback."""
         mock_conn = MagicMock()
         # Non-iterable int from driver triggers TypeError → per-quantile fallback.
-        mock_conn.execute.side_effect = [
+        mock_conn.execute_rows.side_effect = [
             MagicMock(scalar=MagicMock(return_value=42)),
             MagicMock(scalar=MagicMock(return_value=7.0)),
         ]
@@ -1386,7 +1912,7 @@ class TestClickHouseAdapter:
     ):
         """Per-quantile fallback that returns a non-numeric scalar yields None for that slot."""
         mock_conn = MagicMock()
-        mock_conn.execute.side_effect = [
+        mock_conn.execute_rows.side_effect = [
             sa.exc.SQLAlchemyError("batch failed"),
             MagicMock(scalar=MagicMock(return_value=1.0)),
             MagicMock(scalar=MagicMock(return_value="oops")),  # ValueError on float()
@@ -1410,7 +1936,7 @@ class TestClickHouseAdapter:
         )
 
         assert result == []
-        mock_conn.execute.assert_not_called()
+        mock_conn.execute_rows.assert_not_called()
 
     def test_format_context_with_missing_parts(self):
         """`_format_context` skips None parts and falls back to <unknown>."""

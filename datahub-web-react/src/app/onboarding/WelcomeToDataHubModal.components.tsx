@@ -1,6 +1,7 @@
 import { Heading, Text } from '@components';
 import { Spin } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { typography } from '@components/theme';
@@ -57,10 +58,7 @@ const LoadingContainerBase = styled.div<{ width: string }>`
     gap: 16px;
 `;
 
-export const LoadingContainer: React.FC<{ width: string; children?: React.ReactNode }> = ({
-    width,
-    children = 'Loading video...',
-}) => (
+export const LoadingContainer: React.FC<{ width: string; children?: React.ReactNode }> = ({ width, children }) => (
     <LoadingContainerBase width={width}>
         <Spin size="large" />
         <Text size="lg" weight="medium" color="textSecondary">
@@ -115,19 +113,22 @@ interface VideoSlideProps {
     width: string;
 }
 
-export const VideoSlide: React.FC<VideoSlideProps> = ({ videoSrc, isReady, onVideoLoad, width }) => (
-    <>
-        {isReady ? (
-            <StyledVideo width={width} autoPlay loop muted playsInline>
-                <source src={videoSrc} type="video/mp4" />
-            </StyledVideo>
-        ) : (
-            <LoadingContainer width={width}>Loading video...</LoadingContainer>
-        )}
-        {videoSrc && !isReady && (
-            <HiddenPreloadVideo width={width} autoPlay loop muted playsInline onCanPlay={onVideoLoad}>
-                <source src={videoSrc} type="video/mp4" />
-            </HiddenPreloadVideo>
-        )}
-    </>
-);
+export const VideoSlide: React.FC<VideoSlideProps> = ({ videoSrc, isReady, onVideoLoad, width }) => {
+    const { t } = useTranslation('onboarding');
+    return (
+        <>
+            {isReady ? (
+                <StyledVideo width={width} autoPlay loop muted playsInline>
+                    <source src={videoSrc} type="video/mp4" />
+                </StyledVideo>
+            ) : (
+                <LoadingContainer width={width}>{t('welcome.loadingVideo')}</LoadingContainer>
+            )}
+            {videoSrc && !isReady && (
+                <HiddenPreloadVideo width={width} autoPlay loop muted playsInline onCanPlay={onVideoLoad}>
+                    <source src={videoSrc} type="video/mp4" />
+                </HiddenPreloadVideo>
+            )}
+        </>
+    );
+};

@@ -19,6 +19,7 @@ import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -80,6 +81,7 @@ public class DocumentChangeHistoryResolverTest {
     transactions.add(transaction);
 
     when(mockTimelineService.getTimeline(
+            any(OperationContext.class),
             eq(TEST_DOCUMENT_URN),
             any(Set.class),
             anyLong(),
@@ -126,7 +128,14 @@ public class DocumentChangeHistoryResolverTest {
     transactions.add(transaction);
 
     when(mockTimelineService.getTimeline(
-            any(Urn.class), any(Set.class), anyLong(), anyLong(), isNull(), isNull(), eq(false)))
+            any(OperationContext.class),
+            any(Urn.class),
+            any(Set.class),
+            anyLong(),
+            anyLong(),
+            isNull(),
+            isNull(),
+            eq(false)))
         .thenReturn(transactions);
 
     List<DocumentChange> result = resolver.get(mockEnv).get();
@@ -166,7 +175,14 @@ public class DocumentChangeHistoryResolverTest {
     transactions.add(transaction);
 
     when(mockTimelineService.getTimeline(
-            any(Urn.class), any(Set.class), anyLong(), anyLong(), isNull(), isNull(), eq(false)))
+            any(OperationContext.class),
+            any(Urn.class),
+            any(Set.class),
+            anyLong(),
+            anyLong(),
+            isNull(),
+            isNull(),
+            eq(false)))
         .thenReturn(transactions);
 
     List<DocumentChange> result = resolver.get(mockEnv).get();
@@ -201,7 +217,14 @@ public class DocumentChangeHistoryResolverTest {
     transactions.add(transaction);
 
     when(mockTimelineService.getTimeline(
-            any(Urn.class), any(Set.class), anyLong(), anyLong(), isNull(), isNull(), eq(false)))
+            any(OperationContext.class),
+            any(Urn.class),
+            any(Set.class),
+            anyLong(),
+            anyLong(),
+            isNull(),
+            isNull(),
+            eq(false)))
         .thenReturn(transactions);
 
     List<DocumentChange> result = resolver.get(mockEnv).get();
@@ -221,6 +244,7 @@ public class DocumentChangeHistoryResolverTest {
     when(mockEnv.getArgument("limit")).thenReturn(100);
 
     when(mockTimelineService.getTimeline(
+            any(OperationContext.class),
             eq(TEST_DOCUMENT_URN),
             any(Set.class),
             eq(startTime),
@@ -235,6 +259,7 @@ public class DocumentChangeHistoryResolverTest {
     assertNotNull(result);
     verify(mockTimelineService, times(1))
         .getTimeline(
+            any(OperationContext.class),
             eq(TEST_DOCUMENT_URN),
             any(Set.class),
             eq(startTime),
@@ -280,7 +305,14 @@ public class DocumentChangeHistoryResolverTest {
     transactions.add(transaction2);
 
     when(mockTimelineService.getTimeline(
-            any(Urn.class), any(Set.class), anyLong(), anyLong(), isNull(), isNull(), eq(false)))
+            any(OperationContext.class),
+            any(Urn.class),
+            any(Set.class),
+            anyLong(),
+            anyLong(),
+            isNull(),
+            isNull(),
+            eq(false)))
         .thenReturn(transactions);
 
     List<DocumentChange> result = resolver.get(mockEnv).get();
@@ -294,7 +326,14 @@ public class DocumentChangeHistoryResolverTest {
   @Test(expectedExceptions = Exception.class)
   public void testGetChangeHistoryServiceThrowsException() throws Exception {
     when(mockTimelineService.getTimeline(
-            any(Urn.class), any(Set.class), anyLong(), anyLong(), isNull(), isNull(), eq(false)))
+            any(OperationContext.class),
+            any(Urn.class),
+            any(Set.class),
+            anyLong(),
+            anyLong(),
+            isNull(),
+            isNull(),
+            eq(false)))
         .thenThrow(new RuntimeException("Service error"));
 
     // Should throw an exception when service fails
@@ -304,7 +343,14 @@ public class DocumentChangeHistoryResolverTest {
   @Test
   public void testGetChangeHistoryEmptyResult() throws Exception {
     when(mockTimelineService.getTimeline(
-            any(Urn.class), any(Set.class), anyLong(), anyLong(), isNull(), isNull(), eq(false)))
+            any(OperationContext.class),
+            any(Urn.class),
+            any(Set.class),
+            anyLong(),
+            anyLong(),
+            isNull(),
+            isNull(),
+            eq(false)))
         .thenReturn(new ArrayList<>());
 
     List<DocumentChange> result = resolver.get(mockEnv).get();
@@ -341,7 +387,14 @@ public class DocumentChangeHistoryResolverTest {
     transactions.add(transaction);
 
     when(mockTimelineService.getTimeline(
-            any(Urn.class), any(Set.class), anyLong(), anyLong(), isNull(), isNull(), eq(false)))
+            any(OperationContext.class),
+            any(Urn.class),
+            any(Set.class),
+            anyLong(),
+            anyLong(),
+            isNull(),
+            isNull(),
+            eq(false)))
         .thenReturn(transactions);
 
     List<DocumentChange> result = resolver.get(mockEnv).get();
@@ -394,7 +447,14 @@ public class DocumentChangeHistoryResolverTest {
 
     when(mockEnv.getArgument("limit")).thenReturn(10);
     when(mockTimelineService.getTimeline(
-            any(Urn.class), any(Set.class), anyLong(), anyLong(), isNull(), isNull(), eq(false)))
+            any(OperationContext.class),
+            any(Urn.class),
+            any(Set.class),
+            anyLong(),
+            anyLong(),
+            isNull(),
+            isNull(),
+            eq(false)))
         .thenReturn(transactions);
 
     List<DocumentChange> result = resolver.get(mockEnv).get();

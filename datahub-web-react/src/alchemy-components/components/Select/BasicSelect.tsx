@@ -1,6 +1,7 @@
 import { Dropdown, Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 
 import {
@@ -12,6 +13,7 @@ import {
     OptionContainer,
     OptionLabel,
     OptionList,
+    Required,
     SelectBase,
     SelectLabel,
     SelectLabelContainer,
@@ -38,9 +40,7 @@ export const selectDefaults: SelectProps = {
     isRequired: false,
     isMultiSelect: false,
     showClear: false,
-    placeholder: 'Select an option',
     showSelectAll: false,
-    selectAllLabel: 'Select All',
     showDescriptions: false,
 };
 
@@ -58,10 +58,10 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     showClear = selectDefaults.showClear,
     size = selectDefaults.size,
     isMultiSelect = selectDefaults.isMultiSelect,
-    placeholder = selectDefaults.placeholder,
+    placeholder,
     disabledValues = [],
     showSelectAll = selectDefaults.showSelectAll,
-    selectAllLabel = selectDefaults.selectAllLabel,
+    selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
     icon,
     renderCustomOptionText,
@@ -74,6 +74,9 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     ...props
 }: SelectProps<OptionType>) => {
     const theme = useTheme();
+    const { t } = useTranslation('alchemy');
+    const { t: tc } = useTranslation('common.actions');
+    const resolvedSelectAllLabel = selectAllLabel ?? tc('selectAll');
     const [searchQuery, setSearchQuery] = useState('');
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -195,7 +198,11 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
 
     return (
         <Container ref={selectRef} size={size || 'md'} width={props.width} $minWidth={props.minWidth}>
-            {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
+            {label && (
+                <SelectLabel onClick={handleSelectClick}>
+                    {label} {isRequired && <Required>*</Required>}
+                </SelectLabel>
+            )}
             {isVisible && (
                 <Dropdown
                     open={isOpen}
@@ -208,7 +215,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                         >
                             {showSearch && (
                                 <DropdownSearchBar
-                                    placeholder="Search…"
+                                    placeholder={t('search.placeholder')}
                                     value={searchQuery}
                                     onChange={(value) => handleSearchChange(value)}
                                     size={size}
@@ -217,7 +224,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                             <OptionList>
                                 {showSelectAll && isMultiSelect && (
                                     <DropdownSelectAllOption
-                                        label={selectAllLabel}
+                                        label={resolvedSelectAllLabel}
                                         selected={areAllSelected}
                                         disabled={disabledValues.length === options.length}
                                         onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
@@ -297,7 +304,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                             <SelectLabelRenderer
                                 selectedValues={selectedValues}
                                 options={options}
-                                placeholder={placeholder || 'Select an option'}
+                                placeholder={placeholder || t('select.placeholder')}
                                 isMultiSelect={isMultiSelect}
                                 removeOption={removeOption}
                                 disabledValues={disabledValues}

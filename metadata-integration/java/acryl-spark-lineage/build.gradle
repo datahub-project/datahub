@@ -9,6 +9,11 @@ apply plugin: 'maven-publish'
 apply from: '../../../gradle/coverage/java-coverage.gradle'
 apply from: '../versioning.gradle'
 
+// Pin Java 17 bytecode: this agent shadow jar (and the modules it bundles) must run on managed
+// Spark whose default JVM is Java 17 (Amazon EMR 7.x, Databricks Runtime 16-17). The rest of the
+// repo targets java 25; the bundled dependency chain is pinned to 17 via ext.javaClassVersionOverride.
+ext.javaClassVersionOverride = 17
+
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
 // Define supported Scala versions - always build for both
@@ -19,6 +24,70 @@ def scalaVersions = ['2.12', '2.13']
 configurations {
   provided
   implementation.extendsFrom provided
+
+  // Spark 4.x is Scala 2.13 + Java 17 only, so its smoke test lives in a separate source set (see
+  // sourceSets below). It runs against the real *shaded* 2.13 agent jar (shadowJar_2_13) — the
+  // artifact users deploy — where our bundled deps (antlr, jackson, etc.) are relocated under
+  // io.acryl.shaded and so cannot clash with Spark 4's own copies. The sparkSmoke4 source set's
+  // own Implementation/RuntimeOnly configs are created by the source set itself and do not extend
+  // the main `implementation`, keeping the unshaded plugin classpath out.
+}
+
+sourceSets {
+  // The project's own production sources, compiled a SECOND time against a Scala 2.13 classpath
+  // (issue #19289).
+  //
+  // javac bakes the declared return type of a call into its invokevirtual descriptor, and JVM method
+  // resolution matches on the full descriptor -- return type included. Spark's API returns
+  // scala.collection.Seq on Scala 2.12 and scala.collection.immutable.Seq on Scala 2.13
+  // (FileScanRDD.filePartitions(), UnionRDD.rdds(), LogicalPlan.output(), TreeNode.children(), ...),
+  // so one compilation output cannot serve both artifacts. Packing the 2.12 classes into
+  // acryl-spark-lineage_2.13 threw NoSuchMethodError; on the RDD path that is an Error, which
+  // catch (Exception) does not stop and Spark's tryOrStopSparkContext turns into a dead SparkContext.
+  //
+  // `main` stays the Scala 2.12 compilation (it also feeds the unit tests, javadoc and sourcesJar);
+  // this source set is the 2.13 one, and shadowJar_2_13 packages its output instead of main's.
+  scala213 {
+    java.srcDirs = sourceSets.main.java.srcDirs
+    resources.srcDirs = sourceSets.main.resources.srcDirs
+  }
+  sparkSmoke4 {
+    java.srcDir 'src/sparkSmoke4/java'
+  }
+}
+
+// The repo pins antlr4-runtime to 4.9.3, but Spark 4's SqlBaseLexer ships an ATN v4 grammar that
+// only deserializes against antlr4-runtime 4.13.x ("Could not deserialize ATN with version 4").
+// Force the Spark-4-aligned runtime on this test's classpath only.
+//
+// Also opt these test-only configs out of dependency locking (the module locks all configurations):
+// the Spark 4 / Scala 2.13 test dependencies are not part of the shipped artifact and shouldn't
+// enter the production lockfile — mirroring the detached-configuration approach used for the
+// per-Scala shadow jars.
+// The root build forces kafka-clients to ${kafkaVersion}-ccs (Kafka 4.x) repo-wide, but Spark 4.0's
+// spark-sql-kafka-0-10 is compiled against 3.9 and every streaming query then dies with
+// NoSuchMethodError on DescribeTopicsResult.all(). Pin this test-only classpath back to the version
+// the connector expects — same "align with Spark, not the repo" reasoning as the antlr force below.
+def sparkSmoke4KafkaClients = 'org.apache.kafka:kafka-clients:3.9.0'
+
+configurations.sparkSmoke4RuntimeClasspath {
+  resolutionStrategy.force 'org.antlr:antlr4-runtime:4.13.1'
+  resolutionStrategy.force sparkSmoke4KafkaClients
+  resolutionStrategy.deactivateDependencyLocking()
+}
+configurations.sparkSmoke4CompileClasspath {
+  resolutionStrategy.force sparkSmoke4KafkaClients
+  resolutionStrategy.deactivateDependencyLocking()
+}
+
+// The Scala 2.13 compile classpath is the 2.13 twin of `compileClasspath`, resolved separately so the
+// two Scala flavours never mix. Opt every scala213* configuration out of dependency locking for the
+// same reason the per-Scala shadow jars use detached configurations: the lockfile would otherwise
+// carry two full, conflicting Spark/Scala graphs for one module. Matched by prefix rather than named
+// one by one so a configuration the source set creates later (or a dependency added to it) cannot
+// quietly reintroduce a locked entry.
+configurations.matching { it.name.startsWith('scala213') }.configureEach {
+  resolutionStrategy.deactivateDependencyLocking()
 }
 
 dependencies {
@@ -77,6 +146,40 @@ dependencies {
   }
   compileOnly "io.github.spark-redshift-community:spark-redshift_2.12:6.2.0-spark_3.5"
 
+  // --- Scala 2.13 compilation of the same sources (see the `scala213` source set above) ---------
+  // Mirrors the `main` declarations above with _2.13 coordinates. Spark 3.5.0 publishes both cross
+  // builds, so the two compilations target the same Spark API baseline and differ only in the Scala
+  // binary version whose descriptors they bind.
+  scala213CompileOnly externalDependency.lombok
+  scala213AnnotationProcessor externalDependency.lombok
+  scala213Implementation project(path: ':metadata-integration:java:openlineage-converter')
+  scala213Implementation project(path: ':metadata-integration:java:datahub-client')
+  scala213Implementation externalDependency.httpClient
+  scala213Implementation externalDependency.typesafeConfig
+  scala213Implementation externalDependency.slf4jApi
+  scala213Implementation externalDependency.json
+  scala213Implementation "io.openlineage:openlineage-spark_2.13:$openLineageVersion"
+  scala213CompileOnly("org.apache.spark:spark-sql_2.13:3.5.0") {
+    exclude group: 'org.eclipse.jetty', module: 'jetty-servlet'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-server'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-util'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-webapp'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-security'
+  }
+  scala213CompileOnly("org.apache.spark:spark-hive_2.13:3.5.0") {
+    exclude group: 'org.apache.velocity', module: 'velocity'
+  }
+  // Delta and spark-redshift-community are reference points only: never bundled, always supplied by
+  // the user's cluster. The versions the 2.12 side pins have no Scala 2.13 release, so these use the
+  // nearest published 2.13 builds, non-transitively so their own (older/newer) Spark does not
+  // displace spark-sql_2.13:3.5.0 above. Only the signatures this module touches matter --
+  // MergeIntoCommand.target()/source() and Parameters/RedshiftRelation/TableName -- and none of them
+  // returns a Scala collection, so no descriptor depends on these exact versions.
+  scala213CompileOnly("io.delta:delta-core_2.13:2.4.0") { transitive = false }
+  scala213CompileOnly("io.github.spark-redshift-community:spark-redshift_2.13:6.6.1-spark_4.0") {
+    transitive = false
+  }
+
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
 
@@ -104,6 +207,51 @@ dependencies {
   } // older version to allow older guava
 
   testImplementation(externalDependency.testContainersPostgresql)
+
+  // A real SparkSession for the @Tag("integration") smoke test (main declares spark-sql as
+  // compileOnly; the test JVM needs it on the runtime classpath to actually start Spark).
+  testImplementation("org.apache.spark:spark-sql_2.12:3.5.0") {
+    exclude group: 'org.eclipse.jetty', module: 'jetty-servlet'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-server'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-util'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-webapp'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-security'
+  }
+
+  // Iceberg + AWS SDK (shaded uber-jars) for the Glue connection-instance smoke test: a real Spark
+  // job reads an Iceberg table via GlueCatalog pointed at a mocked Glue/S3 (moto), so OpenLineage
+  // emits an `arn:aws:glue:<region>:<account>` symlink the listener resolves to a platform_instance.
+  testImplementation "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1"
+  testImplementation "org.apache.iceberg:iceberg-aws-bundle:1.6.1"
+
+  // Spark 4.x compatibility smoke test (Scala 2.13, first stable Spark 4 release). OpenLineage's
+  // spark40 module + our plugin come from the shaded shadowJar_2_13 (added as a runtime file below),
+  // so only Spark 4 itself and JUnit are needed to compile/run the test.
+  sparkSmoke4Implementation "org.apache.spark:spark-sql_2.13:4.0.0"
+  // Structured-streaming Kafka source, a real broker, and — transitively — the *unshaded*
+  // kafka-clients that both Kafka tests need: ShadedReflectionClassNameTest wants a genuine
+  // org.apache.kafka.common.TopicPartition, and KafkaStreamingLineageTest drives the whole read path
+  // end to end (issue #19005).
+  //
+  // Deliberately NOT pinned to the repo's kafkaVersion: Spark 4.0's connector is compiled against
+  // kafka-clients 3.9, and forcing a 4.x client onto this classpath makes every streaming query fail
+  // with NoSuchMethodError on DescribeTopicsResult.all(). Let the connector choose its own client,
+  // which is also what a real deployment has.
+  sparkSmoke4Implementation "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0"
+  sparkSmoke4Implementation externalDependency.testContainersKafka
+  sparkSmoke4Implementation externalDependency.testContainersJunit
+  // Align jupiter-api/engine + platform-launcher via the BOM (a custom source set doesn't get
+  // Gradle's auto-aligned launcher, which otherwise fails discovery with "OutputDirectoryProvider
+  // not available").
+  sparkSmoke4Implementation enforcedPlatform("org.junit:junit-bom:${rootProject.ext.junitJupiterVersion}")
+  sparkSmoke4Implementation "org.junit.jupiter:junit-jupiter-api"
+  sparkSmoke4RuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
+  sparkSmoke4RuntimeOnly "org.junit.platform:junit-platform-launcher"
+  // The real deployed agent: the shaded Scala 2.13 jar (plugin + relocated bundled deps + bundled
+  // openlineage-spark). Deferred via a closure because shadowJar_2_13 is registered later in the
+  // scalaVersions loop. Spark's Hadoop needs the legacy commons-collections 3.x at runtime.
+  sparkSmoke4RuntimeOnly files({ tasks.named('shadowJar_2_13').get().archiveFile })
+  sparkSmoke4RuntimeOnly 'commons-collections:commons-collections:3.2.2'
 }
 
 tasks.register('checkShadowJar', Exec) {
@@ -128,6 +276,23 @@ scalaVersions.each { sv ->
   }
 }
 
+// Paths (without the .class suffix) of the OpenLineage classes we vendor under
+// src/main/java/io/openlineage. A ShadowJar writes both our copy and openlineage-spark's copy at the
+// same path — Gradle's default duplicates strategy is INCLUDE — and the JVM resolves the LAST entry,
+// which is the dependency's. Dropping the upstream copies is what actually makes the documented
+// "project classes beat dependency classes" override work; without it every patch under
+// patches/datahub-customizations/ is silently inert in the shipped jar.
+//
+// Deliberately scoped to the classes we vendor rather than setting duplicatesStrategy = EXCLUDE
+// globally: the jar also contains ~500 dependency-vs-dependency duplicates (antlr runtime and
+// friends) whose current last-wins resolution the relocations added in #14989 rely on.
+def vendoredOpenLineageClassPaths = [] as Set
+fileTree("$projectDir/src/main/java").matching { include 'io/openlineage/**/*.java' }.visit { details ->
+  if (!details.directory) {
+    vendoredOpenLineageClassPaths << details.path.replaceAll(/\.java$/, '')
+  }
+}
+
 // Create shadow JAR tasks for each Scala version
 scalaVersions.each { sv ->
   tasks.register("shadowJar_${sv.replace('.', '_')}", com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
@@ -139,7 +304,9 @@ scalaVersions.each { sv ->
     archiveBaseName = "acryl-spark-lineage_${sv}"
     mergeServiceFiles()
 
-    from(sourceSets.main.output)
+    // Project classes must come from the compilation that matches this artifact's Scala binary
+    // version -- see the `scala213` source set for why one output cannot serve both (issue #19289).
+    from(sv == '2.13' ? sourceSets.scala213.output : sourceSets.main.output)
 
     // Add manifest with version information
     manifest {
@@ -172,9 +339,16 @@ scalaVersions.each { sv ->
     scalaConfig.canBeResolved = true
     inputs.files(scalaConfig)
     // Manually add resolved dependencies from scalaConfig during task execution
-    doFirst {
-      scalaConfig.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-        from zipTree(artifact.file)
+    // Passed as a closure so the artifacts resolve at execution time (avoiding eager resolution at
+    // configuration time) while the child spec carrying the exclude below is still created during
+    // configuration — Gradle rejects child specs added from doFirst.
+    from({ scalaConfig.resolvedConfiguration.resolvedArtifacts.collect { zipTree(it.file) } }) {
+      // Paths here are pre-relocation (straight out of the dependency jar), so match on the
+      // canonical io/openlineage/... names. Inner classes ($1, $Mixin, …) go with their outer class.
+      exclude { details ->
+        !details.directory && vendoredOpenLineageClassPaths.any { vendored ->
+          details.path == "${vendored}.class" || details.path.startsWith("${vendored}\$")
+        }
       }
     }
 
@@ -189,23 +363,65 @@ scalaVersions.each { sv ->
         }
 
     dependencies {
-      exclude(dependency {
+      exclude {
         exclude_modules.contains(it.name)
-      })
+      }
       exclude(dependency("org.slf4j::"))
       exclude(dependency("ch.qos.logback:"))
       exclude("org/apache/commons/logging/**")
     }
 
     exclude('module-info.class', 'META-INF/versions/**', 'LICENSE', 'NOTICE')
-    exclude '**/libzstd-jni.*'
+
+    // Do not ship JNI-backed libraries. Their native binaries export symbols compiled under the
+    // canonical package name (Java_org_xerial_snappy_*, Java_com_github_luben_zstd_*, …), which
+    // shading cannot rewrite — the same trap as io.openlineage.sql in issue #18558. Relocating them
+    // produced UnsatisfiedLinkError the moment a user enabled compression on the Kafka emitter via
+    // spark.datahub.kafka.producer_config.compression.type. Spark supplies all of these itself
+    // (snappy-java, zstd-jni and an lz4-java fork), so the agent drops its copies and the relocation
+    // rules below are omitted, leaving the bundled Kafka client's references at the canonical names.
+    // NOTE: excluding the classes alone is not enough — without also dropping the relocation the
+    // shaded Kafka client keeps referencing io.acryl.shaded.* and fails with NoClassDefFoundError.
+    exclude 'org/xerial/snappy/**'      // snappy-java  (Java_org_xerial_snappy_*)
+    exclude 'net/jpountz/**'            // lz4-java     (Java_net_jpountz_*)
+    exclude 'com/github/luben/zstd/**'  // zstd-jni     (Java_com_github_luben_zstd_*)
+    exclude 'com/sun/jna/**'            // JNA          (Java_com_sun_jna_*); nothing here referenced it
+    // zstd-jni ships its natives at the jar root (<os>/<arch>/libzstd-jni-<version>.so), so they are
+    // not covered by the package exclude above. The previous pattern used a literal '.' and therefore
+    // never matched the real filenames.
+    exclude '**/libzstd-jni*'
     exclude '**/com_github_luben_zstd_*'
+
+    // Do not ship anything that competes with the host's logging. The agent is injected into the
+    // user's Spark JVM, and it was bundling slf4j-api, a reload4j SLF4J binding and a root
+    // log4j.properties (rootLogger=INFO, STDOUT) — all unrelocated. The agent's binding actually won
+    // over Spark's log4j-slf4j2-impl, so its config reconfigured the whole application's logging.
+    // slf4j must NOT be relocated instead: the facade has to be shared with the host so our logs reach
+    // the user's appenders. Spark supplies slf4j-api, so excluding it is the standard 'provided'
+    // treatment -- and what the (inert) exclude(dependency("org.slf4j::")) below already intended.
+    exclude 'org/slf4j/**'
+    exclude 'META-INF/services/org.slf4j.spi.SLF4JServiceProvider'
+    exclude '**/log4j.properties'
+
+    // Leaked, unrelocated, and never referenced by name: guava's transitive j2objc annotations,
+    // kafka-clients' protocol message schemas (build-time codegen inputs, not runtime resources) and a
+    // stray source file. mime.types and LICENSE-ClassGraph.txt are deliberately left in place: the
+    // former also exists as a legitimate shaded AWS SDK resource that a basename exclude would strip,
+    // and the latter is an attribution file that should ship.
+    exclude 'com/google/j2objc/**'
+    exclude 'common/message/**'
+    exclude '**/VersionInfo.java'
 
 
     // Apply all the relocations
     relocate 'avro.com', 'io.acryl.shaded.avro.com'
     relocate 'org.json', 'io.acryl.shaded.org.json'
-    relocate 'com.github', 'io.acryl.shaded.com.github'
+    relocate('com.github', 'io.acryl.shaded.com.github') {
+      // zstd-jni is JNI-backed: its natives export Java_com_github_luben_zstd_*, which shading cannot
+      // rewrite. Not bundled at all (excluded above) — Spark supplies it — so the Kafka client must
+      // reference it at its canonical name. See the JNI note by the excludes.
+      exclude 'com.github.luben.zstd.**'
+    }
     relocate 'avroutil1', 'io.acryl.shaded.avroutil1'
     relocate 'com.sun.activation', 'io.acryl.shaded.com.sun.activation'
     relocate 'com.sun.codemodel', 'io.acryl.shaded.com.sun.codemodel'
@@ -214,6 +430,12 @@ scalaVersions.each { sv ->
     relocate 'org.apache.commons.codec', 'io.acryl.shaded.org.apache.commons.codec'
     relocate 'org.apache.commons.compress', 'io.acryl.shaded.org.apache.commons.compress'
     relocate 'org.apache.commons.lang3', 'io.acryl.shaded.org.apache.commons.lang3'
+    // commons-io was the one sibling left unrelocated, so the agent shipped 2.22.0 at the canonical
+    // path against Spark's 2.18.0 and whichever loaded first won. Relocating rather than excluding is
+    // the safer fix: its 51 consumers here (one of them a DataHub-patched OpenLineage class) keep the
+    // exact version we bundle, so there is no cross-version resolution to get wrong. Verified safe --
+    // nothing in the jar names a commons-io class in a string constant (see issue #19005).
+    relocate 'org.apache.commons.io', 'io.acryl.shaded.org.apache.commons.io'
     relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
     relocate 'com.typesafe', 'io.acryl.shaded.com.typesafe'
     relocate 'io.opentracing', 'io.acryl.shaded.io.opentracing'
@@ -223,6 +445,20 @@ scalaVersions.each { sv ->
     relocate 'org.springframework', 'io.acryl.shaded.org.springframework'
     relocate 'com.fasterxml.jackson', 'io.acryl.shaded.jackson'
     relocate 'org.yaml', 'io.acryl.shaded.org.yaml'
+    // Relocate io.openlineage so this agent can coexist with environments that ship their own
+    // openlineage-spark (Databricks, EMR, Glue, DataZone). DataHub's customized classes in
+    // src/main/java/io/openlineage/ are relocated too, so the override mechanism (project classes
+    // beat dependency classes) still works. Two sub-packages are carved out below.
+    relocate('io.openlineage', 'io.acryl.shaded.io.openlineage') {
+      // Extension SPI must stay unrelocated: connectors implement it at its canonical name.
+      exclude 'io.openlineage.spark.extension.**'
+      // io.openlineage.sql is JNI-backed: its native methods resolve to symbols compiled into the
+      // Rust library as Java_io_openlineage_sql_OpenLineageSql_*, and shading cannot rewrite symbol
+      // names inside a native binary. Relocating the Java class makes the JVM look for
+      // Java_io_acryl_shaded_..._parse and crash with UnsatisfiedLinkError on JDBC/SQL parsing
+      // (issue #18558). Keep the whole package at its canonical name so the symbols resolve.
+      exclude 'io.openlineage.sql.**'
+    }
     relocate 'net.jcip.annotations', 'io.acryl.shaded.annotations'
     relocate 'javassist', 'io.acryl.shaded.javassist'
     relocate 'edu.umd.cs.findbugs', 'io.acryl.shaded.findbugs'
@@ -235,7 +471,50 @@ scalaVersions.each { sv ->
     relocate 'com.github.benmanes.caffeine', 'io.acryl.shaded.com.github.benmanes.caffeine'
     relocate 'org.checkerframework', 'io.acryl.shaded.org.checkerframework'
     relocate 'com.google.errorprone', 'io.acryl.shaded.com.google.errorprone'
-    relocate 'com.sun.jna', 'io.acryl.shaded.com.sun.jna'
+    // NOTE: com.sun.jna, net.jpountz and org.xerial are deliberately NOT relocated — see the
+    // JNI-backed exclusions above. Relocating them breaks native symbol resolution.
+
+    // Additional relocations to prevent classloading conflicts (issue #14989)
+    relocate 'antlr', 'io.acryl.shaded.antlr'
+    relocate 'org.antlr', 'io.acryl.shaded.org.antlr'
+    relocate 'org.apache.avro', 'io.acryl.shaded.org.apache.avro'
+    relocate 'org.codehaus.jackson', 'io.acryl.shaded.org.codehaus.jackson'
+    relocate 'org.eclipse.jetty', 'io.acryl.shaded.org.eclipse.jetty'
+    relocate 'jakarta.json', 'io.acryl.shaded.jakarta.json'
+    relocate 'org.reactivestreams', 'io.acryl.shaded.org.reactivestreams'
+    // net.jpountz (lz4-java) and org.xerial (snappy-java) intentionally omitted here: both are
+    // JNI-backed and excluded from the jar instead. See the JNI-backed exclusions above.
+    relocate 'software.amazon', 'io.acryl.shaded.software.amazon'
+    relocate 'nonapi.io', 'io.acryl.shaded.nonapi.io'
+    relocate 'org.publicsuffix', 'io.acryl.shaded.org.publicsuffix'
+    relocate 'io.swagger', 'io.acryl.shaded.io.swagger'
+    relocate 'io.micrometer', 'io.acryl.shaded.io.micrometer'
+    relocate 'io.confluent', 'io.acryl.shaded.io.confluent'
+    relocate('io.github', 'io.acryl.shaded.io.github') {
+      // spark-redshift-community is compileOnly: never bundled here, always supplied at runtime by
+      // the user's Spark classpath. Relocating it rewrote both the loadClass() name constants in
+      // RedshiftRelationVisitor/Constants/RedshiftVendor and their checkcast targets to a class that
+      // exists nowhere, so isDefinedAt() silently returned false forever and Redshift relation
+      // lineage was never emitted (issue #19005).
+      exclude 'io.github.spark_redshift_community.**'
+    }
+    relocate 'io.datahubproject', 'io.acryl.shaded.io.datahubproject'
+    relocate 'com.eclipsesource', 'io.acryl.shaded.com.eclipsesource'
+
+    // Relocate packages that conflict with Spark's runtime classpath
+    relocate 'org.apache.kafka', 'io.acryl.shaded.org.apache.kafka'
+    relocate 'org.apache.http', 'io.acryl.shaded.org.apache.http'  // httpcomponents 4.x (not caught by org.apache.hc rule)
+    relocate 'org.apache.log4j', 'io.acryl.shaded.org.apache.log4j'
+    relocate 'org.apache.commons.text', 'io.acryl.shaded.org.apache.commons.text'
+    relocate 'com.google.re2j', 'io.acryl.shaded.com.google.re2j'
+    relocate 'org.eclipse.parsson', 'io.acryl.shaded.org.eclipse.parsson'
+    relocate 'org.codehaus.plexus', 'io.acryl.shaded.org.codehaus.plexus'
+    relocate 'org.apache.maven', 'io.acryl.shaded.org.apache.maven'
+    relocate 'org.jspecify', 'io.acryl.shaded.org.jspecify'
+    // NOTE: Do NOT relocate com.linkedin — Pegasus data framework uses reflection/class names
+    // internally for serialization. Relocating it breaks DataEncodingException.
+    // com.datahub also references com.linkedin types so must stay unrelocated too.
+    relocate 'com.google.thirdparty', 'io.acryl.shaded.com.google.thirdparty'
 
     // Debug output to verify we're using the right dependency
     doFirst {
@@ -273,17 +552,110 @@ tasks.register('buildAllScalaVersions') {
   dependsOn scalaVersions.collect { "shadowJar_${it.replace('.', '_')}" }
 }
 
+// Spark needs these JDK 17+ module opens to run.
+ext.sparkJava21CompatibleJvmArgs = [
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        "--add-opens=java.base/java.net=ALL-UNNAMED",
+        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+]
+
+// Spark 3.5.8 + Hadoop 3.4.1 do not support JDK 24+: Hadoop's UserGroupInformation calls
+// Subject.getSubject(AccessControlContext), which JEP 486 (Security Manager removal) makes throw
+// UnsupportedOperationException on JDK 24+ — and -Djava.security.manager=allow is itself a fatal
+// launcher error there, so it can't be rescued. Run the real-Spark smoke suites on Java 21 (the
+// runtime OSS deployments and customers actually use) regardless of the build toolchain (JDK 25).
+// Remove once Spark/Hadoop ship a JDK-25-compatible line.
+ext.sparkSmokeJavaLauncher = javaToolchains.launcherFor {
+  languageVersion = JavaLanguageVersion.of(21)
+}
+
+// The root build applies the Java-17 bytecode target (ext.javaClassVersionOverride) via
+// options.release to compileJava ONLY — never to the test source sets, so test classes otherwise
+// inherit the build toolchain (JDK 25 -> class-file v69). The real-Spark smoke suites FORK on JDK 21
+// (sparkSmokeJavaLauncher above), and a JDK-21 runtime (v65) cannot load v69 classes. Pin the test
+// and sparkSmoke4 compiles to the same <=17 bytecode so the JDK-21 launcher can run them.
+compileTestJava {
+  options.release = javaClassVersion(project)
+}
+compileSparkSmoke4Java {
+  options.release = javaClassVersion(project)
+}
+// The root build applies options.release to compileJava only, so the second (Scala 2.13) compilation
+// of the same sources has to be pinned to the same bytecode level explicitly -- otherwise the shipped
+// _2.13 jar would carry class files newer than the Java 17 baseline managed Spark runs on.
+compileScala213Java {
+  options.release = javaClassVersion(project)
+}
+
 test {
   forkEvery = 1
-  useJUnitPlatform()
+  // Keep the default unit-test run fast and Docker-free: the real-Spark smoke test is tagged
+  // "integration" and runs via the sparkRealSmokeTest task below.
+  useJUnitPlatform {
+    excludeTags 'integration'
+  }
+  jvmArgs = project.ext.sparkJava21CompatibleJvmArgs
+}
 
-  def sparkJava21CompatibleJvmArgs = [
-          "--add-opens=java.base/java.lang=ALL-UNNAMED",
-          "--add-opens=java.base/java.net=ALL-UNNAMED",
-          "--add-opens=java.base/java.nio=ALL-UNNAMED",
-          "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-  ]
-  jvmArgs = sparkJava21CompatibleJvmArgs
+// Self-contained real-Spark smoke test (@Tag("integration")): starts a local SparkSession + the
+// DataHub listener and a Postgres testcontainer. Requires Docker. Not part of `test`/CI unit runs.
+tasks.register('sparkRealSmokeTest', Test) {
+  description = 'Runs the real-Spark + testcontainers smoke test (requires Docker).'
+  group = 'verification'
+  testClassesDirs = sourceSets.test.output.classesDirs
+  // commons-collections 3.x is globally excluded for this module (the build prefers
+  // commons-collections4), but Spark's Hadoop needs the legacy 3.x classes at runtime. A detached
+  // configuration is outside the project's configuration container, so the project-wide exclude
+  // doesn't strip it.
+  def legacyCommonsCollections =
+      project.configurations.detachedConfiguration(
+          project.dependencies.create('commons-collections:commons-collections:3.2.2'))
+  classpath = sourceSets.test.runtimeClasspath + legacyCommonsCollections
+  forkEvery = 1
+  useJUnitPlatform {
+    includeTags 'integration'
+  }
+  javaLauncher = project.ext.sparkSmokeJavaLauncher
+  jvmArgs = project.ext.sparkJava21CompatibleJvmArgs
+  // OpenLineage's Glue ARN resolution reads the region from the AWS_REGION env var only (not a
+  // system property or Spark conf), so the Glue smoke test needs it set on the forked test JVM.
+  // Harmless for the non-AWS integration tests.
+  environment 'AWS_REGION', 'us-east-1'
+  environment 'AWS_DEFAULT_REGION', 'us-east-1'
+}
+
+// Apache Spark 4.x compatibility smoke test (Scala 2.13, Java 17+). Runs a real local Spark 4
+// SparkSession with the DataHub listener and asserts lineage is emitted — i.e. that the plugin
+// (OpenLineage 1.50 + our vendored classes) attaches and works on Spark 4. Kept out of `test`/CI
+// unit runs; run explicitly via `./gradlew :...:acryl-spark-lineage:sparkSmoke4Test`.
+tasks.register('sparkSmoke4Test', Test) {
+  description = 'Runs a real Apache Spark 4.x (Scala 2.13) lineage smoke test against the shaded agent jar.'
+  group = 'verification'
+  dependsOn 'shadowJar_2_13'
+  testClassesDirs = sourceSets.sparkSmoke4.output.classesDirs
+  classpath = sourceSets.sparkSmoke4.runtimeClasspath
+  forkEvery = 1
+  useJUnitPlatform()
+  javaLauncher = project.ext.sparkSmokeJavaLauncher
+  jvmArgs = project.ext.sparkJava21CompatibleJvmArgs
+  testLogging {
+    exceptionFormat = 'full'
+    events 'failed', 'skipped'
+  }
+}
+
+// Most of the listener lifecycle is exercised by the real-Spark integration suite, not the unit
+// tests, so fold its coverage into jacocoTestReport — otherwise the reported number reflects only
+// unit tests and badly understates reality. The report picks up whatever .exec files are present
+// (test.exec always; sparkRealSmokeTest.exec / sparkSmoke4Test.exec when those suites ran).
+// mustRunAfter keeps the ordering correct — and, since the report consumes their .exec outputs,
+// avoids Gradle's implicit-dependency validation failure — when they're scheduled together (e.g.
+// the spark smoke-test CI workflow).
+jacocoTestReport {
+  executionData.from(fileTree(dir: "${buildDir}/jacoco", includes: ['*.exec']))
+  mustRunAfter('sparkRealSmokeTest')
+  mustRunAfter('sparkSmoke4Test')
 }
 
 assemble {

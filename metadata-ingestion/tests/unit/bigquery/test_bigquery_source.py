@@ -8,8 +8,10 @@ import pytest
 import time_machine
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
+from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.time_window_config import BucketDuration
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
@@ -20,10 +22,14 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    BigQueryUsageConfig,
     BigQueryV2Config,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_queries import (
+    BigQueryQueriesSourceConfig,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -45,6 +51,10 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
     LineageEdgeColumnMapping,
 )
+from datahub.ingestion.source.bigquery_v2.queries import (
+    BigqueryQuery,
+    BigqueryTableType,
+)
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
 from datahub.metadata.schema_classes import (
@@ -58,6 +68,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
     TimeStampClass,
+    UpstreamLineageClass,
 )
 
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -571,7 +582,7 @@ def test_get_datasets_for_project_id_with_timestamps(
     mock_dataset_list_item1 = MagicMock()
     mock_dataset_list_item1.dataset_id = "dataset1"
     mock_dataset_list_item1.labels = {"env": "test"}
-    mock_dataset_list_item1._properties = {"location": "US"}
+    mock_dataset_list_item1._properties = {"location": "US", "type": "LINKED"}
 
     mock_dataset_list_item2 = MagicMock()
     mock_dataset_list_item2.dataset_id = "dataset2"
@@ -629,6 +640,9 @@ def test_get_datasets_for_project_id_with_timestamps(
     assert dataset1.comment == "Test dataset 1"
     assert dataset1.created == frozen_time
     assert dataset1.last_altered == frozen_time + timedelta(hours=1)
+    # Dataset.type is only reachable through the raw datasets.list payload, because
+    # google-cloud-bigquery exposes no property for it on DatasetListItem.
+    assert dataset1.type == "LINKED"
 
     # Assert second dataset (with missing timestamps)
     dataset2 = result[1]
@@ -636,6 +650,13 @@ def test_get_datasets_for_project_id_with_timestamps(
     assert dataset2.labels == {"env": "prod"}
     assert dataset2.location == "EU"
     assert dataset2.comment is None
+    # This mock omits "type" entirely, standing in for a client version that stops
+    # returning the field. It must parse as None rather than raise, because every
+    # dataset would otherwise read as non-linked with no signal that anything changed.
+    assert dataset2.type is None
+    # The counter is that signal, so assert it moved for exactly the one dataset
+    # missing the field. Without it the compatibility branch is silent.
+    assert schema_api.report.num_datasets_missing_type == 1
     assert dataset2.created is None
     assert dataset2.last_altered is None
 
@@ -1086,7 +1107,7 @@ def test_get_views_for_dataset(
     views = bigquery_data_dictionary.get_views_for_dataset(
         project_id="test-project",
         dataset_name="test-dataset",
-        has_data_read=False,
+        use_legacy_table_stats=False,
         report=BigQueryV2Report(),
     )
     assert list(views) == [bigquery_view_1, bigquery_view_2]
@@ -1190,10 +1211,127 @@ def test_get_snapshots_for_dataset(
     snapshots = bigquery_data_dictionary.get_snapshots_for_dataset(
         project_id="test-project",
         dataset_name="test-dataset",
-        has_data_read=False,
+        use_legacy_table_stats=False,
         report=BigQueryV2Report(),
     )
     assert list(snapshots) == [bigquery_snapshot]
+
+
+@patch.object(BigQuerySchemaApi, "get_query_result")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+@pytest.mark.parametrize(
+    "with_partitions,use_legacy_table_stats,expected_marker,forbidden_marker",
+    [
+        # Default: stats from PARTITIONS, never __TABLES__. `p.total_logical_bytes`
+        # (not the legacy `ts.size_bytes`) is what distinguishes the two templates,
+        # since the legacy query also joins PARTITIONS for partition counts.
+        (True, False, "p.total_logical_bytes as bytes", "__TABLES__"),
+        # Legacy opt-in: stats come from the undocumented __TABLES__ join instead.
+        (True, True, "__TABLES__ as ts", "p.total_logical_bytes"),
+        # No partition data requested: neither stats source is queried.
+        (False, False, "INFORMATION_SCHEMA.TABLES", "INFORMATION_SCHEMA.PARTITIONS"),
+    ],
+)
+def test_get_tables_for_dataset_query_selection(
+    get_projects_client: MagicMock,
+    get_bq_client_mock: Mock,
+    query_mock: Mock,
+    with_partitions: bool,
+    use_legacy_table_stats: bool,
+    expected_marker: str,
+    forbidden_marker: str,
+) -> None:
+    query_mock.return_value = []
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+
+    list(
+        schema_api.get_tables_for_dataset(
+            project_id="test-project",
+            dataset_name="test-dataset",
+            tables={"table1": MagicMock()},
+            report=BigQueryV2Report(),
+            with_partitions=with_partitions,
+            use_legacy_table_stats=use_legacy_table_stats,
+        )
+    )
+
+    executed_query = query_mock.call_args[0][0]
+    assert expected_marker in executed_query
+    assert forbidden_marker not in executed_query
+
+
+@patch.object(BigQuerySchemaApi, "get_query_result")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+@pytest.mark.parametrize("entity", ["views", "snapshots"])
+@pytest.mark.parametrize("use_legacy_table_stats", [False, True])
+def test_get_views_and_snapshots_legacy_tables_selection(
+    get_projects_client: MagicMock,
+    get_bq_client_mock: Mock,
+    query_mock: Mock,
+    entity: str,
+    use_legacy_table_stats: bool,
+) -> None:
+    # Views/snapshots have no PARTITIONS-based query; the legacy __TABLES__ join is
+    # used only when use_legacy_table_stats=True and never otherwise.
+    # use_legacy_table_stats is the sole switch here.
+    query_mock.return_value = []
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+
+    fetch = (
+        schema_api.get_views_for_dataset
+        if entity == "views"
+        else schema_api.get_snapshots_for_dataset
+    )
+    list(
+        fetch(
+            project_id="test-project",
+            dataset_name="test-dataset",
+            use_legacy_table_stats=use_legacy_table_stats,
+            report=BigQueryV2Report(),
+        )
+    )
+
+    executed_query = query_mock.call_args[0][0]
+    assert ("__TABLES__" in executed_query) is use_legacy_table_stats
+
+
+def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() -> None:
+    # _make_bigquery_table reads these columns by name; renaming an alias here would
+    # silently null out row count / size / last-altered rather than raise.
+    query = BigqueryQuery.tables_for_dataset_with_partition_stats
+    assert "p.total_rows as row_count" in query
+    assert "p.total_logical_bytes as bytes" in query
+    assert "p.last_modified_time as last_altered" in query
+    # last_modified_time must stay wrapped in UNIX_MILLIS: PARTITIONS returns a
+    # TIMESTAMP, but the mapper expects epoch millis. Dropping the wrap would
+    # silently feed wrong timestamps rather than raise.
+    assert "UNIX_MILLIS(max(last_modified_time)) as last_modified_time" in query
+
+
+def test_make_bigquery_table_null_partition_stats() -> None:
+    # Tables absent from PARTITIONS get null p.* stats via the LEFT JOIN; the mapper must
+    # keep them None, not default to 0/epoch (documented "empty tables lose lastModified").
+    cols = ["table_name", "table_type", "created", "comment", "ddl"]
+    row = Row(
+        ("my_table", BigqueryTableType.BASE_TABLE, None, None, None),
+        {c: i for i, c in enumerate(cols)},
+    )
+
+    table = BigQuerySchemaApi._make_bigquery_table(row, table_basic=None)
+
+    assert table.last_altered is None
+    assert table.size_in_bytes is None
+    assert table.rows_count is None
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
@@ -1399,6 +1537,330 @@ def test_bigquery_config_deprecated_schema_pattern():
     assert config.dataset_pattern == AllowDenyPattern(
         deny=["temp.*"]
     )  # dataset_pattern
+
+
+@pytest.mark.parametrize(
+    "field,usage_value,expected",
+    [
+        (
+            "start_time",
+            "2023-01-01T00:00:00Z",
+            datetime(2023, 1, 1, tzinfo=timezone.utc),
+        ),
+        ("end_time", "2023-01-01T00:00:00Z", datetime(2023, 1, 1, tzinfo=timezone.utc)),
+        ("bucket_duration", "HOUR", BucketDuration.HOUR),
+        ("max_query_duration", "PT30M", timedelta(minutes=30)),
+    ],
+)
+def test_bigquery_config_usage_field_forwarded_to_top_level(
+    field: str, usage_value: str, expected: object
+) -> None:
+    config = BigQueryV2Config.model_validate({"usage": {field: usage_value}})
+    assert getattr(config, field) == expected
+
+
+@pytest.mark.parametrize(
+    "field,top_level_value,usage_value",
+    [
+        ("start_time", "2023-01-01T00:00:00Z", "2023-02-01T00:00:00Z"),
+        ("end_time", "2023-01-01T00:00:00Z", "2023-02-01T00:00:00Z"),
+        ("bucket_duration", "DAY", "HOUR"),
+        ("max_query_duration", "PT30M", "PT45M"),
+    ],
+)
+def test_bigquery_config_usage_and_top_level_field_conflict_raises(
+    field: str, top_level_value: str, usage_value: str
+) -> None:
+    with pytest.raises(ValidationError):
+        BigQueryV2Config.model_validate(
+            {field: top_level_value, "usage": {field: usage_value}}
+        )
+
+
+def test_bigquery_config_usage_time_window_field_emits_deprecation_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate({"usage": {"end_time": "2023-01-01T00:00:00Z"}})
+        assert any("deprecated" in record.msg for record in caplog.records)
+
+
+def test_bigquery_config_usage_max_query_duration_warns_legacy_only(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # max_query_duration, unlike start_time/end_time/bucket_duration, is only ever
+    # read on the legacy (non-queries-v2) extraction path, so the warning must not
+    # claim it affects lineage/usage/operations generally under queries-v2.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate({"usage": {"max_query_duration": "PT30M"}})
+        assert any(
+            "legacy" in record.msg or "use_queries_v2" in record.msg
+            for record in caplog.records
+        )
+
+
+def test_bigquery_config_top_level_max_query_duration_warns_under_queries_v2(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Setting max_query_duration directly at the top level (as the deprecation
+    # message for usage.max_query_duration instructs) is a no-op under the default
+    # use_queries_v2=True, since queries_extractor.py never reads it - warn about that too.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {"use_queries_v2": True, "max_query_duration": "PT30M"}
+        )
+        assert any(
+            "legacy" in record.msg or "use_queries_v2" in record.msg
+            for record in caplog.records
+        )
+
+
+def test_bigquery_config_usage_forwarded_field_cleared_from_nested_usage():
+    config = BigQueryV2Config.model_validate({"usage": {"max_query_duration": "PT30M"}})
+    assert config.usage.max_query_duration == timedelta(minutes=15)  # default
+
+
+@pytest.mark.parametrize(
+    "field", ["start_time", "end_time", "bucket_duration", "max_query_duration"]
+)
+def test_bigquery_usage_config_field_description_mentions_deprecation(
+    field: str,
+) -> None:
+    # The generated connector docs page renders these `description=` strings, so the
+    # deprecation must be visible there too, not just in the runtime warning.
+    description = BigQueryUsageConfig.model_fields[field].description
+    assert description is not None
+    assert "deprecated" in description.lower()
+
+
+def test_bigquery_source_builds_queries_extractor_config_from_usage_fields():
+    # Guards the bigquery.py seam that maps self.config.usage.* into
+    # BigQueryQueriesExtractorConfig(...) - a typo'd kwarg here would otherwise only
+    # surface if some other test happened to exercise the full queries-v2 codepath.
+    config = BigQueryV2Config.model_validate(
+        {
+            "usage": {
+                "format_sql_queries": True,
+                "include_top_n_queries": False,
+                "queries_character_limit": 1000,
+                "top_n_queries": 5,
+                "include_operational_stats": False,
+                "user_email_pattern": {"allow": ["^analyst_.*@example\\.com$"]},
+            }
+        }
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    queries_config = fake_source._build_queries_extractor_config()
+
+    assert queries_config.format_sql_queries is True
+    assert queries_config.include_top_n_queries is False
+    assert queries_config.queries_character_limit == 1000
+    assert queries_config.top_n_queries == 5
+    assert queries_config.include_operations is False
+    assert queries_config.user_email_pattern == AllowDenyPattern(
+        allow=["^analyst_.*@example\\.com$"]
+    )
+
+
+def test_bigquery_source_reports_legacy_only_usage_fields_under_queries_v2():
+    # The logger.warning fired at config-validation time is easy to miss; this also
+    # surfaces in the structured ingestion report, which is what shows up in the UI.
+    config = BigQueryV2Config.model_validate(
+        {"use_queries_v2": True, "usage": {"apply_view_usage_to_tables": True}}
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    assert any(
+        "apply_view_usage_to_tables" in w.message for w in fake_source.report.warnings
+    )
+
+
+def test_bigquery_source_no_legacy_only_usage_field_report_warning_under_legacy_path():
+    config = BigQueryV2Config.model_validate(
+        {"use_queries_v2": False, "usage": {"apply_view_usage_to_tables": True}}
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    assert not any(
+        "apply_view_usage_to_tables" in w.message for w in fake_source.report.warnings
+    )
+
+
+def test_bigquery_source_reports_subscriptions_without_linked_dataset_lineage():
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": "p",
+            "extract_subscriptions_from_analytics_hub": True,
+            "include_linked_dataset_lineage": False,
+        }
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    assert any(
+        "extract_subscriptions_from_analytics_hub" in w.message
+        for w in fake_source.report.warnings
+    )
+
+
+def test_bigquery_source_reports_linked_dataset_lineage_missing_dependencies():
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": "p",
+            "include_linked_dataset_lineage": True,
+            "include_table_lineage": False,
+            "include_schema_metadata": False,
+        }
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    messages = [w.message for w in fake_source.report.warnings]
+    assert any("`include_table_lineage` is False" in m for m in messages)
+    assert any("`include_schema_metadata` is False" in m for m in messages)
+
+
+def test_bigquery_source_no_linked_dataset_warnings_when_configured():
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": "p",
+            "include_linked_dataset_lineage": True,
+            "include_table_lineage": True,
+            "include_schema_metadata": True,
+            "extract_subscriptions_from_analytics_hub": True,
+        }
+    )
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    assert not any(
+        "include_linked_dataset_lineage" in w.message
+        for w in fake_source.report.warnings
+    )
+
+
+@pytest.mark.parametrize(
+    "recipe,expect_warning",
+    [
+        pytest.param({"use_queries_v2": True}, False, id="never-set"),
+        pytest.param(
+            {"use_queries_v2": True, "extract_column_lineage": False},
+            True,
+            id="explicitly-false",
+        ),
+        pytest.param(
+            {"use_queries_v2": True, "extract_column_lineage": True},
+            True,
+            id="explicitly-true",
+        ),
+        pytest.param(
+            {"use_queries_v2": False, "extract_column_lineage": False},
+            False,
+            id="legacy-path",
+        ),
+    ],
+)
+def test_bigquery_source_reports_extract_column_lineage_ignored_under_queries_v2(
+    recipe: dict, expect_warning: bool
+) -> None:
+    config = BigQueryV2Config.model_validate({"project_id": "p", **recipe})
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    fake_source.report = BigQueryV2Report()
+    fake_source._warn_deprecated_configs()
+
+    warned = any(
+        "extract_column_lineage" in w.message for w in fake_source.report.warnings
+    )
+    assert warned is expect_warning
+
+
+@pytest.mark.parametrize(
+    "field", ["apply_view_usage_to_tables", "include_read_operational_stats"]
+)
+def test_bigquery_config_legacy_only_usage_field_warns_under_queries_v2(
+    field: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {"use_queries_v2": True, "usage": {field: True}}
+        )
+        assert any(
+            "use_queries_v2" in record.msg or "legacy" in record.msg
+            for record in caplog.records
+        )
+
+
+def test_bigquery_config_legacy_only_usage_fields_no_warning_under_legacy_path(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "use_queries_v2": False,
+                "max_query_duration": "PT30M",
+                "usage": {
+                    "apply_view_usage_to_tables": True,
+                    "include_read_operational_stats": True,
+                },
+            }
+        )
+        assert not any(
+            "use_queries_v2" in record.msg or "legacy" in record.msg
+            for record in caplog.records
+        )
+
+
+@pytest.mark.parametrize(
+    "recipe,expect_warning",
+    [
+        pytest.param({"use_queries_v2": True}, False, id="never-set"),
+        pytest.param(
+            {"use_queries_v2": True, "extract_column_lineage": False},
+            True,
+            id="explicitly-false",
+        ),
+        pytest.param(
+            {"use_queries_v2": True, "extract_column_lineage": True},
+            True,
+            id="explicitly-true",
+        ),
+        pytest.param(
+            {"use_queries_v2": False, "extract_column_lineage": True},
+            False,
+            id="legacy-path",
+        ),
+    ],
+)
+def test_bigquery_config_extract_column_lineage_warns_under_queries_v2(
+    recipe: dict, expect_warning: bool, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Config-validation-time counterpart to the report warning in bigquery.py, which
+    # fires only from get_workunits_internal.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate({"project_id": "p", **recipe})
+
+    warned = any("extract_column_lineage" in record.msg for record in caplog.records)
+    assert warned is expect_warning
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
@@ -1697,7 +2159,7 @@ def test_parse_external_table_options(ddl: str, expected: ExternalTableOptions) 
 def test_biglake_dataset_skipped_for_region_autodetect(
     get_projects_client, get_bq_client_mock
 ):
-    # REGRESSION PROTECTION: BigLake/Omni datasets report locations like
+    # BigLake/Omni datasets report locations like
     # `aws-us-east-1` that are NOT valid INFORMATION_SCHEMA region qualifiers.
     # If we add them to discovered_locations, the queries extractor would try
     # to scan `region-aws-us-east-1` and emit a spurious failure every run.
@@ -1732,3 +2194,246 @@ def test_biglake_dataset_skipped_for_region_autodetect(
     assert "aws-us-east-1" not in schema_gen.discovered_locations
     assert "europe-west1" in schema_gen.discovered_locations
     assert source.report.num_biglake_datasets_skipped_for_region_autodetect == 1
+
+
+@patch.object(BigQuerySchemaGenerator, "gen_view_dataset_workunits", lambda *a, **k: [])
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_linked_entities_recorded_only_past_the_pattern_gates(
+    get_projects_client_mock, get_bq_client_mock
+):
+    # Recording happens inside _process_table / _process_view, past the pattern gate
+    # each already applies, so an entity the run excludes cannot pick up a COPY edge
+    # pointing at an entity that was never ingested. Both gates are covered: an
+    # earlier version filtered views separately from tables and let a denied view
+    # through.
+    from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
+        BigQuerySharingHandler,
+    )
+
+    project_id = "consumer-project"
+    linked_dataset = "linked_ds"
+
+    bq_client = MagicMock()
+    bq_client.get_dataset.return_value = MagicMock(
+        _properties={
+            "type": "LINKED",
+            "linkedDatasetSource": {
+                "sourceDataset": {
+                    "projectId": "123456789012",
+                    "datasetId": "source_ds",
+                }
+            },
+            "linkedDatasetMetadata": {"linkState": "LINKED"},
+        }
+    )
+    bq_client.list_projects.return_value = [
+        SimpleNamespace(
+            project_id="publisher-project",
+            numeric_id="123456789012",
+            friendly_name="",
+        )
+    ]
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": project_id,
+            "view_pattern": {"deny": [".*denied_view.*"]},
+            "table_pattern": {"deny": [".*denied_table.*"]},
+        }
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    handler = BigQuerySharingHandler(
+        config,
+        source.report,
+        identifiers=source.identifiers,
+        client=bq_client,
+        projects_client=MagicMock(),
+    )
+    handler.populate_for_project(
+        project_id, [BigqueryDataset(name=linked_dataset, type="LINKED")]
+    )
+    schema_gen.sharing_handler = handler
+
+    for view_name in ("allowed_view", "denied_view"):
+        list(
+            schema_gen._process_view(
+                BigqueryView(
+                    name=view_name,
+                    comment=None,
+                    created=None,
+                    last_altered=None,
+                    view_definition=None,
+                ),
+                [],
+                project_id,
+                linked_dataset,
+            )
+        )
+
+    for table_name in ("allowed_table", "denied_table"):
+        list(
+            schema_gen._process_table(
+                BigqueryTable(
+                    name=table_name,
+                    comment=None,
+                    created=None,
+                    last_altered=None,
+                    size_in_bytes=None,
+                    rows_count=None,
+                ),
+                [],
+                project_id,
+                linked_dataset,
+            )
+        )
+
+    # The new path reads table_refs, which _process_view / _process_table populate only
+    # past their pattern gate, so a denied entity is absent from table_refs and gets no
+    # COPY edge. add_known_lineage_mapping emits the table-level edge even with an empty
+    # resolver, which is all this asserts.
+    from datahub.ingestion.api.source_helpers import auto_workunit
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
+    from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+
+    aggregator = SqlParsingAggregator(
+        platform="bigquery",
+        platform_instance=None,
+        env="PROD",
+        schema_resolver=SchemaResolver(platform="bigquery", env="PROD"),
+        eager_graph_load=False,
+        generate_lineage=True,
+        generate_queries=True,
+        generate_usage_statistics=False,
+        generate_query_usage_statistics=False,
+        generate_operations=False,
+    )
+    handler.register_known_lineage(aggregator, schema_gen.table_refs)
+    with_lineage = {
+        wu.metadata.entityUrn  # type: ignore[union-attr]
+        for wu in auto_workunit(aggregator.gen_metadata())
+        if isinstance(wu.metadata.aspect, UpstreamLineageClass)  # type: ignore[union-attr]
+    }
+
+    def _urn(name: str) -> str:
+        return source.identifiers.gen_dataset_urn(project_id, linked_dataset, name)
+
+    assert _urn("denied_view") not in with_lineage
+    assert _urn("denied_table") not in with_lineage
+    assert _urn("allowed_view") in with_lineage
+    assert _urn("allowed_table") in with_lineage
+
+
+def test_sharing_properties_without_linked_datasets_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # The handler is only built when include_linked_dataset_lineage is on, so this
+    # pairing costs a permission grant and an enabled API for no output. Warn rather
+    # than raise, matching warn_legacy_only_usage_fields_under_queries_v2.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "project_ids": ["p"],
+                "include_linked_dataset_lineage": False,
+                "extract_subscriptions_from_analytics_hub": True,
+            }
+        )
+    assert any("has no effect" in r.msg for r in caplog.records)
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "project_ids": ["p"],
+                "include_linked_dataset_lineage": True,
+                "extract_subscriptions_from_analytics_hub": True,
+            }
+        )
+    assert not any("has no effect" in r.msg for r in caplog.records)
+
+
+def test_linked_dataset_lineage_flag_renamed() -> None:
+    # I11: the flag is include_linked_dataset_lineage. The pre-release name
+    # include_linked_datasets is not accepted -- no deprecation shim, since it never
+    # shipped -- so a recipe still using it fails loudly rather than silently no-op'ing.
+    assert (
+        BigQueryV2Config.model_validate(
+            {"project_ids": ["p"], "include_linked_dataset_lineage": True}
+        ).include_linked_dataset_lineage
+        is True
+    )
+    with pytest.raises(ValidationError):
+        BigQueryV2Config.model_validate(
+            {"project_ids": ["p"], "include_linked_datasets": True}
+        )
+
+
+def test_queries_config_rejects_linked_dataset_flag() -> None:
+    # I12: the bigquery-queries source has no schema pass, so linked-dataset detection
+    # cannot run there. Its config must reject the flag (extra="forbid") rather than
+    # accept and silently ignore it, so a misplaced flag surfaces at validation.
+    with pytest.raises(ValidationError):
+        BigQueryQueriesSourceConfig.model_validate(
+            {"project_id": "p", "include_linked_dataset_lineage": True}
+        )
+
+
+def test_linked_dataset_lineage_without_table_lineage_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # I13: the feature's whole output is the COPY lineage edge, which is gated on
+    # include_table_lineage. On with lineage off produces subtype/properties but no
+    # lineage -- warn so the user knows the main output is suppressed.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "project_ids": ["p"],
+                "include_linked_dataset_lineage": True,
+                "include_table_lineage": False,
+            }
+        )
+    assert any("include_table_lineage" in r.msg for r in caplog.records)
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "project_ids": ["p"],
+                "include_linked_dataset_lineage": True,
+                "include_table_lineage": True,
+            }
+        )
+    assert not any("include_table_lineage" in r.msg for r in caplog.records)
+
+
+def test_linked_dataset_lineage_without_schema_metadata_warns(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # I14: detection runs during the schema pass, so with include_schema_metadata off
+    # nothing is detected and the feature is inert -- warn rather than silently do
+    # nothing.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "project_ids": ["p"],
+                "include_linked_dataset_lineage": True,
+                "include_schema_metadata": False,
+            }
+        )
+    assert any("include_schema_metadata" in r.msg for r in caplog.records)
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        BigQueryV2Config.model_validate(
+            {
+                "project_ids": ["p"],
+                "include_linked_dataset_lineage": True,
+                "include_schema_metadata": True,
+            }
+        )
+    assert not any("include_schema_metadata" in r.msg for r in caplog.records)

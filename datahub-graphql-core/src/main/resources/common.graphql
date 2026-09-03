@@ -47,3 +47,14 @@ type MetadataAttribution {
   """
   sourceDetail: [StringMapEntry!]
 }
+
+"""
+A generic aspect-stored edge: resolved destination entity, optional audit
+stamps, and a free-form properties bag. Backed by com.linkedin.common.Edge.
+"""
+type EntityEdge {
+  destination: Entity!
+  created: AuditStamp
+  lastModified: AuditStamp
+  properties: [StringMapEntry!]
+}

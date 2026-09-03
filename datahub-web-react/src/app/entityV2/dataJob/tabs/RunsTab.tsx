@@ -2,6 +2,7 @@ import { DeliveredProcedureOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Pagination, Table, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { DefaultTheme, useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -57,12 +58,14 @@ const PAGE_SIZE = 20;
 export const RunsTab = () => {
     const { urn } = useEntityData();
     const [page, setPage] = useState(1);
+    const { t } = useTranslation('entity.types');
+    const { t: tl } = useTranslation('common.labels');
 
     const theme = useTheme();
 
     const columns = [
         {
-            title: 'Time',
+            title: t('shared.timeColumn'),
             dataIndex: 'time',
             key: 'time',
             render: (value) => (
@@ -72,12 +75,13 @@ export const RunsTab = () => {
             ),
         },
         {
-            title: 'Run ID',
+            title: t('shared.runIdColumn'),
             dataIndex: 'name',
             key: 'name',
+            render: (name) => <div data-testid={`run-name-${name}`}>{name}</div>,
         },
         {
-            title: 'Status',
+            title: tl('status'),
             dataIndex: 'status',
             key: 'status',
             render: (status: any, row) => {
@@ -85,29 +89,37 @@ export const RunsTab = () => {
                 const text = getExecutionRequestStatusDisplayText(statusForStyling);
                 const color = getExecutionRequestStatusDisplayColor(theme, statusForStyling);
                 return (
-                    <>
+                    <div data-testid={`run-status-${row.name}`}>
                         <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
                             <LastRunIcon theme={theme} status={status} resultType={row?.resultType} />
                             <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                                {text || 'N/A'}
+                                {text || tl('na')}
                             </Typography.Text>
                         </div>
-                    </>
+                    </div>
                 );
             },
         },
         {
-            title: 'Inputs',
+            title: t('shared.inputs'),
             dataIndex: 'inputs',
             key: 'inputs',
-            render: (inputs) => <CompactEntityNameList entities={inputs} placement="right" />,
+            render: (inputs) => (
+                <div data-testid="run-inputs-cell">
+                    <CompactEntityNameList entities={inputs} placement="right" />
+                </div>
+            ),
             width: 150,
         },
         {
-            title: 'Outputs',
+            title: t('shared.outputs'),
             dataIndex: 'outputs',
             key: 'outputs',
-            render: (outputs) => <CompactEntityNameList entities={outputs} placement="right" />,
+            render: (outputs) => (
+                <div data-testid="run-outputs-cell">
+                    <CompactEntityNameList entities={outputs} placement="right" />
+                </div>
+            ),
             width: 150,
         },
         {
@@ -116,7 +128,7 @@ export const RunsTab = () => {
             key: 'externalUrl',
             render: (externalUrl) =>
                 externalUrl && (
-                    <Tooltip title="View task run details">
+                    <Tooltip title={t('shared.viewTaskRunDetails')}>
                         <ExternalUrlLink href={safeUrl(externalUrl)}>
                             <DeliveredProcedureOutlined />
                         </ExternalUrlLink>
@@ -138,6 +150,7 @@ export const RunsTab = () => {
     const tableData = runs
         ?.filter((run) => run?.state?.length)
         .map((run) => ({
+            key: run?.name,
             time: run?.created?.time,
             name: run?.name,
             status: run?.state?.[0]?.status,
@@ -150,7 +163,7 @@ export const RunsTab = () => {
         return (
             <LoadingContainer>
                 <LoadingSvg height={80} width={80} />
-                <LoadingText>Fetching runs...</LoadingText>
+                <LoadingText>{t('shared.fetchingRuns')}</LoadingText>
             </LoadingContainer>
         );
     }

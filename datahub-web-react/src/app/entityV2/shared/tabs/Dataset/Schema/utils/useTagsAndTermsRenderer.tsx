@@ -1,7 +1,7 @@
-import { Tooltip } from '@components';
+import { Text, Tooltip } from '@components';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
-import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
@@ -13,7 +13,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '@types';
 
-const TagDisclaimer = styled(Typography.Text)`
+const TagDisclaimer = styled(Text)`
     color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 400;
@@ -32,6 +32,7 @@ export default function useTagsAndTermsRenderer(
     canEdit: boolean,
     showOneAndCount?: boolean,
 ) {
+    const { t } = useTranslation('entity.profile.schema');
     const urn = useMutationUrn();
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
@@ -49,27 +50,27 @@ export default function useTagsAndTermsRenderer(
     };
 
     const tagAndTermRender = (tags: GlobalTags, record: SchemaField) => {
-        const { directTerms, editableTerms, uneditableTerms, numberOfTerms } = extractFieldGlossaryTermsInfo(record);
-        const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(record, tags);
+        const { directTerms, editableTerms, uneditableTerms } = extractFieldGlossaryTermsInfo(record);
+        const { directTags, editableTags, uneditableTags } = extractFieldTagsInfo(record, tags);
 
         return (
             <div data-testid={`schema-field-${record.fieldPath}-${options.showTags ? 'tags' : 'terms'}`}>
                 {/* If can edit, show disclaimer for uneditable tags */}
                 {canEdit && options.showTags && !!uneditableTags?.tags?.length && (
                     <Tooltip
-                        title={`Some tags were sourced from ${platformName || 'an external platform'}. They will be resynced periodically during scheduled ingestion.`}
+                        title={t('tagTermRenderer.externalPlatformTooltip', {
+                            platform: platformName || t('tagTermRenderer.externalPlatformFallback'),
+                        })}
                     >
-                        <TagDisclaimer type="secondary">
-                            <Info /> Some tags are not editable.
+                        <TagDisclaimer type="span">
+                            <Info /> {t('tagTermRenderer.tagsNotEditable')}
                         </TagDisclaimer>
                     </Tooltip>
                 )}
                 <TagTermGroup
-                    numberOfTags={numberOfTags}
                     directTags={options.showTags ? directTags : null}
                     uneditableTags={options.showTags ? uneditableTags : null}
                     editableTags={options.showTags ? editableTags : null}
-                    numberOfTerms={numberOfTerms}
                     directGlossaryTerms={options.showTerms ? directTerms : null}
                     uneditableGlossaryTerms={options.showTerms ? uneditableTerms : null}
                     editableGlossaryTerms={options.showTerms ? editableTerms : null}

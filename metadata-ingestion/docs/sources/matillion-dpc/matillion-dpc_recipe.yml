@@ -4,7 +4,7 @@ source:
     api_config:
       client_id: "${MATILLION_CLIENT_ID}"
       client_secret: "${MATILLION_CLIENT_SECRET}"
-      region: "EU1" # EU1 or US1
+      region: "EU1" # EU1, US1, or AU1
 
     env: "PROD"
 

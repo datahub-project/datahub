@@ -21,17 +21,21 @@ source:
     topic_routes:
       mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
       pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}
-filter: 
-  event_type: "MetadataChangeLogEvent_v1"
-  event:
-    entityType: "dataHubExecutionRequest"
-    changeType: "UPSERT"
-    aspectName:
-      - "dataHubExecutionRequestInput"
-      - "dataHubExecutionRequestSignal"
-    aspect:
-      value:
-        executorId: "${EXECUTOR_ID:-default}"
+    enable_mcl_pre_deserialization_filter: true
+filters:
+  - type: event_type
+    config:
+      filter:
+        MetadataChangeLogEvent_v1:
+          event:
+            - entityType: "dataHubExecutionRequest"
+              changeType: "UPSERT"
+              aspectName:
+                - "dataHubExecutionRequestInput"
+                - "dataHubExecutionRequestSignal"
+              aspect:
+                value:
+                  executorId: "${EXECUTOR_ID:-default}"
 action:
   type: "executor"
   config:

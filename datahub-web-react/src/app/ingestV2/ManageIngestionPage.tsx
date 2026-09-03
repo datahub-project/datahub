@@ -1,6 +1,7 @@
 import { Button, PageTitle, Tabs, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -73,6 +74,7 @@ export const ManageIngestionPage = () => {
     /**
      * Determines which view should be visible: ingestion sources or secrets.
      */
+    const { t } = useTranslation('ingestion');
     const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
     const { config, loaded: loadedAppConfig } = useAppConfig();
     const location = useLocation();
@@ -95,11 +97,22 @@ export const ManageIngestionPage = () => {
     const { value: hideSystemSources, setValue: setHideSystemSources } = useUrlQueryParam('hideSystem', 'true');
     const { value: sourceFilter, setValue: setSourceFilter } = useUrlQueryParam('sourceFilter');
     const { value: searchQuery, setValue: setSearchQuery } = useUrlQueryParam('query');
+    const { value: sourceTypesParam, setValue: setSourceTypesParam } = useUrlQueryParam('sourceTypes');
+
+    const sourceTypes = useMemo(
+        () => (sourceTypesParam ? sourceTypesParam.split(',').filter(Boolean) : []),
+        [sourceTypesParam],
+    );
 
     // Stable callbacks to prevent infinite re-render loops in child components
     const handleSetSourceFilter = useCallback(
         (value: number | undefined) => setSourceFilter(value?.toString() || ''),
         [setSourceFilter],
+    );
+
+    const handleSetSourceTypes = useCallback(
+        (values: string[]) => setSourceTypesParam(values.join(',')),
+        [setSourceTypesParam],
     );
 
     const handleSetHideSystemSources = useCallback(
@@ -160,10 +173,12 @@ export const ManageIngestionPage = () => {
                     setSourceFilter={handleSetSourceFilter}
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
+                    sourceTypes={sourceTypes}
+                    setSourceTypes={handleSetSourceTypes}
                 />
             ),
             key: TabType.Sources as string,
-            name: TabType.Sources as string,
+            name: t('page.tabSources'),
         },
         {
             component: (
@@ -176,14 +191,14 @@ export const ManageIngestionPage = () => {
                 />
             ),
             key: TabType.RunHistory as string,
-            name: 'Run History',
+            name: t('page.tabRunHistory'),
         },
         showSecretsTab && {
             component: (
                 <SecretsList showCreateModal={showCreateSecretModal} setShowCreateModal={setShowCreateSecretModal} />
             ),
             key: TabType.Secrets as string,
-            name: TabType.Secrets as string,
+            name: t('page.tabSecrets'),
         },
     ].filter((tab): tab is Tab => Boolean(tab));
 
@@ -224,19 +239,11 @@ export const ManageIngestionPage = () => {
             <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
             <PageHeaderContainer>
                 <TitleContainer>
-                    <PageTitle
-                        title="Manage Data Sources"
-                        subTitle="Configure and schedule syncs to import data from your data sources"
-                    />
+                    <PageTitle title={t('page.title')} subTitle={t('page.subtitle')} />
                 </TitleContainer>
                 <HeaderActionsContainer>
                     {selectedTab === TabType.Sources && showIngestionTab && (
-                        <Tooltip
-                            title={
-                                !canManageIngestion &&
-                                `You don't have permission to perform this action. Please contact your DataHub admin for more info.`
-                            }
-                        >
+                        <Tooltip title={!canManageIngestion && t('page.noPermissionTooltip')}>
                             <div>
                                 <Button
                                     variant="filled"
@@ -246,7 +253,7 @@ export const ManageIngestionPage = () => {
                                     icon={{ icon: Plus }}
                                     disabled={!canManageIngestion}
                                 >
-                                    Create Source
+                                    {t('source.createButton')}
                                 </Button>
                             </div>
                         </Tooltip>
@@ -259,7 +266,7 @@ export const ManageIngestionPage = () => {
                             data-testid="create-secret-button"
                             icon={{ icon: Plus }}
                         >
-                            Create secret
+                            {t('secret.createButton')}
                         </Button>
                     )}
                 </HeaderActionsContainer>

@@ -9,6 +9,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -62,7 +63,8 @@ public class LifecycleStageTransitionHookTest {
             .graphRetriever(GraphRetriever.EMPTY)
             .build();
     // Default: return null for any stage info lookup (no policy → open entry)
-    when(mockAspectRetriever.getLatestAspectObject(any(), eq("lifecycleStageTypeInfo")))
+    when(mockAspectRetriever.getLatestAspectObject(
+            any(OperationFingerprint.class), any(), eq("lifecycleStageTypeInfo")))
         .thenReturn(null);
   }
 
@@ -70,14 +72,16 @@ public class LifecycleStageTransitionHookTest {
   public void testAllowedTransition_noPolicyOnDestination() {
     // No transition policy on PROPOSED → any prior stage can enter; Status unchanged
     when(mockAspectRetriever.getLatestAspectObject(
-            eq(PROPOSED_STAGE), eq("lifecycleStageTypeInfo")))
+            any(OperationFingerprint.class), eq(PROPOSED_STAGE), eq("lifecycleStageTypeInfo")))
         .thenReturn(makeStageAspect(true, null));
 
     Status proposedStatus = makeStatus(PROPOSED_STAGE);
     ChangeMCP item = makeChangeMCP(proposedStatus, null);
 
     List<Pair<ChangeMCP, Boolean>> result =
-        buildHook().writeMutation(List.of(item), retrieverContext).toList();
+        buildHook()
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .toList();
 
     assertEquals(result.size(), 1);
     assertFalse(result.get(0).getSecond(), "No mutation expected for allowed transition");
@@ -90,7 +94,7 @@ public class LifecycleStageTransitionHookTest {
     LifecycleStageTransitionPolicy policy = new LifecycleStageTransitionPolicy();
     policy.setAllowedPreviousStages(new com.linkedin.common.UrnArray(List.of(PROPOSED_STAGE)));
     when(mockAspectRetriever.getLatestAspectObject(
-            eq(CERTIFIED_STAGE), eq("lifecycleStageTypeInfo")))
+            any(OperationFingerprint.class), eq(CERTIFIED_STAGE), eq("lifecycleStageTypeInfo")))
         .thenReturn(makeStageAspect(false, policy));
 
     // Proposing CERTIFIED; entity is currently in PROPOSED
@@ -99,7 +103,9 @@ public class LifecycleStageTransitionHookTest {
     ChangeMCP item = makeChangeMCP(proposedStatus, previousStatus);
 
     List<Pair<ChangeMCP, Boolean>> result =
-        buildHook().writeMutation(List.of(item), retrieverContext).toList();
+        buildHook()
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .toList();
 
     assertEquals(result.size(), 1);
     assertFalse(result.get(0).getSecond(), "PROPOSED → CERTIFIED should be allowed, no mutation");
@@ -112,7 +118,7 @@ public class LifecycleStageTransitionHookTest {
     LifecycleStageTransitionPolicy policy = new LifecycleStageTransitionPolicy();
     policy.setAllowedPreviousStages(new com.linkedin.common.UrnArray(List.of(PROPOSED_STAGE)));
     when(mockAspectRetriever.getLatestAspectObject(
-            eq(CERTIFIED_STAGE), eq("lifecycleStageTypeInfo")))
+            any(OperationFingerprint.class), eq(CERTIFIED_STAGE), eq("lifecycleStageTypeInfo")))
         .thenReturn(makeStageAspect(false, policy));
 
     // Proposing CERTIFIED; entity is currently in ARCHIVED (not allowed)
@@ -121,7 +127,9 @@ public class LifecycleStageTransitionHookTest {
     ChangeMCP item = makeChangeMCP(proposedStatus, previousStatus);
 
     List<Pair<ChangeMCP, Boolean>> result =
-        buildHook().writeMutation(List.of(item), retrieverContext).toList();
+        buildHook()
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .toList();
 
     assertEquals(result.size(), 1);
     assertTrue(result.get(0).getSecond(), "ARCHIVED → CERTIFIED should be blocked (mutation)");
@@ -138,7 +146,7 @@ public class LifecycleStageTransitionHookTest {
     LifecycleStageTransitionPolicy policy = new LifecycleStageTransitionPolicy();
     policy.setAllowedPreviousStages(new com.linkedin.common.UrnArray());
     when(mockAspectRetriever.getLatestAspectObject(
-            eq(ARCHIVED_STAGE), eq("lifecycleStageTypeInfo")))
+            any(OperationFingerprint.class), eq(ARCHIVED_STAGE), eq("lifecycleStageTypeInfo")))
         .thenReturn(makeStageAspect(true, policy));
 
     // Proposing ARCHIVED from the null/active state
@@ -146,7 +154,9 @@ public class LifecycleStageTransitionHookTest {
     ChangeMCP item = makeChangeMCP(proposedStatus, null); // no previous stage
 
     List<Pair<ChangeMCP, Boolean>> result =
-        buildHook().writeMutation(List.of(item), retrieverContext).toList();
+        buildHook()
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .toList();
 
     assertEquals(result.size(), 1);
     assertTrue(result.get(0).getSecond(), "Unreachable stage should be blocked (mutation)");
@@ -162,7 +172,7 @@ public class LifecycleStageTransitionHookTest {
     LifecycleStageTransitionPolicy policy = new LifecycleStageTransitionPolicy();
     policy.setAllowedPreviousStages(new com.linkedin.common.UrnArray(List.of(noneSentinel)));
     when(mockAspectRetriever.getLatestAspectObject(
-            eq(PROPOSED_STAGE), eq("lifecycleStageTypeInfo")))
+            any(OperationFingerprint.class), eq(PROPOSED_STAGE), eq("lifecycleStageTypeInfo")))
         .thenReturn(makeStageAspect(true, policy));
 
     // No current stage → matches __NONE__ sentinel → allowed
@@ -170,7 +180,9 @@ public class LifecycleStageTransitionHookTest {
     ChangeMCP item = makeChangeMCP(proposedStatus, null);
 
     List<Pair<ChangeMCP, Boolean>> result =
-        buildHook().writeMutation(List.of(item), retrieverContext).toList();
+        buildHook()
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .toList();
 
     assertEquals(result.size(), 1);
     assertFalse(
@@ -188,7 +200,9 @@ public class LifecycleStageTransitionHookTest {
     ChangeMCP item = makeChangeMCP(proposedStatus, previousStatus);
 
     List<Pair<ChangeMCP, Boolean>> result =
-        buildHook().writeMutation(List.of(item), retrieverContext).toList();
+        buildHook()
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .toList();
 
     assertEquals(result.size(), 1);
     assertFalse(result.get(0).getSecond(), "Clearing lifecycle stage should never mutate");
@@ -204,7 +218,9 @@ public class LifecycleStageTransitionHookTest {
     ChangeMCP item = makeChangeMCP(proposedStatus, previousStatus);
 
     List<Pair<ChangeMCP, Boolean>> result =
-        buildHook().writeMutation(List.of(item), retrieverContext).toList();
+        buildHook()
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .toList();
 
     assertEquals(result.size(), 1);
     assertFalse(result.get(0).getSecond(), "Re-applying same stage should not mutate");
@@ -218,7 +234,9 @@ public class LifecycleStageTransitionHookTest {
     when(item.getAspectName()).thenReturn("glossaryTermInfo");
 
     List<Pair<ChangeMCP, Boolean>> result =
-        buildHook().writeMutation(List.of(item), retrieverContext).toList();
+        buildHook()
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .toList();
 
     assertEquals(result.size(), 1);
     assertFalse(result.get(0).getSecond(), "Non-status aspect should not be mutated");
@@ -231,7 +249,7 @@ public class LifecycleStageTransitionHookTest {
     policy.setAllowedPreviousStages(
         new com.linkedin.common.UrnArray(List.of(PROPOSED_STAGE))); // only PROPOSED allowed
     when(mockAspectRetriever.getLatestAspectObject(
-            eq(CERTIFIED_STAGE), eq("lifecycleStageTypeInfo")))
+            any(OperationFingerprint.class), eq(CERTIFIED_STAGE), eq("lifecycleStageTypeInfo")))
         .thenReturn(makeStageAspect(false, policy));
 
     // Proposing CERTIFIED from null/active (not in allowed list) → revert to null
@@ -239,7 +257,9 @@ public class LifecycleStageTransitionHookTest {
     ChangeMCP item = makeChangeMCP(proposedStatus, null);
 
     List<Pair<ChangeMCP, Boolean>> result =
-        buildHook().writeMutation(List.of(item), retrieverContext).toList();
+        buildHook()
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .toList();
 
     assertTrue(result.get(0).getSecond(), "Should be mutated (reverted)");
     assertFalse(proposedStatus.hasLifecycleStage(), "Should revert to null/active");

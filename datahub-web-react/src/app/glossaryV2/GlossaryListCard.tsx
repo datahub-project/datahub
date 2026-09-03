@@ -1,14 +1,16 @@
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
-import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { getGlossaryEntityIcon } from '@app/glossaryV2/utils';
 import { Tooltip } from '@src/alchemy-components';
 
-import { EntityType, Maybe } from '@types';
+import { DisplayProperties, EntityType, Maybe } from '@types';
 
 const SmallDescription = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};
@@ -88,6 +90,7 @@ const Icons = styled.div`
 
 const MAX_DESCRIPTION_LENGTH = 100;
 const MAX_DEPTH_QUERIED = 4;
+const TRUNCATION_SUFFIX = '...';
 
 interface Props {
     name: string;
@@ -95,20 +98,34 @@ interface Props {
     type: EntityType;
     urn: string;
     entityData: GenericEntityProperties | null;
+    displayProperties?: Maybe<DisplayProperties>;
     nodeCount?: Maybe<number>;
     termCount?: Maybe<number>;
     maxDepth?: number;
 }
 
 const GlossaryListCard = (props: Props) => {
-    const { name, description, type, entityData, urn, nodeCount, termCount, maxDepth } = props;
+    const { t } = useTranslation('governance.glossary');
+    const { name, description, type, entityData, urn, displayProperties, nodeCount, termCount, maxDepth } = props;
     const isDescriptionTruncated = description && description.length > MAX_DESCRIPTION_LENGTH;
     const truncatedDescription = description?.slice(0, MAX_DESCRIPTION_LENGTH);
     const isExceedingMaxDepth = (maxDepth || 0) > MAX_DEPTH_QUERIED;
     const generateColor = useGenerateGlossaryColorFromPalette();
     const isNode = type === EntityType.GlossaryNode;
-    const glossaryColor = generateColor(entityData?.urn || urn);
-    const Icon = isNode ? BookmarksSimple : BookmarkSimple;
+    // Route through the canonical resolver so children render the same color here, in the
+    // sidebar, and in the header. The currently-viewed entity is the immediate parent for
+    // this card — pass its resolved color as `inheritedColor` so children without their own
+    // explicit color inherit the parent's identity rather than landing on a palette slot
+    // derived from their own URN.
+    const inheritedColor = entityData
+        ? entityData.displayProperties?.colorHex || generateColor(entityData.urn ?? urn)
+        : undefined;
+    const glossaryColor = resolveGlossaryEntityColor(
+        { urn, displayProperties: displayProperties ?? null },
+        generateColor,
+        { inheritedColor },
+    );
+    const Icon = getGlossaryEntityIcon(type);
 
     return (
         <EntityDetailsWrapper>
@@ -119,7 +136,7 @@ const GlossaryListCard = (props: Props) => {
                     {description && (
                         <SmallDescription>
                             {truncatedDescription}
-                            {isDescriptionTruncated ? '...' : null}
+                            {isDescriptionTruncated ? TRUNCATION_SUFFIX : null}
                         </SmallDescription>
                     )}
                 </NameAndDescription>
@@ -127,7 +144,7 @@ const GlossaryListCard = (props: Props) => {
             {isNode ? (
                 <Icons>
                     <Tooltip
-                        title={`Contains ${nodeCount} ${nodeCount === 1 ? 'term group' : 'term groups'}`}
+                        title={t('card.nodeGroupCountTooltip', { count: nodeCount || 0 })}
                         placement="top"
                         showArrow={false}
                     >
@@ -141,7 +158,7 @@ const GlossaryListCard = (props: Props) => {
                         </GlossaryItemCount>
                     </Tooltip>
                     <Tooltip
-                        title={`Contains ${termCount} ${termCount === 1 ? 'term' : 'terms'}`}
+                        title={t('card.termCountTooltip', { count: termCount || 0 })}
                         placement="top"
                         showArrow={false}
                     >

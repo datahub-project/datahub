@@ -3,7 +3,7 @@
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Iterator, Optional
+from typing import TYPE_CHECKING, Any, Iterator, Optional, Sequence
 
 from datahub.ingestion.graph.client import DataHubGraph
 
@@ -20,7 +20,8 @@ class DocumentEventConsumer:
 
     This consumer:
     1. Polls events from DataHub's /openapi/v1/events/poll endpoint
-    2. Filters for Document entity MCL events
+    2. Filters for Document entity MCL events on the configured aspects
+       (``documentInfo`` by default)
     3. Tracks offsets via stateful ingestion (if state_handler provided) or Platform Resources (fallback)
     4. Exits after idle timeout (incremental batch mode)
     """
@@ -36,6 +37,7 @@ class DocumentEventConsumer:
         poll_timeout_seconds: int = 2,
         poll_limit: int = 100,
         state_handler: Optional["DocumentChunkingStateHandler"] = None,
+        aspect_names: Sequence[str] = ("documentInfo",),
     ):
         self.graph = graph
         self.consumer_id = consumer_id
@@ -46,6 +48,12 @@ class DocumentEventConsumer:
         self.poll_timeout_seconds = poll_timeout_seconds
         self.poll_limit = poll_limit
         self.state_handler = state_handler
+        self.aspect_names = tuple(aspect_names)
+        # When True, offsets are NOT committed on exit/close. Set by the driving
+        # source when a document in the polled window failed to process, so the
+        # window is re-polled and the document retried on the next run instead of
+        # its event being acknowledged and lost.
+        self.suppress_offset_commits = False
 
         # Base URL for events API
         self.base_url = f"{graph.config.server}/openapi"
@@ -167,12 +175,7 @@ class DocumentEventConsumer:
         params = {k: v for k, v in params.items() if v is not None and v != ""}
 
         try:
-            import requests
-
-            headers = dict(self.graph._session.headers)
-            response = requests.get(
-                endpoint, params=params, headers=headers, timeout=30
-            )
+            response = self.graph.session.get(endpoint, params=params, timeout=30)
             response.raise_for_status()
 
             data = response.json()
@@ -225,12 +228,7 @@ class DocumentEventConsumer:
         }
 
         try:
-            import requests
-
-            headers = dict(self.graph._session.headers)
-            response = requests.get(
-                endpoint, params=params, headers=headers, timeout=30
-            )
+            response = self.graph.session.get(endpoint, params=params, timeout=30)
             response.raise_for_status()
 
             data = response.json()
@@ -307,6 +305,7 @@ class DocumentEventConsumer:
                         continue
 
                     # Check if it's a documentInfo aspect change
+                    # Keep only the aspects this consumer was configured for.
                     # aspectName comes wrapped in a dict: {"string": "documentInfo"}
                     aspect_name_raw = mcl_dict.get("aspectName")
                     if not aspect_name_raw:
@@ -316,7 +315,7 @@ class DocumentEventConsumer:
                         if isinstance(aspect_name_raw, dict)
                         else aspect_name_raw
                     )
-                    if aspect_name != "documentInfo":
+                    if aspect_name not in self.aspect_names:
                         continue
 
                     # Reset idle timer only when yielding a document event
@@ -342,18 +341,27 @@ class DocumentEventConsumer:
                     continue
 
         # Commit all offsets before exiting
-        for topic in self.topics:
-            offset_id = self.offset_ids.get(topic)
-            if offset_id:
-                self._save_offset(topic, offset_id)
+        self._commit_offsets()
 
         logger.info(
             f"Event consumption complete. Total events processed: {total_events_processed}"
         )
 
-    def close(self) -> None:
-        """Close the consumer and commit offsets."""
+    def _commit_offsets(self) -> None:
+        if self.suppress_offset_commits:
+            # ponytail: re-polls the whole window next run; a permanently failing
+            # document stalls offset advance (loud per-run warnings) — upgrade to a
+            # per-document retry queue if that ever bites.
+            logger.warning(
+                "Offset commit suppressed because a document in this window failed "
+                "to process; the window will be re-polled next run."
+            )
+            return
         for topic in self.topics:
             offset_id = self.offset_ids.get(topic)
             if offset_id:
                 self._save_offset(topic, offset_id)
+
+    def close(self) -> None:
+        """Close the consumer and commit offsets."""
+        self._commit_offsets()

@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Any, List, Union
 
-from airflow.models import BaseOperator
+from airflow.sdk import BaseOperator
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -12,19 +12,8 @@ from datahub_airflow_plugin.hooks.datahub import (
 )
 
 if TYPE_CHECKING:
+    from airflow.sdk import Context
     from jinja2 import Environment
-
-    # Import Context with version compatibility for type checking
-    # Import to different names to avoid redefinition errors, then assign to Context
-    Context: Any
-    try:
-        from airflow.utils.context import Context as _AirflowContext
-
-        Context = _AirflowContext
-    except ImportError:
-        from airflow.sdk.definitions.context import Context as _Airflow3Context
-
-        Context = _Airflow3Context  # type: ignore[no-redef]
 
 
 class DatahubBaseOperator(BaseOperator):

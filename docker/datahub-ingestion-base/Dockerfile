@@ -70,6 +70,9 @@ ENV UV_DEFAULT_INDEX=${PIP_MIRROR_URL}
 USER datahub
 WORKDIR $HOME
 RUN uv venv --python "$PYTHON_VERSION"
+# Pre-create as datahub so BuildKit cache mounts at $HOME/.cache/uv do not leave
+# the parent root-owned (siblings like puccinialin then hit PermissionError).
+RUN mkdir -p $HOME/.cache
 ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
@@ -114,6 +117,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
+
+RUN --mount=type=bind,source=./docker/snippets/mssql_odbc.sh,target=/mssql_odbc.sh \
+    /mssql_odbc.sh
 
 USER datahub
 # INLINE-END

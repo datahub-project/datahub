@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { LOOKBACK_WINDOWS } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { AssertionResultsTimelineViz } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionResultsTimelineViz';
 import { AssertionTimelineSkeleton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionTimelineSkeleton';
 import { TimeSelect } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/TimeSelect';
@@ -27,6 +28,7 @@ type Props = {
 // TODO: Add the run summary table here as well.
 // TODO: here's where we will switch on the assertion itself.
 export const AssertionResultsTimeline = ({ assertion }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     /**
      * Retrieve a specific assertion's evaluations between a particular start and end time.
      */
@@ -35,7 +37,7 @@ export const AssertionResultsTimeline = ({ assertion }: Props) => {
     /**
      * Set default window for fetching assertion history.
      */
-    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.MONTH);
+    const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(LOOKBACK_WINDOWS.MONTH);
 
     /**
      * Track whether we've triggered a data fetch yet
@@ -85,7 +87,7 @@ export const AssertionResultsTimeline = ({ assertion }: Props) => {
         assertion.info?.type === AssertionType.Freshness ? FRESHNESS_VIZ_CONTAINER_HEIGHT : VIZ_CONTAINER_HEIGHT;
     return (
         <Container>
-            {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
+            {error && <Message type="error" content={t('timeline.failedToLoad')} />}
             {loading || isInitializing ? (
                 <AssertionTimelineSkeleton
                     parentDimensions={{

@@ -19,7 +19,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -60,6 +62,15 @@ public class MCLKafkaListener
 
   @Override
   protected boolean shouldSkipProcessing(MetadataChangeLog event) {
+    return shouldSkipMcl(event, aspectsToDrop);
+  }
+
+  /**
+   * Shared filter: returns {@code true} when this MCL's entity-type + aspect matches the
+   * aspects-to-drop configuration. Used by both the Kafka listeners and the pgQueue batch handler.
+   */
+  public static boolean shouldSkipMcl(
+      MetadataChangeLog event, Map<String, Set<String>> aspectsToDrop) {
     String entityType = event.hasEntityType() ? event.getEntityType() : null;
     String aspectName = event.hasAspectName() ? event.getAspectName() : null;
 

@@ -11,19 +11,34 @@ Tests cover:
 - exclude_personal_collections config
 """
 
-from typing import Dict, Iterator, List
+from typing import Dict, Iterator, List, cast
 from unittest.mock import MagicMock, patch
 
 import requests
 from requests.models import HTTPError
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.mode import (
     HTTPError429,
     HTTPError504,
     ModeConfig,
     ModeSource,
     _is_http_404,
+)
+from datahub.metadata.schema_classes import (
+    InputFieldsClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
+    UpstreamLineageClass,
+)
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+    SqlParsingResult,
 )
 
 # ──────────────────────────────────────────────────────────────────────
@@ -466,6 +481,52 @@ def _make_workunit(id: str) -> MagicMock:
 
 
 # ──────────────────────────────────────────────────────────────────────
+# get_upstream_lineage_for_parsed_sql
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestGetUpstreamLineageForParsedSql:
+    def test_skips_unresolved_upstream_column(self):
+        """An upstream ColumnRef with an empty column (sqlglot couldn't
+        resolve it) is dropped instead of producing an invalid
+        schemaField URN."""
+        source = _make_source()
+        upstream_table_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.upstream,PROD)"
+        )
+        parsed = SqlParsingResult(
+            in_tables=[upstream_table_urn],
+            out_tables=[],
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(column="my_col"),
+                    upstreams=[
+                        ColumnRef(table=upstream_table_urn, column=""),
+                        ColumnRef(table=upstream_table_urn, column="resolved_col"),
+                    ],
+                )
+            ],
+        )
+
+        wus = list(
+            source.get_upstream_lineage_for_parsed_sql(
+                query_urn="urn:li:query:(mode,q1)",
+                query_data={"id": "q1", "last_run_id": "r1", "data_source_id": "ds1"},
+                parsed_query_object=parsed,
+            )
+        )
+
+        assert len(wus) == 1
+        mcpw = cast(MetadataChangeProposalWrapper, wus[0].metadata)
+        upstream_lineage = cast(UpstreamLineageClass, mcpw.aspect)
+        assert upstream_lineage.fineGrainedLineages is not None
+        fgl = upstream_lineage.fineGrainedLineages[0]
+        assert fgl.upstreams == [
+            f"urn:li:schemaField:({upstream_table_urn},resolved_col)"
+        ]
+
+
+# ──────────────────────────────────────────────────────────────────────
 # _process_report error isolation
 # ──────────────────────────────────────────────────────────────────────
 
@@ -734,3 +795,92 @@ class TestChartFetchGating:
         source = _make_source()
         assert self._drive(source, explorations_count=5, chart_count=0) == 0
         assert source.report.chart_api_calls_skipped == 1
+
+
+# ──────────────────────────────────────────────────────────────────────
+# report_pattern filtering
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestReportPattern:
+    def _make_source_with_config(self, **kwargs: object) -> ModeSource:
+        config = ModeConfig(
+            token="test",
+            password="test",
+            workspace="test_workspace",
+            **kwargs,
+        )
+        with (
+            patch("datahub.ingestion.source.mode.requests.Session"),
+            patch.object(ModeSource, "_get_request_json", return_value={}),
+        ):
+            ctx = MagicMock()
+            ctx.graph = None
+            ctx.pipeline_name = "test"
+            ctx.run_id = "test-run"
+            ctx.pipeline_config = None
+            source = ModeSource(ctx, config)
+        return source
+
+    def test_report_pattern_deny_excludes_report(self):
+        """Reports matching the deny pattern should be excluded and tracked."""
+
+        source = self._make_source_with_config(
+            report_pattern=AllowDenyPattern(deny=["^slow_report$"])
+        )
+
+        reports = [
+            {"token": "tok1", "name": "slow_report"},
+            {"token": "tok2", "name": "fast_report"},
+        ]
+
+        with (
+            patch.object(
+                source, "_get_reports", return_value=iter([[reports[0]], [reports[1]]])
+            ),
+            patch.object(source, "_get_datasets", return_value=iter([])),
+            patch.object(source, "construct_space_container", return_value=iter([])),
+        ):
+            report_args, _, _ = source._collect_space_work_items("space1", "MySpace")
+
+        assert len(report_args) == 1
+        assert report_args[0][1]["token"] == "tok2"
+        assert "slow_report" in list(source.report.filtered_reports)
+
+
+class TestGetInputFields:
+    def test_preserves_schema_field_casing(self):
+        """A chart formula field reference must resolve to the query schema's
+        actual (case-preserving) field path, not a lowercased ghost schemaField
+        URN — otherwise the column-level input-field edge points at a field that
+        does not exist on the query dataset."""
+        source = _make_source_with_definitions({})
+        query_urn = "urn:li:dataset:(urn:li:dataPlatform:mode,test.query,PROD)"
+        chart_urn = "urn:li:chart:(mode,test.chart)"
+        field_path = "MixedCaseCol"
+        chart_fields = {
+            field_path: SchemaFieldClass(
+                fieldPath=field_path,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="varchar",
+            )
+        }
+        chart_data = {"formula": "[MixedCaseCol] * 2"}
+
+        wus = list(
+            source.get_input_fields(
+                chart_urn=chart_urn,
+                chart_data=chart_data,
+                chart_fields=chart_fields,
+                query_urn=query_urn,
+            )
+        )
+
+        assert len(wus) == 1
+        mcp = wus[0].metadata
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
+        aspect = mcp.aspect
+        assert isinstance(aspect, InputFieldsClass)
+        assert [f.schemaFieldUrn for f in aspect.fields] == [
+            builder.make_schema_field_urn(query_urn, field_path)
+        ]

@@ -1,5 +1,6 @@
 import { Button, Text, Tooltip } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
@@ -44,6 +45,8 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
     renderRightButtons,
     disabledNextTooltip,
 }: Props) {
+    const { t } = useTranslation('shared.misc');
+    const { t: tc } = useTranslation('common.actions');
     const {
         goToNext,
         canGoToNext,
@@ -74,20 +77,20 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
         if (canGoToPrevious()) {
             buttons.push(
                 <Button key="back" size="sm" variant="secondary" onClick={goToPrevious} data-testid="back-button">
-                    Back
+                    {tc('back')}
                 </Button>,
             );
         }
 
         return buttons;
-    }, [canGoToPrevious, goToPrevious]);
+    }, [canGoToPrevious, goToPrevious, tc]);
 
     const rightButtons = useMemo(() => {
         const buttons: React.ReactNode[] = [];
 
         buttons.push(
             <Button key="cancel" size="sm" variant="text" color="gray" onClick={cancel} data-testid="cancel-button">
-                Cancel
+                {tc('cancel')}
             </Button>,
         );
 
@@ -95,18 +98,13 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
             const isDisabled = !isCurrentStepCompleted();
             const nextButton = (
                 <Button key="next" size="sm" disabled={isDisabled} onClick={goToNext} data-testid="next-button">
-                    Next
+                    {tc('next')}
                 </Button>
             );
 
             buttons.push(
                 isDisabled ? (
-                    <Tooltip
-                        key="next"
-                        title={
-                            disabledNextTooltip || 'Please complete all required fields before moving to the next step'
-                        }
-                    >
+                    <Tooltip key="next" title={disabledNextTooltip || t('multiStepForm.disabledNextTooltip')}>
                         <span>{nextButton}</span>
                     </Tooltip>
                 ) : (
@@ -124,7 +122,7 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
                     onClick={onSubmit}
                     data-testid="submit-button"
                 >
-                    Submit
+                    {tc('submit')}
                 </Button>,
             );
         }
@@ -140,6 +138,8 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
         onSubmit,
         showSubmitButton,
         isSubmitInProgress,
+        t,
+        tc,
     ]);
 
     return (
@@ -147,9 +147,11 @@ export function MultiStepFormBottomPanel<TState, TStep extends Step>({
             <LeftButtonGroup>{renderLeftButtons ? renderLeftButtons(leftButtons) : leftButtons}</LeftButtonGroup>
             <Spacer />
 
+            {/* eslint-disable i18next/no-literal-string -- (untranslated-text) numeric/punctuation separator */}
             <Text data-testid="step-counter">
                 {currentStepIndex + 1} / {totalSteps}
             </Text>
+            {/* eslint-enable i18next/no-literal-string */}
             <Spacer />
 
             <RightButtonGroup>{renderRightButtons ? renderRightButtons(rightButtons) : rightButtons}</RightButtonGroup>

@@ -4,10 +4,12 @@ import { Code } from '@phosphor-icons/react/dist/csr/Code';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Drawer, Typography } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
+import { pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { AboutFieldTab } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/AboutFieldTab';
 import DrawerFooter from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/DrawerFooter';
 import FieldHeader from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldHeader';
@@ -20,11 +22,13 @@ import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components
 import { SchemaTimelineSection } from '@app/entityV2/shared/tabs/Dataset/Timeline/SchemaTimelineSection';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { TabRenderType } from '@src/app/entityV2/shared/types';
+import { TabRenderType } from '@app/entityV2/shared/types';
 
 import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
 import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
 import { EditableSchemaMetadata, Post, SchemaField, TimeWindow, UsageQueryResult } from '@types';
+
+const DEFAULT_SELECTED_TAB_KEY = 'About';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -81,14 +85,14 @@ interface Props {
     expandedDrawerFieldPath: string | null;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
     openTimelineDrawer?: boolean;
-    setOpenTimelineDrawer?: any;
+    setOpenTimelineDrawer?: (open: boolean) => void;
     selectPreviousField?: () => void;
     selectNextField?: () => void;
     usageStats?: UsageQueryResult | null;
     displayedRows: ExtendedSchemaFields[];
     refetch?: () => void;
     mask?: boolean;
-    defaultSelectedTabName?: string;
+    defaultSelectedTabKey?: string;
 }
 
 export default function SchemaFieldDrawer({
@@ -104,8 +108,9 @@ export default function SchemaFieldDrawer({
     displayedRows,
     refetch,
     mask = false,
-    defaultSelectedTabName = 'About',
+    defaultSelectedTabKey = DEFAULT_SELECTED_TAB_KEY,
 }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const expandedFieldIndex = useMemo(
         () => displayedRows.findIndex((row) => row.fieldPath === expandedDrawerFieldPath),
         [expandedDrawerFieldPath, displayedRows],
@@ -119,8 +124,8 @@ export default function SchemaFieldDrawer({
 
     const latestProfile = latestFullTableProfile || latestPartitionProfile;
 
-    const fieldProfile = latestProfile?.fieldProfiles?.find(
-        (profile) => profile.fieldPath === expandedField?.fieldPath,
+    const fieldProfile = latestProfile?.fieldProfiles?.find((profile) =>
+        pathMatchesInsensitiveToV2(profile.fieldPath, expandedField?.fieldPath),
     );
 
     const urn = (baseEntity && baseEntity.dataset && baseEntity.dataset?.urn) || '';
@@ -163,12 +168,8 @@ export default function SchemaFieldDrawer({
     }, [displayedRows, expandedDrawerFieldPath, setExpandedDrawerFieldPath]);
 
     const profiles = profilesData?.dataset?.datasetProfiles || [];
-    const [selectedTabName, setSelectedTabName] = useState(defaultSelectedTabName);
+    const [selectedTabKey, setSelectedTabKey] = useState(defaultSelectedTabKey);
 
-    /**
-     * Fetches updated data profiles when the lookback window is changed in the Historical Chart view.
-     * @param lookbackWindow The new time window for data fetching.
-     */
     const fetchDataWithLookbackWindow = useCallback(
         (lookbackWindow: TimeWindow) => {
             if (urn) {
@@ -182,7 +183,8 @@ export default function SchemaFieldDrawer({
 
     const tabs: any = [
         {
-            name: 'About',
+            key: 'About',
+            name: t('fieldDrawerTabs.about'),
             icon: BookOpen,
             component: AboutFieldTab,
             properties: {
@@ -195,7 +197,7 @@ export default function SchemaFieldDrawer({
                 fetchDataWithLookbackWindow,
                 profilesDataLoading,
                 notes,
-                setSelectedTabName,
+                setSelectedTabName: setSelectedTabKey,
                 refetch,
                 refetchNotes,
                 fieldUrn: expandedField?.schemaFieldEntity?.urn,
@@ -203,7 +205,8 @@ export default function SchemaFieldDrawer({
             },
         },
         {
-            name: 'Statistics',
+            key: 'Statistics',
+            name: t('fieldDrawerTabs.statistics'),
             icon: ChartBar,
             component: StatsTabWrapper,
             properties: {
@@ -215,16 +218,18 @@ export default function SchemaFieldDrawer({
             },
         },
         {
-            name: 'Queries',
+            key: 'Queries',
+            name: t('fieldDrawerTabs.queries'),
             component: SchemaFieldQueriesSidebarTab,
-            description: 'View queries about this field',
+            description: t('fieldDrawerTabs.queriesDescription'),
             icon: Code,
             properties: { fieldPath: expandedField?.fieldPath },
         },
         {
-            name: 'Properties',
+            key: 'Properties',
+            name: t('fieldDrawerTabs.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this field',
+            description: t('fieldDrawerTabs.propertiesDescription'),
             icon: ListBullets,
             properties: {
                 fieldPath: expandedField?.fieldPath,
@@ -235,7 +240,7 @@ export default function SchemaFieldDrawer({
         },
     ];
 
-    const selectedTab = tabs.find((tab) => tab.name === selectedTabName);
+    const selectedTab = tabs.find((tab) => tab.key === selectedTabKey);
 
     return (
         <>
@@ -273,7 +278,7 @@ export default function SchemaFieldDrawer({
                                     <SchemaFieldDrawerTabs
                                         tabs={tabs}
                                         selectedTab={selectedTab}
-                                        onSelectTab={(name) => setSelectedTabName(name)}
+                                        onSelectTab={(key) => setSelectedTabKey(key)}
                                     />
                                 </Tabs>
                             </Body>
@@ -292,7 +297,7 @@ export default function SchemaFieldDrawer({
             {!!openTimelineDrawer && (
                 <StyledDrawer
                     open={!!openTimelineDrawer}
-                    onClose={() => setOpenTimelineDrawer(false)}
+                    onClose={() => setOpenTimelineDrawer?.(false)}
                     getContainer={() => document.getElementById('entity-profile-sidebar') as HTMLElement}
                     contentWrapperStyle={{ width: '33%' }}
                     mask={false}
@@ -303,7 +308,7 @@ export default function SchemaFieldDrawer({
                 >
                     <DrawerContent>
                         <TimelineHeaderWrapper>
-                            <TimelineHeader>Timeline for table</TimelineHeader>
+                            <TimelineHeader>{t('fieldDrawer.timelineForTable')}</TimelineHeader>
                         </TimelineHeaderWrapper>
                         <SchemaTimelineSection />
                     </DrawerContent>

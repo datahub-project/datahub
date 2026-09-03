@@ -7,13 +7,15 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 test.use({ featureName: 'search' });
 
 test.describe('SearchV2 Features', () => {
   let searchPage: SearchPage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     searchPage = new SearchPage(page, logger, logDir);
     await searchPage.navigateToHome();
   });
@@ -26,6 +28,7 @@ test.describe('SearchV2 Features', () => {
 
   test('should perform autocomplete search', async ({ page }) => {
     await searchPage.searchInput.fill('playwright');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(1000);
     await expect(searchPage.autocompleteDropdown).toBeVisible();
   });
@@ -46,7 +49,7 @@ test.describe('SearchV2 Features', () => {
 
   test('should navigate through filter dropdowns', async ({ page }) => {
     await searchPage.searchAndWait('*', 2000);
-    const typeFilterDropdown = page.locator('[data-testid="filter-dropdown-Type"]');
+    const typeFilterDropdown = page.getByTestId('filter-dropdown-Type');
     await typeFilterDropdown.click();
     await expect(searchPage.filterDropdownMenu).toBeVisible();
     await expect(searchPage.updateFiltersButton).toBeVisible();
@@ -57,7 +60,9 @@ test.describe('SearchV2 Features', () => {
     const moreFiltersBtn = searchPage.moreFiltersDropdown;
     await expect(moreFiltersBtn).toBeVisible({ timeout: 10000 });
     await moreFiltersBtn.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(500);
+    // eslint-disable-next-line playwright/no-raw-locators -- data-testid prefix selector (^=); getByTestId requires exact match
     const moreFilterOption = page.locator('[data-testid^="more-filter-"]').first();
     await expect(moreFilterOption).toBeVisible();
   });
@@ -65,9 +70,9 @@ test.describe('SearchV2 Features', () => {
   test('should display active filters with correct test IDs', async ({ page }) => {
     await searchPage.searchAndWait('*', 2000);
     await searchPage.selectFilterOption('Type', 'Datasets');
-    const activeFilter = page.locator('[data-testid="active-filter-_entityType␞typeNames"]');
+    const activeFilter = page.getByTestId('active-filter-_entityType␞typeNames');
     await expect(activeFilter).toBeVisible();
-    const activeFilterValue = page.locator('[data-testid="active-filter-value-_entityType␞typeNames-DATASET"]');
+    const activeFilterValue = page.getByTestId('active-filter-value-_entityType␞typeNames-DATASET');
     await expect(activeFilterValue).toBeVisible();
   });
 
@@ -78,7 +83,7 @@ test.describe('SearchV2 Features', () => {
     await searchPage.expectActiveFilter('Datasets');
     await searchPage.expectActiveFilter('Hive');
 
-    const removeTypeFilterButton = page.locator('[data-testid="remove-filter-_entityType␞typeNames"]');
+    const removeTypeFilterButton = page.getByTestId('remove-filter-_entityType␞typeNames');
     await removeTypeFilterButton.click();
     await searchPage.expectActiveFilterNotVisible('Datasets');
     await searchPage.expectActiveFilter('Hive');
@@ -102,10 +107,12 @@ test.describe('SearchV2 Features', () => {
 
   test('should expand and collapse filter facets', async ({ page }) => {
     await searchPage.searchAndWait('*', 2000);
+    // eslint-disable-next-line playwright/no-raw-locators -- data-testid prefix selector (^=); getByTestId requires exact match
     const expandFacetIcon = page.locator('[data-testid^="expand-facet-"]').first();
     const facetCount = await expandFacetIcon.count();
     if (facetCount > 0) {
       await expandFacetIcon.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(500);
       await page.waitForLoadState('networkidle');
     }

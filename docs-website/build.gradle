@@ -21,10 +21,10 @@ node {
   }
 
   // Version of node to use.
-  version = '22.12.0'
+  version = rootProject.ext.nodeVersion
 
   // Version of Yarn to use.
-  yarnVersion = '1.22.22'
+  yarnVersion = rootProject.ext.yarnVersion
 
   distBaseUrl = gradle.ext['datahub.dependencies.node.distBaseUrl']
 
@@ -59,6 +59,18 @@ task installPythonDeps(type: Exec, dependsOn: environmentSetup) {
     venv_activate_command +
     "uv pip install -r requirements.txt && " +
     "touch ${sentinel_file}"
+}
+
+task testPythonScripts(type: Exec, dependsOn: installPythonDeps) {
+  inputs.files(project.fileTree(dir: 'sphinx', include: '*.py'))
+  inputs.files(project.fileTree(dir: 'sphinx/tests', include: '*.py'))
+  outputs.dir('sphinx/test-results')
+  commandLine 'bash', '-c',
+    venv_activate_command +
+    "pytest -vv sphinx/tests --junit-xml=sphinx/test-results/junit.sphinx.xml" +
+    // Both this suite and the metadata-ingestion script suite are published to the
+    // same job summary, so name it for the summary to stay attributable.
+    " -o junit_suite_name=docs-website-sphinx-pytest"
 }
 
 /*
@@ -121,13 +133,21 @@ task fastReload(type: YarnTask) {
   args = ['run', 'generate-rsync']
 }
 
-task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  inputs.files(projectMdFiles)
+def yarnLintInputs = [
+  file('generateDocsDir.ts'),
+  file('sidebars.js'),
+  file('src/pages/index.js'),
+  file('package.json'),
+  file('yarn.lock'),
+]
+
+task yarnLint(type: YarnTask, dependsOn: [yarnInstall]) {
+  inputs.files(yarnLintInputs)
   args = ['run', 'lint-check']
 }
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall]) {
-  inputs.files(projectMdFiles)
+  inputs.files(yarnLintInputs)
   args = ['run', 'lint-fix']
 }
 
@@ -136,7 +156,7 @@ task serve(type: YarnTask, dependsOn: [yarnInstall] ) {
 }
 
 
-task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate]) {
+task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   inputs.files(projectMdFiles)
   inputs.file("package.json").withPathSensitivity(PathSensitivity.RELATIVE)
   inputs.dir("src").withPathSensitivity(PathSensitivity.RELATIVE)

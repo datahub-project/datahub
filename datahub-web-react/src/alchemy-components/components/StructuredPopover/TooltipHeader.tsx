@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { TooltipHeaderProps } from '@components/components/StructuredPopover/types';
@@ -53,11 +54,13 @@ const Image = styled.img`
 `;
 
 export function TooltipHeader({ title, subTitle, image, action: Action, titleSuffix }: TooltipHeaderProps) {
+    const { t } = useTranslation('alchemy');
+
     if (!title) return null;
 
     return (
         <Container>
-            {image && <Image src={image} alt="Tooltip header" />}
+            {image && <Image src={image} alt={t('tooltipHeader.imageAlt')} />}
             <TitleContainer>
                 <PrimaryTitle>
                     <Title>{title}</Title>

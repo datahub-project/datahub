@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { Trans } from 'react-i18next';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
@@ -10,15 +11,14 @@ export const BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID = 'business-glossary-create-
 export const BusinessGlossaryOnboardingConfig: OnboardingStep[] = [
     {
         id: BUSINESS_GLOSSARY_INTRO_ID,
-        title: 'Business Glossary 📖',
+        title: <Trans i18nKey="onboarding:glossary.introTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    Welcome to the <strong>Business Glossary</strong>!
+                    <Trans i18nKey="onboarding:glossary.introWelcome" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    The Glossary is a collection of structured, standarized labels you can use to categorize data
-                    assets. You can view and create both <strong>Terms</strong> and <strong>Term Groups</strong> here.
+                    <Trans i18nKey="onboarding:glossary.introDescription" components={{ bold: <strong /> }} />
                 </p>
             </Text>
         ),
@@ -26,14 +26,14 @@ export const BusinessGlossaryOnboardingConfig: OnboardingStep[] = [
     {
         id: BUSINESS_GLOSSARY_CREATE_TERM_ID,
         selector: `#${BUSINESS_GLOSSARY_CREATE_TERM_ID}`,
-        title: 'Glossary Terms',
+        title: <Trans i18nKey="onboarding:glossary.termsTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    Click here to create a new <strong>Term</strong> .
+                    <Trans i18nKey="onboarding:glossary.createTerm" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    <strong>Terms</strong> are words or phrases with a specific business definition assigned to them.
+                    <Trans i18nKey="onboarding:glossary.termsDescription" components={{ bold: <strong /> }} />
                 </p>
             </Text>
         ),
@@ -41,29 +41,33 @@ export const BusinessGlossaryOnboardingConfig: OnboardingStep[] = [
     {
         id: BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
         selector: `#${BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}`,
-        title: 'Glossary Term Groups',
+        title: <Trans i18nKey="onboarding:glossary.termGroupsTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    Click here to create a new <strong>Term Group</strong>.
+                    <Trans i18nKey="onboarding:glossary.createTermGroup" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    <strong>Term Groups</strong> act as folders, containing Terms and nested Term Groups.
+                    <Trans i18nKey="onboarding:glossary.termGroupsDescription" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    For example, there could be a <strong>PII Term Group</strong> containing Terms for different types
-                    of PII, such as <strong>Email</strong> or <strong>Phone Number</strong>.
+                    <Trans i18nKey="onboarding:glossary.termGroupsExample" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    Learn more about the <strong>Business Glossary</strong>{' '}
-                    <a
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        href="https://docs.datahub.com/docs/glossary/business-glossary"
-                    >
-                        {' '}
-                        here.
-                    </a>
+                    <Trans
+                        i18nKey="onboarding:glossary.learnMore"
+                        components={{
+                            bold: <strong />,
+                            anchor: (
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    href="https://docs.datahub.com/docs/glossary/business-glossary"
+                                />
+                            ),
+                        }}
+                    />
                 </p>
             </Text>
         ),

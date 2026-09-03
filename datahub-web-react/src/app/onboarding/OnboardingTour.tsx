@@ -1,5 +1,6 @@
 import { Button } from 'antd';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import Tour from 'reactour';
 import { useTheme } from 'styled-components';
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export const OnboardingTour = ({ stepIds }: Props) => {
+    const { t } = useTranslation('onboarding');
     const { educationSteps, setEducationSteps, educationStepIdsAllowlist } = useContext(EducationStepsContext);
     const userUrn = useUserContext()?.user?.urn;
     const theme = useTheme();
@@ -129,7 +131,7 @@ export const OnboardingTour = ({ stepIds }: Props) => {
             scrollDuration={500}
             accentColor={accentColor}
             badgeContent={(current) => <span style={{ color: theme.colors.text }}>{current}</span>}
-            lastStepNextButton={<Button>Let&apos;s go!</Button>}
+            lastStepNextButton={<Button>{t('tour.letsGo')}</Button>}
             getCurrentStep={handleStepChange}
             update={updateKey}
         />

@@ -3,6 +3,7 @@ plugins {
 }
 
 apply from: "../gradle/coverage/python-coverage.gradle"
+apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
 
 ext {
   python_executable = 'python3'
@@ -185,19 +186,23 @@ task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check scripts/ scripts/tests/ src/ tests/ examples/ && " +
-    "ruff format --check scripts/ scripts/tests/ src/ tests/ examples/ && " +
-    "mypy --show-traceback --show-error-codes src/ tests/ examples/"
+    "ruff check . && " +
+    "ruff format --check . && " +
+    "mypy --show-traceback --show-error-codes ."
 }
 
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check --fix scripts/ scripts/tests/ src/ tests/ examples/ && " +
-    "ruff format scripts/ scripts/tests/ src/ tests/ examples/ "
+    "ruff check --fix . && " +
+    "ruff format . "
 }
 
-def pytest_default_env = ""  // set to "PYTHONDEVMODE=1" to warn on unclosed socket
+// PYTHONFAULTHANDLER keeps faulthandler armed through interpreter shutdown. pytest's
+// faulthandler plugin only re-arms it at unconfigure if it was already enabled at
+// startup, so without this a segfault after the test session ends prints nothing.
+// Add "PYTHONDEVMODE=1" here to also warn on unclosed sockets.
+def pytest_default_env = "PYTHONFAULTHANDLER=1"
 
 task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
@@ -255,7 +260,7 @@ def testFile = hasProperty('testFile') ? testFile : 'unknown'
 task testSingle(dependsOn: [installDevTest]) {
   doLast {
   if (testFile != 'unknown')  {
-    exec {
+    execOps.exec {
       commandLine 'bash', '-c',
         "${venv_activate_command} ${pytest_default_env} pytest ${testFile} --junit-xml=test-results/junit.file.xml"
     }
@@ -319,6 +324,12 @@ task docGen(type: Exec, dependsOn: [codegen, installDocs, specGen]) {
     // This can further reduce if we generate more things in the future
     dependsOn connectorRegistry
   }
+  // sourceDir is connectorRegistry's output and is consumed below as an input file
+  // tree, but the dependency above is only declared when the directory is missing.
+  // Without an ordering rule Gradle rejects the pair as an implicit dependency, so
+  // asking for both tasks in one invocation fails. mustRunAfter fixes the ordering
+  // without forcing connectorRegistry to run on the fast path.
+  mustRunAfter connectorRegistry
 
   def docsOutDir = "${rootProject.projectDir}/docs/generated/ingestion"
   def extraDocsDir = "${rootProject.projectDir}/metadata-ingestion/docs/sources"
@@ -356,7 +367,6 @@ task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache, chec
 }
 
 build.dependsOn install
-check.dependsOn lint
 check.dependsOn testQuick
 check.dependsOn checkLockFile
 
@@ -384,6 +394,6 @@ clean.dependsOn(cleanPythonCache, cleanGeneratedFiles)
 idea {
   module {
     sourceDirs += file('src')
-    testSourceDirs += file('tests')
+    testSources.from(file('tests'))
   }
 }

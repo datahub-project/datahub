@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.plugins.validation;
 import static org.testng.Assert.*;
 
 import com.datahub.authorization.AuthorizationSession;
+import com.datahub.context.OperationFingerprint;
 import com.datahub.test.TestEntityProfile;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -93,7 +94,8 @@ public class ValidatorPluginTest {
     // With session
     AuthorizationSession session = Mockito.mock(AuthorizationSession.class);
 
-    validator.validateProposed(List.of(item), retrieverContext, session);
+    validator.validateProposed(
+        OperationFingerprint.EMPTY, List.of(item), retrieverContext, session);
     assertTrue(validator.isAuthMethodCalled());
     assertTrue(validator.isNoAuthMethodCalled());
 
@@ -102,7 +104,7 @@ public class ValidatorPluginTest {
     validator.setNoAuthMethodCalled(false);
 
     // Without session
-    validator.validateProposed(List.of(item), retrieverContext, null);
+    validator.validateProposed(OperationFingerprint.EMPTY, List.of(item), retrieverContext, null);
     assertFalse(validator.isAuthMethodCalled());
     assertTrue(validator.isNoAuthMethodCalled());
   }
@@ -119,6 +121,7 @@ public class ValidatorPluginTest {
 
     @Override
     protected Stream<AspectValidationException> validateProposedAspects(
+        @Nonnull OperationFingerprint operationContext,
         @Nonnull Collection<? extends BatchItem> mcpItems,
         @Nonnull RetrieverContext retrieverContext) {
       noAuthMethodCalled = true;
@@ -127,6 +130,7 @@ public class ValidatorPluginTest {
 
     @Override
     protected Stream<AspectValidationException> validateProposedAspectsWithAuth(
+        @Nonnull OperationFingerprint operationContext,
         @Nonnull Collection<? extends BatchItem> mcpItems,
         @Nonnull RetrieverContext retrieverContext,
         @Nullable com.datahub.authorization.AuthorizationSession session) {
@@ -138,7 +142,9 @@ public class ValidatorPluginTest {
 
     @Override
     protected Stream<AspectValidationException> validatePreCommitAspects(
-        @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        @Nonnull Collection<ChangeMCP> changeMCPs,
+        @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
     }
 

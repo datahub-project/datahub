@@ -68,6 +68,7 @@ export const DocumentChangeTimelineContent: React.FC<DocumentChangeTimelineConte
                 />
 
                 {/* Timestamp with full date on hover */}
+                {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) dayjs date format token, not user-facing copy */}
                 <Popover content={timestamp.format('ll LTS')} placement="right">
                     <TimeRow>
                         <TimeText type="span" size="sm">

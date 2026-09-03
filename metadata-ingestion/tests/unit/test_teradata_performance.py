@@ -13,6 +13,7 @@ import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.teradata import (
+    LineageQuery,
     TeradataConfig,
     TeradataSource,
     TeradataTable,
@@ -237,7 +238,9 @@ class TestMemoryOptimizations:
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
             with patch.object(
-                source, "_make_lineage_queries", return_value=["SELECT 1"]
+                source,
+                "_make_lineage_queries",
+                return_value=[LineageQuery(sql="SELECT 1", label="current_only")],
             ):
                 # Create mock result that returns batches
                 mock_result = MagicMock()
@@ -257,9 +260,7 @@ class TestMemoryOptimizations:
 
                 mock_connection = MagicMock()
                 mock_engine = MagicMock()
-                mock_engine.connect.return_value.__enter__.return_value = (
-                    mock_connection
-                )
+                mock_engine.connect.return_value = mock_connection
 
                 with (
                     patch.object(
@@ -321,7 +322,6 @@ class TestPerformanceReporting:
                 create_timestamp=datetime.now(),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text="SELECT * FROM test_table",
             )
             source._tables_cache["test_schema"] = [test_view]
 
@@ -418,8 +418,12 @@ class TestPerformanceReporting:
             ]
 
             with patch.object(source, "get_metadata_engine") as mock_get_engine:
+                mock_conn = MagicMock()
+                mock_result = MagicMock()
+                mock_result.fetchmany.side_effect = [mock_entries, []]
+                mock_conn.execute.return_value = mock_result
                 mock_engine = MagicMock()
-                mock_engine.execute.return_value = mock_entries
+                mock_engine.connect.return_value = mock_conn
                 mock_get_engine.return_value = mock_engine
 
                 source.cache_tables_and_views()
@@ -469,10 +473,11 @@ class TestThreadSafetyOptimizations:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Verify report lock exists
-            assert hasattr(source, "_report_lock")
-            # Check that it's a lock object by checking its type name
-            assert source._report_lock.__class__.__name__ == "lock"
+            # Verify the public atomic() context manager is available and
+            # backed by a real lock (not a MagicMock).
+            assert hasattr(source.report, "atomic")
+            assert hasattr(source.report, "_lock")
+            assert source.report._lock.__class__.__name__ == "lock"
 
     def test_pooled_engine_lock_usage(self):
         """Test that pooled engine creation uses locks."""
@@ -606,7 +611,6 @@ class TestQueryOptimizations:
             create_timestamp=datetime.now(),
             last_alter_name=None,
             last_alter_timestamp=None,
-            request_text=None,
         )
 
         tables_cache = {"test_schema": [test_table]}

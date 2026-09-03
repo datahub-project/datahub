@@ -4,6 +4,7 @@ import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { WarningDiamond } from '@phosphor-icons/react/dist/csr/WarningDiamond';
+import i18next from 'i18next';
 import React, { useState } from 'react';
 import styled, { useTheme } from 'styled-components';
 
@@ -65,46 +66,50 @@ export function hasSomethingToShow(report: StructuredReportType): boolean {
 }
 
 export function generateReportTitle(hasErrors: boolean, hasWarnings: boolean, hasInfos: boolean): string {
-    if (hasErrors && hasWarnings && hasInfos) {
-        return 'Errors & Warnings';
-    }
     if (hasErrors && hasWarnings) {
-        return 'Errors & Warnings';
+        return i18next.t('ingestion:report.titleErrorsAndWarnings');
     }
     if (hasErrors && hasInfos) {
-        return 'Errors & Infos';
+        return i18next.t('ingestion:report.titleErrorsAndInfos');
     }
     if (hasWarnings && hasInfos) {
-        return 'Warnings & Infos';
+        return i18next.t('ingestion:report.titleWarningsAndInfos');
     }
     if (hasErrors) {
-        return 'Errors';
+        return i18next.t('ingestion:report.titleErrors');
     }
     if (hasWarnings) {
-        return 'Warnings';
+        return i18next.t('ingestion:report.titleWarnings');
     }
     if (hasInfos) {
-        return 'Infos';
+        return i18next.t('ingestion:report.titleInfos');
     }
     return '';
 }
 
 export function generateReportSubtitle(hasErrors: boolean, hasWarnings: boolean, hasInfos: boolean): string {
-    const parts: string[] = [];
-    if (hasErrors) parts.push('errors');
-    if (hasWarnings) parts.push('warnings');
-    if (hasInfos) parts.push('information');
-
-    let subtitle = 'Ingestion ran with ';
-    if (parts.length === 1) {
-        subtitle += parts[0];
-    } else if (parts.length === 2) {
-        subtitle += parts.join(' and ');
-    } else {
-        subtitle += `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
+    if (hasErrors && hasWarnings && hasInfos) {
+        return i18next.t('ingestion:report.subtitleErrorsWarningsInfo');
     }
-    subtitle += '.';
-    return subtitle;
+    if (hasErrors && hasWarnings) {
+        return i18next.t('ingestion:report.subtitleErrorsWarnings');
+    }
+    if (hasErrors && hasInfos) {
+        return i18next.t('ingestion:report.subtitleErrorsInfo');
+    }
+    if (hasWarnings && hasInfos) {
+        return i18next.t('ingestion:report.subtitleWarningsInfo');
+    }
+    if (hasErrors) {
+        return i18next.t('ingestion:report.subtitleErrors');
+    }
+    if (hasWarnings) {
+        return i18next.t('ingestion:report.subtitleWarnings');
+    }
+    if (hasInfos) {
+        return i18next.t('ingestion:report.subtitleInfo');
+    }
+    return '';
 }
 
 export function distributeVisibleItems(

@@ -2,6 +2,7 @@ import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
 import { ArrowElbowDownLeft } from '@phosphor-icons/react/dist/csr/ArrowElbowDownLeft';
 import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import KeyIcon from '@app/searchV2/searchBarV2/components/KeyIcon';
@@ -39,20 +40,22 @@ interface Props {
 }
 
 export default function AutocompleteFooter({ isSomethingSelected }: Props) {
+    const { t } = useTranslation('search');
+
     return (
         <Container>
             <KeySuggestion>
                 <KeyIcon icon={ArrowUp} />
                 <KeyIcon icon={ArrowDown} />
                 <Text color="gray" size="sm" weight="semiBold">
-                    Navigate
+                    {t('searchBar.footer.navigate')}
                 </Text>
             </KeySuggestion>
 
             <KeySuggestion>
                 <KeyIcon icon={ArrowElbowDownLeft} />
                 <Text color="gray" size="sm" weight="semiBold">
-                    {isSomethingSelected ? 'Select' : 'Search All'}
+                    {isSomethingSelected ? t('searchBar.footer.select') : t('searchBar.footer.searchAll')}
                 </Text>
             </KeySuggestion>
         </Container>

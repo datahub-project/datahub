@@ -14,10 +14,15 @@ const StyledLink = styled(Link)`
     width: 100%;
 `;
 
+const EntityItemWrapper = styled.div`
+    width: 100%;
+`;
+
 interface Props {
     entity: Entity;
     moduleType: DataHubPageModuleType;
     customDetailsRenderer?: (entity: Entity) => React.ReactNode;
+    customIconRenderer?: () => React.ReactNode;
     navigateOnlyOnNameClick?: boolean;
     dragIconRenderer?: () => React.ReactNode;
     hideSubtitle?: boolean;
@@ -33,6 +38,7 @@ export default function EntityItem({
     entity,
     moduleType,
     customDetailsRenderer,
+    customIconRenderer,
     navigateOnlyOnNameClick = false,
     dragIconRenderer,
     hideSubtitle,
@@ -63,6 +69,7 @@ export default function EntityItem({
         hideMatches,
         padding,
         customDetailsRenderer,
+        customIconRenderer,
         dragIconRenderer,
         customHoverEntityName,
         navigateOnlyOnNameClick,
@@ -74,6 +81,7 @@ export default function EntityItem({
             <div
                 role="button"
                 tabIndex={0}
+                data-testid="entity-item"
                 onClick={() => customOnEntityClick(entity)}
                 onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -87,12 +95,22 @@ export default function EntityItem({
     }
 
     if (navigateOnlyOnNameClick) {
-        return <AutoCompleteEntityItem {...autoCompleteItemProps} onClick={sendAnalytics} />;
+        return (
+            <div data-testid="entity-item">
+                <AutoCompleteEntityItem {...autoCompleteItemProps} onClick={sendAnalytics} />
+            </div>
+        );
     }
 
     return (
-        <StyledLink to={entityRegistry.getEntityUrl(entity.type, entity.urn)} onClick={sendAnalytics} {...linkProps}>
-            <AutoCompleteEntityItem {...autoCompleteItemProps} />
-        </StyledLink>
+        <EntityItemWrapper data-testid="entity-item">
+            <StyledLink
+                to={entityRegistry.getEntityUrl(entity.type, entity.urn)}
+                onClick={sendAnalytics}
+                {...linkProps}
+            >
+                <AutoCompleteEntityItem {...autoCompleteItemProps} />
+            </StyledLink>
+        </EntityItemWrapper>
     );
 }

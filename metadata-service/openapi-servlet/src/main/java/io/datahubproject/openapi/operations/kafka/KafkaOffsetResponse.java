@@ -43,6 +43,11 @@ public class KafkaOffsetResponse extends LinkedHashMap<String, Object> {
 
     @Schema(description = "Consumer lag (difference between end offset and consumer offset)")
     private Long lag;
+
+    @Schema(
+        description =
+            "Offset ahead of log tail (STUCK_AHEAD when positive); committed minus max enqueue_seq")
+    private Long aheadBy;
   }
 
   /** Class representing aggregate lag metrics for a topic. */

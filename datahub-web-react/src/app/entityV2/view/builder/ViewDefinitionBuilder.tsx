@@ -1,4 +1,6 @@
+import { ButtonTabs, Tab } from '@components';
 import React, { useCallback, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SelectFilterValuesTab } from '@app/entityV2/view/builder/SelectFilterValuesTab';
@@ -8,6 +10,7 @@ import {
     SELECT_ASSETS_TAB_KEY,
 } from '@app/entityV2/view/builder/constants';
 import { ViewBuilderMode, ViewFilter } from '@app/entityV2/view/builder/types';
+import { useViewBuilderProperties } from '@app/entityV2/view/builder/useViewBuilderProperties';
 import {
     buildViewDefinition,
     filtersToLogicalPredicate,
@@ -16,10 +19,7 @@ import {
     logicalPredicateToFilters,
     selectedUrnsToFilters,
 } from '@app/entityV2/view/builder/utils';
-import { viewBuilderProperties } from '@app/entityV2/view/builder/viewBuilderProperties';
 import { ViewBuilderState } from '@app/entityV2/view/types';
-import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
-import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
 import LogicalFiltersBuilder from '@app/sharedV2/queryBuilder/LogicalFiltersBuilder';
 import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
@@ -42,6 +42,8 @@ type Props = {
 };
 
 export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
+    const { t } = useTranslation('entity.views');
+    const properties = useViewBuilderProperties();
     const existingFilters = (state.definition?.filter?.filters || []) as ViewFilter[];
     const existingOperator = state.definition?.filter?.operator;
 
@@ -106,13 +108,13 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     const tabs: Tab[] = [
         {
             key: BUILD_FILTERS_TAB_KEY,
-            label: 'Build Filters',
+            label: t('viewDefinition.tabBuildFilters'),
             content: (
                 <ScrollableFiltersWrapper>
                     <LogicalFiltersBuilder
                         filters={dynamicFilter ?? DEFAULT_DYNAMIC_FILTER}
                         onChangeFilters={handleDynamicFilterChange}
-                        properties={viewBuilderProperties}
+                        properties={properties}
                         hideAddGroup
                     />
                 </ScrollableFiltersWrapper>
@@ -120,7 +122,7 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
         },
         {
             key: SELECT_ASSETS_TAB_KEY,
-            label: 'Select Assets',
+            label: t('viewDefinition.tabSelectAssets'),
             content: (
                 <SelectFilterValuesTab selectedUrns={selectedUrns} onChangeSelectedUrns={handleSelectAssetsChange} />
             ),

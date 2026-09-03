@@ -8,6 +8,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
@@ -67,7 +68,9 @@ public class AspectMigrationMutatorChainTest {
 
     ChangeMCP item = ownershipItem();
     List<Pair<ChangeMCP, Boolean>> results =
-        chain.writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertFalse(results.get(0).getSecond(), "Disabled chain should be a no-op");
@@ -79,7 +82,9 @@ public class AspectMigrationMutatorChainTest {
 
     ChangeMCP item = ownershipItem();
     List<Pair<ReadItem, Boolean>> results =
-        chain.readMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .readMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertFalse(results.get(0).getSecond(), "Disabled chain should be a no-op on read path");
@@ -95,7 +100,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItem(); // no schemaVersion → DEFAULT_SCHEMA_VERSION (1)
 
     List<Pair<ChangeMCP, Boolean>> results =
-        chain.writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertTrue(results.get(0).getSecond(), "Expected mutation=true");
@@ -110,7 +117,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItem(2L); // already at v2
 
     List<Pair<ChangeMCP, Boolean>> results =
-        chain.writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertFalse(results.get(0).getSecond(), "Expected no mutation for already-migrated item");
@@ -125,7 +134,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItem(); // no schemaVersion → DEFAULT_SCHEMA_VERSION (1)
 
     List<Pair<ReadItem, Boolean>> results =
-        chain.readMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .readMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertTrue(results.get(0).getSecond(), "Expected mutation=true on read path");
@@ -140,7 +151,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItem(2L); // already at v2
 
     List<Pair<ReadItem, Boolean>> results =
-        chain.readMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .readMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertFalse(results.get(0).getSecond(), "Expected no mutation for already-migrated item");
@@ -160,7 +173,9 @@ public class AspectMigrationMutatorChainTest {
         ownershipItem(); // no schemaVersion → DEFAULT_SCHEMA_VERSION (1), both hops fire
 
     List<Pair<ChangeMCP, Boolean>> results =
-        chain.writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertTrue(results.get(0).getSecond(), "Expected mutation=true");
@@ -178,7 +193,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItem(); // v1
 
     List<Pair<ChangeMCP, Boolean>> results =
-        chain.writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertTrue(results.get(0).getSecond(), "Mutator should fire after gap is bridged");
@@ -193,7 +210,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItem(); // v1
 
     List<Pair<ReadItem, Boolean>> results =
-        chain.readMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .readMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertTrue(results.get(0).getSecond(), "Mutator should fire after gap is bridged on read path");
@@ -210,7 +229,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItem(); // v1
 
     List<Pair<ChangeMCP, Boolean>> results =
-        chain.writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertTrue(results.get(0).getSecond(), "Both hops should fire");
@@ -226,7 +247,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItem(); // v1
 
     List<Pair<ReadItem, Boolean>> results =
-        chain.readMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .readMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertTrue(results.get(0).getSecond(), "Both hops should fire on read path");
@@ -243,7 +266,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItem(3L);
 
     List<Pair<ChangeMCP, Boolean>> results =
-        chain.writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertTrue(results.get(0).getSecond(), "Second hop should fire after gap v3→v4 is bridged");
@@ -260,7 +285,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItem(5L);
 
     List<Pair<ChangeMCP, Boolean>> results =
-        chain.writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertFalse(results.get(0).getSecond(), "No mutation expected for already-final data");
@@ -279,7 +306,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItemWithAspectSchemaVersion(null, 5L); // v1 data, aspect at v5
 
     List<Pair<ChangeMCP, Boolean>> results =
-        chain.writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertTrue(results.get(0).getSecond(), "Expected mutation=true");
@@ -298,7 +327,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItemWithAspectSchemaVersion(null, 5L); // v1 data, aspect at v5
 
     List<Pair<ReadItem, Boolean>> results =
-        chain.readMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .readMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertTrue(results.get(0).getSecond(), "Expected mutation=true on read path");
@@ -317,7 +348,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItemWithAspectSchemaVersion(3L, 3L); // data at v3, aspect at v3
 
     List<Pair<ChangeMCP, Boolean>> results =
-        chain.writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertFalse(
@@ -335,7 +368,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItemWithAspectSchemaVersion(null, 4L); // v1 data, aspect at v4
 
     List<Pair<ChangeMCP, Boolean>> results =
-        chain.writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertTrue(
@@ -354,7 +389,9 @@ public class AspectMigrationMutatorChainTest {
     ChangeMCP item = ownershipItemWithAspectSchemaVersion(5L, 8L); // data at v5, aspect at v8
 
     List<Pair<ChangeMCP, Boolean>> results =
-        chain.writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertEquals(results.size(), 1);
     assertTrue(results.get(0).getSecond(), "Trailing bridge alone must set mutated=true");
@@ -381,7 +418,9 @@ public class AspectMigrationMutatorChainTest {
 
     ChangeMCP item = ownershipItem();
     List<Pair<ChangeMCP, Boolean>> results =
-        chain.writeMutation(List.of(item), retrieverContext).collect(Collectors.toList());
+        chain
+            .writeMutation(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+            .collect(Collectors.toList());
 
     assertFalse(results.get(0).getSecond(), "Disabled chain should not apply mutations");
     assertFalse(

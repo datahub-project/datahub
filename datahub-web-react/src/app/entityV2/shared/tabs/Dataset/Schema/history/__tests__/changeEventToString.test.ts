@@ -110,7 +110,7 @@ describe('getChangeEventString', () => {
             };
 
             const result = getChangeEventString(changeEvent);
-            expect(result).toBe('Set asset documentation to New asset description');
+            expect(result).toBe('Set asset documentation to New asset description.');
         });
 
         it('should handle setting field documentation', () => {
@@ -123,7 +123,7 @@ describe('getChangeEventString', () => {
             };
 
             const result = getChangeEventString(changeEvent);
-            expect(result).toBe('Set field documentation for test.field to New field description');
+            expect(result).toBe('Set field documentation for test.field to New field description.');
         });
 
         it('should handle setting v2 field documentation', () => {
@@ -136,7 +136,7 @@ describe('getChangeEventString', () => {
             };
 
             const result = getChangeEventString(changeEvent);
-            expect(result).toBe('Set field documentation for addresses.zip to New field description');
+            expect(result).toBe('Set field documentation for addresses.zip to New field description.');
         });
 
         it('should show column name for SchemaMetadata field description changes (no description param)', () => {
@@ -420,6 +420,26 @@ describe('getChangeEventString', () => {
 
             const result = getChangeEventString(changeEvent);
             expect(result).toBe('Added owner "jane_doe" (Business Owner).');
+        });
+
+        it('should resolve a custom ownership type URN to its display name via the name map', () => {
+            // Custom types have opaque UUID slugs; without name resolution the label would show the
+            // UUID ("Custom Uuid 123") instead of the type's real name.
+            const changeEvent: ChangeEvent = {
+                urn: 'urn:test',
+                category: ChangeCategoryType.Ownership,
+                operation: ChangeOperationType.Add,
+                parameters: [
+                    { key: 'ownerUrn', value: 'urn:li:corpuser:jane_doe' },
+                    { key: 'ownerType', value: 'NONE' },
+                    { key: 'ownerTypeUrn', value: 'urn:li:ownershipType:custom-uuid-123' },
+                ],
+                description: "'jane_doe' added as owner.",
+            };
+
+            const nameMap = new Map([['urn:li:ownershipType:custom-uuid-123', 'Data Owner']]);
+            const result = getChangeEventString(changeEvent, nameMap);
+            expect(result).toBe('Added owner "jane_doe" (Data Owner).');
         });
 
         it('should suppress NONE owner type', () => {

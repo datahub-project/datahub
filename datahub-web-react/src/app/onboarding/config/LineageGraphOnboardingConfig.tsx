@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { Trans } from 'react-i18next';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
@@ -9,25 +10,30 @@ export const LINEAGE_GRAPH_TIME_FILTER_ID = 'lineage-graph-time-filter';
 export const LineageGraphOnboardingConfig: OnboardingStep[] = [
     {
         id: LINEAGE_GRAPH_INTRO_ID,
-        title: 'Lineage Graph',
+        title: <Trans i18nKey="onboarding:lineageGraph.introTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    You can view the <strong>Lineage Graph</strong> for an entity on this page.
+                    <Trans i18nKey="onboarding:lineageGraph.introDescription" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    Data <strong>Lineage</strong> allows you to visualize and understand both the upstream dependencies
-                    and downstream consumers of this entity.
+                    <Trans i18nKey="onboarding:lineageGraph.dataLineageDescription" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    Learn more about <strong>Lineage</strong>{' '}
-                    <a
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        href="https://docs.datahub.com/docs/features/feature-guides/lineage/"
-                    >
-                        here.
-                    </a>
+                    <Trans
+                        i18nKey="onboarding:lineageGraph.learnMore"
+                        components={{
+                            bold: <strong />,
+                            anchor: (
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    href="https://docs.datahub.com/docs/features/feature-guides/lineage/"
+                                />
+                            ),
+                        }}
+                    />
                 </p>
             </Text>
         ),
@@ -35,13 +41,11 @@ export const LineageGraphOnboardingConfig: OnboardingStep[] = [
     {
         id: LINEAGE_GRAPH_TIME_FILTER_ID,
         selector: `#${LINEAGE_GRAPH_TIME_FILTER_ID}`,
-        title: 'Filter Lineage Edges by Date',
+        title: <Trans i18nKey="onboarding:lineageGraph.timeFilterTitle" />,
         content: (
             <Text type="div" size="md">
                 <p>
-                    You can click which dates you would like to see lineage edges for on this graph. By default, the
-                    graph will show edges observed in the last 14 days. Note that manual lineage edges and edges without
-                    time information will always be shown.
+                    <Trans i18nKey="onboarding:lineageGraph.timeFilterDescription" />
                 </p>
             </Text>
         ),

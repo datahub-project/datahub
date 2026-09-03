@@ -19,6 +19,7 @@ const DOCUMENT_URN = 'urn:li:document:playwright-external-doc-test';
 const DOCUMENT_TITLE = 'Playwright External Document';
 
 test.describe('external document profile', () => {
+  test.skip(true, 'Data seeding failure. AI-617');
   test.beforeEach(async ({ apiMock }) => {
     await apiMock.setFeatureFlags({
       contextDocumentsEnabled: true,
@@ -37,11 +38,11 @@ test.describe('external document profile', () => {
     await expect(page.getByText('Last Synced').first()).toBeVisible({ timeout: 10000 });
 
     // Inline content section renders
-    const contentSection = page.locator('[data-testid="external-document-inline-content-section"]');
+    const contentSection = page.getByTestId('external-document-inline-content-section');
     await expect(contentSection).toBeVisible({ timeout: 10000 });
 
     // Info banner explains the content is extracted and may be lossy
-    const banner = page.locator('[data-testid="external-document-inline-banner"]');
+    const banner = page.getByTestId('external-document-inline-banner');
     await expect(banner).toBeVisible();
     await expect(banner).toContainText('Text extracted from');
     await expect(banner).toContainText('Notion');

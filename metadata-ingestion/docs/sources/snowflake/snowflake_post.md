@@ -6,6 +6,8 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/data-sharing-provider) to share data across different Snowflake accounts, and you have set up DataHub recipes for ingesting metadata from all these accounts, you may end up having multiple similar dataset entities corresponding to virtual versions of the same table in different Snowflake accounts. The DataHub Snowflake connector can automatically link such tables together through Siblings and Lineage relationships if the user provides information necessary to establish the relationship using the `shares` configuration in the recipe.
 
+**Note:** The `shares` configuration is also strongly recommended when using the `marketplace.enabled` feature to ingest Snowflake internal marketplace listings as Data Products. Without it, ingestion still produces the Data Products, but `_find_listing_for_purchase` cannot map purchased databases back to their listings, so the Data Products end up with no associated datasets (assets) and a `structured_reporter.warning` is emitted. See the [Internal Marketplace](#internal-marketplace) section below for details.
+
 ##### Example
 
 - Snowflake account `account1` (ingested as platform_instance `instance1`) owns a database `db1`. A share `X` is created in `account1` that includes database `db1` along with schemas and tables inside it.
@@ -21,6 +23,240 @@ If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/dat
           platform_instance: instance2
   ```
 - If share `X` is shared with more Snowflake accounts and a database is created from share `X` in those accounts, then additional entries need to be added to the `consumers` list for share `X`, one per Snowflake account. The same `shares` config can then be copied across recipes for all accounts.
+
+#### Internal Marketplace
+
+If you are using the Snowflake internal marketplace (private data sharing within your organization via Data Exchange) and want to ingest marketplace listings as DataHub Data Products, you can operate in two modes:
+
+##### Mode 1: Consumer Mode (Default) - Track Purchased Listings
+
+For organizations that **purchase/install** internal marketplace listings:
+
+1. **Grant the required privileges** (already covered in the Prerequisites section above):
+
+   ```sql
+   -- Basic marketplace access
+   grant imported privileges on database snowflake to role datahub_role;
+
+   -- For SHOW SHARES to discover INBOUND shares
+   use role accountadmin;
+   grant import share on account to role datahub_role;
+   ```
+
+2. **Enable marketplace ingestion** in your recipe:
+
+   ```yaml
+   marketplace:
+     enabled: true
+     marketplace_mode: "consumer" # Default
+     # Optional: Configure time window for usage statistics
+     start_time: "-7 days" # Default: -1 day
+     end_time: "now"
+     bucket_duration: "DAY" # Options: "DAY", "HOUR"
+   ```
+
+   The `marketplace` configuration inherits from `BaseTimeWindowConfig`, allowing you to control the time window for extracting marketplace usage statistics. This follows the same pattern as other DataHub connectors.
+
+3. **Configure the `shares` mapping** (strongly recommended for linking Data Products to their purchased databases):
+
+   Snowflake does not expose a direct link between imported databases and the marketplace listings they came from. Without `shares`, ingestion still succeeds but each affected Data Product is emitted without assets and a `structured_reporter.warning` is logged.
+
+   ```yaml
+   shares:
+     <SHARE_NAME>: # From: SHOW SHARES
+       database: "<SOURCE_DATABASE>" # Source database in the share
+       platform_instance: null
+       consumers:
+         - database: "<IMPORTED_DATABASE>" # Your purchased/imported database
+           platform_instance: null
+           # Optional but recommended: Explicit listing mapping
+           listing_global_name: "PROVIDER.REGION.LISTING_NAME" # From: SHOW AVAILABLE LISTINGS
+   ```
+
+   **Explicit Listing Mapping (Recommended)**: Add `listing_global_name` to explicitly link your purchased database to its marketplace listing. This ensures accurate Data Product associations, especially when you have multiple listings with similar names. Without it, the connector will attempt to match listings by finding the source database name within the listing's global name or title (case-insensitive substring match).
+
+   **To discover the correct values**, run these SQL commands in Snowflake:
+
+   ```sql
+   -- Find marketplace listings
+   SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE;
+
+   -- Find imported databases
+   SELECT DATABASE_NAME, TYPE FROM SNOWFLAKE.ACCOUNT_USAGE.DATABASES
+   WHERE TYPE = 'IMPORTED DATABASE' AND DELETED IS NULL;
+
+   -- Find shares and their mappings
+   SHOW SHARES;
+   ```
+
+   **Without the `shares` configuration:**
+
+   - Data Products will be created from marketplace listings
+   - Owners and custom properties will be populated
+   - Data Products will NOT have any associated datasets (assets)
+   - Warning messages will be logged
+
+   **With the `shares` configuration:**
+
+   - Data Products will be created with all metadata
+   - Purchased databases will be linked as Data Product assets
+   - Tables from imported databases will show as part of the Data Product
+
+##### Mode 2: Provider Mode - Track Published Listings
+
+For organizations that **publish/share** internal marketplace listings:
+
+1. **Grant the required privileges** (already covered in the Prerequisites section above):
+
+   ```sql
+   -- Basic marketplace access
+   grant imported privileges on database snowflake to role datahub_role;
+
+   -- For SHOW SHARES to discover OUTBOUND shares (provider mode)
+   -- The role can ONLY see shares it owns or inherits
+   use role securityadmin;
+   grant role sysadmin to role datahub_role;
+
+   -- OR use SYSADMIN/ACCOUNTADMIN directly in your recipe:
+   -- role: SYSADMIN
+   ```
+
+   **Important Note**: In Snowflake, `SHOW SHARES` returns OUTBOUND shares based on ownership. A role can see:
+
+   - Shares owned by the current role (e.g., if `datahub_role` created the share)
+   - Shares owned by roles it inherits from (e.g., `datahub_role` inherits from `SYSADMIN`)
+   - But NOT shares owned by other roles (e.g., shares owned by `ACCOUNTADMIN` that `datahub_role` doesn't inherit from)
+
+   **Solutions:**
+
+   - If your shares are owned by `ACCOUNTADMIN` or `SYSADMIN`: Grant `SYSADMIN` role to `datahub_role` (recommended)
+   - If `datahub_role` creates the shares: No additional grant needed
+   - Alternative: Use `SYSADMIN` or `ACCOUNTADMIN` directly in your ingestion recipe
+
+   Without proper role hierarchy, provider mode cannot discover outbound shares owned by other roles, and tables won't be added as assets to Data Products.
+
+2. **Enable marketplace ingestion in provider mode** in your recipe:
+
+   ```yaml
+   marketplace:
+     enabled: true
+     marketplace_mode: "provider"
+     # Assign owners to your Data Products
+     internal_marketplace_owner_patterns:
+       "^Your Listing.*": ["data-team"]
+     # Optional: restrict the database fallback to specific schemas per listing.
+     # Required when DESC SHARE is not permitted (see troubleshooting below).
+     listing_to_schemas_overrides:
+       YOUR_LISTING_GLOBAL_NAME: [YOUR_SCHEMA]
+
+   # Include your source databases being shared
+   database_pattern:
+     allow:
+       - "YOUR_SOURCE_DATABASE"
+   ```
+
+3. **No `shares` configuration needed!**
+
+   Provider mode automatically:
+
+   - Discovers your OUTBOUND shares with marketplace listings
+   - Links them to your source databases
+   - Creates Data Products with your source databases as assets
+
+**What you'll get in provider mode:**
+
+- Data Products for your published marketplace listings
+- Source databases automatically linked as assets
+- Owner assignment from config patterns
+- Works without any imported databases
+
+**Example use case:**
+You publish a "Customer 360" listing from your `CUSTOMER_DATA` database. Provider mode will:
+
+1. Find the listing via `SHOW AVAILABLE LISTINGS`
+2. Find the OUTBOUND share via `SHOW SHARES`
+3. Link the `CUSTOMER_DATA` database to the Data Product
+4. No manual configuration needed!
+
+##### Mode 3: Both - Track Both Perspectives
+
+Set `marketplace_mode: "both"` to track both purchased listings (consumer) AND published listings (provider) in the same ingestion.
+
+For more details, see the marketplace configuration guide in the connector documentation.
+
+##### Mapping Marketplace Organizations to Existing Domains
+
+Marketplace ingestion does not create domains. Map each Snowflake organization to an existing DataHub domain (URN, GUID, or name) via `marketplace.organization_to_domain`:
+
+```yaml
+marketplace:
+  enabled: true
+  organization_to_domain:
+    "ACME Corp": "urn:li:domain:finance"
+    "Weather Co": "data-products" # resolved via DomainRegistry
+```
+
+Unmapped organizations produce Data Products with no domain. The `domains` aspect is written as `CREATE` only, so UI-assigned domains survive subsequent runs.
+
+**Caveats:**
+
+- Editing `organization_to_domain` for an already-ingested organization has no effect — soft-delete the Data Product's `domains` aspect to re-map.
+- Provider renames leave the old `Marketplace:Provider:<old>` tag on the purchased database container; remove it manually.
+
+##### Troubleshooting Marketplace Ingestion
+
+**Common Permission Errors:**
+
+If marketplace ingestion fails or produces incomplete data, check for these common permission issues:
+
+1. **"Failed to get marketplace listings - insufficient permissions"**
+
+   - **Cause**: Role lacks access to run `SHOW AVAILABLE LISTINGS`
+   - **Solution**: Grant imported privileges:
+     ```sql
+     grant imported privileges on database snowflake to role datahub_role;
+     ```
+
+2. **"Failed to describe provider share - insufficient permissions"**
+
+   - **Cause**: `DESC SHARE` requires ownership of the share. Snowflake Marketplace creates shares
+     under `ACCOUNTADMIN`, and Snowflake does not allow transferring share ownership.
+   - **Automatic fallback**: The connector falls back to enumerating tables from the share's source
+     database (visible in `SHOW SHARES`). By default this includes all schemas in that database;
+     use `listing_to_schemas_overrides` to restrict to the specific schemas the share exposes:
+     ```yaml
+     marketplace:
+       listing_to_schemas_overrides:
+         YOUR_LISTING_GLOBAL_NAME: [YOUR_SCHEMA]
+     ```
+   - **For precise `DESC SHARE` output**: Set `role: ACCOUNTADMIN` in your recipe (broader
+     permissions, not recommended for production).
+
+3. **"Failed to query imported database tables - insufficient permissions"**
+
+   - **Cause**: Role lacks access to query `INFORMATION_SCHEMA` in imported databases
+   - **Solution**: Grant usage and references on the imported database:
+     ```sql
+     grant usage on database "<imported-database>" to role datahub_role;
+     grant usage on all schemas in database "<imported-database>" to role datahub_role;
+     grant references on all tables in database "<imported-database>" to role datahub_role;
+     ```
+
+4. **Data Products created but no assets appear**
+
+   - **Cause**: Missing `shares` configuration (consumer mode)
+   - **Solution**: Add explicit `listing_global_name` mapping in your `shares` config (see consumer mode documentation above)
+
+5. **Incomplete listing metadata**
+   - **Cause**: `fetch_internal_marketplace_listing_details: true` requires additional time per listing
+   - **Note**: This is expected behavior. The connector runs `DESCRIBE AVAILABLE LISTING` for each listing to fetch enriched metadata (descriptions, owners, documentation links). For large catalogs (100+ listings), consider setting this to `false` to improve performance.
+
+**Debugging Tips:**
+
+- Check the DataHub logs for structured warnings about marketplace ingestion failures
+- All marketplace errors are logged with clear titles and context (e.g., "Optional listing enrichment failed")
+- Verify your role has `imported privileges` on the `snowflake` database
+- Test your SQL grants manually using the DataHub role before running ingestion
 
 #### Lineage and Usage
 
@@ -141,6 +377,17 @@ SELECT 'PROD_DB.PUBLIC.TABLE' RLIKE 'PROD_DB\\.PUBLIC\\..*';  -- TRUE
 
 DataHub supports ingestion of Snowflake Semantic Views, which are business-defined views that define metrics, dimensions, and relationships for consistent data modeling and AI-powered analytics.
 
+A semantic view is ingested in one of two representations, selected by the `semantic_views.emit_semantic_model_entities` flag (see below):
+
+- **Legacy dataset** (subtype `Semantic View`): its dimension, fact, and metric columns are tagged `DIMENSION`/`FACT`/`METRIC` on the schema, table-level synonyms are stored as custom properties, and table-level (and, with `column_lineage`, column-level) lineage to the underlying base tables is emitted as a standard dataset `upstreamLineage` aspect.
+- **semanticModel / metric / logical-dataset entities:** each semantic view becomes its own **semanticModel** entity (name, description, relationships, and the `CREATE SEMANTIC VIEW` DDL as its native definition). Each logical table the view exposes becomes its own **dataset** entity (subtype `Semantic Model Dataset`) carrying a `semanticModelProperties` membership pointer (`IsPartOf`) to the model and a `schemaMetadata` projection of its dimension/fact columns; per-field semantic metadata (type, expression, dimension) lives on `semanticFieldAnnotation` aspects on each column's `schemaField` entity, and the logical dataset carries `upstreamLineage` to its physical base table. Each `METRIC` column becomes a separate **metric** entity with `metricInfo.semanticModel` (`ModeledBy`) membership. Metrics with dataset inputs carry `metricUpstreams.datasetUpstreams` to those Semantic Model Dataset(s); derived-only metrics reach SMDs transitively via `metricRelationships.derivedFrom`. Direct lineage is `Metric → Logical Dataset → Physical Dataset` (or `Metric → Metric → Logical Dataset → Physical Dataset` for derived metrics), with the SemanticModel acting as a non-lineage container.
+
+The flag is tri-state and server-aware:
+
+- **Unset (default):** auto-resolved from the server. On DataHub Cloud ≥ `2.1.0` it is enabled unless the Metrics feature is explicitly disabled; it stays off on older Cloud, on OSS/self-hosted (which is recipe-driven — see below), and with no DataHub connection (e.g. a file sink). If the Metrics feature-flag probe cannot be read (a transient auth/network/GraphQL error), the connector fails closed to legacy datasets rather than emitting the new entities.
+- **`true`:** request emission. On DataHub Cloud, still subject to the hard blocks above — below `2.1.0`, with Metrics off, or when the Metrics probe cannot be read, the connector warns and falls back to legacy datasets. On OSS/self-hosted, `true` enables emission.
+- **`false`:** always force legacy dataset behavior, overriding any server-side auto-enable.
+
 ##### Configuration
 
 Semantic view ingestion is disabled by default (requires Snowflake Enterprise Edition or above). You can enable it using the following configuration options:
@@ -150,6 +397,7 @@ Semantic view ingestion is disabled by default (requires Snowflake Enterprise Ed
 semantic_views:
   enabled: true # Default: false
   column_lineage: true # Default: false - enable column-level lineage
+  include_queries: true # Default: false - emit query entities for queries against semantic views
 
 # Filter semantic views using regex patterns
 semantic_view_pattern:
@@ -162,10 +410,22 @@ semantic_view_pattern:
 
 ##### Features
 
-- **Metadata Extraction**: Extracts semantic view definitions (YAML), columns, comments, and timestamps
-- **Lineage Support**: Semantic views participate in lineage extraction like regular views
+- **Metadata Extraction**: Extracts each semantic view's columns, tags, comments, and timestamps
+- **Lineage Support**: Semantic views participate in table-level lineage extraction like regular views, and column-level lineage when `column_lineage` is enabled
 - **Tags Support**: Tags applied to semantic views are extracted if `extract_tags` is enabled
-- **External URLs**: Direct links to Snowflake Snowsight UI for semantic views
+- **External URLs**: Snowsight links are emitted only in the legacy dataset representation; `semanticModel` entities carry no Snowsight URL
+- **Query Entities**: When `include_queries` is enabled, queries against semantic views are ingested as query entities
+
+##### What changes with `emit_semantic_model_entities`
+
+- Views become **semanticModel** entities (plus a **metric** per `METRIC` column and a **logical-dataset** per logical table) instead of a single Dataset; the legacy dataset URN, subtype, and dataset-specific aspects no longer apply.
+- Lineage is emitted on the logical-dataset entities (table-level `upstreamLineage` to each logical table's physical base table, plus column-level fine-grained lineage when `column_lineage: true`). Metrics with dataset inputs carry `metricUpstreams.datasetUpstreams` to those Semantic Model Dataset(s); derived-only metrics reach SMDs transitively via `metricRelationships.derivedFrom`. Direct lineage is `Metric → Logical Dataset → Physical Dataset` (or `Metric → Metric → Logical Dataset → Physical Dataset` for derived metrics), with the SemanticModel as a non-lineage container.
+- `include_usage` is ignored (semanticModel/logical-dataset entities carry no usage statistics; usage is emitted only in the legacy dataset representation). `include_queries` still emits query entities, attributed to the semanticModel.
+- Semantic models (and their logical datasets) have no container aspect, so they don't appear on database/schema pages — find them via search, lineage, or the metrics experience.
+- **Requires** a GMS that registers `semanticModel`/`metric`/`semanticFieldAnnotation`. On Cloud the connector auto-enables only at ≥ `2.1.0` (which implies they're present), else warns and falls back; on OSS it is recipe-driven, so run a compatible server before setting `true`.
+- **Limitation:** a downstream `FROM SEMANTIC_VIEW(...)` can't declare the semanticModel as an upstream (`upstreamLineage` is dataset-URN-typed); with `use_queries_v2`, parsing may resolve it to the old (soft-deleted) dataset URN.
+- **Limitation:** no effect when `include_technical_schema: false` (semantic-view processing is skipped).
+- **Caveat:** the URN has no `env`, so the same account in two environments collides — use a distinct `platform_instance` per environment.
 
 ##### Requirements
 
@@ -216,12 +476,40 @@ pipe_pattern:
     - "MY_DB.MY_SCHEMA.*"
 ```
 
+#### Column Name Casing
+
+Snowflake stores unquoted identifiers in uppercase, but quoted identifiers keep the case you wrote them in. Two columns in the same table can therefore differ only by case — `"col"` and `"COL"` are distinct columns.
+
+By default DataHub lowercases column names when building field paths, so such columns collapse onto a single field path. The duplicate is then dropped before the schema is written, so the column disappears from DataHub entirely and its column-level lineage, tags, and profile are lost. Ingestion reports a warning whenever it detects this, so you can find affected tables without changing any configuration.
+
+Set `preserve_column_case: true` to keep Snowflake's casing and the columns distinct:
+
+```yaml
+source:
+  type: snowflake
+  config:
+    # Dataset URNs stay lowercase so lineage matches other platforms.
+    convert_urns_to_lowercase: true
+    # Column field paths keep Snowflake's casing.
+    preserve_column_case: true
+```
+
+This option is independent of `convert_urns_to_lowercase`: you can keep dataset URNs lowercase — which you usually want, so lineage resolves against other sources — while preserving column casing. If `convert_urns_to_lowercase` is already `false`, ordinary tables and views keep their column casing regardless. Semantic-model logical datasets are the exception: their field paths have always been uppercased, and only `preserve_column_case: true` stops that.
+
+Treat it as a one-way door. The value is part of every column's `schemaField` URN, so changing it after data has been ingested re-keys each column: `...,col)` becomes `...,COL)`. Column-level tags, glossary terms, documentation, and assertions that users attached in the UI point at the old URNs and are orphaned. Choose a value before your first ingestion run and leave it unchanged.
+
+If you also run the `snowflake-queries` source against the same account, set `preserve_column_case` the same way in both recipes. The two sources build field paths independently, and a mismatch means the column-level lineage from one will not resolve against the schema from the other.
+
+Sources that read Snowflake columns from elsewhere need the same consideration, because they decide the casing themselves rather than reading it back from the schema. Tableau lowercases Snowflake column names when building column-level lineage; dbt has its own `convert_column_urns_to_lowercase`, which defaults to `true` for Snowflake targets; ThoughtSpot has its own `preserve_column_case`, which defaults to lowercasing to match Snowflake's historical behaviour. With `preserve_column_case: true` here, those defaults no longer line up, and column-level lineage from those sources will point at field paths this source does not emit.
+
+Profiling handles these columns too. The SQLAlchemy driver folds reflected column names before DataHub sees them, so the profiler re-reads the column list and addresses each column by its as-stored, quoted name. With `preserve_column_case: true` every column gets its own profile, matched to its own schema field. With the option off, the pair shares one field path, so a single profile is emitted for it — mirroring the schema, where the duplicate field is dropped.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
 - Some features require specific Snowflake editions or additional privileges. This includes dynamic tables, semantic views, advanced lineage features, and tags.
-- Dynamic tables require the `monitor` privilege for metadata extraction. Without this privilege, dynamic tables will not be visible to DataHub.
+- Dynamic tables require the `monitor` privilege for full metadata extraction. Without this privilege, dynamic table entities will still appear in DataHub but their DDL is not accessible, so lineage will not be extracted.
 - Semantic views require `REFERENCES` or `SELECT` privileges for metadata extraction. Without these privileges, semantic views will not be visible to DataHub.
 - The underlying Snowflake views that we use to get metadata have a [latency of 45 minutes to 3 hours](https://docs.snowflake.com/en/sql-reference/account-usage.html#differences-between-account-usage-and-information-schema). So we would not be able to get very recent metadata in some cases like queries you ran within that time period etc. This is applicable particularly for lineage, usage and tags (without lineage) extraction.
 - If there is any [ongoing Snowflake incident](https://status.snowflake.com/), we will not be able to get the metadata until that incident is resolved.

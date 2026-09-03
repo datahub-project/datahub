@@ -2,6 +2,7 @@ package com.linkedin.metadata.resources.entity;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -35,6 +36,15 @@ import com.linkedin.timeseries.DeleteAspectValuesResult;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import com.linkedin.data.DataMap;
+import com.linkedin.entity.Entity;
+import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.restli.internal.server.methods.AnyRecord;
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -188,5 +198,63 @@ public class EntityResourceTest {
     assertEquals(result.length, 1);
     verify(entityService, times(1))
         .exists(any(OperationContext.class), eq(Set.of(existingUrn)), eq(false));
+  }
+
+  @Test
+  public void testGetEntityUsesMetadataReadUsageOperation() throws Exception {
+    Urn urn = new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD);
+    Entity entity = new Entity(new DataMap());
+    when(entityService.getEntity(any(OperationContext.class), eq(urn), any(), eq(true)))
+        .thenReturn(entity);
+
+    AnyRecord result = awaitTask(entityResource.get(urn.toString(), null));
+
+    assertNotNull(result);
+    verify(entityService, times(1)).getEntity(any(OperationContext.class), eq(urn), any(), eq(true));
+  }
+
+  @Test
+  public void testSearchUsesSearchQueryUsageOperation() throws Exception {
+    EntitySearchService entitySearchService = mock(EntitySearchService.class);
+    when(entitySearchService.search(
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            any(),
+            any(),
+            eq(0),
+            eq(10)))
+        .thenReturn(
+            new SearchResult()
+                .setNumEntities(0)
+                .setEntities(new SearchEntityArray())
+                .setFrom(0)
+                .setPageSize(10)
+                .setMetadata(new SearchResultMetadata()));
+
+    setEntitySearchService(entityResource, entitySearchService);
+
+    SearchResult result =
+        awaitTask(
+            entityResource.search(
+                "dataset", "*", null, null, null, 0, 10, null, new SearchFlags()));
+
+    assertNotNull(result);
+    verify(entitySearchService, times(1))
+        .search(
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            any(),
+            any(),
+            eq(0),
+            eq(10));
+  }
+
+  private static void setEntitySearchService(
+      EntityResource entityResource, EntitySearchService entitySearchService) throws Exception {
+    Field field = EntityResource.class.getDeclaredField("entitySearchService");
+    field.setAccessible(true);
+    field.set(entityResource, entitySearchService);
   }
 }

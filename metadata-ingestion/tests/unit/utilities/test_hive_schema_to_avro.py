@@ -1,4 +1,5 @@
 from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
@@ -43,3 +44,20 @@ def test_get_avro_schema_for_null_type_hive_column():
     )
     assert schema_fields[0].type.type == NullTypeClass()
     assert len(schema_fields) == 1
+
+
+def test_list_type_treated_as_array():
+    # Iceberg uses `list<T>` as a synonym for `array<T>`
+    schema_fields = get_schema_fields_for_hive_column("engines", "list<string>")
+    assert isinstance(schema_fields[0].type.type, ArrayTypeClass)
+
+
+def test_list_of_structs_inside_struct():
+    # Iceberg: struct field whose type is list<struct<...>>.
+    schema_fields = get_schema_fields_for_hive_column(
+        "col", "struct<items:list<struct<name:string,value:int>>>"
+    )
+    assert isinstance(schema_fields[0].type.type, RecordTypeClass)
+    assert not any(isinstance(f.type.type, NullTypeClass) for f in schema_fields), (
+        "no field should fall back to NullType"
+    )

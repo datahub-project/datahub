@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
@@ -85,7 +86,9 @@ public class StructuredPropertiesAssignmentMutatorTest {
                     List.of(stringPropertyDefB))));
     StructuredProperties test = expectedAllValues.copy();
     testHook.readMutation(
-        TestMCP.ofOneBatchItemDatasetUrn(test, TEST_REGISTRY), mockRetrieverContext);
+        OperationFingerprint.EMPTY,
+        TestMCP.ofOneBatchItemDatasetUrn(test, TEST_REGISTRY),
+        mockRetrieverContext);
     assertEquals(
         test.getProperties().size(),
         2,
@@ -105,7 +108,9 @@ public class StructuredPropertiesAssignmentMutatorTest {
                     propertyUrnB,
                     List.of(stringPropertyDefB, new Status().setRemoved(true)))));
     testHook.readMutation(
-        TestMCP.ofOneBatchItemDatasetUrn(test, TEST_REGISTRY), mockRetrieverContext);
+        OperationFingerprint.EMPTY,
+        TestMCP.ofOneBatchItemDatasetUrn(test, TEST_REGISTRY),
+        mockRetrieverContext);
     assertEquals(
         test.getProperties().size(), 1, "Expected 1 value because 1 definition is soft deleted");
   }
@@ -168,7 +173,10 @@ public class StructuredPropertiesAssignmentMutatorTest {
             .build();
 
     Pair<ChangeMCP, Boolean> result =
-        testHook.writeMutation(List.of(changeMcp), mockRetrieverContext).findFirst().orElseThrow();
+        testHook
+            .writeMutation(OperationFingerprint.EMPTY, List.of(changeMcp), mockRetrieverContext)
+            .findFirst()
+            .orElseThrow();
 
     assertEquals(result.getSecond(), Boolean.TRUE);
     assertEquals(result.getFirst().getAspect(StructuredProperties.class).getProperties().size(), 1);
@@ -231,6 +239,9 @@ public class StructuredPropertiesAssignmentMutatorTest {
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> testHook.writeMutation(List.of(changeMcp), mockRetrieverContext).toList());
+        () ->
+            testHook
+                .writeMutation(OperationFingerprint.EMPTY, List.of(changeMcp), mockRetrieverContext)
+                .toList());
   }
 }

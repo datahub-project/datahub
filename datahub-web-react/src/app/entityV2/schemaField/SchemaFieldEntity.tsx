@@ -1,6 +1,7 @@
 import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -18,7 +19,7 @@ import { SidebarTitleActionType } from '@app/entityV2/shared/utils';
 import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import { FetchedEntity } from '@app/lineage/types';
 import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
-import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
 import TabFullsizedContext from '@src/app/shared/TabFullsizedContext';
 
 import { useGetSchemaFieldQuery } from '@graphql/schemaField.generated';
@@ -49,9 +50,9 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
 
     getPathName = () => 'schemaField';
 
-    getEntityName = () => 'Column';
+    getEntityName = () => i18next.t('entity.types:schemaField.name');
 
-    getCollectionName = () => 'Columns';
+    getCollectionName = () => i18next.t('entity.types:schemaField.namePlural');
 
     useEntityQuery = useGetSchemaFieldQuery;
 
@@ -64,13 +65,13 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
                 headerDropdownItems={headerDropdownItems}
                 tabs={[
                     {
-                        name: 'Lineage',
+                        name: i18next.t('entity.types:tab.lineage'),
                         component: LineageTab,
                         icon: PartitionOutlined,
                         supportsFullsize: true,
                     },
                     {
-                        name: 'Properties',
+                        name: i18next.t('entity.types:tab.properties'),
                         component: PropertiesTab,
                         icon: UnorderedListOutlined,
                     },
@@ -85,9 +86,9 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
@@ -104,7 +105,7 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
                 data={genericProperties}
                 previewType={previewType}
                 datasetUrn={data.parent.urn}
-                name={downgradeV2FieldPath(data.fieldPath) || data.urn}
+                name={this.displayName(data)}
                 parent={data?.parent as GenericEntityProperties}
             />
         );
@@ -133,11 +134,12 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
     getLineageVizConfig = (entity: SchemaField): FetchedEntity => {
         const parent =
             entity.parent && globalEntityRegistryV2.getGenericEntityProperties(entity.parent.type, entity.parent);
+        const decodedFieldPath = this.displayName(entity);
         return {
             urn: entity.urn,
             type: EntityType.SchemaField,
-            name: entity?.fieldPath,
-            expandedName: `${parent?.name}.${entity?.fieldPath}`,
+            name: decodedFieldPath,
+            expandedName: `${parent?.name}.${decodedFieldPath}`,
             icon: parent?.platform?.properties?.logoUrl ?? undefined,
             parent: parent ?? undefined,
         };

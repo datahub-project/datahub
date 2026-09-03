@@ -1,7 +1,10 @@
 package com.linkedin.datahub.upgrade.sqlsetup;
 
+import com.linkedin.datahub.upgrade.sqlsetup.postgres.PostgresDatabaseOperations;
+import com.linkedin.metadata.config.postgres.DatabaseType;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 
 /**
  * Interface for database-specific operations in SqlSetup. This allows for clean separation of
@@ -93,9 +96,12 @@ public interface DatabaseOperations {
    *
    * @param cdcUser the CDC username
    * @param databaseName the database name
+   * @param postgresMetadataSchema PostgreSQL schema containing {@code metadata_aspect_v2}; ignored
+   *     for MySQL. When null or blank, PostgreSQL uses {@code public}.
    * @return list of SQL statements for granting CDC privileges
    */
-  java.util.List<String> grantCdcPrivilegesSql(String cdcUser, String databaseName);
+  List<String> grantCdcPrivilegesSql(
+      String cdcUser, String databaseName, String postgresMetadataSchema);
 
   /**
    * Generate SQL statements for creating the metadata_aspect_v2 table and its indexes. Returns a
@@ -105,7 +111,7 @@ public interface DatabaseOperations {
    *     featureFlags.createSchemaVersionIndex)
    * @return list of SQL statements to create the table and indexes
    */
-  java.util.List<String> createTableSqlStatements(boolean createSchemaVersionIndex);
+  List<String> createTableSqlStatements(boolean createSchemaVersionIndex);
 
   /**
    * Drops legacy secondary indexes on {@code metadata_aspect_v2} that SqlSetup no longer creates
@@ -127,6 +133,22 @@ public interface DatabaseOperations {
    * @param connection open JDBC connection to the target database
    */
   default void ensureAspectIndexes(Connection connection) throws SQLException {}
+
+  /**
+   * Ensures the {@code metadata_aspect_v2} key columns use a case- and byte-exact collation. On
+   * MySQL, {@code CREATE TABLE} sets {@code utf8mb4_bin} but that only applies to freshly created
+   * tables — a table created by an older/other provisioning path with a case-insensitive collation
+   * (e.g. {@code utf8mb4_general_ci}, {@code utf8mb4_0900_ai_ci}) is never corrected, since {@code
+   * CREATE TABLE IF NOT EXISTS} is a no-op when the table already exists. A case-insensitive
+   * collation makes {@code EbeanAspectDao.getNextVersions} read back rows for URNs that differ only
+   * in case from the request keys, which throws and drops the entire MCP batch on the async
+   * consumer path (silent, intermittent ingestion data loss). This aligns such existing tables with
+   * {@code ALTER TABLE ... CONVERT TO} only when the collation is wrong. Defaults to a no-op
+   * (PostgreSQL's default collation is byte-exact, so it is unaffected).
+   *
+   * @param connection open JDBC connection to the target database
+   */
+  default void ensureAspectTableCollation(Connection connection) throws SQLException {}
 
   /**
    * Called after table creation to create any indexes that must run outside a transaction (e.g.

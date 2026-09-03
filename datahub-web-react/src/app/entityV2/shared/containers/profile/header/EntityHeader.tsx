@@ -7,6 +7,8 @@ import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entity/sha
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { DefaultEntityHeader } from '@app/entityV2/shared/containers/profile/header/DefaultEntityHeader';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
+import { withLogicalModelHeaderItems } from '@app/entityV2/shared/logicalModels/logicalModels.utils';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DisplayProperties, EntityType, PlatformPrivileges } from '@types';
@@ -54,10 +56,18 @@ export const EntityHeader = ({
     const refetch = useRefetch();
     const me = useUserContext();
     const entityRegistry = useEntityRegistry();
+    const { config } = useAppConfig();
 
     const entityUrl = entityRegistry.getEntityUrl(entityType, urn);
     const showEditName =
         isNameEditable && getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
+    // Logical models (logical-platform datasets) get a Delete action; regular datasets are unaffected.
+    const effectiveDropdownItems = withLogicalModelHeaderItems(
+        entityType,
+        entityData,
+        headerDropdownItems,
+        config.featureFlags.logicalModelsEnabled,
+    );
 
     return (
         <Container data-testid="entity-header-test-id">
@@ -73,7 +83,7 @@ export const EntityHeader = ({
                 isIconEditable={isIconEditable}
                 displayProperties={displayProperties}
                 headerActionItems={headerActionItems}
-                headerDropdownItems={headerDropdownItems}
+                headerDropdownItems={effectiveDropdownItems}
                 subHeader={subHeader}
             />
         </Container>

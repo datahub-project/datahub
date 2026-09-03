@@ -2,6 +2,7 @@ import { CloseOutlined, NotificationOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button, Carousel } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType, HomePageModule } from '@app/analytics';
@@ -72,6 +73,7 @@ type Props = {
 };
 
 export const Announcements = ({ setHasAnnouncements }: Props) => {
+    const { t } = useTranslation('home.v2');
     const { user } = useUserContext();
     const { announcements, loading } = useGetUnseenAnnouncements();
     const { updateLastViewedAnnouncementTime } = useUpdateLastViewedAnnouncementTime();
@@ -112,12 +114,12 @@ export const Announcements = ({ setHasAnnouncements }: Props) => {
     }
 
     return (
-        <Card>
+        <Card data-testid="v2-home-page-announcements">
             <Header>
                 <Title>
-                    <Icon /> Announcements
+                    <Icon /> {t('announcements.title')}
                 </Title>
-                <Tooltip placement="left" showArrow={false} title="Hide announcements">
+                <Tooltip placement="left" showArrow={false} title={t('announcements.hideTooltip')}>
                     <CloseButton type="text" onClick={hideAnnouncements}>
                         <StyledCloseOutlined />
                     </CloseButton>

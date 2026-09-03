@@ -1,12 +1,13 @@
 import abc
 from functools import cached_property
-from typing import ClassVar, List, Literal, Optional, Tuple
+from typing import ClassVar, Dict, List, Literal, Optional, Tuple, Type
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
 )
-from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
+from datahub.emitter.mcp_builder import DatabaseKey, DataProductKey, SchemaKey
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.snowflake.constants import (
     DEFAULT_SNOWFLAKE_DOMAIN,
@@ -21,10 +22,78 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.sql.sql_utils import gen_database_key, gen_schema_key
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayType,
+    BooleanType,
+    BytesType,
+    DateType,
+    NullType,
+    NumberType,
+    RecordType,
+    StringType,
+    TimeType,
+)
+from datahub.metadata.urns import MetricUrn, SemanticModelUrn
 
 # Truncate definition strings (e.g. task / pipe SQL bodies) stored in
 # customProperties to stay well within DataHub's aspect size limits.
 MAX_DEFINITION_LENGTH = 4000
+
+# https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
+# TODO: Move to the standardized types in sql_types.py
+SNOWFLAKE_FIELD_TYPE_MAPPINGS: Dict[str, Type] = {
+    "DATE": DateType,
+    "BIGINT": NumberType,
+    "BINARY": BytesType,
+    # 'BIT': BIT,
+    "BOOLEAN": BooleanType,
+    "CHAR": NullType,
+    "CHARACTER": NullType,
+    "DATETIME": TimeType,
+    "DEC": NumberType,
+    "DECIMAL": NumberType,
+    "DOUBLE": NumberType,
+    "FIXED": NumberType,
+    "FLOAT": NumberType,
+    "INT": NumberType,
+    "INTEGER": NumberType,
+    "NUMBER": NumberType,
+    # 'OBJECT': ?
+    "REAL": NumberType,
+    "BYTEINT": NumberType,
+    "SMALLINT": NumberType,
+    "STRING": StringType,
+    "TEXT": StringType,
+    "TIME": TimeType,
+    "TIMESTAMP": TimeType,
+    "TIMESTAMP_TZ": TimeType,
+    "TIMESTAMP_LTZ": TimeType,
+    "TIMESTAMP_NTZ": TimeType,
+    "TINYINT": NumberType,
+    "VARBINARY": BytesType,
+    "VARCHAR": StringType,
+    "VARIANT": RecordType,
+    "OBJECT": NullType,
+    "ARRAY": ArrayType,
+    "GEOGRAPHY": NullType,
+}
+
+
+def snowflake_identity_key(name: str, *, preserve_column_case: bool) -> str:
+    """Internal identity of a column, metric or logical-table name. Never emitted.
+
+    Answers "are these two spellings the same object?". Snowflake reports stored
+    spellings, so with casing preserved they are distinct and with casing folded
+    they are one -- and the fold has to be uppercase rather than lowercase,
+    because it must not depend on convert_urns_to_lowercase (which decides how a
+    name is *emitted*, not whether two names are the same thing).
+
+    Module-level so the identifier builder and the data dictionary share one
+    definition; the latter has no builder to call.
+    """
+    if preserve_column_case:
+        return name
+    return name.upper()
 
 
 class SnowflakeStructuredReportMixin(abc.ABC):
@@ -150,6 +219,16 @@ class SnowsightUrlBuilder:
         self, app_name: str, schema_name: str, db_name: str
     ) -> Optional[str]:
         return f"{self.snowsight_base_url}#/streamlit-apps/{db_name}.{schema_name}.{app_name}"
+
+    @staticmethod
+    def marketplace_listing_url(listing_global_name: str) -> str:
+        # Account-neutral URL — Snowflake redirects to the user's session automatically.
+        return f"https://app.snowflake.com/marketplace/internal/listing/{listing_global_name}"
+
+    def get_external_url_for_internal_marketplace_listing(
+        self, listing_global_name: str
+    ) -> str:
+        return self.marketplace_listing_url(listing_global_name)
 
 
 class SnowflakeFilter:
@@ -344,6 +423,46 @@ class SnowflakeIdentifierBuilder:
             return identifier.lower()
         return identifier
 
+    def snowflake_column_identifier(self, column_name: str) -> str:
+        # Columns are folded separately from datasets: Snowflake's quoted identifiers
+        # let `"col"` and `"COL"` coexist in one table, and lowercasing collapses them
+        # into a single field path. Delegating on the default path keeps the emitted
+        # output byte-identical to the pre-flag behaviour.
+        if self.identifier_config.preserve_column_case:
+            return column_name
+        return self.snowflake_identifier(column_name)
+
+    def column_identity_key(self, column_name: str) -> str:
+        """Internal identity of a column/metric name. Never emitted.
+
+        Answers "are these two spellings the same object?", which is what the
+        semantic-model indices need. Distinct from snowflake_column_identifier,
+        which answers "what does this object get called in a URN".
+
+        With preserve_column_case off, case-only variants are one object, so
+        they must fold together whatever convert_urns_to_lowercase says.
+        Delegating to snowflake_column_identifier here makes the fold a no-op
+        when convert_urns_to_lowercase is also off (both reduce to identity),
+        which splits one metric into two entities and blinds the shadow check.
+        """
+        return snowflake_identity_key(
+            column_name,
+            preserve_column_case=self.identifier_config.preserve_column_case,
+        )
+
+    def logical_dataset_field_path(self, column_name: str) -> str:
+        """Field path for a column on a semantic-model logical dataset.
+
+        These datasets are built by the semantic-model mapper rather than
+        gen_schema_metadata, and it has always uppercased their field paths.
+        Emitting the stored name unconditionally would re-key every one of those
+        URNs for deployments running with convert_urns_to_lowercase off, so the
+        stored name is used only when preserve_column_case asks for it.
+        """
+        if not self.identifier_config.preserve_column_case:
+            column_name = column_name.upper()
+        return self.snowflake_column_identifier(column_name)
+
     def get_dataset_identifier(
         self, table_name: str, schema_name: str, db_name: str
     ) -> str:
@@ -361,6 +480,86 @@ class SnowflakeIdentifierBuilder:
             env=self.identifier_config.env,
         )
 
+    def gen_semantic_model_urn(
+        self, view_name: str, schema_name: str, db_name: str
+    ) -> str:
+        # The semanticModel key has no env field and no separate platform_instance
+        # field, so the instance is embedded into the path (mirroring how dataset
+        # names are prefixed by make_dataset_urn_with_platform_instance).
+        return str(
+            SemanticModelUrn(
+                platform=make_data_platform_urn(self.platform),
+                path=self._semantic_path(schema_name, db_name),
+                id=self.snowflake_identifier(view_name),
+            )
+        )
+
+    def gen_metric_urn(
+        self,
+        metric_name: str,
+        view_name: str,
+        schema_name: str,
+        db_name: str,
+        logical_table: Optional[str] = None,
+    ) -> str:
+        # Metrics are scoped by their enclosing semantic view, so the view name is
+        # part of the path. Snowflake allows the same metric name on different
+        # logical tables (they are distinct, table-qualified metrics), so a
+        # table-bound metric also carries its logical table in the path to stay
+        # unique; view-scoped (derived) metrics omit it.
+        path = f"{self._semantic_path(schema_name, db_name)}.{self.snowflake_identifier(view_name)}"
+        if logical_table is not None:
+            path = f"{path}.{self.snowflake_identifier(logical_table)}"
+        return str(
+            MetricUrn(
+                platform=make_data_platform_urn(self.platform),
+                path=path,
+                # A metric name is a semantic-view identifier like a dimension's:
+                # same DDL, same extraction, same folding. So it follows the
+                # column rule, which delegates when the flag is off.
+                id=self.snowflake_column_identifier(metric_name),
+            )
+        )
+
+    def _semantic_path(self, schema_name: str, db_name: str) -> str:
+        path = self.snowflake_identifier(f"{db_name}.{schema_name}")
+        if self.identifier_config.platform_instance:
+            return f"{self.identifier_config.platform_instance}.{path}"
+        return path
+
+    def gen_semantic_model_dataset_urn(
+        self, view_name: str, logical_table: str, schema_name: str, db_name: str
+    ) -> str:
+        # Each logical table a semantic view exposes is its own dataset entity.
+        # The identifier mirrors the semanticModel key shape (<db>.<schema>.<view>
+        # with the logical-table name appended), so logical datasets stay unique
+        # across semantic models on the same platform. The platform_instance
+        # prefix is added by gen_dataset_urn (make_dataset_urn_with_platform_instance),
+        # so it must NOT be baked into the identifier here (unlike gen_semantic_model_urn,
+        # whose URN has no separate platform_instance field).
+        identifier = self.snowflake_identifier(
+            f"{self.snowflake_identifier(f'{db_name}.{schema_name}')}"
+            f".{self.snowflake_identifier(view_name)}"
+            f".{self.snowflake_identifier(logical_table)}"
+        )
+        return self.gen_dataset_urn(identifier)
+
+    def gen_marketplace_data_product_key(
+        self, listing_global_name: str
+    ) -> DataProductKey:
+        """Generate a data product key for marketplace listings"""
+        return DataProductKey(
+            platform="snowflake",  # Use 'snowflake' platform for proper UI integration
+            name=self.snowflake_identifier(listing_global_name),
+            instance=self.identifier_config.platform_instance,
+            env=self.identifier_config.env,
+        )
+
+    def gen_marketplace_data_product_urn(self, listing_global_name: str) -> str:
+        """Generate a data product URN for marketplace listings"""
+        key = self.gen_marketplace_data_product_key(listing_global_name)
+        return key.as_urn()
+
     def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
         return self.snowflake_identifier(
             _cleanup_qualified_name(qualified_name, self.structured_reporter)
@@ -372,22 +571,26 @@ class SnowflakeIdentifierBuilder:
         return name.replace('"', '""')
 
     @staticmethod
-    def get_quoted_identifier_for_database(db_name):
+    def get_quoted_identifier_for_database(db_name: str) -> str:
         db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
         return f'"{db_name}"'
 
     @staticmethod
-    def get_quoted_identifier_for_schema(db_name, schema_name):
+    def get_quoted_identifier_for_schema(db_name: str, schema_name: str) -> str:
         db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
         schema_name = SnowflakeIdentifierBuilder._escape_identifier(schema_name)
         return f'"{db_name}"."{schema_name}"'
 
     @staticmethod
-    def get_quoted_identifier_for_table(db_name, schema_name, table_name):
-        db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
+    def get_quoted_identifier_for_table(
+        db_name: Optional[str], schema_name: str, table_name: str
+    ) -> str:
         schema_name = SnowflakeIdentifierBuilder._escape_identifier(schema_name)
         table_name = SnowflakeIdentifierBuilder._escape_identifier(table_name)
-        return f'"{db_name}"."{schema_name}"."{table_name}"'
+        if db_name is not None:
+            db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
+            return f'"{db_name}"."{schema_name}"."{table_name}"'
+        return f'"{schema_name}"."{table_name}"'
 
     # Note - decide how to construct user urns.
     # Historically urns were created using part before @ from user's email.

@@ -1,11 +1,12 @@
 from unittest.mock import ANY, patch
 
 import pytest
+from databricks.sdk.service.catalog import TableType
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
-from datahub.ingestion.source.unity.proxy_types import Column
+from datahub.ingestion.source.unity.proxy_types import Column, Schema, Table
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 
 
@@ -901,13 +902,15 @@ class TestUnityCatalogMetricViews:
         )
         assert config.include_metric_views is False
 
-    def test_subtype_flag_off_emits_table(self):
+    def test_subtype_flag_off_still_emits_metric_view(self):
         from datahub.metadata.schema_classes import SubTypesClass
 
+        # Classification is accurate regardless of the enrichment flag: a metric
+        # view is never a plain Table, even when include_metric_views is off.
         source = self._build_source(include_metric_views=False)
         table, _ = self._build_metric_view_table()
         aspect: SubTypesClass = source._create_table_sub_type_aspect(table)
-        assert aspect.typeNames == ["Table"]
+        assert aspect.typeNames == ["Metric View"]
 
     def test_subtype_flag_on_emits_metric_view(self):
         from datahub.metadata.schema_classes import SubTypesClass
@@ -1706,7 +1709,7 @@ class TestUnityCatalogMetricViews:
 
         column = self._column("address", type_text="struct<street:string,zip:string>")
         fields = UnityCatalogSource._create_schema_field(
-            column, tags=[TagUrn("pii")], extra_tag=TagUrn("Dimension")
+            column, tags=[TagUrn("pii")], extra_tags=[TagUrn("Dimension")]
         )
         root = fields[0]
         assert root.globalTags is not None
@@ -1721,8 +1724,8 @@ class TestUnityCatalogMetricViews:
         spec = source._load_metric_view_spec(table)
         assert spec is None
         assert source.report.num_metric_views_yaml_shape_invalid == 1
-        messages = {w.message for w in source.report.warnings}
-        assert "Metric view YAML is not a mapping" in messages
+        messages = [w.message for w in source.report.warnings]
+        assert any("Metric view YAML is not a mapping" in m for m in messages)
 
     @pytest.mark.parametrize(
         "yaml_body,expected_bump",
@@ -1852,7 +1855,7 @@ class TestUnityCatalogMetricViews:
         warnings_for_view = [
             w
             for w in source.report.warnings
-            if w.message == "Metric view joins skipped"
+            if "Metric view joins skipped" in w.message
             and any(table.ref.qualified_table_name in ctx for ctx in (w.context or []))
         ]
         assert len(warnings_for_view) == 1
@@ -1875,10 +1878,12 @@ class TestUnityCatalogMetricViews:
         assert spec is not None
         source._extract_metric_view_column_lineage(table, spec)
         assert source.report.num_metric_view_unresolved_qualifiers == 1
-        messages = [w.message for w in source.report.warnings]
-        assert (
-            messages.count("Metric view expression references unknown qualifier") == 1
-        )
+        matching = [
+            w
+            for w in source.report.warnings
+            if "Metric view expression references unknown qualifier" in w.message
+        ]
+        assert len(matching) == 1
 
     def test_skipped_dim_measure_entries_increment_counter_and_warn(self):
         """Malformed dimension/measure entries must not silently disappear."""
@@ -1904,7 +1909,7 @@ class TestUnityCatalogMetricViews:
         warnings_for_view = [
             w
             for w in source.report.warnings
-            if w.message == "Metric view dimension/measure entries skipped"
+            if "Metric view dimension/measure entries skipped" in w.message
         ]
         assert len(warnings_for_view) == 1
 
@@ -1926,7 +1931,7 @@ class TestUnityCatalogMetricViews:
         assert lineage is not None
         assert source.report.num_metric_view_unparseable_sources == 1
         messages = [w.message for w in source.report.warnings]
-        assert "Metric view source(s) skipped" in messages
+        assert any("Metric view source(s) skipped" in m for m in messages)
 
     def test_expr_empty_tree_increments_counter(self):
         """sqlglot returning None (empty/comment-only expr) must not silently produce empty CLL."""
@@ -1954,8 +1959,8 @@ class TestUnityCatalogMetricViews:
         )
         with patch.object(source, "ingest_lineage", return_value=None):
             list(source.process_table(table, schema))
-        messages = {w.message for w in source.report.warnings}
-        assert "Metric view has no upstream lineage" in messages
+        messages = [w.message for w in source.report.warnings]
+        assert any("Metric view has no upstream lineage" in m for m in messages)
 
     def test_dim_measure_description_override_from_yaml(self):
         """YAML `description` on a dim/measure surfaces as the schema field description."""
@@ -2064,3 +2069,1111 @@ class TestUnityCatalogMetricViews:
         cp = props.customProperties
         assert "view.sqlConfig.spark.sql.session.timeZone" in cp
         assert "view.sqlConfig.spark.sql.ansi.enabled" in cp
+
+    # ── Bug fix B1: comment field ──────────────────────────────────────────────
+
+    def test_comment_field_used_as_description(self):
+        """v1.1 uses `comment` — must surface as the schema field description."""
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_with_columns(
+            view_definition=(
+                "version: 1.1\n"
+                "source: cat.sch.orders\n"
+                "dimensions:\n"
+                "  - name: order_date\n"
+                "    expr: o_orderdate\n"
+                "    comment: Calendar date of the order.\n"
+            ),
+            column_names=["order_date"],
+        )
+        spec = source._load_metric_view_spec(table)
+        schema_metadata, _ = source._create_schema_metadata_aspect(table, spec)
+        assert schema_metadata.fields[0].description == "Calendar date of the order."
+
+    def test_description_field_still_read_as_fallback(self):
+        """Older YAML using `description` key is still picked up via the fallback."""
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_with_columns(
+            view_definition=(
+                "version: 0.1\n"
+                "source: cat.sch.orders\n"
+                "dimensions:\n"
+                "  - name: order_date\n"
+                "    expr: o_orderdate\n"
+                "    description: Legacy description field.\n"
+            ),
+            column_names=["order_date"],
+        )
+        spec = source._load_metric_view_spec(table)
+        schema_metadata, _ = source._create_schema_metadata_aspect(table, spec)
+        assert schema_metadata.fields[0].description == "Legacy description field."
+
+    def test_comment_takes_priority_over_description(self):
+        """When both `comment` and `description` are present, `comment` wins."""
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_with_columns(
+            view_definition=(
+                "version: 1.1\n"
+                "source: cat.sch.orders\n"
+                "dimensions:\n"
+                "  - name: order_date\n"
+                "    expr: o_orderdate\n"
+                "    comment: v1.1 comment.\n"
+                "    description: old description.\n"
+            ),
+            column_names=["order_date"],
+        )
+        spec = source._load_metric_view_spec(table)
+        schema_metadata, _ = source._create_schema_metadata_aspect(table, spec)
+        assert schema_metadata.fields[0].description == "v1.1 comment."
+
+    # ── Bug fix B2: materialization is dict in v1.1 ────────────────────────────
+
+    def test_materialization_dict_marks_view_materialized(self):
+        """v1.1 materialization is an object — must set materialized=True."""
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\n"
+                "source: cat.sch.orders\n"
+                "dimensions:\n"
+                "  - name: d\n"
+                "    expr: x\n"
+                "materialization:\n"
+                "  schedule: every 6 hours\n"
+                "  mode: relaxed\n"
+                "  materialized_views:\n"
+                "    - name: baseline\n"
+                "      type: unaggregated\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        view_props = source._create_view_property_aspect(table, spec)
+        assert view_props.materialized is True
+
+    def test_materialization_details_stored_as_custom_properties(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\n"
+                "source: cat.sch.orders\n"
+                "dimensions:\n"
+                "  - name: d\n"
+                "    expr: x\n"
+                "materialization:\n"
+                "  schedule: every 6 hours\n"
+                "  mode: relaxed\n"
+                "  materialized_views:\n"
+                "    - name: daily\n"
+                "      type: aggregated\n"
+                "      dimensions: [d]\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        props = source._create_table_property_aspect(table, spec)
+        cp = props.customProperties
+        assert cp.get("metric_view.materialization.schedule") == "every 6 hours"
+        assert cp.get("metric_view.materialization.mode") == "relaxed"
+        assert "metric_view.materialization.materialized_views" in cp
+
+    # ── Agent metadata: display_name ──────────────────────────────────────────
+
+    def test_display_name_stored_as_custom_property(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\n"
+                "source: cat.sch.orders\n"
+                "dimensions:\n"
+                "  - name: region\n"
+                "    expr: r\n"
+                "    display_name: Sales Region\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        cp = source._create_table_property_aspect(table, spec).customProperties
+        assert cp.get("metric_view.field.region.display_name") == "Sales Region"
+
+    def test_display_name_truncated_at_255_chars(self):
+        source = self._build_source(include_metric_views=True)
+        long_name = "A" * 300
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                f"version: 1.1\nsource: cat.sch.orders\n"
+                f"dimensions:\n  - name: d\n    expr: x\n    display_name: {long_name}\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        cp = source._create_table_property_aspect(table, spec).customProperties
+        stored = cp.get("metric_view.field.d.display_name")
+        assert stored is not None and len(stored) == 255
+        assert source.report.num_metric_view_display_name_truncated == 1
+
+    # ── Agent metadata: synonyms ──────────────────────────────────────────────
+
+    def test_synonyms_stored_as_custom_property(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\n"
+                "source: cat.sch.orders\n"
+                "measures:\n"
+                "  - name: revenue\n"
+                "    expr: SUM(price)\n"
+                "    synonyms: [sales, income]\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        props = source._create_table_property_aspect(table, spec)
+        assert (
+            props.customProperties.get("metric_view.field.revenue.synonyms")
+            == "sales,income"
+        )
+
+    def test_synonyms_capped_at_10(self):
+        source = self._build_source(include_metric_views=True)
+        syns = [f"syn{i}" for i in range(12)]
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                f"dimensions:\n  - name: d\n    expr: x\n    synonyms: {syns}\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        props = source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_synonyms_overflow == 1
+        stored = props.customProperties.get("metric_view.field.d.synonyms", "")
+        assert len(stored.split(",")) == 10
+
+    def test_synonyms_entry_over_255_chars_truncated_and_counted(self):
+        source = self._build_source(include_metric_views=True)
+        long_a = "a" * 300
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+                f"    synonyms: ['short', '{long_a}']\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        props = source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_synonyms_truncated == 1
+        stored = props.customProperties.get("metric_view.field.d.synonyms", "")
+        parts = stored.split(",")
+        assert parts == ["short", "a" * 255]
+
+    def test_synonyms_invalid_entries_dropped_and_counted(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+                "    synonyms: ['valid', 123, '', '   ', null, ['nested']]\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        props = source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_synonyms_dropped_invalid == 5
+        assert props.customProperties.get("metric_view.field.d.synonyms") == "valid"
+
+    def test_synonyms_all_invalid_emits_no_property(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+                "    synonyms: [123, '', '   ']\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        props = source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_synonyms_dropped_invalid == 3
+        assert "metric_view.field.d.synonyms" not in props.customProperties
+
+    def test_synonyms_truncation_and_overflow_both_fire(self):
+        source = self._build_source(include_metric_views=True)
+        long_a = "a" * 300
+        entries = ["s" + str(i) for i in range(9)] + [long_a, long_a]
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+                f"    synonyms: {entries}\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        props = source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_synonyms_truncated == 2
+        assert source.report.num_metric_view_synonyms_overflow == 1
+        stored = props.customProperties.get("metric_view.field.d.synonyms", "")
+        assert len(stored.split(",")) == 10
+
+    def test_synonyms_counters_sum_across_entries(self):
+        source = self._build_source(include_metric_views=True)
+        long_a = "a" * 300
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n"
+                "  - name: d1\n    expr: x\n"
+                f"    synonyms: [valid1, 1, '{long_a}']\n"
+                "  - name: d2\n    expr: y\n"
+                f"    synonyms: ['', 2, '{long_a}', '{long_a}']\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_synonyms_dropped_invalid == 3
+        assert source.report.num_metric_view_synonyms_truncated == 3
+
+    def test_synonyms_exact_255_chars_not_counted_as_truncated(self):
+        source = self._build_source(include_metric_views=True)
+        exact = "a" * 255
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+                f"    synonyms: ['{exact}']\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_synonyms_truncated == 0
+
+    # ── Agent metadata: format ────────────────────────────────────────────────
+
+    @pytest.mark.parametrize(
+        "fmt_yaml,expected_keys",
+        [
+            (
+                "type: currency\ncurrency_code: USD\n",
+                {
+                    "metric_view.field.rev.format.type": "currency",
+                    "metric_view.field.rev.format.currency_code": "USD",
+                },
+            ),
+            (
+                "type: percentage\n",
+                {"metric_view.field.rev.format.type": "percentage"},
+            ),
+            (
+                "type: date\ndate_format: year_month_day\n",
+                {
+                    "metric_view.field.rev.format.type": "date",
+                    "metric_view.field.rev.format.date_format": "year_month_day",
+                },
+            ),
+        ],
+    )
+    def test_format_flattened_to_custom_properties(self, fmt_yaml, expected_keys):
+        source = self._build_source(include_metric_views=True)
+        indented = "\n".join(
+            f"        {line}" for line in fmt_yaml.strip().splitlines()
+        )
+        view_def = (
+            "version: 1.1\nsource: cat.sch.orders\n"
+            "measures:\n  - name: rev\n    expr: SUM(p)\n    format:\n"
+            + indented
+            + "\n"
+        )
+        table, _ = self._build_metric_view_table(view_definition=view_def)
+        spec = source._load_metric_view_spec(table)
+        cp = source._create_table_property_aspect(table, spec).customProperties
+        for k, v in expected_keys.items():
+            assert cp.get(k) == v, f"missing {k!r}"
+
+    def test_format_unknown_subkey_dropped_with_counter(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "measures:\n  - name: m\n    expr: COUNT(1)\n"
+                "    format:\n      type: number\n      unknown_key: foo\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_format_unknown_subkeys == 1
+
+    def test_format_decimal_places_nested_dict_flattened(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "measures:\n  - name: rev\n    expr: SUM(p)\n"
+                "    format:\n      type: number\n"
+                "      decimal_places:\n        type: max\n        places: 4\n"
+                "        unsupported_subkey: x\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        cp = source._create_table_property_aspect(table, spec).customProperties
+        assert cp.get("metric_view.field.rev.format.decimal_places.type") == "max"
+        assert cp.get("metric_view.field.rev.format.decimal_places.places") == "4"
+        assert source.report.num_metric_view_format_unknown_subkeys == 1
+
+    # ── Window measures ───────────────────────────────────────────────────────
+
+    def test_window_measure_tagged_as_window_measure(self):
+        from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
+
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_with_columns(
+            view_definition=(
+                "version: 1.1\n"
+                "source: cat.sch.orders\n"
+                "dimensions:\n  - name: dt\n    expr: order_date\n"
+                "measures:\n"
+                "  - name: t7d\n"
+                "    expr: COUNT(DISTINCT id)\n"
+                "    window:\n"
+                "      - order: dt\n"
+                "        range: trailing 7 day\n"
+                "        semiadditive: last\n"
+            ),
+            column_names=["dt", "t7d"],
+        )
+        spec = source._load_metric_view_spec(table)
+        schema_metadata, _ = source._create_schema_metadata_aspect(table, spec)
+        by_name = {f.fieldPath: f for f in schema_metadata.fields}
+        t7d_tags = {
+            t.tag for t in (by_name["t7d"].globalTags or GlobalTags(tags=[])).tags
+        }
+        assert "urn:li:tag:Measure" in t7d_tags
+        assert "urn:li:tag:Window Measure" in t7d_tags
+        dt_tags = {
+            t.tag for t in (by_name["dt"].globalTags or GlobalTags(tags=[])).tags
+        }
+        assert "urn:li:tag:Window Measure" not in dt_tags
+
+    def test_window_measure_config_stored_as_custom_properties(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n  - name: dt\n    expr: d\n"
+                "measures:\n"
+                "  - name: t7d\n    expr: COUNT(1)\n"
+                "    window:\n"
+                "      - order: dt\n        range: trailing 7 day\n        semiadditive: last\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        cp = source._create_table_property_aspect(table, spec).customProperties
+        assert cp.get("metric_view.field.t7d.window.order") == "dt"
+        assert cp.get("metric_view.field.t7d.window.range") == "trailing 7 day"
+        assert cp.get("metric_view.field.t7d.window.semiadditive") == "last"
+
+    def test_empty_window_list_does_not_tag_as_window_measure(self):
+        """An empty `window: []` is not a real window definition — must not attach the tag."""
+        from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
+
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_with_columns(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "measures:\n  - name: m\n    expr: COUNT(1)\n    window: []\n"
+            ),
+            column_names=["m"],
+        )
+        spec = source._load_metric_view_spec(table)
+        schema_metadata, _ = source._create_schema_metadata_aspect(table, spec)
+        tags = {
+            t.tag
+            for t in (schema_metadata.fields[0].globalTags or GlobalTags(tags=[])).tags
+        }
+        assert "urn:li:tag:Window Measure" not in tags
+
+    def test_multi_entry_window_stored_as_json(self):
+        """Multiple window entries fall back to a single JSON blob property."""
+        import json as _json
+
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n  - name: dt\n    expr: d\n"
+                "measures:\n  - name: m\n    expr: COUNT(1)\n"
+                "    window:\n"
+                "      - order: dt\n        range: trailing 7 day\n"
+                "      - order: dt\n        range: trailing 30 day\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        cp = source._create_table_property_aspect(table, spec).customProperties
+        assert "metric_view.field.m.window" in cp
+        parsed = _json.loads(cp["metric_view.field.m.window"])
+        assert isinstance(parsed, list) and len(parsed) == 2
+
+    # ── MEASURE() intra-MV lineage ────────────────────────────────────────────
+
+    def test_composed_measure_emits_intra_mv_lineage(self):
+        from datahub.emitter.mce_builder import make_schema_field_urn
+
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_with_columns(
+            view_definition=(
+                "version: 1.1\n"
+                "source: cat.sch.orders\n"
+                "measures:\n"
+                "  - name: total_revenue\n"
+                "    expr: SUM(price)\n"
+                "  - name: order_count\n"
+                "    expr: COUNT(1)\n"
+                "  - name: aov\n"
+                "    expr: MEASURE(total_revenue) / MEASURE(order_count)\n"
+            ),
+            column_names=["total_revenue", "order_count", "aov"],
+        )
+        spec = source._load_metric_view_spec(table)
+        assert spec is not None
+        result = source._extract_metric_view_column_lineage(table, spec)
+        downstream_urn = source.gen_dataset_urn(table.ref)
+        aov_field_urn = make_schema_field_urn(downstream_urn, "aov")
+        intra_edges = [
+            fg
+            for fg in result
+            if fg.downstreams
+            and aov_field_urn in fg.downstreams
+            and fg.upstreams
+            and all(downstream_urn in u for u in fg.upstreams)
+        ]
+        assert len(intra_edges) == 2
+
+    def test_composed_measure_case_insensitive(self):
+        """MEASURE() matching is case-insensitive per SQL convention."""
+        from datahub.emitter.mce_builder import make_schema_field_urn
+
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_with_columns(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "measures:\n"
+                "  - name: base\n    expr: SUM(x)\n"
+                "  - name: composed\n    expr: measure(base) * 2\n"
+            ),
+            column_names=["base", "composed"],
+        )
+        spec = source._load_metric_view_spec(table)
+        assert spec is not None
+        result = source._extract_metric_view_column_lineage(table, spec)
+        downstream_urn = source.gen_dataset_urn(table.ref)
+        composed_field = make_schema_field_urn(downstream_urn, "composed")
+        base_field = make_schema_field_urn(downstream_urn, "base")
+        intra = [
+            fg
+            for fg in result
+            if fg.downstreams
+            and composed_field in fg.downstreams
+            and fg.upstreams
+            and base_field in fg.upstreams
+        ]
+        assert len(intra) == 1
+
+    def test_measure_ref_argument_case_mismatch_uses_canonical_urn(self):
+        """`MEASURE(Total_Revenue)` referencing measure `total_revenue` must emit the canonical URN."""
+        from datahub.emitter.mce_builder import make_schema_field_urn
+
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_with_columns(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "measures:\n"
+                "  - name: total_revenue\n    expr: SUM(p)\n"
+                "  - name: composed\n    expr: MEASURE(Total_Revenue) / 2\n"
+            ),
+            column_names=["total_revenue", "composed"],
+        )
+        spec = source._load_metric_view_spec(table)
+        assert spec is not None
+        result = source._extract_metric_view_column_lineage(table, spec)
+        downstream_urn = source.gen_dataset_urn(table.ref)
+        canonical_urn = make_schema_field_urn(downstream_urn, "total_revenue")
+        mismatched_urn = make_schema_field_urn(downstream_urn, "Total_Revenue")
+        all_upstreams = {u for fg in result for u in (fg.upstreams or [])}
+        assert canonical_urn in all_upstreams
+        assert mismatched_urn not in all_upstreams
+
+    def test_composed_measure_unresolved_ref_increments_counter(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_with_columns(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "measures:\n  - name: m\n    expr: MEASURE(nope) / 1\n"
+            ),
+            column_names=["m"],
+        )
+        spec = source._load_metric_view_spec(table)
+        assert spec is not None
+        source._extract_metric_view_column_lineage(table, spec)
+        assert source.report.num_metric_view_unresolved_measure_refs >= 1
+
+    def test_measure_args_do_not_emit_spurious_source_upstreams(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_with_columns(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "measures:\n"
+                "  - name: total_revenue\n    expr: SUM(price)\n"
+                "  - name: order_count\n    expr: COUNT(1)\n"
+                "  - name: aov\n"
+                "    expr: MEASURE(total_revenue) / MEASURE(order_count)\n"
+            ),
+            column_names=["total_revenue", "order_count", "aov"],
+        )
+        spec = source._load_metric_view_spec(table)
+        assert spec is not None
+        result = source._extract_metric_view_column_lineage(table, spec)
+        for fg in result:
+            for u in fg.upstreams or []:
+                assert "cat.sch.orders" not in u or (
+                    "total_revenue" not in u and "order_count" not in u
+                ), f"spurious source-table upstream emitted: {u}"
+
+    # ── Spec version ──────────────────────────────────────────────────────────
+
+    def test_spec_version_stored_as_custom_property(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition="version: 1.1\nsource: cat.sch.orders\ndimensions:\n  - name: d\n    expr: x\n"
+        )
+        spec = source._load_metric_view_spec(table)
+        cp = source._create_table_property_aspect(table, spec).customProperties
+        assert cp.get("metric_view.spec_version") == "1.1"
+
+    # ── Joins diagnostic property ──────────────────────────────────────────────
+
+    def test_top_level_yaml_comment_used_as_dataset_description(self):
+        """Top-level `comment:` in YAML is the MV's own doc and should win over UC's table.comment."""
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "comment: This view aggregates daily revenue from orders.\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+            )
+        )
+        table.comment = "Older UC table comment, should be overridden."
+        spec = source._load_metric_view_spec(table)
+        props = source._create_table_property_aspect(table, spec)
+        assert props.description == "This view aggregates daily revenue from orders."
+
+    def test_yaml_comment_absent_falls_back_to_table_comment(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+            )
+        )
+        table.comment = "UC table comment."
+        spec = source._load_metric_view_spec(table)
+        props = source._create_table_property_aspect(table, spec)
+        assert props.description == "UC table comment."
+
+    def test_joins_diagnostic_property_stored(self):
+        import json as _json
+
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "joins:\n  - name: c\n    source: cat.sch.customers\n    on: id=cid\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        cp = source._create_table_property_aspect(table, spec).customProperties
+        assert "metric_view.joins" in cp
+        parsed = _json.loads(cp["metric_view.joins"])
+        assert isinstance(parsed, list) and len(parsed) == 1
+        assert parsed[0]["name"] == "c"
+        # PyYAML's YAML 1.1 default coerces `on`/`off`/`yes`/`no` keys to booleans;
+        # our custom loader must keep `on` as a string so the join predicate is preserved.
+        assert parsed[0]["on"] == "id=cid"
+        assert "true" not in parsed[0]
+
+    # ── Nested (snowflake schema) join lineage ────────────────────────────────
+
+    def test_nested_joins_lineage_includes_all_sources(self):
+        """Snowflake schema nested joins must all appear as upstream datasets."""
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\n"
+                "source: cat.sch.orders\n"
+                "joins:\n"
+                "  - name: customer\n"
+                "    source: cat.sch.customer\n"
+                "    on: o_custkey=c_custkey\n"
+                "    joins:\n"
+                "      - name: nation\n"
+                "        source: cat.sch.nation\n"
+                "        on: c_nationkey=n_nationkey\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        lineage = source._extract_metric_view_lineage(table, spec)
+        assert lineage is not None
+        upstream_urns = {u.dataset for u in lineage.upstreams}
+        assert any("orders" in u for u in upstream_urns)
+        assert any("customer" in u for u in upstream_urns)
+        assert any("nation" in u for u in upstream_urns)
+
+
+class TestUnityCatalogExternalS3Lineage:
+    """S3 external-lineage paths carrying partition brace-lists
+    (e.g. `s3://bucket/topic/{20260410,20260411}`) produce URNs whose name
+    segment contains braces and commas, which GMS rejects. We normalize the
+    path down to the parent table path before building the URN."""
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            # Brace-list partition set -> parent path
+            (
+                "s3://bucket/topics/event/{20260410,20260411,20260412}",
+                "s3://bucket/topics/event",
+            ),
+            # Trailing slash after brace-list
+            (
+                "s3://bucket/topics/event/{20260410,20260411}/",
+                "s3://bucket/topics/event",
+            ),
+            # No partitions -> unchanged
+            (
+                "s3://bucket/topics/event",
+                "s3://bucket/topics/event",
+            ),
+            # s3a scheme preserved
+            (
+                "s3a://bucket/a/b/{d1,d2}",
+                "s3a://bucket/a/b",
+            ),
+            # Brace-list as a suffix of a component -> the whole component is
+            # dropped (parent dir), the prefix stem is not kept.
+            (
+                "s3://bucket/topics/event/part_{d1,d2,d3}",
+                "s3://bucket/topics/event",
+            ),
+            # Illegal char in a middle component -> truncate there.
+            (
+                "s3://bucket/a/b={x,y}/c",
+                "s3://bucket/a",
+            ),
+        ],
+    )
+    def test_strip_s3_partition_from_path(self, raw: str, expected: str) -> None:
+        from datahub.ingestion.source.unity.source import _strip_s3_partition_from_path
+
+        assert _strip_s3_partition_from_path(raw) == expected
+
+    @patch("datahub.ingestion.source.unity.source.create_workspace_client")
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_external_lineage_with_braces_produces_valid_urn(
+        self, mock_hive_proxy, mock_unity_proxy, mock_ws
+    ):
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            ExternalTableReference,
+            Metastore,
+            Schema,
+            Table,
+        )
+        from datahub.metadata.urns import DatasetUrn
+
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                "include_external_lineage": True,
+            }
+        )
+        source = UnityCatalogSource.create(config, PipelineContext(run_id="t"))
+
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+        table = Table(
+            id="c.s.t",
+            name="t",
+            comment=None,
+            schema=schema,
+            columns=[],
+            storage_location=None,
+            data_source_format=None,
+            table_type=None,
+            owner=None,
+            generation=None,
+            created_at=None,
+            created_by=None,
+            updated_at=None,
+            updated_by=None,
+            table_id=None,
+            view_definition=None,
+            properties={},
+        )
+        table.external_upstreams.add(
+            ExternalTableReference(
+                path="s3://bucket/topics/event/{20260410,20260411,20260412}",
+                has_permission=True,
+                name=None,
+                type=None,
+                storage_location="s3://bucket/topics/event/{20260410,20260411,20260412}",
+                last_updated=None,
+            )
+        )
+
+        aspect = source._generate_lineage_aspect(
+            source.gen_dataset_urn(table.ref), table
+        )
+        assert aspect is not None
+        s3_upstreams = [u for u in aspect.upstreams if "s3" in u.dataset]
+        assert len(s3_upstreams) == 1
+        # Must be a parseable URN with no braces/commas in the name segment
+        urn = s3_upstreams[0].dataset
+        assert "{" not in urn and "}" not in urn
+        parsed = DatasetUrn.from_string(urn)  # raises if malformed
+        assert parsed.name == "bucket/topics/event"
+
+
+class TestUnityCatalogMlModelControls:
+    @pytest.fixture(autouse=True)
+    def _mock_workspace_client(self):
+        with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+            yield
+
+    @staticmethod
+    def _schema_and_models(n: int) -> tuple:
+        from datetime import datetime
+
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Model,
+            Schema,
+        )
+
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(id="c.s", name="s", catalog=catalog, comment=None, owner=None)
+        models = [
+            Model(
+                id=f"c.s.model_{i}",
+                name=f"model_{i}",
+                description=None,
+                schema_name="s",
+                catalog_name="c",
+                created_at=datetime(2023, 1, 1),
+                updated_at=datetime(2023, 1, 2),
+            )
+            for i in range(n)
+        ]
+        return schema, models
+
+    def _build_source(self, **extra: object) -> UnityCatalogSource:
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                **extra,
+            }
+        )
+        return UnityCatalogSource.create(config, PipelineContext(run_id="t"))
+
+    def test_include_ml_models_false_skips_all_processing(self) -> None:
+        source = self._build_source(include_ml_models=False)
+        schema, _ = self._schema_and_models(3)
+
+        with patch.object(
+            source.unity_catalog_api_proxy, "ml_models"
+        ) as mock_ml_models:
+            workunits = list(source.process_ml_models(schema))
+
+        assert workunits == []
+        # No API call should be made when ML models are disabled
+        mock_ml_models.assert_not_called()
+        assert len(source.report.ml_models.processed_entities) == 0
+
+    def test_ml_model_max_results_zero_ingests_nothing(self) -> None:
+        source = self._build_source(ml_model_max_results=0)
+        schema, models = self._schema_and_models(3)
+
+        with (
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "ml_models",
+                side_effect=lambda **kw: iter(models),
+            ),
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "ml_model_versions",
+                side_effect=lambda *a, **k: iter([]),
+            ),
+        ):
+            list(source.process_ml_models(schema))
+
+        assert len(source.report.ml_models.processed_entities) == 0
+
+    def test_ml_model_max_results_caps_total(self) -> None:
+        source = self._build_source(ml_model_max_results=1)
+        schema, models = self._schema_and_models(3)
+
+        with (
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "ml_models",
+                side_effect=lambda **kw: iter(models),
+            ),
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "ml_model_versions",
+                side_effect=lambda *a, **k: iter([]),
+            ),
+        ):
+            list(source.process_ml_models(schema))
+
+        assert len(source.report.ml_models.processed_entities) == 1
+
+    def test_ml_model_version_uses_configured_env(self) -> None:
+        from datetime import datetime
+
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Model,
+            ModelVersion,
+            Schema,
+        )
+
+        source = self._build_source(env="DEV")
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(id="c.s", name="s", catalog=catalog, comment=None, owner=None)
+        model = Model(
+            id="c.s.model",
+            name="model",
+            description=None,
+            schema_name="s",
+            catalog_name="c",
+            created_at=datetime(2023, 1, 1),
+            updated_at=datetime(2023, 1, 2),
+        )
+        version = ModelVersion(
+            id="c.s.model_1",
+            name="model_1",
+            model=model,
+            version="1",
+            aliases=[],
+            description=None,
+            created_at=datetime(2023, 1, 3),
+            updated_at=datetime(2023, 1, 4),
+            created_by="u",
+            run_details=None,
+            signature=None,
+        )
+
+        model_urn = source.gen_ml_model_urn(model.id)
+        wus = list(source.process_ml_model_version(model_urn, version, schema))
+
+        ml_model_urns = [wu.get_urn() for wu in wus if "mlModel:" in wu.get_urn()]
+        assert ml_model_urns
+        assert all(u.endswith(",DEV)") for u in ml_model_urns), ml_model_urns
+
+
+class TestUnityCatalogViewFiltering:
+    @pytest.fixture(autouse=True)
+    def _mock_workspace_client(self):
+        with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+            yield
+
+    @staticmethod
+    def _build_source(**extra: object) -> UnityCatalogSource:
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                **extra,
+            }
+        )
+        ctx = PipelineContext(run_id="test_run")
+        return UnityCatalogSource.create(config, ctx)
+
+    @staticmethod
+    def _build_table(name: str, table_type: TableType) -> tuple:
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+        )
+
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+        table = Table(
+            id=f"c.s.{name}",
+            name=name,
+            comment=None,
+            schema=schema,
+            columns=[],
+            storage_location=None,
+            data_source_format=None,
+            table_type=table_type,
+            owner=None,
+            generation=None,
+            created_at=None,
+            created_by=None,
+            updated_at=None,
+            updated_by=None,
+            table_id=None,
+            view_definition="SELECT 1" if "view" in name else None,
+            properties={},
+        )
+        return table, schema
+
+    def _run(self, source: UnityCatalogSource, table: Table, schema: Schema) -> list:
+        def _stub_tables(schema, _table=table):
+            return iter([_table])
+
+        source.unity_catalog_api_proxy.tables = _stub_tables  # type: ignore[assignment]
+        return list(source.process_tables(schema))
+
+    def test_include_views_false_drops_view(self):
+        source = self._build_source(include_views=False)
+        view, schema = self._build_table("my_view", TableType.VIEW)
+        assert self._run(source, view, schema) == []
+        assert view.id in list(source.report.tables.dropped_entities)
+        assert view.ref not in source.view_refs
+
+    def test_view_pattern_deny_drops_view(self):
+        source = self._build_source(view_pattern={"deny": [".*"]})
+        view, schema = self._build_table("my_view", TableType.VIEW)
+        assert self._run(source, view, schema) == []
+        assert view.id in list(source.report.tables.dropped_entities)
+        assert view.ref not in source.view_refs
+
+    def test_view_ingested_by_default(self):
+        source = self._build_source()
+        view, schema = self._build_table("my_view", TableType.VIEW)
+        with patch.object(
+            source, "process_table", return_value=iter([])
+        ) as process_table:
+            self._run(source, view, schema)
+        process_table.assert_called_once()
+        assert view.id not in list(source.report.tables.dropped_entities)
+        assert view.ref in source.view_refs
+
+    def test_table_not_affected_by_view_filters(self):
+        """Denying views must not drop ordinary tables."""
+        source = self._build_source(include_views=False, view_pattern={"deny": [".*"]})
+        table, schema = self._build_table("my_table", TableType.MANAGED)
+        with patch.object(
+            source, "process_table", return_value=iter([])
+        ) as process_table:
+            self._run(source, table, schema)
+        process_table.assert_called_once()
+        assert table.id not in list(source.report.tables.dropped_entities)
+        assert table.ref in source.table_refs
+
+    def test_include_tables_false_drops_only_regular_tables(self):
+        """include_tables gates regular tables only; views and metric views keep their own toggles."""
+        if not hasattr(TableType, "METRIC_VIEW"):
+            pytest.skip("Installed databricks-sdk lacks TableType.METRIC_VIEW")
+        source = self._build_source(include_tables=False, include_metric_views=True)
+        table, schema = self._build_table("my_table", TableType.MANAGED)
+        view, _ = self._build_table("my_view", TableType.VIEW)
+        metric_view, _ = self._build_table("my_metric", TableType.METRIC_VIEW)
+
+        def _stub_tables(schema, _objs=(table, view, metric_view)):
+            return iter(_objs)
+
+        source.unity_catalog_api_proxy.tables = _stub_tables  # type: ignore[assignment]
+        with patch.object(source, "process_table", return_value=iter([])):
+            list(source.process_tables(schema))
+        dropped = list(source.report.tables.dropped_entities)
+        assert dropped == [table.id]
+        assert view.ref in source.view_refs
+        assert metric_view.ref in source.table_refs

@@ -2,6 +2,7 @@ package io.datahubproject.openlineage.config;
 
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataJobUrn;
+import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
 import io.datahubproject.openlineage.dataset.PathSpec;
 import java.util.Collections;
 import java.util.HashMap;
@@ -35,10 +36,25 @@ public class DatahubOpenlineageConfig {
   @Builder.Default private final Map<String, List<PathSpec>> pathSpecs = new HashMap<>();
   private final String filePartitionRegexpPattern;
 
+  // Cross-platform lineage: maps a connection identity to the platform_instance/env that the
+  // upstream platform's own connector stamps, so a single Spark job reading from multiple
+  // accounts/regions/hosts emits matching per-connection URNs. The key is the canonical OpenLineage
+  // namespace authority that identifies the connection — e.g. arn:aws:glue:{region}:{account}
+  // (Glue,
+  // from the symlink), snowflake://{account}, postgres://{host}:{port}. The platform is implied by
+  // the namespace scheme, so no platform field is needed (mirrors PlatformDetail on the ingestion
+  // side). This is also the canonical key the connection->instance registry will use.
+  @Builder.Default
+  private final Map<String, ConnectionInstanceDetail> connectionInstanceMap = new HashMap<>();
+
   // Metadata ingestion configuration
   private final boolean materializeDataset;
   private final boolean includeSchemaMetadata;
   @Builder.Default private final boolean captureColumnLevelLineage = true;
+  // INDIRECT upstreams are columns that influenced row selection (JOIN keys, WHERE filters,
+  // GROUP BY) rather than producing the output value. When false, input fields whose only
+  // role is INDIRECT are dropped from column-level lineage.
+  @Builder.Default private final boolean includeIndirectColumnLineage = true;
 
   // Advanced configuration
   @Builder.Default private final DataJobUrn parentJobUrn = null;

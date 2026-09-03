@@ -1,0 +1,74 @@
+[
+  {
+    "request": {
+      "description": "Clean slate",
+      "method": "delete",
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CownerTypesIdempotencyV3%2CPROD%29"
+    },
+    "response": {
+      "status_codes": [200, 204, 404]
+    }
+  },
+  {
+    "request": {
+      "description": "Write #1: owners populated, ownerTypes omitted (typical ingestion payload)",
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CownerTypesIdempotencyV3%2CPROD%29/ownership",
+      "params": {
+        "createIfNotExists": "false",
+        "createEntityIfNotExists": "true",
+        "async": "false"
+      },
+      "json": {
+        "value": {
+          "owners": [
+            {"owner": "urn:li:corpuser:datahub", "type": "TECHNICAL_OWNER"}
+          ],
+          "lastModified": {"time": 0, "actor": "urn:li:corpuser:datahub"}
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "description": "Write #2 (regression): identical owners, ownerTypes again omitted. Before the OwnershipOwnerTypes hook fix the grouped owner map matched the previous state, the hook short-circuited setOwnerTypes, and the empty map on the proposal overwrote the stored materialization.",
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CownerTypesIdempotencyV3%2CPROD%29/ownership",
+      "params": {
+        "createIfNotExists": "false",
+        "async": "false"
+      },
+      "json": {
+        "value": {
+          "owners": [
+            {"owner": "urn:li:corpuser:datahub", "type": "TECHNICAL_OWNER"}
+          ],
+          "lastModified": {"time": 0, "actor": "urn:li:corpuser:datahub"}
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "description": "Regression assertion: ownerTypes must survive the repeat ingest",
+      "method": "get",
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CownerTypesIdempotencyV3%2CPROD%29/ownership",
+      "params": {"systemMetadata": "false"}
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\['value'\\]\\['lastModified'\\]"
+      ],
+      "json": {
+        "value": {
+          "owners": [
+            {"owner": "urn:li:corpuser:datahub", "type": "TECHNICAL_OWNER"}
+          ],
+          "ownerTypes": {
+            "urn:li:ownershipType:__system__technical_owner": [
+              "urn:li:corpuser:datahub"
+            ]
+          }
+        }
+      }
+    }
+  }
+]

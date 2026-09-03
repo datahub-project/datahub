@@ -18,6 +18,7 @@ import { Play } from '@phosphor-icons/react/dist/csr/Play';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
@@ -33,6 +34,7 @@ import PolicyBuilderModal from '@app/permissions/policy/PolicyBuilderModal';
 import PolicyDetailsModal from '@app/permissions/policy/PolicyDetailsModal';
 import { DEFAULT_PAGE_SIZE, EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
 import { usePolicy } from '@app/permissions/policy/usePolicy';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -100,19 +102,21 @@ enum StatusType {
     INACTIVE = 'INACTIVE',
 }
 
-const STATUS_OPTIONS = [
-    { value: StatusType.ALL, label: 'All' },
-    { value: StatusType.ACTIVE, label: 'Active' },
-    { value: StatusType.INACTIVE, label: 'Inactive' },
-];
-
 interface ManagePoliciesProps {
     onRegisterCreatePolicy?: (fn: () => void) => void;
 }
 
 export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) => {
+    const { t } = useTranslation('settings.permissions');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const theme = useTheme();
+
+    const statusOptions = [
+        { value: StatusType.ALL, label: t('statusAll') },
+        { value: StatusType.ACTIVE, label: t('statusActive') },
+        { value: StatusType.INACTIVE, label: t('statusInactive') },
+    ];
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -235,19 +239,19 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
 
     useEffect(() => {
         if (policiesError) {
-            toast.error('Failed to load policies! An unexpected error occurred.');
+            toast.error(t('loadError'));
         }
-    }, [policiesError]);
+    }, [policiesError, t]);
 
     useEffect(() => {
         if (updateError) {
-            toast.error('Failed to update policies. An unexpected error occurred.');
+            toast.error(t('updateError'));
         }
-    }, [updateError]);
+    }, [updateError, t]);
 
     const tableColumns = [
         {
-            title: 'Name',
+            title: t('column.name'),
             key: 'name',
             width: '20%',
             render: (record: any) => (
@@ -260,7 +264,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
             ),
         },
         {
-            title: 'Type',
+            title: t('column.type'),
             key: 'type',
             width: '10%',
             render: (record: any) => {
@@ -278,13 +282,13 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
             },
         },
         {
-            title: 'Description',
+            title: t('column.description'),
             key: 'description',
             width: '25%',
             render: (record: any) => record?.description || '',
         },
         {
-            title: 'Actors',
+            title: t('column.actors'),
             key: 'actors',
             width: '20%',
             render: (record: any) => {
@@ -323,24 +327,24 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                                 showRemainingNumber
                                 totalCount={avatars.length}
                                 entityRegistry={entityRegistry as any}
-                                title="Actors"
+                                title={t('column.actors')}
                             />
                         )}
                         {record?.allUsers && (
-                            <Pill label="All Users" variant="outline" color="gray" size="sm" clickable={false} />
+                            <Pill label={t('allUsers')} variant="outline" color="gray" size="sm" clickable={false} />
                         )}
                         {record?.allGroups && (
-                            <Pill label="All Groups" variant="outline" color="gray" size="sm" clickable={false} />
+                            <Pill label={t('allGroups')} variant="outline" color="gray" size="sm" clickable={false} />
                         )}
                         {record?.resourceOwners && (
-                            <Pill label="All Owners" variant="outline" color="gray" size="sm" clickable={false} />
+                            <Pill label={t('allOwners')} variant="outline" color="gray" size="sm" clickable={false} />
                         )}
                     </ActorsContainer>
                 );
             },
         },
         {
-            title: 'State',
+            title: t('column.state'),
             key: 'state',
             width: '10%',
             render: (record: any) => {
@@ -365,7 +369,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                 if (!record?.editable) {
                     return (
                         <MenuTriggerContainer onClick={(e) => e.stopPropagation()}>
-                            <Tooltip title="This is a system policy and cannot be modified">
+                            <Tooltip title={t('systemPolicyTooltip')}>
                                 <span style={{ display: 'inline-flex', cursor: 'not-allowed' }}>
                                     <Button
                                         variant="text"
@@ -389,14 +393,14 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                     {
                         type: 'item',
                         key: 'edit',
-                        title: 'Edit',
+                        title: tc('edit'),
                         icon: PencilSimple,
                         onClick: () => onEditPolicy(record?.policy),
                     },
                     {
                         type: 'item',
                         key: 'toggle-active',
-                        title: isActive ? 'Deactivate' : 'Activate',
+                        title: isActive ? tc('deactivate') : tc('activate'),
                         icon: isActive ? Pause : Play,
                         onClick: () => {
                             onToggleActiveDuplicate(record?.policy);
@@ -410,7 +414,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                     {
                         type: 'item',
                         key: 'delete',
-                        title: 'Delete',
+                        title: tc('delete'),
                         icon: Trash,
                         danger: true,
                         onClick: () => onRemovePolicy(record?.policy),
@@ -423,6 +427,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                             <Button
                                 variant="text"
                                 isCircle
+                                data-testid="policy-row-menu-button"
                                 icon={{
                                     icon: DotsThreeVertical,
                                     weight: 'bold',
@@ -456,21 +461,30 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
 
     return (
         <>
-            <PageContainer>
+            <PageContainer data-testid="manage-permissions-page">
                 <OnboardingTour stepIds={[POLICIES_INTRO_ID, POLICIES_CREATE_POLICY_ID]} />
                 <ToolbarContainer>
                     <SearchBar
-                        placeholder="Search policies..."
+                        placeholder={t('searchPlaceholder')}
                         value={query || ''}
                         onChange={(value) => {
+                            // SearchBar's debounce also fires once on mount with an empty value.
+                            // Normalizing '' to undefined makes that a no-op against the initial
+                            // state instead of a redundant `query: ""` network fetch, and lets
+                            // clearing the box fall back to the cached first page.
+                            const nextQuery = value || undefined;
+                            if (nextQuery === query) {
+                                return;
+                            }
                             setPage(1);
-                            setQuery(value);
+                            setQuery(nextQuery);
                         }}
+                        debounceDelay={DEBOUNCE_SEARCH_MS}
                         width="250px"
                         allowClear
                     />
                     <SimpleSelect
-                        options={STATUS_OPTIONS}
+                        options={statusOptions}
                         values={[statusFilter]}
                         onUpdate={onStatusChange}
                         showClear={false}
@@ -485,7 +499,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                     {!policiesLoading && tableData?.length === 0 ? (
                         <EmptyContainer>
                             <Text size="md" color="gray">
-                                No Policies!
+                                {t('emptyPolicies')}
                             </Text>
                         </EmptyContainer>
                     ) : (
@@ -497,6 +511,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                             isLoading={policiesLoading}
                             style={{ tableLayout: 'fixed' }}
                             onRowClick={(record: any) => onViewPolicy(record.policy)}
+                            data-testid="policies-table-body"
                         />
                     )}
                 </TableScrollContainer>
