@@ -258,6 +258,7 @@ Forgetting step 2 means the release note is published but never appears in the s
   - **Error Handling**: Robust error handling with layers of protection for known failure points
   - **Security**: Never pass credentials to third-party SDKs via `os.environ`. Use the SDK's programmatic injection mechanism (a settings object, client constructor argument, or credential provider). Writing secrets to the process environment exposes them via `/proc/<pid>/environ` and to any code in the same process. See [`looker_lib_wrapper.py`](metadata-ingestion/src/datahub/ingestion/source/looker/looker_lib_wrapper.py) (`_DataHubLookerApiSettings`) for the canonical pattern.
   - **Connectors**: File layout, lineage, reporting, and PR-scope conventions for ingestion connectors live in `metadata-ingestion/AGENTS.md`
+  - **Smoke tests**: Authoring conventions live in [`smoke-test/AGENTS.md`](smoke-test/AGENTS.md)
 - **TypeScript**: Use Prettier formatting, strict types (no `any`), React Testing Library
   - **Frontend**: Component conventions, theming/color tokens, file layout, and the frontend CI checklist live in `datahub-web-react/AGENTS.md`
 
@@ -299,7 +300,7 @@ connection_timeout = 30
 - Python: Tests go in the `tests/` directory alongside `src/`, use `assert` statements
 - Java: Tests alongside source in `src/test/`
 - Frontend: Tests in `__tests__/` or `.test.tsx` files
-- Smoke tests go in the `smoke-test/` directory
+- Smoke tests go in the `smoke-test/` directory. How to write them: [`smoke-test/AGENTS.md`](smoke-test/AGENTS.md). How to run them: [`smoke-test/README.md`](smoke-test/README.md)
 
 #### Testing Principles: Focus on Value Over Coverage
 
@@ -641,6 +642,9 @@ Set `AGENT_MODE=1` to get machine-readable JSON test reports at `smoke-test/buil
 ```bash
 AGENT_MODE=1 scripts/dev/datahub-dev.sh test tests/test_system_info.py
 ```
+
+For pytest smoke tests, see [`smoke-test/AGENTS.md`](smoke-test/AGENTS.md)
+(authoring) and [`smoke-test/README.md`](smoke-test/README.md) (how to run).
 
 ## Common Operations
 
