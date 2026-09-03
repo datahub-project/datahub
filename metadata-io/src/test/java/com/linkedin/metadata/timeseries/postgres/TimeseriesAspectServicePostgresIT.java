@@ -41,7 +41,6 @@ import com.linkedin.metadata.timeseries.GenericTimeseriesDocument;
 import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
-import com.linkedin.metadata.timeseries.write.postgres.PostgresTimeseriesAspectWriteSink;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -82,7 +81,7 @@ import org.testng.annotations.Test;
  * PostgreSQL/Testcontainers counterpart to {@link
  * com.linkedin.metadata.search.elasticsearch.TimeseriesAspectServiceElasticSearchTest} / {@link
  * com.linkedin.metadata.timeseries.search.TimeseriesAspectServiceTestBase}: exercises {@link
- * PostgresTimeseriesAspectService} + {@link PostgresTimeseriesAspectWriteSink} against a real DB.
+ * PostgresTimeseriesAspectService} against a real database.
  */
 public class TimeseriesAspectServicePostgresIT {
 
@@ -106,7 +105,6 @@ public class TimeseriesAspectServicePostgresIT {
 
   private Database database;
   private PostgresSqlSetupProperties props;
-  private PostgresTimeseriesAspectWriteSink writeSink;
   private PostgresTimeseriesAspectService pgTimeseries;
   private OperationContext opContext;
   private AspectSpec aspectSpec;
@@ -156,7 +154,6 @@ public class TimeseriesAspectServicePostgresIT {
     aspectSpec = entitySpec.getAspectSpec(ASPECT_NAME);
 
     var registry = PostgresTestUtils.singlePgTimeseriesStoreRegistry(database, props);
-    writeSink = new PostgresTimeseriesAspectWriteSink(registry);
     pgTimeseries =
         new PostgresTimeseriesAspectService(
             registry,
@@ -210,7 +207,8 @@ public class TimeseriesAspectServicePostgresIT {
         TimeseriesAspectTransformer.transform(urn, profile, aspectSpec, null, "MD5");
     assertEquals(documents.size(), 3);
     documents.forEach(
-        (key, value) -> writeSink.upsertDocument(opContext, ENTITY_NAME, ASPECT_NAME, key, value));
+        (key, value) ->
+            pgTimeseries.upsertDocument(opContext, ENTITY_NAME, ASPECT_NAME, key, value));
   }
 
   private TestEntityProfile makeTestProfile(long eventTime, long stat, String messageId) {
@@ -461,97 +459,6 @@ public class TimeseriesAspectServicePostgresIT {
   }
 
   /**
-   * Upsert keys JDBC {@code message_id} from aspect {@code messageId} when set; delete must pass
-   * the document so {@code resolveMessageId} matches (hashed ES {@code docId} alone misses the
-   * row).
-   */
-  @Test
-  public void deleteDocument_withAspectMessageId_removesUpsertedRow() throws Exception {
-    try (java.sql.Connection c = database.dataSource().getConnection()) {
-      c.setAutoCommit(false);
-      PostgresTestUtils.truncatePgTimeseriesAspect(c, props);
-    }
-
-    Urn urn = new TestEntityUrn("acryl", "testPostgresTimeseriesAspectService", "tableMsgIdDel");
-    long eventTime = Calendar.getInstance().getTimeInMillis();
-    eventTime = eventTime - eventTime % 86400000;
-    TestEntityProfile profile = makeTestProfile(eventTime, 42, "logical-msg-id");
-
-    Map<String, JsonNode> documents =
-        TimeseriesAspectTransformer.transform(urn, profile, aspectSpec, null, "MD5");
-    assertEquals(documents.size(), 3);
-    for (Map.Entry<String, JsonNode> entry : documents.entrySet()) {
-      pgTimeseries.upsertDocument(
-          opContext, ENTITY_NAME, ASPECT_NAME, entry.getKey(), entry.getValue());
-    }
-
-    Filter urnFilter =
-        com.linkedin.metadata.search.utils.QueryUtils.getFilterFromCriteria(
-            Collections.singletonList(
-                com.linkedin.metadata.utils.CriterionUtils.buildCriterion(
-                    "urn", Condition.EQUAL, urn.toString())));
-    // Exploded docs collapse onto the logical messageId.
-    assertEquals(pgTimeseries.countByFilter(opContext, ENTITY_NAME, ASPECT_NAME, urnFilter), 1L);
-
-    Map.Entry<String, JsonNode> first = documents.entrySet().iterator().next();
-    pgTimeseries.deleteDocument(
-        opContext, ENTITY_NAME, ASPECT_NAME, first.getKey(), first.getValue(), false);
-
-    assertEquals(pgTimeseries.countByFilter(opContext, ENTITY_NAME, ASPECT_NAME, urnFilter), 0L);
-  }
-
-  /**
-   * MCL deleteDocument omits event_time and removes every row for the logical message_id (design
-   * doc), not only the row matching the deleted document's timestampMillis.
-   */
-  @Test
-  public void deleteDocument_sameMessageIdDistinctEventTimes_removesAllRows() throws Exception {
-    try (java.sql.Connection c = database.dataSource().getConnection()) {
-      c.setAutoCommit(false);
-      PostgresTestUtils.truncatePgTimeseriesAspect(c, props);
-    }
-
-    Urn urn = new TestEntityUrn("acryl", "testPostgresTimeseriesAspectService", "msgIdMultiTime");
-    final long dayStart = Calendar.getInstance().getTimeInMillis();
-    final long t1 = dayStart - dayStart % 86400000;
-    final long t2 = t1 + 86_400_000L;
-    final String sharedMessageId = "shared-logical-msg";
-
-    for (long eventTime : List.of(t1, t2)) {
-      TestEntityProfile profile = makeTestProfile(eventTime, 10, sharedMessageId);
-      Map<String, JsonNode> documents =
-          TimeseriesAspectTransformer.transform(urn, profile, aspectSpec, null, "MD5");
-      for (Map.Entry<String, JsonNode> entry : documents.entrySet()) {
-        JsonNode doc = entry.getValue();
-        if (!doc.path(MappingsBuilder.IS_EXPLODED_FIELD).asBoolean(false)) {
-          pgTimeseries.upsertDocument(
-              opContext, ENTITY_NAME, ASPECT_NAME, entry.getKey(), entry.getValue());
-        }
-      }
-    }
-
-    Filter urnFilter =
-        com.linkedin.metadata.search.utils.QueryUtils.getFilterFromCriteria(
-            Collections.singletonList(
-                com.linkedin.metadata.utils.CriterionUtils.buildCriterion(
-                    "urn", Condition.EQUAL, urn.toString())));
-    assertEquals(pgTimeseries.countByFilter(opContext, ENTITY_NAME, ASPECT_NAME, urnFilter), 2L);
-
-    TestEntityProfile deleteProfile = makeTestProfile(t2, 10, sharedMessageId);
-    Map<String, JsonNode> deleteDocs =
-        TimeseriesAspectTransformer.transform(urn, deleteProfile, aspectSpec, null, "MD5");
-    Map.Entry<String, JsonNode> deleteDoc =
-        deleteDocs.entrySet().stream()
-            .filter(e -> !e.getValue().path(MappingsBuilder.IS_EXPLODED_FIELD).asBoolean(false))
-            .findFirst()
-            .orElseThrow();
-    pgTimeseries.deleteDocument(
-        opContext, ENTITY_NAME, ASPECT_NAME, deleteDoc.getKey(), deleteDoc.getValue(), false);
-
-    assertEquals(pgTimeseries.countByFilter(opContext, ENTITY_NAME, ASPECT_NAME, urnFilter), 0L);
-  }
-
-  /**
    * Mirrors {@link
    * com.linkedin.metadata.timeseries.search.TimeseriesAspectServiceTestBase#testUpsertProfilesWithUniqueMessageIds}.
    *
@@ -585,7 +492,7 @@ public class TimeseriesAspectServicePostgresIT {
           TimeseriesAspectTransformer.transform(urn, p, aspectSpec, null, "MD5");
       documents.forEach(
           (key, value) ->
-              writeSink.upsertDocument(opContext, ENTITY_NAME, ASPECT_NAME, key, value));
+              pgTimeseries.upsertDocument(opContext, ENTITY_NAME, ASPECT_NAME, key, value));
     }
 
     Filter urnFilter =

@@ -17,8 +17,8 @@ The feature targets:
   aspects across named stores (prefixes and/or JDBC URLs).
 - **Operational control** — RANGE partitioning on event time via `pg_partman`, per-store retention
   ceilings, and optional `pg_cron` maintenance.
-- **Gradual migration** — dual-write from the MCL / UpdateIndices path while Elasticsearch remains
-  the source of truth, then switch reads with a config flag.
+- **Backend choice** — use the same timeseries APIs with either Elasticsearch/OpenSearch or
+  PostgreSQL as the single source of truth.
 
 Timeseries documents keep the same **Elasticsearch-shaped JSON** produced by
 `TimeseriesAspectTransformer`. Postgres stores that payload in a `document jsonb` column (plus
@@ -28,30 +28,27 @@ extracted columns for identity and time).
 
 ## Modes of Operation
 
-| Mode                   | Config                                                                                   | Writes                                                        | Reads           |
-| ---------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------- | --------------- |
-| **Disabled (default)** | `postgres.pgTimeseries.enabled=false`                                                    | ES only via `TimeseriesAspectService`                         | ES / OpenSearch |
-| **Dual-write**         | `enabled=true`, `timeseriesAspectService.implementation=elasticsearch` (or `opensearch`) | ES **and** Postgres (`TimeseriesAspectWriteSink`)             | ES / OpenSearch |
-| **Postgres SoT**       | `enabled=true`, `implementation=postgres`                                                | Postgres via `PostgresTimeseriesAspectService` (sink is NOOP) | Postgres        |
+| Mode                   | Config                                    | Writes                                         | Reads           |
+| ---------------------- | ----------------------------------------- | ---------------------------------------------- | --------------- |
+| **Disabled (default)** | `postgres.pgTimeseries.enabled=false`     | ES only via `TimeseriesAspectService`          | ES / OpenSearch |
+| **Postgres SoT**       | `enabled=true`, `implementation=postgres` | Postgres via `PostgresTimeseriesAspectService` | Postgres        |
 
-Defaults keep Elasticsearch as the timeseries store. Enabling `DATAHUB_PGTIMESERIES_ENABLED` alone
-does **not** change read behavior until `TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION=postgres`.
+Defaults keep Elasticsearch as the timeseries store. Set both
+`DATAHUB_PGTIMESERIES_ENABLED=true` and
+`TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION=postgres`; partial enablement is rejected.
 
 ```mermaid
 flowchart LR
   MCL[MCL / UpdateIndices V2 or V3]
   TAS[TimeseriesAspectService]
-  Sink[TimeseriesAspectWriteSink]
   ES[(Elasticsearch / OpenSearch)]
   Router[AspectStoreRouter]
   PG1[(default store prefix_aspect)]
   PG2[(named store prefix_aspect)]
 
   MCL --> TAS
-  MCL --> Sink
   TAS -->|implementation elasticsearch or opensearch| ES
   TAS -->|implementation postgres| Router
-  Sink -->|dual-write when enabled and SoT is not postgres| Router
   Router -->|unlisted aspects| PG1
   Router -->|routed aspects| PG2
 ```
@@ -72,21 +69,7 @@ TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION=postgres
 DATAHUB_PGTIMESERIES_MAINTENANCE_CRON_ENABLED=true
 ```
 
-With `implementation=postgres`, the dual-write sink is a no-op — timeseries reads and writes go
-only to Postgres. To dual-write instead (ES remains SoT), override:
-
-```bash
-TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION=elasticsearch
-```
-
-### Dual-write (migration step outside Compose defaults)
-
-```bash
-DATAHUB_PGTIMESERIES_ENABLED=true
-
-# Keep Elasticsearch as source of truth
-TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION=elasticsearch
-```
+Timeseries reads and writes go only to Postgres in this mode.
 
 Requires PostgreSQL with **`pg_partman`**. See
 [`docs/deploy/environment-vars.md`](./deploy/environment-vars.md) and
@@ -187,12 +170,6 @@ MCL (documented in `TimeseriesAspectServicePostgresIT`). Operators should treat 
 **(entity, aspect, message_id, event_time)**, not as a 1:1 map of every ES document id when
 `messageId` is set.
 
-MCL / `deleteDocument` deletes by `(entity_name, aspect_name, message_id)` and intentionally omit
-`event_time`, so every timestamp row for that logical message is removed. That is broader than the
-PK (which includes `event_time`) and matches “delete this logical message,” including the
-exploded-collapse case above. Filter-based truncate (`deleteAspectValues`) still uses the document
-filter + optional API time window on `event_time`.
-
 ---
 
 ## Filter and Aggregation Behavior
@@ -228,8 +205,6 @@ the default keyset.
   matching the filter (used by Rest.li `truncateTimeseriesAspect` and entity cleanup).
 - `reindexAsync` is unsupported (throws). When `timeseriesAspectService.implementation=postgres`,
   `truncateTimeseriesAspect` **always** uses delete-by-query and rejects `forceReindex`.
-- `deleteDocument` should pass the ES-shaped `document` when available so JDBC `message_id`
-  resolves the same way as upsert (logical `messageId` when present, else `docId`).
 
 ### Missing parity
 
@@ -293,15 +268,9 @@ maintenance, retention config is written but partitions accumulate.
 
 ---
 
-## Failure and Dual-Write Semantics
+## Failure Semantics
 
 - **Postgres SoT upserts** throw on SQL failure (fail the write path).
-- **Dual-write sink** logs SQL errors and increments failure metrics
-  (`dual_write_upsert_failure` / `dual_write_delete_failure`). By default it does **not** fail the
-  MCL, so Elasticsearch remains authoritative during migration.
-- Optional fail-loud for migration:
-  `DATAHUB_PGTIMESERIES_DUAL_WRITE_FAIL_ON_ERROR=true` /
-  `postgres.pgTimeseries.dualWriteFailOnError=true` rethrows dual-write SQL errors.
 - Disabling the feature does not drop tables or unschedule cron jobs; clean up partman parents /
   `pg_cron` jobs operationally if retiring the store.
 
@@ -317,5 +286,5 @@ maintenance, retention config is written but partitions accumulate.
 | Scaling writes           | Bulk processor, horizontal search nodes | DB IOPS + dedicated pool size                          |
 | Retention                | Index ILM / delete-by-query             | Partman ceiling + per-aspect DELETE (via GC)           |
 | Truncate large ranges    | delete-by-query or reindex              | Delete-by-query only (no reindex)                      |
-| Migration                | Native today                            | Dual-write then SoT flip                               |
+| Migration                | Native today                            | Switch the configured source of truth                  |
 | Exploded collection docs | One ES doc per explosion                | May collapse when sharing `messageId`                  |

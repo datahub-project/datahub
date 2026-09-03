@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.timeseries;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.TimeseriesAspectServiceImplementation;
+import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
 import com.linkedin.metadata.timeseries.postgres.PostgresTimeseriesAspectService;
@@ -16,7 +17,6 @@ import org.springframework.context.annotation.Primary;
 @Configuration
 @Import({
   ElasticSearchTimeseriesAspectServiceFactory.class,
-  TimeseriesAspectWriteSinkFactory.class,
   PostgresTimeseriesAspectServiceConfiguration.class,
   PgTimeseriesConfigOverlay.class
 })
@@ -27,6 +27,7 @@ public class TimeseriesAspectServiceFactory {
       elasticSearchTimeseriesAspectServiceProvider;
 
   private final ConfigurationProvider configurationProvider;
+  private final PostgresSqlSetupProperties postgresSqlSetupProperties;
 
   private final ObjectProvider<PostgresTimeseriesAspectService>
       postgresTimeseriesAspectServiceProvider;
@@ -37,6 +38,12 @@ public class TimeseriesAspectServiceFactory {
   protected TimeseriesAspectService timeseriesAspectService() {
     TimeseriesAspectServiceImplementation impl =
         configurationProvider.getTimeseriesAspectService().getImplementation();
+    if (postgresSqlSetupProperties.getPgTimeseries().isEnabled()
+        && impl != TimeseriesAspectServiceImplementation.postgres) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.enabled=true requires"
+              + " timeseriesAspectService.implementation=postgres; dual-write is not supported");
+    }
     if (impl == TimeseriesAspectServiceImplementation.postgres) {
       PostgresTimeseriesAspectService pg = postgresTimeseriesAspectServiceProvider.getIfAvailable();
       if (pg == null) {
