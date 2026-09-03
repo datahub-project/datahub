@@ -254,8 +254,8 @@ confluence = [
     "jsonpath-ng==1.7.0",
     "markdownify>=0.14.1,<2.0.0",
     "nltk!=3.10.1",
-    "unstructured-ingest[confluence]==0.7.2",
-    "unstructured[md]==0.18.24",
+    "unstructured-ingest[confluence]==1.4.28 ; python_version >= \"3.11\"",
+    "unstructured[md]==0.24.1; python_version >= '3.11'",
 ]
 
 cube = [
@@ -299,8 +299,8 @@ datahub-documents = [
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
-    "unstructured-ingest==0.7.2",
-    "unstructured[md]==0.18.24",
+    "unstructured-ingest==1.4.28; python_version >= '3.11'",
+    "unstructured[md]==0.24.1; python_version >= '3.11'",
 ]
 
 datahub-gc = []
@@ -757,8 +757,8 @@ notion = [
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
-    "unstructured-ingest[notion]==0.7.2",
-    "unstructured[md]==0.18.24",
+    "unstructured-ingest[notion]==1.4.28 ; python_version >= \"3.11\"",
+    "unstructured[md]==0.24.1; python_version >= '3.11'",
 ]
 
 odcs = [
@@ -1135,8 +1135,8 @@ unstructured = [
     "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
-    "unstructured-ingest==0.7.2",
-    "unstructured[md]==0.18.24",
+    "unstructured-ingest==1.4.28; python_version >= '3.11'",
+    "unstructured[md]==0.24.1; python_version >= '3.11'",
 ]
 
 vertexai = [
@@ -1271,8 +1271,8 @@ all = [
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "ujson>=5.12.1,<6.0.0",
-    "unstructured-ingest[confluence,notion]==0.7.2",
-    "unstructured[md]==0.18.24",
+    "unstructured-ingest[confluence,notion]==1.4.28 ; python_version >= \"3.11\"",
+    "unstructured[md]==0.24.1; python_version >= '3.11'",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
     "websocket-client<2.0.0",
@@ -1465,8 +1465,8 @@ dev = [
     "typing-inspect<0.10.0",
     "typing_extensions>=4.8.0,<5.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "unstructured-ingest[confluence,notion]==0.7.2",
-    "unstructured[md]==0.18.24",
+    "unstructured-ingest[confluence,notion]==1.4.28 ; python_version >= \"3.11\"",
+    "unstructured[md]==0.24.1; python_version >= '3.11'",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
@@ -1659,8 +1659,8 @@ docs = [
     "typing-inspect<0.10.0",
     "typing_extensions>=4.8.0,<5.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "unstructured-ingest[confluence,notion]==0.7.2",
-    "unstructured[md]==0.18.24",
+    "unstructured-ingest[confluence,notion]==1.4.28 ; python_version >= \"3.11\"",
+    "unstructured[md]==0.24.1; python_version >= '3.11'",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",

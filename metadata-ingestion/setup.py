@@ -508,9 +508,10 @@ embedding_common = {
 
 unstructured_lib = {
     # Unstructured.io core library for document partitioning with markdown support
-    "unstructured[md]==0.18.24",
-    # Unstructured ingest framework for pipeline orchestration
-    "unstructured-ingest==0.7.2",
+    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+)
+    "unstructured[md]==0.24.1; python_version >= '3.11'",
+    # unstructured 0.24.x requires ingest >=1.4.0
+    "unstructured-ingest==1.4.28; python_version >= '3.11'",
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
     # Transitive via unstructured, which requires plain `nltk`. 3.10.1 added an
@@ -529,12 +530,12 @@ unstructured_lib = {
 
 notion_common = {
     # Notion-specific connector adds notion-client and related dependencies
-    "unstructured-ingest[notion]==0.7.2",
+    "unstructured-ingest[notion]==1.4.28; python_version >= '3.11'",
 } | unstructured_lib
 
 confluence_common = {
     # Confluence-specific connector adds atlassian-python-api and related dependencies
-    "unstructured-ingest[confluence]==0.7.2",
+    "unstructured-ingest[confluence]==1.4.28; python_version >= '3.11'",
     "atlassian-python-api>=3.41.0,<5.0.0",  # Supports 3.x and 4.x API versions
     # Preserve Confluence storage HTML structure as Markdown for chunking/retrieval
     "markdownify>=0.14.1,<2.0.0",
@@ -1083,7 +1084,7 @@ dev_requirements = {
 }
 
 # Documentation generation requirements
-# Includes datahub-documents which requires Python 3.10+ (due to unstructured library)
+# Includes datahub-documents which requires Python 3.11+ (due to unstructured library)
 docs_requirements = {
     *base_dev_requirements,
     *plugins["datahub-documents"],
@@ -1412,7 +1413,7 @@ setuptools.setup(
         "dev": list(dev_requirements),
         "docs": list(
             docs_requirements
-        ),  # For documentation generation (requires Python 3.10+)
+        ),  # For documentation generation (requires Python 3.11+)
         "lint": list(lint_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
