@@ -16,6 +16,7 @@ def _source() -> SigmaSource:
     source.reporter = SigmaSourceReport()
     source.dm_element_urn_by_name = {}
     source.dm_element_urn_to_cols = {}
+    source._upstream_schema_unavailable_warned = set()
     return source
 
 
@@ -146,6 +147,10 @@ def test_bare_sibling_ref_is_skipped() -> None:
 
     assert _build(source, element) == []
     assert source.reporter.data_model_element_fgl_emitted == 0
+    # The ref is parsed but never reaches a resolver, so the column falls
+    # through to the no-resolvable-ref path (non-inode columnId).
+    assert source.reporter.data_model_element_fgl_no_ref_unresolved == 1
+    assert source.reporter.data_model_element_fgl_no_ref_warehouse_unresolved == 0
 
 
 def test_parameter_ref_is_skipped() -> None:
@@ -154,6 +159,8 @@ def test_parameter_ref_is_skipped() -> None:
 
     assert _build(source, element) == []
     assert source.reporter.data_model_element_fgl_emitted == 0
+    assert source.reporter.data_model_element_fgl_no_ref_unresolved == 1
+    assert source.reporter.data_model_element_fgl_no_ref_warehouse_unresolved == 0
 
 
 def test_cross_dm_ref_is_counted_unresolved() -> None:
@@ -367,6 +374,9 @@ def test_unknown_upstream_column_is_dropped() -> None:
 
     assert lineages == []
     assert source.reporter.data_model_element_fgl_dropped_unknown_upstream_column == 1
+    # The upstream HAS a schema; the column name simply is not in it. Must not
+    # also land in the fetch-failure bucket.
+    assert source.reporter.data_model_element_fgl_upstream_schema_unavailable == 0
 
 
 def test_duplicate_element_names_different_schemas_validates_correct_element() -> None:
@@ -699,6 +709,10 @@ def test_cross_dm_unknown_upstream_column_is_dropped() -> None:
     )
     assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+    # Producer schema is non-empty, so the fetch-failure bucket must stay clear.
+    assert (
+        source.reporter.data_model_element_fgl_cross_dm_upstream_schema_unavailable == 0
+    )
 
 
 def test_self_named_cross_dm_element_resolves_fgl() -> None:
@@ -977,3 +991,160 @@ def test_inode_source_ids_excluded_from_cross_dm_guard() -> None:
     assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
     assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
+
+
+def test_empty_upstream_schema_is_counted_separately() -> None:
+    """An upstream element with no columns is an API failure, not a name mismatch.
+
+    One failed /columns fetch empties every element in a data model, so folding
+    this into dropped_unknown_upstream_column hides the real cause.
+    """
+    source = _source()
+    upstream_urn = _urn("a")
+    downstream_urn = _urn("b")
+    element = _element("b", "B", [_column("b-x", "x", "[A/x]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+        upstream_elements=[_upstream_element("a", "A", [])],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_upstream_schema_unavailable == 1
+    assert source.reporter.data_model_element_fgl_dropped_unknown_upstream_column == 0
+
+
+def test_cross_dm_empty_upstream_schema_is_counted_separately() -> None:
+    """Cross-DM producer present in the bridge map but with an empty schema."""
+    source = _source()
+    dm_url_id = "other-dm"
+    upstream_urn = _urn("other-dm-element")
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("c1", "city", "[other_dm_element/city]")],
+        source_ids=[f"{dm_url_id}/suffix"],
+    )
+    source.dm_element_urn_by_name = {dm_url_id: {"other_dm_element": [upstream_urn]}}
+    source.dm_element_urn_to_cols = {upstream_urn: {}}
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+    )
+
+    assert lineages == []
+    assert (
+        source.reporter.data_model_element_fgl_cross_dm_upstream_schema_unavailable == 1
+    )
+    # Intra-DM counter must not absorb a cross-DM producer.
+    assert source.reporter.data_model_element_fgl_upstream_schema_unavailable == 0
+    assert (
+        source.reporter.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column
+        == 0
+    )
+    # A producer missing from the bridge map entirely stays on `deferred`.
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+
+
+def test_cross_dm_absent_producer_stays_deferred() -> None:
+    """Producer not in dm_element_urn_to_cols at all keeps the deferred counter."""
+    source = _source()
+    dm_url_id = "other-dm"
+    upstream_urn = _urn("other-dm-element")
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("c1", "city", "[other_dm_element/city]")],
+        source_ids=[f"{dm_url_id}/suffix"],
+    )
+    source.dm_element_urn_by_name = {dm_url_id: {"other_dm_element": [upstream_urn]}}
+    source.dm_element_urn_to_cols = {}
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 1
+    assert (
+        source.reporter.data_model_element_fgl_cross_dm_upstream_schema_unavailable == 0
+    )
+
+
+def test_formula_less_column_does_not_guess_intra_dm_upstream() -> None:
+    """A formula-less column must never be name-matched against siblings.
+
+    There is no bracket ref to resolve, so matching on column name alone would
+    fabricate an edge to every same-named sibling -- both sides of a join.
+    """
+    source = _source()
+    upstream_urn = _urn("a")
+    downstream_urn = _urn("b")
+    element = _element("b", "B", [_column("b-account-id", "Account Id", "")])
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"a": ["a"], "b": ["b"]},
+        elementId_to_dataset_urn={"a": upstream_urn, "b": downstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+        upstream_elements=[_upstream_element("a", "A", ["Account Id"])],
+    )
+
+    assert lineages == []
+    # Non-inode columnId: nothing to resolve against, expected volume.
+    assert source.reporter.data_model_element_fgl_no_ref_unresolved == 1
+    assert source.reporter.data_model_element_fgl_no_ref_warehouse_unresolved == 0
+    assert source.reporter.data_model_element_fgl_emitted == 0
+
+
+def test_empty_upstream_schema_warns_once_per_upstream() -> None:
+    """One empty upstream must not emit a warning per referencing column.
+
+    A partial /columns abort leaves many refs pointing at the same empty
+    element; the dedupe set is the only thing keeping that out of the report.
+    """
+    source = _source()
+    upstream_urn = _urn("a")
+    downstream_urn = _urn("b")
+    element = _element(
+        "b",
+        "B",
+        [
+            _column("b-x", "x", "[A/x]"),
+            _column("b-y", "y", "[A/y]"),
+        ],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+        upstream_elements=[_upstream_element("a", "A", [])],
+    )
+
+    assert lineages == []
+    # Both columns counted, one warning.
+    assert source.reporter.data_model_element_fgl_upstream_schema_unavailable == 2
+    assert len(source.reporter.warnings) == 1

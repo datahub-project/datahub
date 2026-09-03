@@ -340,6 +340,27 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Refs whose column name has no matching fieldPath in the upstream element's
     # schema; dropped to avoid a dangling schemaField URN.
     data_model_element_fgl_dropped_unknown_upstream_column: int = 0
+    # Refs whose intra-DM sibling resolved but carries no columns at all (look
+    # for a matching "Sigma paginated endpoint aborted" warning naming this DM).
+    # Split out of dropped_unknown_upstream_column so a fetch problem is
+    # distinguishable from a genuine column-name mismatch. A whole-DM /columns
+    # failure does not land here — that empties the consuming element too, so it
+    # has no columns to resolve; this fires on a partial pagination abort or a
+    # genuinely column-less sibling.
+    data_model_element_fgl_upstream_schema_unavailable: int = 0
+    # Columns from which no bracket ref could be resolved — an empty/absent
+    # formula (Sigma's shape for a pass-through column), a constant expression,
+    # or a formula whose only refs are parameters (`[P_*]`) or bare sibling-column
+    # refs — and whose columnId is not warehouse-shaped, so there was nothing to
+    # resolve against. Dominated by intra-DM and Sigma Dataset passthroughs;
+    # expected volume, not a failure signal.
+    data_model_element_fgl_no_ref_unresolved: int = 0
+    # Same no-resolvable-ref shape, but the columnId IS ``inode-``-shaped, so a
+    # warehouse column was identified and resolution still failed (a /files miss
+    # or an unmappable connection). This one is actionable. Kept apart from
+    # fgl_warehouse_passthrough_deferred, which stays reachable only from
+    # formulas that do produce refs, so its baseline remains comparable.
+    data_model_element_fgl_no_ref_warehouse_unresolved: int = 0
     # Cross-DM FGL counters (DM = data model throughout).
     # Refs resolved via global bridge index and emitted as cross-DM FGL.
     # Resolution uses entity-level upstreams as a soft collision tiebreaker,
@@ -349,6 +370,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_fgl_cross_dm_collision_pick_first: int = 0
     # Cross-DM refs whose column is absent from the resolved upstream element's schema.
     data_model_element_fgl_cross_dm_dropped_unknown_upstream_column: int = 0
+    # Cross-DM equivalent of fgl_upstream_schema_unavailable: the producer
+    # element is in the bridge map but carries no columns, so the producer DM's
+    # /columns fetch came back empty. Kept apart from the intra-DM counter
+    # because an empty sibling and an empty cross-DM producer point at different
+    # data models to investigate. A producer missing from the bridge map
+    # entirely stays on fgl_cross_dm_deferred.
+    data_model_element_fgl_cross_dm_upstream_schema_unavailable: int = 0
 
     # Entries dropped as duplicates by the pagination-level natural-key
     # dedup in ``_paginated_entries`` / lineage raw dedup. Normally 0;
@@ -356,6 +384,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # overlap between pages -- correctness is preserved (no double
     # emission) but the signal is surfaced here so operators can spot it.
     pagination_duplicate_entries_dropped: int = 0
+    # First-page and per-page GETs re-issued by the ``retry_statuses`` budget in
+    # the pagination helpers (409 on the DM /elements and /columns endpoints).
+    # Normally 0; a sustained non-zero value means the tenant is under enough
+    # write contention that the connector is routinely racing Sigma-side edits.
+    pagination_retries: int = 0
     # Entries dropped by per-endpoint ``ValidationError`` handling. Only
     # the first ``_MAX_MALFORMED_WARNINGS_PER_ENDPOINT`` rows per endpoint
     # emit a user-visible warning to prevent report flooding on a

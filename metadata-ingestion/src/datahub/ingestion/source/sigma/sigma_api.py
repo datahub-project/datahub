@@ -1,6 +1,7 @@
 import functools
 import logging
 import sys
+import time
 from collections import deque
 from collections.abc import Hashable
 from typing import (
@@ -51,6 +52,12 @@ from datahub.ingestion.source.sigma.data_classes import (
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
+
+# Backoff schedule for ``retry_statuses`` in the pagination helpers; its length
+# is the retry budget. Deliberately sub-second: the statuses it covers clear as
+# soon as a concurrent Sigma-side edit commits, and a DM with many pages would
+# otherwise stall the whole run.
+_PAGINATION_RETRY_BACKOFF_SECONDS: Tuple[float, ...] = (0.25, 0.5)
 
 
 class SigmaAPI:
@@ -136,7 +143,12 @@ class SigmaAPI:
             )
 
     def _get_api_call(self, url: str) -> requests.Response:
-        """Make an API call with automatic retry on 429/503 and token refresh on 401."""
+        """Make an API call with token refresh on 401.
+
+        The session adapter retries 429/503 for every endpoint. Statuses that
+        are transient on only some endpoints are retried by the caller instead
+        -- see ``retry_statuses`` on :meth:`_paginated_raw_entries`.
+        """
         get_response = self.session.get(url)
 
         # Handle token refresh on 401
@@ -796,6 +808,8 @@ class SigmaAPI:
         base_url: str,
         error_ctx: str,
         silent_statuses: Tuple[int, ...] = (),
+        *,
+        retry_statuses: Tuple[int, ...] = (),
     ) -> List[Dict[str, Any]]:
         """Page through a Sigma list endpoint and return raw ``entries``
         dicts. Handles both pagination shapes (``nextPage`` and
@@ -808,6 +822,16 @@ class SigmaAPI:
         Sigma's /lineage on empty DMs) as an empty list without emitting
         a warning -- applied only to the first page so later-page
         failures still surface.
+
+        ``retry_statuses`` re-issues the GET for the listed statuses before
+        ``raise_for_status`` and before the abort warning, so a transient
+        failure neither truncates the list nor leaves a misleading abort in
+        the report. Applied to every page: a mid-pagination failure loses the
+        remaining columns just as a first-page one does. Once the budget is
+        exhausted the normal abort path runs, so a persistent failure still
+        warns. Only for statuses that are genuinely transient on Sigma
+        (409 conflict / in-flight materialization) -- not 400, which is a
+        permanent client error.
         """
         # Use ``&`` as the separator if the base URL already has query
         # params (e.g. an ``api_url`` routed through a proxy), so
@@ -824,12 +848,25 @@ class SigmaAPI:
         try:
             while True:
                 response = self._get_api_call(url)
+                # Swallow expected "no data" statuses before retrying, so a
+                # status that is ever listed in both sets is not slept on only
+                # to be discarded.
                 if first_page and response.status_code in silent_statuses:
                     logger.debug(
                         f"{error_ctx} Swallowed expected status "
                         f"{response.status_code} on first page."
                     )
                     return raw_entries
+                for delay in _PAGINATION_RETRY_BACKOFF_SECONDS:
+                    if response.status_code not in retry_statuses:
+                        break
+                    self.report.pagination_retries += 1
+                    logger.debug(
+                        f"{error_ctx} Retrying after status "
+                        f"{response.status_code} (waiting {delay}s)."
+                    )
+                    time.sleep(delay)
+                    response = self._get_api_call(url)
                 first_page = False
                 response.raise_for_status()
                 response_dict = response.json()
@@ -895,6 +932,8 @@ class SigmaAPI:
         model_cls: Type[T],
         error_ctx: str,
         dedup_key: Optional[Callable[[T], Hashable]] = None,
+        *,
+        retry_statuses: Tuple[int, ...] = (),
     ) -> List[T]:
         """Page through a Sigma list endpoint, parsing each entry into
         ``model_cls``. Shares pagination / cycle-protection logic with
@@ -905,12 +944,15 @@ class SigmaAPI:
         overlap between pages) cannot leak duplicate aspects downstream
         -- matters because the same element/column emitted twice
         double-counts counters and re-upserts the same aspect for the
-        same URN.
+        same URN. ``retry_statuses`` is forwarded to
+        :meth:`_paginated_raw_entries`.
         """
         results: List[T] = []
         seen_keys: Set[Hashable] = set()
         malformed_warned = 0
-        for entry in self._paginated_raw_entries(base_url, error_ctx):
+        for entry in self._paginated_raw_entries(
+            base_url, error_ctx, retry_statuses=retry_statuses
+        ):
             try:
                 parsed = model_cls.model_validate(entry)
             except ValidationError as ve:
@@ -941,6 +983,9 @@ class SigmaAPI:
             SigmaDataModelElement,
             f"Unable to fetch elements for data model '{data_model_id}'.",
             dedup_key=lambda element: element.elementId,
+            # Same blast radius as /columns below, one level worse: zero
+            # elements means the DM emits no element Datasets at all.
+            retry_statuses=(409,),
         )
 
     def _get_data_model_columns(self, data_model_id: str) -> List[SigmaDataModelColumn]:
@@ -955,6 +1000,9 @@ class SigmaAPI:
             # drops all but the first occurrence, removing real passthrough
             # columns from consumer elements' schemaMetadata.
             dedup_key=lambda column: (column.elementId, column.columnId),
+            # A 409 here empties the schema of every element in the DM, which
+            # silently drops every column-lineage edge pointing into them.
+            retry_statuses=(409,),
         )
 
     def _get_data_model_lineage_entries(
@@ -989,6 +1037,12 @@ class SigmaAPI:
             f"{self.config.api_url}/dataModels/{data_model_id}/lineage",
             f"Unable to fetch lineage for data model '{data_model_id}'.",
             silent_statuses=(400, 403, 404),
+            # A 409 here empties every element's source_ids, which kills
+            # table-level lineage and, with it, the columnId-driven warehouse
+            # FGL path -- that resolver requires the element to declare the
+            # matching inode- source. 409 is not in silent_statuses, so the
+            # swallow-before-retry ordering above leaves it retriable.
+            retry_statuses=(409,),
         )
         deduped: List[Dict[str, Any]] = []
         # Map natural key -> index into ``deduped`` so we can merge on

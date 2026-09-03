@@ -2876,3 +2876,179 @@ class TestGetWorkbookLineageHttp:
             result = api.get_workbook_lineage("wb-1")
         assert result is None
         assert api.report.warnings
+
+
+def _error_response(status_code: int) -> MagicMock:
+    """Response mock whose ``raise_for_status`` behaves like requests'."""
+    resp = MagicMock(status_code=status_code)
+    resp.raise_for_status.side_effect = requests.HTTPError(
+        f"{status_code} Client Error", response=resp
+    )
+    return resp
+
+
+class TestPaginationRetryStatuses:
+    """``retry_statuses`` on the pagination helpers.
+
+    A 409 on ``/dataModels/{id}/columns`` empties the schema of every element in
+    that data model, which silently drops each column-lineage edge pointing into
+    them -- so it is retried. 400 is permanent and must not be.
+    """
+
+    def test_retries_409_then_succeeds_without_warning(self) -> None:
+        api = _create_sigma_api()
+        responses = [
+            _error_response(409),
+            _paginated_response([{"id": "a"}], next_page=None),
+        ]
+        with (
+            patch("datahub.ingestion.source.sigma.sigma_api.time.sleep") as mock_sleep,
+            patch.object(api, "_get_api_call", side_effect=responses) as mock_get,
+        ):
+            entries = api._paginated_raw_entries(
+                "https://api.example.com/dataModels/dm1/columns",
+                "test ctx",
+                retry_statuses=(409,),
+            )
+        assert [e["id"] for e in entries] == ["a"]
+        assert mock_get.call_count == 2
+        assert mock_sleep.call_count == 1
+        # A successful retry must not leave a misleading abort in the report.
+        assert api.report.warnings == []
+
+    def test_persistent_409_exhausts_budget_then_warns(self) -> None:
+        api = _create_sigma_api()
+        with (
+            patch("datahub.ingestion.source.sigma.sigma_api.time.sleep"),
+            patch.object(
+                api, "_get_api_call", return_value=_error_response(409)
+            ) as mock_get,
+        ):
+            entries = api._paginated_raw_entries(
+                "https://api.example.com/dataModels/dm1/columns",
+                "test ctx",
+                retry_statuses=(409,),
+            )
+        assert entries == []
+        # Initial attempt plus one per backoff step.
+        assert mock_get.call_count == 3
+        assert len(api.report.warnings) == 1
+
+    def test_400_is_not_retried(self) -> None:
+        api = _create_sigma_api()
+        with (
+            patch("datahub.ingestion.source.sigma.sigma_api.time.sleep"),
+            patch.object(
+                api, "_get_api_call", return_value=_error_response(400)
+            ) as mock_get,
+        ):
+            entries = api._paginated_raw_entries(
+                "https://api.example.com/dataModels/dm1/columns",
+                "test ctx",
+                retry_statuses=(409,),
+            )
+        assert entries == []
+        assert mock_get.call_count == 1
+        assert len(api.report.warnings) == 1
+
+    def test_retries_mid_pagination_409(self) -> None:
+        """A later-page failure truncates the column list just as page one does."""
+        api = _create_sigma_api()
+        responses = [
+            _paginated_response([{"id": "a"}], next_page=2),
+            _error_response(409),
+            _paginated_response([{"id": "b"}], next_page=None),
+        ]
+        with (
+            patch("datahub.ingestion.source.sigma.sigma_api.time.sleep"),
+            patch.object(api, "_get_api_call", side_effect=responses),
+        ):
+            entries = api._paginated_raw_entries(
+                "https://api.example.com/dataModels/dm1/columns",
+                "test ctx",
+                retry_statuses=(409,),
+            )
+        assert [e["id"] for e in entries] == ["a", "b"]
+        assert api.report.warnings == []
+
+    def test_get_data_model_columns_forwards_retry_statuses(self) -> None:
+        """The 409 must survive the _paginated_entries -> _raw_entries hop."""
+        api = _create_sigma_api()
+        column = {
+            "elementId": "el-1",
+            "columnId": "col-1",
+            "name": "Account Id",
+            "formula": "",
+        }
+        responses = [
+            _error_response(409),
+            _paginated_response([column], next_page=None),
+        ]
+        with (
+            patch("datahub.ingestion.source.sigma.sigma_api.time.sleep"),
+            patch.object(api, "_get_api_call", side_effect=responses) as mock_get,
+        ):
+            columns = api._get_data_model_columns("dm1")
+        assert [c.name for c in columns] == ["Account Id"]
+        assert mock_get.call_count == 2
+        assert api.report.warnings == []
+
+    def test_get_data_model_elements_forwards_retry_statuses(self) -> None:
+        """/elements has a wider blast radius than /columns: zero elements
+        means the data model emits no element Datasets at all."""
+        api = _create_sigma_api()
+        element = {"elementId": "el-1", "name": "CUSTOMERS", "type": "table"}
+        responses = [
+            _error_response(409),
+            _paginated_response([element], next_page=None),
+        ]
+        with (
+            patch("datahub.ingestion.source.sigma.sigma_api.time.sleep"),
+            patch.object(api, "_get_api_call", side_effect=responses) as mock_get,
+        ):
+            elements = api._get_data_model_elements("dm1")
+        assert [e.name for e in elements] == ["CUSTOMERS"]
+        assert mock_get.call_count == 2
+        assert api.report.warnings == []
+        assert api.report.pagination_retries == 1
+
+    def test_silent_status_is_not_retried(self) -> None:
+        """A status in both sets must be swallowed, not slept on first."""
+        api = _create_sigma_api()
+        with (
+            patch("datahub.ingestion.source.sigma.sigma_api.time.sleep") as mock_sleep,
+            patch.object(
+                api, "_get_api_call", return_value=_error_response(404)
+            ) as mock_get,
+        ):
+            entries = api._paginated_raw_entries(
+                "https://api.example.com/dataModels/dm1/lineage",
+                "test ctx",
+                (404,),
+                retry_statuses=(404,),
+            )
+        assert entries == []
+        assert mock_get.call_count == 1
+        assert mock_sleep.call_count == 0
+        assert api.report.warnings == []
+
+    def test_persistent_mid_pagination_409_preserves_earlier_pages(self) -> None:
+        """Exhausting the budget on a later page must keep what was collected."""
+        api = _create_sigma_api()
+        responses = [_paginated_response([{"id": "a"}], next_page=2)] + [
+            _error_response(409) for _ in range(4)
+        ]
+        with (
+            patch("datahub.ingestion.source.sigma.sigma_api.time.sleep"),
+            patch.object(api, "_get_api_call", side_effect=responses) as mock_get,
+        ):
+            entries = api._paginated_raw_entries(
+                "https://api.example.com/dataModels/dm1/columns",
+                "test ctx",
+                retry_statuses=(409,),
+            )
+        # Page 1 survives; page 2 is attempted once plus one per backoff step.
+        assert [e["id"] for e in entries] == ["a"]
+        assert mock_get.call_count == 4
+        assert len(api.report.warnings) == 1
+        assert api.report.pagination_retries == 2

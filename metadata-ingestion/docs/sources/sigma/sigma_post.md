@@ -222,6 +222,38 @@ chart_sources_platform_mapping:
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+#### Column-level lineage coverage for Data Model elements
+
+Column-level lineage for Data Model elements is derived from the column formulas returned by
+Sigma's `/v2/dataModels/{id}/columns` endpoint. A column gets one upstream edge per source
+its formula names, so coverage follows the formula rather than the element's table-level
+upstreams.
+
+The practical consequence shows up on joins. An element can have table-level lineage to two
+sources while one of its columns has a column-level edge to only one of them, because the
+column's formula names only that side — a join key typically resolves to whichever side
+Sigma kept. The join predicate itself is not exposed on `/columns` or on
+`/v2/dataModels/{id}/lineage`, the two endpoints this connector reads. Join keys are
+available on `/v2/dataModels/{id}/spec`, which the connector does not currently consume.
+
+Columns no formula reference resolves for — a plain pass-through, which Sigma returns with
+an empty formula, a constant, or a formula using only parameters — still get column-level
+lineage to a warehouse table when their `columnId` identifies the warehouse column. Where
+it does not, the ingestion report separates the two outcomes:
+`data_model_element_fgl_no_ref_warehouse_unresolved` counts columns that named a warehouse
+column but could not be resolved to one, which is worth investigating, while
+`data_model_element_fgl_no_ref_unresolved` counts pass-throughs from another Data Model
+element or Sigma Dataset, which carry no warehouse identity to resolve and are expected.
+
+When a formula does name an upstream element but that element's column list came back
+empty, the edge is dropped under `data_model_element_fgl_upstream_schema_unavailable` (a
+sibling in the same Data Model) or
+`data_model_element_fgl_cross_dm_upstream_schema_unavailable` (an element in another Data
+Model), rather than under `data_model_element_fgl_dropped_unknown_upstream_column`, which
+means the column genuinely is not in the upstream's schema. A `Sigma paginated endpoint
+aborted` warning naming that Data Model confirms a failed fetch; its absence means the
+upstream element really has no columns.
+
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

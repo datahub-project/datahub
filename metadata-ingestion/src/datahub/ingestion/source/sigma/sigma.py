@@ -147,6 +147,17 @@ def _dm_column_ranks_above(
     return candidate.columnId < incumbent.columnId
 
 
+def _is_warehouse_column_id(column_id: Optional[str]) -> bool:
+    """True when a DM column's ``columnId`` names a warehouse column.
+
+    Sigma encodes warehouse pass-throughs as ``inode-<url_id>/<NATIVE_NAME>``.
+    Shared by _try_emit_warehouse_passthrough_fgl (which resolves it) and the
+    no-resolvable-ref counters (which bucket on it), so the two cannot drift
+    and start mis-bucketing a real /files miss as expected volume.
+    """
+    return (column_id or "").startswith("inode-")
+
+
 def _dedup_dm_element_columns(
     columns: List[SigmaDataModelColumn],
 ) -> Tuple[
@@ -433,6 +444,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # warning has been emitted; dedup so repeated charts with the same unresolved
         # column don't flood the report.
         self._bridge_unresolved_warned: Set[Tuple[str, str]] = set()
+        # Upstream DM elements whose empty schema has already been reported; one
+        # failed /columns fetch empties every element in a DM, so without this
+        # every ref into that DM would emit its own warning.
+        self._upstream_schema_unavailable_warned: Set[str] = set()
         # Once-per-run gate flags so noisy global conditions don't flood logs.
         self._registry_empty_warned: bool = False
         # Per-platform set: platforms for which we've emitted a "first emission"
@@ -1998,7 +2013,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         # Parse columnId → url_id + warehouse column name.
         col_id = column.columnId or ""
-        if not col_id.startswith("inode-"):
+        if not _is_warehouse_column_id(col_id):
             return None
         suffix = col_id[len("inode-") :]
         url_id, sep, warehouse_col = suffix.partition("/")
@@ -2169,6 +2184,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if upstream_cols is None:
             self.reporter.data_model_element_fgl_cross_dm_deferred += 1
             return None
+        if not upstream_cols:
+            # Producer element is known but carries no columns -- the producer
+            # DM's /columns fetch came back empty. Distinct from the `is None`
+            # case above (producer absent from the bridge map entirely), which
+            # stays on the deferred counter. Counted separately from the
+            # intra-DM equivalent: an empty sibling in this DM and an empty
+            # producer in another DM are different investigations.
+            self.reporter.data_model_element_fgl_cross_dm_upstream_schema_unavailable += 1
+            self._warn_upstream_schema_unavailable(chosen_upstream_urn, element)
+            return None
         canonical_col = upstream_cols.get(ref.column.lower())
         if canonical_col is None:
             self.reporter.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column += 1
@@ -2181,6 +2206,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 builder.make_schema_field_urn(chosen_upstream_urn, canonical_col)
             ],
             confidenceScore=1.0,
+        )
+
+    def _warn_upstream_schema_unavailable(
+        self, upstream_urn: str, element: SigmaDataModelElement
+    ) -> None:
+        """Warn once per upstream URN that its schema came back empty."""
+        if upstream_urn in self._upstream_schema_unavailable_warned:
+            return
+        self._upstream_schema_unavailable_warned.add(upstream_urn)
+        self.reporter.warning(
+            title="Sigma DM element upstream schema unavailable",
+            message=(
+                "A formula references a column on an upstream Data Model element "
+                "whose column list came back empty, so the column-level lineage "
+                "edge was dropped. Check for a `Sigma paginated endpoint aborted` "
+                "warning naming that Data Model: if one is present its /columns "
+                "fetch failed partway through, and if none is present the "
+                "upstream element genuinely has no columns."
+            ),
+            context=f"upstream={upstream_urn}, element={element.elementId}",
         )
 
     def _resolve_intra_dm_fgl(
@@ -2259,6 +2304,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Validate and normalise ref.column against the chosen upstream
         # element's schema winners to avoid a dangling schemaField URN.
         source_cols = urn_to_cols.get(chosen_upstream_urn, {})
+        if not source_cols:
+            # The sibling resolved but carries no columns, so the ref cannot be
+            # validated against a real fieldPath. Counted apart from the
+            # name-miss below so operators can tell a fetch problem from a
+            # genuine missing column. Reachable when /columns aborted partway
+            # through pagination (earlier pages are preserved, so some siblings
+            # are populated and later ones are not) or when the sibling really
+            # has no columns -- note a whole-DM /columns failure cannot reach
+            # here, since it empties this element too and the caller's column
+            # loop never runs.
+            self.reporter.data_model_element_fgl_upstream_schema_unavailable += 1
+            self._warn_upstream_schema_unavailable(chosen_upstream_urn, element)
+            return
         canonical_col = source_cols.get(ref.column.lower())
         if canonical_col is None:
             self.reporter.data_model_element_fgl_dropped_unknown_upstream_column += 1
@@ -2290,6 +2348,48 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
 
+    def _resolve_no_ref_column_fgl(
+        self,
+        *,
+        column: SigmaDataModelColumn,
+        warehouse_fgl: Optional[FineGrainedLineageClass],
+        downstream_field: str,
+        fgls: List[FineGrainedLineageClass],
+        emitted_pairs: Set[Tuple[str, str]],
+    ) -> None:
+        """Handle a column no bracket ref could be resolved from.
+
+        Covers an empty/absent formula (Sigma's shape for a pass-through
+        column), a constant expression, and a formula whose only refs are
+        parameters or bare sibling-column refs. In each case no ref reached a
+        resolver, so the columnId-driven warehouse FGL -- which needs no formula
+        at all -- would otherwise be computed and discarded.
+
+        Callers must gate this on "no ref reached a resolver" rather than on
+        ``warehouse_consumed``: intra-DM resolution never sets that flag, so a
+        "no warehouse append happened" gate would give a column carrying both a
+        sibling ref and an inode columnId a second, wrong upstream.
+        """
+        if warehouse_fgl is None:
+            # Split the same way the ref-bearing path does: an inode-shaped
+            # columnId that failed to resolve is a real warehouse failure (a
+            # /files miss or an unmappable connection) and is worth chasing,
+            # while any other columnId is an intra-DM or Sigma Dataset
+            # passthrough with nothing to resolve against -- expected volume.
+            if _is_warehouse_column_id(column.columnId):
+                self.reporter.data_model_element_fgl_no_ref_warehouse_unresolved += 1
+            else:
+                self.reporter.data_model_element_fgl_no_ref_unresolved += 1
+            return
+        assert warehouse_fgl.upstreams
+        # No emitted_pairs check: this runs at most once per column, only when
+        # nothing in the ref loop appended for that column, and downstream_field
+        # is unique per column (columns are deduped by name upstream) -- so the
+        # pair cannot already be present.
+        emitted_pairs.add((downstream_field, warehouse_fgl.upstreams[0]))
+        fgls.append(warehouse_fgl)
+        self.reporter.data_model_element_fgl_warehouse_resolved += 1
+
     def _build_dm_element_fine_grained_lineages(
         self,
         *,
@@ -2310,6 +2410,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         be filtered out to avoid self-referential FGL.  Warehouse-passthrough
         refs are resolved via _try_emit_warehouse_passthrough_fgl; unresolved
         remainder is counted under fgl_warehouse_passthrough_deferred.
+
+        Columns from which no ref reached a resolver -- an empty/absent formula
+        (Sigma's shape for a pass-through column), a constant, or a formula whose
+        only refs are parameters or bare sibling-column refs -- are handled by
+        _resolve_no_ref_column_fgl, which still resolves warehouse lineage from
+        columnId and counts the remainder under fgl_no_ref_warehouse_unresolved
+        (columnId named a warehouse column but did not resolve) or
+        fgl_no_ref_unresolved (nothing to resolve against). Those columns are
+        never name-matched against siblings: with no ref to resolve, matching on
+        column name alone would fabricate an edge to both sides of every join.
 
         When multiple sibling elements share a name and both pass the /lineage filter,
         the lexicographically-first URN is chosen (matching the collision policy
@@ -2333,8 +2443,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # (e.g. If([A/x] = 0, [A/x], [A/x] / 2) → one FGL, not three).
         emitted_pairs: Set[Tuple[str, str]] = set()
         for column in sorted(by_name.values(), key=lambda c: c.name):
-            if not column.formula:
-                continue
             downstream_field = builder.make_schema_field_urn(
                 element_dataset_urn, column.name
             )
@@ -2349,11 +2457,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 warehouse_url_id_map=warehouse_url_id_map,
             )
             warehouse_consumed = False
+            # True once any ref has reached a resolver. Distinct from
+            # `warehouse_consumed`, which only the warehouse branches set:
+            # gating the no-ref fallback on that would append a second, wrong
+            # upstream to a column that already resolved intra-DM.
+            resolution_attempted = False
             for ref in extract_bracket_refs(column.formula):
                 if ref.is_parameter or ref.column is None:
                     # [P_*] parameter refs and bare [col] intra-element refs
                     # are not cross-Dataset lineage; skip.
                     continue
+                resolution_attempted = True
 
                 candidate_eids = element_name_to_eids.get(ref.source.lower(), [])
 
@@ -2411,7 +2525,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                 fgls.append(warehouse_fgl)
                                 self.reporter.data_model_element_fgl_warehouse_resolved += 1
                             continue
-                        if (column.columnId or "").startswith("inode-"):
+                        if _is_warehouse_column_id(column.columnId):
                             self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
                             continue
 
@@ -2445,6 +2559,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     data_model=data_model,
                     fgls=fgls,
                     cross_dm_fgls=cross_dm_fgls,
+                    emitted_pairs=emitted_pairs,
+                )
+
+            if not resolution_attempted:
+                self._resolve_no_ref_column_fgl(
+                    column=column,
+                    warehouse_fgl=warehouse_fgl,
+                    downstream_field=downstream_field,
+                    fgls=fgls,
                     emitted_pairs=emitted_pairs,
                 )
         # fgl_emitted is the umbrella count for intra-DM AND warehouse-passthrough
