@@ -4,6 +4,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from requests.exceptions import RetryError
+from requests_mock import Mocker
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
@@ -165,7 +166,7 @@ def test_acquired_model_schema_transport_error_degrades_gracefully(requests_mock
     assert source.report.acquired_model_schema_failed == 1
 
 
-def _register_test_connection_mocks(requests_mock) -> None:
+def _register_test_connection_mocks(requests_mock: Mocker) -> None:
     requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
     requests_mock.get(
         f"{MOCK_TENANT_URL}/api/v1/Resources", json={"d": {"results": []}}
