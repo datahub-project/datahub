@@ -193,28 +193,18 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="*This feature is still experimental and can be disabled if it causes issues.* Reduces the total number of queries issued and speeds up profiling by dynamically combining SQL queries where possible.",
     )
 
-    # When enabled, the combiner flattens same-shape aggregate queries (no
-    # WHERE/GROUP BY/ORDER BY/LIMIT/DISTINCT, same FROM) into a single flat
-    # SELECT per FROM group, instead of one CTE per query. Each CTE in the
-    # legacy path is an independent aggregate over the same table, so the DB
-    # scans the table once per CTE; flattening collapses those into one scan.
-    # COUNT(DISTINCT) columns are capped at max_distinct_per_statement per
-    # flat statement to avoid coexisting distinct-value trees (server memory).
-    # Requires query_combiner_enabled: the combiner short-circuits when
-    # disabled, so this flag never gets a chance to run on its own.
-    # Off by default — flip in a separate follow-up PR after validation.
+    # Merges same-table aggregates into one flat SELECT instead of one CTE
+    # each, turning N table scans into one. Requires query_combiner_enabled.
+    # Off by default; flip in a follow-up after validation.
     query_combiner_flatten_enabled: bool = Field(
         default=False,
         description="*Experimental.* Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. Cheap aggregates (COUNT/MIN/MAX/AVG/STDDEV) coexist freely; COUNT(DISTINCT) columns are capped per statement to bound server memory.",
     )
 
-    # Hidden option - starting cap on COUNT(DISTINCT) columns per flat statement.
-    # Exposed so the right value can be measured without a release
-    # cycle. The module default lives at DEFAULT_MAX_DISTINCT_PER_STATEMENT in
-    # the profiler's query_combiner module (kept here as a literal so
-    # this config module does not import sqlalchemy/greenlet at module scope —
-    # kafka, cassandra, and excel configs import this module and none of those
-    # extras ship sqlalchemy).
+    # Hidden: cap on COUNT(DISTINCT) columns per flat statement, exposed so
+    # it can be measured without a release. Duplicated from
+    # DEFAULT_MAX_DISTINCT_PER_STATEMENT rather than imported, because kafka /
+    # cassandra / excel configs import this module without sqlalchemy.
     max_distinct_per_statement: HiddenFromDocs[pydantic.PositiveInt] = Field(
         default=5,
         description="",

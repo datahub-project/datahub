@@ -20,10 +20,8 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 class ClickHouseAdapter(PlatformAdapter):
     """Profiling adapter for ClickHouse's non-standard SQL aggregates."""
 
-    # Emits stddevSamp and uniq, declared lowercase because the check folds
-    # case. uniq is HyperLogLog, so it builds no distinct tree and does not
-    # consume max_distinct_per_statement. The median here is a literal_column,
-    # which never flattens whatever is declared.
+    # Lowercase because the check folds case. uniq is HyperLogLog, so it
+    # builds no distinct tree and does not consume the cap.
     FLATTENABLE_AGGREGATES = (
         PlatformAdapter.FLATTENABLE_AGGREGATES - {"stddev_samp"}
     ) | {"stddevsamp", "uniq"}

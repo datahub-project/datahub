@@ -114,11 +114,8 @@ def test_profiling_isolation_level_json_schema_has_default():
 
 
 def test_max_distinct_per_statement_default_matches_combiner_constant() -> None:
-    # Drift guard: the config's literal default must stay in lockstep with
-    # the combiner's module-level constant. The config inlines the literal
-    # (it cannot import the combiner — kafka/cassandra/excel configs import
-    # this module and none of those extras ship sqlalchemy). This test fires
-    # if either side changes without the other.
+    # Drift guard: the config duplicates the literal rather than importing
+    # the combiner, so the two must be kept in lockstep.
     from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
         DEFAULT_MAX_DISTINCT_PER_STATEMENT,
     )
@@ -135,9 +132,8 @@ def test_flatten_is_off_by_default() -> None:
 def test_flatten_without_query_combiner_warns_but_does_not_raise(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # The combiner short-circuits when disabled, so the flatten flag silently
-    # does nothing. Warn rather than raise: turning the combiner off is a
-    # legitimate way to troubleshoot a run.
+    # Warn rather than raise: turning the combiner off is a legitimate way
+    # to troubleshoot a run.
     config = GEProfilingConfig.model_validate(
         {"query_combiner_enabled": False, "query_combiner_flatten_enabled": True}
     )
