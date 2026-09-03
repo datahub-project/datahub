@@ -84,13 +84,22 @@ class MisTaggedQueryError(AssertionError):
     """A query was tagged single-row but the SQL says otherwise.
 
     A programming error at the call site, not a runtime condition: it depends
-    only on how the query was built, so it surfaces on the first run in dev or
-    CI rather than varying with data. Raised rather than counted for that
-    reason -- there is nothing to monitor, only something to fix.
+    only on how the query was built, so it does not vary with data. Raised
+    rather than counted for that reason -- there is nothing to monitor, only
+    something to fix.
 
-    In production catch_exceptions is on, so this degrades to executing the
-    query on its own (correct, just unbatched) with a warning and a bump to
-    report.query_exceptions.
+    How it actually surfaces, which is not by crashing a profiling run:
+
+    - With catch_exceptions on (the production default), _sa_execute_fake
+      catches it before it can reach the caller, executes the query on its own
+      and bumps report.query_exceptions. Profiling results stay correct; only
+      batching is lost. The integration test asserting query_exceptions == 0
+      is what turns this into a CI failure.
+    - With catch_exceptions off, it propagates to FutureResult.result(). Note
+      that the profiler wraps every result() call in `except Exception` and
+      converts it to a report warning, so even then a run does not abort -- the
+      mistake shows up as a warning naming the fix. Unit tests calling result()
+      directly are the only place it is observed as a raised exception.
     """
 
 
@@ -336,6 +345,18 @@ class SQLAlchemyQueryCombiner:
         # contradicts it outright, the call site is wrong. Guarded with getattr
         # so a future SQLAlchemy bump degrades to no-veto rather than raising on
         # a renamed internal.
+        #
+        # Deliberately partial. These four clauses are the ones that *provably*
+        # break the exactly-one-row guarantee, so vetoing them cannot produce a
+        # false positive -- which matters now that a veto raises. A WHERE clause
+        # is the notable omission: it is what made get_estimated_row_count
+        # return zero rows, but it cannot be vetoed, because
+        # `SELECT count(*) ... WHERE x` returns exactly one row and so does a
+        # lookup on a unique key. Telling those apart needs to know whether the
+        # column list is aggregate, which is undecidable here: five adapters
+        # build their median with sa.literal_column, an opaque string. The
+        # zero-row shape is caught by tests and by review of the call site, not
+        # by this veto.
         if isinstance(query, sqlalchemy.sql.Select) and (
             getattr(query, "_limit_clause", None) is not None
             or getattr(query, "_offset_clause", None) is not None

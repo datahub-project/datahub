@@ -206,7 +206,21 @@ class QueryCombinerRunner:
         """
         try:
             yield self
-        finally:
+        except Exception:
+            # Still flush, so scheduled greenlets are not left parked -- but
+            # never let a failure here replace the exception already on its way
+            # out. The body's error is the one that explains the failure; a
+            # flush error at this point is usually a consequence of it.
+            try:
+                self.flush()
+            except Exception:
+                logger.warning(
+                    "Failed to flush scheduled queries while another error was "
+                    "propagating; reporting the original error instead.",
+                    exc_info=True,
+                )
+            raise
+        else:
             self.flush()
 
     def get_row_count(

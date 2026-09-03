@@ -1025,3 +1025,32 @@ class TestBatchContextManager:
             # The scheduled query still ran, so its result is available.
             assert count_future.result() == 3
             assert query_combiner.report.query_exceptions == 0
+
+    def test_block_error_survives_a_failing_flush(
+        self, sqlite_engine, test_adapter, test_table
+    ):
+        """The body's exception is the one that explains the failure.
+
+        If flush() also fails while an exception is propagating, letting it
+        through would replace the root cause with a downstream symptom.
+        """
+        with (
+            sqlite_engine.connect() as conn,
+            SQLAlchemyQueryCombiner(
+                enabled=True,
+                catch_exceptions=False,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
+            runner = QueryCombinerRunner(
+                ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
+            )
+
+            def exploding_flush() -> None:
+                raise RuntimeError("flush failed")
+
+            with pytest.raises(ValueError, match="the real failure"):
+                with runner.batch() as batch:
+                    batch.get_row_count(test_table)
+                    runner.flush = exploding_flush  # type: ignore[method-assign]
+                    raise ValueError("the real failure")
