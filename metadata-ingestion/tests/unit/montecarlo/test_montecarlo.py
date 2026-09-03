@@ -2989,6 +2989,73 @@ def test_build_run_events_from_execution_is_not_primary_source() -> None:
     assert wus and wus[0].is_primary_source is False
 
 
+def test_build_run_events_from_execution_skips_when_alert_at_same_time() -> None:
+    # Monte Carlo fires an alert shortly after a failing execution completes,
+    # so the alert's created_time and the execution's start_time land within
+    # seconds of each other. Without dedup the UI shows two runs at "the same
+    # time" — one pass, one fail. The FAILURE alert is authoritative; the
+    # SUCCESS execution for the same assertion within the dedup window is
+    # suppressed.
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    _ingest(
+        builder,
+        MonteCarloAssertionDef(
+            uuid="mon-vol", monitor_type="VOLUME", entity_mcons=[mcon]
+        ),
+    )
+    # Emit a FAILURE alert at 2026-05-01T00:00:30Z.
+    alert = MonteCarloAlert(
+        uuid="alert-dup",
+        monitor_uuids=["mon-vol"],
+        created_time="2026-05-01T00:00:30+00:00",
+    )
+    list(builder.build_run_event(alert))
+
+    # A SUCCESS execution 20s earlier (within the 2-minute window) is suppressed.
+    execution = MonteCarloJobExecution(
+        job_execution_uuid="je-dup",
+        monitor_uuid="mon-vol",
+        start_time="2026-05-01T00:00:10+00:00",
+        status="SUCCESS",
+    )
+    wus = list(builder.build_run_events_from_execution(execution, []))
+    assert wus == []
+    assert report.run_events_emitted == 1  # only the alert run event
+
+
+def test_build_run_events_from_execution_emits_when_outside_dedup_window() -> None:
+    # A SUCCESS execution more than 2 minutes away from any alert is not
+    # suppressed — it represents an independent successful run.
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    _ingest(
+        builder,
+        MonteCarloAssertionDef(
+            uuid="mon-vol", monitor_type="VOLUME", entity_mcons=[mcon]
+        ),
+    )
+    alert = MonteCarloAlert(
+        uuid="alert-far",
+        monitor_uuids=["mon-vol"],
+        created_time="2026-05-01T00:00:00+00:00",
+    )
+    list(builder.build_run_event(alert))
+
+    # 10 minutes later — well outside the 2-minute window.
+    execution = MonteCarloJobExecution(
+        job_execution_uuid="je-far",
+        monitor_uuid="mon-vol",
+        start_time="2026-05-01T00:10:00+00:00",
+        status="SUCCESS",
+    )
+    wus = list(builder.build_run_events_from_execution(execution, []))
+    assert len(wus) == 1
+    assert report.run_events_emitted == 2  # alert + execution
+
+
 def test_iter_ingested_monitors_yields_pairs() -> None:
     report = MonteCarloSourceReport()
     mcon = "MCON++acct++wh-2++table++db.sch.tbl"

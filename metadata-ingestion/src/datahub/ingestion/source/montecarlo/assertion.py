@@ -63,6 +63,12 @@ from datahub.utilities.time import datetime_to_ts_millis
 
 PLATFORM = "montecarlo"
 
+# Window within which a SUCCESS execution run event is considered to coincide
+# with a FAILURE alert run event for the same assertion. Monte Carlo creates
+# the alert shortly after the execution completes, so the two timestamps are
+# typically within ~30s of each other. 2 minutes is a conservative window.
+_ALERT_DEDUP_WINDOW_MS = 2 * 60 * 1000
+
 # Sentinel for MC operators/metrics with no clean DataHub equivalent. Using the
 # real enum member (not a bare string) keeps the generated aspect consistent
 # with dbt's unknown-test fallback and lets the UI render a native description.
@@ -313,6 +319,12 @@ class MonteCarloAssertionBuilder:
         # Maps a monitor/rule uuid to the assertion (and its target dataset) we
         # emitted for it, so alerts can attach run events to the same entities.
         self._ingested_by_monitor: Dict[str, _IngestedAssertion] = {}
+        # Tracks (assertion_urn, timestampMillis) pairs that already have an
+        # alert-driven FAILURE run event, so build_run_events_from_execution can
+        # skip SUCCESS runs at the same timestamp — otherwise the UI shows two
+        # runs at "the same time", one pass and one fail, for what is really a
+        # single monitor execution that fired an alert.
+        self._alert_timestamps: Dict[str, List[int]] = {}
 
     def _assertion_urn(self, monitor_uuid: str) -> str:
         key = MonteCarloAssertionKey(
@@ -501,6 +513,9 @@ class MonteCarloAssertionBuilder:
             aspect=run_event,
         ).as_workunit(is_primary_source=False)
         self.report.report_run_event_emitted()
+        self._alert_timestamps.setdefault(assertion_urn, []).append(
+            datetime_to_ts_millis(alert.created_time)
+        )
 
         yield from self._emit_incident_for_alert(
             assertion_urn=assertion_urn,
@@ -613,6 +628,20 @@ class MonteCarloAssertionBuilder:
                 "a run event.",
                 context=f"job_execution_uuid={execution.job_execution_uuid}",
             )
+            return
+
+        # Skip SUCCESS run events that coincide with an alert-driven FAILURE
+        # run event for the same assertion — Monte Carlo fires the alert right
+        # after the execution completes, so the two timestamps are within
+        # seconds of each other and the UI renders them as "the same time"
+        # with conflicting pass/fail status. The FAILURE event is the
+        # authoritative outcome; the SUCCESS execution is redundant.
+        ts_ms = datetime_to_ts_millis(ts)
+        alert_ts_list = self._alert_timestamps.get(assertion_urn)
+        if alert_ts_list and any(
+            abs(ts_ms - alert_ts) <= _ALERT_DEDUP_WINDOW_MS
+            for alert_ts in alert_ts_list
+        ):
             return
 
         native_results: Dict[str, str] = {}
