@@ -36,9 +36,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import GlossaryNodeUrn, GlossaryTermUrn
 
-# Imported rather than inlined so the emitted auditStamp stays identical to the
-# one Dataset.set_terms produced before this emitted a bare aspect; the constant
-# carries a TODO to change its value, and hardcoding it here would silently drift.
+# Imported rather than inlined: this is the actor the SDK writes for terms, tags
+# and owners, and the constant carries a TODO to change its value -- hardcoding the
+# literal here would silently diverge from the rest of DataHub if that lands.
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.entity import Entity
 from datahub.sdk.glossary_node import GlossaryNode
@@ -69,6 +69,22 @@ WORKERS_BATCH_SIZE = 200
 _DEFINITION_LINK_TYPE_SUFFIX = "/entryLinkTypes/definition"
 # Role in an entryLink that identifies the asset side (not the term side).
 _SOURCE_ROLE = "SOURCE"
+
+
+def _terms_audit_stamp() -> AuditStampClass:
+    """The audit stamp attached to every emitted ``glossaryTerms`` aspect.
+
+    ``time=0`` is DataHub's "unknown timestamp" sentinel, and is what the SDK
+    writes for terms, tags and owners. Dataplex does expose a ``createTime`` per
+    entry link, but ``glossaryTerms`` carries a single stamp for the whole term
+    list, so there is no one authoritative time when an asset has several terms.
+    A fixed value also keeps the aspect byte-stable, so re-running ingestion does
+    not rewrite unchanged associations.
+
+    Returns a new instance per call: the aspect classes are mutable, and a shared
+    instance would be aliased into every emitted aspect.
+    """
+    return AuditStampClass(time=0, actor=DEFAULT_ACTOR_URN)
 
 
 # ---------------------------------------------------------------------------
@@ -654,9 +670,7 @@ class DataplexGlossaryProcessor:
                         # Dataplex terms can reconcile to the same DataHub term urn.
                         for term_urn in dict.fromkeys(term_urns)
                     ],
-                    # time=0 rather than wall clock keeps the aspect byte-stable
-                    # across runs, so unchanged associations don't churn.
-                    auditStamp=AuditStampClass(time=0, actor=DEFAULT_ACTOR_URN),
+                    auditStamp=_terms_audit_stamp(),
                 ),
             ).as_workunit()
             self._report.report_association()
