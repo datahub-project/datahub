@@ -166,7 +166,15 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       Map<String, Object> embeddingsProps = (Map<String, Object>) embeddingsField.get("properties");
       Map<String, Object> modelEntry = (Map<String, Object>) embeddingsProps.get(modelKey);
 
-      modelProperties.put(modelKey, modelEntry);
+      // Add the embed-time source-text digest (staleness provenance) with an explicit keyword
+      // mapping so exact-match queries do not depend on dynamic mapping.
+      Map<String, Object> modelEntryProps =
+          new HashMap<>((Map<String, Object>) modelEntry.get("properties"));
+      modelEntryProps.put("sourceTextSha256", ImmutableMap.of("type", "keyword"));
+      Map<String, Object> augmentedModelEntry = new HashMap<>(modelEntry);
+      augmentedModelEntry.put("properties", modelEntryProps);
+
+      modelProperties.put(modelKey, augmentedModelEntry);
     }
 
     return ImmutableMap.of("properties", modelProperties);
@@ -210,6 +218,12 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       ImmutableMap.Builder<String, Object> newPropertiesMap = new ImmutableMap.Builder<>();
       newPropertiesMap.putAll(basePropertiesMap);
       newPropertiesMap.put("embeddings", embeddingFieldConfig);
+      // Staleness/skip provenance fields written by UpdateIndicesV2Strategy (resolvedTextSha256)
+      // and the semanticContent projection (skipReason/skippedAt) -- mapped explicitly so
+      // exact-match and exists queries do not depend on dynamic mapping.
+      newPropertiesMap.put("resolvedTextSha256", ImmutableMap.of("type", "keyword"));
+      newPropertiesMap.put("skipReason", ImmutableMap.of("type", "keyword"));
+      newPropertiesMap.put("skippedAt", ImmutableMap.of("type", "date"));
 
       // Construct new top-level map with new properties map
       ImmutableMap.Builder<String, Object> newMappings = new ImmutableMap.Builder<>();
