@@ -25,7 +25,14 @@ RUN addgroup -g 1000 datahub && \
 ARG PYTHON_VERSION
 RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 
+# Cache-bust the python apk layer. Wolfi is a rolling distro, so a cached build layer
+# can keep shipping a stale, vulnerable package set even after upstream fixes it (a
+# stale cache shipped setuptools 70.3.0 / CVE-2025-47273 at /usr/share/python-wheels/;
+# current Wolfi ships a fixed setuptools). Bump WOLFI_PKG_REFRESH to force a fresh
+# `apk add` whenever base packages need refreshing.
+ARG WOLFI_PKG_REFRESH=2026-08-31
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    echo "wolfi pkg refresh: ${WOLFI_PKG_REFRESH}" && \
     apk add --no-cache --update-cache \
     ca-certificates \
     python-${PYTHON_VERSION} \
