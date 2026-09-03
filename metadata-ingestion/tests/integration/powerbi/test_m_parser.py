@@ -12,6 +12,7 @@ from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.source.powerbi.config import (
+    Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
@@ -1151,6 +1152,10 @@ def test_bigquery_external_query_resolves_to_external_platform():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
     )
+    assert (
+        data_platform_tables[0].data_platform_pair.datahub_data_platform_name
+        == "postgres"
+    )
     assert reporter.m_query_external_query_connections_resolved == 1
 
 
@@ -1363,6 +1368,8 @@ def test_bigquery_external_query_unmapped_connection_skips_with_info():
     assert reporter.m_query_external_query_connections_unmapped == 1
     # No SQL-parsing-failure warning should be raised for the (expected) unmapped case.
     assert len(reporter.warnings) == 0
+    info_titles = [entry.title for entry in reporter.infos]
+    assert Constant.EXTERNAL_QUERY_NOT_MAPPED in info_titles
 
 
 @pytest.mark.integration
@@ -1500,7 +1507,7 @@ def test_bigquery_external_query_inner_sql_parse_failure_warns():
     assert combine_upstreams_from_lineage(lineages) == []
     assert reporter.m_query_external_query_parse_errors == 1
     # The inner-SQL parse failure must surface as a warning, not be silently dropped.
-    assert len(reporter.warnings) >= 1
+    assert Constant.SQL_PARSING_FAILURE in [entry.title for entry in reporter.warnings]
 
 
 @pytest.mark.integration
@@ -1557,7 +1564,7 @@ def test_bigquery_external_query_partial_lineage_when_outer_parse_fails():
     assert reporter.m_query_external_query_connections_resolved == 1
     # Native tables are lost while federated lineage survives, so the partial loss must
     # surface as a warning rather than the benign pure-native info level.
-    assert len(reporter.warnings) >= 1
+    assert Constant.SQL_PARSING_FAILURE in [entry.title for entry in reporter.warnings]
     # The dropped outer query must also be counted so partial runs aren't under-reported.
     assert reporter.m_query_external_query_parse_errors == 1
 
@@ -1680,6 +1687,54 @@ def test_bigquery_external_query_default_schema_applied_to_inner_sql():
 
 
 @pytest.mark.integration
+def test_bigquery_external_query_platform_instance_and_env_applied():
+    # platform_instance and env on the connection mapping must flow into the resolved
+    # upstream URN (instance embedded in the dataset key, env as the fabric). Both default
+    # to None/PROD, so without setting non-default values the wiring is untested.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                    "platform_instance": "my_instance",
+                    "env": "DEV",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    urns = {dpt.urn for dpt in data_platform_tables}
+    assert urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_instance.ext_db.ext_schema.usage_report,DEV)"
+    }
+    assert reporter.m_query_external_query_connections_resolved == 1
+
+
+@pytest.mark.integration
 def test_bigquery_external_query_inner_sql_resolves_no_table_warns():
     # The federated (inner) SQL parses cleanly but references no table (e.g. SELECT 1),
     # so it resolves zero upstreams. That still drops the federated lineage, so it must
@@ -1724,7 +1779,7 @@ def test_bigquery_external_query_inner_sql_resolves_no_table_warns():
     assert reporter.m_query_external_query_connections_resolved == 0
     assert reporter.m_query_external_query_parse_errors == 1
     # A federation that resolves nothing must surface as a warning, not be silently dropped.
-    assert len(reporter.warnings) >= 1
+    assert Constant.SQL_PARSING_FAILURE in [entry.title for entry in reporter.warnings]
 
 
 @pytest.mark.integration
@@ -1786,7 +1841,7 @@ def test_bigquery_external_query_inner_sql_table_error_warns():
     assert combine_upstreams_from_lineage(lineages) == []
     assert reporter.m_query_external_query_connections_resolved == 0
     assert reporter.m_query_external_query_parse_errors == 1
-    assert len(reporter.warnings) >= 1
+    assert Constant.SQL_PARSING_FAILURE in [entry.title for entry in reporter.warnings]
 
 
 @pytest.mark.integration
