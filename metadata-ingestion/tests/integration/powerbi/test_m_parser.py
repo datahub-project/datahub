@@ -1204,6 +1204,77 @@ def test_bigquery_external_query_tsql_control_statements_not_corrupted():
 
 
 @pytest.mark.integration
+def test_bigquery_external_query_inner_sql_not_tsql_cleaned_before_extraction():
+    # Guards the ordering in PowerBI's parse_custom_sql: remove_special_characters
+    # runs before EXTERNAL_QUERY extraction, but the T-SQL cleanup
+    # (remove_drop_statement) must run only AFTER extraction. That cleanup's
+    # USE/GO/SET/DROP regexes are line-anchored and ignore string boundaries, so if
+    # run on the outer text first they rewrite text inside the federated SQL literal
+    # (e.g. a lone `GO` line inside a string constant becomes `;`).
+    #
+    # Postgres federations get no second cleanup pass on the inner SQL (only mssql
+    # does), so the literal reaching the inner parser must be byte-for-byte intact.
+    # The `GO` lives inside a string-constant column, so the resolved URN is identical
+    # either way — the corruption is only observable in the SQL text handed to the
+    # inner parser, which is what this test asserts on.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT 'x#(lf)GO#(lf)y' AS note FROM ext_schema.t"")", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    captured_inner_sql: List[str] = []
+    real_parse_custom_sql = native_sql_parser.parse_custom_sql
+
+    def _capture(*args: object, **kwargs: object) -> Optional[SqlParsingResult]:
+        # Record the SQL the postgres (inner federated) parse receives.
+        if kwargs.get("platform") == "postgres":
+            captured_inner_sql.append(str(kwargs["query"]))
+        return real_parse_custom_sql(*args, **kwargs)  # type: ignore[arg-type]
+
+    with patch.object(native_sql_parser, "parse_custom_sql", side_effect=_capture):
+        data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )[0].upstreams
+
+    # The federated literal must reach the inner parser untouched: the `GO` inside the
+    # string constant must not have been rewritten to `;` by a premature T-SQL cleanup.
+    assert captured_inner_sql, "postgres inner federated SQL was never parsed"
+    assert captured_inner_sql[0] == "SELECT 'x\nGO\ny' AS note FROM ext_schema.t"
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.t,PROD)"
+    )
+    assert reporter.m_query_external_query_connections_resolved == 1
+
+
+@pytest.mark.integration
 def test_bigquery_external_query_unmapped_connection_skips_with_info():
     # An unmapped EXTERNAL_QUERY connection must not emit a bogus BigQuery URN; it should
     # skip lineage and record an actionable (non-warning) signal telling the operator to
