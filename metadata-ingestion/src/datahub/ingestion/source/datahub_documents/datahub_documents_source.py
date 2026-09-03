@@ -53,7 +53,10 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     DataHubConnectionConfig,
     DocumentChunkingSourceConfig,
 )
-from datahub.ingestion.source.unstructured.chunking_source import DocumentChunkingSource
+from datahub.ingestion.source.unstructured.chunking_source import (
+    DocumentChunkingSource,
+    compute_source_text_sha256,
+)
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
 
 logger = logging.getLogger(__name__)
@@ -495,23 +498,40 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     f"semanticText event for {entity_urn} without readable documentInfo, skipping"
                 )
                 return
-            contents = dict(info_dict.get("contents") or {})
-            contents["semanticText"] = aspect_dict.get("text")
+            raw_info_contents = info_dict.get("contents")
+            override_text = aspect_dict.get("text")
+            if raw_info_contents is None and not override_text:
+                # Partial entity (null contents) with no usable override: skip silently,
+                # mirroring the batch and documentInfo-event guards, rather than stamping
+                # an EMPTY_TEXT marker from a body we could not read.
+                logger.debug(
+                    f"semanticText event for {entity_urn} with empty override and null "
+                    f"contents, skipping"
+                )
+                return
+            contents = dict(raw_info_contents or {})
+            contents["semanticText"] = override_text
             # Downstream source-type filtering reads from the documentInfo shape.
             aspect_dict = info_dict
         else:
             # documentInfo event: the override (if any) lives in the standalone
-            # semanticText aspect, so fetch it. Contents may be null for
-            # partial entities.
-            contents = dict(aspect_dict.get("contents") or {})
+            # semanticText aspect, so fetch it.
+            raw_contents = aspect_dict.get("contents")
+            if raw_contents is None:
+                # Partial aspect with no contents: skip silently (mirroring batch mode)
+                # rather than stamping a skip marker from content we could not read.
+                logger.debug(
+                    f"documentInfo event for {entity_urn} has null contents, skipping"
+                )
+                return
+            contents = dict(raw_contents)
             contents["semanticText"] = self._fetch_semantic_text(entity_urn)
 
         # semanticText overrides text as the embedding source; see _resolve_embed_text.
+        # Empty text is NOT an early return: _process_single_document emits a skip marker
+        # for it (and for too-short text) so the document is classified rather than
+        # silently invisible, and incremental state stops re-visiting it.
         text = self._resolve_embed_text(contents)
-
-        if not text:
-            logger.debug(f"No text content in document {entity_urn}")
-            return
 
         # Filter by source type (NATIVE vs EXTERNAL)
         # Default to NATIVE if source or sourceType is not set (backward compatibility with old documents)
@@ -995,7 +1015,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # Extract text content (GraphQL returns null for missing aspects).
             # semanticText overrides text as the embedding source; see _resolve_embed_text.
             info = entity.get("info") or {}
-            contents = info.get("contents") or {}
+            contents = info.get("contents")
+            if contents is None:
+                # Null info/contents is a partial entity or hydration anomaly, not a
+                # document with empty text: skip silently rather than stamping a skip
+                # marker onto an entity whose content we could not read.
+                continue
             text = self._resolve_embed_text(contents)
 
             # Default to NATIVE when sourceType is absent (older documents).
@@ -1006,14 +1031,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             if not self._should_process_by_source_type(entity, info):
                 continue
 
-            # Skip if no text or too short
-            if not text or (
-                self.config.skip_empty_text and len(text) < self.config.min_text_length
-            ):
-                logger.debug(
-                    f"Skipping document {urn} (empty or too short: {len(text)} chars)"
-                )
-                continue
+            # Empty/too-short documents are NOT filtered here: they flow to
+            # _process_single_document, which emits a semanticContent skip marker for them
+            # (so coverage consumers can tell never-embeddable documents from indexing lag)
+            # and records incremental state so they are not re-visited every run.
 
             num_documents += 1
             self.report.report_document_fetched()
@@ -1405,13 +1426,35 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         Returns:
             SHA256 hash hex string
         """
-        hash_input = {
+        hash_input: Dict[str, Any] = {
             "content": text,
             "config": self._get_processing_config_fingerprint(),
         }
+        # The deliberate-skip decision is part of what recorded state means, so its inputs
+        # join the hash -- but only for documents that WOULD be skipped. Raising or lowering
+        # min_text_length then re-evaluates exactly the affected population (skip markers
+        # re-stamped or documents finally embedded) without invalidating the hash of every
+        # already-embedded document, which would trigger a full re-embed wave on upgrade.
+        if self._is_below_embed_minimum(text):
+            hash_input["skip_threshold"] = self.config.min_text_length
         # Deterministic JSON serialization
         hash_str = json.dumps(hash_input, sort_keys=True)
         return hashlib.sha256(hash_str.encode("utf-8")).hexdigest()
+
+    def _is_below_embed_minimum(self, text: str) -> bool:
+        """Single decider for the deliberate length skip.
+
+        Used both by _process_single_document (to emit the skip marker) and by
+        _calculate_text_hash (to make recorded state threshold-aware) -- keep them in
+        lockstep through this helper.
+
+        skip_empty_text gates only the length check (its pre-existing semantics):
+        empty documents are always skipped, but skip_empty_text=False keeps
+        short-but-non-empty documents embeddable regardless of min_text_length.
+        """
+        return not text or (
+            self.config.skip_empty_text and len(text) < self.config.min_text_length
+        )
 
     def _update_document_state(self, document_urn: str, text: str) -> None:
         """Update state after processing document."""
@@ -1538,12 +1581,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             document_urn = doc["urn"]
             text = doc.get("text", "")
 
-            # Skip if empty or too short
-            if not text or len(text) < self.config.min_text_length:
+            # Deliberate skip: emit a marker so consumers (e.g. coverage reporting) can tell
+            # never-embeddable documents apart from indexing lag or failures. Returning True
+            # records incremental state -- the decision is deterministic for this text, so
+            # retrying without a content change is pointless.
+            if self._is_below_embed_minimum(text):
                 logger.debug(
                     f"Skipping document {document_urn} (text too short: {len(text)} chars)"
                 )
                 self.report.report_document_skipped_empty()
+                yield self.chunking_source.build_skip_marker_workunit(
+                    document_urn,
+                    "EMPTY_TEXT" if not text else "BELOW_MIN_TEXT_LENGTH",
+                )
                 return True
 
             # Partition text as markdown into unstructured elements
@@ -1555,12 +1605,20 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     f"No elements created from text for document {document_urn}"
                 )
                 self.report.report_document_skipped()
+                yield self.chunking_source.build_skip_marker_workunit(
+                    document_urn, "NO_INDEXABLE_CONTENT"
+                )
                 return True
 
             # Delegate chunking + embedding + SemanticContent emission to chunking_source.
             # DocumentChunkingSource enforces max_documents and raises RuntimeError when exceeded.
+            # The hash is over the exact resolved text (semanticText override else body) and is
+            # stored on the embeddings as staleness provenance: consumers compare it against a
+            # hash of the current resolved text instead of modification timestamps.
             yield from self.chunking_source.process_elements_inline(
-                document_urn=document_urn, elements=elements
+                document_urn=document_urn,
+                elements=elements,
+                source_text_sha256=compute_source_text_sha256(text),
             )
 
         except Exception as e:
