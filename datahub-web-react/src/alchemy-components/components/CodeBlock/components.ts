@@ -76,6 +76,8 @@ export const CodeBlockIssueList = styled.ul({
 export const CodeBlockHeader = styled.div(({ theme }) => ({
     display: 'flex',
     flexDirection: 'row' as const,
+    // Wrap instead of crushing children to zero width in narrow containers.
+    flexWrap: 'wrap' as const,
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: spacing.xsm,
@@ -88,6 +90,7 @@ export const CodeBlockHeader = styled.div(({ theme }) => ({
 export const HeaderLeft = styled.div({
     display: 'flex',
     alignItems: 'center',
+    flexWrap: 'wrap' as const,
     gap: spacing.xsm,
     minWidth: 0,
     flex: 1,
@@ -134,6 +137,11 @@ export const CodeBlockContent = styled.div<CodeBlockStyleProps>(
             fontFamily: `${typography.fonts.mono} !important`,
             fontWeight: `${typography.fontWeights.medium} !important`,
             background: 'transparent !important',
+        },
+
+        '& del, & ins': {
+            fontFamily: `${typography.fonts.mono} !important`,
+            fontWeight: `${typography.fontWeights.medium} !important`,
         },
     }),
 );
@@ -232,3 +240,31 @@ export const LanguageSelectWrapper = styled.div({
     minWidth: '140px',
     maxWidth: '220px',
 });
+
+export const CodeBlockDiffPre = styled.pre<{ $wrap: boolean }>`
+    color: ${(props) => props.theme.colors.text};
+    white-space: ${(props) => (props.$wrap ? 'pre-wrap' : 'pre')};
+    word-break: ${(props) => (props.$wrap ? 'break-word' : 'normal')};
+    tab-size: 2;
+`;
+
+export const CodeBlockDiffEqual = styled.span`
+    color: ${(props) => props.theme.colors.text};
+`;
+
+export const CodeBlockDiffRemoved = styled.del`
+    padding: 0 2px;
+    border-radius: ${radius.sm};
+    background: ${(props) => props.theme.colors.bgSurfaceError};
+    color: ${(props) => props.theme.colors.textOnSurfaceError};
+    text-decoration: line-through;
+    text-decoration-color: ${(props) => props.theme.colors.textOnSurfaceError};
+`;
+
+export const CodeBlockDiffAdded = styled.ins`
+    padding: 0 2px;
+    border-radius: ${radius.sm};
+    background: ${(props) => props.theme.colors.bgSurfaceSuccess};
+    color: ${(props) => props.theme.colors.textOnSurfaceSuccess};
+    text-decoration: none;
+`;
