@@ -117,6 +117,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities import memory_footprint
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.pkg_resources_shim import ensure_pkg_resources
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -271,6 +272,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     eskind_to_platform = {1: "glue", 2: "hive", 3: "postgres", 4: "redshift"}
 
     def __init__(self, config: RedshiftConfig, ctx: PipelineContext):
+        # sqlalchemy-redshift imports pkg_resources at module load; setuptools>=82
+        # removed it. Install the shim before the redshift SQLAlchemy dialect loads.
+        ensure_pkg_resources()
         super().__init__(config, ctx)
         self.catalog_metadata: Dict = {}
         self.config: RedshiftConfig = config

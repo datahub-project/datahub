@@ -27,6 +27,12 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 # between retries.
 os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 
+# Install the pkg_resources shim before any test imports the redshift/cockroachdb
+# SQLAlchemy dialects (setuptools>=82 removed pkg_resources).
+from datahub.utilities.pkg_resources_shim import ensure_pkg_resources  # noqa: E402
+
+ensure_pkg_resources()
+
 
 @atexit.register
 def _report_threads_alive_at_exit() -> None:
