@@ -72,6 +72,21 @@ an untagged statement is simply executed on its own.
 """
 
 
+FLATTENABLE_AGGREGATES_EXECUTION_OPTION = "datahub_flattenable_aggregates"
+"""Statement execution option carrying the aggregate names that may be flattened.
+
+The value is a frozenset of lowercased function names, supplied by the adapter that
+built the query -- see PlatformAdapter.FLATTENABLE_AGGREGATES. It is an allowlist, not
+a verdict: a query may carry names that qualify and still be refused by the clause gate
+in _flatten_verdict, which is what rejects WHERE / HAVING / ORDER BY and everything else
+that renders extra SQL.
+
+Per-adapter because the names vary by dialect -- MSSQL emits stdev and ClickHouse
+stddevSamp where the base emits stddev_samp. A missing or empty option means nothing
+flattens, so an adapter that declares nothing keeps the CTE path unchanged.
+"""
+
+
 def single_row_query(query: _StatementT) -> _StatementT:
     """Tag a statement as returning exactly one row.
 
@@ -130,45 +145,11 @@ def is_single_row_query(query: Any) -> bool:
 # on the server; letting all of them coexist trades a scan problem for a memory
 # problem. The budget is over columns, not queries: one query may carry
 # several, and it is the trees that cost memory. Cheap aggregates (see
-# _FLATTENABLE_AGGREGATES) coexist freely. Starting value, not yet measured.
+# PlatformAdapter.FLATTENABLE_AGGREGATES) coexist freely. Starting value, not
+# yet measured.
 # Overridable via a hidden config knob
 # (see SQLAlchemyQueryCombiner.max_distinct_per_statement).
 DEFAULT_MAX_DISTINCT_PER_STATEMENT = 5
-
-# Aggregates the flatten path may emit, lowercased. Every emitted column must
-# be one of these (or a Label wrapping one); a clause-free non-aggregate like
-# `SELECT v FROM t` would otherwise pass the clause gate and group with
-# real aggregates, emitting `SELECT count(*), v FROM t` — one row on
-# SQLite/MySQL, silently dropping the non-aggregate's rows. upper(v) is a
-# FunctionElement but returns N rows, so the check is on the function name,
-# not the type.
-#
-# Entries are matched case-insensitively because SQLAlchemy only normalises
-# names it has a GenericFunction for: count/min/max/sum come back lowercase
-# whatever the caller wrote, but avg and every platform spelling below keep
-# the caller's casing. ClickHouse's stddevSamp is the one that bites — it
-# needs the folded "stddevsamp" entry, not "stddev_samp".
-#
-# Per-platform sample-stddev spellings are all here (base stddev_samp, MSSQL
-# stdev, ClickHouse stddevSamp) so enabling the flag does not silently leave
-# one platform's stddev on the CTE path. Exotic aggregates (approx_distinct,
-# uniq, approx_percentile, approx_quantiles, median) are intentionally
-# omitted — they fall to the CTE path, which is correct-but-slower and
-# consistent with fail-closed. MySQL-motivated; flag is off by default.
-_FLATTENABLE_AGGREGATES = frozenset(
-    {
-        "count",
-        "min",
-        "max",
-        "avg",
-        "sum",
-        "stddev",
-        "stddev_samp",
-        "stddevsamp",
-        "stdev",
-        "std",
-    }
-)
 
 
 class _FlattenVerdict(enum.Enum):
@@ -710,14 +691,26 @@ class SQLAlchemyQueryCombiner:
                 rebuilt.append_from(f)
             if str(query) != str(rebuilt):
                 return _FlattenVerdict.REJECTED
-            # Aggregate allowlist on the select list. A clause-free non-
-            # aggregate (`SELECT v FROM t`) passes the clause gate above;
-            # grouped with real aggregates it would emit
-            # `SELECT count(*), v FROM t` and return one row on
-            # SQLite/MySQL, silently dropping the non-aggregate's rows.
-            # upper(v) is a FunctionElement but returns N rows, so the
-            # check is on the function name, not the type. See
-            # _FLATTENABLE_AGGREGATES for the rationale.
+            # Aggregate allowlist on the select list, supplied by the adapter
+            # that built the query. A clause-free non-aggregate
+            # (`SELECT v FROM t`) passes the clause gate above; grouped with
+            # real aggregates it would emit `SELECT count(*), v FROM t` and
+            # return one row on SQLite/MySQL, silently dropping the
+            # non-aggregate's rows. upper(v) is a FunctionElement but returns
+            # N rows, so the check is on the function name, not the type.
+            #
+            # Top-level only, after unwrapping Label. count(distinct(c)) has
+            # name `count`; the nested distinct is deliberately not checked
+            # here, because `distinct` is not an allowlisted aggregate and
+            # walking the tree would reject every COUNT(DISTINCT) -- the very
+            # queries the distinct budget exists to handle.
+            #
+            # An absent option yields the empty set, so a query built outside
+            # ProfilingConnection flattens nothing. See
+            # FLATTENABLE_AGGREGATES_EXECUTION_OPTION.
+            allowed = query.get_execution_options().get(
+                FLATTENABLE_AGGREGATES_EXECUTION_OPTION, frozenset()
+            )
             for col in get_query_columns(query):
                 elem = (
                     col.element
@@ -726,7 +719,7 @@ class SQLAlchemyQueryCombiner:
                 )
                 if not (
                     isinstance(elem, sqlalchemy.sql.functions.FunctionElement)
-                    and elem.name.lower() in _FLATTENABLE_AGGREGATES
+                    and elem.name.lower() in allowed
                 ):
                     return _FlattenVerdict.REJECTED
             # Parity between emit-side columns (get_query_columns) and

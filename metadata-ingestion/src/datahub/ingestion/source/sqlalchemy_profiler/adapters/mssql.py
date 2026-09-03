@@ -37,6 +37,13 @@ class MSSQLAdapter(PlatformAdapter):
       - `_get_column_quantiles_mssql` (PERCENTILE_DISC ... WITHIN GROUP OVER ()).
     """
 
+    # get_column_stdev emits sa.func.stdev, so stddev_samp is swapped out rather
+    # than kept alongside: an unswapped set would leave MSSQL stddev on the CTE
+    # path with nothing to show for it.
+    FLATTENABLE_AGGREGATES = (
+        PlatformAdapter.FLATTENABLE_AGGREGATES - {"stddev_samp"}
+    ) | {"stdev"}
+
     # =========================================================================
     # SQL Expression Builders
     # =========================================================================

@@ -1737,7 +1737,10 @@ class SQLAlchemyProfiler:
                     # Statistic queries go through the facade so each one
                     # declares its row shape for the query combiner.
                     runner = QueryCombinerRunner(
-                        conn=ProfilingConnection(conn),
+                        conn=ProfilingConnection(
+                            conn,
+                            flattenable_aggregates=adapter.FLATTENABLE_AGGREGATES,
+                        ),
                         platform=platform,
                         adapter=adapter,
                         query_combiner=query_combiner,

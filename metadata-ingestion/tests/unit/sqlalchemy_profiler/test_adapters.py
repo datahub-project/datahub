@@ -1960,3 +1960,60 @@ class TestClickHouseAdapter:
         t3.schema = None
         t3.name = None
         assert _format_context(t3) == "<unknown>"
+
+
+class TestFlattenableAggregates:
+    """Each adapter declares the aggregate names it actually emits."""
+
+    ALL_ADAPTERS = [
+        AthenaAdapter,
+        BigQueryAdapter,
+        ClickHouseAdapter,
+        DatabricksAdapter,
+        GenericAdapter,
+        MSSQLAdapter,
+        MySQLAdapter,
+        PostgresAdapter,
+        RedshiftAdapter,
+        SnowflakeAdapter,
+        TrinoAdapter,
+    ]
+
+    @pytest.mark.parametrize("adapter_cls", ALL_ADAPTERS)
+    def test_declarations_are_lowercase(self, adapter_cls: Any) -> None:
+        # The allowlist check folds case, so an entry that is not already
+        # lowercase can never match. ClickHouse is the live example: declaring
+        # "stddevSamp" instead of "stddevsamp" would silently keep its stddev
+        # on the CTE path with no error anywhere.
+        declared = adapter_cls.FLATTENABLE_AGGREGATES
+        assert declared == {name.lower() for name in declared}
+
+    @pytest.mark.parametrize("adapter_cls", ALL_ADAPTERS)
+    def test_sum_is_never_declared(self, adapter_cls: Any) -> None:
+        # The only sum this profiler emits is in the histogram, which goes
+        # through execute_rows and cannot reach the flatten path.
+        assert "sum" not in adapter_cls.FLATTENABLE_AGGREGATES
+
+    def test_platforms_swap_their_stddev_spelling(self) -> None:
+        # An adapter overriding get_column_stdev must replace the base name,
+        # not merely add to it. Keeping stddev_samp would be inert; dropping
+        # the platform's own name costs the optimisation silently.
+        assert "stdev" in MSSQLAdapter.FLATTENABLE_AGGREGATES
+        assert "stddev_samp" not in MSSQLAdapter.FLATTENABLE_AGGREGATES
+
+        assert "stddevsamp" in ClickHouseAdapter.FLATTENABLE_AGGREGATES
+        assert "stddev_samp" not in ClickHouseAdapter.FLATTENABLE_AGGREGATES
+
+    def test_adapters_without_an_override_inherit_the_base_set(self) -> None:
+        # MySQL is the motivating platform and declares nothing of its own: it
+        # inherits the base's emit methods, so it inherits their names.
+        assert {
+            "count",
+            "min",
+            "max",
+            "avg",
+            "stddev_samp",
+        } == MySQLAdapter.FLATTENABLE_AGGREGATES
+        assert (
+            GenericAdapter.FLATTENABLE_AGGREGATES == MySQLAdapter.FLATTENABLE_AGGREGATES
+        )

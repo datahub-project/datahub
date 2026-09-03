@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple, Union, cast
+from typing import Any, FrozenSet, List, Optional, Tuple, Union, cast
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
@@ -16,6 +16,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    FLATTENABLE_AGGREGATES_EXECUTION_OPTION,
     single_row_query,
 )
 
@@ -37,8 +38,20 @@ class ProfilingConnection:
     See SINGLE_ROW_EXECUTION_OPTION in query_combiner.py for what qualifies.
     """
 
-    def __init__(self, conn: Connection) -> None:
+    def __init__(
+        self,
+        conn: Connection,
+        flattenable_aggregates: FrozenSet[str] = frozenset(),
+    ) -> None:
+        """
+        Args:
+            flattenable_aggregates: the emitting adapter's
+                FLATTENABLE_AGGREGATES. Defaults to empty, which is fail-closed:
+                a connection built without it flattens nothing and behaves
+                exactly as it did before the flatten path existed.
+        """
         self._conn = conn
+        self._flattenable_aggregates = flattenable_aggregates
 
     def execute_single_row(self, query: Any) -> Any:
         """Execute a statement that returns exactly one row.
@@ -46,8 +59,21 @@ class ProfilingConnection:
         Tags the statement so the query combiner may batch it. Only valid for a
         bare aggregate with no GROUP BY, no LIMIT/OFFSET and no row-filtering
         WHERE -- see SINGLE_ROW_EXECUTION_OPTION.
+
+        Also carries the adapter's flattenable-aggregate allowlist, so the
+        combiner can decide whether this statement may be merged into a flat
+        SELECT without knowing which platform built it. The query is not
+        inspected here; that stays next to the clause gate in _flatten_verdict.
         """
-        return self._conn.execute(single_row_query(query))
+        return self._conn.execute(
+            single_row_query(query).execution_options(
+                **{
+                    FLATTENABLE_AGGREGATES_EXECUTION_OPTION: (
+                        self._flattenable_aggregates
+                    )
+                }
+            )
+        )
 
     def execute_rows(self, query: Any) -> Any:
         """Execute a statement returning zero, one, or many rows. Never batched.
@@ -84,6 +110,33 @@ class PlatformAdapter(ABC):
      - we can have consistent formatting across different sources
      - no complex formatting depending on native data types, as we currently do in `sqlalchemy_profiler.py`
        in order to match GE profiler
+    """
+
+    FLATTENABLE_AGGREGATES: FrozenSet[str] = frozenset(
+        {"count", "min", "max", "avg", "stddev_samp"}
+    )
+    """Aggregate function names this adapter emits that may be flattened.
+
+    The flatten path merges same-table aggregates into one
+    `SELECT count(*), min(v), max(v) FROM t`, which is only sound for plain
+    aggregates. This declares which names qualify for *this* platform, because
+    the spellings differ: MSSQL emits `stdev` and ClickHouse `stddevSamp` where
+    the base emits `stddev_samp`.
+
+    The base set is what PlatformAdapter's own methods emit through
+    execute_single_row, so an adapter that does not override those inherits a
+    correct set and declares nothing. An adapter that overrides an emit must
+    *swap* the name, not merely add: leaving `stddev_samp` in a set for a
+    platform that emits `stdev` is inert, but omitting `stdev` silently keeps
+    that platform's stddev on the CTE path.
+
+    Entries must be lowercase -- the check folds case, so `stddevSamp` here
+    would never match. `sum` is deliberately absent: the only sum this profiler
+    emits is in the histogram, which goes through execute_rows and can never
+    reach the flatten path.
+
+    Extra names are harmless (they can only match SQL this adapter never
+    builds); missing names cost the optimisation, never correctness.
     """
 
     def __init__(

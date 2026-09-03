@@ -20,6 +20,13 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 class ClickHouseAdapter(PlatformAdapter):
     """Profiling adapter for ClickHouse's non-standard SQL aggregates."""
 
+    # get_column_stdev emits sa.func.stddevSamp. Declared folded to lowercase
+    # because the allowlist check folds case -- "stddevSamp" here would never
+    # match and ClickHouse stddev would silently stay on the CTE path.
+    FLATTENABLE_AGGREGATES = (
+        PlatformAdapter.FLATTENABLE_AGGREGATES - {"stddev_samp"}
+    ) | {"stddevsamp"}
+
     def setup_profiling(
         self, context: ProfilingContext, conn: Connection
     ) -> ProfilingContext:
