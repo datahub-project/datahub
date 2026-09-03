@@ -7,7 +7,7 @@ export const OKTA_DOMAIN_URL: RecipeField = {
     tooltip: 'The location of your Okta Domain, without a protocol.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.okta_domain',
-    placeholder: 'dev-35531955.okta.com',
+    placeholder: 'dev-example.okta.com',
     required: true,
     rules: [() => validateURL('Okta Domain URL')],
 };
