@@ -84,5 +84,30 @@ public class PrivateKeyJwtUtilsTest {
                 .get(0)
                 .getPublicKey();
     assertEquals(key.getModulus(), pub.getModulus());
+    PrivateKeyJwtUtils.verifyKeyMatchesCertificate(
+        key, PrivateKeyJwtUtils.loadCertificateChain(TestKeyMaterial.CERTIFICATE_PATH).get(0));
+  }
+
+  @Test
+  void rejectsNonRsaPrivateKey() {
+    IllegalArgumentException thrown =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> PrivateKeyJwtUtils.loadPrivateKey(TestKeyMaterial.EC_PRIVATE_KEY_PATH, null));
+    assertTrue(
+        thrown.getMessage().contains("RSA"),
+        () -> "Expected RSA-related error, got: " + thrown.getMessage());
+  }
+
+  @Test
+  void rejectsMismatchedKeyAndCertificate() throws Exception {
+    RSAPrivateKey key = PrivateKeyJwtUtils.loadPrivateKey(TestKeyMaterial.PRIVATE_KEY_PATH, null);
+    X509Certificate otherCert =
+        PrivateKeyJwtUtils.loadCertificateChain(TestKeyMaterial.OTHER_CERTIFICATE_PATH).get(0);
+    IllegalArgumentException thrown =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> PrivateKeyJwtUtils.verifyKeyMatchesCertificate(key, otherCert));
+    assertTrue(thrown.getMessage().contains("does not match"));
   }
 }

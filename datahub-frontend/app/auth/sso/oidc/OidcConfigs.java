@@ -81,7 +81,7 @@ public class OidcConfigs extends SsoConfigs {
   private static final String DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS = "3";
   private static final String DEFAULT_OIDC_HTTP_RETRY_DELAY = "1000";
   private static final String DEFAULT_OIDC_PRIVATE_KEY_JWT_ALGORITHM = "RS256";
-  private static final String PRIVATE_KEY_JWT_METHOD = "private_key_jwt";
+  public static final String PRIVATE_KEY_JWT_METHOD = "private_key_jwt";
 
   private final String clientId;
   private final String clientSecret;

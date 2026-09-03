@@ -148,6 +148,10 @@ Lock down the private-key file so only the DataHub frontend process can read it,
 The private key, certificate, and `kid` are loaded **once at startup**. Rotating the key or the registered certificate requires restarting the `datahub-frontend-react` container so the new material is picked up.
 :::
 
+:::note
+The client assertion `aud` claim is the IdP **token endpoint URI** from discovery (RFC 7523). Most IdPs accept that. Some Entra ID / Azure AD app registrations expect the issuer (`https://login.microsoftonline.com/{tenant}/v2.0`) instead — if token exchange fails with an audience error, register the token endpoint as an accepted audience on the IdP or file a DataHub issue for a configurable `aud`.
+:::
+
 ## SSO Group-Based Access Control and Custom Messaging
 
 DataHub's SSO (Single Sign-On) integration supports group-based access control and customizable access denied handling using the following environment variables:
