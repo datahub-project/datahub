@@ -17,6 +17,8 @@ from datahub.ingestion.source.montecarlo.client import (
     MonteCarloAuthError,
     MonteCarloClient,
     MonteCarloComparison,
+    MonteCarloJobExecution,
+    MonteCarloMetricPoint,
     ResolvedTable,
     _parse_comparisons,
 )
@@ -66,6 +68,44 @@ def test_include_alerts_requires_include_assertions() -> None:
     # Alerts attach to assertions, so this combination is rejected at config time.
     with pytest.raises(ValueError):
         make_config(include_alerts=True, include_assertions=False)
+
+
+def test_default_platform_rejects_unknown_platform() -> None:
+    # A typo in default_platform fails fast at config load rather than producing
+    # assertion URNs that point at a platform no warehouse source emits.
+    with pytest.raises(ValueError, match="Unknown DataHub platform"):
+        make_config(default_platform="snowflke")
+
+
+def test_default_platform_accepts_known_platform() -> None:
+    # snowflake is in the connector registry; the connector's own connection-type
+    # map values (e.g. spark, which has no registered connector) are always valid.
+    cfg = make_config(default_platform="snowflake", auto_map_connection_types=True)
+    assert cfg.default_platform == "snowflake"
+
+
+def test_default_platform_rejects_spark_absent_from_registry() -> None:
+    # spark is emitted by the connection-type map internally but has no
+    # registered connector, so it is not in the registry platform_ids. With the
+    # registry as the only validation source, a user-supplied spark platform is
+    # rejected (auto-mapping still uses it directly, bypassing the validator).
+    with pytest.raises(ValueError, match="Unknown DataHub platform"):
+        make_config(default_platform="spark")
+
+
+def test_connection_map_rejects_unknown_platform() -> None:
+    # Same typo guard applied to per-warehouse connection_to_platform_map entries.
+    with pytest.raises(ValueError, match="Unknown DataHub platform"):
+        make_config(connection_to_platform_map={"wh-1": {"platform": "bigquerry"}})
+
+
+def test_connection_map_accepts_known_platform() -> None:
+    cfg = make_config(
+        connection_to_platform_map={
+            "wh-1": {"platform": "bigquery", "platform_instance": "inst", "env": "PROD"}
+        }
+    )
+    assert cfg.connection_to_platform_map["wh-1"].platform == "bigquery"
 
 
 def test_parse_mcon() -> None:
@@ -197,7 +237,10 @@ def test_resolver_warns_on_unmapped_platform() -> None:
 
 
 def test_resolver_handles_get_table_exception() -> None:
-    """Exceptions from client.get_table are caught, warned, and cached as None."""
+    """Exceptions from client.get_table are caught, warned, and NOT cached —
+    the next call retries getTable instead of inheriting a stale None. The
+    failure is recorded as a build_failure (transient) so the partial-run
+    guard in source.py trips the soft-delete interlock."""
     report = MonteCarloSourceReport()
     mcon = "MCON++acct++wh-err++table++db.sch.tbl"
 
@@ -210,10 +253,11 @@ def test_resolver_handles_get_table_exception() -> None:
 
     resolver = MconResolver(make_config(), ErrorClient(), report)
     assert resolver.dataset_urn_for_mcon(mcon) is None
-    assert report.mcons_resolution_failed == 1
-    # Second call should use the cache, not call the client again.
+    assert report.build_failures == 1
+    # Transient failures are not cached — the second call retries getTable.
     assert resolver.dataset_urn_for_mcon(mcon) is None
-    assert ErrorClient.calls == 1
+    assert ErrorClient.calls == 2
+    assert report.build_failures == 2
 
 
 def test_resolver_caches_results() -> None:
@@ -238,6 +282,29 @@ def test_resolver_caches_results() -> None:
     resolver.dataset_urn_for_mcon(mcon)
     resolver.dataset_urn_for_mcon(mcon)
     assert CountingClient.calls == 1
+
+
+def test_resolver_caches_permanent_none() -> None:
+    """When getTable returns None (table genuinely gone), the result is
+    permanent and IS cached — the next call for the same MCON must not
+    re-call getTable. This is distinct from a transient exception, which
+    must not be cached."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-gone++table++db.sch.tbl"
+
+    class NoneClient:
+        calls = 0
+
+        def get_table(self, mcon: str) -> Optional[ResolvedTable]:
+            NoneClient.calls += 1
+            return None
+
+    resolver = MconResolver(make_config(), NoneClient(), report)
+    assert resolver.dataset_urn_for_mcon(mcon) is None
+    assert resolver.dataset_urn_for_mcon(mcon) is None
+    assert NoneClient.calls == 1
+    assert report.mcons_resolution_failed == 1
+    assert report.build_failures == 0
 
 
 def _build_assertion_workunits(
@@ -285,6 +352,68 @@ def test_build_assertion_emits_custom_and_platform_instance() -> None:
     assert info.customAssertion.type == "FRESHNESS"
     assert info.customProperties["mc_monitor_uuid"] == "mon-1"
     assert report.assertions_emitted == 1
+
+
+def test_build_assertion_description_falls_back_to_name() -> None:
+    # When Monte Carlo returns no description, the connector falls back to the
+    # monitor name so the UI never renders its generic "A custom externally
+    # reported Assertion" placeholder for an MC assertion.
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config(auto_map_connection_types=True)
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+
+    definition = MonteCarloAssertionDef(
+        uuid="mon-vol",
+        name="Volume on orders",
+        description=None,
+        monitor_type="VOLUME",
+        entity_mcons=[mcon],
+        resource_id="wh-2",
+    )
+    wus = _build_assertion_workunits(builder, definition)
+    info = next(
+        a for a in (_aspect(wu) for wu in wus) if isinstance(a, AssertionInfoClass)
+    )
+    assert info.description == "Volume on orders"
+
+
+def test_build_assertion_description_prefers_explicit_description() -> None:
+    # An explicit MC description wins over the name fallback.
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config(auto_map_connection_types=True)
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+
+    definition = MonteCarloAssertionDef(
+        uuid="mon-1",
+        name="Freshness on orders",
+        description="orders should be fresh",
+        monitor_type="FRESHNESS",
+        entity_mcons=[mcon],
+        resource_id="wh-2",
+    )
+    wus = _build_assertion_workunits(builder, definition)
+    info = next(
+        a for a in (_aspect(wu) for wu in wus) if isinstance(a, AssertionInfoClass)
+    )
+    assert info.description == "orders should be fresh"
 
 
 def test_build_assertion_oss_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -408,6 +537,130 @@ def test_resolver_lowercases_urn_when_configured() -> None:
     urn = resolver.dataset_urn_for_mcon(mcon)
     assert urn is not None
     assert "proj.dataset.events" in urn and "Proj.Dataset.Events" not in urn
+
+
+def test_resolver_fallback_uses_target_platform_instance_not_mc_own() -> None:
+    # Auto-mapped warehouses must NOT inherit Monte Carlo's own platform_instance
+    # (that would stamp the MC instance onto warehouse dataset URNs and attach
+    # assertions to datasets that do not exist). target_platform_instance is the
+    # warehouse's instance; MC's platform_instance stays on the assertion entity.
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="bigquery"
+            )
+        }
+    )
+    cfg = make_config(
+        platform_instance="mc_prod",
+        target_platform_instance="wh_prod",
+        auto_map_connection_types=True,
+    )
+    resolver = MconResolver(cfg, client, MonteCarloSourceReport())
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is not None
+    assert "wh_prod" in urn
+    assert "mc_prod" not in urn
+
+
+def test_resolver_fallback_omits_platform_instance_when_unset() -> None:
+    # With no target_platform_instance, auto-mapped warehouse URNs carry no
+    # platform instance rather than MC's own.
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="bigquery"
+            )
+        }
+    )
+    cfg = make_config(platform_instance="mc_prod", auto_map_connection_types=True)
+    resolver = MconResolver(cfg, client, MonteCarloSourceReport())
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is not None
+    assert "mc_prod" not in urn
+
+
+def test_resolver_fallback_uses_target_env_override() -> None:
+    # target_env overrides the warehouse URN env independently of MC's own env.
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="bigquery"
+            )
+        }
+    )
+    cfg = make_config(env="DEV", target_env="PROD", auto_map_connection_types=True)
+    resolver = MconResolver(cfg, client, MonteCarloSourceReport())
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is not None
+    assert "PROD" in urn
+
+
+def test_resolver_per_warehouse_override_preserves_snowflake_case() -> None:
+    # A case-preserving Snowflake deployment (warehouse source runs with
+    # convert_urns_to_lowercase=false) can now match via the per-warehouse
+    # override — previously no config could preserve case for Snowflake/Redshift.
+    mcon = "MCON++acct++wh-1++table++DB.SCH.TBL"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="DB.SCH.TBL", connection_type="snowflake"
+            )
+        }
+    )
+    cfg = make_config(
+        connection_to_platform_map={
+            "wh-1": {"platform": "snowflake", "convert_urns_to_lowercase": False}
+        }
+    )
+    resolver = MconResolver(cfg, client, MonteCarloSourceReport())
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is not None
+    assert "DB.SCH.TBL" in urn and "db.sch.tbl" not in urn
+
+
+def test_resolver_per_warehouse_override_forces_lowercase_bigquery() -> None:
+    # The per-warehouse override can also force lowercase for a normally
+    # case-preserving platform.
+    mcon = "MCON++acct++wh-1++table++Proj.Dataset.Events"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon,
+                full_table_id="Proj.Dataset.Events",
+                connection_type="bigquery",
+            )
+        }
+    )
+    cfg = make_config(
+        connection_to_platform_map={
+            "wh-1": {"platform": "bigquery", "convert_urns_to_lowercase": True}
+        }
+    )
+    resolver = MconResolver(cfg, client, MonteCarloSourceReport())
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is not None
+    assert "proj.dataset.events" in urn and "Proj.Dataset.Events" not in urn
+
+
+def test_resolver_rejects_malformed_full_table_id() -> None:
+    # A full_table_id that does not resolve to database.schema.table (3 segments)
+    # must not produce a phantom URN for a nonexistent dataset.
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-1++table++justatable"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="justatable", connection_type="bigquery"
+            )
+        }
+    )
+    resolver = MconResolver(make_config(auto_map_connection_types=True), client, report)
+    assert resolver.dataset_urn_for_mcon(mcon) is None
+    assert report.mcons_resolution_failed == 1
 
 
 def test_get_monitors_paginates_with_offset() -> None:
@@ -1288,10 +1541,23 @@ def test_client_get_table_parses_connection_type() -> None:
 
 
 def test_resolver_non_obvious_connection_types() -> None:
-    """sql-server and synapse both map to mssql (non-obvious aliases), but only
-    when auto_map_connection_types is enabled."""
-    mcon = "MCON++acct++wh++table++db.sch.tbl"
-    for connection_type in ("sql-server", "synapse"):
+    """Every auto-mapped connection type resolves to a real DataHub platform.
+
+    Table-driven over CONNECTION_TYPE_TO_PLATFORM so a new entry that maps to
+    a non-platform value (empty, whitespace, or mixed-case) is caught, and so a
+    removed entry is noticed. Asserts the platform name appears in the resolved
+    URN for each mapped connection type.
+    """
+    from datahub.ingestion.source.montecarlo.constants import (
+        CONNECTION_TYPE_TO_PLATFORM,
+    )
+
+    assert CONNECTION_TYPE_TO_PLATFORM, "map should not be empty"
+    for connection_type, platform in CONNECTION_TYPE_TO_PLATFORM.items():
+        assert platform, f"{connection_type} maps to empty platform"
+        assert platform == platform.lower(), f"{platform} must be lowercase"
+        assert " " not in platform, f"{platform} must have no spaces"
+        mcon = "MCON++acct++wh++table++db.sch.tbl"
         client = FakeResolverClient(
             {
                 mcon: ResolvedTable(
@@ -1306,8 +1572,73 @@ def test_resolver_non_obvious_connection_types() -> None:
             client,
             MonteCarloSourceReport(),
         ).dataset_urn_for_mcon(mcon)
-        assert urn is not None
-        assert "mssql" in urn, f"{connection_type} should resolve to mssql"
+        assert urn is not None, f"{connection_type} did not resolve"
+        assert f":{platform}," in urn or urn.endswith(f":{platform}"), (
+            f"{connection_type} -> URN {urn} missing platform {platform}"
+        )
+
+
+def test_resolver_new_connection_types_resolve() -> None:
+    """clickhouse, dremio, db2, and starburst (-> trino) auto-map correctly."""
+    cases = {
+        "clickhouse": "clickhouse",
+        "dremio": "dremio",
+        "db2": "db2",
+        "starburst_enterprise": "trino",
+        "starburst_galaxy": "trino",
+    }
+    for connection_type, platform in cases.items():
+        mcon = "MCON++acct++wh++table++db.sch.tbl"
+        client = FakeResolverClient(
+            {
+                mcon: ResolvedTable(
+                    mcon=mcon,
+                    full_table_id="db.sch.tbl",
+                    connection_type=connection_type,
+                )
+            }
+        )
+        urn = MconResolver(
+            make_config(auto_map_connection_types=True),
+            client,
+            MonteCarloSourceReport(),
+        ).dataset_urn_for_mcon(mcon)
+        assert urn is not None, f"{connection_type} did not resolve"
+        assert platform in urn, f"{connection_type} should resolve to {platform}"
+
+
+def test_resolver_transactional_db_is_unmapped_not_guessed() -> None:
+    """TRANSACTIONAL_DB (the real enum value, underscore) is a category spanning
+    postgres/sql-server/synapse/sap-hana/azure-sql and must NOT auto-map to a
+    single platform. It warns and skips so the user configures
+    connection_to_platform_map for the specific warehouse.
+    """
+    from datahub.ingestion.source.montecarlo.constants import (
+        CONNECTION_TYPE_TO_PLATFORM,
+    )
+
+    # The real enum value lowercased is transactional_db (underscore), which
+    # must not be in the map. The old transactional-db (hyphen) key was dead
+    # code that could never match and is now removed.
+    assert "transactional_db" not in CONNECTION_TYPE_TO_PLATFORM
+    assert "transactional-db" not in CONNECTION_TYPE_TO_PLATFORM
+
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon,
+                full_table_id="db.sch.tbl",
+                connection_type="transactional_db",
+            )
+        }
+    )
+    resolver = MconResolver(make_config(), client, report)
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is None, "transactional_db must not auto-map to a guessed platform"
+    assert report.mcons_unmapped_platform, "should record unmapped platform"
+    assert report.mcons_unmapped_platform[-1] == mcon
 
 
 def _bare_source() -> MonteCarloSource:
@@ -1353,6 +1684,80 @@ def test_emit_skips_failing_item_and_continues() -> None:
     assert wus == ["wu-b"]  # 'b' still emitted after 'a' failed
     assert source.report.monitors_scanned == 2
     assert len(source.report.warnings) == 1
+    assert source.report.build_failures == 1
+
+
+def test_partial_build_failures_trip_soft_delete_interlock() -> None:
+    """When some monitors fail to build (transient errors), the source records
+    a failure so stale_entity_removal_handler skips soft-deletion — preventing
+    the scenario where 40/100 monitors hit a transient getTable error and the
+    handler soft-deletes the 40 absent URNs even though those monitors still
+    exist in Monte Carlo."""
+    source = _bare_source()
+    # Simulate two monitors: one builds fine, one raises a transient error.
+    items = [MonteCarloAssertionDef(uuid="ok"), MonteCarloAssertionDef(uuid="bad")]
+
+    def build(item: MonteCarloAssertionDef) -> Iterator[MetadataWorkUnit]:
+        if item.uuid == "bad":
+            raise RuntimeError("transient getTable error")
+        yield cast(MetadataWorkUnit, "wu-ok")
+
+    source.config = make_config()
+    source.config.include_assertions = True
+    source.config.include_alerts = False
+    source.client = cast(MonteCarloClient, None)
+    source.builder = cast(MonteCarloAssertionBuilder, None)
+    source.resolver = cast(MconResolver, None)
+
+    # Monkeypatch the client/builder to use our _emit directly.
+    from unittest.mock import MagicMock
+
+    source.client = MagicMock()
+    source.client.get_monitors = lambda: iter(items)
+    source.client.get_custom_rules = lambda: iter([])
+    source.client.get_alerts = lambda: iter([])
+    source.builder = MagicMock()
+    source.builder.build_assertion = build
+    source.builder.build_run_event = lambda alert: iter(())
+    source.builder.iter_ingested_monitors = lambda: iter(())
+
+    list(source.get_workunits_internal())
+
+    # The partial-failure guard should have recorded a source-level failure.
+    assert source.report.build_failures == 1
+    assert len(source.report.failures) >= 1
+    failure_titles = [f.title for f in source.report.failures]
+    assert any(t and "Partial build failures" in t for t in failure_titles)
+
+
+def test_no_build_failures_does_not_trip_interlock() -> None:
+    """When all monitors build successfully, no partial-failure is recorded
+    and the soft-delete interlock is not tripped."""
+    source = _bare_source()
+    items = [MonteCarloAssertionDef(uuid="ok1"), MonteCarloAssertionDef(uuid="ok2")]
+
+    def build(item: MonteCarloAssertionDef) -> Iterator[MetadataWorkUnit]:
+        source.report.report_assertion_emitted()
+        yield cast(MetadataWorkUnit, f"wu-{item.uuid}")
+
+    from unittest.mock import MagicMock
+
+    source.config = make_config()
+    source.config.include_assertions = True
+    source.config.include_alerts = False
+    source.client = MagicMock()
+    source.client.get_monitors = lambda: iter(items)
+    source.client.get_custom_rules = lambda: iter([])
+    source.client.get_alerts = lambda: iter([])
+    source.builder = MagicMock()
+    source.builder.build_assertion = build
+    source.builder.build_run_event = lambda alert: iter(())
+    source.builder.iter_ingested_monitors = lambda: iter(())
+
+    list(source.get_workunits_internal())
+
+    assert source.report.build_failures == 0
+    assert len(source.report.failures) == 0
 
 
 def test_alert_tolerates_malformed_created_time() -> None:
@@ -2051,3 +2456,411 @@ def test_call_does_not_retry_permanent_error(
         client._call("query {ok}", {})
     # Not retryable → exactly one attempt, no backoff.
     assert attempts["n"] == 1
+
+
+# --- Run events (measured metrics) ---
+
+
+def test_run_events_lookback_days_defaults_to_disabled() -> None:
+    cfg = make_config()
+    assert cfg.run_events_lookback_days is None
+    assert cfg.run_events_first == 5
+
+
+def test_run_events_lookback_days_requires_include_assertions() -> None:
+    # Run events attach to assertions, same as alerts.
+    with pytest.raises(ValueError):
+        make_config(run_events_lookback_days=7, include_assertions=False)
+
+
+def test_run_events_lookback_days_allows_without_alerts() -> None:
+    # Independent of include_alerts — operator may want only the success signal.
+    cfg = make_config(run_events_lookback_days=7, include_alerts=False)
+    assert cfg.run_events_lookback_days == 7
+
+
+def _ingest(
+    builder: MonteCarloAssertionBuilder, definition: MonteCarloAssertionDef
+) -> None:
+    """Run build_assertion so _ingested_by_monitor is populated for run-event tests."""
+    list(builder.build_assertion(definition))
+
+
+def test_metric_names_for_monitor_table_keeps_only_total_row_count() -> None:
+    # TABLE monitors declare four comparison metrics, but only total_row_count
+    # returns points from getMetricsV4; the other three are non-standard names.
+    builder = MonteCarloAssertionBuilder(
+        make_config(),
+        MonteCarloSourceReport(),
+        None,  # type: ignore[arg-type]
+    )
+    definition = MonteCarloAssertionDef(
+        uuid="mon-tbl",
+        monitor_type="TABLE",
+        entity_mcons=["MCON++a++b++table++c"],
+        comparisons=[
+            MonteCarloComparison(metric="last_updated_on"),
+            MonteCarloComparison(metric="schema"),
+            MonteCarloComparison(metric="total_row_count"),
+            MonteCarloComparison(metric="total_row_count_last_changed_on"),
+        ],
+    )
+    assert builder.metric_names_for_monitor(definition) == ["total_row_count"]
+
+
+def test_metric_names_for_monitor_skips_custom_value_based_metric() -> None:
+    # CUSTOM_SQL monitors declare custom_value_based_metric_<uuid> which returns
+    # zero points from getMetricsV4 (custom metrics use a separate surface).
+    builder = MonteCarloAssertionBuilder(
+        make_config(),
+        MonteCarloSourceReport(),
+        None,  # type: ignore[arg-type]
+    )
+    definition = MonteCarloAssertionDef(
+        uuid="mon-sql",
+        monitor_type="CUSTOM_SQL",
+        entity_mcons=["MCON++a++b++table++c"],
+        comparisons=[MonteCarloComparison(metric="custom_value_based_metric_abc-123")],
+    )
+    assert builder.metric_names_for_monitor(definition) == []
+
+
+def test_metric_names_for_monitor_stats_keeps_standard_names() -> None:
+    builder = MonteCarloAssertionBuilder(
+        make_config(),
+        MonteCarloSourceReport(),
+        None,  # type: ignore[arg-type]
+    )
+    definition = MonteCarloAssertionDef(
+        uuid="mon-stats",
+        monitor_type="STATS",
+        entity_mcons=["MCON++a++b++table++c"],
+        comparisons=[
+            MonteCarloComparison(metric="null_rate", field="email"),
+        ],
+    )
+    assert builder.metric_names_for_monitor(definition) == ["null_rate"]
+
+
+def test_metric_names_for_monitor_dedupes_repeated_metrics() -> None:
+    builder = MonteCarloAssertionBuilder(
+        make_config(),
+        MonteCarloSourceReport(),
+        None,  # type: ignore[arg-type]
+    )
+    definition = MonteCarloAssertionDef(
+        uuid="mon-dup",
+        monitor_type="METRIC",
+        entity_mcons=["MCON++a++b++table++c"],
+        comparisons=[
+            MonteCarloComparison(metric="row_count"),
+            MonteCarloComparison(metric="row_count"),
+        ],
+    )
+    assert builder.metric_names_for_monitor(definition) == ["row_count"]
+
+
+def test_metric_names_for_monitor_no_comparisons_returns_empty() -> None:
+    builder = MonteCarloAssertionBuilder(
+        make_config(),
+        MonteCarloSourceReport(),
+        None,  # type: ignore[arg-type]
+    )
+    definition = MonteCarloAssertionDef(
+        uuid="mon-empty", entity_mcons=["MCON++a++b++table++c"]
+    )
+    assert builder.metric_names_for_monitor(definition) == []
+
+
+def test_field_for_metric_returns_field_from_comparison() -> None:
+    definition = MonteCarloAssertionDef(
+        uuid="mon-stats",
+        monitor_type="STATS",
+        entity_mcons=["MCON++a++b++table++c"],
+        comparisons=[
+            MonteCarloComparison(metric="null_rate", field="email"),
+        ],
+    )
+    assert (
+        MonteCarloAssertionBuilder.field_for_metric(definition, "null_rate") == "email"
+    )
+
+
+def test_field_for_metric_returns_first_field_when_no_single_field() -> None:
+    definition = MonteCarloAssertionDef(
+        uuid="mon-multi",
+        monitor_type="METRIC",
+        entity_mcons=["MCON++a++b++table++c"],
+        comparisons=[
+            MonteCarloComparison(metric="distinct_count", fields=["col_a", "col_b"]),
+        ],
+    )
+    assert (
+        MonteCarloAssertionBuilder.field_for_metric(definition, "distinct_count")
+        == "col_a"
+    )
+
+
+def test_field_for_metric_returns_none_for_table_level_metric() -> None:
+    definition = MonteCarloAssertionDef(
+        uuid="mon-tbl",
+        monitor_type="TABLE",
+        entity_mcons=["MCON++a++b++table++c"],
+        comparisons=[MonteCarloComparison(metric="total_row_count")],
+    )
+    assert (
+        MonteCarloAssertionBuilder.field_for_metric(definition, "total_row_count")
+        is None
+    )
+
+
+def test_build_run_events_from_execution_maps_row_count_to_typed_slot() -> None:
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    _ingest(
+        builder,
+        MonteCarloAssertionDef(
+            uuid="mon-vol", monitor_type="VOLUME", entity_mcons=[mcon]
+        ),
+    )
+    execution = MonteCarloJobExecution(
+        job_execution_uuid="je-1",
+        monitor_uuid="mon-vol",
+        start_time="2026-05-01T00:00:00+00:00",
+        status="SUCCESS",
+    )
+    points = [
+        MonteCarloMetricPoint(metric="total_row_count", value=500.0),
+    ]
+    wus = list(builder.build_run_events_from_execution(execution, points))
+    assert len(wus) == 1
+    run_event = _aspect(wus[0])
+    assert isinstance(run_event, AssertionRunEventClass)
+    assert run_event.result is not None
+    assert run_event.result.type == "SUCCESS"
+    assert run_event.result.rowCount == 500
+    assert run_event.runId == "je-1"
+    assert report.run_events_emitted == 1
+
+
+def test_build_run_events_from_execution_maps_null_rate_to_actual_agg() -> None:
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    _ingest(
+        builder,
+        MonteCarloAssertionDef(
+            uuid="mon-stats", monitor_type="STATS", entity_mcons=[mcon]
+        ),
+    )
+    execution = MonteCarloJobExecution(
+        job_execution_uuid="je-2",
+        monitor_uuid="mon-stats",
+        start_time="2026-05-01T00:00:00+00:00",
+        status="SUCCESS",
+    )
+    points = [MonteCarloMetricPoint(metric="null_rate", value=0.05)]
+    wus = list(builder.build_run_events_from_execution(execution, points))
+    run_event = _aspect(wus[0])
+    assert isinstance(run_event, AssertionRunEventClass)
+    assert run_event.result is not None
+    assert run_event.result.actualAggValue == 0.05
+
+
+def test_build_run_events_from_execution_byte_count_lands_in_native_results() -> None:
+    # No typed byte slot on AssertionResult -> degrades to nativeResults string map.
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    _ingest(
+        builder,
+        MonteCarloAssertionDef(
+            uuid="mon-vol", monitor_type="VOLUME", entity_mcons=[mcon]
+        ),
+    )
+    execution = MonteCarloJobExecution(
+        job_execution_uuid="je-3",
+        monitor_uuid="mon-vol",
+        start_time="2026-05-01T00:00:00+00:00",
+        status="SUCCESS",
+    )
+    points = [MonteCarloMetricPoint(metric="total_byte_count", value=1024.0)]
+    wus = list(builder.build_run_events_from_execution(execution, points))
+    run_event = _aspect(wus[0])
+    assert isinstance(run_event, AssertionRunEventClass)
+    assert run_event.result is not None
+    assert run_event.result.nativeResults == {"total_byte_count": "1024.0"}
+
+
+def test_build_run_events_from_execution_includes_thresholds_and_execution_meta() -> (
+    None
+):
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    _ingest(
+        builder,
+        MonteCarloAssertionDef(
+            uuid="mon-vol", monitor_type="VOLUME", entity_mcons=[mcon]
+        ),
+    )
+    execution = MonteCarloJobExecution(
+        job_execution_uuid="je-4",
+        monitor_uuid="mon-vol",
+        start_time="2026-05-01T00:00:00+00:00",
+        status="SUCCESS",
+        exceptions="some warning",
+        total_result_count=42,
+        evaluated_record_count=1000,
+    )
+    points = [
+        MonteCarloMetricPoint(
+            metric="total_row_count", value=500.0, upper_threshold=1000.0
+        ),
+    ]
+    wus = list(builder.build_run_events_from_execution(execution, points))
+    run_event = _aspect(wus[0])
+    assert isinstance(run_event, AssertionRunEventClass)
+    assert run_event.result is not None
+    assert run_event.result.rowCount == 500
+    assert run_event.result.nativeResults is not None
+    assert run_event.result.nativeResults["total_row_count_threshold_upper"] == "1000.0"
+    assert run_event.result.nativeResults["exceptions"] == "some warning"
+    assert run_event.result.nativeResults["totalResultCount"] == "42"
+    assert run_event.result.nativeResults["evaluatedRecordCount"] == "1000"
+
+
+def test_build_run_events_from_execution_skips_unknown_monitor() -> None:
+    report = MonteCarloSourceReport()
+    cfg = make_config()
+    resolver = MconResolver(cfg, FakeResolverClient({}), report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+    execution = MonteCarloJobExecution(
+        job_execution_uuid="je-ghost",
+        monitor_uuid="ghost",
+        start_time="2026-05-01T00:00:00+00:00",
+        status="SUCCESS",
+    )
+    assert list(builder.build_run_events_from_execution(execution, [])) == []
+    assert report.run_events_emitted == 0
+
+
+def test_build_run_events_from_execution_skips_missing_timestamp() -> None:
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    _ingest(
+        builder,
+        MonteCarloAssertionDef(
+            uuid="mon-vol", monitor_type="VOLUME", entity_mcons=[mcon]
+        ),
+    )
+    execution = MonteCarloJobExecution(
+        job_execution_uuid="je-nots",
+        monitor_uuid="mon-vol",
+        status="SUCCESS",
+    )
+    assert list(builder.build_run_events_from_execution(execution, [])) == []
+    assert len(report.warnings) == 1
+    assert report.run_events_emitted == 0
+
+
+def test_build_run_events_from_execution_is_not_primary_source() -> None:
+    # is_primary_source=False routes the URN to urns_to_skip so stale entity
+    # removal never touches run events — matches the alert path.
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    _ingest(
+        builder,
+        MonteCarloAssertionDef(
+            uuid="mon-vol", monitor_type="VOLUME", entity_mcons=[mcon]
+        ),
+    )
+    execution = MonteCarloJobExecution(
+        job_execution_uuid="je-1",
+        monitor_uuid="mon-vol",
+        start_time="2026-05-01T00:00:00+00:00",
+        status="SUCCESS",
+    )
+    wus = list(builder.build_run_events_from_execution(execution, []))
+    assert wus and wus[0].is_primary_source is False
+
+
+def test_iter_ingested_monitors_yields_pairs() -> None:
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-2++table++db.sch.tbl"
+    builder = _builder_with_resolved_snowflake(report, mcon)
+    _ingest(
+        builder,
+        MonteCarloAssertionDef(
+            uuid="mon-a", monitor_type="VOLUME", entity_mcons=[mcon]
+        ),
+    )
+    pairs = list(builder.iter_ingested_monitors())
+    assert len(pairs) == 1
+    monitor_uuid, ingested = pairs[0]
+    assert monitor_uuid == "mon-a"
+    assert ingested.mcon == mcon
+    assert ingested.definition.uuid == "mon-a"
+
+
+def test_auto_map_connection_types_disabled_skips_auto_mapping() -> None:
+    """When auto_map_connection_types is false, a warehouse whose connectionType
+    is in CONNECTION_TYPE_TO_PLATFORM is NOT auto-mapped — it is skipped with a
+    warning, matching the config's contract that an explicit
+    connection_to_platform_map entry (or default_platform) is required."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-1++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    config = make_config(auto_map_connection_types=False)
+    resolver = MconResolver(config, client, report)
+    assert resolver.dataset_urn_for_mcon(mcon) is None
+    assert mcon in report.mcons_unmapped_platform
+    assert report.warnings_count >= 1
+
+
+def test_auto_map_connection_types_disabled_uses_explicit_map() -> None:
+    """connection_to_platform_map still applies when auto_map is disabled —
+    explicit mappings are independent of the auto-mapping toggle."""
+    report = MonteCarloSourceReport()
+    mcon = "MCON++acct++wh-1++table++db.sch.tbl"
+    client = FakeResolverClient(
+        {
+            mcon: ResolvedTable(
+                mcon=mcon, full_table_id="db.sch.tbl", connection_type="snowflake"
+            )
+        }
+    )
+    config = make_config(
+        auto_map_connection_types=False,
+        connection_to_platform_map={"wh-1": {"platform": "redshift"}},
+    )
+    resolver = MconResolver(config, client, report)
+    urn = resolver.dataset_urn_for_mcon(mcon)
+    assert urn is not None
+    assert "redshift" in urn
+
+
+def test_report_dropped_and_warning_counters_increment() -> None:
+    """dropped and warnings_count are exact totals, complementing the
+    inherited LossyList samples that cap stored entries. The inherited
+    `warnings` LossyList groups identical messages by message text (so three
+    warnings with the same message collapse to one entry with three contexts),
+    which is exactly why a separate exact counter is needed."""
+    report = MonteCarloSourceReport()
+    report.report_dropped("monitor-a")
+    report.report_dropped("monitor-b")
+    report.warning(message="skipped one", context="mcon-1")
+    report.warning(message="skipped two", context="mcon-2")
+    report.warning(message="skipped three", context="mcon-3")
+    assert report.dropped == 2
+    assert report.warnings_count == 3
+    assert len(report.filtered) == 2

@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List, Optional
 
 import pydantic
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -10,6 +10,9 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
+)
+from datahub.ingestion.source.montecarlo.constants import (
+    get_known_data_platforms,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -19,6 +22,33 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_platform_value(platform: str) -> str:
+    """Validate a user-configured warehouse platform name against the known
+    DataHub platforms. Raises ``ValueError`` on an unknown value so a typo
+    (e.g. ``snowflke``) fails fast at config load instead of producing a
+    phantom ``urn:li:dataPlatform:snowflke`` that assertions can never attach
+    to. No-ops when the registry cannot be loaded (see
+    ``get_known_data_platforms``).
+    """
+    known = get_known_data_platforms()
+    if known is None:
+        return platform
+    if platform not in known:
+        # Suggest the closest match to make a typo self-evident.
+        import difflib
+
+        suggestions = difflib.get_close_matches(platform, sorted(known), n=3)
+        hint = f" Did you mean one of: {', '.join(suggestions)}?" if suggestions else ""
+        raise ValueError(
+            f"Unknown DataHub platform {platform!r}. It must match a platform "
+            f"name a DataHub source connector emits (e.g. snowflake, bigquery, "
+            f"redshift).{hint} If this is a custom platform registered in your "
+            f"DataHub instance, the MonteCarlo connector cannot currently "
+            f"validate it; see the connector docs."
+        )
+    return platform
 
 
 class MonteCarloPlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
@@ -37,6 +67,23 @@ class MonteCarloPlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         description="DataHub platform name for assets in this Monte Carlo warehouse, "
         "e.g. 'snowflake', 'bigquery', 'redshift', 'databricks'.",
     )
+
+    convert_urns_to_lowercase: Optional[bool] = Field(
+        default=None,
+        description="Override the dataset URN casing for this warehouse only. Set to "
+        "true to force lowercase, false to preserve the case Monte Carlo reports (needed "
+        "for case-preserving Snowflake/Redshift deployments whose warehouse source runs "
+        "with convert_urns_to_lowercase=false). Leave unset to inherit the connector "
+        "default: lowercase for snowflake/redshift, case-preserving otherwise, with the "
+        "top-level convert_urns_to_lowercase flag forcing lowercase everywhere when true.",
+    )
+
+    @field_validator("platform", mode="after")
+    @classmethod
+    def _validate_platform(cls, v: str) -> str:
+        # Catches a typo in a connection_to_platform_map entry before it produces
+        # assertion URNs that point at a platform no warehouse source emits.
+        return _validate_platform_value(v)
 
 
 class MonteCarloSourceConfig(
@@ -85,6 +132,35 @@ class MonteCarloSourceConfig(
         "connection-type map. Leave unset to skip (and warn about) such warehouses.",
     )
 
+    @field_validator("default_platform", mode="after")
+    @classmethod
+    def _validate_default_platform(cls, v: Optional[str]) -> Optional[str]:
+        # Same typo guard as MonteCarloPlatformDetail.platform, applied to the
+        # fallback platform that covers auto-mapped / unmapped warehouses.
+        if v is None:
+            return v
+        return _validate_platform_value(v)
+
+    target_platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance to stamp on the warehouse dataset URNs built for "
+        "warehouses that are auto-mapped (not listed in connection_to_platform_map) or "
+        "that fall back to default_platform. This is the warehouse platform's instance, "
+        "NOT Monte Carlo's own — the top-level platform_instance field is Monte Carlo's "
+        "and must not leak onto warehouse dataset URNs (it would attach assertions to "
+        "datasets that do not exist). For warehouses listed in connection_to_platform_map, "
+        "set the instance per entry instead. Mirrors the dbt/sqlmesh target_platform_instance "
+        "convention. Leave unset for no platform instance on auto-mapped warehouse URNs.",
+    )
+    target_env: Optional[str] = Field(
+        default=None,
+        description="Environment to stamp on the warehouse dataset URNs built for auto-mapped "
+        "warehouses (those not in connection_to_platform_map). Separate from Monte Carlo's own "
+        "env so the warehouse URN namespace can be controlled independently. When unset, falls "
+        "back to the top-level env (the values usually coincide). For warehouses listed in "
+        "connection_to_platform_map, set the env per entry instead.",
+    )
+
     include_assertions: bool = Field(
         default=True,
         description="Ingest Monte Carlo monitors and custom rules as DataHub assertions.",
@@ -99,6 +175,27 @@ class MonteCarloSourceConfig(
         default=30,
         description="How many days back to fetch alerts/incidents for. Only applies when "
         "include_alerts is enabled.",
+    )
+
+    run_events_lookback_days: Optional[int] = Field(
+        default=None,
+        description="Ingest Monte Carlo monitor run history (getJobExecutions) plus "
+        "measured metric values (getMetricsV4) as AssertionRunEvents. When set to a "
+        "positive integer N, emits the latest SUCCESS run(s) per monitor (carrying "
+        "the measured value on AssertionResult) for runs within the last N days. "
+        "Leave unset (None) to disable — the alert-driven FAILURE-only path "
+        "(include_alerts) is the historical behaviour. Requires include_assertions. "
+        "Bounds the query window, not the run count (run_events_first caps the "
+        "count). Adds ~1 getJobExecutions + ~1 getMetricsV4 call per ingested monitor "
+        "per run; set rate_limit_daily to bound this.",
+    )
+    run_events_first: pydantic.PositiveInt = Field(
+        default=5,
+        description="Maximum number of most-recent runs to fetch per monitor "
+        "(the `first` arg on getJobExecutions). All SUCCESS runs in the page "
+        "are emitted as AssertionRunEvents; the latest one carries the measured "
+        "metric value from getMetricsV4. Only applies when run_events_lookback_days "
+        "is set.",
     )
 
     monitor_pattern: AllowDenyPattern = Field(
@@ -175,5 +272,16 @@ class MonteCarloSourceConfig(
             raise ValueError(
                 "include_alerts requires include_assertions: alert run events attach to "
                 "the assertions built from monitors and cannot be ingested on their own."
+            )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def _require_assertions_for_run_events(self) -> "MonteCarloSourceConfig":
+        # Run events attach to the assertions built from monitors, same as alerts.
+        if self.run_events_lookback_days and not self.include_assertions:
+            raise ValueError(
+                "run_events_lookback_days requires include_assertions: run events "
+                "attach to the assertions built from monitors and cannot be "
+                "ingested on their own."
             )
         return self

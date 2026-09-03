@@ -203,6 +203,56 @@ ALERTS: List[Dict[str, Any]] = [
     },
 ]
 
+# Run history for the volume monitor (mon-vol-orders). Most-recent-first.
+# The volume monitor's comparisons carry metric="row_count", which is a
+# standard getMetricsV4 metricName that returns points.
+JOB_EXECUTIONS: Dict[str, List[Dict[str, Any]]] = {
+    "mon-vol-orders": [
+        {
+            "job_execution_uuid": "je-vol-1",
+            "start_time": "2026-05-31T08:00:00+00:00",
+            "end_time": "2026-05-31T08:01:00+00:00",
+            "status": "SUCCESS",
+            "exceptions": None,
+            "total_result_count": 1,
+            "evaluated_record_count": 500,
+        },
+        {
+            "job_execution_uuid": "je-vol-2",
+            "start_time": "2026-05-31T07:00:00+00:00",
+            "end_time": "2026-05-31T07:01:00+00:00",
+            "status": "SUCCESS",
+            "exceptions": None,
+            "total_result_count": 1,
+            "evaluated_record_count": 499,
+        },
+    ],
+    # A monitor whose only recent run failed — should produce no SUCCESS run event.
+    "mon-fresh-orders": [
+        {
+            "job_execution_uuid": "je-fresh-fail",
+            "start_time": "2026-05-31T08:00:00+00:00",
+            "status": "FAILED",
+            "exceptions": "timeout",
+        },
+    ],
+}
+
+# Measured metric values from getMetricsV4. Keyed by (mcon, metricName).
+# jobExecutionUuid is null for table-level metrics (matches the live API).
+METRICS_V4: Dict[str, List[Dict[str, Any]]] = {
+    "MCON++acct++wh-snow++table++ANALYTICS.PUBLIC.ORDERS:row_count": [
+        {
+            "metric": "row_count",
+            "value": 500.0,
+            "field": None,
+            "measurement_timestamp": "2026-05-31T08:00:30+00:00",
+            "thresholds": [],
+            "job_execution_uuid": None,
+        }
+    ],
+}
+
 
 class _FakeBox(dict):
     pass
@@ -243,6 +293,23 @@ class _FakePycarloClient:
                 None,
             )
             return _FakeBox(get_table=table)
+        if "getJobExecutions" in query:
+            monitor_uuid = variables.get("monitorUuid")
+            runs = JOB_EXECUTIONS.get(monitor_uuid, []) if monitor_uuid else []
+            return _FakeBox(
+                get_job_executions={
+                    "edges": [{"node": r} for r in runs],
+                    "page_info": {"has_next_page": False, "end_cursor": None},
+                }
+            )
+        if "getMetricsV4" in query:
+            metrics_filter = variables.get("metricsFilter") or {}
+            mcon = (
+                metrics_filter.get("mcon") if isinstance(metrics_filter, dict) else None
+            )
+            metric_name = variables.get("metricName")
+            key = f"{mcon}:{metric_name}"
+            return _FakeBox(get_metrics_v4={"metrics": METRICS_V4.get(key, [])})
         raise AssertionError(f"Unexpected query: {query}")
 
 
@@ -341,3 +408,82 @@ def test_golden_file_is_substantial():
     content = golden_path.read_text()
     assert len(content) > 5 * 1024
     assert len(json.loads(content)) >= 15
+
+
+RUN_EVENTS_CONFIG: Dict[str, Any] = {
+    **CONFIG_DICT,
+    "run_events_lookback_days": 7,
+}
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_montecarlo_run_events_emits_success_with_measured_value(
+    fake_pycarlo, monkeypatch
+):
+    """With run_events_lookback_days set, the source emits SUCCESS
+    AssertionRunEvents carrying the measured metric value on
+    AssertionResult. Only the latest SUCCESS run carries the value; older
+    SUCCESS runs carry only per-run execution metadata. Monitors with no
+    recent SUCCESS run produce no run event (FAILUREs are left to alerts)."""
+    from datahub.ingestion.source.montecarlo import assertion as mc_assertion
+
+    # Force the OSS path so the test is deterministic regardless of cloud SDK.
+    monkeypatch.setattr(mc_assertion, "_load_cloud_assertion_class", lambda: None)
+
+    source = MonteCarloSource.create(
+        RUN_EVENTS_CONFIG, PipelineContext(run_id="montecarlo-run-events-test")
+    )
+    wus = list(source.get_workunits())
+
+    # Collect AssertionRunEvent aspects grouped by runId.
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import AssertionRunEventClass
+
+    run_events: List[AssertionRunEventClass] = []
+    for wu in wus:
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper):
+            if isinstance(wu.metadata.aspect, AssertionRunEventClass):
+                run_events.append(wu.metadata.aspect)
+
+    # We expect SUCCESS run events from mon-vol-orders (2 SUCCESS runs in the
+    # fixture) plus FAILURE run events from the alerts path (3 alerts).
+    success_events = [e for e in run_events if e.result and e.result.type == "SUCCESS"]
+    failure_events = [e for e in run_events if e.result and e.result.type == "FAILURE"]
+
+    assert len(success_events) == 2, (
+        f"expected 2 SUCCESS events, got {len(success_events)}"
+    )
+    assert len(failure_events) == 3, (
+        f"expected 3 FAILURE events, got {len(failure_events)}"
+    )
+
+    # The latest SUCCESS run (je-vol-1) carries the measured row_count.
+    latest = next(e for e in success_events if e.runId == "je-vol-1")
+    assert latest.result is not None
+    assert latest.result.rowCount == 500
+    assert latest.result.nativeResults is not None
+    assert latest.result.nativeResults["evaluatedRecordCount"] == "500"
+
+    # The older SUCCESS run (je-vol-2) carries only execution metadata, no
+    # measured value.
+    older = next(e for e in success_events if e.runId == "je-vol-2")
+    assert older.result is not None
+    assert older.result.rowCount is None
+    assert older.result.nativeResults is not None
+    assert older.result.nativeResults["evaluatedRecordCount"] == "499"
+
+    # mon-fresh-orders had only a FAILED run -> no SUCCESS event for it.
+    assert all(e.runId != "je-fresh-fail" for e in success_events)
+
+    # All run events are non-primary-source (stale removal safeguard).
+    for wu in wus:
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
+            wu.metadata.aspect, AssertionRunEventClass
+        ):
+            assert wu.is_primary_source is False
+
+    # Report counters reflect the work.
+    report = source.get_report()
+    assert report.job_executions_scanned == 2  # 2 SUCCESS runs emitted
+    assert report.metric_points_fetched == 1  # 1 metric point from getMetricsV4
