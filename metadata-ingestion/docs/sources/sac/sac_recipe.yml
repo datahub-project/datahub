@@ -46,3 +46,8 @@ source:
                 # SAP Datasphere connector ingested the assets so the urns stitch.
                 env: PROD
                 convert_urns_to_lowercase: true
+
+        # Emit column-level lineage to SAP Datasphere by mirroring the upstream dataset's
+        # schema from DataHub (requires a datahub_api/graph connection and SAP Datasphere
+        # to be ingested first). Falls back to table-level lineage when unavailable.
+        resolve_datasphere_column_lineage: true
