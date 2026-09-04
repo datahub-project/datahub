@@ -18,9 +18,8 @@ The source expects newline-delimited JSON (NDJSON), with one query object per li
 - `query` (required): SQL text to parse
 - `timestamp` (optional): query execution timestamp
 - `user` (optional): actor used for usage attribution
-- `operation_type` (optional): fallback operation classification
 - `session_id` (optional): session key used to resolve temporary tables across related queries
-- `downstream_tables` / `upstream_tables` (optional): fallback lineage hints if parsing fails
+- `downstream_tables` / `upstream_tables` (optional): explicit lineage hints; when both are provided, SQL parsing is bypassed and the lineage is used directly
 
 #### Incremental Lineage
 

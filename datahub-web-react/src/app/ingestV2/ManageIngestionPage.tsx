@@ -1,6 +1,6 @@
 import { Button, PageTitle, Tabs, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
@@ -97,11 +97,22 @@ export const ManageIngestionPage = () => {
     const { value: hideSystemSources, setValue: setHideSystemSources } = useUrlQueryParam('hideSystem', 'true');
     const { value: sourceFilter, setValue: setSourceFilter } = useUrlQueryParam('sourceFilter');
     const { value: searchQuery, setValue: setSearchQuery } = useUrlQueryParam('query');
+    const { value: sourceTypesParam, setValue: setSourceTypesParam } = useUrlQueryParam('sourceTypes');
+
+    const sourceTypes = useMemo(
+        () => (sourceTypesParam ? sourceTypesParam.split(',').filter(Boolean) : []),
+        [sourceTypesParam],
+    );
 
     // Stable callbacks to prevent infinite re-render loops in child components
     const handleSetSourceFilter = useCallback(
         (value: number | undefined) => setSourceFilter(value?.toString() || ''),
         [setSourceFilter],
+    );
+
+    const handleSetSourceTypes = useCallback(
+        (values: string[]) => setSourceTypesParam(values.join(',')),
+        [setSourceTypesParam],
     );
 
     const handleSetHideSystemSources = useCallback(
@@ -162,6 +173,8 @@ export const ManageIngestionPage = () => {
                     setSourceFilter={handleSetSourceFilter}
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
+                    sourceTypes={sourceTypes}
+                    setSourceTypes={handleSetSourceTypes}
                 />
             ),
             key: TabType.Sources as string,

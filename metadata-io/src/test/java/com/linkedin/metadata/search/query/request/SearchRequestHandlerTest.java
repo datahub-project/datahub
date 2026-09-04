@@ -18,6 +18,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
+import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -67,8 +68,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.lucene.search.TotalHits;
+import org.opensearch.OpenSearchException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
@@ -81,6 +84,7 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -766,7 +770,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             "editedFieldTags",
             "displayName",
             "title",
-            "applications");
+            "applications",
+            "dataProduct");
 
     Map<EntityType, Set<String>> expectedQueryByDefault =
         ImmutableMap.<EntityType, Set<String>>builder()
@@ -841,6 +846,13 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                             "text",
                             "semanticText"))
                     .collect(Collectors.toSet()))
+            .put(
+                EntityType.METRIC,
+                Stream.concat(COMMON.stream(), Stream.of("path", "semanticModel", "parentMetric"))
+                    .collect(Collectors.toSet()))
+            .put(
+                EntityType.SEMANTIC_MODEL,
+                Stream.concat(COMMON.stream(), Stream.of("path")).collect(Collectors.toSet()))
             .build();
 
     for (String entityName : parseCsv(DEFAULT_SEARCH_ENTITY_TYPES)) {
@@ -1635,6 +1647,107 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,nullHighlights,PROD)");
   }
 
+  @Test
+  public void testFetchSourceDefaultsToUrnOnly() {
+    SearchRequestHandler requestHandler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    SearchRequest searchRequest =
+        requestHandler.getSearchRequest(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            "testQuery",
+            null,
+            null,
+            0,
+            10,
+            List.of());
+    FetchSourceContext fetchSource = searchRequest.source().fetchSource();
+    assertNotNull(fetchSource);
+    assertEquals(Set.of(fetchSource.includes()), Set.of("urn"));
+  }
+
+  @Test
+  public void testFetchSourceIncludesRequestedExtraFields() {
+    SearchRequestHandler requestHandler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    SearchRequest searchRequest =
+        requestHandler.getSearchRequest(
+            operationContext.withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(false)
+                        .setFetchExtraFields(new StringArray(List.of("parentDomain")))),
+            "testQuery",
+            null,
+            null,
+            0,
+            10,
+            List.of());
+    FetchSourceContext fetchSource = searchRequest.source().fetchSource();
+    assertNotNull(fetchSource);
+    assertEquals(Set.of(fetchSource.includes()), Set.of("urn", "parentDomain"));
+  }
+
+  @Test
+  public void testExtractResultCopiesOnlyRequestedExtraFields() {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(1L, TotalHits.Relation.EQUAL_TO));
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    SearchHit hit = mock(SearchHit.class);
+    when(hit.getSourceAsMap())
+        .thenReturn(
+            ImmutableMap.of(
+                "urn",
+                "urn:li:dataset:(urn:li:dataPlatform:hdfs,withParent,PROD)",
+                "parentDomain",
+                "urn:li:domain:root",
+                "name",
+                "should-not-appear"));
+    when(hit.getScore()).thenReturn(1.0f);
+    when(hit.getHighlightFields()).thenReturn(ImmutableMap.of());
+    when(hit.getMatchedQueries()).thenReturn(new String[0]);
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {hit});
+
+    SearchResult withoutFlag = handler.extractResult(operationContext, mockResponse, null, 0, 10);
+    assertNull(withoutFlag.getEntities().get(0).getExtraFields());
+
+    SearchResult withFlag =
+        handler.extractResult(
+            operationContext.withSearchFlags(
+                flags -> flags.setFetchExtraFields(new StringArray(List.of("parentDomain")))),
+            mockResponse,
+            null,
+            0,
+            10);
+    assertEquals(withFlag.getEntities().get(0).getExtraFields().keySet(), Set.of("parentDomain"));
+    assertEquals(
+        withFlag.getEntities().get(0).getExtraFields().get("parentDomain"),
+        "\"urn:li:domain:root\"");
+  }
+
   private SearchHit mockHitWithUrn(String urn) {
     SearchHit hit = mock(SearchHit.class);
     when(hit.getSourceAsMap()).thenReturn(ImmutableMap.of("urn", urn));
@@ -1719,5 +1832,135 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 10)
             .source()
             .query();
+  }
+
+  private SearchRequestHandler shardFailureTestHandler() {
+    return SearchRequestHandler.getBuilder(
+        operationContext,
+        TestEntitySpecBuilder.getSpec(),
+        testQueryConfig,
+        null,
+        QueryFilterRewriteChain.EMPTY,
+        TEST_SEARCH_SERVICE_CONFIG);
+  }
+
+  @Test
+  public void testExtractResultThrowsOnDeterministicShardFailure() {
+    // A terms aggregation on a dynamically-mapped text field fails per shard with
+    // illegal_argument_exception while the response is still HTTP 200 — the hits from failing
+    // shards were previously dropped silently.
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getShardFailures())
+        .thenReturn(
+            new ShardSearchFailure[] {
+              new ShardSearchFailure(
+                  new OpenSearchException(
+                      "OpenSearch exception [type=illegal_argument_exception, reason=Text fields"
+                          + " are not optimised for operations that require per-document field"
+                          + " data]"))
+            });
+    when(mockResponse.getTotalShards()).thenReturn(4);
+
+    expectThrows(
+        ESQueryException.class,
+        () -> shardFailureTestHandler().extractResult(operationContext, mockResponse, null, 0, 10));
+  }
+
+  @Test
+  public void testExtractScrollResultThrowsOnDeterministicShardFailureCause() {
+    // Same classification when the failure carries the raw cause instead of a parsed reason.
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getShardFailures())
+        .thenReturn(
+            new ShardSearchFailure[] {
+              new ShardSearchFailure(
+                  new IllegalArgumentException(
+                      "Text fields are not optimised for operations that require per-document"
+                          + " field data"))
+            });
+    when(mockResponse.getTotalShards()).thenReturn(2);
+
+    expectThrows(
+        ESQueryException.class,
+        () ->
+            shardFailureTestHandler()
+                .extractScrollResult(operationContext, mockResponse, null, "5m", 10, true));
+  }
+
+  @Test
+  public void testExtractResultThrowsOnFielddataFailureWithoutTypeToken() {
+    // The ES8 client shim rebuilds shard failures from the reason message only, dropping the
+    // exception type. The text-fielddata symptom — the structured-property poisoning case — must
+    // still classify as deterministic on the reason substring alone, with no illegal_argument type
+    // token or IllegalArgumentException cause present.
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getShardFailures())
+        .thenReturn(
+            new ShardSearchFailure[] {
+              new ShardSearchFailure(
+                  new OpenSearchException(
+                      "Text fields are not optimised for operations that require per-document field"
+                          + " data like aggregations and sorting"))
+            });
+    when(mockResponse.getTotalShards()).thenReturn(3);
+
+    expectThrows(
+        ESQueryException.class,
+        () -> shardFailureTestHandler().extractResult(operationContext, mockResponse, null, 0, 10));
+  }
+
+  @Test
+  public void testExtractResultToleratesTransientShardFailure() {
+    // Transient failures on a busy cluster (circuit breaker, timeout, rejected execution) must not
+    // fail the request — partial results are returned and the failure is only logged/counted.
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(5L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(new SearchHit[0]);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.getShardFailures())
+        .thenReturn(
+            new ShardSearchFailure[] {
+              new ShardSearchFailure(
+                  new OpenSearchException(
+                      "OpenSearch exception [type=circuit_breaking_exception, reason=[parent] Data"
+                          + " too large]"))
+            });
+    when(mockResponse.getTotalShards()).thenReturn(4);
+
+    SearchResult result =
+        shardFailureTestHandler().extractResult(operationContext, mockResponse, null, 0, 10);
+
+    assertEquals(result.getNumEntities().intValue(), 5);
+    assertEquals(result.getEntities().size(), 0);
+  }
+
+  @Test
+  public void testExtractScrollResultToleratesTransientShardFailure() {
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(5L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(new SearchHit[0]);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.getShardFailures())
+        .thenReturn(
+            new ShardSearchFailure[] {
+              new ShardSearchFailure(
+                  new OpenSearchException(
+                      "OpenSearch exception [type=search_phase_execution_exception,"
+                          + " reason=Partial shards failure (timed out)]"))
+            });
+    when(mockResponse.getTotalShards()).thenReturn(4);
+
+    ScrollResult result =
+        shardFailureTestHandler()
+            .extractScrollResult(operationContext, mockResponse, null, "5m", 10, true);
+
+    assertEquals(result.getNumEntities().intValue(), 5);
+    assertEquals(result.getEntities().size(), 0);
   }
 }
