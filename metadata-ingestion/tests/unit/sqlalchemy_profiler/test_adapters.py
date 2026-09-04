@@ -39,9 +39,16 @@ from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
     SnowflakeAdapter,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.trino import TrinoAdapter
-from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import DEFAULT_QUANTILES
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    DEFAULT_QUANTILES,
+    ProfilingConnection,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    FLATTENABLE_AGGREGATES_EXECUTION_OPTION,
+    SINGLE_ROW_EXECUTION_OPTION,
 )
 
 # =============================================================================
@@ -2043,14 +2050,6 @@ class TestProfilingConnectionTagging:
         return conn_spy.execute.call_args.args[0]
 
     def test_execute_single_row_attaches_both_tags(self) -> None:
-        from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
-            ProfilingConnection,
-        )
-        from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
-            FLATTENABLE_AGGREGATES_EXECUTION_OPTION,
-            SINGLE_ROW_EXECUTION_OPTION,
-        )
-
         names = frozenset({"count", "min"})
         raw = MagicMock()
         query = sa.select(sa.func.count()).select_from(sa.table("t"))
@@ -2063,13 +2062,6 @@ class TestProfilingConnectionTagging:
 
     def test_default_allowlist_is_empty_not_absent(self) -> None:
         # Fail-closed: without the adapter's set, nothing flattens.
-        from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
-            ProfilingConnection,
-        )
-        from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
-            FLATTENABLE_AGGREGATES_EXECUTION_OPTION,
-        )
-
         raw = MagicMock()
         query = sa.select(sa.func.count()).select_from(sa.table("t"))
 

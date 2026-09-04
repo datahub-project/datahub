@@ -10,6 +10,9 @@ from datahub.ingestion.source.ge_profiling_config import (
     GEProfilingConfig,
     ProfilingIsolationLevel,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    DEFAULT_MAX_DISTINCT_PER_STATEMENT,
+)
 
 
 def test_profile_table_level_only():
@@ -116,10 +119,6 @@ def test_profiling_isolation_level_json_schema_has_default():
 def test_max_distinct_per_statement_default_matches_combiner_constant() -> None:
     # Drift guard: the config duplicates the literal rather than importing
     # the combiner, so the two must be kept in lockstep.
-    from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
-        DEFAULT_MAX_DISTINCT_PER_STATEMENT,
-    )
-
     config = GEProfilingConfig()
     assert config.max_distinct_per_statement == DEFAULT_MAX_DISTINCT_PER_STATEMENT
 
