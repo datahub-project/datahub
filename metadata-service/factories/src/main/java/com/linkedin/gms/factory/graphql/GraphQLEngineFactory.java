@@ -357,25 +357,7 @@ public class GraphQLEngineFactory {
   protected ExecutorService graphQLWorkerPool(MetricUtils metricUtils) {
     GraphQLConcurrencyConfiguration concurrencyConfig =
         configProvider.getGraphQL().getConcurrency();
-    GraphQLWorkerPoolThreadFactory threadFactory =
-        new GraphQLWorkerPoolThreadFactory(concurrencyConfig.getStackSize());
-    int corePoolSize = concurrencyConfig.resolveCorePoolSize();
-    int maxPoolSize = Math.max(corePoolSize, concurrencyConfig.resolveMaxPoolSize());
-
-    ThreadPoolExecutor graphQLWorkerPool =
-        new ThreadPoolExecutor(
-            corePoolSize,
-            maxPoolSize,
-            concurrencyConfig.getKeepAlive(),
-            TimeUnit.SECONDS,
-            concurrencyConfig.createWorkQueue(),
-            threadFactory,
-            new ThreadPoolExecutor.CallerRunsPolicy());
-    // Only shrink cores when work can wait in a bounded queue. With SynchronousQueue, extra
-    // capacity is threads, which GraphQL fan-out needs for blocking resolvers.
-    if (!concurrencyConfig.useSynchronousQueue()) {
-      graphQLWorkerPool.allowCoreThreadTimeOut(true);
-    }
+    ThreadPoolExecutor graphQLWorkerPool = createGraphQLThreadPool(concurrencyConfig);
 
     ExecutorService graphqlExecutorService =
         GraphQLConcurrencyUtils.setExecutorService(graphQLWorkerPool);
@@ -384,6 +366,39 @@ public class GraphQLEngineFactory {
           "graphql", graphqlExecutorService, metricUtils.getRegistry());
     }
 
+    return graphQLWorkerPool;
+  }
+
+  static ThreadPoolExecutor createGraphQLThreadPool(
+      GraphQLConcurrencyConfiguration concurrencyConfig) {
+    GraphQLWorkerPoolThreadFactory threadFactory =
+        new GraphQLWorkerPoolThreadFactory(concurrencyConfig.getStackSize());
+    int corePoolSize = concurrencyConfig.resolveCorePoolSize();
+    int resolvedMaxPoolSize = concurrencyConfig.resolveMaxPoolSize();
+    if (resolvedMaxPoolSize < corePoolSize) {
+      throw new IllegalArgumentException(
+          "graphQL.concurrency.maxPoolSize ("
+              + resolvedMaxPoolSize
+              + ") must be >= corePoolSize ("
+              + corePoolSize
+              + ")");
+    }
+
+    ThreadPoolExecutor graphQLWorkerPool =
+        new ThreadPoolExecutor(
+            corePoolSize,
+            resolvedMaxPoolSize,
+            concurrencyConfig.getKeepAlive(),
+            TimeUnit.SECONDS,
+            concurrencyConfig.createWorkQueue(),
+            threadFactory,
+            new ThreadPoolExecutor.CallerRunsPolicy());
+    // Only shrink cores when work can wait in a bounded queue. With SynchronousQueue, extra
+    // capacity is threads, which GraphQL fan-out needs for blocking resolvers.
+    // allowCoreThreadTimeOut requires a positive keep-alive.
+    if (!concurrencyConfig.useSynchronousQueue() && concurrencyConfig.getKeepAlive() > 0) {
+      graphQLWorkerPool.allowCoreThreadTimeOut(true);
+    }
     return graphQLWorkerPool;
   }
 }
