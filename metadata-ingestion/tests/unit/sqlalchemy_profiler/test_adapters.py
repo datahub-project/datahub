@@ -1974,6 +1974,9 @@ class TestExecuteAggregateGuard:
 
         with pytest.raises(ValueError):
             conn.execute_aggregate(table, sa.column("v"))
+        # Labelling must not smuggle one past the guard.
+        with pytest.raises(ValueError):
+            conn.execute_aggregate(table, sa.column("v").label("x"))
 
     def test_aggregates_and_literal_columns_are_accepted(self) -> None:
         # literal_column is how several adapters build their median.
@@ -1982,3 +1985,4 @@ class TestExecuteAggregateGuard:
 
         conn.execute_aggregate(table, sa.func.count())
         conn.execute_aggregate(table, sa.literal_column("MEDIAN(v)"))
+        conn.execute_aggregate(table, sa.literal_column("MEDIAN(v)").label("median"))

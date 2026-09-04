@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnClause, ColumnElement
+from sqlalchemy.sql.elements import ColumnClause, ColumnElement, Label
 
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -51,8 +51,9 @@ class ProfilingConnection:
         # A plain column merged with real aggregates emits
         # `SELECT count(*), v FROM t`, which returns one row on MySQL and
         # SQLite and silently drops the rest. literal_column is allowed --
-        # several adapters build their median that way.
-        if isinstance(expr, ColumnClause) and not expr.is_literal:
+        # several adapters build their median that way, often labelled.
+        inner = expr.element if isinstance(expr, Label) else expr
+        if isinstance(inner, ColumnClause) and not inner.is_literal:
             raise ValueError(
                 f"execute_aggregate needs an aggregate, got a plain column: {expr}"
             )
