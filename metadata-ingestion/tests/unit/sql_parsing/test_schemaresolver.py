@@ -10,6 +10,7 @@ from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClas
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
+    SchemaResolverReport,
     _TableName,
     match_columns_to_schema,
 )
@@ -531,3 +532,202 @@ class TestTableNameParts:
         assert table_with_parts == table_without_parts, "Equality ignores parts field"
         assert table_with_parts.parts == ("source", "schema", "table")
         assert table_without_parts.parts is None
+
+
+class TestNormalizedUrnResolution:
+    def test_mixedcase_registered_resolves_from_lowercase_query(self):
+        """Teradata-style: schema keeps DBC casing; lineage queries are lowercase."""
+        report = SchemaResolverReport()
+        resolver = SchemaResolver(
+            platform="teradata",
+            platform_instance="td20-jul26-trial",
+            env="Test",
+            graph=None,
+            report=report,
+        )
+        mixed_urn = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Riverflow", table="riverflow_native")
+        )
+        resolver.add_raw_schema_info(mixed_urn, {"col_a": "VARCHAR"})
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database=None, db_schema="riverflow", table="riverflow_native")
+        )
+
+        assert schema is not None
+        assert schema["col_a"] == "VARCHAR"
+        assert resolved_urn == mixed_urn
+        assert "Riverflow" in resolved_urn
+        assert report.num_normalized_urn_hits == 1
+
+    def test_malformed_urn_skips_normalized_index(self) -> None:
+        resolver = SchemaResolver(platform="teradata", env="PROD", graph=None)
+        resolver.add_raw_schema_info("not-a-valid-urn", {"c": "VARCHAR"})
+        canonical_urn = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Riverflow", table="t")
+        )
+        resolver.add_raw_schema_info(canonical_urn, {"c": "VARCHAR"})
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database=None, db_schema="riverflow", table="t")
+        )
+
+        assert schema is not None
+        assert resolved_urn == canonical_urn
+
+    def test_ambiguous_collision_stays_unresolved(self):
+        resolver = SchemaResolver(platform="teradata", env="PROD", graph=None)
+        mixed = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Riverflow", table="t")
+        )
+        other = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="RIVERFLOW", table="T")
+        )
+        assert mixed != other
+        resolver.add_raw_schema_info(mixed, {"a": "int"})
+        resolver.add_raw_schema_info(other, {"b": "int"})
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database=None, db_schema="riverflow", table="t")
+        )
+
+        assert schema is None
+        assert resolved_urn == resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="riverflow", table="t"), lower=True
+        )
+
+    @pytest.mark.parametrize("platform", ["bigquery", "db2"])
+    def test_case_sensitive_platform_resolves_when_unambiguous(
+        self, platform: str
+    ) -> None:
+        report = SchemaResolverReport()
+        resolver = SchemaResolver(
+            platform=platform, env="PROD", graph=None, report=report
+        )
+        canonical_urn = resolver.get_urn_for_table(
+            _TableName(database="proj", db_schema="ds", table="MyTable")
+        )
+        resolver.add_raw_schema_info(canonical_urn, {"c": "STRING"})
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database="proj", db_schema="ds", table="mytable")
+        )
+
+        assert schema is not None
+        assert schema["c"] == "STRING"
+        assert resolved_urn == canonical_urn
+        assert report.num_normalized_urn_hits == 1
+
+    def test_case_sensitive_miss_keeps_query_casing(self) -> None:
+        resolver = SchemaResolver(platform="bigquery", env="PROD", graph=None)
+        table = _TableName(database="proj", db_schema="ds", table="mytable")
+
+        resolved_urn, schema = resolver.resolve_table(table)
+
+        assert schema is None
+        assert resolved_urn == resolver.get_urn_for_table(table)
+        assert "MyTable" not in resolved_urn
+
+    def test_negative_cache_does_not_block_normalized_hit(self) -> None:
+        resolver = SchemaResolver(platform="bigquery", env="PROD", graph=None)
+        canonical_urn = resolver.get_urn_for_table(
+            _TableName(database="proj", db_schema="ds", table="MyTable")
+        )
+        resolver.add_raw_schema_info(canonical_urn, {"c": "STRING"})
+        query_urn = resolver.get_urn_for_table(
+            _TableName(database="proj", db_schema="ds", table="mytable")
+        )
+        resolver._save_to_cache(query_urn, None)
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database="proj", db_schema="ds", table="mytable")
+        )
+
+        assert schema is not None
+        assert resolved_urn == canonical_urn
+
+    def test_case_sensitive_graph_fetches_only_exact_urn(self) -> None:
+        mock_graph = MagicMock(spec=DataHubGraph)
+        mock_graph.get_entities.return_value = {}
+        resolver = SchemaResolver(platform="bigquery", env="PROD", graph=mock_graph)
+
+        resolver.resolve_table(
+            _TableName(database="proj", db_schema="ds", table="MyTable")
+        )
+
+        mock_graph.get_entities.assert_called_once()
+        urns_fetched = mock_graph.get_entities.call_args[1]["urns"]
+        assert len(urns_fetched) == 1
+        assert "MyTable" in urns_fetched[0]
+
+    @pytest.mark.parametrize("platform", ["bigquery", "db2"])
+    def test_case_sensitive_third_casing_stays_unresolved_when_both_exist(
+        self, platform: str
+    ) -> None:
+        """Do not pick a lowercase candidate when two case-distinct tables exist."""
+        resolver = SchemaResolver(platform=platform, env="PROD", graph=None)
+        mixed = resolver.get_urn_for_table(
+            _TableName(database="proj", db_schema="ds", table="MyTable")
+        )
+        lower = resolver.get_urn_for_table(
+            _TableName(database="proj", db_schema="ds", table="mytable")
+        )
+        assert mixed != lower
+        resolver.add_raw_schema_info(mixed, {"a": "int"})
+        resolver.add_raw_schema_info(lower, {"b": "int"})
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database="proj", db_schema="ds", table="MYTABLE")
+        )
+
+        assert schema is None
+        assert resolved_urn == resolver.get_urn_for_table(
+            _TableName(database="proj", db_schema="ds", table="MYTABLE")
+        )
+
+    def test_in_process_index_needs_no_bootstrap_scan(self) -> None:
+        # No restored cache: the incremental index (via _save_to_cache) is authoritative,
+        # so a normalized lookup must never walk the full FileBackedDict.
+        resolver = SchemaResolver(platform="teradata", env="PROD", graph=None)
+        assert resolver._normalized_bootstrapped is True
+        mixed_urn = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Riverflow", table="t")
+        )
+        resolver.add_raw_schema_info(mixed_urn, {"col_a": "VARCHAR"})
+
+        def _fail_scan() -> None:
+            raise AssertionError("normalized index should not scan the cache")
+
+        resolver._schema_cache.items = _fail_scan  # type: ignore[assignment,method-assign]
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database=None, db_schema="riverflow", table="t")
+        )
+
+        assert schema is not None
+        assert resolved_urn == mixed_urn
+
+    def test_bootstrap_scan_indexes_unindexed_cache_entries(self) -> None:
+        # Simulate a cache restored from a prior run: rows exist in _schema_cache but the
+        # in-memory normalized index is empty and not yet bootstrapped. The first
+        # normalized lookup must scan the cache once to pick them up.
+        report = SchemaResolverReport()
+        resolver = SchemaResolver(
+            platform="teradata", env="PROD", graph=None, report=report
+        )
+        mixed_urn = resolver.get_urn_for_table(
+            _TableName(database=None, db_schema="Riverflow", table="native")
+        )
+        resolver.add_raw_schema_info(mixed_urn, {"col_a": "VARCHAR"})
+        resolver._normalized_to_urns.clear()
+        resolver._normalized_bootstrapped = False
+
+        resolved_urn, schema = resolver.resolve_table(
+            _TableName(database=None, db_schema="riverflow", table="native")
+        )
+
+        assert schema is not None
+        assert schema["col_a"] == "VARCHAR"
+        assert resolved_urn == mixed_urn
+        assert resolver._normalized_bootstrapped is True
+        assert report.num_normalized_urn_hits == 1

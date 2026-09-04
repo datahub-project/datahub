@@ -62,8 +62,7 @@ logger = logging.getLogger(__name__)
 
 # Above this many URNs per platform, the bulk-loaded SchemaResolver cache is large
 # enough to warrant an explicit heads-up to operators rather than letting it surface as
-# unexplained memory pressure. (A disk-backed, casing-aware resolver owned by
-# SchemaResolver is the planned follow-up; see the normalizedUrn backlog task.)
+# unexplained memory pressure.
 _CATALOG_SIZE_WARN_THRESHOLD = 500_000
 
 # The closed set of matchType verdicts, as a Literal so the if/elif verdict chains that
@@ -163,11 +162,11 @@ class AutoResolveLineageUrnsProcessor(
     disconnected lineage nodes. For each configured upstream platform it bulk-loads that
     platform's URNs and schemas once (via ``SchemaResolverProvider``) and resolves every
     reference locally via ``SchemaResolver.resolve_table`` (which tries the original,
-    lowercased, and mixed-instance casings — see ``_resolve_dataset``) against the casing
-    DataHub already stores — table-level (``UpstreamLineage``,
-    ``DashboardInfo``) and column-level (``FineGrainedLineage`` field paths). Broader
-    any-casing resolution is a tracked SchemaResolver follow-up (the ``normalizedUrn``
-    aspect).
+    lowercased, and mixed-instance casings on case-insensitive platforms, and a
+    lowercase→canonical index of registered schemas when the match is unambiguous —
+    see ``_resolve_dataset``) against
+    the casing DataHub already stores — table-level (``UpstreamLineage``,
+    ``DashboardInfo``) and column-level (``FineGrainedLineage`` field paths).
 
     Only references *to* warehouse assets found in this source's metadata are fixed;
     the entity the aspect is attached to and downstream fields are never touched. It
@@ -202,13 +201,9 @@ class AutoResolveLineageUrnsProcessor(
             match_columns_to_schema
         )
         # Per-platform SchemaResolvers, bulk-initialized up front by _load_catalogs().
-        # Casing matching is delegated to SchemaResolver.resolve_table (which tries the
-        # reference's original, lowercased, and mixed-instance casings — see
-        # _resolve_dataset) — the processor keeps no parallel casing index of its own.
-        # Broader casing coverage (a non-lowercase table stored as Pascal / Mixed /
-        # arbitrary) and casing-aware resolution are a tracked SchemaResolver follow-up
-        # (the planned `normalizedUrn` aspect). Until that lands, only casings resolve_table
-        # covers are reconciled here.
+        # Casing matching is delegated to SchemaResolver.resolve_table (exact / lower /
+        # mixed candidates on case-insensitive platforms, plus a lowercase→canonical
+        # index when the match is unambiguous — including BigQuery/DB2).
         self._resolvers_by_platform: Dict[str, List["SchemaResolver"]] = {}
         # Platforms actually referenced by this source's lineage, so
         # _warn_unmatched_platforms can flag configured platforms that no reference used
@@ -482,11 +477,14 @@ class AutoResolveLineageUrnsProcessor(
         ``ProdWarehouse.DB.SCHEMA.TABLE``: (1) misses (table cased wrong), (2) misses
         (instance lowercased to ``prodwarehouse``), (3) matches.
 
+        When those candidates miss, ``resolve_table`` also looks up a lowercase→canonical
+        index of schemas already registered in the resolver (e.g. MixedCase warehouse
+        URNs from catalog load). A unique hit is NORMALIZED to that stored URN; an
+        ambiguous collision (two case-distinct tables on BigQuery/DB2) is UNRESOLVED.
+
         A hit under the reference's own casing is EXACT; a hit under a different candidate
-        is NORMALIZED; no hit is UNRESOLVED — the latter includes casings none of the three
-        candidates reach (e.g. an UPPER/Pascal/Mixed-cased *table* in the warehouse), which
-        are the tracked ``normalizedUrn`` SchemaResolver follow-up. The resolved entity's
-        schema is returned too, for column-casing correction.
+        (or the normalized index) is NORMALIZED; no hit is UNRESOLVED. The resolved
+        entity's schema is returned too, for column-casing correction.
         """
         try:
             dataset_urn = DatasetUrn.from_string(urn)
@@ -515,8 +513,7 @@ class AutoResolveLineageUrnsProcessor(
                 # concatenating the parts back into the name. This leans on SchemaResolver
                 # internals and is a bit fragile (get_urn_for_table carries a TODO about
                 # 2/3-layer hierarchy). A read-only resolve_dataset_urn(urn) helper on
-                # SchemaResolver is a tracked follow-up (additive, separate from the
-                # normalizedUrn work).
+                # SchemaResolver is a tracked follow-up.
                 resolved_urn, schema = resolver.resolve_table_parts(
                     database=None, db_schema=None, table=table
                 )

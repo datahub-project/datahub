@@ -1477,7 +1477,14 @@ def test_cll_extraction(
     tmp_path: str,
     mock_time: datetime.datetime,
     requests_mock: Any,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Golden file assumes CLL completes; allow extra headroom for SchemaResolver work
+    # while keeping the cooperative timeout guard enabled.
+    monkeypatch.setattr(
+        "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_SECONDS", 60
+    )
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(

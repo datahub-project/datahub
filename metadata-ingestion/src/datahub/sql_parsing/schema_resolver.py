@@ -19,10 +19,11 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIde
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
-from datahub.metadata.urns import DataPlatformUrn
+from datahub.metadata.urns import DataPlatformUrn, DatasetUrn
 from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
+from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,10 @@ class SchemaResolverReport:
 
     num_schema_cache_hits: int = 0
     num_schema_cache_misses: int = 0
+    # Hits that resolved via the lowercase→canonical index (case-insensitive platforms).
+    num_normalized_urn_hits: int = 0
+    # Lookups where multiple registered URNs shared a normalized key (left unresolved).
+    num_normalized_urn_collisions: int = 0
 
 
 class GraphQLSchemaField(TypedDict):
@@ -93,6 +98,15 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             shared_connection=shared_conn,
             extra_columns={"is_missing": lambda v: v is None},
         )
+        # Lowercased dataset-name key -> registered URN(s). Every in-process write goes
+        # through _save_to_cache, which indexes incrementally, so the index stays complete
+        # on its own. The one exception is a cache restored from a persisted _cache_filename:
+        # those rows never passed through _save_to_cache, so they need a one-time bootstrap
+        # scan on the first normalized lookup. When there is no restored cache we mark the
+        # index bootstrapped up front to avoid ever walking the full FileBackedDict (a
+        # needless SQLite flush + deserialize on large bulk-loaded catalogs).
+        self._normalized_to_urns: Dict[str, Set[str]] = {}
+        self._normalized_bootstrapped = _cache_filename is None
 
     @property
     def platform(self) -> str:
@@ -161,29 +175,29 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         exists must test the ``SchemaInfo``, never ``urn is None``.
         """
         urn = self.get_urn_for_table(table)
-        urn_lower = self.get_urn_for_table(table, lower=True)
-        # Our treatment of platform instances when lowercasing urns
-        # is inconsistent. In some places (e.g. Snowflake), we lowercase
-        # the table names but not the platform instance. In other places
-        # (e.g. Databricks), we lowercase everything because it happens
-        # via the automatic lowercasing helper.
-        # See https://github.com/datahub-project/datahub/pull/8928.
-        # While we have this sort of inconsistency, we should also
-        # check the mixed case urn, as a last resort.
-        urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
-
+        prefers_lower = self._prefers_urn_lower()
         urns_to_try = [urn]
-        if urn_lower != urn:
-            urns_to_try.append(urn_lower)
-        if urn_mixed not in {urn, urn_lower}:
-            urns_to_try.append(urn_mixed)
+        urn_lower = urn
+        urn_mixed = urn
+        if prefers_lower:
+            urn_lower = self.get_urn_for_table(table, lower=True)
+            # Our treatment of platform instances when lowercasing urns
+            # is inconsistent. In some places (e.g. Snowflake), we lowercase
+            # the table names but not the platform instance. In other places
+            # (e.g. Databricks), we lowercase everything because it happens
+            # via the automatic lowercasing helper.
+            # See https://github.com/datahub-project/datahub/pull/8928.
+            # While we have this sort of inconsistency, we should also
+            # check the mixed case urn, as a last resort.
+            if urn_lower != urn:
+                urns_to_try.append(urn_lower)
+            urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
+            if urn_mixed not in {urn, urn_lower}:
+                urns_to_try.append(urn_mixed)
 
-        for candidate_urn in urns_to_try:
-            if candidate_urn in self._schema_cache:
-                schema_info = self._schema_cache[candidate_urn]
-                if schema_info is not None:
-                    self._track_cache_hit()
-                    return candidate_urn, schema_info
+        hit = self._try_resolve_cached(urns_to_try)
+        if hit is not None:
+            return hit
 
         if self.graph:
             # Skip URNs already in cache (None entries included) to avoid repeated API calls.
@@ -231,11 +245,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                     for fetch_urn in urns_to_fetch:
                         self._save_to_cache(fetch_urn, None)
 
-            for candidate_urn in urns_to_try:
-                schema_info = self._schema_cache.get(candidate_urn)
-                if schema_info is not None:
-                    self._track_cache_hit()
-                    return candidate_urn, schema_info
+            hit = self._try_resolve_cached(urns_to_try)
+            if hit is not None:
+                return hit
 
         logger.debug(
             f"Schema resolution failed for table {table}. Tried URNs: "
@@ -243,7 +255,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
         self._track_cache_miss()
 
-        return (urn_lower if self._prefers_urn_lower() else urn), None
+        return (urn_lower if prefers_lower else urn), None
 
     def resolve_table_parts(
         self,
@@ -277,6 +289,97 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         """Track a cache miss if reporting is enabled."""
         if self.report is not None:
             self.report.num_schema_cache_misses += 1
+
+    def _track_normalized_hit(self) -> None:
+        if self.report is not None:
+            self.report.num_normalized_urn_hits += 1
+
+    def _track_normalized_collision(self) -> None:
+        if self.report is not None:
+            self.report.num_normalized_urn_collisions += 1
+
+    @staticmethod
+    def _normalized_urn_key(urn: str) -> Optional[str]:
+        """Lowercase the dataset name while keeping platform / env identity intact."""
+        try:
+            parsed = DatasetUrn.from_string(urn)
+            platform = DataPlatformUrn.from_string(parsed.platform).platform_name
+            return make_dataset_urn_with_platform_instance(
+                platform=platform,
+                # Name already embeds any platform_instance prefix.
+                platform_instance=None,
+                env=parsed.env,
+                name=parsed.name.lower(),
+            )
+        except (ValueError, IndexError, AttributeError, TypeError, InvalidUrnError):
+            return None
+
+    def _ensure_normalized_index_bootstrapped(self) -> None:
+        if self._normalized_bootstrapped:
+            return
+        self._normalized_bootstrapped = True
+        for urn, info in self._schema_cache.items():
+            if info is None:
+                continue
+            self._index_normalized_urn(urn)
+
+    def _index_normalized_urn(self, urn: str) -> None:
+        key = self._normalized_urn_key(urn)
+        if key is None:
+            return
+        self._normalized_to_urns.setdefault(key, set()).add(urn)
+
+    def _unindex_normalized_urn(self, urn: str) -> None:
+        key = self._normalized_urn_key(urn)
+        if key is None:
+            return
+        urns = self._normalized_to_urns.get(key)
+        if not urns:
+            return
+        urns.discard(urn)
+        if not urns:
+            del self._normalized_to_urns[key]
+
+    def _try_resolve_cached(
+        self, urns_to_try: List[str]
+    ) -> Optional[Tuple[str, SchemaInfo]]:
+        for candidate_urn in urns_to_try:
+            schema_info = self._schema_cache.get(candidate_urn)
+            if schema_info is not None:
+                self._track_cache_hit()
+                return candidate_urn, schema_info
+        # Cross-casing lookup (Teradata MixedCase, BigQuery/DB2 when unambiguous).
+        return self._resolve_via_normalized_index(urns_to_try)
+
+    def _resolve_via_normalized_index(
+        self, urns_to_try: List[str]
+    ) -> Optional[Tuple[str, SchemaInfo]]:
+        seen_keys: Set[str] = set()
+        for candidate in urns_to_try:
+            key = self._normalized_urn_key(candidate)
+            if key is None or key in seen_keys:
+                continue
+            seen_keys.add(key)
+            self._ensure_normalized_index_bootstrapped()
+            matches = self._normalized_to_urns.get(key)
+            if not matches:
+                continue
+            if len(matches) > 1:
+                self._track_normalized_collision()
+                logger.debug(
+                    "Ambiguous case-insensitive URN match for key %s: %s",
+                    key,
+                    sorted(matches),
+                )
+                continue
+            canonical_urn = next(iter(matches))
+            schema_info = self._schema_cache.get(canonical_urn)
+            if schema_info is None:
+                continue
+            self._track_cache_hit()
+            self._track_normalized_hit()
+            return canonical_urn, schema_info
+        return None
 
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         if urn in self._schema_cache:
@@ -338,7 +441,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
 
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
+        previous = self._schema_cache.get(urn) if urn in self._schema_cache else None
+        if previous is not None and schema_info is None:
+            self._unindex_normalized_urn(urn)
         self._schema_cache[urn] = schema_info
+        if schema_info is not None:
+            self._index_normalized_urn(urn)
 
     def _fetch_schema_info(
         self, graph: "DataHubGraph", urn: str
@@ -365,6 +473,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     def close(self) -> None:
         self._schema_cache.close()
+        self._normalized_to_urns.clear()
 
 
 class _SchemaResolverWithExtras(SchemaResolverInterface):
