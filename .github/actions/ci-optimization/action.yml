@@ -136,7 +136,7 @@ runs:
           playwright-test:
             - "e2e-test/ui/playwright/**"
           embedding-ai:
-            - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/**"
+            - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/LocalEmbeddingProvider.java"
             - "metadata-io/src/main/java/com/linkedin/metadata/search/semantic/**"
             - "metadata-io/src/main/java/com/linkedin/metadata/search/SemanticSearchService.java"
             - "metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/indexbuilder/**"
