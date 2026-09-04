@@ -321,9 +321,9 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
-    # >=49.0.0 for CVE-2026-69249 (path-building DoS); <51 aligns with pyOpenSSL/msal.
-    # Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf / CVE-2026-26007.
-    "cryptography>=49.0.0,<51.0.0",
+    # >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
+    # <51 aligns with pyOpenSSL/msal. Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf.
+    "cryptography>=50.0.0,<51.0.0",
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
@@ -378,7 +378,10 @@ iceberg_common = {
 mssql_common = {
     # Note: sqlalchemy-pytds>=1.0 requires SQLAlchemy>=2, so constrained to 0.x automatically
     "sqlalchemy-pytds>=0.3,<2.0.0",
-    "pyOpenSSL>=26.0.0,<27.0.0",
+    # >=26.4.0: pyOpenSSL 26.0-26.3 crash on import against cryptography>=49
+    # (AttributeError: module 'lib' has no attribute 'GEN_EMAIL'), which the
+    # cryptography>=49.0.0,<51.0.0 range above can resolve to.
+    "pyOpenSSL>=26.4.0,<27.0.0",
 }
 
 postgres_common = {
