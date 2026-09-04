@@ -5,7 +5,7 @@ import {
     NESTED_OVERLAY_CLASS_NAME_SUFFIX,
 } from '@components/components/Utils/OverlayClassContext/constants';
 
-export const OverlayClassStackContext = React.createContext<string[]>([]);
+const OverlayClassStackContext = React.createContext<string[]>([]);
 
 export const useOverlayClassStackContext = () => useContext(OverlayClassStackContext);
 

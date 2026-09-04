@@ -82,6 +82,8 @@
     "context.statusFilter.placeholder": "すべて",
     "context.statusFilter.published": "公開済み",
     "context.statusFilter.unpublished": "未公開",
+    "context.viewMayBeHidingResults": "選択したViewが結果を非表示にしている可能性もあります。",
+    "context.clearSelectedView": "Viewをクリア",
     "sidebarSort.ariaLabel": "並べ替え",
     "sidebarSort.tooltip": "並べ替え",
     "sidebarSort.nameAtoZ": "名前（A→Z）",

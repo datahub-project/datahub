@@ -1,5 +1,6 @@
 import { Pill } from '@components';
 import React from 'react';
+import styled from 'styled-components';
 
 import {
     ActionButtonsContainer,
@@ -10,6 +11,13 @@ import {
 } from '@components/components/Select/components';
 import { SelectLabelVariantProps, SelectOption } from '@components/components/Select/types';
 
+// Keeps the option icon at its natural size instead of getting squeezed
+const IconWrapper = styled.span`
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+`;
+
 export default function SingleSelectLabeled<OptionType extends SelectOption>({
     selectedOptions,
     selectedValues,
@@ -18,6 +26,7 @@ export default function SingleSelectLabeled<OptionType extends SelectOption>({
     label,
 }: SelectLabelVariantProps<OptionType>) {
     const value = selectedOptions[0]?.value;
+    const selectedIcon = selectedOptions[0]?.icon;
 
     return (
         <LabelsWrapper shouldShowGap={false}>
@@ -26,6 +35,7 @@ export default function SingleSelectLabeled<OptionType extends SelectOption>({
             {!!selectedValues.length && (
                 <ActionButtonsContainer>
                     <SelectValue>{label}</SelectValue>
+                    {selectedIcon && <IconWrapper>{selectedIcon}</IconWrapper>}
                     <Pill
                         label={selectedOptions[0]?.label}
                         size="sm"

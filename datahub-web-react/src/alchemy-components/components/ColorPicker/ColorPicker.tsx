@@ -8,8 +8,8 @@ import { formLabelTextStyles } from '@components/components/commonStyles';
 import { spacing } from '@components/theme';
 
 const HEX_REGEX = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+const FULL_HEX_REGEX = /^#[A-Fa-f0-9]{6}$/;
 
-// Styled Components
 const ColorPickerContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -17,18 +17,20 @@ const ColorPickerContainer = styled.div`
     width: 100%;
 `;
 
+// Mirrors the Label styling shared by alchemy <Input>, <TextArea>, and <Switch>
+// so a ColorPicker label reads identically next to those other form labels.
 const Label = styled.div(({ theme }) => ({
     ...formLabelTextStyles,
     color: theme.colors.text,
-    marginBottom: spacing.xxsm,
-    textAlign: 'left',
+    marginBottom: spacing.xsm,
+    textAlign: 'left' as const,
 }));
 
-const ColorPreview = styled.div`
+const ColorPreview = styled.div<{ $hasDotsAbove: boolean }>`
     width: 100%;
     height: 100px;
     border-radius: 8px 8px 0px 0px;
-    margin-top: 24px;
+    margin-top: ${(props) => (props.$hasDotsAbove ? '24px' : '0')};
     border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
@@ -41,12 +43,14 @@ const HexInputContainer = styled.div`
     width: 100%;
 `;
 
-// Utility Functions
+/**
+ * Normalizes a hex string: adds a leading # and expands #RGB → #RRGGBB.
+ * Only call this when committing a finished value (blur / swatch), never while typing —
+ * expanding on every keystroke traps users who delete through #RGB (e.g. #fff → #ffffff).
+ */
 const formatHexColor = (hex: string): string => {
-    // Ensure the hex starts with #
     let formattedHex = hex.startsWith('#') ? hex : `#${hex}`;
 
-    // Expand shorthand hex (e.g., #RGB to #RRGGBB)
     if (formattedHex.length === 4) {
         const [r, g, b] = formattedHex.slice(1);
         formattedHex = `#${r}${r}${g}${g}${b}${b}`;
@@ -55,15 +59,19 @@ const formatHexColor = (hex: string): string => {
     return formattedHex;
 };
 
-// Component
-interface ColorPickerProps {
+type Props = {
     initialColor?: string;
     onChange: (color: string) => void;
-    // Using the label prop in the component implementation
     label?: string;
-}
+    /** Preset color dots (CirclePicker). On by default; turn off for hex-only flows. */
+    showDots?: boolean;
+};
 
-const ColorPicker: React.FC<ColorPickerProps> = ({ initialColor, onChange, label }) => {
+/**
+ * Hex color input with optional preset swatches. Incomplete values stay editable;
+ * empty clears via onChange('').
+ */
+export function ColorPicker({ initialColor, onChange, label, showDots = true }: Props): React.ReactElement {
     const { t } = useTranslation('alchemy');
     const theme = useTheme();
 
@@ -93,71 +101,99 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ initialColor, onChange, label
         theme.colors.colorPickerOlive,
     ];
 
-    // Reset state when initial color changes
+    // Reset state when initial color changes from outside (e.g. reset to default).
     useEffect(() => {
         setColor(defaultColor);
         setHexInput(defaultColor);
         setHexError('');
     }, [defaultColor, initialColor]);
 
-    // Validate and update color
-    const updateColor = useCallback(
-        (newColor: string) => {
-            const formattedColor = formatHexColor(newColor);
+    const commitColor = useCallback(
+        (raw: string): boolean => {
+            const formattedColor = formatHexColor(raw.trim());
 
-            if (HEX_REGEX.test(formattedColor)) {
-                setColor(formattedColor);
-                setHexInput(formattedColor);
-                setHexError('');
-                onChange(formattedColor);
-                return true;
+            if (!HEX_REGEX.test(formattedColor)) {
+                setHexError(t('colorPicker.invalidHex.error'));
+                return false;
             }
 
-            setHexError(t('colorPicker.invalidHex.error'));
-            return false;
+            setColor(formattedColor);
+            setHexInput(formattedColor);
+            setHexError('');
+            onChange(formattedColor);
+            return true;
         },
         [onChange, t],
     );
 
-    // Handle color picker change
     const handleColorChange = useCallback(
         (colorResult: ColorResult) => {
-            updateColor(colorResult.hex);
+            commitColor(colorResult.hex);
         },
-        [updateColor],
+        [commitColor],
     );
 
-    // Handle hex input change
+    /**
+     * While typing: keep the raw string, never expand shorthand.
+     * Only live-commit complete 6-digit hex so partial values (#f, #fff) stay editable.
+     * Empty notifies the parent so Save can clear the stored brand color.
+     */
     const handleHexInputChange = useCallback(
         (valueOrFn: React.SetStateAction<string>) => {
             const value = typeof valueOrFn === 'function' ? valueOrFn(hexInput) : valueOrFn;
-
             setHexInput(value);
-            updateColor(value);
+
+            const trimmed = value.trim();
+            if (trimmed === '') {
+                setHexError('');
+                onChange('');
+                return;
+            }
+
+            if (FULL_HEX_REGEX.test(trimmed)) {
+                const formatted = formatHexColor(trimmed);
+                setColor(formatted);
+                setHexError('');
+                onChange(formatted);
+                return;
+            }
+
+            // Incomplete or invalid while typing — show error only for bad characters / over-length.
+            const withoutHash = trimmed.startsWith('#') ? trimmed.slice(1) : trimmed;
+            const looksInvalid =
+                withoutHash.length > 6 || (withoutHash.length > 0 && !/^[A-Fa-f0-9]+$/.test(withoutHash));
+            setHexError(looksInvalid ? t('colorPicker.invalidHex.error') : '');
         },
-        [hexInput, updateColor],
+        [hexInput, onChange, t],
     );
 
-    // Handle hex input blur
     const handleHexBlur = useCallback(() => {
-        updateColor(hexInput || initialColor || defaultColor);
-    }, [defaultColor, hexInput, initialColor, updateColor]);
+        const trimmed = hexInput.trim();
+        if (trimmed === '') {
+            setHexError('');
+            onChange('');
+            return;
+        }
+        commitColor(trimmed);
+    }, [commitColor, hexInput, onChange]);
 
     return (
         <ColorPickerContainer>
-            {label && <Label>{label}</Label>}
-            <PickerWrapper>
-                <CirclePicker
-                    colors={DEFAULT_COLORS}
-                    color={color}
-                    onChange={handleColorChange}
-                    width="100%"
-                    circleSize={32}
-                    circleSpacing={8}
-                />
-            </PickerWrapper>
+            {label && <Label aria-label={label}>{label}</Label>}
+            {showDots && (
+                <PickerWrapper>
+                    <CirclePicker
+                        colors={DEFAULT_COLORS}
+                        color={color}
+                        onChange={handleColorChange}
+                        width="100%"
+                        circleSize={32}
+                        circleSpacing={8}
+                    />
+                </PickerWrapper>
+            )}
 
-            <ColorPreview style={{ backgroundColor: color }} />
+            <ColorPreview $hasDotsAbove={showDots} style={{ backgroundColor: color }} />
 
             <HexInputContainer>
                 <Input
@@ -172,7 +208,4 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ initialColor, onChange, label
             </HexInputContainer>
         </ColorPickerContainer>
     );
-};
-
-export { ColorPicker };
-export default ColorPicker;
+}

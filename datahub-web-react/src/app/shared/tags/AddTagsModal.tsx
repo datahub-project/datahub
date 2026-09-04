@@ -1,25 +1,16 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
 
-import { FORBIDDEN_URN_CHARS_REGEX } from '@app/entity/shared/utils';
 import { OperationType, isAddOperation, useBatchTagTermMutation } from '@app/shared/tags/useBatchTagTermMutation';
 import { useEntityPickerState } from '@app/shared/tags/useEntityPickerState';
 import TagPill from '@app/sharedV2/tags/TagPill';
+import TagSelect from '@app/sharedV2/tags/TagSelect';
 import CreateNewTagModal from '@app/tags/CreateNewTagModal/CreateNewTagModal';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Modal, SimpleSelect } from '@src/alchemy-components';
+import { Modal } from '@src/alchemy-components';
 import { SelectOption } from '@src/alchemy-components/components/Select/types';
 import { getModalDomContainer } from '@utils/focus';
 
-import { Entity, EntityType, ResourceRefInput, Tag } from '@types';
-
-// Sentinel value for the synthetic "Create <name>" option appended to the dropdown when the
-// typed query doesn't match any existing tag. Picking this option opens `CreateNewTagModal`
-// instead of toggling selection — the value never actually lands in `urns`.
-const CREATE_TAG_VALUE = '____reserved____.createTagValue';
-
-const isValidTagName = (name: string) => name.length > 0 && !FORBIDDEN_URN_CHARS_REGEX.test(name);
+import { Entity, EntityType, ResourceRefInput } from '@types';
 
 type Props = {
     open: boolean;
@@ -38,25 +29,6 @@ interface TagOption extends SelectOption {
     color?: string;
 }
 
-const OptionRow = styled.div`
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-`;
-
-const CreateOptionLabel = styled.span`
-    color: ${(props) => props.theme.colors.textBrand};
-    font-weight: 500;
-`;
-
-const toOption = (entity: Entity, displayName: string): TagOption => ({
-    value: entity.urn,
-    label: (entity as Tag).name || displayName,
-    entity,
-    color: (entity as Tag).properties?.colorHex || undefined,
-});
-
 export default function AddTagsModal({
     open,
     onCloseModal,
@@ -68,63 +40,23 @@ export default function AddTagsModal({
 }: Props) {
     const { t } = useTranslation('shared.tags');
     const { t: tc } = useTranslation('common.actions');
-    const entityRegistry = useEntityRegistry();
     const { runMutation, disableAction } = useBatchTagTermMutation();
     const [createTagName, setCreateTagName] = useState<string | null>(null);
 
-    const { urns, setUrns, removeUrn, entityCache, searchText, handleSearch, currentEntities, isLoading } =
-        useEntityPickerState({
-            entityType: EntityType.Tag,
-            defaultValues,
-        });
+    const { urns, setUrns, removeUrn } = useEntityPickerState({
+        entityType: EntityType.Tag,
+        defaultValues,
+    });
 
-    const excludeSet = useMemo(() => new Set(existingUrns || []), [existingUrns]);
-
-    const dropdownOptions = useMemo<TagOption[]>(() => {
-        const opts = currentEntities.map((e) => toOption(e, entityRegistry.getDisplayName(e.type, e)));
-        const filtered = excludeSet.size === 0 ? opts : opts.filter((o) => !excludeSet.has(o.value));
-
-        // Append a synthetic "Create <name>" option when the typed query doesn't match any existing
-        // tag — mirrors the legacy `AddTagsTermsModal` behavior. Only offered on ADD operations and
-        // when no items are already selected (the create flow assigns exactly one new tag).
-        const trimmed = searchText.trim();
-        const exactMatch = filtered.some(
-            (o) => typeof o.label === 'string' && o.label.toLowerCase() === trimmed.toLowerCase(),
-        );
-        const showCreate =
-            isAddOperation(operationType) &&
-            trimmed.length > 0 &&
-            isValidTagName(trimmed) &&
-            !exactMatch &&
-            urns.length === 0;
-        if (showCreate) {
-            filtered.push({ value: CREATE_TAG_VALUE, label: t('createOption', { inputValue: trimmed }) });
-        }
-        return filtered;
-    }, [currentEntities, entityRegistry, excludeSet, operationType, searchText, urns.length, t]);
-
-    const combinedOptions = useMemo<TagOption[]>(() => {
-        const inDropdown = new Set(dropdownOptions.map((o) => o.value));
-        const extras = urns
-            .filter((urn) => !inDropdown.has(urn))
-            .map<TagOption>((urn) => {
-                const entity = entityCache[urn];
-                if (entity) return toOption(entity, entityRegistry.getDisplayName(entity.type, entity));
-                return { value: urn, label: urn };
-            });
-        return [...dropdownOptions, ...extras];
-    }, [dropdownOptions, urns, entityCache, entityRegistry]);
+    // Pre-resolved entities for the default selection (e.g. editing an existing advanced
+    // search filter) — seeds TagSelect's cache so their chips render with proper labels.
+    const defaultEntities = useMemo(
+        () => defaultValues.map((value) => value.entity).filter((entity): entity is Entity => !!entity),
+        [defaultValues],
+    );
 
     const renderOption = useCallback(
-        (option: TagOption) => (
-            <OptionRow data-testid={`tag-term-option-${option.label}`}>
-                {option.value === CREATE_TAG_VALUE ? (
-                    <CreateOptionLabel>{option.label}</CreateOptionLabel>
-                ) : (
-                    <TagPill name={option.label} color={option.color} colorHash={option.value} />
-                )}
-            </OptionRow>
-        ),
+        (option: TagOption) => <TagPill name={option.label} color={option.color} colorHash={option.value} />,
         [],
     );
 
@@ -142,17 +74,15 @@ export default function AddTagsModal({
         [removeUrn],
     );
 
+    const handleCreateTag = useCallback((tagName: string) => {
+        setCreateTagName(tagName);
+    }, []);
+
     const handleUpdate = useCallback(
         (next: string[]) => {
-            // Intercept the synthetic "Create" sentinel: open CreateNewTagModal instead of letting
-            // it land in the selected URNs.
-            if (next.includes(CREATE_TAG_VALUE)) {
-                setCreateTagName(searchText.trim());
-                return;
-            }
             setUrns(next);
         },
-        [searchText, setUrns],
+        [setUrns],
     );
 
     const onOk = () => {
@@ -207,23 +137,19 @@ export default function AddTagsModal({
             ]}
             getContainer={getModalDomContainer}
         >
-            <SimpleSelect
-                isMultiSelect
-                showSearch
-                showClear={false}
-                onSearchChange={handleSearch}
-                values={urns}
+            <TagSelect
+                selectedUrns={urns}
                 onUpdate={handleUpdate}
-                options={dropdownOptions}
-                combinedSelectedAndSearchOptions={combinedOptions}
-                renderCustomOptionText={renderOption}
-                renderCustomSelectedValue={renderSelectedValue}
-                selectLabelProps={{ variant: 'custom' }}
-                filterResultsByQuery={false}
-                isLoading={isLoading}
+                renderOption={renderOption}
+                renderSelectedValue={renderSelectedValue}
+                showSearch
                 placeholder={t('tagSearchPlaceholder')}
                 width="full"
                 dataTestId="tag-term-modal-input"
+                allowCreateTag={isAddOperation(operationType)}
+                onCreateTag={handleCreateTag}
+                existingUrns={existingUrns}
+                defaultEntities={defaultEntities}
             />
         </Modal>
     );

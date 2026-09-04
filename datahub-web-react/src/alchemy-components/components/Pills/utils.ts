@@ -74,9 +74,12 @@ function getPillColorStyles(variant: PillVariantOptions, color: ColorOptions, th
 
     if (variant === 'version' && themeColors) {
         return {
-            bgColor: themeColors.bgSurface,
-            borderColor: themeColors.border,
-            primaryColor: themeColors.textSecondary,
+            bgColor:
+                color === 'violet'
+                    ? getColor('gray', 0, theme)
+                    : getColor('gray', color === 'white' ? 1500 : 100, theme),
+            borderColor: color === 'violet' ? getColor('gray', 0, theme) : getColor('gray', 100, theme),
+            primaryColor: color === 'violet' ? getColor(color, 500, theme) : getColor('gray', 1700, theme),
         };
     }
 
