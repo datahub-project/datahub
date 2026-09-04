@@ -178,10 +178,10 @@ describe('useFileUpload', () => {
 
         await waitFor(async () => {
             const url = await uploadPromise;
+            // Literal %20 so the assertion does not share encodeURIComponent with the hook under test.
             expect(url).toBe(
-                `${window.location.origin}/openapi/v1/files/product_assets/${encodeURIComponent(mockFileId)}`,
+                `${window.location.origin}/openapi/v1/files/product_assets/a1b2c3d4-e5f6-7890-abcd-ef1234567890__Adstra%20Data%20Specs.pdf`,
             );
-            expect(url).toContain('Adstra%20Data%20Specs.pdf');
         });
     });
 

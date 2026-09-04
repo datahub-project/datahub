@@ -61,9 +61,7 @@ export default function useFileUpload({ scenario, assetUrn, schemaField }: Props
 
         // Absolute URL so LinkUtils scheme validation accepts the link; encode fileId so
         // spaces/reserved chars in the original filename do not break URI.create.
-        const path = resolveRuntimePath(
-            `/openapi/v1/files/${PRODUCT_ASSETS_FOLDER}/${encodeURIComponent(fileId)}`,
-        );
+        const path = resolveRuntimePath(`/openapi/v1/files/${PRODUCT_ASSETS_FOLDER}/${encodeURIComponent(fileId)}`);
         return `${window.location.origin}${path}`;
     };
 
