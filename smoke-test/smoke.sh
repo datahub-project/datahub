@@ -43,6 +43,24 @@ if [[ "${PYTEST_XDIST_WORKERS:-0}" =~ ^[1-9][0-9]*$ ]]; then
   xdist_args=(-n "${PYTEST_XDIST_WORKERS}" --dist=loadscope)
 fi
 
+# SMOKE_TIER: which criticality tier to run. "p0" runs only tests carrying the
+# p0 marker -- the pull-request gate; "full" or unset runs the whole suite. CI
+# sets it from the PYTEST_P0_SMOKE repository variable. Applied inside
+# run_pytest_policy_phases only: the other strategies below are already narrow,
+# explicit test selections that a tier filter would just gut.
+tier_args=()
+case "${SMOKE_TIER:-full}" in
+  full) ;;
+  p0)
+    echo "SMOKE_TIER=p0: running only p0-marked tests"
+    tier_args=(--tier p0)
+    ;;
+  *)
+    echo "ERROR: unknown SMOKE_TIER='${SMOKE_TIER}' (expected 'p0' or 'full')" >&2
+    exit 1
+    ;;
+esac
+
 # pytest exit 5 = no tests collected (empty phase for this batch is OK).
 _pytest_ok() {
   local rc=$1
@@ -66,6 +84,7 @@ run_pytest_policy_phases() {
   SMOKE_POLICY_PHASE=1 pytest -rP --durations=20 -vv --continue-on-collection-errors \
     ${xdist_args[@]+"${xdist_args[@]}"} \
     --junit-xml="${junit_prefix}-phase1.xml" \
+    ${tier_args[@]+"${tier_args[@]}"} \
     ${extra_args[@]+"${extra_args[@]}"}
   rc1=$?
   set -e
@@ -81,11 +100,22 @@ run_pytest_policy_phases() {
   SMOKE_POLICY_PHASE=2 pytest -rP --durations=20 -vv --continue-on-collection-errors \
     --reruns 1 --reruns-delay 1 \
     --junit-xml="${junit_prefix}-phase2.xml" \
+    ${tier_args[@]+"${tier_args[@]}"} \
     ${extra_args[@]+"${extra_args[@]}"}
   rc2=$?
   set -e
   if ! _pytest_ok "$rc2"; then
     echo "Phase 2 failed with exit code $rc2"
+  fi
+
+  # rc 5 from ONE phase is normal -- most batches hold no policy mutators
+  # (empty phase 2), and a batch of only serial modules has an empty phase 1.
+  # rc 5 from BOTH means the batch collected nothing at all, which _pytest_ok
+  # would otherwise report as success: a green job that tested nothing.
+  if [[ "$rc1" -eq 5 && "$rc2" -eq 5 ]]; then
+    echo "ERROR: both pytest phases collected 0 tests for this batch." \
+         "Refusing to report an empty run as success." >&2
+    return 1
   fi
 
   _pytest_ok "$rc1" || return "$rc1"
