@@ -6,8 +6,9 @@ import lombok.Data;
 public class UsageEventsConfiguration {
 
   /**
-   * {@code elasticsearch} (search index) or {@code postgres} (pgAnalytics). When {@code postgres},
-   * requires {@code postgres.pgAnalytics.enabled=true} and SqlSetup.
+   * {@code elasticsearch} (search index) or {@code postgres} (pgAnalytics). Must be {@code
+   * postgres} when {@code postgres.pgAnalytics.enabled=true}; dual-write is not supported. {@code
+   * postgres} also requires SqlSetup.
    */
   private String implementation;
 

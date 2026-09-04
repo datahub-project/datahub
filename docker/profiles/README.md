@@ -62,7 +62,8 @@ This configuration is identical to `quickstart` how it runs standalone consumers
 
 Like `quickstart` with Postgres instead of MySQL. Uses pgQueue instead of Kafka for messaging
 (`DATAHUB_MESSAGING_TRANSPORT=pgqueue`). Timeseries aspects use exclusive pgTimeseries
-(`TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION=postgres`). OpenSearch is still used
+(`TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION=postgres`). Product usage events use exclusive
+pgAnalytics (`DATAHUB_USAGE_EVENTS_IMPLEMENTATION=postgres`). OpenSearch is still used
 for search/graph.
 
 ### `quickstart-cassandra`

@@ -503,10 +503,9 @@ public class DailyReport {
         new DefaultAnalyticsService(_elasticClient, indexConvention);
     if (_configurationProvider.getPlatformAnalytics().getUsageEvents().usePostgresql()) {
       if (_pgAnalyticsStoreRegistry == null) {
-        log.warn(
-            "Postgres usage SoT configured but PgAnalyticsStoreRegistry missing; "
-                + "falling back to Elasticsearch analytics for daily report");
-        return defaultAnalytics;
+        throw new IllegalStateException(
+            "platformAnalytics.usage-events.implementation=postgres requires"
+                + " postgres.pgAnalytics.enabled=true (PgAnalyticsStoreRegistry missing)");
       }
       PostgresAnalyticsQueries queries =
           new PostgresAnalyticsQueries(

@@ -50,7 +50,7 @@ class DataHubAnalyticsCompactionReport(SourceReport):
 
 @platform_name("DataHubAnalyticsCompaction", id="datahub-analytics-compaction")
 @config_class(DataHubAnalyticsCompactionConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 class DataHubAnalyticsCompactionSource(Source):
     """Thin SYSTEM source that triggers GMS analytics compaction once per run."""
 

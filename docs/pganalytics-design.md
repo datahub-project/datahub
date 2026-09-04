@@ -18,13 +18,18 @@ Durable aggregation lives in Postgres only. This feature does **not** add a new 
 
 ## Modes
 
-| Mode                       | Config                                                         | Behavior                                                                |
-| -------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **Disabled (default)**     | `DATAHUB_PGANALYTICS_ENABLED=false`                            | No analytics DDL/pool                                                   |
-| **Schema + dual path**     | `enabled=true`, usage-events still `elasticsearch`             | SqlSetup creates tables; product charts stay on search until SoT switch |
-| **Postgres SoT (product)** | `enabled=true`, `DATAHUB_USAGE_EVENTS_IMPLEMENTATION=postgres` | MAE indexes into `*_event`; GraphQL product charts use JDBC             |
-| **api_usage flush**        | `DATAHUB_PGANALYTICS_API_USAGE_FLUSH_ENABLED=true`             | `UsageFlushSink` merges into UTC-hour rollups + distinct sidecars       |
-| **Entity counts**          | `DATAHUB_PGANALYTICS_ENTITY_COUNT_SINK_ENABLED=true`           | `EntityCountMetricsSink` writes `latest` hourly gauges                  |
+| Mode                       | Config                                                         | Behavior                                                          |
+| -------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **Disabled (default)**     | `DATAHUB_PGANALYTICS_ENABLED=false`                            | No analytics DDL/pool; product usage events stay on search        |
+| **Postgres SoT (product)** | `enabled=true`, `DATAHUB_USAGE_EVENTS_IMPLEMENTATION=postgres` | MAE indexes into `*_event`; GraphQL product charts use JDBC       |
+| **api_usage flush**        | `DATAHUB_PGANALYTICS_API_USAGE_FLUSH_ENABLED=true`             | `UsageFlushSink` merges into UTC-hour rollups + distinct sidecars |
+| **Entity counts**          | `DATAHUB_PGANALYTICS_ENTITY_COUNT_SINK_ENABLED=true`           | `EntityCountMetricsSink` writes `latest` hourly gauges            |
+
+Set **both** `DATAHUB_PGANALYTICS_ENABLED=true` and
+`DATAHUB_USAGE_EVENTS_IMPLEMENTATION=postgres`. GMS, MAE, and MCE fail fast if only one is set.
+Dual-write of product usage events to Elasticsearch and PostgreSQL is not supported. SqlSetup can
+still create tables from `enabled` alone. The api_usage flush and entity-count sinks require this
+exclusive Postgres SoT (they are additional writers, not a mixed search/Postgres usage path).
 
 ## Storage model
 
@@ -133,13 +138,13 @@ Registry metrics for `system_usage` / `datahub_usage` live alongside `api_usage`
 ## Docker Compose
 
 Postgres quickstart/debug profiles enable **exclusive** pgAnalytics product SoT by default
-(`DATAHUB_PGANALYTICS_ENABLED=true`, `DATAHUB_USAGE_EVENTS_IMPLEMENTATION=postgres`). Override
-`DATAHUB_USAGE_EVENTS_IMPLEMENTATION=elasticsearch` to keep the search index as SoT.
+(`DATAHUB_PGANALYTICS_ENABLED=true`, `DATAHUB_USAGE_EVENTS_IMPLEMENTATION=postgres`).
 
 Upgrading an existing Postgres quickstart to this default switches both writes and chart reads to
-pgAnalytics without backfilling historical rows from Elasticsearch. Retain the Elasticsearch
-override if you need prior product-usage history to keep appearing in charts until you accept a
-fresh Postgres timeline (or run a one-off backfill into `*_event`).
+pgAnalytics without backfilling historical rows from Elasticsearch. Keep search as SoT by setting
+**both** `DATAHUB_PGANALYTICS_ENABLED=false` and
+`DATAHUB_USAGE_EVENTS_IMPLEMENTATION=elasticsearch` until you accept a fresh Postgres timeline (or
+run a one-off backfill into `*_event`).
 They also default `DATAHUB_PGANALYTICS_API_USAGE_FLUSH_ENABLED=true` and
 `DATAHUB_PGANALYTICS_ENTITY_COUNT_SINK_ENABLED=true` so api_usage (including active-identity
 distincts) and system entity-count gauges land in Postgres.

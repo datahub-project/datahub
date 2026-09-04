@@ -775,7 +775,7 @@
       "classname": "datahub.ingestion.source.analytics_compaction.analytics_compaction_source.DataHubAnalyticsCompactionSource",
       "platform_id": "datahub-analytics-compaction",
       "platform_name": "DataHubAnalyticsCompaction",
-      "support_status": "INCUBATING"
+      "support_status": "BETA"
     },
     "datahub-apply": {
       "capabilities": [],
