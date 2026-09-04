@@ -1234,6 +1234,21 @@ jobs:
           echo "ERROR: Ollama model '${MODEL}' did not become ready within 600s."
           exit 1
 
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
+
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+
+      # smoke-test/requirements.txt installs ../metadata-ingestion as an editable
+      # package, so `datahub.metadata` resolves to src/datahub/metadata -- which only
+      # exists once codegen has run. :smoke-test:installDev does not depend on it.
+      # The standalone AI workflow got it as a side effect of building the images
+      # locally; this job pulls prebuilt images instead, so run codegen explicitly.
+      - name: Build datahub cli
+        run: ./gradlew :metadata-ingestion:install
+
       - name: Install smoke test dependencies
         run: ./gradlew :smoke-test:installDev
 
