@@ -12,17 +12,17 @@ public class ConfigResolutionTest {
   public void resolveReturnsTheStaticallyBoundValue() {
     assertTrue(
         ConfigResolution.resolve(
-            OperationFingerprint.EMPTY, ConfigKeyConstants.VIEWS_ENABLED, true));
+            OperationFingerprint.EMPTY, ConfigKeyConstants.Views.ENABLED, true));
     assertEquals(
         ConfigResolution.resolve(
-            OperationFingerprint.EMPTY, ConfigKeyConstants.SEARCH_BAR_API_VARIANT, "DEFAULT"),
+            OperationFingerprint.EMPTY, ConfigKeyConstants.SearchBar.API_VARIANT, "DEFAULT"),
         "DEFAULT");
   }
 
   /** Validates the generated constants carry the exact authored yaml spelling. */
   @Test
   public void generatedConstantsCarryExactYamlKeySpelling() {
-    assertEquals(ConfigKeyConstants.VIEWS_ENABLED, "views.enabled");
-    assertEquals(ConfigKeyConstants.SEARCH_BAR_API_VARIANT, "searchBar.apiVariant");
+    assertEquals(ConfigKeyConstants.Views.ENABLED, "views.enabled");
+    assertEquals(ConfigKeyConstants.SearchBar.API_VARIANT, "searchBar.apiVariant");
   }
 }
