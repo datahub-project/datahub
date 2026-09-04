@@ -1,6 +1,173 @@
 // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
 // this will fix errors like `Error: File not accounted for in sidebar: ...`
 // smoke-test/tests/library_examples/README.md
+
+const fs = require("fs");
+const path = require("path");
+
+// ---------------------------------------------------------------------------
+// Ingestion source grouping
+//
+// The connector pages under docs/generated/ingestion/sources/ are produced by
+// docgen. Rather than hand-listing ~110 of them here (which goes stale every
+// time a connector is added), the groups below are derived at build time from
+// the `platform_type` field in the connector catalog -- the same field that
+// drives the filters on the /integrations page, so the two stay consistent.
+//
+// Files are never moved: grouping lives only in the sidebar, so a connector can
+// be recategorised without changing its URL.
+// ---------------------------------------------------------------------------
+
+const SOURCES_ID_PREFIX = "docs/generated/ingestion/sources";
+const SOURCES_DIR = path.join(__dirname, "..", SOURCES_ID_PREFIX);
+const CONNECTOR_CATALOG = require("../metadata-ingestion/docs/sources/integrations_catalog.json");
+
+// Render order. "Other" catches anything without a usable platform_type so a
+// new connector is always reachable, never silently dropped from the nav.
+const SOURCE_GROUP_ORDER = [
+  "Databases & Warehouses",
+  "Data Lakes & Query Engines",
+  "BI & Visualization",
+  "ETL, Transformation & Orchestration",
+  "Streaming & Messaging",
+  "AI & ML",
+  "Files, Schemas & Formats",
+  "Catalogs, Governance & Quality",
+  "Identity & Access",
+  "Business & Collaboration Apps",
+  "DataHub Utilities",
+  "Other",
+];
+
+const PLATFORM_TYPE_TO_GROUP = {
+  Database: "Databases & Warehouses",
+  "Data Lake": "Data Lakes & Query Engines",
+  "BI Tool": "BI & Visualization",
+  "ETL/ELT": "ETL, Transformation & Orchestration",
+  Orchestrator: "ETL, Transformation & Orchestration",
+  Messaging: "Streaming & Messaging",
+  "AI+ML": "AI & ML",
+  "Metadata Systems": "Files, Schemas & Formats",
+  "Data Catalog": "Catalogs, Governance & Quality",
+  "Data Quality": "Catalogs, Governance & Quality",
+  "Identity Provider": "Identity & Access",
+  Collaboration: "Business & Collaboration Apps",
+  CRM: "Business & Collaboration Apps",
+  Internal: "DataHub Utilities",
+};
+
+// platform_type is a single free-text field and is too coarse in two places:
+// object stores and query engines are all tagged "Database", and a few
+// governance tools are tagged "Metadata Systems". Redraw those here.
+const SOURCE_GROUP_OVERRIDES = {
+  abs: "Data Lakes & Query Engines",
+  athena: "Data Lakes & Query Engines",
+  "delta-lake": "Data Lakes & Query Engines",
+  dremio: "Data Lakes & Query Engines",
+  "fabric-onelake": "Data Lakes & Query Engines",
+  gcs: "Data Lakes & Query Engines",
+  hive: "Data Lakes & Query Engines",
+  "hive-metastore": "Data Lakes & Query Engines",
+  iceberg: "Data Lakes & Query Engines",
+  presto: "Data Lakes & Query Engines",
+  s3: "Data Lakes & Query Engines",
+  trino: "Data Lakes & Query Engines",
+  bigid: "Catalogs, Governance & Quality",
+  dataplex: "Catalogs, Governance & Quality",
+  glue: "Catalogs, Governance & Quality",
+  odcs: "Catalogs, Governance & Quality",
+};
+
+// Integrations documented outside the generated tree (push-based connectors and
+// schema tooling). Listed explicitly because docgen does not produce them.
+const EXTRA_SOURCE_ENTRIES = {
+  "ETL, Transformation & Orchestration": [
+    { type: "doc", id: "docs/lineage/airflow", label: "Airflow" },
+    { type: "doc", id: "docs/lineage/dagster", label: "Dagster" },
+    { type: "doc", id: "docs/lineage/prefect", label: "Prefect" },
+    {
+      type: "doc",
+      id: "metadata-integration/java/acryl-spark-lineage/README",
+      label: "Spark",
+    },
+  ],
+  "Streaming & Messaging": [
+    // Discoverability alias: "Amazon Data Firehose" is ingested by the same
+    // `kinesis` connector, but users searching for "Firehose" expect their own
+    // entry. `ref` lets docusaurus point at the same doc twice.
+    {
+      type: "ref",
+      id: "docs/generated/ingestion/sources/kinesis",
+      label: "Amazon Data Firehose",
+    },
+  ],
+  "Files, Schemas & Formats": [
+    {
+      type: "doc",
+      id: "metadata-integration/java/datahub-protobuf/README",
+      label: "Protobuf Schemas",
+    },
+  ],
+  "Catalogs, Governance & Quality": [
+    {
+      type: "doc",
+      id: "metadata-ingestion/integration_docs/great-expectations",
+      label: "Great Expectations",
+    },
+  ],
+};
+
+function groupForConnector(platformId) {
+  if (SOURCE_GROUP_OVERRIDES[platformId]) {
+    return SOURCE_GROUP_OVERRIDES[platformId];
+  }
+  const entry = CONNECTOR_CATALOG[platformId];
+  let rawType = entry && entry.platform_type;
+  if (Array.isArray(rawType)) {
+    rawType = rawType[0];
+  }
+  return PLATFORM_TYPE_TO_GROUP[rawType] || "Other";
+}
+
+function buildSourceGroups() {
+  // If docgen has not run yet there is nothing to group; fall back to letting
+  // docusaurus enumerate the directory so the build still works.
+  if (!fs.existsSync(SOURCES_DIR)) {
+    return [{ type: "autogenerated", dirName: SOURCES_ID_PREFIX }];
+  }
+
+  const grouped = {};
+  for (const file of fs.readdirSync(SOURCES_DIR)) {
+    if (!file.endsWith(".md")) continue;
+    const platformId = file.slice(0, -3);
+    const group = groupForConnector(platformId);
+    (grouped[group] = grouped[group] || []).push(
+      `${SOURCES_ID_PREFIX}/${platformId}`
+    );
+  }
+  for (const [group, entries] of Object.entries(EXTRA_SOURCE_ENTRIES)) {
+    (grouped[group] = grouped[group] || []).push(...entries);
+  }
+
+  const known = new Set(SOURCE_GROUP_ORDER);
+  const order = [
+    ...SOURCE_GROUP_ORDER,
+    ...Object.keys(grouped).filter((g) => !known.has(g)),
+  ];
+
+  return order
+    .filter((group) => grouped[group] && grouped[group].length)
+    .map((group) => ({
+      type: "category",
+      label: group,
+      collapsed: true,
+      items: grouped[group].sort((a, b) => {
+        const key = (x) => (typeof x === "string" ? x : x.label || x.id);
+        return key(a).localeCompare(key(b));
+      }),
+    }));
+}
+
 module.exports = {
   overviewSidebar: [
     // Getting Started.
@@ -8,6 +175,11 @@ module.exports = {
       type: "html",
       value: "<div>Getting Started</div>",
       defaultStyle: true,
+    },
+    {
+      type: "doc",
+      label: "Quickstart",
+      id: "docs/quickstart",
     },
     {
       label: "What Is DataHub?",
@@ -19,8 +191,8 @@ module.exports = {
         // target end-users, high-level architecture, & hosting options
         {
           type: "doc",
-          label: "Quickstart",
-          id: "docs/quickstart",
+          label: "Core Concepts",
+          id: "docs/what-is-datahub/datahub-concepts",
         },
         {
           type: "link",
@@ -35,15 +207,253 @@ module.exports = {
       ],
     },
     {
+      type: "doc",
+      label: "Use Docs with AI Tools",
+      id: "docs/use-docs-with-ai",
+    },
+    // Capabilities.
+    {
+      type: "html",
+      value: "<div>Capabilities</div>",
+      defaultStyle: true,
+    },
+    {
+      label: "Discovery & Search",
       type: "category",
-      label: "Features",
+      collapsed: true,
       link: {
         type: "generated-index",
-        title: "Feature Guides",
-        description: "Learn about the features of DataHub.",
+        title: "Discovery & Search",
+        description:
+          "Find the data you need and understand where it came from — search, browse, lineage, and usage history.",
       },
       items: [
-        // "docs/how/ui-tabs-guide",
+        {
+          label: "Search",
+          type: "doc",
+          id: "docs/how/search",
+        },
+        {
+          label: "Search Access Controls",
+          type: "doc",
+          id: "docs/features/feature-guides/search-access-controls",
+          className: "saasOnly",
+        },
+        {
+          label: "Views",
+          type: "doc",
+          id: "docs/features/feature-guides/views/overview",
+        },
+        {
+          label: "Lineage",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/lineage",
+          },
+          items: [
+            {
+              label: "Automatic Lineage Extraction",
+              type: "doc",
+              id: "docs/generated/lineage/automatic-lineage-extraction",
+            },
+            {
+              label: "Managing Lineage via UI",
+              type: "doc",
+              id: "docs/features/feature-guides/ui-lineage",
+            },
+            {
+              label: "Lineage Impact Analysis",
+              type: "doc",
+              id: "docs/act-on-metadata/impact-analysis",
+            },
+            {
+              type: "doc",
+              id: "docs/lineage/openlineage",
+              label: "OpenLineage",
+            },
+          ],
+        },
+        {
+          label: "Dataset Usage & Query History",
+          type: "doc",
+          id: "docs/features/dataset-usage-and-query-history",
+        },
+        {
+          label: "Schema History",
+          type: "doc",
+          id: "docs/schema-history",
+        },
+        {
+          label: "Sync Status",
+          type: "doc",
+          id: "docs/sync-status",
+        },
+      ],
+    },
+    {
+      label: "Governance & Organization",
+      type: "category",
+      collapsed: true,
+      link: {
+        type: "generated-index",
+        title: "Governance & Organization",
+        description:
+          "Structure your metadata and control who can do what — domains, glossary, ownership, policies, and compliance.",
+      },
+      items: [
+        {
+          label: "Domains",
+          type: "doc",
+          id: "docs/domains",
+        },
+        {
+          label: "Data Products",
+          type: "doc",
+          id: "docs/dataproducts",
+        },
+        {
+          label: "Applications",
+          type: "doc",
+          id: "docs/features/feature-guides/applications",
+        },
+        {
+          label: "Business Glossary",
+          type: "doc",
+          id: "docs/glossary/business-glossary",
+        },
+        {
+          label: "Business Attributes",
+          type: "doc",
+          id: "docs/businessattributes",
+        },
+        {
+          label: "Tags",
+          type: "doc",
+          id: "docs/tags",
+        },
+        {
+          label: "Properties",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/features/feature-guides/properties/overview",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/properties/create-a-property",
+            },
+          ],
+        },
+        {
+          label: "Ownership",
+          type: "doc",
+          id: "docs/ownership/ownership-types",
+        },
+        {
+          label: "Policies",
+          type: "doc",
+          id: "docs/authorization/access-policies-guide",
+        },
+        {
+          label: "Data Access Roles",
+          type: "doc",
+          id: "docs/features/feature-guides/access-roles",
+        },
+        {
+          label: "Service Accounts",
+          type: "doc",
+          id: "docs/features/feature-guides/service-accounts",
+        },
+        {
+          label: "Compliance Forms",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/overview",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/create-a-form",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/complete-a-form",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/analytics",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
+          label: "Metadata Tests",
+          type: "doc",
+          id: "docs/tests/metadata-tests",
+          className: "saasOnly",
+        },
+        {
+          // Incidents are available in DataHub Core as a manual signal on an
+          // asset. DataHub Cloud additionally raises them automatically from
+          // failing assertions -- that behaviour is documented under
+          // DataHub Cloud > Data Quality & Observability. Kept here, unmarked,
+          // so self-hosted users can find a feature they already have.
+          label: "Incidents",
+          type: "doc",
+          id: "docs/incidents/incidents",
+        },
+        {
+          label: "Logical Models",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/logical-models/overview",
+          },
+          items: [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/features/feature-guides/logical-models/overview",
+            },
+            {
+              label: "Centralized Management",
+              type: "doc",
+              id: "docs/features/feature-guides/logical-models/centralized-management",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
+          label: "Metrics & Semantic Models",
+          type: "doc",
+          id: "docs/features/feature-guides/metrics-and-semantic-models",
+        },
+        {
+          label: "Service Catalog",
+          type: "doc",
+          id: "docs/features/feature-guides/service-catalog",
+          className: "saasOnly",
+        },
+      ],
+    },
+    {
+      label: "AI & Agents",
+      type: "category",
+      collapsed: true,
+      link: {
+        type: "generated-index",
+        title: "AI & Agents",
+        description:
+          "Put your metadata to work with AI — conversational discovery, agents, and the context layer that grounds them.",
+      },
+      items: [
         {
           label: "Ask DataHub",
           type: "category",
@@ -92,6 +502,39 @@ module.exports = {
                   id: "docs/features/feature-guides/ask-datahub-plugins/glean",
                 },
               ],
+            },
+          ],
+        },
+        {
+          label: "Agents",
+          type: "doc",
+          id: "docs/features/feature-guides/agents",
+          className: "saasOnly",
+        },
+        {
+          label: "Analytics Agent",
+          type: "doc",
+          id: "docs/features/feature-guides/analytics-agent",
+        },
+        {
+          label: "Agent Registry",
+          type: "doc",
+          id: "docs/features/feature-guides/agent-registry",
+          className: "saasOnly",
+        },
+        {
+          label: "MCP Server",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/mcp",
+          },
+          items: [
+            {
+              label: "Scoped MCP Servers",
+              type: "doc",
+              id: "docs/features/feature-guides/scoped-mcp-servers",
+              className: "saasOnly",
             },
           ],
         },
@@ -189,32 +632,205 @@ module.exports = {
             },
           ],
         },
+      ],
+    },
+    {
+      label: "Automation & Workflows",
+      type: "category",
+      collapsed: true,
+      link: {
+        type: "generated-index",
+        title: "Automation & Workflows",
+        description:
+          "Keep metadata current without manual effort — propagation, source-system sync, and approval workflows.",
+      },
+      items: [
         {
-          label: "Agents",
-          type: "doc",
-          id: "docs/features/feature-guides/agents",
-          className: "saasOnly",
-        },
-        {
-          label: "Analytics Agent",
-          type: "doc",
-          id: "docs/features/feature-guides/analytics-agent",
-        },
-        {
-          label: "Agent Registry",
-          type: "doc",
-          id: "docs/features/feature-guides/agent-registry",
-          className: "saasOnly",
-        },
-        {
-          label: "Assertions (Data Quality)",
+          label: "Automations",
           type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "Documentation Propagation",
+              type: "doc",
+              id: "docs/automations/docs-propagation",
+            },
+            {
+              label: "Glossary Term Propagation",
+              type: "doc",
+              id: "docs/automations/glossary-term-propagation",
+            },
+            {
+              label: "BigQuery Metadata Sync",
+              type: "doc",
+              id: "docs/automations/bigquery-metadata-sync",
+              className: "saasOnly",
+            },
+            {
+              label: "Knowledge Catalog Metadata Sync",
+              type: "doc",
+              id: "docs/automations/knowledge-catalog-metadata-sync",
+              className: "saasOnly",
+            },
+            {
+              label: "Databricks Metadata Sync",
+              type: "doc",
+              id: "docs/automations/databricks-metadata-sync",
+              className: "saasOnly",
+            },
+            {
+              label: "Snowflake Metadata Sync",
+              type: "doc",
+              id: "docs/automations/snowflake-metadata-sync",
+              className: "saasOnly",
+            },
+            {
+              label: "AI Documentation",
+              type: "doc",
+              id: "docs/automations/ai-docs",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
+          label: "Workflows",
+          type: "category",
+          className: "saasOnly",
+          collapsed: true,
+          items: [
+            {
+              label: "Data Access Workflows",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/access-workflows",
+              className: "saasOnly",
+            },
+            {
+              label: "Action Workflows",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows",
+              className: "saasOnly",
+            },
+            {
+              label: "Workflow Tutorial",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows-tutorial",
+              className: "saasOnly",
+            },
+            {
+              label: "Workflow Reference",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows-reference",
+              className: "saasOnly",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      label: "Collaboration & Workspace",
+      type: "category",
+      collapsed: true,
+      link: {
+        type: "generated-index",
+        title: "Collaboration & Workspace",
+        description:
+          "Share knowledge and tailor DataHub to how your team works — home page, documents, and announcements.",
+      },
+      items: [
+        {
+          label: "Home Page",
+          type: "doc",
+          id: "docs/features/feature-guides/custom-home-page",
+        },
+        {
+          label: "Asset Summaries",
+          type: "doc",
+          id: "docs/features/feature-guides/custom-asset-summaries",
+        },
+        {
+          label: "Posts",
+          type: "doc",
+          id: "docs/posts",
+        },
+        {
+          label: "Context Documents",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/context/context-documents",
+          },
+          items: [
+            {
+              label: "Import from Notion",
+              type: "doc",
+              id: "docs/features/feature-guides/context/import-notion",
+              className: "saasOnly",
+            },
+            {
+              label: "Import from Confluence",
+              type: "doc",
+              id: "docs/features/feature-guides/context/import-confluence",
+              className: "saasOnly",
+            },
+            {
+              label: "Import from GitHub",
+              type: "doc",
+              id: "docs/features/feature-guides/context/import-github",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
+          label: "File Upload & Download",
+          type: "doc",
+          id: "docs/features/feature-guides/file-upload-download",
+        },
+        {
+          label: "Multi-Language Support",
+          type: "doc",
+          id: "docs/features/feature-guides/multi-language-support",
+        },
+      ],
+    },
+    // DataHub Cloud.
+    {
+      type: "html",
+      value: "<div>DataHub Cloud</div>",
+      defaultStyle: true,
+    },
+    {
+      label: "DataHub Cloud Overview",
+      type: "doc",
+      id: "docs/managed-datahub/managed-datahub-overview",
+    },
+    {
+      label: "Getting Started with DataHub Cloud",
+      type: "doc",
+      id: "docs/managed-datahub/welcome-acryl",
+    },
+    {
+      label: "Data Quality & Observability",
+      type: "category",
+      collapsed: true,
+      customProps: {
+        icon: "🔍",
+      },
+      link: {
+        type: "doc",
+        id: "docs/managed-datahub/observe/overview",
+      },
+      items: [
+        {
+          label: "Assertions",
+          type: "category",
+          className: "saasOnly",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
           items: [
             {
               label: "Overview",
               type: "doc",
               id: "docs/managed-datahub/observe/assertions",
+              className: "saasOnly",
             },
             {
               label: "Column Assertions",
@@ -285,348 +901,16 @@ module.exports = {
           ],
         },
         {
-          label: "Workflows",
-          type: "category",
-          collapsed: true,
-          items: [
-            {
-              label: "Data Access Workflows",
-              type: "doc",
-              id: "docs/managed-datahub/workflows/access-workflows",
-            },
-            {
-              label: "Action Workflows",
-              type: "doc",
-              id: "docs/managed-datahub/workflows/action-workflows",
-            },
-            {
-              label: "Workflow Tutorial",
-              type: "doc",
-              id: "docs/managed-datahub/workflows/action-workflows-tutorial",
-            },
-            {
-              label: "Workflow Reference",
-              type: "doc",
-              id: "docs/managed-datahub/workflows/action-workflows-reference",
-            },
-          ],
-        },
-        {
-          label: "Data Access Roles",
-          type: "doc",
-          id: "docs/features/feature-guides/access-roles",
-        },
-        {
-          label: "Applications",
-          type: "doc",
-          id: "docs/features/feature-guides/applications",
-        },
-        {
-          label: "Service Catalog",
-          type: "doc",
-          id: "docs/features/feature-guides/service-catalog",
-          className: "saasOnly",
-        },
-        {
-          label: "Automations",
-          type: "category",
-          collapsed: true,
-          items: [
-            {
-              label: "Documentation Propagation",
-              type: "doc",
-              id: "docs/automations/docs-propagation",
-            },
-            {
-              label: "Glossary Term Propagation",
-              type: "doc",
-              id: "docs/automations/glossary-term-propagation",
-            },
-            {
-              label: "BigQuery Metadata Sync",
-              type: "doc",
-              id: "docs/automations/bigquery-metadata-sync",
-              className: "saasOnly",
-            },
-            {
-              label: "Knowledge Catalog Metadata Sync",
-              type: "doc",
-              id: "docs/automations/knowledge-catalog-metadata-sync",
-              className: "saasOnly",
-            },
-            {
-              label: "Databricks Metadata Sync",
-              type: "doc",
-              id: "docs/automations/databricks-metadata-sync",
-              className: "saasOnly",
-            },
-            {
-              label: "Snowflake Metadata Sync",
-              type: "doc",
-              id: "docs/automations/snowflake-metadata-sync",
-              className: "saasOnly",
-            },
-            {
-              label: "AI Documentation",
-              type: "doc",
-              id: "docs/automations/ai-docs",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
-          label: "Business Attributes",
-          type: "doc",
-          id: "docs/businessattributes",
-        },
-        {
-          label: "Business Glossary",
-          type: "doc",
-          id: "docs/glossary/business-glossary",
-        },
-        {
-          label: "Compliance Forms",
-          type: "category",
-          collapsed: true,
-          items: [
-            {
-              label: "Overview",
-              type: "doc",
-              id: "docs/features/feature-guides/compliance-forms/overview",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/compliance-forms/create-a-form",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/compliance-forms/complete-a-form",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/compliance-forms/analytics",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
-          label: "Context Documents",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "docs/features/feature-guides/context/context-documents",
-          },
-          items: [
-            {
-              label: "Import from Notion",
-              type: "doc",
-              id: "docs/features/feature-guides/context/import-notion",
-              className: "saasOnly",
-            },
-            {
-              label: "Import from Confluence",
-              type: "doc",
-              id: "docs/features/feature-guides/context/import-confluence",
-              className: "saasOnly",
-            },
-            {
-              label: "Import from GitHub",
-              type: "doc",
-              id: "docs/features/feature-guides/context/import-github",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
-          label: "Asset Summaries",
-          type: "doc",
-          id: "docs/features/feature-guides/custom-asset-summaries",
-        },
-        {
-          label: "Home Page",
-          type: "doc",
-          id: "docs/features/feature-guides/custom-home-page",
-        },
-        {
           label: "Data Contract",
           type: "doc",
           id: "docs/managed-datahub/observe/data-contract",
+          className: "saasOnly",
         },
         {
           label: "Data Health Dashboard",
           type: "doc",
           id: "docs/managed-datahub/observe/data-health-dashboard",
           className: "saasOnly",
-        },
-        {
-          label: "Data Products",
-          type: "doc",
-          id: "docs/dataproducts",
-        },
-        {
-          label: "Dataset Usage and Query History",
-          type: "doc",
-          id: "docs/features/dataset-usage-and-query-history",
-        },
-        {
-          label: "Domains",
-          type: "doc",
-          id: "docs/domains",
-        },
-        {
-          label: "File Upload and Download in Documentation",
-          type: "doc",
-          id: "docs/features/feature-guides/file-upload-download",
-        },
-        {
-          label: "Incidents",
-          type: "doc",
-          id: "docs/incidents/incidents",
-        },
-        {
-          label: "Ingestion",
-          type: "doc",
-          id: "docs/ui-ingestion",
-        },
-        {
-          label: "Ingestion Security",
-          type: "doc",
-          id: "docs/metadata-ingestion-security",
-        },
-        {
-          label: "Lineage",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "docs/features/feature-guides/lineage",
-          },
-          items: [
-            {
-              label: "Automatic Lineage Extraction",
-              type: "doc",
-              id: "docs/generated/lineage/automatic-lineage-extraction",
-            },
-            {
-              label: "Lineage Impact Analysis",
-              type: "doc",
-              id: "docs/act-on-metadata/impact-analysis",
-            },
-            {
-              label: "Managing Lineage via UI",
-              type: "doc",
-              id: "docs/features/feature-guides/ui-lineage",
-            },
-            {
-              type: "doc",
-              id: "docs/lineage/openlineage",
-              label: "OpenLineage",
-            },
-          ],
-        },
-        {
-          label: "Logical Models",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "docs/features/feature-guides/logical-models/overview",
-          },
-          items: [
-            {
-              label: "Overview",
-              type: "doc",
-              id: "docs/features/feature-guides/logical-models/overview",
-            },
-            {
-              label: "Centralized Management",
-              type: "doc",
-              id: "docs/features/feature-guides/logical-models/centralized-management",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
-          label: "Metadata Tests",
-          type: "doc",
-          id: "docs/tests/metadata-tests",
-          className: "saasOnly",
-        },
-        {
-          label: "Metrics & Semantic Models",
-          type: "doc",
-          id: "docs/features/feature-guides/metrics-and-semantic-models",
-        },
-        {
-          label: "MCP Server",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "docs/features/feature-guides/mcp",
-          },
-          items: [
-            {
-              label: "Scoped MCP Servers",
-              type: "doc",
-              id: "docs/features/feature-guides/scoped-mcp-servers",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
-          label: "Multi-Language Support",
-          type: "doc",
-          id: "docs/features/feature-guides/multi-language-support",
-        },
-        {
-          label: "Ownership",
-          type: "doc",
-          id: "docs/ownership/ownership-types",
-        },
-        {
-          label: "Policies",
-          type: "doc",
-          id: "docs/authorization/access-policies-guide",
-        },
-        {
-          label: "Posts",
-          type: "doc",
-          id: "docs/posts",
-        },
-        {
-          label: "Properties",
-          type: "category",
-          collapsed: true,
-          items: [
-            {
-              label: "Overview",
-              type: "doc",
-              id: "docs/features/feature-guides/properties/overview",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/properties/create-a-property",
-            },
-          ],
-        },
-        {
-          label: "Schema history",
-          type: "doc",
-          id: "docs/schema-history",
-        },
-        {
-          label: "Search",
-          type: "doc",
-          id: "docs/how/search",
-        },
-        {
-          label: "Search Access Controls",
-          type: "doc",
-          id: "docs/features/feature-guides/search-access-controls",
-          className: "saasOnly",
-        },
-        {
-          label: "Service Accounts",
-          type: "doc",
-          id: "docs/features/feature-guides/service-accounts",
         },
         {
           label: "Subscriptions & Notifications",
@@ -645,50 +929,7 @@ module.exports = {
             },
           ],
         },
-        {
-          label: "Sync Status",
-          type: "doc",
-          id: "docs/sync-status",
-        },
-        {
-          label: "Tags",
-          type: "doc",
-          id: "docs/tags",
-        },
-        {
-          label: "Views",
-          type: "doc",
-          id: "docs/features/feature-guides/views/overview",
-        },
       ],
-    },
-    {
-      type: "doc",
-      label: "Use Docs with AI Tools",
-      id: "docs/use-docs-with-ai",
-    },
-    // DataHub Cloud.
-    {
-      type: "html",
-      value: "<div>DataHub Cloud</div>",
-      defaultStyle: true,
-    },
-    {
-      label: "DataHub Cloud Overview",
-      type: "doc",
-      id: "docs/managed-datahub/managed-datahub-overview",
-    },
-    {
-      type: "doc",
-      id: "docs/managed-datahub/welcome-acryl",
-    },
-    {
-      label: "Data Quality & Observability",
-      type: "doc",
-      id: "docs/managed-datahub/observe/overview",
-      customProps: {
-        icon: "🔍",
-      },
     },
     {
       label: "Upgrading from DataHub Core to Cloud",
@@ -696,55 +937,79 @@ module.exports = {
       id: "docs/managed-datahub/upgrade_core_to_cloud",
     },
     {
-      "Configure Single Sign-On": [
+      label: "Configuration",
+      type: "category",
+      collapsed: true,
+      items: [
         {
-          type: "doc",
-          id: "docs/authentication/guides/sso/initialize-oidc",
-          className: "saasOnly",
+          "Configure Single Sign-On": [
+            {
+              type: "doc",
+              id: "docs/authentication/guides/sso/initialize-oidc",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/integrations/oidc-sso-integration",
+              className: "saasOnly",
+            },
+          ],
         },
         {
-          type: "doc",
-          id: "docs/managed-datahub/integrations/oidc-sso-integration",
-          className: "saasOnly",
+          "Remote Executor": [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/remote-executor/about",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/remote-executor/best-practices",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/remote-executor/monitoring",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/remote-executor/removing-sqs-dependency",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/remote-executor/bundling-additional-connectors",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
+          "Operator Guides": [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/integrations/aws-privatelink",
+              className: "saasOnly",
+            },
+          ],
         },
       ],
     },
     {
-      "Remote Executor": [
-        {
-          type: "doc",
-          id: "docs/managed-datahub/remote-executor/about",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/remote-executor/best-practices",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/remote-executor/monitoring",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/remote-executor/removing-sqs-dependency",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/remote-executor/bundling-additional-connectors",
-          className: "saasOnly",
-        },
-      ],
-    },
-    {
-      "DataHub API": [
+      label: "Cloud APIs",
+      type: "category",
+      collapsed: true,
+      items: [
         {
           type: "doc",
           id: "docs/managed-datahub/datahub-api/entity-events-api",
@@ -758,60 +1023,55 @@ module.exports = {
       ],
     },
     {
-      Slack: [
+      label: "Apps & Notifications",
+      type: "category",
+      collapsed: true,
+      items: [
         {
-          type: "doc",
-          id: "docs/managed-datahub/slack/saas-slack-app",
-          className: "saasOnly",
+          Slack: [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-app",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-setup",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
+              className: "saasOnly",
+            },
+          ],
         },
         {
-          type: "doc",
-          id: "docs/managed-datahub/slack/saas-slack-setup",
-          className: "saasOnly",
+          Teams: [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/teams/saas-teams-app",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/teams/saas-teams-setup",
+              className: "saasOnly",
+            },
+          ],
         },
         {
+          label: "Chrome Extension",
           type: "doc",
-          id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
-          className: "saasOnly",
-        },
-      ],
-    },
-    {
-      Teams: [
-        {
-          type: "doc",
-          id: "docs/managed-datahub/teams/saas-teams-app",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/teams/saas-teams-setup",
-          className: "saasOnly",
-        },
-      ],
-    },
-    {
-      "Operator Guides": [
-        {
-          type: "doc",
-          id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/integrations/aws-privatelink",
-          className: "saasOnly",
+          id: "docs/managed-datahub/chrome-extension",
         },
       ],
     },
     {
+      label: "Change Proposals",
       type: "doc",
       id: "docs/managed-datahub/change-proposals",
       className: "saasOnly",
-    },
-    {
-      type: "doc",
-      id: "docs/managed-datahub/chrome-extension",
     },
     {
       "DataHub Cloud Release History": [
@@ -906,7 +1166,6 @@ module.exports = {
     },
     {
       "Quickstart Guides": [
-        "metadata-ingestion/cli-ingestion",
         {
           BigQuery: [
             "docs/quick-ingestion-guides/bigquery/overview",
@@ -955,51 +1214,28 @@ module.exports = {
       type: "category",
       label: "Sources",
       link: { type: "doc", id: "metadata-ingestion/source_overview" },
-      items: [
-        // collapse these; add push-based at top
-        {
-          type: "doc",
-          id: "docs/lineage/airflow",
-          label: "Airflow",
-        },
-        {
-          type: "doc",
-          id: "docs/lineage/dagster",
-          label: "Dagster",
-        },
-        {
-          type: "doc",
-          id: "docs/lineage/prefect",
-          label: "Prefect",
-        },
-        {
-          type: "doc",
-          id: "metadata-integration/java/acryl-spark-lineage/README",
-          label: "Spark",
-        },
-        //"docker/airflow/local_airflow",
-        "metadata-ingestion/integration_docs/great-expectations",
-        "metadata-integration/java/datahub-protobuf/README",
-        //"metadata-ingestion/source-docs-template",
-        // Discoverability alias: "Amazon Data Firehose" is ingested by
-        // the same `kinesis` connector, but users searching for "Firehose"
-        // expect to see it as its own sidebar entry. Use `ref` so
-        // docusaurus allows pointing at the same doc twice (the autogen
-        // list below produces the "Amazon Kinesis Data Streams" entry).
-        {
-          type: "ref",
-          id: "docs/generated/ingestion/sources/kinesis",
-          label: "Amazon Data Firehose",
-        },
-        {
-          type: "autogenerated",
-          dirName: "docs/generated/ingestion/sources", // '.' means the current docs folder
-        },
-      ],
+      items: buildSourceGroups(),
     },
     {
-      "Advanced Guides": [
-        "metadata-ingestion/datahub-skills",
+      type: "category",
+      label: "Running Ingestion",
+      collapsed: true,
+      items: [
+        {
+          type: "doc",
+          label: "UI Ingestion",
+          id: "docs/ui-ingestion",
+        },
+        {
+          type: "doc",
+          label: "CLI Ingestion",
+          id: "metadata-ingestion/cli-ingestion",
+        },
+        {
+          type: "doc",
+          label: "Ingestion Security",
+          id: "docs/metadata-ingestion-security",
+        },
         {
           "Scheduling Ingestion": [
             "metadata-ingestion/schedule_docs/intro",
@@ -1008,6 +1244,11 @@ module.exports = {
             "metadata-ingestion/schedule_docs/kubernetes",
           ],
         },
+      ],
+    },
+    {
+      "Advanced Ingestion": [
+        "metadata-ingestion/datahub-skills",
         "docs/platform-instances",
         "docs/lineage/sql_parsing",
         "metadata-ingestion/docs/dev_guides/stateful",
@@ -1024,6 +1265,11 @@ module.exports = {
       type: "html",
       value: "<div>API & SDKs</div>",
       defaultStyle: true,
+    },
+    {
+      type: "doc",
+      id: "docs/api/datahub-apis",
+      label: "Overview",
     },
     {
       type: "category",
@@ -1043,7 +1289,7 @@ module.exports = {
         },
         {
           type: "category",
-          label: "Entity Docs",
+          label: "Entity Reference",
           items: [
             {
               type: "autogenerated",
@@ -1053,15 +1299,9 @@ module.exports = {
         },
       ],
     },
-    "docs/what-is-datahub/datahub-concepts",
-    {
-      type: "doc",
-      id: "docs/api/datahub-apis",
-      label: "Overview",
-    },
     {
       type: "category",
-      label: "API",
+      label: "APIs",
       items: [
         {
           "GraphQL API": [
@@ -1149,7 +1389,6 @@ module.exports = {
             },
           ],
         },
-        "docs/dev-guides/timeline",
         {
           "Rest.li API": [
             {
@@ -1188,6 +1427,11 @@ module.exports = {
               id: "docs/advanced/aspect-versioning",
             },
           ],
+        },
+        {
+          type: "doc",
+          label: "Timeline API",
+          id: "docs/dev-guides/timeline",
         },
       ],
     },
@@ -1323,50 +1567,73 @@ module.exports = {
       ],
     },
     {
-      Guides: [
-        "docs/api/tutorials/datasets",
-        "docs/api/tutorials/documents",
-        "docs/api/tutorials/deprecation",
-        "docs/api/tutorials/descriptions",
-        "docs/api/tutorials/custom-properties",
-        "docs/api/tutorials/assertions",
-        "docs/api/tutorials/custom-assertions",
-        "docs/api/tutorials/sdk/bulk-assertions-sdk",
-        "docs/api/tutorials/incidents",
-        "docs/api/tutorials/operations",
-        "docs/api/tutorials/data-contracts",
-        "docs/api/tutorials/domains",
-        "docs/api/tutorials/forms",
+      type: "category",
+      label: "Tutorials",
+      collapsed: true,
+      items: [
+        {
+          "Core Objects": [
+            "docs/api/tutorials/datasets",
+            "docs/api/tutorials/container",
+            "docs/api/tutorials/dashboard-chart",
+            "docs/api/tutorials/dataflow-datajob",
+            "docs/api/tutorials/mlmodel-mlmodelgroup",
+            "docs/api/tutorials/semantic-models",
+            "docs/api/tutorials/applications",
+            "docs/api/tutorials/agent-registry",
+            "docs/api/tutorials/service-catalog",
+          ],
+        },
+        {
+          "Metadata & Governance": [
+            "docs/api/tutorials/descriptions",
+            "docs/api/tutorials/documents",
+            "docs/api/tutorials/custom-properties",
+            "docs/api/tutorials/structured-properties",
+            "docs/api/tutorials/tags",
+            "docs/api/tutorials/terms",
+            "docs/api/tutorials/owners",
+            "docs/api/tutorials/domains",
+            "docs/api/tutorials/deprecation",
+          ],
+        },
         "docs/api/tutorials/lineage",
-        "docs/api/tutorials/container",
-        "docs/api/tutorials/dashboard-chart",
-        "docs/api/tutorials/dataflow-datajob",
-        "docs/api/tutorials/mlmodel-mlmodelgroup",
-        "docs/api/tutorials/semantic-models",
-        "docs/api/tutorials/applications",
-        "docs/api/tutorials/agent-registry",
-        "docs/api/tutorials/service-catalog",
         {
-          type: "doc",
-          id: "docs/api/tutorials/ml",
-          label: "AI/ML Integration",
+          "Quality & Contracts": [
+            "docs/api/tutorials/assertions",
+            "docs/api/tutorials/custom-assertions",
+            "docs/api/tutorials/sdk/bulk-assertions-sdk",
+            "docs/api/tutorials/incidents",
+            "docs/api/tutorials/operations",
+            "docs/api/tutorials/data-contracts",
+            "docs/api/tutorials/forms",
+            "docs/api/tutorials/subscriptions",
+          ],
         },
         {
-          type: "doc",
-          id: "docs/api/tutorials/ml_feature_store",
-          label: "Feature Store",
+          "AI & ML": [
+            {
+              type: "doc",
+              id: "docs/api/tutorials/ml",
+              label: "AI/ML Integration",
+            },
+            {
+              type: "doc",
+              id: "docs/api/tutorials/ml_feature_store",
+              label: "Feature Store",
+            },
+          ],
         },
-        "docs/api/tutorials/owners",
-        "docs/api/tutorials/structured-properties",
-        "docs/api/tutorials/subscriptions",
-        "docs/api/tutorials/tags",
-        "docs/api/tutorials/terms",
         {
-          type: "doc",
-          id: "docs/advanced/patch",
-          label: "Patch",
+          Advanced: [
+            {
+              type: "doc",
+              id: "docs/advanced/patch",
+              label: "Patch",
+            },
+            "docs/api/tutorials/sdk/search_client",
+          ],
         },
-        "docs/api/tutorials/sdk/search_client",
       ],
     },
     // Admin.
@@ -1389,6 +1656,20 @@ module.exports = {
             "docs/authentication/guides/sso/configure-oidc-behind-proxy",
           ],
         },
+        {
+          "SCIM Provisioning": [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/configuring-identity-provisioning-with-okta",
+              className: "saasOnly",
+            },
+          ],
+        },
         "docs/authentication/introducing-metadata-service-authentication",
         "docs/authentication/personal-access-tokens",
         "docs/authentication/external-oauth-providers",
@@ -1403,16 +1684,10 @@ module.exports = {
       ],
     },
     {
-      "Advanced Guides": [
+      Operations: [
         "docs/how/delete-metadata",
         "docs/how/configuring-authorization-with-apache-ranger",
         "docs/how-to/semantic-search-configuration",
-        {
-          "SCIM Provisioning": [
-            "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
-            "docs/managed-datahub/configuring-identity-provisioning-with-okta",
-          ],
-        },
         "docs/how/backup-datahub",
         "docs/how/restore-indices",
         "docs/how/load-indices",
@@ -1449,7 +1724,7 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Advanced Guides",
+      label: "Advanced Configuration",
       items: [
         "docs/deploy/confluent-cloud",
         "docs/deploy/gms-rate-limiting",
@@ -1501,36 +1776,52 @@ module.exports = {
       ],
     },
     {
-      "Advanced Guides": [
-        "docs/advanced/mcp-mcl",
-        "docs/advanced/writing-mcps",
+      "Extending DataHub": [
         {
-          "Semantic Search": [
-            "docs/dev-guides/semantic-search/README",
-            "docs/dev-guides/semantic-search/ARCHITECTURE",
-            "docs/dev-guides/semantic-search/CONFIGURATION",
-            "docs/dev-guides/semantic-search/SWITCHING_PROVIDERS",
+          "Metadata Model": [
+            "docs/advanced/mcp-mcl",
+            "docs/advanced/writing-mcps",
+            "docs/modeling/extending-the-metadata-model",
+            "docs/advanced/bootstrap-mcps",
+            "docs/advanced/field-path-spec-v2",
           ],
         },
-        "docs/modeling/extending-the-metadata-model",
-        "docs/advanced/api-tracing",
-        "docs/advanced/micrometer-best-practices",
-        "datahub-web-react/src/app/analytics/README",
-        // "smoke-test/test_resources/analytics_backfill/README",
-        "docker/datahub-upgrade/README",
-        "docs/docker/bundled-ingestion-venvs",
-        "docs/docker/ingestion-executor-security",
-        "metadata-ingestion/adding-source",
-        "docs/how/add-custom-ingestion-source",
-        "docs/how/add-custom-data-platform",
-        "docs/how/migrating-graph-service-implementation",
-        "docs/how/migrating-elasticsearch-opensearch",
-        "docs/advanced/field-path-spec-v2",
-        "docs/advanced/browse-paths-upgrade",
-        "docs/browseV2/browse-paths-v2",
-        "metadata-ingestion/docs/dev_guides/reporting_telemetry",
-        "docs/plugins",
-        "docs/advanced/bootstrap-mcps",
+        {
+          "Building Connectors": [
+            "metadata-ingestion/adding-source",
+            "docs/how/add-custom-ingestion-source",
+            "docs/how/add-custom-data-platform",
+            "metadata-ingestion/docs/dev_guides/reporting_telemetry",
+            "docs/docker/bundled-ingestion-venvs",
+            "docs/docker/ingestion-executor-security",
+          ],
+        },
+        {
+          "Search & Storage": [
+            {
+              "Semantic Search": [
+                "docs/dev-guides/semantic-search/README",
+                "docs/dev-guides/semantic-search/ARCHITECTURE",
+                "docs/dev-guides/semantic-search/CONFIGURATION",
+                "docs/dev-guides/semantic-search/SWITCHING_PROVIDERS",
+              ],
+            },
+            "docs/how/migrating-graph-service-implementation",
+            "docs/how/migrating-elasticsearch-opensearch",
+            "docs/browseV2/browse-paths-v2",
+            "docs/advanced/browse-paths-upgrade",
+          ],
+        },
+        {
+          "Operations & Tooling": [
+            "docs/advanced/api-tracing",
+            "docs/advanced/micrometer-best-practices",
+            "datahub-web-react/src/app/analytics/README",
+            // "smoke-test/test_resources/analytics_backfill/README",
+            "docker/datahub-upgrade/README",
+            "docs/plugins",
+          ],
+        },
       ],
     },
     // Community.
