@@ -41,14 +41,9 @@ from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.trino import TrinoAdapter
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
-    ProfilingConnection,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
-)
-from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
-    FLATTENABLE_AGGREGATES_EXECUTION_OPTION,
-    SINGLE_ROW_EXECUTION_OPTION,
 )
 
 # =============================================================================
@@ -488,13 +483,13 @@ class TestMSSQLAdapter:
         mock_conn = MagicMock()
         mock_result = MagicMock()
         mock_result.scalar.return_value = 1.5
-        mock_conn.execute_single_row.return_value = mock_result
+        mock_conn.execute_aggregate.return_value = mock_result
 
         adapter.get_column_stdev(real_table, "value_col", mock_conn)
 
-        assert mock_conn.execute_single_row.called
-        executed_query = mock_conn.execute_single_row.call_args[0][0]
-        sql = compile_expr_to_sql(executed_query, mock_mssql_engine.dialect)
+        assert mock_conn.execute_aggregate.called
+        executed_expr = mock_conn.execute_aggregate.call_args[0][1]
+        sql = compile_expr_to_sql(executed_expr, mock_mssql_engine.dialect)
 
         # Must use STDEV (MSSQL's sample stddev function), never stddev_samp.
         assert_sql_matches_pattern(sql, r"\bstdev\s*\(")
@@ -512,7 +507,7 @@ class TestMSSQLAdapter:
         stdev_result.scalar.return_value = None
         count_result = MagicMock()
         count_result.scalar.return_value = 1
-        mock_conn.execute_single_row.side_effect = [stdev_result, count_result]
+        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result is None
@@ -527,7 +522,7 @@ class TestMSSQLAdapter:
         stdev_result.scalar.return_value = None
         count_result = MagicMock()
         count_result.scalar.return_value = 5
-        mock_conn.execute_single_row.side_effect = [stdev_result, count_result]
+        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result == 0.0
@@ -542,7 +537,7 @@ class TestMSSQLAdapter:
         stdev_result.scalar.return_value = None
         count_result = MagicMock()
         count_result.scalar.return_value = 0
-        mock_conn.execute_single_row.side_effect = [stdev_result, count_result]
+        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result is None
@@ -1605,12 +1600,12 @@ class TestClickHouseAdapter:
     ):
         """stddevSamp() result is returned directly when ClickHouse returns a number."""
         mock_conn = MagicMock()
-        mock_conn.execute_single_row.return_value.scalar.return_value = 12.5
+        mock_conn.execute_aggregate.return_value.scalar.return_value = 12.5
 
         result = adapter.get_column_stdev(real_table, "score", mock_conn)
 
         assert result == 12.5
-        executed = mock_conn.execute_single_row.call_args[0][0]
+        executed = mock_conn.execute_aggregate.call_args[0][1]
         sql = compile_expr_to_sql(executed, mock_clickhouse_engine.dialect)
         assert_sql_matches_pattern(sql, r"\bstddevSamp\s*\(\s*score\s*\)")
 
@@ -1619,7 +1614,7 @@ class TestClickHouseAdapter:
     ):
         """stddevSamp returns NULL with ≤1 non-null row → None (mathematically undefined)."""
         mock_conn = MagicMock()
-        mock_conn.execute_single_row.return_value.scalar.side_effect = [
+        mock_conn.execute_aggregate.return_value.scalar.side_effect = [
             None,  # stddevSamp result
             1,  # non-null count
         ]
@@ -1633,7 +1628,7 @@ class TestClickHouseAdapter:
     ):
         """stddevSamp returns NULL with >1 non-null row → 0.0 (no variance)."""
         mock_conn = MagicMock()
-        mock_conn.execute_single_row.return_value.scalar.side_effect = [None, 10]
+        mock_conn.execute_aggregate.return_value.scalar.side_effect = [None, 10]
 
         result = adapter.get_column_stdev(mock_table, "score", mock_conn)
 
@@ -1644,7 +1639,7 @@ class TestClickHouseAdapter:
     ):
         """SQLAlchemyError surfaces via SQLSourceReport.warning, not silent logger."""
         mock_conn = MagicMock()
-        mock_conn.execute_single_row.side_effect = sa.exc.SQLAlchemyError(
+        mock_conn.execute_aggregate.side_effect = sa.exc.SQLAlchemyError(
             "permission denied"
         )
 
@@ -1851,7 +1846,7 @@ class TestClickHouseAdapter:
     ):
         """If the inner non_null_count query fails, the failure is still reported."""
         mock_conn = MagicMock()
-        mock_conn.execute_single_row.side_effect = [
+        mock_conn.execute_aggregate.side_effect = [
             MagicMock(scalar=MagicMock(return_value=None)),  # stddev → NULL
             sa.exc.SQLAlchemyError("count denied"),  # non-null lookup fails
         ]
@@ -1864,7 +1859,7 @@ class TestClickHouseAdapter:
     ):
         """Successful stdev should not pollute the report."""
         mock_conn = MagicMock()
-        mock_conn.execute_single_row.return_value.scalar.return_value = 7.5
+        mock_conn.execute_aggregate.return_value.scalar.return_value = 7.5
 
         adapter.get_column_stdev(real_table, "score", mock_conn)
 
@@ -1967,105 +1962,3 @@ class TestClickHouseAdapter:
         t3.schema = None
         t3.name = None
         assert _format_context(t3) == "<unknown>"
-
-
-class TestFlattenableAggregates:
-    """Each adapter declares the aggregate names it actually emits."""
-
-    ALL_ADAPTERS = [
-        AthenaAdapter,
-        BigQueryAdapter,
-        ClickHouseAdapter,
-        DatabricksAdapter,
-        GenericAdapter,
-        MSSQLAdapter,
-        MySQLAdapter,
-        PostgresAdapter,
-        RedshiftAdapter,
-        SnowflakeAdapter,
-        TrinoAdapter,
-    ]
-
-    @pytest.mark.parametrize("adapter_cls", ALL_ADAPTERS)
-    def test_declarations_are_lowercase(self, adapter_cls: Any) -> None:
-        # The check folds case, so a non-lowercase entry can never match --
-        # declaring "stddevSamp" would silently keep ClickHouse stddev on the
-        # CTE path with no error anywhere.
-        declared = adapter_cls.FLATTENABLE_AGGREGATES
-        assert declared == {name.lower() for name in declared}
-
-    @pytest.mark.parametrize("adapter_cls", ALL_ADAPTERS)
-    @pytest.mark.parametrize(
-        "expr_method",
-        ["get_mean_expr", "get_median_expr", "get_approx_unique_count_expr"],
-    )
-    def test_declared_names_match_what_the_adapter_emits(
-        self, adapter_cls: Any, expr_method: str
-    ) -> None:
-        # Drift guard. A name an adapter emits but does not declare keeps that
-        # metric on the CTE path with no error anywhere -- the failure mode the
-        # class docstring warns about. These expressions all reach the gate via
-        # execute_single_row.
-        adapter = adapter_cls(
-            config=ProfilingConfig(enabled=True),
-            report=SQLSourceReport(),
-            # A real engine: quote_identifier needs a dialect, which several
-            # adapters use while building their median expression.
-            base_engine=sa.create_engine("sqlite://"),
-        )
-        expr = getattr(adapter, expr_method)("col")
-        if expr is None:
-            pytest.skip(f"{adapter_cls.__name__} has no native {expr_method}")
-        # Unwrap Label exactly as the gate does. Without this a labelled
-        # function -- the shape most likely to drift -- is silently skipped,
-        # which is the failure this guard exists to catch.
-        if isinstance(expr, sa.sql.elements.Label):
-            expr = expr.element
-        if not isinstance(expr, sa.sql.functions.FunctionElement):
-            pytest.skip(
-                f"{adapter_cls.__name__}.{expr_method} emits "
-                f"{type(expr).__name__}, which the gate rejects anyway"
-            )
-        assert expr.name.lower() in adapter_cls.FLATTENABLE_AGGREGATES, (
-            f"{adapter_cls.__name__}.{expr_method} emits {expr.name!r}, "
-            f"which is not declared in FLATTENABLE_AGGREGATES"
-        )
-
-    def test_platforms_swap_their_stddev_spelling(self) -> None:
-        # An adapter overriding get_column_stdev must replace the base name.
-        # Keeping stddev_samp is inert; omitting its own name costs the
-        # optimisation silently.
-        assert "stdev" in MSSQLAdapter.FLATTENABLE_AGGREGATES
-        assert "stddev_samp" not in MSSQLAdapter.FLATTENABLE_AGGREGATES
-
-        assert "stddevsamp" in ClickHouseAdapter.FLATTENABLE_AGGREGATES
-        assert "stddev_samp" not in ClickHouseAdapter.FLATTENABLE_AGGREGATES
-
-
-class TestProfilingConnectionTagging:
-    """execute_single_row is the only place the allowlist reaches a query."""
-
-    @staticmethod
-    def _executed(conn_spy: Any) -> Any:
-        return conn_spy.execute.call_args.args[0]
-
-    def test_execute_single_row_attaches_both_tags(self) -> None:
-        names = frozenset({"count", "min"})
-        raw = MagicMock()
-        query = sa.select(sa.func.count()).select_from(sa.table("t"))
-
-        ProfilingConnection(raw, flattenable_aggregates=names).execute_single_row(query)
-
-        opts = self._executed(raw).get_execution_options()
-        assert opts[SINGLE_ROW_EXECUTION_OPTION] is True
-        assert opts[FLATTENABLE_AGGREGATES_EXECUTION_OPTION] == names
-
-    def test_default_allowlist_is_empty_not_absent(self) -> None:
-        # Fail-closed: without the adapter's set, nothing flattens.
-        raw = MagicMock()
-        query = sa.select(sa.func.count()).select_from(sa.table("t"))
-
-        ProfilingConnection(raw).execute_single_row(query)
-
-        opts = self._executed(raw).get_execution_options()
-        assert opts[FLATTENABLE_AGGREGATES_EXECUTION_OPTION] == frozenset()

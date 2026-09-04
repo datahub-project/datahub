@@ -7,7 +7,7 @@ implementation, no exact-error-message assertions.
 
 import dataclasses
 import logging
-from typing import Any, Dict, FrozenSet, Optional
+from typing import Any, Dict, Optional
 
 import pytest
 import sqlalchemy as sa
@@ -20,7 +20,6 @@ from datahub.ingestion.source.sqlalchemy_profiler import (
     query_combiner as query_combiner_module,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
-    FLATTENABLE_AGGREGATES_EXECUTION_OPTION,
     MAX_QUERIES_TO_COMBINE_AT_ONCE,
     MisTaggedQueryError,
     SQLAlchemyQueryCombiner,
@@ -28,6 +27,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
     _QueryFuture,
     _ResultProxyFake,
     _RowProxyFake,
+    flattenable_query,
     get_query_columns,
     is_single_row_query,
     single_row_query,
@@ -109,19 +109,9 @@ class _Capture:
     done: bool = False
 
 
-# What PlatformAdapter declares. Tests assert against this rather than
-# importing it, so a change to the adapter's set surfaces here as a decision
-# rather than silently retuning every expectation.
-BASE_SET = frozenset({"count", "min", "max", "avg", "stddev_samp"})
-MSSQL_SET = (BASE_SET - {"stddev_samp"}) | {"stdev"}
-CLICKHOUSE_SET = (BASE_SET - {"stddev_samp"}) | {"stddevsamp"}
-
-
-def flattenable_query(query: Any, names: FrozenSet[str] = BASE_SET) -> Any:
-    """Tag a query the way ProfilingConnection.execute_single_row would."""
-    return single_row_query(query).execution_options(
-        **{FLATTENABLE_AGGREGATES_EXECUTION_OPTION: names}
-    )
+def tagged(query: Any) -> Any:
+    """Tag a query the way ProfilingConnection.execute_aggregate would."""
+    return flattenable_query(single_row_query(query))
 
 
 def _schedule(
@@ -130,25 +120,19 @@ def _schedule(
     query: Any,
     multiparams: Any = (),
     combinable: bool = True,
-    flattenable_names: Optional[FrozenSet[str]] = BASE_SET,
+    flattenable: bool = True,
 ) -> _Capture:
     """Schedule a query on the combiner.
 
-    Tags the query as single-row by default, since most tests here exercise
-    batching. Pass combinable=False to schedule an untagged query.
-
-    flattenable_names has three meanings, and they are not interchangeable:
-    a set attaches that allowlist, frozenset() attaches an empty one, and None
-    attaches no option at all. The missing-tag and orthogonality tests need the
-    last two to be distinguishable.
+    Tagged single-row and flattenable by default, as execute_aggregate would.
+    Pass combinable=False for an untagged query, flattenable=False for one the
+    caller built itself.
     """
     cap = _Capture()
     if combinable:
         query = single_row_query(query)
-    if flattenable_names is not None:
-        query = query.execution_options(
-            **{FLATTENABLE_AGGREGATES_EXECUTION_OPTION: flattenable_names}
-        )
+        if flattenable:
+            query = flattenable_query(query)
 
     def execute() -> None:
         try:
@@ -669,9 +653,7 @@ class TestUnbatchableQueries:
         # ObjectNotExecutableError. It executes fine, it just cannot be batched.
         combiner = _make_combiner(catch_exceptions=False)
         with engine.connect() as conn, combiner.activate() as qc:
-            cap = _schedule(
-                qc, conn, "SELECT 1", combinable=False, flattenable_names=None
-            )
+            cap = _schedule(qc, conn, "SELECT 1", combinable=False, flattenable=False)
             qc.flush()
 
         assert cap.exc is None
@@ -903,7 +885,7 @@ class TestFlattenPath:
         # non-reason. Dialect-scoped behaviour is pinned separately in
         # test_dialect_scoped_constructs_are_rejected.
         for label, q in non_flattenable.items():
-            assert not SQLAlchemyQueryCombiner._is_flattenable(flattenable_query(q)), (
+            assert not SQLAlchemyQueryCombiner._is_flattenable(tagged(q)), (
                 f"_is_flattenable should reject {label!r}"
             )
 
@@ -919,7 +901,7 @@ class TestFlattenPath:
             ).select_from(t),
         }
         for label, q in flattenable.items():
-            assert SQLAlchemyQueryCombiner._is_flattenable(flattenable_query(q)), (
+            assert SQLAlchemyQueryCombiner._is_flattenable(tagged(q)), (
                 f"_is_flattenable should accept {label!r}"
             )
 
@@ -1065,12 +1047,12 @@ class TestFlattenPath:
             .select_from(test_table)
             .with_hint(test_table, "USE INDEX (PRIMARY)", dialect_name="mysql")
         )
-        tagged = flattenable_query(hinted)
+        hinted_tagged = tagged(hinted)
         dialect = mysql.dialect()
 
         # Invisible by default, which is what made this a silent data bug.
-        assert SQLAlchemyQueryCombiner._is_flattenable(tagged)
-        assert not SQLAlchemyQueryCombiner._is_flattenable(tagged, dialect)
+        assert SQLAlchemyQueryCombiner._is_flattenable(hinted_tagged)
+        assert not SQLAlchemyQueryCombiner._is_flattenable(hinted_tagged, dialect)
 
         # A plain query still flattens under a real dialect.
         plain = flattenable_query(
@@ -1093,44 +1075,6 @@ class TestFlattenPath:
         verdict = SQLAlchemyQueryCombiner._flatten_verdict(hinted, PGDialect())
         assert verdict is _FlattenVerdict.REJECTED
 
-    @pytest.mark.parametrize(
-        "agg,names",
-        [
-            # SQLAlchemy lowercases only names it has a GenericFunction for,
-            # so avg and the platform stddev spellings keep the caller's
-            # casing and must be matched case-insensitively.
-            (lambda c: sa.func.count(), BASE_SET),
-            (lambda c: sa.func.min(c), BASE_SET),
-            (lambda c: sa.func.max(c), BASE_SET),
-            (lambda c: sa.func.avg(c), BASE_SET),
-            (lambda c: sa.func.AVG(c), BASE_SET),
-            (lambda c: sa.func.stddev_samp(c), BASE_SET),
-            (lambda c: sa.func.stdev(c), MSSQL_SET),
-            (lambda c: sa.func.stddevSamp(c), CLICKHOUSE_SET),
-        ],
-    )
-    def test_declared_aggregates_are_flattenable(self, test_table, agg, names):
-        query = sa.select(agg(test_table.c.value).label("m")).select_from(test_table)
-        assert SQLAlchemyQueryCombiner._is_flattenable(flattenable_query(query, names))
-
-    @pytest.mark.parametrize(
-        "agg,names",
-        [
-            # A platform must not flatten a spelling it never emits, nor the
-            # base spelling it replaced.
-            (lambda c: sa.func.stddev_samp(c), MSSQL_SET),
-            (lambda c: sa.func.stddev_samp(c), CLICKHOUSE_SET),
-            (lambda c: sa.func.stdev(c), BASE_SET),
-            (lambda c: sa.func.stddevSamp(c), BASE_SET),
-            (lambda c: sa.func.sum(c), BASE_SET),
-        ],
-    )
-    def test_undeclared_aggregates_are_not_flattenable(self, test_table, agg, names):
-        query = sa.select(agg(test_table.c.value).label("m")).select_from(test_table)
-        assert not SQLAlchemyQueryCombiner._is_flattenable(
-            flattenable_query(query, names)
-        )
-
     def test_missing_tag_rejects_rather_than_crashing(self, test_table):
         # A query built outside ProfilingConnection carries no allowlist. That
         # is a designed rejection, not a gate failure.
@@ -1140,9 +1084,7 @@ class TestFlattenPath:
             is _FlattenVerdict.REJECTED
         )
         assert (
-            SQLAlchemyQueryCombiner._flatten_verdict(
-                flattenable_query(query, frozenset())
-            )
+            SQLAlchemyQueryCombiner._flatten_verdict(single_row_query(query))
             is _FlattenVerdict.REJECTED
         )
 
@@ -1158,9 +1100,7 @@ class TestFlattenPath:
         ]
         combiner = _make_combiner(flatten_enabled=True)
         with engine.connect() as conn, combiner.activate() as qc:
-            caps = [
-                _schedule(qc, conn, q, flattenable_names=frozenset()) for q in queries
-            ]
+            caps = [_schedule(qc, conn, q, flattenable=False) for q in queries]
             qc.flush()
 
         assert caps[0].result.scalar() == 3

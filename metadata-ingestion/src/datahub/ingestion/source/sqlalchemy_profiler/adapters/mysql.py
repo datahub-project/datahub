@@ -27,12 +27,6 @@ class MySQLAdapter(PlatformAdapter):
     Uses default setup_profiling and cleanup from PlatformAdapter.
     """
 
-    # FLATTENABLE_AGGREGATES is deliberately not overridden: MySQL emits the
-    # base spellings (count / min / max / avg / stddev_samp), and its unique
-    # count is count(distinct ...), whose top-level name is already `count`.
-    # The median returns None and goes through execute_rows, so it never
-    # reaches the flatten gate.
-
     # =========================================================================
     # SQL Expression Builders
     # =========================================================================

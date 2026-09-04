@@ -73,14 +73,19 @@ an untagged statement is simply executed on its own.
 """
 
 
-FLATTENABLE_AGGREGATES_EXECUTION_OPTION = "datahub_flattenable_aggregates"
-"""Aggregate names the emitting adapter allows the flatten path to merge.
+FLATTENABLE_EXECUTION_OPTION = "datahub_flattenable"
+"""Marks a statement the flatten path may merge with others over the same table.
 
-A frozenset of lowercased function names, set by ProfilingConnection from
-PlatformAdapter.FLATTENABLE_AGGREGATES. Per-adapter because spellings vary by dialect.
-It is an allowlist, not a verdict: the clause gate in _flatten_verdict can still refuse
-a query whose names all qualify. Absent or empty means nothing flattens.
+Set only by ProfilingConnection.execute_aggregate, which builds the query itself, so
+the tag cannot be attached to something carrying a clause. Absent means no flattening.
 """
+
+
+def flattenable_query(query: _StatementT) -> _StatementT:
+    """Tag a statement as safe to merge into a flat SELECT."""
+    return query.execution_options(  # type: ignore[attr-defined,no-any-return]
+        **{FLATTENABLE_EXECUTION_OPTION: True}
+    )
 
 
 def single_row_query(query: _StatementT) -> _StatementT:
@@ -645,24 +650,11 @@ class SQLAlchemyQueryCombiner:
                 return _FlattenVerdict.REJECTED
             if original_sql != rebuilt_sql:
                 return _FlattenVerdict.REJECTED
-            # Adapter's allowlist; absent means empty, so nothing flattens.
-            # Matched on name, not type -- upper(v) is also a FunctionElement
-            # but returns N rows. Top-level only: count(distinct(c)) is named
-            # `count`, and walking deeper would reject every COUNT(DISTINCT).
-            allowed = query.get_execution_options().get(
-                FLATTENABLE_AGGREGATES_EXECUTION_OPTION, frozenset()
-            )
-            for col in get_query_columns(query):
-                elem = (
-                    col.element
-                    if isinstance(col, sqlalchemy.sql.elements.Label)
-                    else col
-                )
-                if not (
-                    isinstance(elem, sqlalchemy.sql.functions.FunctionElement)
-                    and elem.name.lower() in allowed
-                ):
-                    return _FlattenVerdict.REJECTED
+            # Only execute_aggregate sets this, and it builds the query itself.
+            if not query.get_execution_options().get(
+                FLATTENABLE_EXECUTION_OPTION, False
+            ):
+                return _FlattenVerdict.REJECTED
             # Duplicate explicit .label() names make .columns raise. Caught
             # here rather than by the outer handler, because that one counts
             # gate errors and this rejection is by design.

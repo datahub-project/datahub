@@ -34,13 +34,6 @@ class SnowflakeAdapter(PlatformAdapter):
     3. Temp table materialization for large table sampling
     """
 
-    # APPROX_COUNT_DISTINCT builds no distinct tree, so it does not consume
-    # max_distinct_per_statement. median is Snowflake's native scalar MEDIAN().
-    FLATTENABLE_AGGREGATES = PlatformAdapter.FLATTENABLE_AGGREGATES | {
-        "approx_count_distinct",
-        "median",
-    }
-
     def setup_profiling(
         self, context: ProfilingContext, conn: Connection
     ) -> ProfilingContext:

@@ -20,12 +20,6 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 class ClickHouseAdapter(PlatformAdapter):
     """Profiling adapter for ClickHouse's non-standard SQL aggregates."""
 
-    # Lowercase because the check folds case. uniq is HyperLogLog, so it
-    # builds no distinct tree and does not consume the cap.
-    FLATTENABLE_AGGREGATES = (
-        PlatformAdapter.FLATTENABLE_AGGREGATES - {"stddev_samp"}
-    ) | {"stddevsamp", "uniq"}
-
     def setup_profiling(
         self, context: ProfilingContext, conn: Connection
     ) -> ProfilingContext:
@@ -66,10 +60,9 @@ class ClickHouseAdapter(PlatformAdapter):
         # ClickHouse's `stddev` is an alias for `stddevPop` (population), so we
         # call `stddevSamp` explicitly to match sample-stddev semantics.
         try:
-            query = sa.select([sa.func.stddevSamp(sa.column(column))]).select_from(
-                table
-            )
-            result = conn.execute_single_row(query).scalar()
+            result = conn.execute_aggregate(
+                table, sa.func.stddevSamp(sa.column(column))
+            ).scalar()
         except SQLAlchemyError as e:
             self.report.warning(
                 title="Profiling: failed to compute stdev",

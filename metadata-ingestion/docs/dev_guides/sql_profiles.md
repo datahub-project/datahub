@@ -72,7 +72,7 @@ source:
       query_combiner_flatten_enabled: true
 ```
 
-Only clause-free aggregate queries are flattened. Anything carrying a `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY`, `LIMIT`, `OFFSET` or `DISTINCT`, and any aggregate outside a known-safe list, falls back to the CTE path — correct, just not collapsed. `COUNT(DISTINCT)` columns are capped per statement, because each one builds a distinct-value tree in server memory; the gain is therefore largest for cheap aggregates and smaller for unique counts.
+Only single-aggregate-over-a-whole-table queries are flattened. Anything the profiler builds itself — a filtered count, a sampled row count, a median fallback — falls back to the CTE path, correct but not collapsed. `COUNT(DISTINCT)` columns are capped per statement, because each one builds a distinct-value tree in server memory; the gain is therefore largest for cheap aggregates and smaller for unique counts.
 
 The ingestion report exposes `scans_avoided` alongside `combined_queries_issued`. Flattening trades round trips for scans, so `combined_queries_issued` can rise while scans fall — read them together rather than treating a rise as a regression.
 

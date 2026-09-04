@@ -15,9 +15,6 @@ from datahub.ingestion.source.ge_profiling_config import (
 )
 from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
-    SQLAlchemyQueryCombiner,
-)
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
@@ -1343,52 +1340,3 @@ class TestQueryCombinerWiring:
         )
 
         assert kwargs["flatten_enabled"] is False
-
-    def test_profiling_connection_gets_the_adapters_allowlist(
-        self, mock_report: Any
-    ) -> None:
-        # Fails silently otherwise: the allowlist defaults to empty, so
-        # dropping the argument turns flattening off with no error. Uses
-        # _generate_single_profile because in-memory SQLite is thread-bound.
-        engine = create_engine("sqlite:///:memory:")
-        metadata = sa.MetaData()
-        table = sa.Table(
-            "test_table",
-            metadata,
-            Column("id", Integer, primary_key=True),
-            Column("value", Float),
-        )
-        metadata.create_all(engine)
-        with engine.connect() as conn, conn.begin():
-            conn.execute(sa.insert(table), [{"id": 1, "value": 10.5}])
-
-        profiler = SQLAlchemyProfiler(
-            conn=engine,
-            report=mock_report,
-            config=ProfilingConfig(enabled=True, query_combiner_flatten_enabled=True),
-            platform="sqlite",
-            env="TEST",
-        )
-        adapter = profiler._thread_adapter("sqlite")
-
-        with patch(
-            "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler"
-            ".ProfilingConnection"
-        ) as conn_cls:
-            profiler._generate_single_profile(
-                query_combiner=SQLAlchemyQueryCombiner(
-                    enabled=False,
-                    catch_exceptions=True,
-                    serial_execution_fallback_enabled=True,
-                ),
-                pretty_name="test_table",
-                table="test_table",
-            )
-
-        assert conn_cls.call_args is not None, (
-            "ProfilingConnection was never constructed"
-        )
-        assert (
-            conn_cls.call_args.kwargs["flattenable_aggregates"]
-            == adapter.FLATTENABLE_AGGREGATES
-        )
