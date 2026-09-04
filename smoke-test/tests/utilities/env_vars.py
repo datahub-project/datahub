@@ -270,9 +270,8 @@ def get_filtered_tests_file() -> Optional[str]:
 def get_smoke_changed_tests() -> List[str]:
     """Test modules the PR under test touches (CI sets SMOKE_CHANGED_TESTS).
 
-    Space-separated repo-relative paths. Used to union a PR's own new or edited
-    tests into a tier-narrowed selection, so they still run on their author's PR
-    instead of first executing post-merge.
+    Space-separated repo-relative paths; these run alongside a tier-narrowed
+    selection.
     """
     raw = os.getenv("SMOKE_CHANGED_TESTS", "").strip()
     return raw.split() if raw else []

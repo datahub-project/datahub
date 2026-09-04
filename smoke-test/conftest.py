@@ -268,13 +268,10 @@ def _apply_tier_filter(config: pytest.Config, items: List[Item]) -> None:
     if config.getoption("--tier") != "p0":
         return
 
-    # A PR's own new or edited tests are not p0, so a tier-only selection would
-    # merge them without ever running them: they would first execute post-merge,
-    # where a failure lands on the default branch instead of on the author's PR.
-    # CI passes the touched modules in SMOKE_CHANGED_TESTS. Known gap -- a changed
-    # non-test helper, fixture or conftest pulls in no test module of its own, so
-    # a PR that needs broader coverage than its own touched modules asks for the
-    # whole suite with the full-suite PR label.
+    # Test modules the PR touches run alongside the p0 tier; CI passes them in
+    # SMOKE_CHANGED_TESTS. Known gap -- a changed non-test helper, fixture or
+    # conftest pulls in no test module of its own, so a PR needing broader
+    # coverage asks for the whole suite with the full-suite PR label.
     changed = env_vars.get_smoke_changed_tests()
 
     selected: List[Item] = []

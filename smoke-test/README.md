@@ -95,11 +95,9 @@ the `SMOKE_TIER` env var that `smoke.sh` reads: `docker-unified.yml` sets it to
 and leaves post-merge runs on the full suite.
 
 On a pull request CI additionally runs any test module the PR itself touches,
-even when it carries no `p0` marker, so a newly added or edited test runs on its
-author's PR instead of first executing post-merge. That union is per-module: a
-change to a shared fixture or to `conftest.py` pulls in no test module of its
-own, so a PR needing broader coverage than its own touched modules asks for the
-whole suite with the full-suite PR label.
+even when it carries no `p0` marker. That is per-module: a change to a shared
+fixture or to `conftest.py` pulls in no test module of its own, so a PR needing
+broader coverage asks for the whole suite with the full-suite PR label.
 
 ## Test Categories
 
