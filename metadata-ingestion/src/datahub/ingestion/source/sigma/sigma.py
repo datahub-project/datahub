@@ -2166,6 +2166,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         if not cross_dm_candidate_urns:
             self.reporter.data_model_element_fgl_cross_dm_deferred += 1
+            logger.debug(
+                "element %s: cross-DM deferred, no candidate for ref %r "
+                "(segments=%r, source_dms=%r)",
+                element.elementId,
+                ref.raw,
+                ref.parts,
+                sorted(source_dm_url_ids),
+            )
             return None
         if len(cross_dm_candidate_urns) > 1:
             # Restrict to entity-level confirmed candidates whenever any exist.
@@ -2184,6 +2192,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         upstream_cols = self.dm_element_urn_to_cols.get(chosen_upstream_urn)
         if upstream_cols is None:
             self.reporter.data_model_element_fgl_cross_dm_deferred += 1
+            logger.debug(
+                "element %s: cross-DM deferred, producer %s absent from the "
+                "bridge column map for ref %r (segments=%r)",
+                element.elementId,
+                chosen_upstream_urn,
+                ref.raw,
+                ref.parts,
+            )
             return None
         if not upstream_cols:
             # Producer element is known but carries no columns -- the producer
@@ -2282,6 +2298,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 return
             self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
+            logger.debug(
+                "DM %s element %s: orphan drop for ref %r -- name matched an "
+                "intra-DM sibling but /lineage did not list it and cross-DM "
+                "rescue failed (segments=%r, candidates=%r)",
+                data_model.dataModelId,
+                element.elementId,
+                ref.raw,
+                ref.parts,
+                candidate_urns,
+            )
             return
 
         # Collision handling: multiple siblings passed /lineage filter.
@@ -2323,12 +2349,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.data_model_element_fgl_dropped_unknown_upstream_column += 1
             logger.debug(
                 "DM %s element %s: ref %r column %r not found in upstream "
-                "element %s schema winners; dropping FGL entry",
+                "element %s schema winners; dropping FGL entry. segments=%r, "
+                "upstream_has=%r",
                 data_model.dataModelId,
                 element.elementId,
                 ref.raw,
                 ref.column,
                 chosen_upstream_urn,
+                ref.parts,
+                # Sample of what the chosen upstream actually exposes, so a
+                # verification run shows whether the intended column is there
+                # under a different name (or not at all) without a live API call.
+                sorted(source_cols.values())[:25],
             )
             return
 
@@ -2348,6 +2380,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 confidenceScore=1.0,
             )
         )
+
+    @staticmethod
+    def _multi_segment_refs(refs: List["BracketRef"]) -> List[str]:
+        """Raw text of refs carrying a join-chain shape (3+ segments).
+
+        Used only to keep the diagnostic probes cheap: the chart path processes
+        hundreds of thousands of columns, so probes log the raw ref text only
+        when the join-chain shape is actually present.
+        """
+        return [r.raw for r in refs if len(r.parts) >= 3]
 
     def _try_resolve_join_chain_ref(
         self,
@@ -2418,6 +2460,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             )
                         )
                     self.reporter.data_model_element_fgl_join_chain_resolved += 1
+                    logger.debug(
+                        "element %s: join-chain ref %r resolved intra-DM to "
+                        "source=%r column=%r (upstream=%s)",
+                        element.elementId,
+                        ref.raw,
+                        source,
+                        canonical,
+                        surviving[0],
+                    )
                     return True
 
             # Cross-DM: the owning element may live in a source data model even
@@ -2454,6 +2505,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             )
                         )
                     self.reporter.data_model_element_fgl_join_chain_resolved += 1
+                    logger.debug(
+                        "element %s: join-chain ref %r resolved cross-DM to "
+                        "source=%r column=%r (upstream=%s)",
+                        element.elementId,
+                        ref.raw,
+                        source,
+                        canonical,
+                        urn,
+                    )
                     return True
         # Sub-count of whichever residual bucket the legacy path settles on --
         # never an independent drop, so report totals stay additive.
@@ -2496,8 +2556,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # passthrough with nothing to resolve against -- expected volume.
             if _is_warehouse_column_id(column.columnId):
                 self.reporter.data_model_element_fgl_no_ref_warehouse_unresolved += 1
+                logger.debug(
+                    "column %r has a warehouse-shaped columnId %r but no ref "
+                    "resolved and warehouse resolution failed; no CLL emitted",
+                    column.name,
+                    column.columnId,
+                )
             else:
                 self.reporter.data_model_element_fgl_no_ref_unresolved += 1
+                logger.debug(
+                    "column %r produced no resolvable ref and its columnId %r "
+                    "is not warehouse-shaped; no CLL emitted (formula=%r)",
+                    column.name,
+                    column.columnId,
+                    column.formula,
+                )
             return
         assert warehouse_fgl.upstreams
         # No emitted_pairs check: this runs at most once per column, only when
@@ -3877,6 +3950,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         fields: List[InputFieldClass] = []
         for column in element.columns:
             formula = element.column_formulas.get(column)
+            # Bound unconditionally: the diagnostic probes below read it even
+            # for columns with no formula at all.
+            refs: List[BracketRef] = []
             resolved_refs: List[_ResolvedRef] = []
             seen: Set[Tuple[str, str]] = set()
             all_param = False
@@ -3922,6 +3998,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         elif sibling_count == total:
                             all_sibling = True
 
+            multi_segment = self._multi_segment_refs(refs)
+            if multi_segment:
+                # Does the chart path see join-chain refs at all? It shares the
+                # parser with the DM path and returns ref.column with no schema
+                # check, so a mis-split here emits a wrong or dangling
+                # InputField instead of falling back. The counter answers the
+                # scoping question in the report; the log line names the refs.
+                self.reporter.chart_input_fields_multi_segment_ref += 1
+                logger.debug(
+                    "chart element %s column %r: join-chain refs %r (resolved=%s)",
+                    element.elementId,
+                    column,
+                    multi_segment,
+                    bool(resolved_refs),
+                )
             if resolved_refs:
                 self.reporter.chart_input_fields_resolved += 1
                 self.reporter.chart_input_fields_multi_ref_extra += (
@@ -3964,6 +4055,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 else:
                     schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
                     self.reporter.chart_input_fields_self_ref_fallback += 1
+                    # Split the fallback bucket by cause. It is the largest
+                    # bucket in the report (~81k on one tenant) and today says
+                    # nothing about why: a column with no formula at all is
+                    # expected, whereas a column whose refs failed to resolve is
+                    # the population that could be hiding a parse defect. Only
+                    # the latter is logged, so the probe cannot flood the log.
+                    if refs:
+                        self.reporter.chart_input_fields_self_ref_unresolved_refs += 1
+                        logger.debug(
+                            "chart element %s column %r: self-ref fallback with "
+                            "unresolved refs=%r segment_counts=%r",
+                            element.elementId,
+                            column,
+                            [r.raw for r in refs],
+                            [len(r.parts) for r in refs],
+                        )
+                    else:
+                        self.reporter.chart_input_fields_self_ref_no_formula += 1
                 fields.append(
                     InputFieldClass(
                         schemaFieldUrn=schema_field_urn,

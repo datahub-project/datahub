@@ -194,6 +194,21 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # resolved (includes: no-formula column, unresolvable ref, mixed param+real
     # where the real refs fail). Keeps V2 column list visible unconditionally.
     chart_input_fields_self_ref_fallback: int = 0
+    # Breakdown of the self-ref fallback bucket above, which is normally the
+    # largest in the report and previously said nothing about cause.
+    # No formula at all on the column -- expected, not a defect.
+    chart_input_fields_self_ref_no_formula: int = 0
+    # Column HAD formula refs and none resolved. This is the population worth
+    # investigating; a non-trivial value here alongside
+    # chart_input_fields_multi_segment_ref suggests the chart path shares the
+    # Data Model join-chain parse defect.
+    chart_input_fields_self_ref_unresolved_refs: int = 0
+    # Chart columns carrying a join-chain-shaped ref
+    # ([JoinElement/SourceElement/Column], 3+ segments). The chart resolver has
+    # no schema check, so unlike the DM path a mis-split emits a wrong or
+    # dangling InputField rather than being caught. Non-zero means the chart
+    # path needs the same candidate-split resolution as the DM path.
+    chart_input_fields_multi_segment_ref: int = 0
     # Column whose formula refs are exclusively parameter refs (e.g. [P_*]).
     chart_input_fields_skipped_parameter: int = 0
     # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).
