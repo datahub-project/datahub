@@ -15,12 +15,20 @@ import sys
 import threading
 import time
 from io import StringIO
+from unittest.mock import Mock, patch
 
 import pytest
 
+from datahub.masking import secret_registry as registry_module
+from datahub.masking.constants import (
+    CAPACITY_EXCEEDED_MESSAGE,
+    CIRCUIT_OPEN_MESSAGE,
+    MASKING_ERROR_MESSAGE,
+)
 from datahub.masking.masking_filter import (
     SecretMaskingFilter,
     StreamMaskingWrapper,
+    _filterable_handlers,
     install_masking_filter,
     uninstall_masking_filter,
 )
@@ -475,7 +483,7 @@ class TestPerformance:
         )
         masking_filter.filter(record1)
 
-        initial_version = masking_filter._last_version
+        pattern_before, _ = registry.get_pattern_and_replacements()
 
         # Second call - should NOT rebuild pattern
         record2 = logging.LogRecord(
@@ -489,8 +497,8 @@ class TestPerformance:
         )
         masking_filter.filter(record2)
 
-        # Version should be the same (no rebuild)
-        assert masking_filter._last_version == initial_version
+        pattern_after, _ = registry.get_pattern_and_replacements()
+        assert pattern_after is pattern_before
 
 
 class TestStreamWrapper:
@@ -550,37 +558,106 @@ class TestInstallation:
         uninstall_masking_filter()
 
     def test_install_uninstall(self):
-        """Test filter installation and removal."""
+        """Install attaches the filter to handlers; uninstall detaches it."""
         registry = SecretRegistry()
-        registry.clear()
         registry.register_secret("TEST", "test_value")
 
-        # Install
-        install_masking_filter(registry)
+        probe_handler = logging.NullHandler()
+        logging.getLogger().addHandler(probe_handler)
+        try:
+            install_masking_filter(registry)
+            assert any(
+                isinstance(f, SecretMaskingFilter) for f in probe_handler.filters
+            )
 
-        # Verify installed
-        root_logger = logging.getLogger()
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-        assert len(filters) > 0
+            uninstall_masking_filter()
+            assert not any(
+                isinstance(f, SecretMaskingFilter) for f in probe_handler.filters
+            )
+        finally:
+            logging.getLogger().removeHandler(probe_handler)
 
-        # Uninstall
-        uninstall_masking_filter()
+    def test_placeholders_are_not_materialized(self):
+        """Collecting handlers must not mutate loggerDict: materializing a
+        PlaceHolder mid-iteration breaks the very iteration, and any thread
+        creating loggers concurrently does the same."""
+        logging.getLogger("mask_ph_probe.parent.child")
+        assert isinstance(
+            logging.root.manager.loggerDict["mask_ph_probe.parent"],
+            logging.PlaceHolder,
+        )
+        names_before = set(logging.root.manager.loggerDict)
 
-        # Verify removed
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-        assert len(filters) == 0
+        _filterable_handlers()
+
+        assert set(logging.root.manager.loggerDict) == names_before
+        assert isinstance(
+            logging.root.manager.loggerDict["mask_ph_probe.parent"],
+            logging.PlaceHolder,
+        )
+
+    def test_lookalike_masking_namespace_is_covered(self):
+        """Only datahub.masking and its dotted descendants are exempt; a
+        lookalike prefix must not become an unmasked channel."""
+        lookalike = logging.getLogger("datahub.maskingness.probe")
+        handler = logging.NullHandler()
+        lookalike.addHandler(handler)
+        try:
+            install_masking_filter(SecretRegistry())
+            assert any(isinstance(f, SecretMaskingFilter) for f in handler.filters)
+        finally:
+            lookalike.removeHandler(handler)
+
+    def test_masking_safe_handler_streams_are_not_wrapped(self):
+        """Stream swapping honors the same exclusion as filter attachment:
+        masking's own diagnostic channel must keep the raw stream, or the
+        messages explaining a suppression would themselves be suppressed."""
+
+        class FakeStderr:
+            name = "<stderr>"
+
+            def write(self, text):
+                return len(text)
+
+            def flush(self):
+                pass
+
+        safe_stream = FakeStderr()
+        safe_handler = logging.StreamHandler(safe_stream)
+        safe_logger = logging.getLogger("datahub.masking.stream_probe")
+        safe_logger.addHandler(safe_handler)
+
+        covered_stream = FakeStderr()
+        covered_handler = logging.StreamHandler(covered_stream)
+        covered_logger = logging.getLogger("app.stream_probe")
+        covered_logger.addHandler(covered_handler)
+
+        try:
+            install_masking_filter(SecretRegistry())
+
+            assert safe_handler.stream is safe_stream
+            assert isinstance(covered_handler.stream, StreamMaskingWrapper)
+        finally:
+            safe_logger.removeHandler(safe_handler)
+            covered_logger.removeHandler(covered_handler)
 
     def test_double_install(self):
-        """Test that double installation is handled gracefully."""
+        """Repeated installation stacks no duplicate filters or wrappers."""
         registry = SecretRegistry()
-        registry.clear()
+        probe_handler = logging.StreamHandler(StringIO())
+        logging.getLogger().addHandler(probe_handler)
+        try:
+            install_masking_filter(registry)
+            install_masking_filter(registry)
 
-        # Install twice
-        filter1 = install_masking_filter(registry)
-        filter2 = install_masking_filter(registry)
-
-        # Should return same filter
-        assert filter1 is filter2
+            masking_filters = [
+                f for f in probe_handler.filters if isinstance(f, SecretMaskingFilter)
+            ]
+            assert len(masking_filters) == 1
+            assert isinstance(sys.stdout, StreamMaskingWrapper)
+            assert not isinstance(sys.stdout._original, StreamMaskingWrapper)
+        finally:
+            logging.getLogger().removeHandler(probe_handler)
 
         # Cleanup
         uninstall_masking_filter()
@@ -610,9 +687,7 @@ class TestCopyOnWrite:
         registry.register_secret("SECRET", "secret_value")
 
         # Get pattern snapshot
-        with masking_filter._pattern_lock:
-            masking_filter._check_and_rebuild_pattern()
-            replacements = masking_filter._replacements  # No .copy()!
+        _, replacements = registry.get_pattern_and_replacements()
 
         # Change registry in another thread
         def add_secret():
@@ -724,15 +799,9 @@ class TestEdgeCases:
 class TestP1Fixes:
     """Test P1 critical fixes from production hardening review."""
 
-    def test_stream_wrapper_return_value(self):
-        """
-        P1 FIX #2: Verify write() returns correct character count.
-
-        The wrapper should return len(masked_text), not the original
-        stream's return value.
-        """
-        from io import StringIO
-
+    def test_stream_wrapper_reports_input_fully_consumed(self):
+        """write() reports the input length so partial-write retry loops
+        never re-send a suffix of the raw text."""
         registry = SecretRegistry()
         registry.register_secret("PASSWORD", "secret123")
 
@@ -740,22 +809,11 @@ class TestP1Fixes:
         stream = StringIO()
         wrapper = StreamMaskingWrapper(stream, masking_filter)
 
-        # Write text with secret
         text = "Password is secret123"
         chars_written = wrapper.write(text)
 
-        # Should return length of MASKED text, not original
-        masked_text = stream.getvalue()
-        assert masked_text == "Password is ***REDACTED:PASSWORD***", (
-            f"Expected masked text, got: {masked_text}"
-        )
-        assert chars_written == len(masked_text), (
-            f"Expected {len(masked_text)} chars, got {chars_written}"
-        )
-        # "Password is ***REDACTED:PASSWORD***" = 12 + 23 = 35 chars
-        assert chars_written == 35, (
-            f"Expected 35 chars for 'Password is ***REDACTED:PASSWORD***', got {chars_written}"
-        )
+        assert stream.getvalue() == "Password is ***REDACTED:PASSWORD***"
+        assert chars_written == len(text)
 
     def test_stream_wrapper_type_validation(self):
         """
@@ -764,8 +822,6 @@ class TestP1Fixes:
         The wrapper should raise TypeError for non-string input
         to maintain contract compliance.
         """
-        from io import StringIO
-
         registry = SecretRegistry()
         masking_filter = SecretMaskingFilter(registry)
         stream = StringIO()
@@ -994,7 +1050,7 @@ class TestRegexSecurityFixes:
             registry.register_secret(f"DANGER_{i}", pattern)
 
         # Force pattern rebuild
-        masking_filter._check_and_rebuild_pattern()
+        registry.get_pattern_and_replacements()
 
         # This should complete quickly (not hang)
         test_text = "a" * 30 + "b"
@@ -1177,3 +1233,244 @@ class TestThreadSafetyConcurrent:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestIdempotency:
+    def test_masking_masked_text_is_identity(self, registry, masking_filter):
+        registry.register_secret("DB_PASS", "hunter2secret")
+        once = masking_filter.mask_text("login with hunter2secret please")
+        twice = masking_filter.mask_text(once)
+        assert once == twice
+        assert "hunter2secret" not in once
+
+    def test_value_colliding_with_marker_text_does_not_corrupt_markers(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("A", "REDACTED")
+        once = masking_filter.mask_text("the word REDACTED is a secret here")
+        assert once == "the word ***REDACTED:A*** is a secret here"
+        assert masking_filter.mask_text(once) == once
+
+    def test_value_matching_part_of_marker_name_does_not_corrupt_markers(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("DB_PASSWORD", "trustno1secret")
+        registry.register_secret("OTHER", "B_PASS")
+        once = masking_filter.mask_text("pw=trustno1secret")
+        assert once == "pw=***REDACTED:DB_PASSWORD***"
+        assert masking_filter.mask_text(once) == once
+
+    def test_multiline_secret_idempotent_across_layered_masking(
+        self, registry, masking_filter
+    ):
+        key = (
+            "multiline-secret-header-line\n"
+            "bXVsdGlsaW5lLXNlY3JldC1ib2R5LWxpbmU\n"
+            "multiline-secret-footer-line"
+        )
+        registry.register_secret("KEY", key)
+        line_masked = "\n".join(
+            masking_filter.mask_text(line) for line in f"dump:\n{key}".splitlines()
+        )
+        assert "bXVsdGlsaW5lLXNlY3JldC1ib2R5LWxpbmU" not in line_masked
+        assert masking_filter.mask_text(line_masked) == line_masked
+
+
+class TestMultiLineFragmentMasking:
+    def test_each_line_of_multiline_secret_masked_in_line_stream(
+        self, registry, masking_filter
+    ):
+        key = (
+            "multiline-secret-header-line\n"
+            "bXVsdGlsaW5lLXNlY3JldC1ib2R5LWxpbmU\n"
+            "multiline-secret-footer-line"
+        )
+        registry.register_secret("GCP_KEY", key)
+        for line in key.splitlines():
+            masked = masking_filter.mask_text(f"stream: {line}")
+            assert line not in masked
+            assert "***REDACTED:GCP_KEY***" in masked
+
+
+class TestMarkerSmuggling:
+    def test_marker_shaped_span_does_not_shield_a_secret(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("DB_PASS", "super-secret-value")
+        masked = masking_filter.mask_text("***REDACTED:super-secret-value***")
+        assert "super-secret-value" not in masked
+
+    def test_truncated_marker_does_not_shield_a_secret(self, registry, masking_filter):
+        registry.register_secret("DB_PASS", "super-secret-value")
+        masked = masking_filter.mask_text(
+            "log ***REDACTED:DB_ then super-secret-value more ***"
+        )
+        assert "super-secret-value" not in masked
+
+    def test_own_marker_is_still_skipped_whole(self, registry, masking_filter):
+        registry.register_secret("DB_PASS", "super-secret-value")
+        once = masking_filter.mask_text("connecting with super-secret-value")
+        assert masking_filter.mask_text(once) == once
+
+    def test_unknown_placeholder_marker_is_skipped(self, registry, masking_filter):
+        registry.register_secret("DB_PASS", "super-secret-value")
+        text = "***REDACTED:UNKNOWN*** trailing text"
+        assert masking_filter.mask_text(text) == text
+
+
+class TestSentinelIdempotency:
+    def test_sentinels_are_not_rewritten_by_matching_secrets(
+        self, registry, masking_filter
+    ):
+        registry.register_secrets_batch({"NAME_A": "SECURITY", "NAME_B": "Circuit"})
+        for sentinel in (
+            MASKING_ERROR_MESSAGE,
+            CIRCUIT_OPEN_MESSAGE,
+            CAPACITY_EXCEEDED_MESSAGE,
+        ):
+            assert masking_filter.mask_text(sentinel) == sentinel
+
+    def test_secret_matching_sentinel_text_is_masked_outside_sentinels(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("NAME_A", "SECURITY")
+        masked = masking_filter.mask_text(f"{MASKING_ERROR_MESSAGE} and SECURITY")
+        assert masked == f"{MASKING_ERROR_MESSAGE} and ***REDACTED:NAME_A***"
+
+
+class TestFailClosed:
+    def test_capacity_exceeded_suppresses_all_output(self, monkeypatch):
+        monkeypatch.setattr(SecretRegistry, "MAX_SECRETS", 2)
+        registry = SecretRegistry()
+        registry.register_secrets_batch(
+            {f"KEY_{i}": f"secret-value-number-{i}" for i in range(3)}
+        )
+        masking_filter = SecretMaskingFilter(registry)
+        assert (
+            masking_filter.mask_text("text containing secret-value-number-2")
+            == CAPACITY_EXCEEDED_MESSAGE
+        )
+        assert (
+            masking_filter.mask_text("ordinary text with no secrets at all")
+            == CAPACITY_EXCEEDED_MESSAGE
+        )
+
+    def test_compile_failure_never_masks_with_stale_pattern(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("OLD_KEY", "old-secret-value")
+        assert "old-secret-value" not in masking_filter.mask_text(
+            "text with old-secret-value"
+        )
+        registry.register_secret("NEW_KEY", "new-secret-value")
+        with patch(
+            "datahub.masking.secret_registry.re.compile",
+            side_effect=RuntimeError("boom"),
+        ):
+            masked = masking_filter.mask_text("text with new-secret-value")
+        assert masked == CIRCUIT_OPEN_MESSAGE
+
+    def test_compile_failure_opens_circuit_permanently(self, registry, masking_filter):
+        registry.register_secret("S", "somesecret123")
+        with patch(
+            "datahub.masking.secret_registry.re.compile",
+            side_effect=RuntimeError("boom"),
+        ):
+            masking_filter.mask_text("text with somesecret123")
+        assert (
+            masking_filter.mask_text("text with somesecret123") == CIRCUIT_OPEN_MESSAGE
+        )
+
+    def test_compile_failure_logs_secret_name_not_value(self, registry, masking_filter):
+        registry.register_secret("CULPRIT_KEY", "culprit-secret-value")
+        with (
+            patch(
+                "datahub.masking.secret_registry.re.compile",
+                side_effect=RuntimeError("boom"),
+            ),
+            patch.object(registry_module.logger, "error") as error_log,
+        ):
+            masking_filter.mask_text("some text")
+        logged = " ".join(str(call) for call in error_log.call_args_list)
+        assert "CULPRIT_KEY" in logged
+        assert "culprit-secret-value" not in logged
+
+    def test_masking_error_withholds_output(self, registry, masking_filter):
+        registry.register_secret("S", "somesecret123")
+        with patch.object(
+            registry, "get_pattern_and_replacements", side_effect=KeyError("boom")
+        ):
+            assert (
+                masking_filter.mask_text("text with somesecret123")
+                == MASKING_ERROR_MESSAGE
+            )
+
+    def test_empty_registry_masking_is_identity_not_error(self, masking_filter):
+        assert masking_filter.mask_text("no secrets registered") == (
+            "no secrets registered"
+        )
+
+    def test_filter_failure_replaces_record_instead_of_passing_raw(
+        self, registry, masking_filter
+    ):
+        registry.register_secret("S", "somesecret123")
+        record = logging.LogRecord(
+            "test", logging.INFO, "f.py", 1, "leaking somesecret123", None, None
+        )
+        record.stack_info = "stack with somesecret123"
+        record.message = "leaking somesecret123"
+        with patch.object(
+            masking_filter, "mask_text", side_effect=RuntimeError("boom")
+        ):
+            assert masking_filter.filter(record) is True
+        assert record.msg == MASKING_ERROR_MESSAGE
+        assert record.args is None
+        assert record.stack_info is None
+        assert record.message == MASKING_ERROR_MESSAGE
+
+
+class TestMaskBeforeTruncate:
+    def test_secret_at_truncation_boundary_leaves_no_partial_secret(self, registry):
+        secret = "supersecretvalue1234"
+        registry.register_secret("S", secret)
+        masking_filter = SecretMaskingFilter(registry, max_message_size=50)
+        record = logging.LogRecord(
+            "test",
+            logging.INFO,
+            "f.py",
+            1,
+            "x" * 45 + secret + "y" * 100,
+            None,
+            None,
+        )
+        masking_filter.filter(record)
+        for length in range(4, len(secret) + 1):
+            assert secret[:length] not in record.msg
+
+    def test_marker_survives_when_secret_is_within_truncation_window(self, registry):
+        secret = "supersecretvalue1234"
+        registry.register_secret("S", secret)
+        masking_filter = SecretMaskingFilter(registry, max_message_size=50)
+        record = logging.LogRecord(
+            "test",
+            logging.INFO,
+            "f.py",
+            1,
+            "x" * 20 + secret + "y" * 100,
+            None,
+            None,
+        )
+        masking_filter.filter(record)
+        assert secret not in record.msg
+        assert "***REDACTED:S***" in record.msg
+
+
+class TestStreamWrapperFailClosed:
+    def test_write_failure_emits_marker_not_original(self, registry):
+        broken_filter = Mock()
+        broken_filter.mask_text.side_effect = RuntimeError("boom")
+        sink = StringIO()
+        wrapper = StreamMaskingWrapper(sink, broken_filter)
+        wrapper.write("raw somesecret123 text")
+        assert "somesecret123" not in sink.getvalue()
+        assert MASKING_ERROR_MESSAGE in sink.getvalue()

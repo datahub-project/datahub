@@ -552,7 +552,10 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           }
         }
       } catch (Exception e) {
-        log.warn("Error checking service for index {}: {}", indexName, e.getMessage());
+        // Log the full exception: message-only logging turned a message-less
+        // UnsupportedOperationException into an undiagnosable "No index builder found"
+        // failure downstream.
+        log.warn("Error checking service for index {}", indexName, e);
       }
     }
     return null;
