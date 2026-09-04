@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import com.linkedin.metadata.utils.aws.AwsClientCredentials;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
 import javax.annotation.Nonnull;
@@ -195,7 +196,7 @@ public class AwsClientFactory {
   private static S3Presigner buildPresigner(@Nonnull S3Client s3Client) {
     var presignerBuilder =
         S3Presigner.builder()
-            .credentialsProvider(s3Client.serviceClientConfiguration().credentialsProvider())
+            .credentialsProvider(AwsClientCredentials.requireFrom(s3Client))
             .region(s3Client.serviceClientConfiguration().region());
 
     String endpointUrl = envOrProperty("AWS_ENDPOINT_URL");

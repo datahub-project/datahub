@@ -90,6 +90,17 @@ public class AwsClientFactoryObjectStorageTest {
   }
 
   @Test
+  public void presignerRequiresExplicitCredentialsCopiedFromS3Client() {
+    System.setProperty("aws.region", "us-east-1");
+    AwsCredentialsProvider credentials =
+        StaticCredentialsProvider.create(AwsBasicCredentials.create("test-key", "test-secret"));
+
+    S3Client client = awsClientFactory.objectStorageS3Client(credentials);
+    assertNotNull(client);
+    assertNotNull(awsClientFactory.objectStorageS3Presigner(client));
+  }
+
+  @Test
   public void createsS3ClientWithRoleCredentialsAndRegion() {
     dataHubConfiguration.getObjectStorage().setRoleArn("arn:aws:iam::123456789012:role/test-role");
     System.setProperty("aws.region", "us-east-1");
