@@ -136,10 +136,16 @@ runs:
           playwright-test:
             - "e2e-test/ui/playwright/**"
           embedding-ai:
-            - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/Local*"
+            - "metadata-io/src/main/java/com/linkedin/metadata/search/embedding/**"
+            - "metadata-io/src/main/java/com/linkedin/metadata/search/semantic/**"
+            - "metadata-io/src/main/java/com/linkedin/metadata/search/SemanticSearchService.java"
             - "metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/indexbuilder/**"
+            - "metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/index/entity/v2/V2SemanticSearch*"
             - "metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/EmbeddingProvider*"
-            - "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/semantic/EmbeddingProvider*"
+            - "metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/SemanticSearchConfiguration*"
+            - "metadata-service/configuration/src/main/java/com/linkedin/metadata/config/search/ModelEmbeddingConfig*"
+            - "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/semantic/**"
+            - "metadata-service/factories/src/main/java/com/linkedin/gms/factory/search/SemanticSearchServiceFactory.java"
             - "metadata-service/configuration/src/main/resources/application.yaml"
             - "docker/profiles/docker-compose.ollama.yml"
             - "docker/profiles/docker-compose.gms.yml"
