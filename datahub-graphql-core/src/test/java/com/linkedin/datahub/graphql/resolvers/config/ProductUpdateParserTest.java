@@ -1089,8 +1089,7 @@ public class ProductUpdateParserTest {
             + "}";
     JsonNode jsonNode = objectMapper.readTree(jsonString);
 
-    ProductUpdate br =
-        ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), null, "pt-BR");
+    ProductUpdate br = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), null, "pt-BR");
     ProductUpdate pt = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), null, "pt");
 
     assertNotNull(br);

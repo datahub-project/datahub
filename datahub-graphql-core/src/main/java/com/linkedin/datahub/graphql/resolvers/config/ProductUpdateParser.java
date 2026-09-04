@@ -60,20 +60,18 @@ public class ProductUpdateParser {
    * {@code pt-BR}, …). Each locale object may include any of {@code title}, {@code header}, {@code
    * description}, {@code primaryCtaText}, {@code secondaryCtaText}, {@code ctaText}, and {@code
    * features} (title/description/availability by index). Missing keys keep the default English
-   * fields. Links, {@code id}, {@code enabled}, {@code image}, and {@code requiredVersion} are never
-   * translated.
+   * fields. Links, {@code id}, {@code enabled}, {@code image}, and {@code requiredVersion} are
+   * never translated.
    *
    * @param jsonOpt Optional JSON node containing product update data
    * @param clientId Optional client ID to append to ctaLink as a query parameter
-   * @param locale Optional UI locale (e.g. {@code ja} or {@code ja-JP}); {@code ja-JP} falls back to
-   *     {@code ja}
+   * @param locale Optional UI locale (e.g. {@code ja} or {@code ja-JP}); {@code ja-JP} falls back
+   *     to {@code ja}
    * @return ProductUpdate object if parsing succeeds and update is enabled, null otherwise
    */
   @Nullable
   public static ProductUpdate parseProductUpdate(
-      @Nonnull Optional<JsonNode> jsonOpt,
-      @Nullable String clientId,
-      @Nullable String locale) {
+      @Nonnull Optional<JsonNode> jsonOpt, @Nullable String clientId, @Nullable String locale) {
     if (jsonOpt.isEmpty()) {
       log.debug("No product update JSON available");
       return null;
