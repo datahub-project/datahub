@@ -6,11 +6,15 @@ import styled, { useTheme } from 'styled-components';
 import { useAppConfig } from '@app/useAppConfig';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
+const StyledLink = styled(Link)`
+    display: flex;
+`;
+
 const LogoImage = styled(Image)`
     display: inline-block;
     height: 32px;
     width: auto;
-    margin-top: 2px;
+    display: flex;
 `;
 
 export default function AppLogoLink() {
@@ -18,7 +22,7 @@ export default function AppLogoLink() {
     const themeConfig = useTheme();
 
     return (
-        <Link to="/">
+        <StyledLink to="/">
             <LogoImage
                 src={
                     appConfig.config !== DEFAULT_APP_CONFIG
@@ -27,6 +31,6 @@ export default function AppLogoLink() {
                 }
                 preview={false}
             />
-        </Link>
+        </StyledLink>
     );
 }
