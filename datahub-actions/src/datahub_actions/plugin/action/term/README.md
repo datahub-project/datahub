@@ -12,16 +12,16 @@ Propagation can be controlled via a specified list of terms or a specified list 
 
 ### Target Terms
 
-- Given a list of "target terms", the propagation action will detect application of the target term to any field or dataset and propagate it down (as a dataset-level tag) on all downstream datasets. For example, given a target term of `Classification.Confidential` (the default), if you apply `Classification.Confidential` term to a dataset (at the dataset level or a field-level), this action will find all the downstream datasets and apply the `Classification.Confidential` tag to them at the dataset level. Note that downstream application is only at the dataset level, regardless of whether the primary application was at the field level or the dataset level.
+- Given a list of "target terms", the propagation action will detect application of the target term to any field or dataset and propagate it down (as a dataset-level term) on all downstream datasets. For example, given a target term of `Classification.Confidential` (the default), if you apply `Classification.Confidential` term to a dataset (at the dataset level or a field-level), this action will find all the downstream datasets and apply the `Classification.Confidential` term to them at the dataset level. Note that downstream application is only at the dataset level, regardless of whether the primary application was at the field level or the dataset level.
 - This action also supports term linkage. If you apply a term that is linked to the target term via inheritance, then this action will detect that application and propagate it downstream as well. For example, if the term `PersonalInformation.Email` inherits `Classification.Confidential` (the target term), and if you apply the `PersonalInformation.Email` term to a dataset (or a field in the dataset), it will be picked up by the action, and the `PersonalInformation.Email` term will be applied at the dataset level to all the downstream entities.
 
 ### Term Groups
 
 - Given a list of "term groups", the propagation action will only propagate terms that belong to these term groups.
 
-### Addition and Removals
+### Additions and Removals
 
-The action supports propagation of term additions and removals.
+The action propagates both term additions and removals to downstream datasets.
 
 ## Configurability
 
@@ -54,3 +54,5 @@ datahub:
 ## Caveats
 
 - Term Propagation is currently only supported for downstream datasets. Terms will not propagate to downstream dashboards or charts. Let us know if this is an important feature for you.
+- A term removal is only propagated once the source dataset no longer carries the term on any field or at the dataset level, so removing it from one field while another field still has it leaves downstream datasets untouched.
+- Propagation does not track provenance on downstream datasets: when a removal is propagated it clears the term from every downstream dataset, and an addition adds it, regardless of whether the term was also applied to that dataset directly. A propagated removal can therefore still clear a term that a user set on a downstream dataset independently.
