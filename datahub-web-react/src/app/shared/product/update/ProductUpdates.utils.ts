@@ -5,7 +5,10 @@ export function getProductUpdateVersion(updateId: string): string | null {
     return PRODUCT_UPDATE_VERSION_PATTERN.exec(updateId.trim())?.[1] ?? null;
 }
 
-export function getDefaultProductUpdateLink(updateId: string): string | null {
+export function getDefaultProductUpdateLink(updateId: string, isCloud = false): string | null {
+    if (!isCloud) {
+        return null;
+    }
     const version = getProductUpdateVersion(updateId);
     return version ? `${DATAHUB_CLOUD_RELEASE_URL_PREFIX}${version.replace(/\./g, '-')}` : null;
 }

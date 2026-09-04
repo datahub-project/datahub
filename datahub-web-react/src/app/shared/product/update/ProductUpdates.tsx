@@ -35,7 +35,7 @@ import {
 } from '@app/shared/product/update/hooks';
 import { isVersionMatch } from '@app/shared/product/update/versionUtils';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig, useIsShowAcrylInfoEnabled } from '@app/useAppConfig';
 import { getRuntimeBasePath } from '@utils/runtimeBasePath';
 
 export default function ProductUpdates() {
@@ -45,6 +45,7 @@ export default function ProductUpdates() {
     const isFeatureEnabled = useIsProductAnnouncementEnabled();
     const latestUpdate = useGetLatestProductAnnouncementData();
     const appConfig = useAppConfig();
+    const isCloud = useIsShowAcrylInfoEnabled();
     const isOnHomePage = useIsHomePage();
 
     const { visible, refetch } = useIsProductAnnouncementVisible(latestUpdate?.id);
@@ -140,10 +141,12 @@ export default function ProductUpdates() {
     // Helper to check if value is actually present (not null, undefined, or string "null")
     const isPresent = (value: any) => value && value !== 'null' && value !== null;
 
-    const version = getProductUpdateVersion(latestUpdate.id);
-    const defaultTitle = t('updates.defaultTitle', {
-        month: getLocalizedCurrentMonth(i18n.language),
-    });
+    const version = isCloud ? getProductUpdateVersion(latestUpdate.id) : null;
+    const defaultTitle = isCloud
+        ? t('updates.defaultTitle', {
+              month: getLocalizedCurrentMonth(i18n.language),
+          })
+        : null;
     const contentTitle = isPresent(title) ? title : defaultTitle;
     const displayTitle = isPresent(header) ? header : contentTitle;
 
@@ -152,7 +155,9 @@ export default function ProductUpdates() {
 
     // Determine primary CTA (prefer new format, fall back to legacy)
     const primaryText = primaryCtaText || ctaText || (version ? t('updates.defaultCtaText', { version }) : null);
-    const primaryLink = buildUrl(primaryCtaLink || ctaLink || getDefaultProductUpdateLink(latestUpdate.id));
+    const primaryLink = buildUrl(
+        primaryCtaLink || ctaLink || getDefaultProductUpdateLink(latestUpdate.id, isCloud),
+    );
 
     // Secondary CTA (only if both text and link are present)
     const secondaryText = isPresent(latestUpdate.secondaryCtaText) ? latestUpdate.secondaryCtaText : null;
@@ -188,7 +193,7 @@ export default function ProductUpdates() {
                 )}
                 {image && (
                     <ImageSection>
-                        <Image src={image} alt={title} />
+                        <Image src={image} alt={contentTitle || undefined} />
                     </ImageSection>
                 )}
                 {displayFeatures && displayFeatures.length > 0 && (
