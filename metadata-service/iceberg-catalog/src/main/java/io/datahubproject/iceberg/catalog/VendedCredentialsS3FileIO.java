@@ -115,6 +115,18 @@ final class VendedCredentialsS3FileIO {
                 }
                 return null;
               }
+              if (method.getDeclaringClass() == Object.class) {
+                switch (method.getName()) {
+                  case "equals":
+                    return proxy == args[0];
+                  case "hashCode":
+                    return System.identityHashCode(proxy);
+                  case "toString":
+                    return "ClosingFileIO(" + io + ")";
+                  default:
+                    break;
+                }
+              }
               return invokeUnchecked(io, method, args);
             });
   }

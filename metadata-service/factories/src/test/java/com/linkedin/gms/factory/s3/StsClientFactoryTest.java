@@ -115,13 +115,8 @@ class StsClientFactoryNoAwsConfigTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testStsClientNullWhenNoAwsConfig() {
-    String awsRegion = System.getenv("AWS_REGION");
-    String awsEndpoint = System.getenv("AWS_ENDPOINT_URL");
-    if ((awsRegion != null && !awsRegion.isEmpty())
-        || (awsEndpoint != null && !awsEndpoint.isEmpty())) {
-      throw new SkipException(
-          "Skipping: AWS_REGION or AWS_ENDPOINT_URL set in env; cannot simulate no-config");
-    }
+    StsClientFactoryAwsEnv.skipIfAwsRegionOrEndpointSetInEnvironment(
+        "Skipping: AWS_REGION or AWS_ENDPOINT_URL set in env; cannot simulate no-config");
     assertNull(stsClient, "StsClient bean should be null when no AWS region or endpoint is set");
   }
 }
@@ -138,17 +133,25 @@ class StsClientFactorySkipWithoutSharedCredentialsTest {
 
   @Test
   public void skipsWhenRegionSetWithoutSharedCredentialsProvider() {
-    String awsRegion = System.getenv("AWS_REGION");
-    String awsEndpoint = System.getenv("AWS_ENDPOINT_URL");
-    if ((awsRegion != null && !awsRegion.isEmpty())
-        || (awsEndpoint != null && !awsEndpoint.isEmpty())) {
-      throw new SkipException(
-          "Skipping: AWS_REGION or AWS_ENDPOINT_URL set in env; cannot simulate region-only skip");
-    }
+    StsClientFactoryAwsEnv.skipIfAwsRegionOrEndpointSetInEnvironment(
+        "Skipping: AWS_REGION or AWS_ENDPOINT_URL set in env; cannot simulate region-only skip");
     System.setProperty("AWS_REGION", "us-east-1");
     StsClientFactory factory = new StsClientFactory();
     assertNull(
         factory.getInstance(),
         "StsClient must not be built with the AWS SDK default IRSA credential chain");
+  }
+}
+
+final class StsClientFactoryAwsEnv {
+  private StsClientFactoryAwsEnv() {}
+
+  static void skipIfAwsRegionOrEndpointSetInEnvironment(String reason) {
+    String awsRegion = System.getenv("AWS_REGION");
+    String awsEndpoint = System.getenv("AWS_ENDPOINT_URL");
+    if ((awsRegion != null && !awsRegion.isEmpty())
+        || (awsEndpoint != null && !awsEndpoint.isEmpty())) {
+      throw new SkipException(reason);
+    }
   }
 }

@@ -45,6 +45,16 @@ public class VendedCredentialsS3FileIOTest {
   }
 
   @Test
+  public void closingFileIOEqualsItself() throws Exception {
+    FileIO io = VendedCredentialsS3FileIO.create(vendedCreds());
+    try {
+      assertTrue(io.equals(io));
+    } finally {
+      io.close();
+    }
+  }
+
+  @Test
   public void repeatedCreateCloseDoesNotFallBackToDefaultChain() throws Exception {
     for (int i = 0; i < 8; i++) {
       FileIO io = VendedCredentialsS3FileIO.create(vendedCreds());
