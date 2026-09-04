@@ -25,7 +25,7 @@ from datahub.configuration.env_vars import (
     get_rest_sink_default_max_threads,
     get_rest_sink_default_mode,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, validate_emitted_urn
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.rest_emitter import (
     _DEFAULT_EMIT_MODE,
@@ -57,6 +57,7 @@ from datahub.utilities.partition_executor import (
 )
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.server_config_util import set_gms_config
+from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -462,6 +463,19 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 )
                 self.report.pending_requests += 1
             elif self.config.mode == RestSinkMode.ASYNC_BATCH:
+                # This mode is the only one that packs unrelated records into a single
+                # emit_mcps call. That call is all-or-nothing, and BatchPartitionExecutor
+                # reports its one failure against every record in the batch, so an
+                # unreadable urn has to be rejected before it can be batched with valid
+                # siblings. The other modes emit one record per call, where the emitter's
+                # own guard already fails exactly the record that caused it.
+                try:
+                    validate_emitted_urn(_get_urn(record_envelope))
+                except InvalidUrnError as e:
+                    self.report.report_failure({"error": str(e)})
+                    write_callback.on_failure(record_envelope, e, {})
+                    return
+
                 assert isinstance(self.executor, BatchPartitionExecutor)
                 partition_key = _get_partition_key(record_envelope)
                 self.executor.submit(
