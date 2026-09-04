@@ -314,7 +314,8 @@
           "description": "Enabled by default",
           "subtype_modifier": [
             "Project",
-            "Dataset"
+            "Dataset",
+            "Linked Dataset"
           ],
           "supported": true
         },
