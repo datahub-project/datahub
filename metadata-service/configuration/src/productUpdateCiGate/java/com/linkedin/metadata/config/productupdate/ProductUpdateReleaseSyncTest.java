@@ -178,8 +178,7 @@ public class ProductUpdateReleaseSyncTest {
     }
 
     Assert.assertTrue(
-        i18n.isObject(),
-        flavor.jsonPath() + " has i18n but it is not an object of locale keys.");
+        i18n.isObject(), flavor.jsonPath() + " has i18n but it is not an object of locale keys.");
 
     Set<String> requiredLocales = supportedUiLocales(repoRoot);
     Set<String> presentLocales = new TreeSet<>();
@@ -217,8 +216,7 @@ public class ProductUpdateReleaseSyncTest {
   @Nonnull
   private static Set<String> supportedUiLocales(@Nonnull Path repoRoot) throws IOException {
     Path localesDir = repoRoot.resolve(UI_LOCALES_DIR);
-    Assert.assertTrue(
-        Files.isDirectory(localesDir), "Missing UI locale directory: " + localesDir);
+    Assert.assertTrue(Files.isDirectory(localesDir), "Missing UI locale directory: " + localesDir);
     try (Stream<Path> children = Files.list(localesDir)) {
       Set<String> locales =
           children
@@ -228,8 +226,7 @@ public class ProductUpdateReleaseSyncTest {
               .filter(name -> !DEFAULT_LOCALE.equals(name))
               .collect(Collectors.toCollection(TreeSet::new));
       Assert.assertFalse(
-          locales.isEmpty(),
-          "Found no non-English locale directories under " + localesDir);
+          locales.isEmpty(), "Found no non-English locale directories under " + localesDir);
       return locales;
     }
   }
