@@ -122,6 +122,8 @@ def test_check_sync_lists_missing_commits(monkeypatch, capsys):
     assert "Fix: resolve null pointer" in out
     assert "2025-05-05" in out
     assert "def5678" in out
+    assert "merge" in out
+    assert "cherry-pick" not in out
 
 
 def test_check_sync_shows_truncation_when_api_cap_exceeded(monkeypatch, capsys):
@@ -136,6 +138,8 @@ def test_check_sync_shows_truncation_when_api_cap_exceeded(monkeypatch, capsys):
     chs.check_sync(_VERSION, _REPO)
     out = capsys.readouterr().out
     assert "295 more" in out
+    assert "--skip" not in out
+    assert "skip_hotfix_sync_check" in out
 
 
 def test_check_sync_writes_to_summary_file(monkeypatch, tmp_path):
@@ -150,6 +154,8 @@ def test_check_sync_writes_to_summary_file(monkeypatch, tmp_path):
     content = summary.read_text()
     assert "Hotfix Sync Check Failed" in content
     assert "abc1234" in content
+    assert "merge" in content
+    assert "cherry-pick" not in content
 
 
 def test_check_sync_does_not_write_summary_on_success(monkeypatch, tmp_path):

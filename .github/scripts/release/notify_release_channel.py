@@ -13,7 +13,7 @@ import argparse
 import os
 import sys
 
-from utils import version_util
+import version_util
 from utils.slack_notifier import blockkit, slack_client
 
 

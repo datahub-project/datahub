@@ -34,7 +34,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          python3 .github/scripts/check_hotfix_sync.py \
+          python3 .github/scripts/release/check_hotfix_sync.py \
             --version "${{ inputs.version }}" \
             --repo "${{ github.repository }}" \
             --summary-file "$GITHUB_STEP_SUMMARY"

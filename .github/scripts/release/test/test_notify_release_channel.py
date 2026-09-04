@@ -6,8 +6,10 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-_SCRIPTS = Path(__file__).resolve().parent.parent
+_RELEASE = Path(__file__).resolve().parent.parent
+_SCRIPTS = _RELEASE.parent
 sys.path.insert(0, str(_SCRIPTS))
+sys.path.insert(0, str(_RELEASE))
 
 import notify_release_channel as n  # noqa: E402
 from release_variables import SLACK_RELEASE_CHANNEL_PREFIX  # noqa: E402

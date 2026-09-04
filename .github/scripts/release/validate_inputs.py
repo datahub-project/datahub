@@ -23,7 +23,7 @@ import subprocess
 import sys
 
 from release_variables import VERSION_SUFFIX
-from utils import version_util
+import version_util
 
 # Cut Tag runs on the release branch, so branch_type/version come from its name.
 # The version grammar itself is validated by version_util.

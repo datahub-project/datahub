@@ -1,4 +1,4 @@
-"""Tests for utils/version_util.py"""
+"""Tests for version_util.py"""
 
 import sys
 from pathlib import Path
@@ -9,7 +9,7 @@ from release_variables import (
     SLACK_RELEASE_CHANNEL_PREFIX,
     VERSION_SUFFIX,
 )
-from utils import version_util as vu
+import version_util as vu
 
 # Representative tags that must always be ignored: a custom suffix and a
 # 4-component version (x.x.x.x plus VERSION_SUFFIX).

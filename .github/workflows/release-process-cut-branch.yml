@@ -41,7 +41,7 @@ jobs:
 
       - name: Validate inputs
         run: |
-          python3 .github/scripts/validate_inputs.py cut-branch \
+          python3 .github/scripts/release/validate_inputs.py cut-branch \
             --version "${{ inputs.version }}" \
             --branch-type "${{ inputs.branch_type }}"
 
@@ -49,7 +49,7 @@ jobs:
         id: branches
         run: |
           if [ "${{ inputs.branch_type }}" == "release" ]; then
-            SOURCE=$(PYTHONPATH=.github/scripts python3 -c "from release_variables import DEFAULT_BRANCH; print(DEFAULT_BRANCH)")
+            SOURCE=$(PYTHONPATH=.github/scripts:.github/scripts/release python3 -c "from release_variables import DEFAULT_BRANCH; print(DEFAULT_BRANCH)")
             echo "source=${SOURCE}" >> "$GITHUB_OUTPUT"
             echo "target=releases/v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
           else
@@ -142,12 +142,12 @@ jobs:
           COMMIT_SHA: ${{ needs.cut_branch.outputs.commit_sha }}
           BRANCH_TYPE: ${{ inputs.branch_type }}
           VERSION: ${{ inputs.version }}
+          PYTHONPATH: ${{ github.workspace }}/.github/scripts:${{ github.workspace }}/.github/scripts/release
         run: |
-          cd .github/scripts
           SHORT_SHA="${COMMIT_SHA:0:7}"
           BRANCH_URL="${{ github.server_url }}/${{ github.repository }}/tree/${TARGET}"
           MESSAGE="*${BRANCH_TYPE} branch cut* for \`v${VERSION}\` — <${BRANCH_URL}|${TARGET}> (commit \`${SHORT_SHA}\`)"
-          python notify_release_channel.py \
+          python3 .github/scripts/release/notify_release_channel.py \
             --version "${VERSION}" \
             --emoji ":scissors:" \
             --message "${MESSAGE}"

@@ -88,7 +88,8 @@ def check_sync(version: str, repo: str, summary_file: str = "") -> int:
 
     commit_lines = "\n".join(_format_commit_line(c) for c in commits)
     hidden_note = (
-        f"\n  ...and {hidden} more (API truncated list — run with --skip to bypass)"
+        f"\n  ...and {hidden} more (API truncated list — verify, then re-run Cut Tag "
+        f"with skip_hotfix_sync_check if this was a squash merge)"
         if hidden > 0
         else ""
     )
@@ -102,8 +103,9 @@ def check_sync(version: str, repo: str, summary_file: str = "") -> int:
         f"{commit_lines}{hidden_note}\n"
         f"\n"
         f"  Action required:\n"
-        f"    Ask engineering to cherry-pick these commits into {hotfix_branch}\n"
-        f"    before re-running the Cut Tag workflow.\n"
+        f"    Ask engineering to merge {release_branch} into {hotfix_branch}\n"
+        f"    so those commits are ancestors, then re-run Cut Tag.\n"
+        f"    For a verified squash merge, re-run with skip_hotfix_sync_check.\n"
         f"{_BORDER}\n"
     )
     print(body)
@@ -122,8 +124,9 @@ def check_sync(version: str, repo: str, summary_file: str = "") -> int:
         f"### Missing commits\n\n"
         + "\n".join(md_lines)
         + f"\n\n### Action required\n\n"
-        f"Ask engineering to cherry-pick these commits into `{hotfix_branch}` "
-        f"before re-running the Cut Tag workflow.\n"
+        f"Ask engineering to merge `{release_branch}` into `{hotfix_branch}` "
+        f"so those commits are ancestors, then re-run Cut Tag. "
+        f"For a verified squash merge, re-run with `skip_hotfix_sync_check`.\n"
     )
     _write_summary(summary_file, md)
 

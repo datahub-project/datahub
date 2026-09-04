@@ -57,7 +57,7 @@ jobs:
         env:
           REF_NAME: ${{ github.ref_name }}
         run: |
-          python3 .github/scripts/validate_inputs.py parse-ref --ref "$REF_NAME"
+          python3 .github/scripts/release/validate_inputs.py parse-ref --ref "$REF_NAME"
 
   verify_hotfix_sync:
     name: Verify Hotfix Sync
@@ -109,7 +109,7 @@ jobs:
           RELEASE_TYPE: ${{ inputs.release_type }}
           HOTFIX_VERSION: ${{ inputs.hotfix_version }}
         run: |
-          python3 .github/scripts/validate_inputs.py cut-tag \
+          python3 .github/scripts/release/validate_inputs.py cut-tag \
             --version "$VERSION" \
             --branch-type "$BRANCH_TYPE" \
             --release-type "$RELEASE_TYPE" \
@@ -139,7 +139,7 @@ jobs:
           else
             RC_VERSION="$VERSION"
           fi
-          python3 .github/scripts/compute_next_rc.py \
+          python3 .github/scripts/release/compute_next_rc.py \
             --version "$RC_VERSION" \
             --output-file /tmp/next_rc_tag.txt
           echo "tag=$(cat /tmp/next_rc_tag.txt)" >> "$GITHUB_OUTPUT"
@@ -153,7 +153,7 @@ jobs:
           HOTFIX_VERSION: ${{ inputs.hotfix_version }}
           NEXT_RC_TAG: ${{ steps.next_rc.outputs.tag }}
         run: |
-          SUFFIX=$(PYTHONPATH=.github/scripts python3 -c "from release_variables import VERSION_SUFFIX; print(VERSION_SUFFIX)")
+          SUFFIX=$(PYTHONPATH=.github/scripts:.github/scripts/release python3 -c "from release_variables import VERSION_SUFFIX; print(VERSION_SUFFIX)")
           if [ "$RELEASE_TYPE" == "rc" ]; then
             echo "name=${NEXT_RC_TAG}" >> "$GITHUB_OUTPUT"
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
@@ -172,7 +172,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tag.outputs.name }}
         run: |
-          python3 .github/scripts/compute_preceding_tag.py \
+          python3 .github/scripts/release/compute_preceding_tag.py \
             --tag "$TAG" \
             --output-file /tmp/preceding_tag.txt
           echo "tag=$(cat /tmp/preceding_tag.txt)" >> "$GITHUB_OUTPUT"
@@ -224,7 +224,7 @@ jobs:
         env:
           INGESTION_LINEAR_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
         run: |
-          python3 .github/scripts/create_linear_release_label.py \
+          python3 .github/scripts/release/create_linear_release_label.py \
             --tag "${{ needs.cut_tag.outputs.tag }}"
 
   print_docker_unified_url:

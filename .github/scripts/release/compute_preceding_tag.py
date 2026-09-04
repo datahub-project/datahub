@@ -9,7 +9,7 @@ precedes the one being cut so that "What's changed" covers only the new delta:
     fall back to the last official release tag
   - Final release: last official release tag before this version
 
-Tag parsing/classification lives in ``utils.version_util``. Custom or
+Tag parsing/classification lives in ``version_util``. Custom or
 extra-component tags match neither pattern and are ignored when selecting
 a predecessor.
 
@@ -30,8 +30,8 @@ import subprocess
 import sys
 from typing import Optional
 
-from utils import version_util
-from utils.version_util import fetch_release_tags
+import version_util
+from version_util import fetch_release_tags
 
 
 def compute_preceding_tag(tag: str, all_tags: list[str]) -> Optional[str]:

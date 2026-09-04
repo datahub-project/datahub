@@ -25,8 +25,8 @@ import subprocess
 import sys
 
 from release_variables import VERSION_SUFFIX
-from utils import version_util
-from utils.version_util import fetch_release_tags, git_tag_exists
+import version_util
+from version_util import fetch_release_tags, git_tag_exists
 
 
 def main() -> None:
