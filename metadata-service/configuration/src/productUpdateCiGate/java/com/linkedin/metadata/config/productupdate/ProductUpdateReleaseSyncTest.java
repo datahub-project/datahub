@@ -40,7 +40,7 @@ public class ProductUpdateReleaseSyncTest {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   /** Mirrors ProductUpdateParser's required-field contract; the toast never renders if absent. */
-  private static final List<String> REQUIRED_FIELDS = List.of("enabled", "id", "title");
+  private static final List<String> REQUIRED_FIELDS = List.of("enabled", "id");
 
   /**
    * Copy fields the parser will overlay from {@code i18n.<locale>}. English lives at the top level;

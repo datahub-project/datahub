@@ -3,69 +3,44 @@
   "id": "v2.2",
   "requiredVersion": null,
   "header": null,
-  "title": "DataHub Cloud September Updates",
   "description": "Context Platform is now in Public Beta + Custom Agents",
   "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/in-product-release-jul2026.png",
-  "ctaText": "Explore DataHub Cloud 2.2",
-  "ctaLink": "https://datahub.com/blog/datahub-cloud-2-2",
   "secondaryCtaText": null,
   "secondaryCtaLink": null,
   "features": [],
   "i18n": {
     "de": {
-      "title": "DataHub Cloud – Updates im September",
-      "description": "Context Platform ist jetzt in der öffentlichen Betaphase + benutzerdefinierte Agents",
-      "ctaText": "DataHub Cloud 2.2 entdecken"
+      "description": "Context Platform ist jetzt in der öffentlichen Betaphase + benutzerdefinierte Agents"
     },
     "es": {
-      "title": "Actualizaciones de septiembre de DataHub Cloud",
-      "description": "Context Platform ya está en beta pública + agentes personalizados",
-      "ctaText": "Explorar DataHub Cloud 2.2"
+      "description": "Context Platform ya está en beta pública + agentes personalizados"
     },
     "fi": {
-      "title": "DataHub Cloudin syyskuun päivitykset",
-      "description": "Context Platform on nyt julkisessa beetavaiheessa + mukautetut agentit",
-      "ctaText": "Tutustu DataHub Cloud 2.2:een"
+      "description": "Context Platform on nyt julkisessa beetavaiheessa + mukautetut agentit"
     },
     "fr": {
-      "title": "Mises à jour de septembre de DataHub Cloud",
-      "description": "Context Platform est désormais en bêta publique + agents personnalisés",
-      "ctaText": "Découvrir DataHub Cloud 2.2"
+      "description": "Context Platform est désormais en bêta publique + agents personnalisés"
     },
     "hu": {
-      "title": "A DataHub Cloud szeptemberi újdonságai",
-      "description": "A Context Platform már nyilvános bétaverzióban érhető el + egyéni ügynökök",
-      "ctaText": "A DataHub Cloud 2.2 felfedezése"
+      "description": "A Context Platform már nyilvános bétaverzióban érhető el + egyéni ügynökök"
     },
     "it": {
-      "title": "Aggiornamenti di settembre di DataHub Cloud",
-      "description": "Context Platform è ora in beta pubblica + agenti personalizzati",
-      "ctaText": "Scopri DataHub Cloud 2.2"
+      "description": "Context Platform è ora in beta pubblica + agenti personalizzati"
     },
     "ja": {
-      "title": "DataHub Cloud 9月のアップデート",
-      "description": "Context Platform がパブリックベータ版になりました + カスタムエージェント",
-      "ctaText": "DataHub Cloud 2.2 を見る"
+      "description": "Context Platform がパブリックベータ版になりました + カスタムエージェント"
     },
     "nb": {
-      "title": "September-oppdateringer for DataHub Cloud",
-      "description": "Context Platform er nå i offentlig betaversjon + egendefinerte agenter",
-      "ctaText": "Utforsk DataHub Cloud 2.2"
+      "description": "Context Platform er nå i offentlig betaversjon + egendefinerte agenter"
     },
     "pt-BR": {
-      "title": "Atualizações de setembro do DataHub Cloud",
-      "description": "A Context Platform agora está em beta pública + agentes personalizados",
-      "ctaText": "Conheça o DataHub Cloud 2.2"
+      "description": "A Context Platform agora está em beta pública + agentes personalizados"
     },
     "sv": {
-      "title": "Septemberuppdateringar för DataHub Cloud",
-      "description": "Context Platform är nu i offentlig betaversion + anpassade agenter",
-      "ctaText": "Utforska DataHub Cloud 2.2"
+      "description": "Context Platform är nu i offentlig betaversion + anpassade agenter"
     },
     "zh-CN": {
-      "title": "DataHub Cloud 九月更新",
-      "description": "Context Platform 现已推出公开测试版 + 自定义智能体",
-      "ctaText": "探索 DataHub Cloud 2.2"
+      "description": "Context Platform 现已推出公开测试版 + 自定义智能体"
     }
   }
 }

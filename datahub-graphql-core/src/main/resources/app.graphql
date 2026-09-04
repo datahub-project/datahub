@@ -1057,7 +1057,8 @@ type ProductUpdate {
   id: String!
 
   """
-  Title of the update notification
+  Optional title override for the update notification.
+  Empty when the UI should generate its localized monthly title.
   """
   title: String!
 
@@ -1104,13 +1105,13 @@ type ProductUpdate {
 
   """
   Call-to-action button text (deprecated, use primaryCtaText instead)
-  Kept for backward compatibility
+  Kept for backward compatibility. Empty when the UI should generate localized copy.
   """
   ctaText: String!
 
   """
   Call-to-action link URL, with telemetry client ID appended (deprecated, use primaryCtaLink instead)
-  Kept for backward compatibility
+  Kept for backward compatibility. Empty when the UI should generate the release URL from the update id.
   """
   ctaLink: String!
 

@@ -1,4 +1,6 @@
 {
+    "updates.defaultTitle": "Aggiornamenti di {{month}} di DataHub Cloud",
+    "updates.defaultCtaText": "Scopri DataHub Cloud {{version}}",
     "updates.moreInThisRelease": "Altre novità in questa Release",
     "upload.failedTitle": "Caricamento non riuscito"
 }

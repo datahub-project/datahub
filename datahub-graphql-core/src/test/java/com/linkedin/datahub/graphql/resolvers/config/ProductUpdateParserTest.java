@@ -59,7 +59,7 @@ public class ProductUpdateParserTest {
     assertEquals(result.getTitle(), "What's New");
     assertNull(result.getDescription());
     assertNull(result.getImage());
-    assertEquals(result.getCtaText(), "Learn more");
+    assertEquals(result.getCtaText(), "");
     assertEquals(result.getCtaLink(), "");
   }
 
@@ -96,7 +96,10 @@ public class ProductUpdateParserTest {
 
     ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode));
 
-    assertNull(result);
+    assertNotNull(result);
+    assertEquals(result.getTitle(), "");
+    assertEquals(result.getCtaText(), "");
+    assertEquals(result.getCtaLink(), "");
   }
 
   @Test
@@ -314,7 +317,7 @@ public class ProductUpdateParserTest {
     assertNotNull(result);
     assertNotNull(result.getCtaText());
     assertNotNull(result.getCtaLink());
-    assertEquals(result.getCtaText(), "Learn more");
+    assertEquals(result.getCtaText(), "");
     assertEquals(result.getCtaLink(), "https://example.com");
   }
 
@@ -753,7 +756,7 @@ public class ProductUpdateParserTest {
     ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), "abc-123");
 
     assertNotNull(result);
-    assertEquals(result.getCtaText(), "Learn more");
+    assertEquals(result.getCtaText(), "");
     // An absent link stays empty rather than being decorated with the client id.
     assertEquals(result.getCtaLink(), "");
   }
@@ -821,9 +824,8 @@ public class ProductUpdateParserTest {
     assertNotNull(result);
     assertEquals(result.getPrimaryCtaText(), "New Text");
     assertEquals(result.getPrimaryCtaLink(), "https://new.com");
-    // Legacy fields should NOT be set when primary is present
-    assertNull(result.getCtaText());
-    assertNull(result.getCtaLink());
+    assertEquals(result.getCtaText(), "Old Text");
+    assertEquals(result.getCtaLink(), "https://old.com");
   }
 
   @Test

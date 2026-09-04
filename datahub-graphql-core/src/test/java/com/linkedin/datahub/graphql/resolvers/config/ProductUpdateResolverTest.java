@@ -97,7 +97,7 @@ public class ProductUpdateResolverTest {
     assertEquals(result.getTitle(), "What's New");
     assertNull(result.getDescription());
     assertNull(result.getImage());
-    assertEquals(result.getCtaText(), "Learn more"); // default value
+    assertEquals(result.getCtaText(), "");
     assertEquals(result.getCtaLink(), ""); // default value
   }
 
@@ -141,7 +141,10 @@ public class ProductUpdateResolverTest {
     ProductUpdate result = resolver.get(mockDataFetchingEnvironment).get();
 
     // Verify
-    assertNull(result);
+    assertNotNull(result);
+    assertEquals(result.getTitle(), "");
+    assertEquals(result.getCtaText(), "");
+    assertEquals(result.getCtaLink(), "");
   }
 
   @Test

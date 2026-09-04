@@ -80,8 +80,8 @@ public class ProductUpdateParser {
     JsonNode json = jsonOpt.get();
 
     // Parse and validate required fields
-    if (!json.has("enabled") || !json.has("id") || !json.has("title")) {
-      log.warn("Product update JSON missing required fields (enabled, id, or title)");
+    if (!json.has("enabled") || !json.has("id")) {
+      log.warn("Product update JSON missing required fields (enabled or id)");
       return null;
     }
 
@@ -92,7 +92,7 @@ public class ProductUpdateParser {
     }
 
     String id = json.get("id").asText();
-    String title = json.get("title").asText();
+    String title = json.hasNonNull("title") ? json.get("title").asText() : "";
 
     // Build the ProductUpdate response
     ProductUpdate productUpdate = new ProductUpdate();
@@ -133,17 +133,13 @@ public class ProductUpdateParser {
       productUpdate.setSecondaryCtaLink(secondaryCtaLink);
     }
 
-    // Parse legacy CTA fields (backward compatibility)
-    // Only use if primary CTA is not provided
-    if (!hasPrimaryCta) {
-      String ctaText = json.hasNonNull("ctaText") ? json.get("ctaText").asText() : "Learn more";
-      String ctaLink =
-          maybeDecorateUrl(
-              json.hasNonNull("ctaLink") ? json.get("ctaLink").asText() : "", clientId);
-
-      productUpdate.setCtaText(ctaText);
-      productUpdate.setCtaLink(ctaLink);
-    }
+    // Keep deprecated non-null GraphQL fields populated for backward compatibility. Empty values
+    // signal the frontend to use its localized defaults when neither CTA format is provided.
+    String ctaText = json.hasNonNull("ctaText") ? json.get("ctaText").asText() : "";
+    String ctaLink =
+        maybeDecorateUrl(json.hasNonNull("ctaLink") ? json.get("ctaLink").asText() : "", clientId);
+    productUpdate.setCtaText(ctaText);
+    productUpdate.setCtaLink(ctaLink);
 
     // Parse features array if present
     if (json.has("features") && json.get("features").isArray()) {
