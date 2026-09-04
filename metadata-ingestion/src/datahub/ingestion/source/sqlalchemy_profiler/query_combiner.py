@@ -808,8 +808,7 @@ class SQLAlchemyQueryCombiner:
             # emission still from get_query_columns, so order is unchanged.
             name_cols = fut.query.subquery().columns
             assert len(emit_cols) == len(name_cols), (
-                "emit/name column count mismatch — _is_flattenable should have "
-                "excluded this query"
+                "emit/name column count mismatch; this group re-routes to the CTE path"
             )
             names: List[str] = []
             for col in emit_cols:

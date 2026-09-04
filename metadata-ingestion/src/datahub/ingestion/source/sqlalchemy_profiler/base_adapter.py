@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnClause, ColumnElement
 
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -48,6 +48,14 @@ class ProfilingConnection:
         That is what makes it safe to merge with other aggregates over the same
         table into a single flat SELECT.
         """
+        # A plain column merged with real aggregates emits
+        # `SELECT count(*), v FROM t`, which returns one row on MySQL and
+        # SQLite and silently drops the rest. literal_column is allowed --
+        # several adapters build their median that way.
+        if isinstance(expr, ColumnClause) and not expr.is_literal:
+            raise ValueError(
+                f"execute_aggregate needs an aggregate, got a plain column: {expr}"
+            )
         query = sa.select([expr]).select_from(table)
         return self._conn.execute(flattenable_query(single_row_query(query)))
 

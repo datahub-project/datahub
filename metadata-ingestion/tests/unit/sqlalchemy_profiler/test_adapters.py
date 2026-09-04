@@ -41,6 +41,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.trino import TrinoAdapter
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
+    ProfilingConnection,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
@@ -1962,3 +1963,22 @@ class TestClickHouseAdapter:
         t3.schema = None
         t3.name = None
         assert _format_context(t3) == "<unknown>"
+
+
+class TestExecuteAggregateGuard:
+    def test_plain_column_is_rejected(self) -> None:
+        # A plain column merged with real aggregates returns one row on MySQL
+        # and SQLite, silently dropping the rest.
+        conn = ProfilingConnection(MagicMock())
+        table = sa.table("t", sa.column("v"))
+
+        with pytest.raises(ValueError):
+            conn.execute_aggregate(table, sa.column("v"))
+
+    def test_aggregates_and_literal_columns_are_accepted(self) -> None:
+        # literal_column is how several adapters build their median.
+        conn = ProfilingConnection(MagicMock())
+        table = sa.table("t", sa.column("v"))
+
+        conn.execute_aggregate(table, sa.func.count())
+        conn.execute_aggregate(table, sa.literal_column("MEDIAN(v)"))
