@@ -2578,6 +2578,76 @@ def test_get_monitors_propagates_fatal_from_row_construction() -> None:
         monkey.undo()
 
 
+def test_get_job_executions_skips_malformed_row_and_continues() -> None:
+    """A malformed job-execution row is skipped with a warning, not aborting the
+    whole page — so one bad record doesn't drop every SUCCESS run for the
+    monitor. Also covers the datetime coercer nulling a non-ISO start_time."""
+    report = MonteCarloSourceReport()
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = make_config()
+    client.page_size = 100
+    client.report = report
+    client._call = lambda query, variables: {  # type: ignore[method-assign]
+        "get_job_executions": {
+            "edges": [
+                {"node": {"job_execution_uuid": "good-1"}},
+                {"node": {"job_execution_uuid": "bad-1"}},
+                {"node": {"job_execution_uuid": "good-2"}},
+            ],
+        }
+    }
+    real_init = MonteCarloJobExecution.__init__
+    call_count = {"n": 0}
+
+    def flaky_init(self, **kwargs):  # type: ignore[no-untyped-def]
+        call_count["n"] += 1
+        if call_count["n"] == 2:
+            raise ValueError("malformed execution")
+        real_init(self, **kwargs)
+
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(MonteCarloJobExecution, "__init__", flaky_init)
+    try:
+        ids = [e.job_execution_uuid for e in client.get_job_executions("mon-1", 7, 5)]
+    finally:
+        monkey.undo()
+
+    assert ids == ["good-1", "good-2"]
+    assert any(
+        w.title is not None and "malformed monitor run" in w.title
+        for w in report.warnings
+    )
+    assert len(report.failures) == 0
+
+
+def test_get_job_executions_coerces_malformed_timestamp_to_none() -> None:
+    """A non-ISO start_time/end_time is coerced to None rather than raising a
+    ValidationError that would drop the whole job-execution page."""
+    report = MonteCarloSourceReport()
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = make_config()
+    client.page_size = 100
+    client.report = report
+    client._call = lambda query, variables: {  # type: ignore[method-assign]
+        "get_job_executions": {
+            "edges": [
+                {
+                    "node": {
+                        "job_execution_uuid": "je-bad-ts",
+                        "start_time": "not-a-timestamp",
+                        "end_time": "",
+                    }
+                },
+            ],
+        }
+    }
+    executions = list(client.get_job_executions("mon-1", 7, 5))
+    assert len(executions) == 1
+    assert executions[0].job_execution_uuid == "je-bad-ts"
+    assert executions[0].start_time is None
+    assert executions[0].end_time is None
+
+
 def test_call_retries_on_transient_network_error_then_succeeds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -142,10 +142,16 @@ class MconResolver:
             detail = self._platform_detail(parsed.resource_id, resolved.connection_type)
             if detail is None:
                 self.report.mcons_unmapped_platform.append(mcon)
+                # The hint must reflect what the operator can still do. Once
+                # auto_map_connection_types is on, suggesting it again is a no-op
+                # (the connection type is already unmapped in the registry, e.g.
+                # TRANSACTIONAL_DB); the actionable steps are an explicit
+                # connection_to_platform_map entry or a default_platform fallback.
                 if self.config.auto_map_connection_types:
                     hint = (
-                        "Add it to connection_to_platform_map, set default_platform, "
-                        "or enable auto_map_connection_types."
+                        "Add it to connection_to_platform_map or set default_platform "
+                        "— auto_map_connection_types is already enabled and this "
+                        "connection type has no platform mapping in its registry."
                     )
                 else:
                     hint = (

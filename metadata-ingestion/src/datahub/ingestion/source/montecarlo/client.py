@@ -229,6 +229,20 @@ class MonteCarloJobExecution(BaseModel):
     total_result_count: Optional[int] = None
     evaluated_record_count: Optional[int] = None
 
+    @field_validator("start_time", "end_time", mode="before")
+    @classmethod
+    def _coerce_datetime(cls, value: Any) -> Optional[datetime]:
+        # Monte Carlo returns these as ISO strings; tolerate missing, non-ISO or
+        # otherwise malformed values by nulling rather than letting a
+        # ValidationError abort the whole job-execution page (the builder guards
+        # against a missing timestamp). Mirrors MonteCarloAlert._coerce_created_time.
+        if value is None or isinstance(value, datetime):
+            return value
+        try:
+            return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            return None
+
 
 class MonteCarloMetricPoint(BaseModel):
     """One measured metric value from getMetricsV4. job_execution_uuid is null
@@ -672,18 +686,32 @@ class MonteCarloClient:
             uuid = node.get("job_execution_uuid")
             if not uuid:
                 continue
-            executions.append(
-                MonteCarloJobExecution(
-                    job_execution_uuid=uuid,
-                    monitor_uuid=monitor_uuid,
-                    start_time=node.get("start_time"),
-                    end_time=node.get("end_time"),
-                    status=node.get("status"),
-                    exceptions=node.get("exceptions"),
-                    total_result_count=node.get("total_result_count"),
-                    evaluated_record_count=node.get("evaluated_record_count"),
+            try:
+                executions.append(
+                    MonteCarloJobExecution(
+                        job_execution_uuid=uuid,
+                        monitor_uuid=monitor_uuid,
+                        start_time=node.get("start_time"),
+                        end_time=node.get("end_time"),
+                        status=node.get("status"),
+                        exceptions=node.get("exceptions"),
+                        total_result_count=node.get("total_result_count"),
+                        evaluated_record_count=node.get("evaluated_record_count"),
+                    )
                 )
-            )
+            except Exception as exc:
+                # Isolate a single malformed execution so one bad record doesn't
+                # drop every SUCCESS run for this monitor. The datetime coercer
+                # above handles the common timestamp case; this catches any other
+                # field-level parse failure (e.g. a non-int total_result_count).
+                self._warn(
+                    title="Skipped malformed monitor run",
+                    message="Monte Carlo returned a monitor run that could not be "
+                    "parsed; skipping it. Other runs for this monitor are unaffected.",
+                    context=f"monitor_uuid={monitor_uuid}, "
+                    f"job_execution_uuid={uuid}, error={exc!r}",
+                    exc=exc,
+                )
         return executions
 
     def get_metrics_v4(
