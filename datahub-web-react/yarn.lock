@@ -5611,6 +5611,20 @@
     classnames "^2.3.1"
     prop-types "^15.6.2"
 
+"@visx/grid@^3.5.0":
+  version "3.12.0"
+  resolved "https://registry.yarnpkg.com/@visx/grid/-/grid-3.12.0.tgz#fca39fa246f273ea31c80e4a66762a037bacca99"
+  integrity sha512-L4ex2ooSYhwNIxJ3XFIKRhoSvEGjPc2Y3YCrtNB4TV5Ofdj4q0UMOsxfrH23Pr8HSHuQhb6VGMgYoK0LuWqDmQ==
+  dependencies:
+    "@types/react" "*"
+    "@visx/curve" "3.12.0"
+    "@visx/group" "3.12.0"
+    "@visx/point" "3.12.0"
+    "@visx/scale" "3.12.0"
+    "@visx/shape" "3.12.0"
+    classnames "^2.3.1"
+    prop-types "^15.6.2"
+
 "@visx/group@3.12.0":
   version "3.12.0"
   resolved "https://registry.npmjs.org/@visx/group/-/group-3.12.0.tgz"
@@ -5658,6 +5672,11 @@
   version "3.0.1"
   resolved "https://registry.npmjs.org/@visx/point/-/point-3.0.1.tgz"
   integrity sha512-S5WOBMgEP2xHcgs3A2BFB2vwzrk0tMmn3PGZAbQJ+lu4HlnalDP72klUnxLTH8xclNNvpUHtHM5eLIJXyHx6Pw==
+
+"@visx/point@3.12.0":
+  version "3.12.0"
+  resolved "https://registry.yarnpkg.com/@visx/point/-/point-3.12.0.tgz#d3eedcbb37acef5ec86550cbacb013a61e7e7eee"
+  integrity sha512-I6UrHoJAEVbx3RORQNupgTiX5EzjuZpiwLPxn8L2mI5nfERotPKi1Yus12Cq2WtXqEBR/WgqTnoImlqOXBykcA==
 
 "@visx/react-spring@3.2.0":
   version "3.2.0"
