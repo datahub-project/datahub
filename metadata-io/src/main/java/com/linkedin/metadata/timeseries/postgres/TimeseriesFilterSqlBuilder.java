@@ -1,0 +1,632 @@
+package com.linkedin.metadata.timeseries.postgres;
+
+import static com.linkedin.metadata.Constants.IS_LATEST_FIELD_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX;
+import static com.linkedin.metadata.query.filter.Condition.ANCESTORS_INCL;
+import static com.linkedin.metadata.query.filter.Condition.DESCENDANTS_INCL;
+import static com.linkedin.metadata.query.filter.Condition.RELATED_INCL;
+
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
+import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
+import com.linkedin.metadata.models.TimeseriesFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
+import io.datahubproject.metadata.context.OperationContext;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.Value;
+
+/**
+ * Builds PostgreSQL {@code WHERE} fragments against the {@code document jsonb} column for the same
+ * {@link Filter} model Elasticsearch uses. Trailing {@code .keyword} is stripped — PG jsonb has no
+ * text/keyword split.
+ */
+public final class TimeseriesFilterSqlBuilder {
+
+  private TimeseriesFilterSqlBuilder() {}
+
+  @Value
+  public static class BuiltSql {
+    /** SQL boolean expression, or {@code "TRUE"} when empty. Never null. */
+    @Nonnull String expression;
+
+    /** Positional parameters for {@code PreparedStatement} in order. */
+    @Nonnull List<Object> params;
+  }
+
+  /**
+   * @param queryFilterRewriteChain retained for call-site parity with {@link ESUtils}; ES rewriters
+   *     operate on QueryBuilder. Lineage conditions ({@link Condition#ANCESTORS_INCL}, {@link
+   *     Condition#DESCENDANTS_INCL}, {@link Condition#RELATED_INCL}) expand via {@link
+   *     TimeseriesFilterGraphExpansion} instead.
+   */
+  @Nonnull
+  public static BuiltSql buildDocumentFilter(
+      @Nullable Filter filter,
+      boolean isTimeseries,
+      @Nonnull Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    return buildDocumentFilter(
+        filter, isTimeseries, searchableFieldTypes, opContext, queryFilterRewriteChain, null);
+  }
+
+  /**
+   * @param aspectSpec timeseries aspect whose {@link TimeseriesFieldSpec} types drive JDBC casts
+   *     for usage/profile numerics. Entity {@code searchableFieldTypes} miss collection members
+   *     such as {@code userCounts.count}.
+   */
+  @Nonnull
+  public static BuiltSql buildDocumentFilter(
+      @Nullable Filter filter,
+      boolean isTimeseries,
+      @Nonnull Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull OperationContext opContext,
+      @SuppressWarnings("unused") @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      @Nullable AspectSpec aspectSpec) {
+
+    if (filter == null) {
+      return new BuiltSql("TRUE", Collections.emptyList());
+    }
+
+    StructuredPropertyUtils.validateFilter(opContext, filter, opContext.getAspectRetriever());
+
+    List<Object> params = new ArrayList<>();
+    String expr =
+        buildTopLevelFilter(
+            filter, isTimeseries, searchableFieldTypes, opContext, params, aspectSpec);
+
+    if (Boolean.TRUE.equals(
+        opContext.getSearchContext().getSearchFlags().isFilterNonLatestVersions())) {
+      // Mirror ESUtils.buildFilterNonLatestEntities: isLatest=true OR field absent.
+      String isLatest = "document->>'" + IS_LATEST_FIELD_NAME + "'";
+      String nonLatest =
+          "((" + isLatest + " = 'true') OR (" + isLatest + " IS NULL OR " + isLatest + " = ''))";
+      expr = "(" + expr + ") AND " + nonLatest;
+    }
+
+    return new BuiltSql(expr, params);
+  }
+
+  private static String buildTopLevelFilter(
+      @Nonnull Filter filter,
+      boolean isTimeseries,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      OperationContext opContext,
+      List<Object> params,
+      @Nullable AspectSpec aspectSpec) {
+
+    if (filter.getOr() != null) {
+      if (filter.getOr().isEmpty()) {
+        return "TRUE";
+      }
+      List<String> disjuncts = new ArrayList<>();
+      for (ConjunctiveCriterion cc : filter.getOr()) {
+        disjuncts.add(
+            "("
+                + buildConjunctive(
+                    cc, isTimeseries, searchableFieldTypes, opContext, params, aspectSpec)
+                + ")");
+      }
+      return String.join(" OR ", disjuncts);
+    }
+
+    if (filter.getCriteria() != null && !filter.getCriteria().isEmpty()) {
+      List<String> parts = new ArrayList<>();
+      for (Criterion c : filter.getCriteria()) {
+        if (c.hasValues()
+            || c.getCondition() == Condition.IS_NULL
+            || c.getCondition() == Condition.EXISTS) {
+          parts.add(
+              "("
+                  + buildCriterionSql(
+                      c, isTimeseries, searchableFieldTypes, opContext, params, false, aspectSpec)
+                  + ")");
+        }
+      }
+      return parts.isEmpty() ? "TRUE" : String.join(" AND ", parts);
+    }
+
+    return "TRUE";
+  }
+
+  private static String buildConjunctive(
+      ConjunctiveCriterion cc,
+      boolean isTimeseries,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      OperationContext opContext,
+      List<Object> params,
+      @Nullable AspectSpec aspectSpec) {
+    List<String> parts = new ArrayList<>();
+    for (Criterion c : cc.getAnd()) {
+      if (Set.of(Condition.EXISTS, Condition.IS_NULL).contains(c.getCondition()) || c.hasValues()) {
+        // Pass alreadyNegated=false; buildCriterionSql reads criterion.isNegated().
+        String inner =
+            buildCriterionSql(
+                c, isTimeseries, searchableFieldTypes, opContext, params, false, aspectSpec);
+        parts.add("(" + inner + ")");
+      }
+    }
+    return parts.isEmpty() ? "TRUE" : String.join(" AND ", parts);
+  }
+
+  private static String buildCriterionSql(
+      @Nonnull Criterion criterion,
+      boolean isTimeseries,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      OperationContext opContext,
+      List<Object> params,
+      boolean alreadyNegated,
+      @Nullable AspectSpec aspectSpec) {
+    return buildCriterionSql(
+        criterion,
+        isTimeseries,
+        searchableFieldTypes,
+        opContext,
+        params,
+        alreadyNegated,
+        /* expandFields= */ true,
+        aspectSpec);
+  }
+
+  private static String buildCriterionSql(
+      @Nonnull Criterion criterion,
+      boolean isTimeseries,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      OperationContext opContext,
+      List<Object> params,
+      boolean alreadyNegated,
+      boolean expandFields,
+      @Nullable AspectSpec aspectSpec) {
+
+    boolean negated = criterion.isNegated() ^ alreadyNegated;
+    String expandKey =
+        ESUtils.toParentField(opContext, criterion.getField(), opContext.getAspectRetriever());
+    Optional<List<String>> expand =
+        expandFields
+            ? Optional.ofNullable(ESUtils.FIELDS_TO_EXPANDED_FIELDS_LIST.get(expandKey))
+            : Optional.empty();
+
+    if (expand.isPresent()) {
+      List<String> ors = new ArrayList<>();
+      for (String alt : expand.get()) {
+        Criterion copy =
+            new Criterion()
+                .setField(alt)
+                .setCondition(criterion.getCondition())
+                // Negation is applied once around the OR of alternates (ES expand semantics).
+                .setNegated(false)
+                .setValues(criterion.getValues());
+        // Match ES: expanded alts are single-field predicates (no recursive expansion).
+        ors.add(
+            buildCriterionSql(
+                copy,
+                isTimeseries,
+                searchableFieldTypes,
+                opContext,
+                params,
+                /* alreadyNegated= */ false,
+                /* expandFields= */ false,
+                aspectSpec));
+      }
+      String combined =
+          String.join(" OR ", ors.stream().map(s -> "(" + s + ")").collect(Collectors.toList()));
+      return applyComparisonNegation(combined, negated);
+    }
+
+    String fieldName =
+        TimeseriesPgJsonPaths.stripKeywordSuffix(
+            ESUtils.toParentField(opContext, criterion.getField(), opContext.getAspectRetriever()));
+
+    Condition condition = criterion.getCondition();
+    if (condition == Condition.IS_NULL) {
+      String path = jsonTextPathExprWithParams(fieldName, params);
+      // ES exists/missing is path presence only; empty string is present.
+      String exists = "(" + path + " IS NULL)";
+      return negated ? "NOT " + exists : exists;
+    }
+    if (condition == Condition.EXISTS) {
+      String path = jsonTextPathExprWithParams(fieldName, params);
+      String ex = "(" + path + " IS NOT NULL)";
+      return negated ? "NOT (" + ex + ")" : ex;
+    }
+
+    if (!criterion.hasValues()
+        || criterion.getValues() == null
+        || criterion.getValues().isEmpty()) {
+      return "TRUE";
+    }
+
+    // Map timestampMillis / @timestamp ranges and equality onto event_time for partition pruning.
+    if (isEventTimeField(fieldName)
+        && (condition == Condition.EQUAL
+            || condition == Condition.IEQUAL
+            || ESUtils.RANGE_QUERY_CONDITIONS.contains(condition))) {
+      String eventTimeCore = buildEventTimeCriterion(criterion, condition, params);
+      return applyComparisonNegation(eventTimeCore, negated);
+    }
+
+    String core;
+    if (condition == ANCESTORS_INCL || condition == DESCENDANTS_INCL || condition == RELATED_INCL) {
+      core = buildLineageAny(fieldName, criterion, condition, opContext, params);
+    } else if (condition == Condition.EQUAL || condition == Condition.IEQUAL) {
+      core =
+          buildEqual(
+              fieldName,
+              criterion,
+              isTimeseries,
+              searchableFieldTypes,
+              opContext,
+              params,
+              condition == Condition.IEQUAL,
+              aspectSpec);
+    } else if (ESUtils.RANGE_QUERY_CONDITIONS.contains(condition)) {
+      core =
+          buildRange(
+              fieldName,
+              criterion,
+              condition,
+              isTimeseries,
+              searchableFieldTypes,
+              opContext,
+              params,
+              aspectSpec);
+    } else if (condition == Condition.CONTAIN) {
+      core = buildLike(fieldName, criterion, params, "%", "%");
+    } else if (condition == Condition.START_WITH) {
+      core = buildLike(fieldName, criterion, params, "", "%");
+    } else if (condition == Condition.END_WITH) {
+      core = buildLike(fieldName, criterion, params, "%", "");
+    } else {
+      throw new UnsupportedOperationException(
+          "Timeseries PostgreSQL filter: unsupported condition " + condition);
+    }
+
+    return applyComparisonNegation(core, negated);
+  }
+
+  /**
+   * Elasticsearch {@code must_not} matches documents that lack the field. PostgreSQL {@code NOT
+   * (jsonb->>'x' = ?)} is UNKNOWN when the key is missing, which drops the row. COALESCE to TRUE
+   * restores ES semantics for comparison predicates.
+   */
+  @Nonnull
+  private static String applyComparisonNegation(@Nonnull String core, boolean negated) {
+    return negated ? "COALESCE(NOT (" + core + "), TRUE)" : core;
+  }
+
+  static boolean isEventTimeField(@Nonnull String fieldName) {
+    return MappingsBuilder.TIMESTAMP_MILLIS_FIELD.equals(fieldName)
+        || MappingsBuilder.TIMESTAMP_FIELD.equals(fieldName);
+  }
+
+  /**
+   * Builds a predicate on the {@code event_time} column from epoch-millis criterion values so
+   * truncate / time-range filters can prune partitions and use BRIN. Binds {@link OffsetDateTime}
+   * in UTC to match writers ({@code PostgresTimeseriesAspectDao}).
+   */
+  @Nonnull
+  static String buildEventTimeCriterion(
+      @Nonnull Criterion criterion, @Nonnull Condition condition, @Nonnull List<Object> params) {
+    if (condition == Condition.EQUAL || condition == Condition.IEQUAL) {
+      List<String> ors = new ArrayList<>();
+      for (String raw : criterion.getValues()) {
+        ors.add("event_time = ?");
+        params.add(eventTimeParam(Long.parseLong(raw.trim())));
+      }
+      if (ors.size() == 1) {
+        return ors.get(0);
+      }
+      return "("
+          + String.join(" OR ", ors.stream().map(s -> "(" + s + ")").collect(Collectors.toList()))
+          + ")";
+    }
+
+    String v0 = criterion.getValues().get(0).trim();
+    params.add(eventTimeParam(Long.parseLong(v0)));
+    String op;
+    switch (condition) {
+      case GREATER_THAN:
+        op = ">";
+        break;
+      case GREATER_THAN_OR_EQUAL_TO:
+        op = ">=";
+        break;
+      case LESS_THAN:
+        op = "<";
+        break;
+      case LESS_THAN_OR_EQUAL_TO:
+        op = "<=";
+        break;
+      default:
+        throw new IllegalStateException(condition.toString());
+    }
+    return "event_time " + op + " ?";
+  }
+
+  @Nonnull
+  static OffsetDateTime eventTimeParam(long epochMillis) {
+    return OffsetDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZoneOffset.UTC);
+  }
+
+  /** Produces expression with ? placeholders for path segments when multi-segment. */
+  private static void appendJsonPathParams(@Nonnull String dottedField, List<Object> params) {
+    for (String seg : TimeseriesPgJsonPaths.pathSegments(dottedField)) {
+      params.add(seg);
+    }
+  }
+
+  private static String jsonTextPathExprWithParams(
+      @Nonnull String dottedField, List<Object> params) {
+    String[] segs = TimeseriesPgJsonPaths.pathSegments(dottedField);
+    if (segs.length == 1) {
+      return "document->>'" + escapeSqlIdent(segs[0]) + "'";
+    }
+    appendJsonPathParams(dottedField, params);
+    return "document #>> ARRAY["
+        + String.join(",", Collections.nCopies(segs.length, "?"))
+        + "]::text[]";
+  }
+
+  private static String escapeSqlIdent(String s) {
+    return s.replace("'", "''");
+  }
+
+  /**
+   * Lineage filters: expand seed URNs via graph ({@link TimeseriesFilterGraphExpansion}), then
+   * match {@code document} field with {@code = ANY(?::text[])}.
+   */
+  private static String buildLineageAny(
+      String fieldName,
+      Criterion criterion,
+      Condition lineageCondition,
+      OperationContext opContext,
+      List<Object> params) {
+    List<String> seeds = criterion.getValues();
+    java.util.Set<String> expanded =
+        TimeseriesFilterGraphExpansion.expandForLineageCondition(
+            opContext, lineageCondition, seeds);
+    String[] arr = expanded.toArray(new String[0]);
+    String pathExpr = jsonTextPathExprWithParams(fieldName, params);
+    params.add(arr);
+    return "(" + pathExpr + " = ANY(?))";
+  }
+
+  private static String buildEqual(
+      String fieldName,
+      Criterion criterion,
+      boolean isTimeseries,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      OperationContext opContext,
+      List<Object> params,
+      boolean caseInsensitive,
+      @Nullable AspectSpec aspectSpec) {
+
+    List<String> values = criterion.getValues();
+
+    Set<String> elasticTypes =
+        resolveElasticFieldTypes(
+            opContext,
+            fieldName,
+            criterion,
+            searchableFieldTypes,
+            opContext.getAspectRetriever(),
+            aspectSpec);
+
+    List<String> ors = new ArrayList<>();
+    for (String raw : values) {
+      String v = raw.trim();
+      if (v.startsWith("urn:li:")) {
+        // URNs are case-sensitive identifiers.
+        ors.add(jsonTextPathExprWithParams(fieldName, params) + " = ?");
+        params.add(v);
+      } else if (elasticTypes.contains(ESUtils.BOOLEAN_FIELD_TYPE) && values.size() == 1) {
+        // Cast jsonb text extraction — same as range — so JDBC typed params bind cleanly.
+        ors.add("(" + jsonTextPathExprWithParams(fieldName, params) + ")::boolean = ?");
+        params.add(Boolean.parseBoolean(v));
+      } else if (isIntegralElasticType(elasticTypes)) {
+        ors.add("(" + jsonTextPathExprWithParams(fieldName, params) + ")::bigint = ?");
+        params.add(Long.parseLong(v));
+      } else if (isFloatingElasticType(elasticTypes)) {
+        ors.add("(" + jsonTextPathExprWithParams(fieldName, params) + ")::double precision = ?");
+        params.add(Double.parseDouble(v));
+      } else if (caseInsensitive) {
+        ors.add("LOWER(" + jsonTextPathExprWithParams(fieldName, params) + ") = LOWER(?)");
+        params.add(v);
+      } else {
+        ors.add(jsonTextPathExprWithParams(fieldName, params) + " = ?");
+        params.add(v);
+      }
+    }
+    if (ors.size() == 1) {
+      return ors.get(0);
+    }
+    return "("
+        + String.join(" OR ", ors.stream().map(s -> "(" + s + ")").collect(Collectors.toList()))
+        + ")";
+  }
+
+  private static String buildRange(
+      String fieldName,
+      Criterion criterion,
+      Condition condition,
+      boolean isTimeseries,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      OperationContext opContext,
+      List<Object> params,
+      @Nullable AspectSpec aspectSpec) {
+
+    String v0 = criterion.getValues().get(0).trim();
+    Set<String> elasticTypes =
+        resolveElasticFieldTypes(
+            opContext,
+            fieldName,
+            criterion,
+            searchableFieldTypes,
+            opContext.getAspectRetriever(),
+            aspectSpec);
+    String path = jsonTextPathExprWithParams(fieldName, params);
+    String cast =
+        isFloatingElasticType(elasticTypes)
+            ? "double precision"
+            : isIntegralElasticType(elasticTypes)
+                ? "bigint"
+                : elasticTypes.contains(ESUtils.BOOLEAN_FIELD_TYPE) ? "boolean" : "text";
+
+    String castExpr = "(" + path + ")::" + cast;
+    params.add(
+        isFloatingElasticType(elasticTypes)
+            ? Double.parseDouble(v0)
+            : isIntegralElasticType(elasticTypes) ? Long.parseLong(v0) : v0);
+
+    String op;
+    switch (condition) {
+      case GREATER_THAN:
+        op = ">";
+        break;
+      case GREATER_THAN_OR_EQUAL_TO:
+        op = ">=";
+        break;
+      case LESS_THAN:
+        op = "<";
+        break;
+      case LESS_THAN_OR_EQUAL_TO:
+        op = "<=";
+        break;
+      default:
+        throw new IllegalStateException(condition.toString());
+    }
+    return castExpr + " " + op + " ?";
+  }
+
+  private static String buildLike(
+      String fieldName, Criterion criterion, List<Object> params, String pre, String post) {
+    List<String> ors = new ArrayList<>();
+    for (String raw : criterion.getValues()) {
+      // ES CONTAIN/START_WITH/END_WITH are case-insensitive; escape SQL LIKE metacharacters.
+      String v = pre + escapeSqlLikeMetacharacters(raw.trim()) + post;
+      ors.add(jsonTextPathExprWithParams(fieldName, params) + " ILIKE ? ESCAPE '\\'");
+      params.add(v);
+    }
+    return "("
+        + String.join(" OR ", ors.stream().map(s -> "(" + s + ")").collect(Collectors.toList()))
+        + ")";
+  }
+
+  /**
+   * Escapes {@code \}, {@code %}, and {@code _} for PostgreSQL LIKE/ILIKE with {@code ESCAPE '\'}.
+   */
+  @Nonnull
+  static String escapeSqlLikeMetacharacters(@Nonnull String value) {
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+  }
+
+  private static Set<String> resolveElasticFieldTypes(
+      OperationContext opContext,
+      String fieldName,
+      Criterion criterion,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFields,
+      AspectRetriever aspectRetriever,
+      @Nullable AspectSpec aspectSpec) {
+    Set<String> timeseriesTypes = elasticTypesFromTimeseriesSpec(aspectSpec, fieldName);
+    if (!timeseriesTypes.isEmpty()) {
+      return timeseriesTypes;
+    }
+    final Set<String> finalFieldTypes;
+    if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+      finalFieldTypes =
+          StructuredPropertyUtils.toElasticsearchFieldType(
+              opContext, ESUtils.replaceSuffix(criterion.getField()), aspectRetriever);
+    } else {
+      Set<SearchableAnnotation.FieldType> fieldTypes =
+          searchableFields.getOrDefault(fieldName.split("\\.")[0], Collections.emptySet());
+      finalFieldTypes =
+          fieldTypes.stream().map(ESUtils::getElasticTypeForFieldType).collect(Collectors.toSet());
+    }
+    return finalFieldTypes;
+  }
+
+  /**
+   * Canonical ES types for a timeseries document field. Collection members ({@code
+   * userCounts.count}) are looked up on {@link TimeseriesFieldCollectionSpec}, not entity {@code
+   * searchableFieldTypes}.
+   */
+  @Nonnull
+  static Set<String> elasticTypesFromTimeseriesSpec(
+      @Nullable AspectSpec aspectSpec, @Nonnull String fieldName) {
+    TimeseriesFieldAnnotation.FieldType ft = timeseriesAnnotationFieldType(aspectSpec, fieldName);
+    if (ft == null) {
+      return Collections.emptySet();
+    }
+    switch (ft) {
+      case INT:
+      case LONG:
+        return Set.of(ESUtils.LONG_FIELD_TYPE);
+      case FLOAT:
+      case DOUBLE:
+        return Set.of(ESUtils.DOUBLE_FIELD_TYPE);
+      case DATETIME:
+        return Set.of(ESUtils.DATE_FIELD_TYPE);
+      case KEYWORD:
+      default:
+        return Set.of(ESUtils.KEYWORD_FIELD_TYPE);
+    }
+  }
+
+  @Nullable
+  static TimeseriesFieldAnnotation.FieldType timeseriesAnnotationFieldType(
+      @Nullable AspectSpec aspectSpec, @Nonnull String fieldName) {
+    if (aspectSpec == null) {
+      return null;
+    }
+    String[] parts = fieldName.split("\\.");
+    if (parts.length == 1) {
+      TimeseriesFieldSpec ts = aspectSpec.getTimeseriesFieldSpecMap().get(parts[0]);
+      return ts == null ? null : ts.getTimeseriesFieldAnnotation().getFieldType();
+    }
+    if (parts.length == 2) {
+      TimeseriesFieldCollectionSpec coll =
+          aspectSpec.getTimeseriesFieldCollectionSpecMap().get(parts[0]);
+      if (coll == null) {
+        return null;
+      }
+      if (coll.getTimeseriesFieldCollectionAnnotation().getKey().equals(parts[1])) {
+        return TimeseriesFieldAnnotation.FieldType.KEYWORD;
+      }
+      TimeseriesFieldSpec inner = coll.getTimeseriesFieldSpecMap().get(parts[1]);
+      return inner == null ? null : inner.getTimeseriesFieldAnnotation().getFieldType();
+    }
+    return null;
+  }
+
+  static boolean isIntegralElasticType(@Nonnull Set<String> elasticTypes) {
+    return elasticTypes.contains(ESUtils.LONG_FIELD_TYPE)
+        || elasticTypes.contains(ESUtils.DATE_FIELD_TYPE)
+        || elasticTypes.contains(ESUtils.INTEGER_FIELD_TYPE)
+        || elasticTypes.contains(ESUtils.SHORT_FIELD_TYPE);
+  }
+
+  static boolean isFloatingElasticType(@Nonnull Set<String> elasticTypes) {
+    return elasticTypes.contains(ESUtils.DOUBLE_FIELD_TYPE)
+        || elasticTypes.contains(ESUtils.FLOAT_FIELD_TYPE);
+  }
+}
