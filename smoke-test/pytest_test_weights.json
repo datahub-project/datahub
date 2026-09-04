@@ -1780,6 +1780,10 @@
     "duration": "20.016s"
   },
   {
+    "testId": "tests.openapi.v1.test_tracking::test_tracking_api_usage_sot",
+    "duration": "20.636s"
+  },
+  {
     "testId": "tests.openapi.v1.test_tracking::test_tracking_api_kafka",
     "duration": "7.532s"
   },

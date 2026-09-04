@@ -45,7 +45,7 @@ public class AnalyticsServiceTest {
 
   private SearchClientShim<?> mockClient;
   private OperationContext opContext;
-  private AnalyticsService service;
+  private DefaultAnalyticsService service;
 
   @BeforeMethod
   public void setup() {
@@ -61,7 +61,7 @@ public class AnalyticsServiceTest {
             any(OperationFingerprint.class), eq(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX)))
         .thenReturn(USAGE_INDEX);
 
-    service = new AnalyticsService(mockClient, mockIndexConvention);
+    service = new DefaultAnalyticsService(mockClient, mockIndexConvention);
   }
 
   private Map<String, DateRange> twoRanges() {
@@ -201,7 +201,9 @@ public class AnalyticsServiceTest {
     when(byRange.getBucketByKey("weekly_current")).thenReturn(bucket);
 
     assertEquals(
-        AnalyticsService.extractUniqueCount(filterWith("by_range", byRange), "weekly_current"), 30);
+        DefaultAnalyticsService.extractUniqueCount(
+            filterWith("by_range", byRange), "weekly_current"),
+        30);
   }
 
   @Test
@@ -212,7 +214,8 @@ public class AnalyticsServiceTest {
     when(byEntity.getBucketByKey("DATASET")).thenReturn(datasetBucket);
 
     EntityStats stats =
-        AnalyticsService.extractEntityStats(filterWith("by_entity", byEntity), "DATASET", FACETS);
+        DefaultAnalyticsService.extractEntityStats(
+            filterWith("by_entity", byEntity), "DATASET", FACETS);
 
     assertEquals(stats.getTotal(), 100);
     assertEquals(stats.countWithFacet("hasOwners"), 40);
@@ -228,7 +231,8 @@ public class AnalyticsServiceTest {
     when(byEntity.getBucketByKey("CHART")).thenReturn(emptyBucket);
 
     EntityStats stats =
-        AnalyticsService.extractEntityStats(filterWith("by_entity", byEntity), "CHART", FACETS);
+        DefaultAnalyticsService.extractEntityStats(
+            filterWith("by_entity", byEntity), "CHART", FACETS);
 
     assertEquals(stats.getTotal(), 0);
     assertEquals(stats.countWithFacet("hasOwners"), 0);
@@ -245,7 +249,8 @@ public class AnalyticsServiceTest {
     Filter result = filterWith("by_range", byRange);
 
     assertThrows(
-        IllegalStateException.class, () -> AnalyticsService.extractUniqueCount(result, "weekly"));
+        IllegalStateException.class,
+        () -> DefaultAnalyticsService.extractUniqueCount(result, "weekly"));
   }
 
   @Test
@@ -253,7 +258,8 @@ public class AnalyticsServiceTest {
     Filter result = filterWith("by_range", null);
 
     assertThrows(
-        IllegalStateException.class, () -> AnalyticsService.extractUniqueCount(result, "weekly"));
+        IllegalStateException.class,
+        () -> DefaultAnalyticsService.extractUniqueCount(result, "weekly"));
   }
 
   @Test
@@ -264,7 +270,7 @@ public class AnalyticsServiceTest {
 
     assertThrows(
         IllegalStateException.class,
-        () -> AnalyticsService.extractEntityStats(result, "DATASET", FACETS));
+        () -> DefaultAnalyticsService.extractEntityStats(result, "DATASET", FACETS));
   }
 
   @Test
@@ -273,7 +279,7 @@ public class AnalyticsServiceTest {
 
     assertThrows(
         IllegalStateException.class,
-        () -> AnalyticsService.extractEntityStats(result, "DATASET", FACETS));
+        () -> DefaultAnalyticsService.extractEntityStats(result, "DATASET", FACETS));
   }
 
   @Test
@@ -289,7 +295,7 @@ public class AnalyticsServiceTest {
 
     assertThrows(
         IllegalStateException.class,
-        () -> AnalyticsService.extractEntityStats(result, "DATASET", FACETS));
+        () -> DefaultAnalyticsService.extractEntityStats(result, "DATASET", FACETS));
   }
 
   @Test
@@ -302,7 +308,7 @@ public class AnalyticsServiceTest {
     // hasTags was requested but never came back.
     assertThrows(
         IllegalStateException.class,
-        () -> AnalyticsService.extractEntityStats(result, "DATASET", FACETS));
+        () -> DefaultAnalyticsService.extractEntityStats(result, "DATASET", FACETS));
   }
 
   /** A failing search must surface, not degrade into zero counts. */

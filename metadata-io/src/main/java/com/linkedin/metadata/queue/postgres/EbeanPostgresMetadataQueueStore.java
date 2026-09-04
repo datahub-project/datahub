@@ -1108,6 +1108,25 @@ public class EbeanPostgresMetadataQueueStore implements MetadataQueueStore {
     }
   }
 
+  @Override
+  public int releaseForGroup(
+      @Nonnull String consumerGroup, @Nonnull List<QueueMessageHandle> handles) {
+    if (handles.isEmpty()) {
+      return 0;
+    }
+    try (Transaction tx = database.beginTransaction(TxScope.requiresNew())) {
+      Connection conn = tx.connection();
+      try {
+        int released = markReleasedForGroup(conn, consumerGroup, handles);
+        tx.commit();
+        return released;
+      } catch (SQLException e) {
+        tx.rollback();
+        throw new IllegalStateException("releaseForGroup failed", e);
+      }
+    }
+  }
+
   private int markAckedForGroup(
       Connection conn, String consumerGroup, List<QueueMessageHandle> handles) throws SQLException {
     String sql =
@@ -1123,6 +1142,32 @@ public class EbeanPostgresMetadataQueueStore implements MetadataQueueStore {
         ps.setString(3, consumerGroup);
         ps.setString(4, PgQueueLeaseMarkers.ACKED_LOCK_OWNER);
         ps.setTimestamp(5, PgQueueLeaseMarkers.ACKED_LOCKED_UNTIL_TS);
+        ps.addBatch();
+      }
+      ps.executeBatch();
+      return handles.size();
+    }
+  }
+
+  private int markReleasedForGroup(
+      Connection conn, String consumerGroup, List<QueueMessageHandle> handles) throws SQLException {
+    String sql =
+        "INSERT INTO "
+            + tableNames.qualifiedMessageGroupLease()
+            + " (message_id, message_enqueued_at, consumer_group, lock_owner, locked_until) "
+            + "VALUES (?,?,?,?,?) ON CONFLICT (message_id, message_enqueued_at, consumer_group) "
+            + "DO UPDATE SET lock_owner = EXCLUDED.lock_owner, locked_until = EXCLUDED.locked_until "
+            + "WHERE "
+            + tableNames.qualifiedMessageGroupLease()
+            + ".lock_owner <> ?";
+    try (PreparedStatement ps = conn.prepareStatement(sql)) {
+      for (QueueMessageHandle h : handles) {
+        ps.setLong(1, h.id());
+        ps.setTimestamp(2, Timestamp.from(h.enqueuedAt()));
+        ps.setString(3, consumerGroup);
+        ps.setString(4, PgQueueLeaseMarkers.RELEASED_LOCK_OWNER);
+        ps.setTimestamp(5, PgQueueLeaseMarkers.ACKED_LOCKED_UNTIL_TS);
+        ps.setString(6, PgQueueLeaseMarkers.ACKED_LOCK_OWNER);
         ps.addBatch();
       }
       ps.executeBatch();

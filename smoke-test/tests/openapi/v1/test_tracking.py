@@ -28,6 +28,10 @@ from dotenv import load_dotenv
 from tests.utilities import env_vars
 from tests.utilities.domains import Domain
 from tests.utilities.messaging_transport import is_pgqueue_transport
+from tests.utilities.usage_events_sot import (
+    assert_tracking_event_indexed,
+    resolve_usage_events_implementation,
+)
 from tests.utils import get_kafka_broker_url
 
 logger = logging.getLogger(__name__)
@@ -195,29 +199,10 @@ def _build_tracking_test_event(unique_id: str) -> dict:
     }
 
 
-def _assert_tracking_event_in_elasticsearch(unique_id: str) -> None:
-    es_url = env_vars.get_elasticsearch_url()
-    es_index = env_vars.get_elasticsearch_index()
-    es_query = {
-        "query": {
-            "bool": {
-                "must": [
-                    {"term": {"customField": unique_id}},
-                    {"term": {"type": EVENT_NAME}},
-                ]
-            }
-        }
-    }
-    es_response = requests.post(f"{es_url}/{es_index}/_search", json=es_query)
-    assert es_response.status_code == 200, (
-        f"Failed to query Elasticsearch: {es_response.text}"
+def _assert_tracking_event_indexed(unique_id: str, auth_session=None) -> None:
+    assert_tracking_event_indexed(
+        unique_id, event_type=EVENT_NAME, auth_session=auth_session
     )
-    hits = es_response.json().get("hits", {}).get("hits", [])
-    assert len(hits) > 0, "No matching tracking events found in Elasticsearch"
-    event = hits[0].get("_source", {})
-    assert event.get("type") == EVENT_NAME
-    assert event.get("actorUrn") == "urn:li:corpuser:test_user"
-    assert event.get("customField") == unique_id
 
 
 def test_tracking_api_kafka(auth_session):
@@ -347,7 +332,7 @@ def test_tracking_api_kafka(auth_session):
 
 
 def test_tracking_api_pgqueue(auth_session):
-    """Verify tracking events published via pgQueue are indexed for search."""
+    """Verify tracking events published via pgQueue are indexed in the usage SoT."""
     if not is_pgqueue_transport(auth_session):
         pytest.skip("pgQueue is not the active messaging transport")
 
@@ -360,24 +345,22 @@ def test_tracking_api_pgqueue(auth_session):
     )
     assert response.status_code == 200, f"Failed to post event: {response.text}"
 
-    logger.info("Waiting for pgQueue publication and Elasticsearch indexing...")
+    sot = resolve_usage_events_implementation(auth_session)
+    logger.info("Waiting for pgQueue publication and %s indexing...", sot)
     time.sleep(10)
 
-    _assert_tracking_event_in_elasticsearch(unique_id)
+    _assert_tracking_event_indexed(unique_id, auth_session)
 
 
-def test_tracking_api_elasticsearch(auth_session):
-    """Test that we can post events to the tracking endpoint and verify they are indexed in Elasticsearch."""
+def test_tracking_api_usage_sot(auth_session):
+    """Verify tracking events land in the configured usage SoT (ES or Postgres)."""
 
-    # Test configuration
-    base_url = auth_session.gms_url()  # Use the authenticated GMS URL
+    base_url = auth_session.gms_url()
 
-    # Create a test event with a unique identifier
     unique_id = f"test_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     logger.info(f"\nLooking for test event with customField: {unique_id}")
     now = datetime.now(timezone.utc)
 
-    # Create a test event that mimics a real PageViewEvent
     test_event = {
         "title": "Acryl DataHub",
         "url": "http://localhost:9002/",
@@ -389,85 +372,29 @@ def test_tracking_api_elasticsearch(auth_session):
         "prevPathname": "",
         "type": "PageViewEvent",
         "actorUrn": "urn:li:corpuser:test_user",
-        "timestamp": int(now.timestamp() * 1000),  # Unix epoch milliseconds
+        "timestamp": int(now.timestamp() * 1000),
         "date": now.strftime("%a %b %d %Y %H:%M:%S GMT%z"),
         "userAgent": "Mozilla/5.0 (Test Browser)",
-        "browserId": unique_id,  # Use unique ID to identify our test event
+        "browserId": unique_id,
         "origin": "http://localhost:9002",
         "isThemeV2Enabled": True,
         "userPersona": "urn:li:dataHubPersona:businessUser",
         "corp_user_name": "Test User",
         "corp_user_username": "test_user",
-        "customField": unique_id,  # Additional field to identify our test event
+        "customField": unique_id,
     }
 
-    # Post the event to the tracking endpoint
     response = auth_session.post(
         f"{base_url}/openapi/v1/tracking/track", json=test_event
     )
 
-    # Print the response for debugging
     logger.info(f"\nResponse status: {response.status_code}")
     logger.info(f"Response body: {response.text}")
 
-    # Verify the response
     assert response.status_code == 200, f"Failed to post event: {response.text}"
 
-    # Wait a moment for the event to be processed by Kafka and indexed in Elasticsearch
-    logger.info("\nWaiting for event to be processed and indexed in Elasticsearch...")
-    time.sleep(10)  # Give more time for Elasticsearch indexing
+    sot = resolve_usage_events_implementation(auth_session)
+    logger.info("\nWaiting for event to be indexed in usage SoT (%s)...", sot)
+    time.sleep(10)
 
-    # Query Elasticsearch to retrieve our test event
-    # This requires the Elasticsearch URL and credentials
-    es_url = env_vars.get_elasticsearch_url()
-    es_index = env_vars.get_elasticsearch_index()
-
-    # Create a query to find our test event by the unique browserId and customField
-    es_query = {
-        "query": {
-            "bool": {
-                "must": [
-                    {"term": {"browserId": unique_id}},
-                    {"term": {"customField": unique_id}},
-                    {"term": {"type": "PageViewEvent"}},
-                ]
-            }
-        }
-    }
-
-    try:
-        es_response = requests.post(f"{es_url}/{es_index}/_search", json=es_query)
-        logger.info(f"\nElasticsearch response status: {es_response.status_code}")
-
-        if es_response.status_code == 200:
-            result = es_response.json()
-            hits = result.get("hits", {}).get("hits", [])
-            logger.info(f"\nFound {len(hits)} matching events in Elasticsearch")
-
-            # Verify we found our test event
-            assert len(hits) > 0, "No matching events found in Elasticsearch"
-
-            # Verify the event properties
-            event = hits[0].get("_source", {})
-
-            assert event.get("type") == "PageViewEvent", (
-                "Elasticsearch event type doesn't match"
-            )
-            assert event.get("actorUrn") == "urn:li:corpuser:test_user", (
-                "Elasticsearch actor URN doesn't match"
-            )
-            assert event.get("browserId") == unique_id, (
-                "Elasticsearch browser ID doesn't match"
-            )
-            assert event.get("customField") == unique_id, (
-                "Elasticsearch custom field doesn't match"
-            )
-
-            logger.info("\nSuccessfully verified event in Elasticsearch")
-        else:
-            logger.info(f"\nFailed to query Elasticsearch: {es_response.text}")
-            # Don't fail the test if Elasticsearch query fails, as this might be due to configuration
-            # in the test environment
-    except Exception as e:
-        logger.info(f"\nError querying Elasticsearch: {str(e)}")
-        # Don't fail the test if Elasticsearch query fails
+    _assert_tracking_event_indexed(unique_id, auth_session)

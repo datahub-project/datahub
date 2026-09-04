@@ -217,21 +217,21 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final DateTime startOfNextMonth = dateUtil.getStartOfNextMonth();
     final DateRange trailingWeekDateRange = dateUtil.getTrailingWeekDateRange();
 
-    // WAU
+    // WAU — half-open [start, end) with exclusive midnight end (rollup-aligned).
     charts.add(
         getActiveUsersTimeSeriesChart(
             opContext,
             startOfNextWeek.minusWeeks(10),
-            startOfNextWeek.minusMillis(1),
+            startOfNextWeek,
             "Weekly Active Users",
             DateInterval.WEEK));
 
-    // MAU
+    // MAU — half-open [start, end) ending at start of this month (rollup-aligned).
     charts.add(
         getActiveUsersTimeSeriesChart(
             opContext,
             startOfNextMonth.minusMonths(12),
-            startOfThisMonth.minusMillis(1),
+            startOfThisMonth,
             "Monthly Active Users",
             DateInterval.MONTH));
 

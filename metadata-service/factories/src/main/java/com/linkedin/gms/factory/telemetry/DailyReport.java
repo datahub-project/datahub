@@ -7,13 +7,20 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.CompositeAnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.DefaultAnalyticsService;
 import com.linkedin.datahub.graphql.analytics.service.EntityStats;
+import com.linkedin.datahub.graphql.analytics.service.PostgresAnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.postgres.PostgresAnalyticsQueries;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.NamedBar;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.analytics.postgres.AnalyticsMetricFamilies;
+import com.linkedin.metadata.analytics.postgres.PgAnalyticsStoreRegistry;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
@@ -47,6 +54,7 @@ public class DailyReport {
   private final ConfigurationProvider _configurationProvider;
   private final EntityService<?> _entityService;
   private final GitVersion _gitVersion;
+  private final PgAnalyticsStoreRegistry _pgAnalyticsStoreRegistry;
 
   private static final String MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a";
 
@@ -97,11 +105,28 @@ public class DailyReport {
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
       GitVersion gitVersion) {
+    this(
+        systemOperationContext,
+        elasticClient,
+        configurationProvider,
+        entityService,
+        gitVersion,
+        null);
+  }
+
+  public DailyReport(
+      @Nonnull OperationContext systemOperationContext,
+      SearchClientShim<?> elasticClient,
+      ConfigurationProvider configurationProvider,
+      EntityService<?> entityService,
+      GitVersion gitVersion,
+      PgAnalyticsStoreRegistry pgAnalyticsStoreRegistry) {
     this.systemOperationContext = systemOperationContext;
     this._elasticClient = elasticClient;
     this._configurationProvider = configurationProvider;
     this._entityService = entityService;
     this._gitVersion = gitVersion;
+    this._pgAnalyticsStoreRegistry = pgAnalyticsStoreRegistry;
     try {
       String clientId = getClientId(systemOperationContext, entityService);
 
@@ -131,9 +156,7 @@ public class DailyReport {
   // statistics to send daily
   @Scheduled(fixedDelay = 24 * 60 * 60 * 1000)
   public void dailyReport() {
-    AnalyticsService analyticsService =
-        new AnalyticsService(
-            _elasticClient, systemOperationContext.getSearchContext().getIndexConvention());
+    AnalyticsService analyticsService = createAnalyticsService();
 
     DateTime endDate = DateTime.now();
     DateTime yesterday = endDate.minusDays(1);
@@ -470,5 +493,27 @@ public class DailyReport {
     } else {
       return "1M+";
     }
+  }
+
+  @Nonnull
+  private AnalyticsService createAnalyticsService() {
+    IndexConvention indexConvention =
+        systemOperationContext.getSearchContext().getIndexConvention();
+    DefaultAnalyticsService defaultAnalytics =
+        new DefaultAnalyticsService(_elasticClient, indexConvention);
+    if (_configurationProvider.getPlatformAnalytics().getUsageEvents().usePostgresql()) {
+      if (_pgAnalyticsStoreRegistry == null) {
+        throw new IllegalStateException(
+            "platformAnalytics.usage-events.implementation=postgres requires"
+                + " postgres.pgAnalytics.enabled=true (PgAnalyticsStoreRegistry missing)");
+      }
+      PostgresAnalyticsQueries queries =
+          new PostgresAnalyticsQueries(
+              _pgAnalyticsStoreRegistry.resolve(AnalyticsMetricFamilies.DATAHUB_USAGE).getStore(),
+              indexConvention);
+      return new CompositeAnalyticsService(
+          new PostgresAnalyticsService(indexConvention, queries), defaultAnalytics);
+    }
+    return defaultAnalytics;
   }
 }
