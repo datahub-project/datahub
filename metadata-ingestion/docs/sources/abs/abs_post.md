@@ -209,6 +209,19 @@ If you are ingesting datasets from AWS S3, we recommend running the ingestion on
 
 :::
 
+#### Compressed files
+
+When `path_spec.enable_compression` is `true` (the default), the connector transparently reads compressed files whose inner content is one of the supported file types. Supported compression formats are `.gz` (and its `.gzip` alias), `.bz2`, and `.zip`.
+
+For `.zip` archives:
+
+- Only the **first entry with a supported extension** is read. If an archive contains more than one supported entry, a warning is emitted and only the first is processed.
+- The inner file's extension determines how the content is parsed (for example `data.csv.zip` or a zip containing `data.csv` is treated as CSV).
+- Only the bytes needed (the central directory and the selected entry) are downloaded from Azure Blob Storage via range requests, so large archives are not fully downloaded for schema inference.
+- To guard against zip-bomb archives, an entry whose **uncompressed** size exceeds `path_spec.max_zip_entry_size` (default 512 MiB) is skipped with a warning. Increase this value if you need to read larger entries.
+
+Set `path_spec.enable_compression` to `false` to treat compressed files as opaque and skip this handling.
+
 #### Compatibility
 
 Profiling is a pure-Python implementation (built on `pyarrow` and Apache DataSketches) and does not require Spark, Hadoop, PyDeequ, or any JVM. There is nothing extra to install beyond the `abs` extra. Distinct counts and quantiles/histograms are approximate (DataSketches), matching the precision the previous Spark/Deequ profiler provided.
