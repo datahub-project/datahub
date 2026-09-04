@@ -175,7 +175,7 @@ class TestCatalogCredentialMasking:
         from datahub.masking.secret_registry import SecretRegistry
 
         SecretRegistry.reset_instance()
-        initialize_secret_masking(force=True)
+        initialize_secret_masking()
 
     def teardown_method(self) -> None:
         from datahub.masking.bootstrap import shutdown_secret_masking

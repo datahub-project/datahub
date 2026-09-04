@@ -21,18 +21,29 @@ const COLOR_ENFORCEMENT_RULES = {
                         'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
                 {
-                    group: ['**/alchemy-components/theme/foundations/colors'],
-                    message:
-                        'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
-                },
-                {
-                    group: ['@components', '@components/*'],
+                    group: [
+                        '**/alchemy-components/**',
+                        '@src/alchemy-components',
+                        '@src/alchemy-components/**',
+                        '@components',
+                        '@components/**',
+                    ],
                     importNames: ['colors'],
                     message:
                         'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
             ],
             paths: [
+                {
+                    name: '@src/alchemy-components/theme/foundations/colors',
+                    message:
+                        'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
+                },
+                {
+                    name: '@components/theme/foundations/colors',
+                    message:
+                        'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
+                },
                 {
                     name: '@app/entity/shared/constants',
                     importNames: ['ANTD_GRAY', 'ANTD_GRAY_V2', 'REDESIGN_COLORS'],
@@ -253,12 +264,6 @@ module.exports = {
             {
                 paths: [
                     {
-                        name: '@phosphor-icons/react',
-                        message:
-                            'Import Phosphor icons from their individual CSR paths: @phosphor-icons/react/dist/csr/IconName.',
-                        allowTypeImports: true,
-                    },
-                    {
                         name: '@monaco-editor/react',
                         importNames: ['loader'],
                         message:
@@ -267,6 +272,7 @@ module.exports = {
                 ],
             },
         ],
+        'rulesdir/no-phosphor-generic-imports': 'error',
         'no-console': 'off',
         'no-plusplus': 'off',
         'no-prototype-builtins': 'off',
