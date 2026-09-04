@@ -512,9 +512,9 @@ class AbstractLineage(ABC):
         that platform's dialect — parsing in the correct dialect is what lets
         engine-specific syntax resolve to the real upstream table rather than failing.
         """
-        assert native_sql_parser.EXTERNAL_QUERY_PATTERN.search(query), (
-            "_resolve_external_query_upstreams requires EXTERNAL_QUERY in the query"
-        )
+        assert native_sql_parser.contains_external_query_call(
+            query, _BIGQUERY_PLATFORM_NAME
+        ), "_resolve_external_query_upstreams requires EXTERNAL_QUERY in the query"
         extraction = native_sql_parser.extract_external_queries(
             query, _BIGQUERY_PLATFORM_NAME
         )
