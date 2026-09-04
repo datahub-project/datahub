@@ -1064,7 +1064,7 @@ jobs:
     name: AI Smoke Test (Local Embeddings)
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
     needs: [setup, base_build]
-    timeout-minutes: 60
+    timeout-minutes: 90
     # See pytest_tests for why the status-check function is required (downstream
     # of the optionally-skipped base_build on fork PRs). Gated to embedding /
     # semantic-search path changes (and workflow_dispatch) so ordinary PRs skip it.
