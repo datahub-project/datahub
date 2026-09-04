@@ -6,7 +6,7 @@ description: "Group related Tables, Dashboards, Charts, and Pipelines into Data 
 
 **🤝 Version compatibility**
 
-> DataHub Core: **0.10.3** | DataHub Cloud: **0.2.8**
+> DataHub Core: **0.10.3** | DataHub Cloud: **0.2.8**<br />
 > Data Product Marketplace and Hierarchy requires DataHub Cloud **2.2.0**
 
 ## What are Data Products?
@@ -67,7 +67,9 @@ Data Products can be created using the UI or via a YAML file that is managed usi
 
 #### Option 1 Create a Data Product from Govern > Data Product > Create Data Product.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-marketplace-create.png)
+<p align="center">
+  <img width="70%" alt="Create Data Product button on the Data Product home page" src="https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-marketplace-create.png"/>
+</p>
 
 1. Open **Govern → Data Product**
 2. Click **Create Data Product**
@@ -81,13 +83,17 @@ The new product appears as a root (or under the parent you chose) in the Data Pr
 
 #### Option 2 Navigate to the Domain that will contain this Data Product
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-tab.png)
+<p align="center">
+  <img width="70%" alt="Data Products tab on a Domain page" src="https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-tab.png"/>
+</p>
 
 Then navigate to the Data Products tab on the Domain's home page, and click '+ New Data Product'.
 This will open a new modal where you can configure the settings for your data product. Inside the form, you can choose a name for your Data Product. Most often, this will align with the logical purpose of the Data Product, for example
 'Customer Orders' or 'Revenue Attribution'. You can also add documentation for your product to help other users easily discover it. Don't worry, this can be changed later.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-create.png)
+<p align="center">
+  <img width="70%" alt="Create Data Product modal with name and documentation fields" src="https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-create.png"/>
+</p>
 
 Once you've chosen a name and a description, click 'Create' to create the new Data Product. Once you've created the Data Product, you can click on it to continue on to the next step, adding assets to it.
 
@@ -96,11 +102,15 @@ Once you've chosen a name and a description, click 'Create' to create the new Da
 You can assign an asset to a Data Product either using the Data Product page as the starting point or the Asset's page as the starting point.
 On a Data Product page, click the 'Add Assets' button on the top right corner to add assets to the Data Product.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-add-assets.png)
+<p align="center">
+  <img width="70%" alt="Add Assets button on a Data Product page" src="https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-add-assets.png"/>
+</p>
 
 On an Asset's profile page, use the right sidebar to locate the Data Product section. Click 'Set Data Product', and then search for the Data Product you'd like to add this asset to. When you're done, click 'Add'.
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-set.png)
+<p align="center">
+  <img width="70%" alt="Set Data Product control in an asset's right sidebar" src="https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-set.png"/>
+</p>
 
 To remove an asset from a Data Product, click the 'x' icon on the Data Product label on either the asset profile or the Data Product page (each path uses the privilege listed in the table above).
 
@@ -128,7 +138,9 @@ Easily discover Data Products without going through global Search or a Domain pa
 
 #### Data Product Home Page
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-marketplace-discovery.png)
+<p align="center">
+  <img width="70%" alt="Data Product home page listing published Data Products" src="https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-marketplace-discovery.png"/>
+</p>
 
 The Data Product Home page shows:
 
@@ -150,7 +162,9 @@ Click a product in the sidebar or on the home page to open /dataProduct/:urn. Th
 
 ##### Data Product Profile
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-marketplace-profile.png)
+<p align="center">
+  <img width="70%" alt="Data Product profile page showing Output Ports, Assets, and Lineage tabs" src="https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-marketplace-profile.png"/>
+</p>
 
 The Data Product profile includes:
 
@@ -163,7 +177,9 @@ Breadcrumbs show Domain → immediate parent.
 
 ##### Data Product Lineage
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-lineage.png)
+<p align="center">
+  <img width="70%" alt="Lineage view for a Data Product" src="https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-lineage.png"/>
+</p>
 
 Data Product lineage enables users to visually discover assets in a data product and understand the associations between assets in data products.
 
@@ -179,7 +195,9 @@ Key behaviors:
 - Permissions remain scoped to each Data Product's own Domain; **Manage Data Products** privilege is not inherited from the parent.
 - Circular nesting is not supported (a product cannot be moved under one of its own descendants).
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-hierarchy-move.png)
+<p align="center">
+  <img width="70%" alt="Move dialog for re-parenting a Data Product in the hierarchy" src="https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-hierarchy-move.png"/>
+</p>
 
 You can set the parent when creating or editing a Data Product in the UI or declare it in YAML:
 
