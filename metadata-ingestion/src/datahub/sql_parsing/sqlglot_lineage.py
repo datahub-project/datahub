@@ -37,6 +37,7 @@ from sqlglot.optimizer.scope import find_all_in_scope
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.env_vars import (
     get_sql_agg_skip_joins,
+    get_sql_lineage_timeout_seconds,
     get_sql_parse_cache_size,
 )
 from datahub.emitter.mce_builder import make_schema_field_urn
@@ -230,7 +231,7 @@ SQL_PARSE_RESULT_CACHE_SIZE = get_sql_parse_cache_size()
 SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
     "SQL_LINEAGE_TIMEOUT_ENABLED", True
 )
-SQL_LINEAGE_TIMEOUT_SECONDS = 10
+SQL_LINEAGE_TIMEOUT_SECONDS = get_sql_lineage_timeout_seconds()
 SQL_PARSER_TRACE = get_boolean_env_variable("DATAHUB_SQL_PARSER_TRACE", False)
 
 # These rules are a subset of the rules in sqlglot.optimizer.optimizer.RULES.
