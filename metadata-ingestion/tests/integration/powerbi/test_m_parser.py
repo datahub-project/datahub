@@ -12,6 +12,7 @@ from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.source.powerbi.config import (
+    Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
@@ -19,7 +20,7 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser
+from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataPlatformTable,
     Lineage,
@@ -31,6 +32,8 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
     DownstreamColumnRef,
+    SqlParsingDebugInfo,
+    SqlParsingResult,
 )
 
 pytestmark = pytest.mark.integration_batch_2
@@ -78,6 +81,14 @@ M_QUERIES = [
     'let\n    Source = Oracle.Database("oracle-tns.example.com", [Query="SELECT * FROM SALES.ORDERS"])\nin\n    Source',
     'let\n    Source = Odbc.DataSource("driver={Cloudera ODBC Driver for Apache Hive};server=hive.example.com;dsn=hive_prod", [HierarchicalNavigation=true]),\n    HIVE_Database = Source{[Name="HIVE",Kind="Database"]}[Data],\n    product_analytics_Schema = HIVE_Database{[Name="product_analytics",Kind="Schema"]}[Data],\n    user_profile_Table = product_analytics_Schema{[Name="vg_a1_user_profile",Kind="Table"]}[Data]\nin\n    user_profile_Table',
 ]
+
+# Shared BigQuery NativeQuery M expression with a single EXTERNAL_QUERY federation.
+_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION = """
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with tab as (select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")) select account_name from tab", null, [EnableFolding=true])
+            in
+                Source
+        """
 
 
 def get_data_platform_tables_with_dummy_table(
@@ -1095,6 +1106,1034 @@ def test_bigquery_native_query():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.public.my_table,PROD)"
     )
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_comment_mention_not_federation_when_unparseable():
+    # EXTERNAL_QUERY( appearing only inside a SQL comment (not a real call) must not be
+    # treated as a federation. The trigger tokenizes the SQL (comments are dropped), so a
+    # commented mention is ignored. Here the query is also unparseable: with the old raw
+    # regex it was routed into EXTERNAL_QUERY handling and discarded as a *federation*
+    # parse failure (warning + m_query_external_query_parse_errors), inflating the counter
+    # that can flip the strict-warning exit status. It must instead fall through to the
+    # normal native-SQL path, which reports the failure at info level without the
+    # federation counter.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select a b c from public.my_table where /* EXTERNAL_QUERY(conn, sql) */", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    lineages: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    # A comment-only mention must not be counted or warned about as a federation failure.
+    assert reporter.m_query_external_query_parse_errors == 0
+    assert reporter.m_query_external_query_connections_resolved == 0
+    assert reporter.m_query_external_query_connections_unmapped == 0
+    assert len(reporter.warnings) == 0
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_string_literal_mention_does_not_hijack_native_lineage():
+    # A *parseable* BigQuery query whose only "EXTERNAL_QUERY(" appears inside a string
+    # constant is not a federation. The tokenizer-based trigger collapses the literal into
+    # one token, so federation handling is skipped and the real native BigQuery table
+    # still resolves. Guards against a regression to raw-regex detection, which would
+    # hijack this query into EXTERNAL_QUERY handling and drop its native lineage.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select account_name, 'EXTERNAL_QUERY(conn, sql)' as note from my_project.my_dataset.native_table", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.native_table,PROD)"
+    )
+    # No federation was present, so none of the federation counters/warnings must fire.
+    assert reporter.m_query_external_query_connections_resolved == 0
+    assert reporter.m_query_external_query_connections_unmapped == 0
+    assert reporter.m_query_external_query_parse_errors == 0
+    assert len(reporter.warnings) == 0
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_resolves_to_external_platform():
+    # BigQuery EXTERNAL_QUERY federates to an external engine. With the connection mapped
+    # to its external platform, lineage must resolve to the real upstream table on that
+    # platform (parsed in the external dialect), not fail with an empty BigQuery URN.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with tab as (select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name, cast(device_id as text) FROM ext_schema.usage_report WHERE origin = 'x';"")) select account_name from tab", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+    )
+    assert (
+        data_platform_tables[0].data_platform_pair.datahub_data_platform_name
+        == "postgres"
+    )
+    assert reporter.m_query_external_query_connections_resolved == 1
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_raw_string_args_resolve():
+    # BigQuery raw-string literals (r'...') for the EXTERNAL_QUERY connection and inner
+    # SQL parse as exp.RawString, not exp.Literal. Extraction must still treat them as
+    # string literals; otherwise the federation is reported as non-literal arguments and
+    # all upstream lineage is dropped.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select * from EXTERNAL_QUERY(r'my_project.us-east1.my_connection', r'SELECT account_name FROM ext_schema.usage_report')", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+    )
+    assert reporter.m_query_external_query_connections_resolved == 1
+    # Raw-string args must not be misreported as non-literal (which drops lineage).
+    assert reporter.m_query_external_query_parse_errors == 0
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_tsql_control_statements_not_corrupted():
+    # remove_drop_statement must not run on the outer BigQuery text before
+    # EXTERNAL_QUERY extraction: its USE/GO/SET/DROP regexes ignore string
+    # boundaries and would rewrite the federated SQL literal. Cloud SQL Server
+    # federations commonly embed those control statements; lineage must still
+    # resolve to the real mssql table after extraction + mssql-only cleanup.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""USE Reports#(lf)GO#(lf)DROP TABLE IF EXISTS #tmp;#(lf)SELECT account_name FROM dbo.usage_report"")", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "mssql",
+                    "default_database": "Reports",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mssql,reports.dbo.usage_report,PROD)"
+    )
+    assert reporter.m_query_external_query_connections_resolved == 1
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_inner_sql_not_tsql_cleaned_before_extraction():
+    # Guards the ordering in PowerBI's parse_custom_sql: remove_special_characters
+    # runs before EXTERNAL_QUERY extraction, but the T-SQL cleanup
+    # (remove_drop_statement) must run only AFTER extraction. That cleanup's
+    # USE/GO/SET/DROP regexes are line-anchored and ignore string boundaries, so if
+    # run on the outer text first they rewrite text inside the federated SQL literal
+    # (e.g. a lone `GO` line inside a string constant becomes `;`).
+    #
+    # Postgres federations get no second cleanup pass on the inner SQL (only mssql
+    # does), so the literal reaching the inner parser must be byte-for-byte intact.
+    # The `GO` lives inside a string-constant column, so the resolved URN is identical
+    # either way — the corruption is only observable in the SQL text handed to the
+    # inner parser, which is what this test asserts on.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT 'x#(lf)GO#(lf)y' AS note FROM ext_schema.t"")", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    captured_inner_sql: List[str] = []
+    real_parse_custom_sql = native_sql_parser.parse_custom_sql
+
+    def _capture(*args: object, **kwargs: object) -> Optional[SqlParsingResult]:
+        # Record the SQL the postgres (inner federated) parse receives.
+        if kwargs.get("platform") == "postgres":
+            captured_inner_sql.append(str(kwargs["query"]))
+        return real_parse_custom_sql(*args, **kwargs)  # type: ignore[arg-type]
+
+    with patch.object(native_sql_parser, "parse_custom_sql", side_effect=_capture):
+        data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )[0].upstreams
+
+    # The federated literal must reach the inner parser untouched: the `GO` inside the
+    # string constant must not have been rewritten to `;` by a premature T-SQL cleanup.
+    assert captured_inner_sql, "postgres inner federated SQL was never parsed"
+    assert captured_inner_sql[0] == "SELECT 'x\nGO\ny' AS note FROM ext_schema.t"
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.t,PROD)"
+    )
+    assert reporter.m_query_external_query_connections_resolved == 1
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_unmapped_connection_skips_with_info():
+    # An unmapped EXTERNAL_QUERY connection must not emit a bogus BigQuery URN; it should
+    # skip lineage and record an actionable (non-warning) signal telling the operator to
+    # configure the connection.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with tab as (select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report;"")) select account_name from tab", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    lineages: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert reporter.m_query_external_query_connections_unmapped == 1
+    # No SQL-parsing-failure warning should be raised for the (expected) unmapped case.
+    assert len(reporter.warnings) == 0
+    info_titles = [entry.title for entry in reporter.infos]
+    assert Constant.EXTERNAL_QUERY_NOT_MAPPED in info_titles
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_non_literal_args_warns():
+    # An EXTERNAL_QUERY whose arguments are not string literals cannot be extracted into a
+    # connection id / inner SQL. The federated lineage is dropped, so it must surface a
+    # warning and a parse-error counter rather than being silently swallowed at debug.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with tab as (select * from EXTERNAL_QUERY(123, 456)) select col from tab", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    lineages: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert reporter.m_query_external_query_parse_errors == 1
+    assert len(reporter.warnings) == 1
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_combined_with_native_table():
+    # A query can reference both an EXTERNAL_QUERY federation and a native BigQuery table.
+    # The federation is stripped and resolved against the external platform, while the
+    # remaining native table is parsed normally — both upstreams must be emitted.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with ext as (select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")), nat as (select name from my_project.my_dataset.native_table) select ext.account_name, nat.name from ext, nat", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    urns = {dpt.urn for dpt in data_platform_tables}
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+        in urns
+    )
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.native_table,PROD)"
+        in urns
+    )
+    assert reporter.m_query_external_query_connections_resolved == 1
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_inner_sql_parse_failure_warns():
+    # When the federated (inner) SQL cannot be parsed, no upstream is emitted, the
+    # parse-error counter increments, and an actionable SQL-parsing-failure warning is
+    # raised — the failure must not be swallowed. sqlglot is lenient enough that it rarely
+    # returns a hard failure on malformed text, so the parser is patched to simulate one.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression=_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    with patch(
+        "datahub.ingestion.source.powerbi.m_query.native_sql_parser.parse_custom_sql",
+        return_value=None,
+    ):
+        lineages: List[
+            datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+        ] = parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert reporter.m_query_external_query_parse_errors == 1
+    # The inner-SQL parse failure must surface as a warning, not be silently dropped.
+    assert Constant.SQL_PARSING_FAILURE in [entry.title for entry in reporter.warnings]
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_partial_lineage_when_outer_parse_fails():
+    # The federated (inner) SQL resolves, but the outer native query fails to parse. The
+    # resolved external upstream must still be emitted (partial lineage) rather than lost
+    # alongside the outer parse failure. The outer parse is patched to fail deterministically
+    # while the inner parse is delegated to the real parser.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression=_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    real_parse_custom_sql = native_sql_parser.parse_custom_sql
+
+    def fake_parse_custom_sql(*args, **kwargs):
+        # Only the outer BigQuery query fails; the inner (postgres) federation resolves.
+        if kwargs.get("platform") == "bigquery":
+            return None
+        return real_parse_custom_sql(*args, **kwargs)
+
+    with patch(
+        "datahub.ingestion.source.powerbi.m_query.native_sql_parser.parse_custom_sql",
+        side_effect=fake_parse_custom_sql,
+    ):
+        data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )[0].upstreams
+
+    urns = {dpt.urn for dpt in data_platform_tables}
+    assert urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+    }
+    assert reporter.m_query_external_query_connections_resolved == 1
+    # Native tables are lost while federated lineage survives, so the partial loss must
+    # surface as a warning rather than the benign pure-native info level.
+    assert Constant.SQL_PARSING_FAILURE in [entry.title for entry in reporter.warnings]
+    # The dropped outer query must also be counted so partial runs aren't under-reported.
+    assert reporter.m_query_external_query_parse_errors == 1
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_partial_lineage_when_outer_table_error():
+    # Like the partial-lineage test above, but the outer native query returns a
+    # table_error instead of None. This exercises the distinct table_error branch of
+    # parse_custom_sql: the resolved federated upstream must still be emitted (partial
+    # lineage) and the dropped native tables surfaced as a warning.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression=_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    real_parse_custom_sql = native_sql_parser.parse_custom_sql
+
+    def fake_parse_custom_sql(*args, **kwargs):
+        # The outer BigQuery parse returns a table_error; the inner (postgres) federation
+        # is delegated to the real parser so it resolves normally.
+        if kwargs.get("platform") == "bigquery":
+            return SqlParsingResult(
+                in_tables=[],
+                out_tables=[],
+                column_lineage=None,
+                debug_info=SqlParsingDebugInfo(
+                    table_error=ValueError("simulated outer table resolution error")
+                ),
+            )
+        return real_parse_custom_sql(*args, **kwargs)
+
+    with patch(
+        "datahub.ingestion.source.powerbi.m_query.native_sql_parser.parse_custom_sql",
+        side_effect=fake_parse_custom_sql,
+    ):
+        data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )[0].upstreams
+
+    urns = {dpt.urn for dpt in data_platform_tables}
+    assert urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+    }
+    assert reporter.m_query_external_query_connections_resolved == 1
+    # Native tables are lost while federated lineage survives, so the partial loss must
+    # surface as a warning rather than be silently dropped.
+    assert any(
+        "only federated EXTERNAL_QUERY upstreams were resolved" in warning.message
+        for warning in reporter.warnings
+    )
+    # The dropped outer query must also be counted so partial runs aren't under-reported.
+    assert reporter.m_query_external_query_parse_errors == 1
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_default_schema_applied_to_inner_sql():
+    # default_schema on the connection mapping must qualify an otherwise-unqualified table
+    # in the inner SQL, producing a three-part db.schema.table URN. This is the only
+    # functional wiring of default_schema into a resolved upstream.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM usage_report"")", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                    "default_schema": "ext_schema",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    urns = {dpt.urn for dpt in data_platform_tables}
+    assert urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+    }
+    assert reporter.m_query_external_query_connections_resolved == 1
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_platform_instance_and_env_applied():
+    # platform_instance and env on the connection mapping must flow into the resolved
+    # upstream URN (instance embedded in the dataset key, env as the fabric). Both default
+    # to None/PROD, so without setting non-default values the wiring is untested.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                    "platform_instance": "my_instance",
+                    "env": "DEV",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    urns = {dpt.urn for dpt in data_platform_tables}
+    assert urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_instance.ext_db.ext_schema.usage_report,DEV)"
+    }
+    assert reporter.m_query_external_query_connections_resolved == 1
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_inner_sql_resolves_no_table_warns():
+    # The federated (inner) SQL parses cleanly but references no table (e.g. SELECT 1),
+    # so it resolves zero upstreams. That still drops the federated lineage, so it must
+    # be reported as a parse error rather than counted as a resolved federation.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with tab as (select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT 1 AS one"")) select one from tab", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    lineages: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert reporter.m_query_external_query_connections_resolved == 0
+    assert reporter.m_query_external_query_parse_errors == 1
+    # A federation that resolves nothing must surface as a warning, not be silently dropped.
+    assert Constant.SQL_PARSING_FAILURE in [entry.title for entry in reporter.warnings]
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_inner_sql_table_error_warns():
+    # The federated (inner) SQL parses but sqlglot reports a table_error (partial failure),
+    # which must be treated like a parse failure: no upstream emitted, counted as a parse
+    # error, and surfaced as a warning - not silently emitted from a broken parse.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression=_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    real_parse_custom_sql = native_sql_parser.parse_custom_sql
+
+    def fake_parse_custom_sql(*args, **kwargs):
+        # The inner (postgres) parse returns a result flagged with a table_error; the outer
+        # (bigquery) query is delegated to the real parser.
+        if kwargs.get("platform") == "postgres":
+            return SqlParsingResult(
+                in_tables=[],
+                out_tables=[],
+                column_lineage=None,
+                debug_info=SqlParsingDebugInfo(
+                    table_error=ValueError("simulated table resolution error")
+                ),
+            )
+        return real_parse_custom_sql(*args, **kwargs)
+
+    with patch(
+        "datahub.ingestion.source.powerbi.m_query.native_sql_parser.parse_custom_sql",
+        side_effect=fake_parse_custom_sql,
+    ):
+        lineages: List[
+            datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+        ] = parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert reporter.m_query_external_query_connections_resolved == 0
+    assert reporter.m_query_external_query_parse_errors == 1
+    assert Constant.SQL_PARSING_FAILURE in [entry.title for entry in reporter.warnings]
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_mixed_resolved_and_unmapped():
+    # A query with two federations - one mapped, one not. The mapped one must still resolve
+    # its upstream while the unmapped one is skipped as info, and the two must not interfere.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with a as (select account_name from EXTERNAL_QUERY(""my_project.us-east1.mapped_conn"", ""SELECT account_name FROM ext_schema.usage_report"")), b as (select x from EXTERNAL_QUERY(""my_project.us-east1.unmapped_conn"", ""SELECT x FROM other_schema.other_table"")) select a.account_name, b.x from a, b", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.mapped_conn": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    lineages: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+    )
+
+    urns = {dpt.urn for dpt in combine_upstreams_from_lineage(lineages)}
+    assert urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+    }
+    assert reporter.m_query_external_query_connections_resolved == 1
+    assert reporter.m_query_external_query_connections_unmapped == 1
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_with_comment_before_paren_resolves():
+    # A real EXTERNAL_QUERY call with a comment between the function name and '(' is
+    # accepted by the tokenizer-based gate (comments are dropped). The internal invariant
+    # check in _resolve_external_query_upstreams must use the same gate; a raw regex that
+    # only allows whitespace there would raise AssertionError and drop the table's lineage.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select * from EXTERNAL_QUERY /* federation */ (""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+    )
+    assert reporter.m_query_external_query_connections_resolved == 1
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_duplicate_upstreams_are_deduped():
+    # Two federations resolving to the same external table must produce a single upstream
+    # edge, not two identical ones (nothing downstream collapses duplicate URNs).
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with a as (select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")), b as (select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")) select a.account_name from a, b", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    # Both federations resolve, but the identical upstream edge is emitted only once.
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_extraction_parse_failure_skips_lineage():
+    # When extract_external_queries hits a sqlglot parse error it sets parse_failed and
+    # returns the query UNCHANGED (EXTERNAL_QUERY calls are not stripped to placeholders,
+    # per its frozen __post_init__ invariant references/unresolvable must be empty). The
+    # raw federation syntax cannot be resolved into native BigQuery upstreams, so no
+    # lineage is emitted and the dropped federated lineage surfaces as a warning reported
+    # exactly once (at extraction time), not re-reported by a second native parse attempt.
+    # sqlglot rarely hard-fails on real text, so extraction is patched to force the failure.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression=_BQ_SINGLE_EXTERNAL_QUERY_EXPRESSION,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    with patch(
+        "datahub.ingestion.source.powerbi.m_query.native_sql_parser.extract_external_queries",
+        return_value=native_sql_parser.ExternalQueryExtraction(
+            references=[], rewritten_query="SELECT 1 AS one", parse_failed=True
+        ),
+    ):
+        lineages: List[
+            datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+        ] = parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+
+    # No upstreams: the federation could not be stripped and the raw query cannot be
+    # resolved to native BigQuery tables.
+    assert combine_upstreams_from_lineage(lineages) == []
+    # Reported exactly once, at extraction time; the native parser is not re-invoked to
+    # re-report the same root cause.
+    assert reporter.m_query_external_query_parse_errors == 1
+    assert len(reporter.warnings) == 1
 
 
 def test_sqlglot_parser():
