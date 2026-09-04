@@ -828,6 +828,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "entityService.retention.applyOnPolicyChange",
           "entityService.retention.enabled",
           "entityService.retention.overwriteNonSystemPolicies",
+          "entityService.syncIngestStamping",
           "eventsApi.enabled",
           "forms.hook.consumerGroupSuffix",
           "forms.hook.enabled",

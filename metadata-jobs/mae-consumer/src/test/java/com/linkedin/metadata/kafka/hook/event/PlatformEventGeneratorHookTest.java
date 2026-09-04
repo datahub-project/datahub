@@ -184,6 +184,148 @@ public class PlatformEventGeneratorHookTest {
   }
 
   @Test
+  public void testInvokeStampsSyncIngestMarkerWhenEnabled() throws Exception {
+    // Hook with sync-ingest stamping enabled (mirrors entityService.syncIngestStamping=true).
+    PlatformEventGeneratorHook hook =
+        new PlatformEventGeneratorHook(
+            createEntityChangeEventGeneratorRegistry(mockProcessInstanceEntityClient),
+            mockProducer,
+            true,
+            "",
+            ImmutableList.of(),
+            ImmutableList.of(),
+            true);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(GLOBAL_TAGS_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    final GlobalTags newTags = new GlobalTags();
+    final TagUrn newTagUrn = new TagUrn("Test");
+    newTags.setTags(
+        new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(newTagUrn))));
+    event.setAspect(GenericRecordUtils.serializeAspect(newTags));
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+    // MCL carries the emitModeMarker=sync marker (stamped upstream by GMS for a
+    // sync-origin write; the same marker already published by acryl-datahub's REST
+    // emitter, see Constants.EMIT_MODE_MARKER_KEY).
+    event.setSystemMetadata(
+        new com.linkedin.mxe.SystemMetadata()
+            .setProperties(
+                new com.linkedin.data.template.StringMap(
+                    ImmutableMap.of(EMIT_MODE_MARKER_KEY, EMIT_MODE_MARKER_SYNC))));
+
+    hook.invoke(createMockOperationContext(), event);
+
+    // The marker is carried forward onto the emitted change event's parameters.
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            DATASET_ENTITY_NAME,
+            Urn.createFromString(TEST_DATASET_URN),
+            ChangeCategory.TAG,
+            ChangeOperation.ADD,
+            newTagUrn.toString(),
+            ImmutableMap.of(
+                "tagUrn",
+                newTagUrn.toString(),
+                "context",
+                "{}",
+                "sourceDetails",
+                "{}",
+                EMIT_MODE_MARKER_KEY,
+                EMIT_MODE_MARKER_SYNC),
+            actorUrn);
+
+    verifyProducePlatformEvent(mockProducer, platformEvent);
+  }
+
+  @Test
+  public void testInvokeDoesNotStampSyncIngestMarkerWhenDisabled() throws Exception {
+    // The default hook has stamping disabled; even when the MCL carries the
+    // emitModeMarker=sync marker it must not propagate to the platform event (the
+    // flag gates it).
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(GLOBAL_TAGS_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    final GlobalTags newTags = new GlobalTags();
+    final TagUrn newTagUrn = new TagUrn("Test");
+    newTags.setTags(
+        new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(newTagUrn))));
+    event.setAspect(GenericRecordUtils.serializeAspect(newTags));
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+    event.setSystemMetadata(
+        new com.linkedin.mxe.SystemMetadata()
+            .setProperties(
+                new com.linkedin.data.template.StringMap(
+                    ImmutableMap.of(EMIT_MODE_MARKER_KEY, EMIT_MODE_MARKER_SYNC))));
+
+    _entityChangeEventHook.invoke(opContext, event);
+
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            DATASET_ENTITY_NAME,
+            Urn.createFromString(TEST_DATASET_URN),
+            ChangeCategory.TAG,
+            ChangeOperation.ADD,
+            newTagUrn.toString(),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}", "sourceDetails", "{}"),
+            actorUrn);
+
+    verifyProducePlatformEvent(mockProducer, platformEvent);
+  }
+
+  @Test
+  public void testInvokeStampingEnabledButSourceMetadataLacksMarker() throws Exception {
+    // Stamping enabled, but the MCL's system metadata carries no emitModeMarker: the
+    // marker-presence half of hasSyncIngestFlag must leave the emitted event unmarked
+    // (an async-origin write must not be relabeled sync just because the flag is on).
+    PlatformEventGeneratorHook hook =
+        new PlatformEventGeneratorHook(
+            createEntityChangeEventGeneratorRegistry(mockProcessInstanceEntityClient),
+            mockProducer,
+            true,
+            "",
+            ImmutableList.of(),
+            ImmutableList.of(),
+            true);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(GLOBAL_TAGS_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    final GlobalTags newTags = new GlobalTags();
+    final TagUrn newTagUrn = new TagUrn("Test");
+    newTags.setTags(
+        new TagAssociationArray(ImmutableList.of(new TagAssociation().setTag(newTagUrn))));
+    event.setAspect(GenericRecordUtils.serializeAspect(newTags));
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+    // System metadata present but WITHOUT the marker key.
+    event.setSystemMetadata(
+        new com.linkedin.mxe.SystemMetadata()
+            .setProperties(
+                new com.linkedin.data.template.StringMap(
+                    ImmutableMap.of("registryName", "unusedRegistry"))));
+
+    hook.invoke(createMockOperationContext(), event);
+
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            DATASET_ENTITY_NAME,
+            Urn.createFromString(TEST_DATASET_URN),
+            ChangeCategory.TAG,
+            ChangeOperation.ADD,
+            newTagUrn.toString(),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}", "sourceDetails", "{}"),
+            actorUrn);
+
+    verifyProducePlatformEvent(mockProducer, platformEvent);
+  }
+
+  @Test
   public void testInvokeEntityAddTermChange() throws Exception {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityType(DATASET_ENTITY_NAME);

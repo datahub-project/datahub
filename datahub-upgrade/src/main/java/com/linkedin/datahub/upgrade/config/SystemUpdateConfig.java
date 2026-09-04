@@ -174,6 +174,7 @@ public class SystemUpdateConfig {
       @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
       @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
       @Value("${EBEAN_MAX_TRANSACTION_RETRY:#{null}}") final Integer ebeanMaxTransactionRetry,
+      @Value("${entityService.syncIngestStamping:false}") final boolean syncIngestStamping,
       final List<ThrottleSensor> throttleSensors,
       final ObjectProvider<RetentionBuffer> retentionBufferProvider) {
 
@@ -193,7 +194,11 @@ public class SystemUpdateConfig {
                 .setCdcModeChangeLog(systemUpdateCDCMode)
                 .setRetry(ebeanMaxTransactionRetry)
                 .setEnableBrowseV2(enableBrowsePathV2)
-                .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled()),
+                .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled())
+                // Moot in practice — system-update writes carry no request context, so
+                // stampSyncIngest never fires here — but wired so every production
+                // EntityServiceConfiguration construction site honors the flag uniformly.
+                .setSyncIngestStamping(syncIngestStamping),
             null);
 
     // Usually NO_OP in upgrade (see method javadoc). Attaches if a buffer bean exists.

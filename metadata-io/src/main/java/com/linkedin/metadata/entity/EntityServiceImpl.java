@@ -201,6 +201,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   // request thread reads it; volatile publishes that write safely to serving threads.
   @Nonnull private volatile EntityWriteLock entityWriteLock = new NoOpEntityWriteLock();
 
+  private final boolean syncIngestStampingEnabled;
+
   @Getter
   private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
 
@@ -223,6 +225,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             : DEFAULT_MAX_TRANSACTION_RETRY;
     this.enableBrowseV2 = entityServiceConfiguration.isEnableBrowseV2();
     this.postCommitRetentionEnabled = entityServiceConfiguration.isPostCommitRetentionEnabled();
+    this.syncIngestStampingEnabled = entityServiceConfiguration.isSyncIngestStamping();
     this.metricUtils = metricUtils;
     log.info("EntityService cdcModeChangeLog is {}", this.cdcModeChangeLog);
   }
@@ -2244,6 +2247,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // Apply MCP observers (pre-transaction metrics collection, external actions).
     // Only on sync path — async MCPs come back via MCE consumer with async=false.
     if (!async) {
+      // Stamp emitModeMarker=sync (the marker already published by acryl-datahub's REST
+      // emitter, see Constants.EMIT_MODE_MARKER_KEY) so downstream consumers (MCL ->
+      // platform events -> propagation workers) can preserve the sync QoS of derived
+      // writes. Only for
+      // externally-originated requests (RESTLI/OPENAPI/GRAPHQL): the MCE consumer
+      // re-enters this sync path with the system operation context (no request
+      // context), and stamping there would mislabel async-origin writes as sync.
+      if (isSyncIngestStampingEnabled() && opContext.getRequestContext() != null) {
+        stampSyncIngest(aspectsBatch);
+      }
       try {
         aspectsBatch.applyMCPObservers(aspectsBatch.getItems());
       } catch (VirtualMachineError e) {
@@ -2442,6 +2455,37 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   @VisibleForTesting
+  boolean isSyncIngestStampingEnabled() {
+    return syncIngestStampingEnabled;
+  }
+
+  /**
+   * Stamps {@code emitModeMarker=sync} into each item's system metadata. The marker lands in the
+   * DURABLY STORED aspect system metadata, not only the emitted MCL — intentionally: it leaves an
+   * auditable record of sync-origin writes, and matches the long-running fork deployment of this
+   * feature. The marker is only ever interpreted on the MCL → platform-event relay
+   * (PlatformEventGeneratorHook), which is itself gated by the same flag; a stored marker echoed
+   * back in a future MCP's systemMetadata is at most a sync-routing hint to consumers that honor
+   * it, never a correctness input.
+   */
+  @VisibleForTesting
+  static void stampSyncIngest(@Nonnull final AspectsBatch aspectsBatch) {
+    aspectsBatch
+        .getItems()
+        .forEach(
+            item -> {
+              SystemMetadata systemMetadata = item.getSystemMetadata();
+              if (systemMetadata != null) {
+                if (systemMetadata.getProperties() == null) {
+                  systemMetadata.setProperties(new StringMap());
+                }
+                systemMetadata
+                    .getProperties()
+                    .put(Constants.EMIT_MODE_MARKER_KEY, Constants.EMIT_MODE_MARKER_SYNC);
+              }
+            });
+  }
+
   Stream<IngestResult> ingestProposalSync(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch) {
 
