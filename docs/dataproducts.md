@@ -84,7 +84,7 @@ The new product appears as a root (or under the parent you chose) in the Data Pr
 #### Option 2 Navigate to the Domain that will contain this Data Product
 
 <p align="center">
-  <img width="70%" alt="Data Products tab on a Domain page" src="https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-tab.png"/>
+  <img width="50%" alt="Data Products tab on a Domain page" src="https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-tab.png"/>
 </p>
 
 Then navigate to the Data Products tab on the Domain's home page, and click '+ New Data Product'.
