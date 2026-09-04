@@ -759,6 +759,12 @@ module.exports = {
         },
         {
           type: "doc",
+          label: "Cloud Workload Identity",
+          id: "docs/managed-datahub/operator-guide/configuring-kubernetes-workload-identities",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
           id: "docs/managed-datahub/remote-executor/best-practices",
           className: "saasOnly",
         },
