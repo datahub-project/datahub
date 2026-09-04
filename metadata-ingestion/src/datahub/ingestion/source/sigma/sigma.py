@@ -63,6 +63,7 @@ from datahub.ingestion.source.sigma.data_classes import (
 )
 from datahub.ingestion.source.sigma.formula_parser import (
     BracketRef,
+    candidate_source_column_splits,
     extract_bracket_refs,
 )
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
@@ -2348,6 +2349,123 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
 
+    def _try_resolve_join_chain_ref(
+        self,
+        *,
+        ref: "BracketRef",
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        element_name_to_eids: Dict[str, List[str]],
+        elementId_to_dataset_urn: Dict[str, str],
+        entity_level_upstream_urns: Set[str],
+        urn_to_cols: Dict[str, Dict[str, str]],
+        downstream_field: str,
+        emitted_pairs: Set[Tuple[str, str]],
+        fgls: List[FineGrainedLineageClass],
+        cross_dm_fgls: List[FineGrainedLineageClass],
+    ) -> bool:
+        """Resolve a multi-segment ref by trying alternative (source, column) splits.
+
+        Sigma writes a column reached through a join as
+        ``[JoinElement/SourceElement/Column]``, so the owning element is the
+        segment before the column. ``ref.source`` holds the *first* segment,
+        which for these refs is the join element -- a real sibling, which is why
+        the legacy path resolves it, then fails the column lookup and drops the
+        edge.
+
+        Returns True when an edge was emitted. Deliberately counts nothing on
+        failure: the caller falls through to the legacy path, which owns the
+        residual bucket, so one dropped ref is never counted twice. Each
+        candidate is self-stripped and tried intra-DM *then* cross-DM before the
+        next is considered, so neither the self-name warehouse short-circuit nor
+        an intra-DM first segment can hide a resolvable later segment.
+
+        Refs with fewer than three segments are left entirely to the legacy
+        path -- their only candidate *is* the legacy split -- so single-slash
+        behaviour and its counters are untouched.
+        """
+        if len(ref.parts) < 3:
+            return False
+        for source, col in candidate_source_column_splits(ref):
+            # Intra-DM: sibling elements, self-references stripped per candidate.
+            eids = [
+                eid
+                for eid in element_name_to_eids.get(source.lower(), [])
+                if eid != element.elementId
+            ]
+            urns = sorted(
+                elementId_to_dataset_urn[eid]
+                for eid in eids
+                if eid in elementId_to_dataset_urn
+            )
+            surviving = [u for u in urns if u in entity_level_upstream_urns]
+            if surviving:
+                canonical = urn_to_cols.get(surviving[0], {}).get(col.lower())
+                if canonical is not None:
+                    upstream_field = builder.make_schema_field_urn(
+                        surviving[0], canonical
+                    )
+                    pair = (downstream_field, upstream_field)
+                    if pair not in emitted_pairs:
+                        emitted_pairs.add(pair)
+                        fgls.append(
+                            FineGrainedLineageClass(
+                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                                downstreams=[downstream_field],
+                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                                upstreams=[upstream_field],
+                                confidenceScore=1.0,
+                            )
+                        )
+                    self.reporter.data_model_element_fgl_join_chain_resolved += 1
+                    return True
+
+            # Cross-DM: the owning element may live in a source data model even
+            # when an earlier segment matched a local sibling.
+            source_dm_url_ids = {
+                sid.partition("/")[0]
+                for sid in element.source_ids
+                if "/" in sid and not sid.startswith("inode-")
+            }
+            for dm_url_id in sorted(source_dm_url_ids):
+                for urn in sorted(
+                    self.dm_element_urn_by_name.get(dm_url_id, {}).get(
+                        source.lower(), []
+                    )
+                ):
+                    if urn == element_dataset_urn:
+                        continue
+                    canonical = (self.dm_element_urn_to_cols.get(urn) or {}).get(
+                        col.lower()
+                    )
+                    if canonical is None:
+                        continue
+                    upstream_field = builder.make_schema_field_urn(urn, canonical)
+                    pair = (downstream_field, upstream_field)
+                    if pair not in emitted_pairs:
+                        emitted_pairs.add(pair)
+                        cross_dm_fgls.append(
+                            FineGrainedLineageClass(
+                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                                downstreams=[downstream_field],
+                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                                upstreams=[upstream_field],
+                                confidenceScore=1.0,
+                            )
+                        )
+                    self.reporter.data_model_element_fgl_join_chain_resolved += 1
+                    return True
+        # Sub-count of whichever residual bucket the legacy path settles on --
+        # never an independent drop, so report totals stay additive.
+        self.reporter.data_model_element_fgl_join_chain_unresolved += 1
+        logger.debug(
+            "element %s: no candidate split of ref %r resolved; falling back to "
+            "the first-slash split",
+            element.elementId,
+            ref.raw,
+        )
+        return False
+
     def _resolve_no_ref_column_fgl(
         self,
         *,
@@ -2468,6 +2586,28 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     # are not cross-Dataset lineage; skip.
                     continue
                 resolution_attempted = True
+
+                # Join-chain refs ([JoinElement/SourceElement/Column], nesting
+                # further for chained joins) name the owning element in the
+                # second-to-last segment, not the first. Try the alternative
+                # readings before the legacy first-slash split, which would
+                # resolve to the wrong sibling and then fail the column check.
+                # Gated on >=3 segments so single-slash refs keep exactly their
+                # current path, counters included.
+                if self._try_resolve_join_chain_ref(
+                    ref=ref,
+                    element=element,
+                    element_dataset_urn=element_dataset_urn,
+                    element_name_to_eids=element_name_to_eids,
+                    elementId_to_dataset_urn=elementId_to_dataset_urn,
+                    entity_level_upstream_urns=entity_level_upstream_urns,
+                    urn_to_cols=urn_to_cols,
+                    downstream_field=downstream_field,
+                    emitted_pairs=emitted_pairs,
+                    fgls=fgls,
+                    cross_dm_fgls=cross_dm_fgls,
+                ):
+                    continue
 
                 candidate_eids = element_name_to_eids.get(ref.source.lower(), [])
 

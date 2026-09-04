@@ -1312,6 +1312,76 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
 
 
 @pytest.mark.integration
+def _get_join_chain_dm_overrides() -> Dict[str, Dict]:
+    """Rewrite element 3's formula as a join-chain ref.
+
+    Sigma encodes a column reached through a join as
+    ``[JoinElement/SourceElement/Column]``. The base fixture's element 3 uses the
+    plain ``[random data model/team1]`` form; here it references the same column
+    through element 2, whose name ("random data model" as well) also matches the
+    first segment -- reproducing the production trap where the first segment
+    resolves to a real but wrong sibling.
+    """
+    overrides = get_mock_data_model_api()
+    columns_url = (
+        "https://aws-api.sigmacomputing.com/v2/dataModels/"
+        "147a4d09-a686-4eea-b183-9b82aa0f7beb/columns"
+    )
+    entries = overrides[columns_url]["json"]["entries"]
+    for entry in entries:
+        if entry["columnId"] == "col-4pl-team1":
+            entry["formula"] = "[2313213123.test.231/random data model/team1]"
+    return overrides
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_join_chain_ref(pytestconfig, tmp_path, requests_mock):
+    """A join-chain ref resolves to the element that owns the column.
+
+    Regression test: the legacy first-slash split reads the source as the join
+    element and the column as "random data model/team1", which cannot exist, so
+    the edge was dropped as dropped_unknown_upstream_column.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_join_chain_dm_overrides()
+    _apply_dm_bridge_workbook_overrides(override_data)
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_join_chain_mces.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "ingest_data_models": True,
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_element_fgl_join_chain_resolved == 1, (
+        "expected the join-chain ref to resolve; got "
+        f"{report.data_model_element_fgl_join_chain_resolved}"
+    )
+    assert report.data_model_element_fgl_join_chain_unresolved == 0
+    assert report.data_model_element_fgl_dropped_unknown_upstream_column == 0
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_dm_join_chain_ref.json",
+    )
+
+
+@pytest.mark.integration
 def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, requests_mock):
     """``data_model_pattern`` denies the DM, so no DM entities emitted and
     workbook elements previously bridging to the DM degrade to

@@ -361,6 +361,18 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # fgl_warehouse_passthrough_deferred, which stays reachable only from
     # formulas that do produce refs, so its baseline remains comparable.
     data_model_element_fgl_no_ref_warehouse_unresolved: int = 0
+    # Multi-segment ("join chain") refs of the shape
+    # [JoinElement/SourceElement/Column] -- Sigma's encoding for a column reached
+    # through a join -- resolved by trying alternative (source, column) splits
+    # instead of the legacy first-slash split. Only counted for refs with 3+
+    # segments, so single-slash refs never inflate it.
+    data_model_element_fgl_join_chain_resolved: int = 0
+    # Join-chain refs where no candidate split validated against a real element
+    # name plus that element's schema. A SUB-COUNT of whichever residual bucket
+    # the legacy path then settles on (dropped_unknown_upstream_column,
+    # dropped_orphan_upstream or cross_dm_deferred) -- not an independent drop,
+    # so do not add it to those totals.
+    data_model_element_fgl_join_chain_unresolved: int = 0
     # Cross-DM FGL counters (DM = data model throughout).
     # Refs resolved via global bridge index and emitted as cross-DM FGL.
     # Resolution uses entity-level upstreams as a soft collision tiebreaker,
