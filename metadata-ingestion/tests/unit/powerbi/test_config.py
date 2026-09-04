@@ -89,6 +89,19 @@ class TestPowerBiConfig:
                 ),
                 id="dsn_omitted_field_defaults_to_empty_valid",
             ),
+            pytest.param(
+                {
+                    **base_config,
+                    "dsn_to_database_schema": {"dsn1": " database1 . schema1 "},
+                },
+                PowerBiDashboardSourceConfig(
+                    tenant_id="fake",
+                    client_id="foo",
+                    client_secret="bar",
+                    dsn_to_database_schema={"dsn1": "database1.schema1"},
+                ),
+                id="dsn_surrounding_whitespace_normalised",
+            ),
             # Invalid configurations
             pytest.param(
                 {
@@ -102,6 +115,21 @@ class TestPowerBiConfig:
                 {**base_config, "dsn_to_database_schema": ["not", "a", "dict"]},
                 ValidationError,
                 id="dsn_non_dict_type_invalid",
+            ),
+            pytest.param(
+                {**base_config, "dsn_to_database_schema": {"dsn1": "database."}},
+                ValueError,
+                id="dsn_trailing_dot_blank_schema_invalid",
+            ),
+            pytest.param(
+                {**base_config, "dsn_to_database_schema": {"dsn1": ".schema"}},
+                ValueError,
+                id="dsn_leading_dot_blank_database_invalid",
+            ),
+            pytest.param(
+                {**base_config, "dsn_to_database_schema": {"dsn1": "."}},
+                ValueError,
+                id="dsn_only_dot_invalid",
             ),
         ],
     )
