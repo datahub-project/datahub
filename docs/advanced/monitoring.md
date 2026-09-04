@@ -870,10 +870,11 @@ performance under load.
 ```yaml
 graphQL.concurrency:
   separateThreadPool: true
-  corePoolSize: 20 # Base threads
-  maxPoolSize: 200 # Scale under load
+  scaleWithProcessors: false # true restores availableProcessors()*5 / *100 and SynchronousQueue
+  corePoolSize: 40 # 8-core default (5 * 8); < 0 uses 5 * cores
+  maxPoolSize: 800 # 8-core cap (100 * 8); <= 0 uses 100 * cores
+  queueSize: 0 # 0 = SynchronousQueue (blocking GraphQL fan-out); > 0 = bounded queue
   keepAlive: 60 # Seconds before idle thread removal
-  # Handles complex GraphQL query resolution
 ```
 
 #### 2. Batch Processing Executors
