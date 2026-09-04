@@ -9,6 +9,7 @@ const MULISH_STACK = `'Mulish', -apple-system, BlinkMacSystemFont, 'Segoe UI', R
 export const StyledDrawer = styled(Drawer)`
     .ant-drawer-content,
     .ant-drawer-header,
+    .ant-drawer-title,
     .ant-drawer-body {
         font-family: ${MULISH_STACK};
     }
