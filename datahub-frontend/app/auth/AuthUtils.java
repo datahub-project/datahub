@@ -84,6 +84,13 @@ public class AuthUtils {
   public static final String ACCESS_DENIED_MESSAGE = "accessDeniedMessage";
   public static final String ACCESS_DENIED_REDIRECT_URL = "accessDeniedRedirectUrl";
 
+  // Private Key JWT (certificate-based) authentication constants
+  public static final String PRIVATE_KEY_FILE_PATH = "privateKeyFilePath";
+  public static final String CERTIFICATE_FILE_PATH = "certificateFilePath";
+  public static final String PRIVATE_KEY_PASSWORD = "privateKeyPassword";
+  public static final String PRIVATE_KEY_JWT_ALGORITHM = "privateKeyJwtAlgorithm";
+  public static final String PRIVATE_KEY_JWT_KID = "privateKeyJwtKid";
+
   /**
    * Determines whether the inbound request should be forward to downstream Metadata Service. Today,
    * this simply checks for the presence of an "Authorization" header or the presence of a valid

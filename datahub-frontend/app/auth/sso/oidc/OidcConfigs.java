@@ -56,6 +56,13 @@ public class OidcConfigs extends SsoConfigs {
   public static final String OIDC_DISABLE_PKCE = "auth.oidc.disablePkce";
   public static final String OIDC_REQUIRED_GROUPS_CONFIG_PATH = "auth.oidc.requiredGroups";
 
+  // Private Key JWT (certificate-based) authentication configs
+  public static final String OIDC_PRIVATE_KEY_FILE_PATH = "auth.oidc.privateKeyFilePath";
+  public static final String OIDC_CERTIFICATE_FILE_PATH = "auth.oidc.certificateFilePath";
+  public static final String OIDC_PRIVATE_KEY_PASSWORD = "auth.oidc.privateKeyPassword";
+  public static final String OIDC_PRIVATE_KEY_JWT_ALGORITHM = "auth.oidc.privateKeyJwtAlgorithm";
+  public static final String OIDC_PRIVATE_KEY_JWT_KID = "auth.oidc.privateKeyJwtKid";
+
   /** Default values */
   private static final String DEFAULT_OIDC_USERNAME_CLAIM = "email";
 
@@ -73,6 +80,8 @@ public class OidcConfigs extends SsoConfigs {
   private static final String DEFAULT_OIDC_CONNECT_TIMEOUT = "1000";
   private static final String DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS = "3";
   private static final String DEFAULT_OIDC_HTTP_RETRY_DELAY = "1000";
+  private static final String DEFAULT_OIDC_PRIVATE_KEY_JWT_ALGORITHM = "RS256";
+  public static final String PRIVATE_KEY_JWT_METHOD = "private_key_jwt";
 
   private final String clientId;
   private final String clientSecret;
@@ -105,6 +114,13 @@ public class OidcConfigs extends SsoConfigs {
   /* Group Access Control */
   private final Set<String> requiredGroups;
 
+  // Private Key JWT authentication fields
+  private final Optional<String> privateKeyFilePath;
+  private final Optional<String> certificateFilePath;
+  private final Optional<String> privateKeyPassword;
+  private final String privateKeyJwtAlgorithm;
+  private final Optional<String> privateKeyJwtKid;
+
   public OidcConfigs(Builder builder) {
     super(builder);
     this.clientId = builder.clientId;
@@ -135,6 +151,11 @@ public class OidcConfigs extends SsoConfigs {
     this.accessDeniedMessage = builder.accessDeniedMessage;
     this.disablePkce = builder.disablePkce;
     this.requiredGroups = builder.requiredGroups;
+    this.privateKeyFilePath = builder.privateKeyFilePath;
+    this.certificateFilePath = builder.certificateFilePath;
+    this.privateKeyPassword = builder.privateKeyPassword;
+    this.privateKeyJwtAlgorithm = builder.privateKeyJwtAlgorithm;
+    this.privateKeyJwtKid = builder.privateKeyJwtKid;
   }
 
   public String getHttpRetryAttempts() {
@@ -177,6 +198,11 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<String> accessDeniedMessage = Optional.empty();
     private boolean disablePkce = false;
     private Set<String> requiredGroups = Collections.emptySet();
+    private Optional<String> privateKeyFilePath = Optional.empty();
+    private Optional<String> certificateFilePath = Optional.empty();
+    private Optional<String> privateKeyPassword = Optional.empty();
+    private String privateKeyJwtAlgorithm = DEFAULT_OIDC_PRIVATE_KEY_JWT_ALGORITHM;
+    private Optional<String> privateKeyJwtKid = Optional.empty();
 
     private static Set<String> parseRequiredGroupsFromConfig(
         final com.typesafe.config.Config configs) {
@@ -194,6 +220,16 @@ public class OidcConfigs extends SsoConfigs {
       requiredGroups = parseRequiredGroupsFromConfig(configs);
       accessDeniedRedirectUrl = getOptional(configs, OIDC_ACCESS_DENIED_REDIRECT_URL);
       accessDeniedMessage = getOptional(configs, OIDC_ACCESS_DENIED_MESSAGE);
+    }
+
+    private void seedPrivateKeyJwtFromConfig(final com.typesafe.config.Config configs) {
+      privateKeyFilePath = getOptional(configs, OIDC_PRIVATE_KEY_FILE_PATH);
+      certificateFilePath = getOptional(configs, OIDC_CERTIFICATE_FILE_PATH);
+      privateKeyPassword = getOptional(configs, OIDC_PRIVATE_KEY_PASSWORD);
+      privateKeyJwtAlgorithm =
+          getOptional(
+              configs, OIDC_PRIVATE_KEY_JWT_ALGORITHM, DEFAULT_OIDC_PRIVATE_KEY_JWT_ALGORITHM);
+      privateKeyJwtKid = getOptional(configs, OIDC_PRIVATE_KEY_JWT_KID);
     }
 
     private void overlayAccessControlFromJson() {
@@ -218,11 +254,36 @@ public class OidcConfigs extends SsoConfigs {
       }
     }
 
+    private void overlayPrivateKeyJwtFromJson() {
+      if (jsonNode.has(PRIVATE_KEY_FILE_PATH)) {
+        privateKeyFilePath = Optional.of(jsonNode.get(PRIVATE_KEY_FILE_PATH).asText());
+      }
+      if (jsonNode.has(CERTIFICATE_FILE_PATH)) {
+        certificateFilePath = Optional.of(jsonNode.get(CERTIFICATE_FILE_PATH).asText());
+      }
+      if (jsonNode.has(PRIVATE_KEY_PASSWORD)) {
+        privateKeyPassword = Optional.of(jsonNode.get(PRIVATE_KEY_PASSWORD).asText());
+      }
+      if (jsonNode.has(PRIVATE_KEY_JWT_ALGORITHM)) {
+        privateKeyJwtAlgorithm = jsonNode.get(PRIVATE_KEY_JWT_ALGORITHM).asText();
+      }
+      if (jsonNode.has(PRIVATE_KEY_JWT_KID)) {
+        privateKeyJwtKid = Optional.of(jsonNode.get(PRIVATE_KEY_JWT_KID).asText());
+      }
+    }
+
     public Builder from(final com.typesafe.config.Config configs) {
       super.from(configs);
       clientId = getRequired(configs, OIDC_CLIENT_ID_CONFIG_PATH);
-      clientSecret = getRequired(configs, OIDC_CLIENT_SECRET_CONFIG_PATH);
       discoveryUri = getRequired(configs, OIDC_DISCOVERY_URI_CONFIG_PATH);
+
+      clientAuthenticationMethod =
+          getOptional(
+              configs,
+              OIDC_CLIENT_AUTHENTICATION_METHOD_CONFIG_PATH,
+              DEFAULT_OIDC_CLIENT_AUTHENTICATION_METHOD);
+
+      clientSecret = getOptional(configs, OIDC_CLIENT_SECRET_CONFIG_PATH, null);
       userNameClaim =
           getOptional(configs, OIDC_USERNAME_CLAIM_CONFIG_PATH, DEFAULT_OIDC_USERNAME_CLAIM);
       userNameClaimRegex =
@@ -230,11 +291,6 @@ public class OidcConfigs extends SsoConfigs {
               configs, OIDC_USERNAME_CLAIM_REGEX_CONFIG_PATH, DEFAULT_OIDC_USERNAME_CLAIM_REGEX);
       scope = getOptional(configs, OIDC_SCOPE_CONFIG_PATH, DEFAULT_OIDC_SCOPE);
       clientName = getOptional(configs, OIDC_CLIENT_NAME_CONFIG_PATH, DEFAULT_OIDC_CLIENT_NAME);
-      clientAuthenticationMethod =
-          getOptional(
-              configs,
-              OIDC_CLIENT_AUTHENTICATION_METHOD_CONFIG_PATH,
-              DEFAULT_OIDC_CLIENT_AUTHENTICATION_METHOD);
       jitProvisioningEnabled =
           Boolean.parseBoolean(
               getOptional(
@@ -273,6 +329,7 @@ public class OidcConfigs extends SsoConfigs {
         disablePkce = configs.getBoolean(OIDC_DISABLE_PKCE);
       }
       seedAccessControlFromConfig(configs);
+      seedPrivateKeyJwtFromConfig(configs);
       return this;
     }
 
@@ -347,6 +404,8 @@ public class OidcConfigs extends SsoConfigs {
       acrValues = Optional.ofNullable(getOptional(configs, OIDC_ACR_VALUES, null));
 
       overlayAccessControlFromJson();
+      seedPrivateKeyJwtFromConfig(configs);
+      overlayPrivateKeyJwtFromJson();
 
       return this;
     }
@@ -354,9 +413,21 @@ public class OidcConfigs extends SsoConfigs {
     public OidcConfigs build() {
       Objects.requireNonNull(oidcEnabled, "oidcEnabled is required");
       Objects.requireNonNull(clientId, "clientId is required");
-      Objects.requireNonNull(clientSecret, "clientSecret is required");
       Objects.requireNonNull(discoveryUri, "discoveryUri is required");
       Objects.requireNonNull(authBaseUrl, "authBaseUrl is required");
+
+      if (PRIVATE_KEY_JWT_METHOD.equals(clientAuthenticationMethod)) {
+        if (privateKeyFilePath.isEmpty()) {
+          throw new IllegalArgumentException(
+              "privateKeyFilePath is required when using private_key_jwt authentication");
+        }
+        if (certificateFilePath.isEmpty()) {
+          throw new IllegalArgumentException(
+              "certificateFilePath is required when using private_key_jwt authentication");
+        }
+      } else {
+        Objects.requireNonNull(clientSecret, "clientSecret is required");
+      }
 
       return new OidcConfigs(this);
     }
