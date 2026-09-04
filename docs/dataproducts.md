@@ -199,7 +199,7 @@ assets:
 
 DataHub ships with a YAML-based Data Product spec for defining and managing Data Products as code.
 
-Here is an example of a Data Product named "Pet of the Week" which belongs to the **Marketing** domain and contains three data assets. The **Spec** tab describes the JSON Schema spec for a DataHub data product file.
+Here is an example of a Data Product named "Pet of the Week" which belongs to the **Marketing** domain and contains three data assets, followed by the JSON Schema spec for a DataHub data product file.
 
 <!-- prettier-ignore-start -->
 ```yaml
