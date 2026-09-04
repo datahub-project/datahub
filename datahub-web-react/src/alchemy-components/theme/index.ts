@@ -10,20 +10,6 @@ const theme = {
     utils,
 };
 
-export const {
-    colors,
-    spacing,
-    radius,
-    shadows,
-    typography,
-    breakpoints,
-    zIndices,
-    transform,
-    transition,
-    sizes,
-    borders,
-    blur,
-} = theme;
+export const { colors, spacing, radius, shadows, typography, zIndices, transition, sizes, borders } = theme;
 
-export type Theme = typeof theme;
 export default theme;

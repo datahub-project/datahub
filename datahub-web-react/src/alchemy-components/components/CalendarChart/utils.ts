@@ -155,7 +155,7 @@ export type MockCalendarValue = {
     deletes: number;
 };
 
-export function generateMockData(
+function generateMockData(
     length: number,
     startDate: string | Date = '2024-11-30',
     maxValue = 3_000,

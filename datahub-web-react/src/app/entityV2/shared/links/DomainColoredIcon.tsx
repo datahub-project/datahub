@@ -1,13 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { hexToRgb, hexToRgba, useGenerateDomainColorFromPalette } from '@app/sharedV2/colors/colorUtils';
-import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
+import { useGenerateDomainColorFromPalette } from '@app/sharedV2/colors/colorUtils';
 import { useMuiIcons } from '@app/sharedV2/icons/useMuiIcons';
 
 import { Domain } from '@types';
 
-const DomainIconContainer = styled.div<{ color: string; size: number }>`
+const DomainIconContainer = styled.div<{ $color: string; size: number }>`
     display: flex;
     align-items: center;
     justify-content: center;
@@ -15,13 +14,13 @@ const DomainIconContainer = styled.div<{ color: string; size: number }>`
     height: ${(props) => props.size}px;
     width: ${(props) => props.size}px;
     min-width: ${(props) => props.size}px;
-    background-color: ${({ color }) => color};
+    color: ${(props) => `color-mix(in srgb, ${props.$color} 75%, ${props.theme.colors.text})`};
+    background-color: ${(props) => `color-mix(in srgb, ${props.$color} 12%, ${props.theme.colors.bg})`};
 `;
 
-const DomainCharacterIcon = styled.div<{ color: string; $fontSize: number }>`
+const DomainCharacterIcon = styled.div<{ $fontSize: number }>`
     font-size: ${(props) => (props.$fontSize ? props.$fontSize : '20')}px;
-    font-weight: 500;
-    color: ${({ color }) => color};
+    font-weight: 600;
 `;
 
 type Props = {
@@ -50,18 +49,13 @@ export const DomainColoredIcon = ({ iconColor, domain, size = 40, fontSize = 20,
     const domainColor = domain?.displayProperties?.colorHex || generateColor(domain?.urn || '');
 
     const domainHexColor = iconColor || domainColor;
-    const [r, g, b] = hexToRgb(domainHexColor);
-    const domainBackgroundColor = `rgb(${getLighterRGBColor(r, g, b).join(', ')})`;
-    const domainIconColor = hexToRgba(domainHexColor, 1.0);
 
     return (
-        <DomainIconContainer color={domainBackgroundColor} size={size} onClick={onClick}>
+        <DomainIconContainer $color={domainHexColor} size={size} onClick={onClick}>
             {MaterialIcon ? (
-                <MaterialIcon style={{ color: domainIconColor, fontSize }} />
+                <MaterialIcon style={{ color: 'currentColor', fontSize }} />
             ) : (
-                <DomainCharacterIcon color={domainIconColor} $fontSize={fontSize}>
-                    {domain?.properties?.name.charAt(0)}
-                </DomainCharacterIcon>
+                <DomainCharacterIcon $fontSize={fontSize}>{domain?.properties?.name.charAt(0)}</DomainCharacterIcon>
             )}
         </DomainIconContainer>
     );

@@ -41,6 +41,16 @@ export const TagTermLabel = ({ entity, termName }: Props) => {
         );
     }
 
+    if (entity?.type === EntityType.GlossaryNode) {
+        return (
+            <GlossaryTermPill
+                name={entityRegistry.getDisplayName(entity.type, entity)}
+                color={generateColor(entity.urn)}
+                variant="borderless"
+            />
+        );
+    }
+
     if (termName) {
         return <GlossaryTermPill name={termName} color={generateColor(termName)} variant="borderless" />;
     }

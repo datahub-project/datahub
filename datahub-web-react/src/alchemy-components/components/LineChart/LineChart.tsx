@@ -19,14 +19,17 @@ import { ChartWrapper } from '@components/components/LineChart/components';
 import '@components/components/LineChart/customTooltip.css';
 import { useLineChartDefaults } from '@components/components/LineChart/defaults';
 import usePreparedLineChartScales from '@components/components/LineChart/hooks/usePreparedScales';
-import { Datum, LineChartProps } from '@components/components/LineChart/types';
+import { Datum, LineChartProps, LineChartSeries } from '@components/components/LineChart/types';
 import { Popover } from '@components/components/Popover';
+
+const SINGLE_SERIES_KEY = 'line-chart-seria-01';
 
 // CSS keyword used to hide the series fill/stroke when the chart has no data (not user-facing text).
 const TRANSPARENT = 'transparent';
 
 export function LineChart({
     data,
+    series,
     isEmpty,
 
     xScale: xScaleProp,
@@ -86,9 +89,22 @@ export function LineChart({
     const yAccessor = (datum: Datum) => datum.y;
     const accessors = { xAccessor, yAccessor };
 
-    const minDataValue = useMinDataValue(data, yAccessor);
+    // Resolve `series` ⇔ `data` into a single canonical list. `series` wins when
+    // both are provided. Falling back to a single synthetic series keeps the
+    // legacy single-series API (RowCountGraph, StorageSizeGraph, AnalyticsChart)
+    // working without changes.
+    const seriesList: LineChartSeries[] = useMemo(() => {
+        if (series && series.length > 0) return series;
+        return [{ dataKey: SINGLE_SERIES_KEY, data: data ?? [], lineColor, areaColor }];
+    }, [series, data, lineColor, areaColor]);
 
-    const scales = usePreparedLineChartScales(data, xScale, xAccessor, yScale, yAccessor, {
+    // Combined point cloud across every series. Used for scale and y-zero math
+    // so all lines share the same axes.
+    const combinedData = useMemo(() => seriesList.flatMap((s) => s.data), [seriesList]);
+
+    const minDataValue = useMinDataValue(combinedData, yAccessor);
+
+    const scales = usePreparedLineChartScales(combinedData, xScale, xAccessor, yScale, yAccessor, {
         maxDomainValueForZeroData: maxYDomainForZeroData,
         shouldAdjustYZeroPoint,
         yZeroPointThreshold,
@@ -121,7 +137,7 @@ export function LineChart({
     // In case of no data we should render empty graph with axises
     // but they don't render at all without any data.
     // To handle this case we will render the same graph with fake data and hide bars
-    if (!data.length) {
+    if (!combinedData.length) {
         return (
             <LineChart
                 {...getMockedProps()}
@@ -159,14 +175,14 @@ export function LineChart({
 
                             <Axis
                                 orientation="left"
-                                numTicks={computeLeftAxisNumTicks?.(width, height, dynamicMargin, data)}
+                                numTicks={computeLeftAxisNumTicks?.(width, height, dynamicMargin, combinedData)}
                                 axisClassName="left-axis"
                                 {...mergedLeftAxisProps}
                             />
 
                             <Axis
                                 orientation="bottom"
-                                numTicks={computeBottomAxisNumTicks?.(width, height, dynamicMargin, data)}
+                                numTicks={computeBottomAxisNumTicks?.(width, height, dynamicMargin, combinedData)}
                                 tickClassName="bottom-axis-tick"
                                 {...mergedBottomAxisProps}
                             />
@@ -196,29 +212,45 @@ export function LineChart({
 
                                 {showGrid && (
                                     <Grid
-                                        numTicks={computeGridNumTicks?.(width, height, dynamicMargin, data)}
+                                        numTicks={computeGridNumTicks?.(width, height, dynamicMargin, combinedData)}
                                         {...mergedGridProps}
                                     />
                                 )}
 
-                                <AreaSeries<AxisScale, AxisScale, Datum>
-                                    dataKey="line-chart-seria-01"
-                                    data={data}
-                                    fill={!isEmpty ? areaColor : TRANSPARENT}
-                                    curve={curveMonotoneX}
-                                    lineProps={{ stroke: !isEmpty ? lineColor : TRANSPARENT }}
-                                    y0Accessor={y0Accessor}
-                                    {...accessors}
-                                />
+                                {seriesList.map((s) => {
+                                    const seriesLine = s.lineColor ?? lineColor;
+                                    // In multi-series mode each line stays clean by default — the
+                                    // muddy overlap of two filled areas is rarely what you want.
+                                    // Single-series mode keeps the existing area gradient look.
+                                    const isMulti = seriesList.length > 1;
+                                    const seriesArea = s.areaColor ?? (isMulti ? TRANSPARENT : areaColor);
+                                    return (
+                                        <AreaSeries<AxisScale, AxisScale, Datum>
+                                            key={s.dataKey}
+                                            dataKey={s.dataKey}
+                                            data={s.data}
+                                            fill={!isEmpty ? seriesArea : TRANSPARENT}
+                                            curve={curveMonotoneX}
+                                            lineProps={{ stroke: !isEmpty ? seriesLine : TRANSPARENT }}
+                                            y0Accessor={y0Accessor}
+                                            {...accessors}
+                                        />
+                                    );
+                                })}
 
-                                {showGlyphOnSingleDataPoint && data.length === 1 && (
-                                    <GlyphSeries<AxisScale, AxisScale, Datum>
-                                        dataKey="line-chart-seria-01"
-                                        data={data}
-                                        renderGlyph={renderGlyphOnSingleDataPoint}
-                                        {...accessors}
-                                    />
-                                )}
+                                {showGlyphOnSingleDataPoint &&
+                                    seriesList.map(
+                                        (s) =>
+                                            s.data.length === 1 && (
+                                                <GlyphSeries<AxisScale, AxisScale, Datum>
+                                                    key={`${s.dataKey}-glyph`}
+                                                    dataKey={s.dataKey}
+                                                    data={s.data}
+                                                    renderGlyph={renderGlyphOnSingleDataPoint}
+                                                    {...accessors}
+                                                />
+                                            ),
+                                    )}
                             </Group>
 
                             <Tooltip<Datum>
@@ -231,16 +263,19 @@ export function LineChart({
                                 renderGlyph={renderTooltipGlyph}
                                 unstyled
                                 renderTooltip={({ tooltipData }) => {
+                                    if (!tooltipData?.nearestDatum) return null;
+                                    const ctx = {
+                                        series: seriesList,
+                                        datumByKey: tooltipData.datumByKey ?? {},
+                                    };
                                     return (
-                                        tooltipData?.nearestDatum && (
-                                            <Popover
-                                                open
-                                                defaultOpen
-                                                placement="topLeft"
-                                                key={`${xAccessor(tooltipData.nearestDatum.datum)}`}
-                                                content={popoverRenderer?.(tooltipData.nearestDatum.datum)}
-                                            />
-                                        )
+                                        <Popover
+                                            open
+                                            defaultOpen
+                                            placement="topLeft"
+                                            key={`${xAccessor(tooltipData.nearestDatum.datum)}`}
+                                            content={popoverRenderer?.(tooltipData.nearestDatum.datum, ctx)}
+                                        />
                                     );
                                 }}
                             />
