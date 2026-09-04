@@ -3,7 +3,7 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Tuple, Type
+from typing import Callable, Dict, List, Optional, Set, Tuple, Type
 
 import sqlglot
 from sqlglot import ParseError, expressions as exp
@@ -607,8 +607,18 @@ class AbstractLineage(ABC):
                 )
             self.reporter.m_query_external_query_connections_resolved += 1
 
+        # Two federations (or a self-join within one) can resolve to the same table;
+        # dedup by URN so identical upstream edges are not emitted twice. Order is
+        # preserved so lineage output stays deterministic.
+        seen_urns: Set[str] = set()
+        deduped_upstreams: List[DataPlatformTable] = []
+        for upstream in upstreams:
+            if upstream.urn not in seen_urns:
+                seen_urns.add(upstream.urn)
+                deduped_upstreams.append(upstream)
+
         return _ExternalQueryResolution(
-            upstreams=upstreams,
+            upstreams=deduped_upstreams,
             rewritten_query=extraction.rewritten_query,
         )
 

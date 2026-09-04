@@ -1941,6 +1941,52 @@ def test_bigquery_external_query_mixed_resolved_and_unmapped():
 
 
 @pytest.mark.integration
+def test_bigquery_external_query_duplicate_upstreams_are_deduped():
+    # Two federations resolving to the same external table must produce a single upstream
+    # edge, not two identical ones (nothing downstream collapses duplicate URNs).
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with a as (select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")), b as (select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")) select a.account_name from a, b", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    # Both federations resolve, but the identical upstream edge is emitted only once.
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+    )
+
+
+@pytest.mark.integration
 def test_bigquery_external_query_extraction_parse_failure_skips_lineage():
     # When extract_external_queries hits a sqlglot parse error it sets parse_failed and
     # returns the query UNCHANGED (EXTERNAL_QUERY calls are not stripped to placeholders,
