@@ -1,6 +1,6 @@
 import { Button, Dropdown, Pill, Text, Tooltip } from '@components';
 import { SlidersHorizontal } from '@phosphor-icons/react/dist/csr/SlidersHorizontal';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -58,6 +58,15 @@ const PillRow = styled.div`
     gap: 6px;
 `;
 
+/**
+ * Owns the trigger's hover state so the tooltip cannot strand itself: antd's
+ * `mouseEnterDelay` timer can resolve *after* a click has already opened the
+ * panel, re-showing the tooltip with no pending mouseleave to dismiss it.
+ */
+const TriggerWrapper = styled.span`
+    display: inline-flex;
+`;
+
 /** Transparent hit target so pills are focusable and Enter/Space-activatable. */
 const PillButton = styled.button`
     all: unset;
@@ -92,8 +101,16 @@ export default function SidebarDisplaySelect({
 }: Props) {
     const { t } = useTranslation('misc');
     const [open, setOpen] = useState(false);
+    const [hovered, setHovered] = useState(false);
     const resolvedAriaLabel = ariaLabel ?? t('sidebarDisplay.ariaLabel');
     const resolvedTooltip = tooltip ?? t('sidebarDisplay.tooltip');
+
+    const handleOpenChange = useCallback((next: boolean) => {
+        setOpen(next);
+        if (next) {
+            setHovered(false);
+        }
+    }, []);
 
     const panel = useMemo(
         () => (
@@ -135,23 +152,30 @@ export default function SidebarDisplaySelect({
     return (
         <Dropdown
             open={open}
-            onOpenChange={setOpen}
+            onOpenChange={handleOpenChange}
             trigger={['click']}
             placement="bottomRight"
             dropdownRender={() => panel}
         >
-            {/* Suppressed while open — the panel opens under the trigger and the tooltip covers it. */}
-            <Tooltip title={open ? '' : resolvedTooltip} showArrow={false} placement="bottom">
-                <Button
-                    variant="text"
-                    color="gray"
-                    size="lg"
-                    isActive={open}
-                    icon={{ icon: SlidersHorizontal, color: 'icon' }}
-                    aria-label={resolvedAriaLabel}
-                    data-testid={dataTestId}
-                />
-            </Tooltip>
+            <TriggerWrapper onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+                <Tooltip
+                    title={resolvedTooltip}
+                    open={hovered && !open}
+                    destroyTooltipOnHide
+                    showArrow={false}
+                    placement="bottom"
+                >
+                    <Button
+                        variant="text"
+                        color="gray"
+                        size="lg"
+                        isActive={open}
+                        icon={{ icon: SlidersHorizontal, color: 'icon' }}
+                        aria-label={resolvedAriaLabel}
+                        data-testid={dataTestId}
+                    />
+                </Tooltip>
+            </TriggerWrapper>
         </Dropdown>
     );
 }
