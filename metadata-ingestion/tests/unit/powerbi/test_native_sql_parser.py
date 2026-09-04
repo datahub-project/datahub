@@ -522,6 +522,47 @@ SELECT id FROM dbo.Orders
     assert "GO" not in corrupted_extraction.references[0].inner_sql
 
 
+def test_contains_external_query_call_real_call():
+    # A genuine EXTERNAL_QUERY(...) function call in a FROM position must be detected.
+    assert native_sql_parser.contains_external_query_call(
+        "SELECT * FROM EXTERNAL_QUERY('proj.r.conn', 'SELECT a FROM s.t')", "bigquery"
+    )
+
+
+def test_contains_external_query_call_ignores_string_literal():
+    # The whole reason this is tokenizer-based, not regex-based: EXTERNAL_QUERY( inside a
+    # string constant is collapsed into a single string token and must NOT be seen as a
+    # call, otherwise a plain native query gets hijacked into federation handling.
+    assert not native_sql_parser.contains_external_query_call(
+        "SELECT 'EXTERNAL_QUERY(a,b)' AS note FROM project.dataset.t", "bigquery"
+    )
+
+
+def test_contains_external_query_call_ignores_comment():
+    # EXTERNAL_QUERY( mentioned only in a comment is discarded by the tokenizer and must
+    # not be treated as a federation call.
+    assert not native_sql_parser.contains_external_query_call(
+        "SELECT a FROM project.dataset.t -- EXTERNAL_QUERY(a,b)", "bigquery"
+    )
+
+
+def test_contains_external_query_call_bare_word_without_paren():
+    # The function name without a following '(' is not a call (e.g. a column/identifier).
+    assert not native_sql_parser.contains_external_query_call(
+        "SELECT external_query FROM project.dataset.t", "bigquery"
+    )
+
+
+def test_contains_external_query_call_comment_between_name_and_paren():
+    # A comment between the name and '(' is dropped by the tokenizer, so the L_PAREN still
+    # follows the name — this is a real call and the raw regex (whitespace-only) would miss
+    # it. Guards the tokenizer-vs-regex behavioural difference the assert gate relies on.
+    assert native_sql_parser.contains_external_query_call(
+        "SELECT * FROM EXTERNAL_QUERY /* c */ ('proj.r.conn', 'SELECT a FROM s.t')",
+        "bigquery",
+    )
+
+
 def test_get_tables_blank_query_returns_empty():
     """sqlparse yields no statements at all for blank input, which a native query
     can become once the M-Query escape sequences are stripped."""

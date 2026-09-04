@@ -48,7 +48,7 @@ class ExternalQueryReference:
     inner_sql: str  # second EXTERNAL_QUERY arg (SQL on the external engine)
 
 
-@dataclass
+@dataclass(frozen=True)
 class ExternalQueryExtraction:
     references: List[ExternalQueryReference]
     rewritten_query: str
@@ -206,6 +206,11 @@ def contains_external_query_call(query: str, platform: str) -> bool:
     try:
         tokens = (dialect or sqlglot.Dialect()).tokenize(query)
     except Exception:
+        logger.debug(
+            "EXTERNAL_QUERY tokenization failed; falling back to regex detection: %s",
+            query,
+            exc_info=True,
+        )
         return bool(EXTERNAL_QUERY_PATTERN.search(query))
 
     for index, token in enumerate(tokens):
