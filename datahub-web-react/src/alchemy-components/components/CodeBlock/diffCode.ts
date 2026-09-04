@@ -15,7 +15,7 @@ export type CodeDiffLine = {
 };
 
 function normalizeCode(value: string): string {
-    return value.replace(/\n+$/, '');
+    return value.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n+$/, '');
 }
 
 /**

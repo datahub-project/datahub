@@ -7,6 +7,8 @@ describe('shouldRenderCodeBlockDiff', () => {
         expect(shouldRenderCodeBlockDiff('SELECT 1')).toBe(false);
         expect(shouldRenderCodeBlockDiff('SELECT 1', 'SELECT 1')).toBe(false);
         expect(shouldRenderCodeBlockDiff('SELECT 1\n', 'SELECT 1')).toBe(false);
+        expect(shouldRenderCodeBlockDiff('SELECT 1\r\nFROM t', 'SELECT 1\nFROM t')).toBe(false);
+        expect(shouldRenderCodeBlockDiff('SELECT 1\rFROM t', 'SELECT 1\nFROM t')).toBe(false);
     });
 
     it('is on when the strings differ', () => {
@@ -46,6 +48,16 @@ describe('buildCodeDiff', () => {
         expect(lines).toEqual([
             { kind: 'unchanged', segments: [{ type: 'equal', value: 'SELECT 1' }] },
             { kind: 'unchanged', segments: [{ type: 'equal', value: 'FROM t' }] },
+        ]);
+    });
+
+    it('normalizes CRLF before splitting so segments do not retain carriage returns', () => {
+        const lines = buildCodeDiff('SELECT 1\r\nFROM t', 'SELECT 2\r\nFROM t');
+        expect(lines[0]?.segments.every((segment) => !segment.value.includes('\r'))).toBe(true);
+        expect(lines.map((line) => line.segments.map((segment) => segment.value).join(''))).toEqual([
+            'SELECT 1',
+            'SELECT 2',
+            'FROM t',
         ]);
     });
 
