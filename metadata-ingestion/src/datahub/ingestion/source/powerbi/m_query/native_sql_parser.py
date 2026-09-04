@@ -248,9 +248,15 @@ def _is_single_statement(query: str, platform: str) -> bool:
 
 
 def _is_string_literal(node: Optional[exp.Expression]) -> bool:
-    # BigQuery raw strings (r'...') parse as exp.RawString, which is not an exp.Literal
-    # subclass, so a plain isinstance(node, exp.Literal) check drops EXTERNAL_QUERY
-    # federations written with raw strings. Both carry the text in `.this`.
+    # BigQuery raw strings (r'...') for the EXTERNAL_QUERY args parse as exp.RawString.
+    # In the pinned sqlglot (30.12.0) RawString is NOT a subclass of exp.Literal
+    #   >>> exp.RawString.__mro__  # (RawString, Expression, Condition, Expr, object)
+    #   >>> node.is_string         # False for a RawString
+    # so a plain `isinstance(node, exp.Literal) and node.is_string` check rejects raw-string
+    # federations and drops their lineage (see the raw-string regression test). The explicit
+    # RawString branch is therefore load-bearing, not redundant. The Literal branch is kept
+    # for ordinary '...' args and would also cover RawString if a future sqlglot reparents it
+    # under Literal. Both node kinds carry the text in `.this`.
     return isinstance(node, exp.RawString) or (
         isinstance(node, exp.Literal) and node.is_string
     )
