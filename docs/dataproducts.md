@@ -2,10 +2,6 @@
 description: "Group related Tables, Dashboards, Charts, and Pipelines into Data Products in DataHub to support data mesh ownership and discovery."
 ---
 
-import FeatureAvailability from '@site/src/components/FeatureAvailability';
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # Data Products
 
 **🤝 Version compatibility**
@@ -205,13 +201,11 @@ DataHub ships with a YAML-based Data Product spec for defining and managing Data
 
 Here is an example of a Data Product named "Pet of the Week" which belongs to the **Marketing** domain and contains three data assets. The **Spec** tab describes the JSON Schema spec for a DataHub data product file.
 
+<!-- prettier-ignore-start -->
 ```yaml
-{
-  {
-    inline /metadata-ingestion/examples/data_product/dataproduct.yaml show_path_as_comment,
-  },
-}
+{{ inline /metadata-ingestion/examples/data_product/dataproduct.yaml show_path_as_comment }}
 ```
+<!-- prettier-ignore-end -->
 
 :::note
 
