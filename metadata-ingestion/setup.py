@@ -863,6 +863,8 @@ plugins: Dict[str, Set[str]] = {
     # usage_common: sigma emits no usage itself, but SqlParsingAggregator imports
     # usage_common, which pulls sqlparse in via sql_formatter.
     "sigma": sqlglot_lib | usage_common | {"requests<3.0.0"},
+    # pycarlo is Monte Carlo's official sgqlc-based GraphQL client over the MCD API.
+    "montecarlo": {"pycarlo>=0.15.262,<1.0.0", "tenacity>=8.0.1,!=8.4.0,<9.0.0"},
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
@@ -1124,6 +1126,7 @@ full_test_dev_requirements = {
             "starrocks",
             "vertica",
             "vertexai",
+            "montecarlo",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -1251,6 +1254,7 @@ entry_points = {
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "quicksight = datahub.ingestion.source.quicksight.quicksight:QuickSightSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
+        "montecarlo = datahub.ingestion.source.montecarlo.source:MonteCarloSource",
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
