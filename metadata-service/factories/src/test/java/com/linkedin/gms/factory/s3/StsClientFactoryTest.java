@@ -138,6 +138,13 @@ class StsClientFactorySkipWithoutSharedCredentialsTest {
 
   @Test
   public void skipsWhenRegionSetWithoutSharedCredentialsProvider() {
+    String awsRegion = System.getenv("AWS_REGION");
+    String awsEndpoint = System.getenv("AWS_ENDPOINT_URL");
+    if ((awsRegion != null && !awsRegion.isEmpty())
+        || (awsEndpoint != null && !awsEndpoint.isEmpty())) {
+      throw new SkipException(
+          "Skipping: AWS_REGION or AWS_ENDPOINT_URL set in env; cannot simulate region-only skip");
+    }
     System.setProperty("AWS_REGION", "us-east-1");
     StsClientFactory factory = new StsClientFactory();
     assertNull(

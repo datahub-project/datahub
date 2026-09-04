@@ -2,6 +2,7 @@ package io.datahubproject.iceberg.catalog;
 
 import java.io.Closeable;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,6 +26,10 @@ import software.amazon.awssdk.services.s3.S3Client;
  * <p>Callers that create many FileIOs for the same vended keys should pass a {@link
  * VendedS3ClientCache} so Apache HTTP clients are reused until the cache is closed (typically
  * catalog close).
+ *
+ * <p>{@link S3FileIO} constructed with a client supplier does not close that client on {@code
+ * close()}. The no-cache {@link #create(Map)} path wraps the FileIO so the owned client is closed.
+ * The cache path uses {@link #nonClosingView(S3Client)} so catalog close owns the HTTP client.
  */
 final class VendedCredentialsS3FileIO {
 
@@ -40,7 +45,7 @@ final class VendedCredentialsS3FileIO {
     S3Client client = buildS3Client(creds);
     S3FileIO io = new S3FileIO(() -> client);
     io.initialize(creds);
-    return io;
+    return closingFileIO(io, client);
   }
 
   @Nonnull
@@ -92,8 +97,31 @@ final class VendedCredentialsS3FileIO {
   }
 
   /**
-   * Iceberg {@link S3FileIO#close()} always closes its {@link S3Client}. The proxy swallows {@code
-   * close} so a catalog-scoped cache can own the real client.
+   * Closes the owned {@link S3Client} when Iceberg closes the FileIO. Supplier-constructed {@link
+   * S3FileIO} does not close that client itself.
+   */
+  @Nonnull
+  static FileIO closingFileIO(@Nonnull S3FileIO io, @Nonnull S3Client client) {
+    return (FileIO)
+        Proxy.newProxyInstance(
+            FileIO.class.getClassLoader(),
+            new Class<?>[] {FileIO.class},
+            (proxy, method, args) -> {
+              if ("close".equals(method.getName()) && method.getParameterCount() == 0) {
+                try {
+                  io.close();
+                } finally {
+                  client.close();
+                }
+                return null;
+              }
+              return invokeUnchecked(io, method, args);
+            });
+  }
+
+  /**
+   * Iceberg {@link S3FileIO#close()} does not close a client passed in via {@code
+   * SerializableSupplier}. Swallow {@code close} so a catalog-scoped cache can own the real client.
    */
   @Nonnull
   static S3Client nonClosingView(@Nonnull S3Client client) {
@@ -117,19 +145,24 @@ final class VendedCredentialsS3FileIO {
                     break;
                 }
               }
-              try {
-                return method.invoke(client, args);
-              } catch (InvocationTargetException e) {
-                Throwable cause = e.getCause();
-                if (cause instanceof RuntimeException runtimeException) {
-                  throw runtimeException;
-                }
-                if (cause instanceof Error error) {
-                  throw error;
-                }
-                throw e;
-              }
+              return invokeUnchecked(client, method, args);
             });
+  }
+
+  private static Object invokeUnchecked(Object target, Method method, Object[] args)
+      throws Throwable {
+    try {
+      return method.invoke(target, args);
+    } catch (InvocationTargetException e) {
+      Throwable cause = e.getCause();
+      if (cause instanceof RuntimeException runtimeException) {
+        throw runtimeException;
+      }
+      if (cause instanceof Error error) {
+        throw error;
+      }
+      throw e;
+    }
   }
 
   /** Process-local cache of vended-credential S3 clients; close to release HTTP resources. */
