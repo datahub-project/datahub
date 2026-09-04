@@ -66,7 +66,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
@@ -360,14 +359,8 @@ public class GraphQLEngineFactory {
         configProvider.getGraphQL().getConcurrency();
     GraphQLWorkerPoolThreadFactory threadFactory =
         new GraphQLWorkerPoolThreadFactory(concurrencyConfig.getStackSize());
-    int corePoolSize =
-        concurrencyConfig.getCorePoolSize() < 0
-            ? Runtime.getRuntime().availableProcessors() * 5
-            : concurrencyConfig.getCorePoolSize();
-    int maxPoolSize =
-        concurrencyConfig.getMaxPoolSize() <= 0
-            ? Runtime.getRuntime().availableProcessors() * 100
-            : concurrencyConfig.getMaxPoolSize();
+    int corePoolSize = concurrencyConfig.resolveCorePoolSize();
+    int maxPoolSize = Math.max(corePoolSize, concurrencyConfig.resolveMaxPoolSize());
 
     ThreadPoolExecutor graphQLWorkerPool =
         new ThreadPoolExecutor(
@@ -375,9 +368,14 @@ public class GraphQLEngineFactory {
             maxPoolSize,
             concurrencyConfig.getKeepAlive(),
             TimeUnit.SECONDS,
-            new SynchronousQueue(),
+            concurrencyConfig.createWorkQueue(),
             threadFactory,
             new ThreadPoolExecutor.CallerRunsPolicy());
+    // Only shrink cores when work can wait in a bounded queue. With SynchronousQueue, extra
+    // capacity is threads, which GraphQL fan-out needs for blocking resolvers.
+    if (!concurrencyConfig.useSynchronousQueue()) {
+      graphQLWorkerPool.allowCoreThreadTimeOut(true);
+    }
 
     ExecutorService graphqlExecutorService =
         GraphQLConcurrencyUtils.setExecutorService(graphQLWorkerPool);

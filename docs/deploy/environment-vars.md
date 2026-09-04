@@ -1165,24 +1165,26 @@ See [Monitoring — API usage aggregation metrics](../advanced/monitoring.md#api
 
 ### GraphQL Configuration
 
-| Environment Variable                            | Default                                                    | Description                                      | Components |
-| ----------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------ | ---------- |
-| `GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL`      | `false`                                                    | Enable separate thread pool for GraphQL          | GMS        |
-| `GRAPHQL_CONCURRENCY_STACK_SIZE`                | `256000`                                                   | GraphQL thread pool stack size                   | GMS        |
-| `GRAPHQL_CONCURRENCY_CORE_POOL_SIZE`            | `-1`                                                       | GraphQL core pool size (default 5 \* cores)      | GMS        |
-| `GRAPHQL_CONCURRENCY_MAX_POOL_SIZE`             | `-1`                                                       | GraphQL max pool size (default 100 \* cores)     | GMS        |
-| `GRAPHQL_CONCURRENCY_KEEP_ALIVE`                | `60`                                                       | GraphQL thread keep alive time                   | GMS        |
-| `GRAPHQL_QUERY_COMPLEXITY_LIMIT`                | `2000`                                                     | GraphQL query complexity limit                   | GMS        |
-| `GRAPHQL_QUERY_DEPTH_LIMIT`                     | `50`                                                       | GraphQL query depth limit                        | GMS        |
-| `GRAPHQL_QUERY_INTROSPECTION_ENABLED`           | `true`                                                     | Enable GraphQL introspection                     | GMS        |
-| `GRAPHQL_METRICS_ENABLED`                       | `true`                                                     | Enable GraphQL metrics collection                | GMS        |
-| `GRAPHQL_PERCENTILES`                           | `0.5,0.75,0.95,0.98,0.99,0.999`                            | GraphQL percentiles                              | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_ENABLED`           | `false`                                                    | Enable field-level GraphQL metrics               | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_OPERATIONS`        | `getSearchResultsForMultiple,searchAcrossLineageStructure` | GraphQL field-level operations                   | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_PATH_ENABLED`      | `false`                                                    | Include field path in GraphQL metrics            | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_PATHS`             | ``                                                         | GraphQL field-level paths                        | GMS        |
-| `GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED` | `false`                                                    | Include trivial data fetchers in GraphQL metrics | GMS        |
-| `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED`           | `true`                                                     | Load only aspects the query selection needs      | GMS        |
+| Environment Variable                            | Default                                                    | Description                                                     | Components |
+| ----------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------- | ---------- |
+| `GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL`      | `false`                                                    | Enable separate thread pool for GraphQL                         | GMS        |
+| `GRAPHQL_CONCURRENCY_SCALE_WITH_PROCESSORS`     | `false`                                                    | Restore CPU-scaled pool sizes and SynchronousQueue              | GMS        |
+| `GRAPHQL_CONCURRENCY_STACK_SIZE`                | `256000`                                                   | GraphQL thread pool stack size                                  | GMS        |
+| `GRAPHQL_CONCURRENCY_CORE_POOL_SIZE`            | `40`                                                       | GraphQL core pool size (`< 0` = 5 \* cores)                     | GMS        |
+| `GRAPHQL_CONCURRENCY_MAX_POOL_SIZE`             | `800`                                                      | GraphQL max pool size, 8-core cap (`<= 0` = 100 \* cores)       | GMS        |
+| `GRAPHQL_CONCURRENCY_QUEUE_SIZE`                | `0`                                                        | `<= 0` SynchronousQueue (blocking fan-out); `> 0` bounded queue | GMS        |
+| `GRAPHQL_CONCURRENCY_KEEP_ALIVE`                | `60`                                                       | GraphQL thread keep alive time                                  | GMS        |
+| `GRAPHQL_QUERY_COMPLEXITY_LIMIT`                | `2000`                                                     | GraphQL query complexity limit                                  | GMS        |
+| `GRAPHQL_QUERY_DEPTH_LIMIT`                     | `50`                                                       | GraphQL query depth limit                                       | GMS        |
+| `GRAPHQL_QUERY_INTROSPECTION_ENABLED`           | `true`                                                     | Enable GraphQL introspection                                    | GMS        |
+| `GRAPHQL_METRICS_ENABLED`                       | `true`                                                     | Enable GraphQL metrics collection                               | GMS        |
+| `GRAPHQL_PERCENTILES`                           | `0.5,0.75,0.95,0.98,0.99,0.999`                            | GraphQL percentiles                                             | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_ENABLED`           | `false`                                                    | Enable field-level GraphQL metrics                              | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_OPERATIONS`        | `getSearchResultsForMultiple,searchAcrossLineageStructure` | GraphQL field-level operations                                  | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_PATH_ENABLED`      | `false`                                                    | Include field path in GraphQL metrics                           | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_PATHS`             | ``                                                         | GraphQL field-level paths                                       | GMS        |
+| `GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED` | `false`                                                    | Include trivial data fetchers in GraphQL metrics                | GMS        |
+| `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED`           | `true`                                                     | Load only aspects the query selection needs                     | GMS        |
 
 ### Chrome Extension Configuration
 
