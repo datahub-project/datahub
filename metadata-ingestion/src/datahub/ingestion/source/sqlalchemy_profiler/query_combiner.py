@@ -142,6 +142,13 @@ def is_single_row_query(query: Any) -> bool:
 DEFAULT_MAX_DISTINCT_PER_STATEMENT = 5
 
 
+def _render(query: Any, dialect: Any) -> str:
+    # str(query) uses SQLAlchemy's default dialect, which omits anything scoped
+    # to a real one. Compiling under the connection's dialect keeps those
+    # visible to the gate.
+    return str(query) if dialect is None else str(query.compile(dialect=dialect))
+
+
 class _FlattenVerdict(enum.Enum):
     # REJECTED and GATE_ERROR both fall back to the CTE path, but only
     # GATE_ERROR means the gate itself broke. Kept apart so a gate that throws
@@ -607,26 +614,28 @@ class SQLAlchemyQueryCombiner:
     # -- flatten path -------------------------------------------------------
 
     @staticmethod
-    def _is_flattenable(query: Any) -> bool:
+    def _is_flattenable(query: Any, dialect: Any = None) -> bool:
         return (
-            SQLAlchemyQueryCombiner._flatten_verdict(query)
+            SQLAlchemyQueryCombiner._flatten_verdict(query, dialect)
             is _FlattenVerdict.FLATTENABLE
         )
 
     @staticmethod
-    def _flatten_verdict(query: Any) -> "_FlattenVerdict":
+    def _flatten_verdict(query: Any, dialect: Any = None) -> "_FlattenVerdict":
         # Fail closed: rebuild a bare `SELECT <cols> FROM <froms>` and require
         # an identical render, so an unknown clause is rejected by default.
         # HAVING is the dangerous one -- the flat path would drop it and
         # fabricate a row.
         #
-        # Limitation: both sides render under the default dialect, so a
-        # dialect-scoped construct passes and is then dropped. None today.
+        # Rendered under the connection's dialect, not the default one. A
+        # construct scoped to a dialect -- with_hint(dialect_name="mysql") --
+        # renders as nothing by default, so it would pass the compare and then
+        # be silently dropped from the flat statement.
         try:
             rebuilt = sqlalchemy.select(get_query_columns(query))
             for f in query.get_final_froms():
                 rebuilt.append_from(f)
-            if str(query) != str(rebuilt):
+            if _render(query, dialect) != _render(rebuilt, dialect):
                 return _FlattenVerdict.REJECTED
             # Adapter's allowlist; absent means empty, so nothing flattens.
             # Matched on name, not type -- upper(v) is also a FunctionElement
@@ -697,7 +706,7 @@ class SQLAlchemyQueryCombiner:
         )
         unmatched: Dict[str, _QueryFuture] = {}
         for k, fut in pending_queue.items():
-            verdict = self._flatten_verdict(fut.query)
+            verdict = self._flatten_verdict(fut.query, fut.conn.dialect)
             if verdict is _FlattenVerdict.FLATTENABLE:
                 groups[self._flatten_signature(fut)].append((k, fut))
             else:

@@ -12,6 +12,7 @@ from typing import Any, Dict, FrozenSet, Optional
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine
+from sqlalchemy.dialects import mysql
 from sqlalchemy.engine import Connection
 
 from datahub.ingestion.source.sqlalchemy_profiler import (
@@ -1047,6 +1048,29 @@ class TestFlattenPath:
         assert combiner.report.scans_avoided == 4  # (3-1) + (3-1) + (1-1)
         assert combiner.report.query_exceptions == 0
 
+    def test_dialect_scoped_constructs_are_rejected(self, test_table):
+        # str(query) renders under SQLAlchemy's default dialect, where a
+        # construct scoped to a real one renders as nothing -- it would pass
+        # the compare and then be dropped from the flat statement. The gate
+        # renders under the connection's dialect for exactly this.
+        hinted = (
+            sa.select(sa.func.count().label("c"))
+            .select_from(test_table)
+            .with_hint(test_table, "USE INDEX (PRIMARY)", dialect_name="mysql")
+        )
+        tagged = flattenable_query(hinted)
+        dialect = mysql.dialect()
+
+        # Invisible by default, which is what made this a silent data bug.
+        assert SQLAlchemyQueryCombiner._is_flattenable(tagged)
+        assert not SQLAlchemyQueryCombiner._is_flattenable(tagged, dialect)
+
+        # A plain query still flattens under a real dialect.
+        plain = flattenable_query(
+            sa.select(sa.func.count().label("c")).select_from(test_table)
+        )
+        assert SQLAlchemyQueryCombiner._is_flattenable(plain, dialect)
+
     @pytest.mark.parametrize(
         "agg,names",
         [
@@ -1157,7 +1181,9 @@ class TestFlattenPath:
         monkeypatch.setattr(
             query_combiner_module.SQLAlchemyQueryCombiner,
             "_flatten_verdict",
-            staticmethod(lambda q: query_combiner_module._FlattenVerdict.GATE_ERROR),
+            staticmethod(
+                lambda q, dialect=None: query_combiner_module._FlattenVerdict.GATE_ERROR
+            ),
         )
         query = sa.select(sa.func.count().label("c")).select_from(test_table)
         combiner = _make_combiner(flatten_enabled=True)
