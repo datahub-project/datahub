@@ -155,9 +155,7 @@ export default function ProductUpdates() {
 
     // Determine primary CTA (prefer new format, fall back to legacy)
     const primaryText = primaryCtaText || ctaText || (version ? t('updates.defaultCtaText', { version }) : null);
-    const primaryLink = buildUrl(
-        primaryCtaLink || ctaLink || getDefaultProductUpdateLink(latestUpdate.id, isCloud),
-    );
+    const primaryLink = buildUrl(primaryCtaLink || ctaLink || getDefaultProductUpdateLink(latestUpdate.id, isCloud));
 
     // Secondary CTA (only if both text and link are present)
     const secondaryText = isPresent(latestUpdate.secondaryCtaText) ? latestUpdate.secondaryCtaText : null;
