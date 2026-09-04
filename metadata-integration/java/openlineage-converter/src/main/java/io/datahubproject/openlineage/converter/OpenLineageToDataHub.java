@@ -376,8 +376,8 @@ public class OpenLineageToDataHub {
   private static final String DOMAIN_ENTITY_TYPE = "domain";
 
   public static Domains generateDomains(List<String> domains) {
-    // Copy before sorting: the caller's list may be an immutable config value.
-    List<String> sortedDomains = new ArrayList<>(domains);
+    // Copy before sorting: the caller's list is a shared, possibly immutable config value.
+    List<String> sortedDomains = domains == null ? new ArrayList<>() : new ArrayList<>(domains);
     sortedDomains.sort(String::compareToIgnoreCase);
     Domains datahubDomains = new Domains();
     UrnArray domainArray = new UrnArray();
@@ -404,6 +404,12 @@ public class OpenLineageToDataHub {
                 + "a domain name cannot be resolved here.",
             domain);
       }
+    }
+    if (domainArray.isEmpty() && !sortedDomains.isEmpty()) {
+      log.warn(
+          "None of the configured domains {} could be parsed as domain URNs; "
+              + "no domains aspect will be emitted.",
+          domains);
     }
     datahubDomains.setDomains(domainArray);
     return datahubDomains;
@@ -471,19 +477,11 @@ public class OpenLineageToDataHub {
     GlobalTags tags = generateTags(event);
     jobBuilder.flowGlobalTags(tags);
 
-    // OpenLineage has no domain facet, so domains come from configuration only.
-    if (datahubConf.getDomains() != null && !datahubConf.getDomains().isEmpty()) {
-      Domains domains = generateDomains(datahubConf.getDomains());
-      if (domains.getDomains().isEmpty()) {
-        log.warn(
-            "None of the configured domains {} could be parsed as domain URNs; "
-                + "no domains aspect will be emitted.",
-            datahubConf.getDomains());
-      } else {
-        jobBuilder.flowDomains(domains);
-        jobBuilder.jobDomains(domains);
-      }
-    }
+    // OpenLineage has no domain facet, so domains come from configuration only. An empty or
+    // fully-rejected list yields an empty aspect, which DatahubJob then declines to emit.
+    Domains domains = generateDomains(datahubConf.getDomains());
+    jobBuilder.flowDomains(domains);
+    jobBuilder.jobDomains(domains);
 
     DatahubJob datahubJob = jobBuilder.build();
     convertJobToDataJob(datahubJob, event, datahubConf);

@@ -125,8 +125,9 @@ DATAHUB_OPENLINEAGE_DOMAINS=urn:li:domain:finance,urn:li:domain:reporting
 ```
 
 Values must be full domain URNs. A domain name such as `finance` cannot be resolved here and is
-skipped with a warning. If none of the configured values parse, no domains aspect is emitted, so an
-existing domain assignment is never cleared.
+skipped with a warning. The remaining valid domains are written as the entity's complete domain
+list, replacing any existing assignment — including one made in the UI. If no configured value
+parses at all, nothing is emitted, so a bad value cannot silently clear domains.
 
 ##### Usage Examples
 

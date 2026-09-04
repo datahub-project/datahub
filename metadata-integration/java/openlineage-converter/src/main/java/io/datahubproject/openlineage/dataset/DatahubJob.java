@@ -424,17 +424,10 @@ public class DatahubJob {
       Urn entityUrn, String entityType, Domains domains, List<MetadataChangeProposal> mcps) {
     // An empty domains aspect would clear domains set by other sources, so only emit a populated
     // one.
-    if (domains == null || domains.getDomains() == null || domains.getDomains().isEmpty()) {
+    if (domains == null || domains.getDomains().isEmpty()) {
       return;
     }
-    MetadataChangeProposalWrapper domainsMcpw =
-        MetadataChangeProposalWrapper.create(
-            b -> b.entityType(entityType).entityUrn(entityUrn).upsert().aspect(domains));
-    try {
-      mcps.add(eventFormatter.convert(domainsMcpw));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    addAspectToMcps(entityUrn, entityType, domains, mcps);
   }
 
   private void generateFlowGlobalTagsAspect(
