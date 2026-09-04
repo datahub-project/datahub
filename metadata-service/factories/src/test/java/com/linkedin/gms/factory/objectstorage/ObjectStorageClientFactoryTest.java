@@ -145,6 +145,15 @@ public class ObjectStorageClientFactoryTest {
   }
 
   @Test
+  public void testReturnsNullWhenS3LocationWithoutSharedPresigner() {
+    ReflectionTestUtils.setField(factory, "objectStorageS3Presigner", null);
+    dataHubConfiguration.getObjectStorage().setUri("s3://my-bucket");
+
+    ObjectStorageClient client = factory.getInstance();
+    assertNull(client);
+  }
+
+  @Test
   public void testReturnsNullWhenLocationUnconfigured() {
     ObjectStorageClient client = factory.getInstance();
     assertNull(client);

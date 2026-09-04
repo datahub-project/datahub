@@ -12,6 +12,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.SkipException;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.services.sts.StsClient;
 
@@ -122,5 +123,25 @@ class StsClientFactoryNoAwsConfigTest extends AbstractTestNGSpringContextTests {
           "Skipping: AWS_REGION or AWS_ENDPOINT_URL set in env; cannot simulate no-config");
     }
     assertNull(stsClient, "StsClient bean should be null when no AWS region or endpoint is set");
+  }
+}
+
+/** Unit tests that do not load a Spring context. */
+class StsClientFactorySkipWithoutSharedCredentialsTest {
+
+  @AfterMethod
+  public void clearAwsProperties() {
+    System.clearProperty("AWS_REGION");
+    System.clearProperty("aws.region");
+    System.clearProperty("AWS_ENDPOINT_URL");
+  }
+
+  @Test
+  public void skipsWhenRegionSetWithoutSharedCredentialsProvider() {
+    System.setProperty("AWS_REGION", "us-east-1");
+    StsClientFactory factory = new StsClientFactory();
+    assertNull(
+        factory.getInstance(),
+        "StsClient must not be built with the AWS SDK default IRSA credential chain");
   }
 }

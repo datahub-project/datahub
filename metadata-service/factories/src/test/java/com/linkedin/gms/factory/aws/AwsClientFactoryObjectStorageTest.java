@@ -74,6 +74,14 @@ public class AwsClientFactoryObjectStorageTest {
   }
 
   @Test
+  public void regionWithoutCredentialsDoesNotBuildDefaultChainClient() {
+    System.setProperty("aws.region", "us-east-1");
+
+    S3Client client = awsClientFactory.objectStorageS3Client(null);
+    assertNull(client);
+  }
+
+  @Test
   public void createsS3ClientFromEndpointOnly() {
     System.setProperty("AWS_ENDPOINT_URL", "http://localhost:9999");
 
