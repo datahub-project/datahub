@@ -188,7 +188,7 @@ class SubProcessTaskUtil:
         # Set up secret masking in the executor process (for masking logs/reports)
         if secrets_to_resolve:
             try:
-                initialize_secret_masking(force=True)
+                initialize_secret_masking()
                 registry = SecretRegistry.get_instance()
                 for secret_name in secrets_to_resolve:
                     secret_value = secret_values_dict.get(secret_name)

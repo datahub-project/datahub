@@ -141,6 +141,7 @@ all = [
     { name = "google-auth" },
     { name = "google-cloud-aiplatform" },
     { name = "google-cloud-bigquery" },
+    { name = "google-cloud-bigquery-analyticshub" },
     { name = "google-cloud-datacatalog" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
@@ -183,6 +184,7 @@ all = [
     { name = "psycopg2-binary" },
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
+    { name = "pycarlo" },
     { name = "pydruid" },
     { name = "pyiceberg", extra = ["adlfs", "dynamodb", "glue", "hive", "pyarrow", "s3fs", "snappy"] },
     { name = "pymetastore" },
@@ -258,6 +260,7 @@ bigid = [
 bigquery = [
     { name = "cachetools" },
     { name = "google-cloud-bigquery" },
+    { name = "google-cloud-bigquery-analyticshub" },
     { name = "google-cloud-datacatalog" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-logging" },
@@ -513,6 +516,7 @@ dev = [
     { name = "google-auth" },
     { name = "google-cloud-aiplatform" },
     { name = "google-cloud-bigquery" },
+    { name = "google-cloud-bigquery-analyticshub" },
     { name = "google-cloud-datacatalog" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
@@ -708,6 +712,7 @@ docs = [
     { name = "google-auth" },
     { name = "google-cloud-aiplatform" },
     { name = "google-cloud-bigquery" },
+    { name = "google-cloud-bigquery-analyticshub" },
     { name = "google-cloud-datacatalog" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
@@ -1071,6 +1076,7 @@ integration-tests = [
     { name = "psycopg2-binary" },
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
+    { name = "pycarlo" },
     { name = "pydruid" },
     { name = "pyiceberg", extra = ["adlfs", "dynamodb", "glue", "hive", "pyarrow", "s3fs", "snappy"] },
     { name = "pymetastore" },
@@ -1190,6 +1196,10 @@ mode = [
 mongodb = [
     { name = "packaging" },
     { name = "pymongo", extra = ["aws"] },
+]
+montecarlo = [
+    { name = "pycarlo" },
+    { name = "tenacity" },
 ]
 mssql = [
     { name = "cachetools" },
@@ -1945,12 +1955,12 @@ requires-dist = [
     { name = "geoalchemy2", marker = "extra == 'redshift'", specifier = "<0.19.0" },
     { name = "geoalchemy2", marker = "extra == 'redshift-slim'", specifier = "<0.19.0" },
     { name = "geoalchemy2", marker = "extra == 'timescaledb'", specifier = "<0.19.0" },
-    { name = "gitpython", marker = "extra == 'all'", specifier = ">2,<4.0.0" },
-    { name = "gitpython", marker = "extra == 'dev'", specifier = ">2,<4.0.0" },
-    { name = "gitpython", marker = "extra == 'docs'", specifier = ">2,<4.0.0" },
-    { name = "gitpython", marker = "extra == 'looker'", specifier = ">2,<4.0.0" },
-    { name = "gitpython", marker = "extra == 'lookml'", specifier = ">2,<4.0.0" },
-    { name = "gitpython", marker = "extra == 'odcs'", specifier = ">2,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'all'", specifier = ">=3.1.58,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'dev'", specifier = ">=3.1.58,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'docs'", specifier = ">=3.1.58,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'looker'", specifier = ">=3.1.58,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'lookml'", specifier = ">=3.1.58,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'odcs'", specifier = ">=3.1.58,<4.0.0" },
     { name = "google-auth", marker = "extra == 'all'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'confluence'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'datahub-documents'", specifier = ">=2.0.0,<3.0.0" },
@@ -1970,6 +1980,10 @@ requires-dist = [
     { name = "google-cloud-bigquery", marker = "extra == 'dev'", specifier = "<4.0.0" },
     { name = "google-cloud-bigquery", marker = "extra == 'docs'", specifier = "<4.0.0" },
     { name = "google-cloud-bigquery", marker = "extra == 'fivetran'", specifier = "<4.0.0" },
+    { name = "google-cloud-bigquery-analyticshub", marker = "extra == 'all'", specifier = ">=0.4.19,<1.0.0" },
+    { name = "google-cloud-bigquery-analyticshub", marker = "extra == 'bigquery'", specifier = ">=0.4.19,<1.0.0" },
+    { name = "google-cloud-bigquery-analyticshub", marker = "extra == 'dev'", specifier = ">=0.4.19,<1.0.0" },
+    { name = "google-cloud-bigquery-analyticshub", marker = "extra == 'docs'", specifier = ">=0.4.19,<1.0.0" },
     { name = "google-cloud-datacatalog", marker = "extra == 'all'", specifier = ">=1.5.0,<4.0.0" },
     { name = "google-cloud-datacatalog", marker = "extra == 'bigquery'", specifier = ">=1.5.0,<4.0.0" },
     { name = "google-cloud-datacatalog", marker = "extra == 'bigquery-queries'", specifier = ">=1.5.0,<4.0.0" },
@@ -2301,6 +2315,9 @@ requires-dist = [
     { name = "pyathena", extras = ["sqlalchemy"], marker = "extra == 'dev'", specifier = ">=2.6.0,<3.0.0" },
     { name = "pyathena", extras = ["sqlalchemy"], marker = "extra == 'docs'", specifier = ">=2.6.0,<3.0.0" },
     { name = "pyathena", extras = ["sqlalchemy"], marker = "extra == 'integration-tests'", specifier = ">=2.6.0,<3.0.0" },
+    { name = "pycarlo", marker = "extra == 'all'", specifier = ">=0.15.262,<1.0.0" },
+    { name = "pycarlo", marker = "extra == 'integration-tests'", specifier = ">=0.15.262,<1.0.0" },
+    { name = "pycarlo", marker = "extra == 'montecarlo'", specifier = ">=0.15.262,<1.0.0" },
     { name = "pydantic", specifier = ">=2.4.0,<3.0.0" },
     { name = "pydantic", marker = "extra == 'dev'", specifier = ">=2.4.0,<3.0.0" },
     { name = "pydantic", marker = "extra == 'docs'", specifier = ">=2.4.0,<3.0.0" },
@@ -2741,6 +2758,7 @@ requires-dist = [
     { name = "tenacity", marker = "extra == 'hive-metastore'", specifier = ">=8.0.1,<9.0.0" },
     { name = "tenacity", marker = "extra == 'integration-tests'", specifier = ">=8.0.1,!=8.4.0,<9.0.0" },
     { name = "tenacity", marker = "extra == 'mode'", specifier = ">=8.0.1,<9.0.0" },
+    { name = "tenacity", marker = "extra == 'montecarlo'", specifier = ">=8.0.1,!=8.4.0,<9.0.0" },
     { name = "tenacity", marker = "extra == 'omni'", specifier = ">=8.0.1,<9.0.0" },
     { name = "tenacity", marker = "extra == 'presto-on-hive'", specifier = ">=8.0.1,<9.0.0" },
     { name = "tenacity", marker = "extra == 'slack'", specifier = ">=8.0.1,<9.0.0" },
@@ -2875,7 +2893,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "informix", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-datasphere", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "informix", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "montecarlo", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-datasphere", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-cloud"
@@ -5326,14 +5344,14 @@ wheels = [
 
 [[package]]
 name = "gitpython"
-version = "3.1.46"
+version = "3.1.61"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "gitdb" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/df/b5/59d16470a1f0dfe8c793f9ef56fd3826093fc52b3bd96d6b9d6c26c7e27b/gitpython-3.1.46.tar.gz", hash = "sha256:400124c7d0ef4ea03f7310ac2fbf7151e09ff97f2a3288d64a440c584a29c37f", size = 215371, upload-time = "2026-01-01T15:37:32.073Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6f/61/3285044215fb596bf093e39ccb96ece0a1076a8ca57a61e069a6a33cdb1b/gitpython-3.1.61.tar.gz", hash = "sha256:f51c24d8c0f733a195447385f5774a5dfe8767f5acfd7994a33755644c6ecc95", size = 231680, upload-time = "2026-08-28T11:01:13.761Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6a/09/e21df6aef1e1ffc0c816f0522ddc3f6dcded766c3261813131c78a704470/gitpython-3.1.46-py3-none-any.whl", hash = "sha256:79812ed143d9d25b6d176a10bb511de0f9c67b1fa641d82097b0ab90398a2058", size = 208620, upload-time = "2026-01-01T15:37:30.574Z" },
+    { url = "https://files.pythonhosted.org/packages/6f/5e/49cc172da4d0578644ba37cec5cb365b1fefc603b26edea9bcac1c7f830a/gitpython-3.1.61-py3-none-any.whl", hash = "sha256:8ab28c9da863cdd9e7d7694ec46cf3e6c9a12d8a30a1acd3447aec11975d530c", size = 222118, upload-time = "2026-08-28T11:01:12.262Z" },
 ]
 
 [[package]]
@@ -5454,6 +5472,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/11/0c/153ee546c288949fcc6794d58811ab5420f3ecad5fa7f9e73f78d9512a6e/google_cloud_bigquery-3.40.1.tar.gz", hash = "sha256:75afcfb6e007238fe1deefb2182105249321145ff921784fe7b1de2b4ba24506", size = 511761, upload-time = "2026-02-12T18:44:18.958Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7c/f5/081cf5b90adfe524ae0d671781b0d497a75a0f2601d075af518828e22d8f/google_cloud_bigquery-3.40.1-py3-none-any.whl", hash = "sha256:9082a6b8193aba87bed6a2c79cf1152b524c99bb7e7ac33a785e333c09eac868", size = 262018, upload-time = "2026-02-12T18:44:16.913Z" },
+]
+
+[[package]]
+name = "google-cloud-bigquery-analyticshub"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "grpc-google-iam-v1" },
+    { name = "grpcio" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4a/92/97cf7b0f619eb7996d909cdd5503537f1606cc7d118eb27bc26d59ee6f50/google_cloud_bigquery_analyticshub-0.9.0.tar.gz", hash = "sha256:ba88c4a45d083a71c4d3d1d0dc0f39708d83e1af942f99b89dde28b6d6c8ac70", size = 110664, upload-time = "2026-06-03T15:12:52.281Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/78/5edc9e68d0cb9e7faf651516bfe546367f04d02c0ec9ed23f3aef6072f71/google_cloud_bigquery_analyticshub-0.9.0-py3-none-any.whl", hash = "sha256:c848cbe3f139e93cfe1aea2e58e459f7e90e4303e8288c415df2f3f776a0fac9", size = 91304, upload-time = "2026-06-03T15:12:02.813Z" },
 ]
 
 [[package]]
@@ -8589,6 +8624,22 @@ sqlalchemy = [
 ]
 
 [[package]]
+name = "pycarlo"
+version = "0.15.262"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dataclasses-json" },
+    { name = "python-box" },
+    { name = "requests" },
+    { name = "responses" },
+    { name = "sgqlc" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9d/94/f17961f6cbd3f33c76a3ed5bb144131249195f71add1d872493dc226da18/pycarlo-0.15.262.tar.gz", hash = "sha256:cd25d75572f438396828afae309050c18181640672e3ee35932075f549cc6abc", size = 1969179, upload-time = "2026-09-02T18:52:37.562Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/20/99f674c1b63eeaf8e2304b1f2f93fd6e134af12a3c7e03b79f21025502a1/pycarlo-0.15.262-py3-none-any.whl", hash = "sha256:60c674c9021edad8f09f76af964603c494980f093a1c1af269f82b8309aa8b25", size = 1289053, upload-time = "2026-09-02T18:52:35.927Z" },
+]
+
+[[package]]
 name = "pycparser"
 version = "3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -9339,6 +9390,29 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ac/82/4c9ecabab13363e72d880f2fb504c5f750433b2b6f16e99f4ec21ada284c/pytest_timeout-2.4.0.tar.gz", hash = "sha256:7e68e90b01f9eff71332b25001f85c75495fc4e3a836701876183c4bcfd0540a", size = 17973, upload-time = "2025-05-05T19:44:34.99Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fa/b6/3127540ecdf1464a00e5a01ee60a1b09175f6913f0644ac748494d9c4b21/pytest_timeout-2.4.0-py3-none-any.whl", hash = "sha256:c42667e5cdadb151aeb5b26d114aff6bdf5a907f176a007a30b940d3d865b5c2", size = 14382, upload-time = "2025-05-05T19:44:33.502Z" },
+]
+
+[[package]]
+name = "python-box"
+version = "7.4.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0f/0f/34e7ee0a72f1464b4c7a2e8bafb389f230477256af586bc82bcfad85295a/python_box-7.4.1.tar.gz", hash = "sha256:e412e36c25fca8223560516d53ef6c7993591c3b0ec8bb4ec582bf7defdd79f0", size = 49859, upload-time = "2026-02-21T16:21:16.008Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f6/7f/0ff288dedf965f504de7a8d9d7353f7b7e57bf18ce9beb328bad49dff026/python_box-7.4.1-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:e724eb25bfda0f1dbbe79c8a35ce8877d8ad7afbdd9396757c6f509f0e742f8c", size = 1877032, upload-time = "2026-02-21T16:21:59.509Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/d0/e211693f3ac4f11b553f214fcf2a2687be42052ad6905832258d451003b7/python_box-7.4.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ee7bb8b0c4d1a07f12454a1edc1a936c4bf952adead3eb40c38aee600a2b605b", size = 4307977, upload-time = "2026-02-21T16:26:01.465Z" },
+    { url = "https://files.pythonhosted.org/packages/47/94/94690a217ecb1333a8d796698176456bc03cdf707d903a6bd1aab022a497/python_box-7.4.1-cp310-cp310-win_amd64.whl", hash = "sha256:526dcc3d82a6957b177313e8704ede431b9add0209b76d716eb232c9a5d283e5", size = 1317804, upload-time = "2026-02-21T16:21:58.2Z" },
+    { url = "https://files.pythonhosted.org/packages/f8/a8/c8bcd3ff0905ec549273ea3485e6b9f2039f57baab419123fb18f964f829/python_box-7.4.1-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:3f76dad8be9d57d65a3edc792b952f7afe3991515aa6eba616cf5efb2fbb2e0c", size = 1870869, upload-time = "2026-02-21T16:21:34.16Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/bc/9382766d388e258363a18a094e251d2624e3c524614c733d1afa989d9770/python_box-7.4.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:c66582f41a94d46cb0896d468b0efebf9bc4c3a5634cd15373d871767c2e741d", size = 4494287, upload-time = "2026-02-21T16:26:03.131Z" },
+    { url = "https://files.pythonhosted.org/packages/8c/cf/b9d1d4550615f69f6f9c72767f026543442739e5c56adf6f844b50d88251/python_box-7.4.1-cp311-cp311-win_amd64.whl", hash = "sha256:43c62f66d694eb6410f51eb2eb5726f9b466e6f685e5dc90b5cd11f7b3047362", size = 1321085, upload-time = "2026-02-21T16:22:01.093Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/d9/d05f317b38b42253422d8483f5d7dc16d382c99ddc253e426639a0f2f235/python_box-7.4.1-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:dfb91effff00d9e23486c4f0db3b19e03d602ebb7c9e20fc6a287c704fad2552", size = 1849441, upload-time = "2026-02-21T16:21:37.314Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/a3/383eb3d658f36c6e531c8cf1e348ccb4b5031231df4aeb7742bb159a3166/python_box-7.4.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b7f977f00e715b030cee6ffef2322ff8ce100ffbf1dbcc4ef91099c75752d5f8", size = 4485153, upload-time = "2026-02-21T16:26:04.507Z" },
+    { url = "https://files.pythonhosted.org/packages/65/f9/5de3c18415dd6f5286f00e6539c0ae3cceb1c6aaf28d1d5f17b0b568c97f/python_box-7.4.1-cp312-cp312-win_amd64.whl", hash = "sha256:2ca9a18fd15326bc267e9cc7e0e6e3a0cb78d11507940f43f687adf7e156d882", size = 1295520, upload-time = "2026-02-21T16:22:26.192Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/e9/48d1b1eb21efc3f82a31b037b6903c9139018f686d96d251faa4cb0d593a/python_box-7.4.1-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:85db37b43094bf6c4884b931fb149a7850db5ce331f6e191edf98b453e6cf2d6", size = 1845195, upload-time = "2026-02-21T16:21:46.235Z" },
+    { url = "https://files.pythonhosted.org/packages/da/79/48d38c855f277223caf3aa79518476f95abc07f04386940855b7bd3d95f6/python_box-7.4.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:bb204822c7638bd2dbed5c55d6ab264c6903c37d18dee5c45bdbda58b2e1e17a", size = 4468245, upload-time = "2026-02-21T16:26:05.701Z" },
+    { url = "https://files.pythonhosted.org/packages/17/1d/7a1e04f37674399e0f3076cfe1fa358f6a51540ae98299a06f2c0424c471/python_box-7.4.1-cp313-cp313-win_amd64.whl", hash = "sha256:615da3fafd41572aec1b905832555c0ea08b6fbc27cc917356e257a9a5721af7", size = 1295564, upload-time = "2026-02-21T16:22:36.547Z" },
+    { url = "https://files.pythonhosted.org/packages/94/a2/771b5e526bba2214ac2d30e321209a66680c40788616a45cf01005e95204/python_box-7.4.1-cp314-cp314-macosx_10_15_universal2.whl", hash = "sha256:33c6701faa51fd87f0dcc538873c0fad2b3a1cc3750eab85835cd071cadf1948", size = 1875508, upload-time = "2026-02-21T16:21:37.432Z" },
+    { url = "https://files.pythonhosted.org/packages/a6/5f/0e7ea7640ba60ff459ce37e340d816ac5e91b7a9a7c3c161f9dabe622be6/python_box-7.4.1-cp314-cp314-win_amd64.whl", hash = "sha256:ae8c540a0457f52350211d24690211251912018e1e0c1857f50792729d6f562c", size = 1314304, upload-time = "2026-02-21T16:22:22.173Z" },
+    { url = "https://files.pythonhosted.org/packages/06/a6/5d3f3abf46b37aa44b1f6788d287c8b4f2319b55013191dddf25b9e6d62c/python_box-7.4.1-py3-none-any.whl", hash = "sha256:a3b0d84d003882fb6abe505b1b883b3a5dcbf226b0fe168d24bc5ff75d9826e5", size = 30402, upload-time = "2026-02-21T16:21:14.78Z" },
 ]
 
 [[package]]
@@ -10286,6 +10360,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/0d/1c/73e719955c59b8e424d015ab450f51c0af856ae46ea2da83eba51cc88de1/setuptools-81.0.0.tar.gz", hash = "sha256:487b53915f52501f0a79ccfd0c02c165ffe06631443a886740b91af4b7a5845a", size = 1198299, upload-time = "2026-02-06T21:10:39.601Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e1/e3/c164c88b2e5ce7b24d667b9bd83589cf4f3520d97cad01534cd3c4f55fdb/setuptools-81.0.0-py3-none-any.whl", hash = "sha256:fdd925d5c5d9f62e4b74b30d6dd7828ce236fd6ed998a08d81de62ce5a6310d6", size = 1062021, upload-time = "2026-02-06T21:10:37.175Z" },
+]
+
+[[package]]
+name = "sgqlc"
+version = "16.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "graphql-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/df/d9/84bb065daa089fd1609f3216f5a1703ed9df7be5e1ac04a330194dee8d75/sgqlc-16.5.tar.gz", hash = "sha256:93edcd29ee138f5305d13f211a2b2091bd77873c404c87b87ae16a4023c62d4a", size = 241469, upload-time = "2025-06-04T18:45:33.056Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ed/62/5b62d18b090546d978ad3788a027603f87b898b53b9772917bcf0eef846c/sgqlc-16.5-py3-none-any.whl", hash = "sha256:56952622e3fcd771e079de290cf8a244dc014cbd9b65059d04f262ec8d8f0f44", size = 82485, upload-time = "2025-06-04T18:45:30.046Z" },
 ]
 
 [[package]]

@@ -43,6 +43,7 @@ import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
 import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
+import com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffect;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.entity.AspectSizePayloadValidator;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
@@ -259,6 +260,44 @@ public class SpringStandardPluginConfiguration {
     return new DataProductUnsetSideEffect().setConfig(config);
   }
 
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.dataProductAssets.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public MCPSideEffect dataProductAssetsSideEffect(
+      @Value("${metadataChangeProposal.sideEffects.dataProductAssets.maxFanoutPerCommit:500}")
+          final int maxFanoutPerCommit) {
+    // Mirrors Data Product membership onto each member asset's dataProducts aspect so assets are
+    // filterable/facetable by Data Product in search. Enabled regardless of the
+    // multipleDataProductsPerAsset flag. Uses post-commit MCL before/after to emit patches.
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(DataProductAssetsSideEffect.class.getName())
+            .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE", "DELETE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATA_PRODUCT_ENTITY_NAME)
+                        .aspectName(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+                        .build(),
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATA_PRODUCT_ENTITY_NAME)
+                        .aspectName(Constants.DATA_PRODUCT_KEY_ASPECT_NAME)
+                        .build()))
+            .build();
+
+    log.info(
+        "Initialized {} with maxFanoutPerCommit={}",
+        DataProductAssetsSideEffect.class.getName(),
+        maxFanoutPerCommit);
+    return new DataProductAssetsSideEffect()
+        .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
+        .setConfig(config);
+  }
+
+  // Returns null when MeterRegistry/ObjectMapper unavailable
   @Bean
   @ConditionalOnProperty(name = "ingestionMetrics.enabled", havingValue = "true")
   public MCPObserver ingestionMetricsEmitter(
