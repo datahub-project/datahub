@@ -7,6 +7,7 @@ import sqlglot
 import sqlparse
 from sqlglot import expressions as exp
 from sqlglot.errors import SqlglotError
+from sqlglot.tokens import TokenType
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -184,6 +185,37 @@ def _resolve_dialect(platform: str) -> Optional[sqlglot.Dialect]:
         return get_dialect(platform)
     except (ValueError, AttributeError):
         return None
+
+
+def contains_external_query_call(query: str, platform: str) -> bool:
+    """Return True if the SQL has a real ``EXTERNAL_QUERY(...)`` function call.
+
+    The detection runs on the sqlglot token stream (which discards comments and collapses
+    string literals into single tokens) rather than a raw regex over the source. A raw
+    regex matches ``EXTERNAL_QUERY(`` even when it only appears inside a ``--``/``/* */``
+    comment or a string constant; that false positive routes an unrelated query into
+    EXTERNAL_QUERY handling, and if the query also fails to parse it is discarded whole
+    (native lineage included) with a misleading federation warning.
+
+    The tokenizer is lenient and still succeeds on SQL the parser rejects, so a genuine
+    federation call is detected even inside an otherwise-unparseable batch. If tokenizing
+    itself fails (pathological input), fall back to the raw regex so detection is never
+    weaker than before.
+    """
+    dialect = _resolve_dialect(platform)
+    try:
+        tokens = (dialect or sqlglot.Dialect()).tokenize(query)
+    except Exception:
+        return bool(EXTERNAL_QUERY_PATTERN.search(query))
+
+    for index, token in enumerate(tokens):
+        if (
+            (token.text or "").upper() == EXTERNAL_QUERY_FUNCTION_NAME
+            and index + 1 < len(tokens)
+            and tokens[index + 1].token_type == TokenType.L_PAREN
+        ):
+            return True
+    return False
 
 
 def _parse_statements(

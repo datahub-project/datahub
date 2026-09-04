@@ -1109,6 +1109,54 @@ def test_bigquery_native_query():
 
 
 @pytest.mark.integration
+def test_bigquery_external_query_comment_mention_not_federation_when_unparseable():
+    # EXTERNAL_QUERY( appearing only inside a SQL comment (not a real call) must not be
+    # treated as a federation. The trigger tokenizes the SQL (comments are dropped), so a
+    # commented mention is ignored. Here the query is also unparseable: with the old raw
+    # regex it was routed into EXTERNAL_QUERY handling and discarded as a *federation*
+    # parse failure (warning + m_query_external_query_parse_errors), inflating the counter
+    # that can flip the strict-warning exit status. It must instead fall through to the
+    # normal native-SQL path, which reports the failure at info level without the
+    # federation counter.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select a b c from public.my_table where /* EXTERNAL_QUERY(conn, sql) */", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    lineages: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    # A comment-only mention must not be counted or warned about as a federation failure.
+    assert reporter.m_query_external_query_parse_errors == 0
+    assert reporter.m_query_external_query_connections_resolved == 0
+    assert reporter.m_query_external_query_connections_unmapped == 0
+    assert len(reporter.warnings) == 0
+
+
+@pytest.mark.integration
 def test_bigquery_external_query_resolves_to_external_platform():
     # BigQuery EXTERNAL_QUERY federates to an external engine. With the connection mapped
     # to its external platform, lineage must resolve to the real upstream table on that

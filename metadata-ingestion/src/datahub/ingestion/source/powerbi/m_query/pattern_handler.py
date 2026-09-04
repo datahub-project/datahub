@@ -662,7 +662,9 @@ class AbstractLineage(ABC):
         external_upstreams: List[DataPlatformTable] = []
         if (
             platform_pair.datahub_data_platform_name == _BIGQUERY_PLATFORM_NAME
-            and native_sql_parser.EXTERNAL_QUERY_PATTERN.search(query)
+            and native_sql_parser.contains_external_query_call(
+                query, platform_pair.datahub_data_platform_name
+            )
         ):
             resolution = self._resolve_external_query_upstreams(query)
             if resolution.outer_parse_failed:
