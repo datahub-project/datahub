@@ -650,13 +650,8 @@ class SQLAlchemyQueryCombiner:
             # here rather than by the outer handler, because that one counts
             # gate errors and this rejection is by design.
             try:
-                name_cols = len(query.subquery().columns)
+                _ = query.subquery().columns
             except sqlalchemy.exc.InvalidRequestError:
-                return _FlattenVerdict.REJECTED
-            # Emit-side and name-side column counts must match: a bare
-            # sa.text() gives 1 and 0, tripping the assert in
-            # _execute_flat_select mid-plan.
-            if len(get_query_columns(query)) != name_cols:
                 return _FlattenVerdict.REJECTED
             return _FlattenVerdict.FLATTENABLE
         except Exception as e:

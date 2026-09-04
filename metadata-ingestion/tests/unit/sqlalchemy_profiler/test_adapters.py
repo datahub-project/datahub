@@ -2008,9 +2008,17 @@ class TestFlattenableAggregates:
         )
         expr = getattr(adapter, expr_method)("col")
         if expr is None:
-            return  # no native expression; the base falls back elsewhere
+            pytest.skip(f"{adapter_cls.__name__} has no native {expr_method}")
+        # Unwrap Label exactly as the gate does. Without this a labelled
+        # function -- the shape most likely to drift -- is silently skipped,
+        # which is the failure this guard exists to catch.
+        if isinstance(expr, sa.sql.elements.Label):
+            expr = expr.element
         if not isinstance(expr, sa.sql.functions.FunctionElement):
-            return  # literal_column and friends never flatten regardless
+            pytest.skip(
+                f"{adapter_cls.__name__}.{expr_method} emits "
+                f"{type(expr).__name__}, which the gate rejects anyway"
+            )
         assert expr.name.lower() in adapter_cls.FLATTENABLE_AGGREGATES, (
             f"{adapter_cls.__name__}.{expr_method} emits {expr.name!r}, "
             f"which is not declared in FLATTENABLE_AGGREGATES"

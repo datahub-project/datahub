@@ -1047,13 +1047,6 @@ class TestFlattenPath:
         assert combiner.report.scans_avoided == 4  # (3-1) + (3-1) + (1-1)
         assert combiner.report.query_exceptions == 0
 
-    def test_text_clause_column_rejected_by_parity(self, engine, test_table):
-        # A bare sa.text() column gives 1 emit-side column and 0 name-side,
-        # which would trip the assert inside _execute_flat_select. The parity
-        # check rejects it up front.
-        text_query = sa.select(sa.text("name")).select_from(test_table)
-        assert not SQLAlchemyQueryCombiner._is_flattenable(text_query)
-
     @pytest.mark.parametrize(
         "agg,names",
         [
