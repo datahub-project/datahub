@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { ThemeProvider } from 'styled-components';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CodeBlock } from '@components/components/CodeBlock/CodeBlock';
 
@@ -22,6 +22,8 @@ vi.mock('@components/components/Toast', () => ({
     },
 }));
 
+const originalClipboard = navigator.clipboard;
+
 function renderCodeBlock(ui: React.ReactElement) {
     return render(
         <ThemeProvider theme={themeV2}>
@@ -31,6 +33,13 @@ function renderCodeBlock(ui: React.ReactElement) {
 }
 
 describe('CodeBlock', () => {
+    afterEach(() => {
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: originalClipboard,
+        });
+    });
+
     it('renders code content', () => {
         renderCodeBlock(<CodeBlock code="SELECT 1" language="sql" />);
 
@@ -168,6 +177,50 @@ describe('CodeBlock', () => {
         expect(screen.queryByTestId('code-block-warning')).not.toBeInTheDocument();
         await user.click(screen.getByTestId('code-block-validate'));
         expect(await screen.findByTestId('code-block-warning')).toHaveTextContent(/SELECT is missing columns/i);
+    });
+
+    it('renders inline diff marks when diffAgainst differs', () => {
+        renderCodeBlock(
+            <CodeBlock
+                code="COUNT(DISTINCT CASE WHEN status IN ('active','trial')"
+                diffAgainst="COUNT(DISTINCT CASE WHEN status = 'active'"
+                language="sql"
+            />,
+        );
+
+        expect(screen.getByTestId('code-block-diff')).toBeInTheDocument();
+        expect(screen.queryByTestId('mock-highlighter')).not.toBeInTheDocument();
+        expect(screen.getByText("= 'active'", { selector: 'del' })).toBeInTheDocument();
+        expect(screen.getByText("IN ('active','trial')", { selector: 'ins' })).toBeInTheDocument();
+    });
+
+    it('keeps diff mode read-only when onChange is provided', () => {
+        renderCodeBlock(<CodeBlock code="SELECT 2" diffAgainst="SELECT 1" language="sql" onChange={() => undefined} />);
+
+        expect(screen.getByTestId('code-block-diff')).toBeInTheDocument();
+        expect(screen.queryByTestId('code-block-editor')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('code-block-format')).not.toBeInTheDocument();
+    });
+
+    it('copies the displayed version while showing a diff', async () => {
+        const user = userEvent.setup();
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: { writeText },
+        });
+
+        renderCodeBlock(<CodeBlock code="SELECT 2" diffAgainst="SELECT 1" language="sql" />);
+        await user.click(screen.getByTestId('code-block-copy'));
+
+        expect(writeText).toHaveBeenCalledWith('SELECT 2');
+    });
+
+    it('keeps the highlighter when diffAgainst matches code', () => {
+        renderCodeBlock(<CodeBlock code="SELECT 1" diffAgainst="SELECT 1" language="sql" />);
+
+        expect(screen.getByTestId('mock-highlighter')).toBeInTheDocument();
+        expect(screen.queryByTestId('code-block-diff')).not.toBeInTheDocument();
     });
 
     it('should list multiple SQL validation issues when Validate is clicked', async () => {
