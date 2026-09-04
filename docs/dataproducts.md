@@ -193,7 +193,7 @@ Key behaviors:
 - Nesting depth is arbitrary.
 - A child may belong to a different Domain than its parent; Domain membership is independent of the parent-child relationship.
 - Permissions remain scoped to each Data Product's own Domain; **Manage Data Products** privilege is not inherited from the parent.
-- A product cannot be moved under one of its own descendants
+- A product cannot be moved under one of its own descendants.
 
 <p align="center">
   <img width="70%" alt="Move dialog for re-parenting a Data Product in the hierarchy" src="https://raw.githubusercontent.com/datahub-project/static-assets/3ca67aad505de1157a5c5a14ef527dd2d88a1cd1/imgs/data_products/dataproducts-hierarchy-move.png"/>
