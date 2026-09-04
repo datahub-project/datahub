@@ -1987,6 +1987,35 @@ class TestFlattenableAggregates:
         declared = adapter_cls.FLATTENABLE_AGGREGATES
         assert declared == {name.lower() for name in declared}
 
+    @pytest.mark.parametrize("adapter_cls", ALL_ADAPTERS)
+    @pytest.mark.parametrize(
+        "expr_method",
+        ["get_mean_expr", "get_median_expr", "get_approx_unique_count_expr"],
+    )
+    def test_declared_names_match_what_the_adapter_emits(
+        self, adapter_cls: Any, expr_method: str
+    ) -> None:
+        # Drift guard. A name an adapter emits but does not declare keeps that
+        # metric on the CTE path with no error anywhere -- the failure mode the
+        # class docstring warns about. These expressions all reach the gate via
+        # execute_single_row.
+        adapter = adapter_cls(
+            config=ProfilingConfig(enabled=True),
+            report=SQLSourceReport(),
+            # A real engine: quote_identifier needs a dialect, which several
+            # adapters use while building their median expression.
+            base_engine=sa.create_engine("sqlite://"),
+        )
+        expr = getattr(adapter, expr_method)("col")
+        if expr is None:
+            return  # no native expression; the base falls back elsewhere
+        if not isinstance(expr, sa.sql.functions.FunctionElement):
+            return  # literal_column and friends never flatten regardless
+        assert expr.name.lower() in adapter_cls.FLATTENABLE_AGGREGATES, (
+            f"{adapter_cls.__name__}.{expr_method} emits {expr.name!r}, "
+            f"which is not declared in FLATTENABLE_AGGREGATES"
+        )
+
     def test_platforms_swap_their_stddev_spelling(self) -> None:
         # An adapter overriding get_column_stdev must replace the base name.
         # Keeping stddev_samp is inert; omitting its own name costs the

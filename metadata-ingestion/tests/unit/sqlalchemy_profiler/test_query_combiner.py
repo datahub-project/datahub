@@ -891,8 +891,11 @@ class TestFlattenPath:
             .select_from(t)
             .with_hint(t, "USE INDEX (PRIMARY)"),
         }
+        # Tagged: an untagged query is rejected on the empty allowlist before
+        # the clause gate runs, which would make every assertion below pass
+        # even with the gate deleted.
         for label, q in non_flattenable.items():
-            assert not SQLAlchemyQueryCombiner._is_flattenable(q), (
+            assert not SQLAlchemyQueryCombiner._is_flattenable(flattenable_query(q)), (
                 f"_is_flattenable should reject {label!r}"
             )
 
@@ -1131,27 +1134,47 @@ class TestFlattenPath:
     def test_gate_crash_is_counted_apart_from_allowlist_rejection(
         self, engine, test_table
     ):
-        # A gate that throws must not look like a workload with nothing to
-        # flatten. Duplicate labels crash the gate; a WHERE clause is a
-        # designed rejection. Only the split counters tell them apart.
-        crashes = sa.select(
+        # Only an unanticipated failure counts as a gate error. Duplicate
+        # labels and a WHERE clause are both by-design rejections, so neither
+        # may inflate the defect counter.
+        duplicate_labels = sa.select(
             sa.func.min(test_table.c.value).label("x"),
             sa.func.max(test_table.c.value).label("x"),
         ).select_from(test_table)
-        rejected = (
+        where_clause = (
             sa.select(sa.func.count().label("c"))
             .select_from(test_table)
             .where(test_table.c.id > 1)
         )
         combiner = _make_combiner(flatten_enabled=True)
         with engine.connect() as conn, combiner.activate() as qc:
-            cap_crash = _schedule(qc, conn, crashes)
-            cap_rej = _schedule(qc, conn, rejected)
+            cap_dup = _schedule(qc, conn, duplicate_labels)
+            cap_where = _schedule(qc, conn, where_clause)
             qc.flush()
 
-        assert cap_crash.done and cap_rej.done
+        assert cap_dup.done and cap_where.done
+        assert combiner.report.flatten_rejected == 2
+        assert combiner.report.flatten_gate_errors == 0
+
+    def test_unexpected_gate_failure_is_counted_as_a_gate_error(
+        self, engine, test_table, monkeypatch
+    ):
+        # A gate that throws on everything must not read as a workload with
+        # nothing to flatten.
+        monkeypatch.setattr(
+            query_combiner_module.SQLAlchemyQueryCombiner,
+            "_flatten_verdict",
+            staticmethod(lambda q: query_combiner_module._FlattenVerdict.GATE_ERROR),
+        )
+        query = sa.select(sa.func.count().label("c")).select_from(test_table)
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap = _schedule(qc, conn, query)
+            qc.flush()
+
+        assert cap.done and cap.exc is None
         assert combiner.report.flatten_gate_errors == 1
-        assert combiner.report.flatten_rejected == 1
+        assert combiner.report.flatten_rejected == 0
 
     def test_singleton_groups_are_demoted_to_one_cte_combine(self, engine):
         # A window spanning N tables gives one group each. Flattening them
