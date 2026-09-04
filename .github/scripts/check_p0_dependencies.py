@@ -11,8 +11,9 @@ has a session-scoped autouse ``auth_session`` fixture that logs into the
 frontend, so any test in that suite needs a running DataHub; this check is pure
 static analysis and should cost nothing.
 
-Limitation: only dependencies declared with ``@pytest.mark.dependency(depends=[...])``
-are visible here. Tests that rely on ordering implicitly -- needing data another
+Limitation: tests are tracked by bare function name, so two same-named methods
+in different classes of one module are indistinguishable here. Only dependencies
+declared with ``@pytest.mark.dependency(depends=[...])`` are visible at all. Tests that rely on ordering implicitly -- needing data another
 test happened to create, with no ``depends=`` -- cannot be detected statically and
 will only surface once the p0 tier runs in CI.
 """
@@ -34,9 +35,13 @@ def _test_modules() -> list[Path]:
     )
 
 
-def _module_applies_p0(tree: ast.Module) -> bool:
-    """True when a module-level pytestmark marks every test in the file p0."""
-    for node in tree.body:
+def _pytestmark_applies_p0(body: list[ast.stmt]) -> bool:
+    """True when a ``pytestmark`` assignment in this body marks everything p0.
+
+    Valid at module scope and inside a class body; pytest propagates both to
+    every test they contain.
+    """
+    for node in body:
         if isinstance(node, ast.Assign) and any(
             isinstance(target, ast.Name) and target.id == "pytestmark"
             for target in node.targets
@@ -100,22 +105,33 @@ def _resolves_to_p0(dep: str, aliases: dict[str, str], p0: set[str]) -> bool:
 def _scan(path: Path) -> tuple[set[str], dict[str, list[str]], dict[str, str]]:
     """Return (p0 test names, {test: declared depends}, {alias: test})."""
     tree = ast.parse(path.read_text(errors="replace"))
-    module_p0 = _module_applies_p0(tree)
+    module_p0 = _pytestmark_applies_p0(tree.body)
     p0: set[str] = set()
     depends: dict[str, list[str]] = {}
     aliases: dict[str, str] = {}
 
-    def visit(body: list[ast.stmt]) -> None:
+    def visit(body: list[ast.stmt], inherited_p0: bool) -> None:
         for node in body:
             if isinstance(node, ast.ClassDef):
-                visit(node.body)
+                # pytest applies a class's marks to every test method inside it,
+                # so p0 has to travel down with the recursion. Without this a
+                # dependency declared inside a p0-marked class is never checked
+                # (the method is absent from ``p0``, so main() skips it) and a
+                # dependency *on* such a method is wrongly reported as non-p0.
+                class_marks = " ".join(ast.unparse(d) for d in node.decorator_list)
+                visit(
+                    node.body,
+                    inherited_p0
+                    or "mark.p0" in class_marks
+                    or _pytestmark_applies_p0(node.body),
+                )
                 continue
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
             if not node.name.startswith("test_"):
                 continue
             decorators = " ".join(ast.unparse(d) for d in node.decorator_list)
-            if module_p0 or "mark.p0" in decorators:
+            if inherited_p0 or "mark.p0" in decorators:
                 p0.add(node.name)
             declared, alias = _dependency_kwargs(node)
             if declared is not None:
@@ -123,7 +139,7 @@ def _scan(path: Path) -> tuple[set[str], dict[str, list[str]], dict[str, str]]:
             if alias:
                 aliases[alias] = node.name
 
-    visit(tree.body)
+    visit(tree.body, module_p0)
     return p0, depends, aliases
 
 
