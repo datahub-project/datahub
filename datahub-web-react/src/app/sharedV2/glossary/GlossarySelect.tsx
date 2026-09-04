@@ -289,6 +289,7 @@ export default function GlossarySelect({
             onSearchChange={handleSearch}
             renderCustomOptionText={renderOption}
             renderCustomSelectedValue={renderSelectedValue}
+            selectLabelProps={{ variant: 'custom' }}
             isLoading={isSearching ? searchLoading : treeLoading}
             dataTestId={dataTestId}
         />

@@ -1,5 +1,6 @@
 import { SimpleSelect } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SelectOption } from '@components/components/Select/types';
@@ -73,6 +74,7 @@ export default function TagSelect({
     onEntitiesFetched,
     defaultEntities,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
     const [searchText, setSearchText] = useState('');
     const [entityCache, setEntityCache] = useState<Record<string, Entity>>(() =>
         Object.fromEntries((defaultEntities || []).map((entity) => [entity.urn, entity])),
@@ -215,10 +217,10 @@ export default function TagSelect({
             ...baseOptions,
             {
                 value: CREATE_TAG_VALUE,
-                label: `Create "${trimmed}"`,
+                label: t('createOption', { inputValue: trimmed }),
             },
         ];
-    }, [currentEntities, allowCreateTag, searchText, existingUrns, selectedUrns.length]);
+    }, [currentEntities, allowCreateTag, searchText, existingUrns, selectedUrns.length, t]);
 
     // Build combined options including selected items from cache
     const combinedOptions = useMemo<TagSelectOption[]>(() => {
