@@ -29,14 +29,14 @@ Data Products can be easily published to the DataHub catalog, allowing other tea
 
 Data Product operations use **two different privileges** depending on whether you are acting from the **asset** or from the **Data Product** itself.
 
-| What you're doing                                   | Where in the UI / API                                                                      | Required privilege        | Policy resource                                  |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------- | ------------------------------------------------ |
-| Create, update, or delete a Data Product            | Domain → Data Products tab; `createDataProduct`, `updateDataProduct`, `deleteDataProduct`  | **Manage Data Products**  | Each **Domain** associated with the product      |
-| Add or remove assets from a Data Product page       | Data Product → Add Assets; `batchSetDataProduct`                                           | **Manage Data Products**  | **At least one** Domain on the product           |
-| Link or unlink a Data Product from an asset profile | Asset sidebar → Set Data Product; `batchAddToDataProducts` / `batchRemoveFromDataProducts` | **Edit Data Product**     | The **asset** being updated                      |
-| Browse Marketplace, open product profiles           | Govern → Data Product; `dataproduct`                                                       | **View Entity** (default) | Data Products the actor can see                  |
-| Create from Marketplace                             | Data Product → Create; `createDataProduct`                                                 | **Manage Data Product**   | The Domain selected on create                    |
-| Move / nest / detach a product                      | Profile menu → Move; `moveDataProduct`                                                     | **Manage Data Product**   | The data product's own Domain (not the parent's) |
+| What you're doing                                       | Where in the UI / API                                                                      | Required privilege        | Policy resource                                  |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------- | ------------------------------------------------ |
+| Create from Data Product sidebar                        | Data Product → Create; `createDataProduct`                                                 | **Manage Data Product**   | The Domain selected on create                    |
+| Browse from Data Product sidebar, open product profiles | Govern → Data Product; `dataproduct`                                                       | **View Entity** (default) | Data Products the actor can see                  |
+| Move / nest / detach a product                          | Profile menu → Move; `moveDataProduct`                                                     | **Manage Data Product**   | The data product's own Domain (not the parent's) |
+| Add or remove assets from a Data Product page           | Data Product → Add Assets; `batchSetDataProduct`                                           | **Manage Data Products**  | **At least one** Domain on the product           |
+| Link or unlink a Data Product from an asset profile     | Asset sidebar → Set Data Product; `batchAddToDataProducts` / `batchRemoveFromDataProducts` | **Edit Data Product**     | The **asset** being updated                      |
+| Create, update, or delete a Data Product from Domain    | Domain → Data Products tab; `createDataProduct`, `updateDataProduct`, `deleteDataProduct`  | **Manage Data Products**  | Each **Domain** associated with the product      |
 
 Grant these via [Metadata Policies](./authorization/policies.md).
 
@@ -134,7 +134,7 @@ See the [Environment Variables](deploy/environment-vars.md#feature-flags) docume
 
 ### Discover Data Products
 
-Easily discover Data Products without going through global Search or a Domain page, or use the `/dataproduct` API.
+Discover Data Products by opening Govern → Data Products, or navigating directly to /dataProducts.
 
 #### Data Product Home Page
 
@@ -168,8 +168,8 @@ Click a product in the sidebar or on the home page to open /dataProduct/:urn. Th
 
 The Data Product profile includes:
 
+- **Summary → Assets** — assets associated with the Data Product
 - **Summary → Sub-products** — direct children in the hierarchy
-- **Summary → Output Ports** — assets marked as the product's published outputs
 - **Output Ports tab** — full list of output-port assets
 - **Move** (profile menu) — set or clear the parent without editing name/description/assets
 
@@ -185,7 +185,7 @@ Data Product lineage enables users to visually discover assets in a data product
 
 ### Define Data Product Hierarchy
 
-Data Products can nest under other Data Products via an optional `parentDataProduct` pointer or from the DataHub UI, forming a multi-level taxonomy. This is useful when you buy or ingest a vendor product and re-package it into one or more internal products (for example, a vendor equities feed → an internal research product → a portfolio analytics product).
+Data Products can nest under other Data Products via an optional `parentDataProduct` pointer or from the DataHub UI, forming a multi-level taxonomy.
 
 Key behaviors:
 
@@ -193,7 +193,7 @@ Key behaviors:
 - Nesting depth is arbitrary.
 - A child may belong to a different Domain than its parent; Domain membership is independent of the parent-child relationship.
 - Permissions remain scoped to each Data Product's own Domain; **Manage Data Products** privilege is not inherited from the parent.
-- Circular nesting is not supported (a product cannot be moved under one of its own descendants).
+- A product cannot be moved under one of its own descendants
 
 <p align="center">
   <img width="70%" alt="Move dialog for re-parenting a Data Product in the hierarchy" src="https://raw.githubusercontent.com/datahub-project/static-assets/3ca67aad505de1157a5c5a14ef527dd2d88a1cd1/imgs/data_products/dataproducts-hierarchy-move.png"/>
