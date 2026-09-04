@@ -141,10 +141,7 @@ public class ProductUpdateResolverTest {
     ProductUpdate result = resolver.get(mockDataFetchingEnvironment).get();
 
     // Verify
-    assertNotNull(result);
-    assertEquals(result.getTitle(), "");
-    assertEquals(result.getCtaText(), "");
-    assertEquals(result.getCtaLink(), "");
+    assertNull(result);
   }
 
   @Test
@@ -176,7 +173,10 @@ public class ProductUpdateResolverTest {
     ProductUpdate result = resolver.get(mockDataFetchingEnvironment).get();
 
     // Verify
-    assertNull(result);
+    assertNotNull(result);
+    assertEquals(result.getTitle(), "");
+    assertEquals(result.getCtaText(), "");
+    assertEquals(result.getCtaLink(), "");
   }
 
   @Test

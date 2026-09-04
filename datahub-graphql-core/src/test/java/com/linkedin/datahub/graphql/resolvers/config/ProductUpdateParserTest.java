@@ -96,10 +96,7 @@ public class ProductUpdateParserTest {
 
     ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode));
 
-    assertNotNull(result);
-    assertEquals(result.getTitle(), "");
-    assertEquals(result.getCtaText(), "");
-    assertEquals(result.getCtaLink(), "");
+    assertNull(result);
   }
 
   @Test
@@ -119,7 +116,10 @@ public class ProductUpdateParserTest {
 
     ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode));
 
-    assertNull(result);
+    assertNotNull(result);
+    assertEquals(result.getTitle(), "");
+    assertEquals(result.getCtaText(), "");
+    assertEquals(result.getCtaLink(), "");
   }
 
   @Test
