@@ -1,0 +1,65 @@
+// Generates ConfigKeyConstants.java from application.yaml: one String constant per flat config key,
+// exact authored spelling — a renamed or removed yaml key fails the build at the stale reference.
+
+def configKeyGenDir = layout.buildDirectory.dir("generated/sources/configKeyConstants/java/main")
+
+tasks.register('generateConfigKeyConstants') {
+    def yamlFile = file("src/main/resources/application.yaml")
+    inputs.file(yamlFile)
+    outputs.dir(configKeyGenDir)
+    doLast {
+        def keys = new TreeSet<String>()
+        def flatten
+        flatten = { Map map, String prefix ->
+            map.each { k, v ->
+                def path = prefix.isEmpty() ? k.toString() : prefix + "." + k
+                if (v instanceof Map) {
+                    flatten(v, path)
+                } else if (!(v instanceof Collection)) {
+                    keys.add(path)
+                }
+            }
+        }
+        yamlFile.withInputStream { stream ->
+            new org.yaml.snakeyaml.Yaml().loadAll(stream).each { doc ->
+                if (doc instanceof Map) {
+                    flatten(doc, "")
+                }
+            }
+        }
+
+        def usedNames = new HashSet<String>()
+        def sb = new StringBuilder()
+        sb.append("package com.linkedin.metadata.config.resolver;\n\n")
+        sb.append("/**\n")
+        sb.append(" * GENERATED from application.yaml by the generateConfigKeyConstants Gradle task — do not edit.\n")
+        sb.append(" * One constant per flat config key, exact authored spelling. ")
+        sb.append(keys.size()).append(" keys.\n */\n")
+        sb.append("public final class ConfigKeyConstants {\n\n")
+        sb.append("  private ConfigKeyConstants() {}\n\n")
+        keys.each { key ->
+            // camelCase → SNAKE_CASE: split acronym/word boundaries first, then lower→upper ones,
+            // so homePage.firstInPersonalSidebar reads HOME_PAGE_FIRST_IN_PERSONAL_SIDEBAR.
+            def constant = key
+                .replaceAll(/([A-Z]+)([A-Z][a-z])/, '$1_$2')
+                .replaceAll(/([a-z0-9])([A-Z])/, '$1_$2')
+                .replaceAll(/[^A-Za-z0-9]+/, '_')
+                .toUpperCase()
+            if (usedNames.add(constant)) {
+                sb.append("  public static final String ").append(constant)
+                  .append(" = \"").append(key).append("\";\n")
+            } else {
+                logger.warn("generateConfigKeyConstants: constant-name collision for key '{}', skipped", key)
+            }
+        }
+        sb.append("}\n")
+
+        def outDir = new File(configKeyGenDir.get().asFile, "com/linkedin/metadata/config/resolver")
+        outDir.mkdirs()
+        new File(outDir, "ConfigKeyConstants.java").text = sb.toString()
+        logger.info("generateConfigKeyConstants: generated {} config key constants", keys.size())
+    }
+}
+
+sourceSets.main.java.srcDir configKeyGenDir
+compileJava.dependsOn generateConfigKeyConstants
