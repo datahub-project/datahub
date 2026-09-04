@@ -1,6 +1,6 @@
 ---
-description: "Group related Tables, Dashboards, Charts, and Pipelines into Data Products in DataHub to support data mesh ownership and discovery."
----
+
+## description: "Group related Tables, Dashboards, Charts, and Pipelines into Data Products in DataHub to support data mesh ownership and discovery."
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 import Tabs from '@theme/Tabs';
@@ -8,15 +8,14 @@ import TabItem from '@theme/TabItem';
 
 # Data Products
 
-<FeatureAvailability/>
-
 **🤝 Version compatibility**
 
 > DataHub Core: **0.10.3** | DataHub Cloud: **0.2.8**
+> Data Product Marketplace and Hierarchy requires DataHub Cloud **2.2.0**
 
 ## What are Data Products?
 
-Data Products are an innovative way to organize and manage your Data Assets, such as Tables, Topics, Views, Pipelines, Charts, Dashboards, etc., within DataHub. These Data Products belong to a specific Domain and can be easily accessed by various teams or stakeholders within your organization.
+Data Products are an innovative way to organize and manage your Data Assets, such as Tables, Topics, Views, Pipelines, Charts, Dashboards, etc., within DataHub. These Data Products belong to a specific Domain and can be easily discovered from Govern > Data Products or from Domain by various teams or stakeholders within your organization.
 
 ## Why Data Products?
 
@@ -34,11 +33,14 @@ Data Products can be easily published to the DataHub catalog, allowing other tea
 
 Data Product operations use **two different privileges** depending on whether you are acting from the **asset** or from the **Data Product** itself.
 
-| What you're doing                                   | Where in the UI / API                                                                      | Required privilege       | Policy resource                             |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------ | ------------------------------------------- |
-| Create, update, or delete a Data Product            | Domain → Data Products tab; `createDataProduct`, `updateDataProduct`, `deleteDataProduct`  | **Manage Data Products** | Each **Domain** associated with the product |
-| Add or remove assets from a Data Product page       | Data Product → Add Assets; `batchSetDataProduct`                                           | **Manage Data Products** | **At least one** Domain on the product      |
-| Link or unlink a Data Product from an asset profile | Asset sidebar → Set Data Product; `batchAddToDataProducts` / `batchRemoveFromDataProducts` | **Edit Data Product**    | The **asset** being updated                 |
+| What you're doing                                   | Where in the UI / API                                                                      | Required privilege        | Policy resource                                  |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------- | ------------------------------------------------ |
+| Create, update, or delete a Data Product            | Domain → Data Products tab; `createDataProduct`, `updateDataProduct`, `deleteDataProduct`  | **Manage Data Products**  | Each **Domain** associated with the product      |
+| Add or remove assets from a Data Product page       | Data Product → Add Assets; `batchSetDataProduct`                                           | **Manage Data Products**  | **At least one** Domain on the product           |
+| Link or unlink a Data Product from an asset profile | Asset sidebar → Set Data Product; `batchAddToDataProducts` / `batchRemoveFromDataProducts` | **Edit Data Product**     | The **asset** being updated                      |
+| Browse Marketplace, open product profiles           | Govern → Data Product; `dataproduct`                                                       | **View Entity** (default) | Data Products the actor can see                  |
+| Create from Marketplace                             | Data Product → Create; `createDataProduct`                                                 | **Manage Data Product**   | The Domain selected on create                    |
+| Move / nest / detach a product                      | Profile menu → Move; `moveDataProduct`                                                     | **Manage Data Product**   | The data product's own Domain (not the parent's) |
 
 Grant these via [Metadata Policies](./authorization/policies.md).
 
@@ -49,7 +51,6 @@ Grant these via [Metadata Policies](./authorization/policies.md).
 In normal operation each Data Product belongs to a single Domain. The UI and `createDataProduct` enforce this. Authorization still evaluates the full set of unique Domains on the product's `domains` aspect (preferring `domainAssociations`, falling back to the legacy `domains` array) so misconfigured metadata cannot bypass checks.
 
 Renaming a Data Product via `updateName` additionally allows **Edit Entity** on the Data Product URN itself as an alternative to domain-level manage access.
-
 :::
 
 **Edit Data Product** on an asset controls whether someone can change which Data Product(s) that asset belongs to (including add and remove via `batchAddToDataProducts`, `batchRemoveFromDataProducts`, and unsetting via `batchSetDataProduct`). It does **not** authorize rewriting a Data Product's membership list from the product page — that requires **Manage Data Products** on at least one of the product's Domains.
@@ -68,19 +69,29 @@ Data Products can be created using the UI or via a YAML file that is managed usi
 
 ### Creating a Data Product (UI)
 
-To create a Data Product, first navigate to the Domain that will contain this Data Product.
+#### Option 1 Create a Data Product from Govern > Data Product > Create Data Product.
 
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/a84499c124c9123d6831a0e6ad8dd8caf70203a0/imgs/data_products/dataproducts-tab.png"/>
-</p>
+![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-marketplace-create.png)
+
+1. Open **Govern → Data Product**
+2. Click **Create Data Product**
+3. Choose the **Domain** the product belongs to (required)
+4. Provide a **Name** for the data product (required)
+5. Optionally provide a **Description** (recommended)
+6. Optionally choose a **Parent Data Product**
+7. Click Create
+
+The new product appears as a root (or under the parent you chose) in the Data Product sidebar. You may need to refresh for the new Data Product to appear.
+
+#### Option 2 Navigate to the Domain that will contain this Data Product
+
+![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-tab.png)
 
 Then navigate to the Data Products tab on the Domain's home page, and click '+ New Data Product'.
 This will open a new modal where you can configure the settings for your data product. Inside the form, you can choose a name for your Data Product. Most often, this will align with the logical purpose of the Data Product, for example
 'Customer Orders' or 'Revenue Attribution'. You can also add documentation for your product to help other users easily discover it. Don't worry, this can be changed later.
 
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/a84499c124c9123d6831a0e6ad8dd8caf70203a0/imgs/data_products/dataproducts-create.png"/>
-</p>
+![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-create.png)
 
 Once you've chosen a name and a description, click 'Create' to create the new Data Product. Once you've created the Data Product, you can click on it to continue on to the next step, adding assets to it.
 
@@ -89,15 +100,11 @@ Once you've chosen a name and a description, click 'Create' to create the new Da
 You can assign an asset to a Data Product either using the Data Product page as the starting point or the Asset's page as the starting point.
 On a Data Product page, click the 'Add Assets' button on the top right corner to add assets to the Data Product.
 
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/a84499c124c9123d6831a0e6ad8dd8caf70203a0/imgs/data_products/dataproducts-add-assets.png"/>
-</p>
+![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-add-assets.png)
 
 On an Asset's profile page, use the right sidebar to locate the Data Product section. Click 'Set Data Product', and then search for the Data Product you'd like to add this asset to. When you're done, click 'Add'.
 
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/a84499c124c9123d6831a0e6ad8dd8caf70203a0/imgs/data_products/dataproducts-set.png"/>
-</p>
+![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-set.png)
 
 To remove an asset from a Data Product, click the 'x' icon on the Data Product label on either the asset profile or the Data Product page (each path uses the privilege listed in the table above).
 
@@ -119,18 +126,66 @@ MULTIPLE_DATA_PRODUCTS_PER_ASSET=false
 
 See the [Environment Variables](deploy/environment-vars.md#feature-flags) documentation for more details on configuring feature flags.
 
-### Nesting Data Products
+### Discover Data Products
 
-Data Products can nest under other Data Products via an optional `parentDataProduct` pointer, forming a multi-level taxonomy. This is useful when you buy or ingest a vendor product and re-package it into one or more internal products (for example, a vendor equities feed → an internal research product → a portfolio analytics product).
+Easily discover Data Products without going through global Search or a Domain page, or use the `/dataproduct` API.
+
+#### Data Product Home Page
+
+![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-marketplace-discovery.png)
+
+The Data Product Home page shows:
+
+- Summary cards: total Data Products, Applications (or Domains if Applications are off), Last Created
+- Recent Data Products, with owners, domain, tags, and deprecation when present
+- **Create Data Product** to add a new Data Product without leaving the Data Product landing page
+
+#### Data Product sidebar
+
+The left sidebar lists Data Products. Expand a row to load **direct children** (not the full subtree at once). Scroll to load more. Opening a product keeps this sidebar visible; ancestors of the selected product expand automatically.
+
+##### Search and Filters
+
+Use the sidebar search box to find products by name. Apply filters for Domain, owner, tags, glossary terms, and Application (when Applications are enabled). Search/filter mode shows a flat result list instead of the tree; clear filters to return to the hierarchy.
+
+##### Opening a Data Product
+
+Click a product in the sidebar or on the home page to open /dataProduct/:urn. The Data Product sidebar stays on the left. From here you can manage the data product, add assets, edit documentation, view Output Ports, Assets, Lineage, Properties, sub-products and assets.
+
+##### Data Product Profile
+
+![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-marketplace-profile.png)
+
+The Data Product profile includes:
+
+- **Summary → Sub-products** — direct children in the hierarchy
+- **Summary → Output Ports** — assets marked as the product's published outputs
+- **Output Ports tab** — full list of output-port assets
+- **Move** (profile menu) — set or clear the parent without editing name/description/assets
+
+Breadcrumbs show Domain → immediate parent.
+
+##### Data Product Lineage
+
+![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-lineage.png)
+
+Data Product lineage enables users to visually discover assets in a data product and understand the associations between assets in data products.
+
+### Define Data Product Hierarchy
+
+Data Products can nest under other Data Products via an optional `parentDataProduct` pointer or from the DataHub UI, forming a multi-level taxonomy. This is useful when you buy or ingest a vendor product and re-package it into one or more internal products (for example, a vendor equities feed → an internal research product → a portfolio analytics product).
 
 Key behaviors:
 
-- A Data Product may have at most one parent (a tree, not a DAG). Nesting depth is arbitrary.
+- A Data Product may have at most one parent (a tree, not a DAG).
+- Nesting depth is arbitrary.
 - A child may belong to a different Domain than its parent; Domain membership is independent of the parent-child relationship.
-- Permissions remain scoped to each Data Product's own Domain — Manage Data Products is not inherited from the parent.
-- Cycles are rejected (a product cannot be moved under one of its own descendants).
+- Permissions remain scoped to each Data Product's own Domain; **Manage Data Products** privilege is not inherited from the parent.
+- Circular nesting is not supported (a product cannot be moved under one of its own descendants).
 
-You can set the parent when creating or editing a Data Product in the UI, or declare it in YAML:
+![](https://raw.githubusercontent.com/datahub-project/static-assets/d0c3c6e4bbff44403a4d8765a9e2635bd51737d2/imgs/data_products/dataproducts-hierarchy-move.png)
+
+You can set the parent when creating or editing a Data Product in the UI or declare it in YAML:
 
 ```yaml
 id: portfolio_analytics
@@ -150,14 +205,13 @@ DataHub ships with a YAML-based Data Product spec for defining and managing Data
 
 Here is an example of a Data Product named "Pet of the Week" which belongs to the **Marketing** domain and contains three data assets. The **Spec** tab describes the JSON Schema spec for a DataHub data product file.
 
-<Tabs>
-<TabItem value="sample" label="Example" default>
-
-<!-- prettier-ignore-start -->
 ```yaml
-{{ inline /metadata-ingestion/examples/data_product/dataproduct.yaml show_path_as_comment }}
+{
+  {
+    inline /metadata-ingestion/examples/data_product/dataproduct.yaml show_path_as_comment,
+  },
+}
 ```
-<!-- prettier-ignore-end -->
 
 :::note
 
@@ -169,16 +223,10 @@ This applies to other fields as well, such as owners, ownership types, tags, and
 
 You can also provide fully-qualified domain names (e.g. `urn:li:domain:dcadded3-2b70-4679-8b28-02ac9abc92eb`) to ensure that no ingestion-time domain resolution is needed.
 
-</TabItem>
-<TabItem value="schema" label="Spec">
-
 ```json
 {{ inline /docs/generated/specs/schemas/dataproduct_schema.json }}
 
 ```
-
-</TabItem>
-</Tabs>
 
 To sync this yaml file to DataHub, use the `datahub` cli via the `dataproduct` group of commands.
 
