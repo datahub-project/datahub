@@ -112,6 +112,12 @@ export interface CodeBlockProps
     /** Soft-wrap long lines */
     wrap?: boolean;
 
+    /**
+     * When set and different from `code`, render a read-only inline word diff
+     * (`diffAgainst` = old, `code` = new). Skips Prism, format, and the editor.
+     */
+    diffAgainst?: string;
+
     /** 1-based line numbers to highlight */
     highlightedLines?: number[] | ReadonlySet<number>;
 

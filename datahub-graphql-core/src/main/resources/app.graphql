@@ -737,6 +737,12 @@ type FeatureFlagsConfig {
   themeV2Toggleable: Boolean!
 
   """
+  If turned on, show the light/dark mode toggle in Appearance settings and apply the dark color theme.
+  Controlled by THEME_DARK_MODE_ENABLED.
+  """
+  themeDarkModeEnabled: Boolean!
+
+  """
   Enables links to schema field-level lineage on lineage explorer.
   """
   schemaFieldCLLEnabled: Boolean!

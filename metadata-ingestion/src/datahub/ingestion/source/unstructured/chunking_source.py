@@ -16,7 +16,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator, Iterable, Optional
 
@@ -43,12 +43,35 @@ from datahub.ingestion.source.unstructured.embedding_providers.factory import (
     create_embedding_provider,
     derive_model_id,
 )
+from datahub.metadata.schema_classes import (
+    EmbeddingChunkClass,
+    EmbeddingModelDataClass,
+    SemanticContentClass,
+)
 from datahub.utilities.ratelimiter import RateLimiter
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
+
+
+class SkipMarkerReadError(RuntimeError):
+    """Raised when the existing semanticContent aspect cannot be read while building a
+    skip marker. Callers must leave the document's incremental state unrecorded so the
+    marker is retried next run, instead of swallowing this like a generic embed failure
+    (which would record state and permanently drop the marker)."""
+
+
+def compute_source_text_sha256(text: str) -> str:
+    """Fingerprint of the exact resolved source text that was embedded.
+
+    Lowercase SHA-256 hex over the UTF-8 bytes, byte-identical to the server-side
+    resolvedTextSha256 stamp (UpdateIndicesV2Strategy.sha256Hex) that coverage
+    reporting compares it against. Any change here is a change to the staleness
+    contract on both sides.
+    """
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 @dataclass
@@ -254,7 +277,10 @@ class DocumentChunkingSource(Source):
         return re.sub(r"[^a-zA-Z0-9_]", "_", self.config.embedding.model)
 
     def process_elements_inline(
-        self, document_urn: str, elements: list[dict[str, Any]]
+        self,
+        document_urn: str,
+        elements: list[dict[str, Any]],
+        source_text_sha256: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Process elements inline and emit SemanticContent aspects.
 
@@ -264,19 +290,34 @@ class DocumentChunkingSource(Source):
         Args:
             document_urn: URN of the document
             elements: Unstructured.io elements to chunk and embed
+            source_text_sha256: SHA-256 hex digest (UTF-8 bytes) of the exact resolved
+                source text the elements were partitioned from, recorded on the emitted
+                embeddings as staleness provenance. None when the caller does not track it.
 
         Yields:
             MetadataWorkUnits containing SemanticContent aspects
         """
         if not elements:
             logger.warning(f"No elements provided for document {document_urn}")
+            yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
             return
 
         # Chunk the elements. A chunking failure raises so the calling source
         # does not record the document as successfully processed.
         chunks = self._chunk_elements(elements)
         if not chunks:
+            # Deterministic for this text: emit a skip marker (rather than silently nothing)
+            # so the document is classified as never-embeddable instead of missing.
             logger.warning(f"No chunks created for document {document_urn}")
+            yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
+            return
+
+        # All-blank chunk text is deterministic for this document: _generate_embeddings
+        # would filter every chunk before calling the provider, so treat it as a
+        # deliberate skip rather than an embedding failure that would retry forever.
+        if not any((chunk.get("text") or "").strip() for chunk in chunks):
+            logger.warning(f"Only blank chunk text for document {document_urn}")
+            yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
             return
 
         # Generate embeddings (only if configured).
@@ -289,6 +330,15 @@ class DocumentChunkingSource(Source):
                         embeddings = self._generate_embeddings(chunks)
                 else:
                     embeddings = self._generate_embeddings(chunks)
+                # A configured provider returning zero vectors for non-blank chunks is
+                # an anomaly, not a legitimate skip: raise before success accounting so
+                # the document is reported as failed (and retried next run) instead of
+                # counted as successfully embedded with no semanticContent.
+                if not embeddings:
+                    raise RuntimeError(
+                        f"Embedding provider returned no vectors for {document_urn} "
+                        f"({len(chunks)} chunks)"
+                    )
                 self.report.report_embedding_success()
             except Exception as e:
                 short_error = str(e).split("\n")[0][:200]
@@ -301,7 +351,9 @@ class DocumentChunkingSource(Source):
 
         # Emit SemanticContent aspect (only if embeddings were generated)
         if embeddings:
-            yield from self._emit_semantic_content(document_urn, chunks, embeddings)
+            yield from self._emit_semantic_content(
+                document_urn, chunks, embeddings, source_text_sha256
+            )
 
         self.report.report_document_processed(len(chunks))
         self.report.report_embeddings_generated(len(embeddings))
@@ -816,19 +868,68 @@ class DocumentChunkingSource(Source):
             logger.error(f"Failed to generate embeddings: {e}", exc_info=True)
             raise
 
+    def build_skip_marker_workunit(
+        self, document_urn: str, reason: str
+    ) -> MetadataWorkUnit:
+        """Build a semanticContent skip marker for a deliberately-skipped document.
+
+        A skipReason (with no entry for this pipeline's model) lets downstream consumers
+        (e.g. coverage reporting) tell never-embeddable documents apart from indexing lag
+        or failures. The marker is overwritten with real embeddings if the document later
+        becomes embeddable and is processed.
+
+        SemanticContent.embeddings is a multi-model map written as a full-aspect UPSERT,
+        so the marker carries forward every other model's existing entry (dropping only
+        this pipeline's own) — otherwise one pipeline's skip would erase other models'
+        embeddings, and the index projection would clear their vectors.
+        """
+        preserved_embeddings: dict[str, EmbeddingModelDataClass] = {}
+        if self.graph is not None:
+            own_key = self.get_model_embedding_key()
+            try:
+                existing = self.graph.get_aspect(
+                    entity_urn=document_urn, aspect_type=SemanticContentClass
+                )
+                if existing is not None and existing.embeddings:
+                    preserved_embeddings = {
+                        key: value
+                        for key, value in existing.embeddings.items()
+                        if key != own_key
+                    }
+            except Exception as e:
+                # Do NOT fall back to an empty map: the marker is a full-aspect UPSERT, so
+                # emitting it after a transient read failure would erase other models'
+                # entries. Raising leaves the document unprocessed; the caller reports it
+                # failed and it is retried next run.
+                raise SkipMarkerReadError(
+                    f"Could not read existing semanticContent for {document_urn}; "
+                    f"not emitting a skip marker that could erase other models' entries"
+                ) from e
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=document_urn,
+            aspect=SemanticContentClass(
+                embeddings=preserved_embeddings,
+                skipReason=reason,
+                # Timezone-aware: .timestamp() on a naive utcnow() reinterprets the
+                # value as local time, skewing skippedAt on non-UTC hosts.
+                skippedAt=int(datetime.now(timezone.utc).timestamp() * 1000),
+            ),
+        )
+        # Non-primary so AutoStatusAspectProcessor does not emit a Status UPSERT for the
+        # document URN (mirrors _emit_semantic_content).
+        return MetadataWorkUnit(
+            id=f"{document_urn}-semanticContent-skip", mcp=mcp, is_primary_source=False
+        )
+
     def _emit_semantic_content(
         self,
         document_urn: str,
         chunks: list[dict[str, Any]],
         embeddings: list[list[float]],
+        source_text_sha256: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit SemanticContent aspect for the document."""
-        from datahub.metadata.schema_classes import (
-            EmbeddingChunkClass,
-            EmbeddingModelDataClass,
-            SemanticContentClass,
-        )
-
         # Use the provider's canonical model_id (e.g. "bedrock/cohere.embed-english-v3").
         # Going through derive_model_id keeps the "local" → "openai/..." mapping
         # consistent with self.embedding_model and the provider instance.
@@ -865,6 +966,7 @@ class DocumentChunkingSource(Source):
         embedding_model_data = EmbeddingModelDataClass(
             modelVersion=model_version,
             generatedAt=int(datetime.utcnow().timestamp() * 1000),
+            sourceTextSha256=source_text_sha256,
             chunkingStrategy=self.config.chunking.strategy,
             totalChunks=len(chunks),
             chunks=embedding_chunks,

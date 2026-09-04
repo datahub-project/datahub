@@ -18,6 +18,15 @@ record EmbeddingModelData {
   generatedAt: long
 
   /**
+   * SHA-256 hex digest over the UTF-8 bytes of the exact resolved source text these embeddings
+   * were generated from (the semanticText override when set, else the entity's body text).
+   * Written by the embedding pipeline at generation time so consumers (e.g. coverage reporting)
+   * can detect genuinely stale embeddings by comparing against a hash of the current resolved
+   * text, instead of relying on modification timestamps that move on non-content writes.
+   */
+  sourceTextSha256: optional string
+
+  /**
    * Description of the chunking strategy used.
    * Examples: sentence_boundary_400t, fixed_512_chars, paragraph
    */

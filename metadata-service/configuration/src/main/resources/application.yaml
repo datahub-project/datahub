@@ -1185,7 +1185,6 @@ kafka:
     pe:
       autoOffsetReset: ${KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET:latest}
     metrics:
-      percentiles: ${KAFKA_CONSUMER_PERCENTILES:0.5,0.95,0.99,0.999}
       slo: ${KAFKA_CONSUMER_SERVICE_LEVEL_OBJECTIVES:300,1800,3000,10800,21600,43200} # 5min, 30min, 1hr, 3hr, 6hr, 12h (seconds)
       maxExpectedValue: ${KAFKA_CONSUMER_MAX_EXPECTED_VALUE:86000} # 24h (seconds)
 
@@ -1418,6 +1417,13 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false}
+  dataProductAssets:
+    # First-time population of asset-side dataProducts is driven by dataProductProperties
+    # schemaVersion + MigrateAspects / ZDU (see DataProductPropertiesMigrationMutator).
+    # Set reprocess.enabled to force a re-upsert sweep that re-runs DataProductAssetsSideEffect.
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_BATCH_SIZE:1000}
+    reprocess:
+      enabled: ${REPROCESS_DATA_PRODUCT_ASSETS:false}
   browsePathsV2Iceberg:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ICEBERG_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ICEBERG_BATCH_SIZE:5000}
@@ -1669,6 +1675,7 @@ featureFlags:
   themeV2Enabled: ${THEME_V2_ENABLED:true} # Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be false for this to have any effect.
   themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
   themeV2Toggleable: ${THEME_V2_TOGGLEABLE:false} # Acryl only! Allows theme v2 to be toggled on / off by users.
+  themeDarkModeEnabled: ${THEME_DARK_MODE_ENABLED:false} # If turned on, show the light/dark mode toggle in Appearance settings and apply the dark color theme.
   schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
   schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
@@ -1714,6 +1721,7 @@ featureFlags:
   timeseriesAspectAggBatchLoadEnabled: ${TIMESERIES_ASPECT_AGG_BATCH_LOAD_ENABLED:true} # If enabled, Dashboard.statsSummary uses the batch aggregation DataLoader; disable to revert to per-URN queries
   entityHealthBatchLoadEnabled: ${ENTITY_HEALTH_BATCH_LOAD_ENABLED:true} # If enabled, the entity `health` field uses the batch DataLoader (batches incident, assertion-run and test-result fetches across a request); disable to revert to per-entity resolution
   datasetStatsSummaryBatchLoadEnabled: ${DATASET_STATS_SUMMARY_BATCH_LOAD_ENABLED:true} # If enabled, Dataset.statsSummary uses the batch aggregation DataLoader (batches usage aggregations across a request); disable to revert to per-dataset queries
+  siblingsSearchBatchLoadEnabled: ${SIBLINGS_SEARCH_BATCH_LOAD_ENABLED:true} # If enabled, Dataset.siblingsSearch uses the batch DataLoader (one search per chunk of datasets instead of one per dataset); disable to revert to per-dataset searches
   entityExistsBatchLoadEnabled: ${ENTITY_EXISTS_BATCH_LOAD_ENABLED:true} # If enabled, the entity `exists` field uses the batch DataLoader (one primary-store read per request instead of one per row); disable to revert to per-entity reads
   parentNodesBatchLoadEnabled: ${PARENT_NODES_BATCH_LOAD_ENABLED:true} # If enabled, `parentNodes` uses the batch DataLoader (walks ancestors concurrently, then one batchGetV2 for all ancestors in the request); disable to revert to per-entity resolution
   parentContainersBatchLoadEnabled: ${PARENT_CONTAINERS_BATCH_LOAD_ENABLED:true} # If enabled, `parentContainers` uses the batch DataLoader (walks ancestors concurrently, then one batchGetV2 for all ancestors in the request); disable to revert to per-entity resolution
@@ -1843,9 +1851,15 @@ graphQL:
     enabled: ${GRAPHQL_GRAPHIQL_ENABLED:true}
   concurrency:
     separateThreadPool: ${GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL:false} # Enable the separate thread pool, the following configurations only apply if enabled
+    # true restores availableProcessors()*5 / *100 and a SynchronousQueue (pre-8-core-default behavior)
+    scaleWithProcessors: ${GRAPHQL_CONCURRENCY_SCALE_WITH_PROCESSORS:false}
     stackSize: ${GRAPHQL_CONCURRENCY_STACK_SIZE:256000} # Default to JVM default of 256 KB
-    corePoolSize: ${GRAPHQL_CONCURRENCY_CORE_POOL_SIZE:-1} # Base thread pool size for GraphQL executor service, default 5 * # of cores
-    maxPoolSize: ${GRAPHQL_CONCURRENCY_MAX_POOL_SIZE:-1} # Maximum thread pool size for GraphQL executor service, default 100 * # of cores
+    corePoolSize: ${GRAPHQL_CONCURRENCY_CORE_POOL_SIZE:40} # 8-core default (5 * 8); < 0 uses 5 * availableProcessors()
+    maxPoolSize: ${GRAPHQL_CONCURRENCY_MAX_POOL_SIZE:800} # 8-core cap (100 * 8); <= 0 uses 100 * availableProcessors()
+    # 0 = SynchronousQueue (create a worker per task up to max). GraphQL fan-out is blocking I/O, not
+    # CPU-linear; a small bounded queue plus CallerRunsPolicy on Jetty has starved nested resolvers.
+    # Set > 0 only if you want an ArrayBlockingQueue of that capacity.
+    queueSize: ${GRAPHQL_CONCURRENCY_QUEUE_SIZE:0}
     keepAlive: ${GRAPHQL_CONCURRENCY_KEEP_ALIVE:60} # Number of seconds to keep inactive threads alive
   query:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
@@ -1992,6 +2006,9 @@ metadataChangeProposal:
       enabled: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_UNSET_ENABLED:true}
     aliases:
       enabled: ${MCP_SIDE_EFFECTS_ALIASES_ENABLED:true}
+    dataProductAssets:
+      enabled: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_ENABLED:true} # Mirrors Data Product membership onto member assets' dataProducts aspect for search filtering/faceting
+      maxFanoutPerCommit: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_MAX_FANOUT:500} # Batch size for reading existing asset-side dataProducts; ADD patches are not capped per commit
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 

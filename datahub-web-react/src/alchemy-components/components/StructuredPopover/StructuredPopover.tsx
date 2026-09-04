@@ -28,8 +28,9 @@ export function StructuredPopover(props: StructuredPopoverProps & TooltipProps) 
             {title && <Title>{title}</Title>}
             {sections && (
                 <SectionsContainer>
-                    {sections?.map((section) => (
-                        <Section>
+                    {sections?.map((section, i) => (
+                        // eslint-disable-next-line react/no-array-index-key
+                        <Section key={i}>
                             <SectionHeader>
                                 <SectionTitle>{section.title}</SectionTitle>
                                 {section.titleSuffix && <TitleSuffix>{section.titleSuffix}</TitleSuffix>}
