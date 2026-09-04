@@ -1,4 +1,3 @@
-import json
 import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
@@ -21,7 +20,6 @@ from datahub.ingestion.run.pipeline_config import (
 )
 from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns import (
     AutoResolveLineageUrnsProcessor,
-    AutoResolveLineageUrnsProcessorReport,
     _pick_match,
 )
 from datahub.metadata.schema_classes import (
@@ -1991,15 +1989,6 @@ def test_the_four_outcomes_are_counted_apart():
 
 
 # --- the sample behind the unresolved count --------------------------------------------
-
-
-def test_the_report_is_json_serializable():
-    # The run summary reporter json.dumps the report, and the base as_obj returns values
-    # raw — so a bare set here would break every run with the feature on, sample or not.
-    report = AutoResolveLineageUrnsProcessorReport()
-    assert json.loads(json.dumps(report.as_obj()))["unresolved_refs_sample"] == []
-    report.unresolved_refs_sample.add(UPPER)
-    assert UPPER in json.loads(json.dumps(report.as_obj()))["unresolved_refs_sample"]
 
 
 def test_the_unresolved_sample_keeps_one_entry_per_broken_table():

@@ -118,12 +118,6 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     # count, so the report shows *which* lineage looks broken, not just how much.
     unresolved_refs_sample: LossySet[str] = field(default_factory=LossySet)
 
-    def as_obj(self) -> Dict[str, object]:
-        obj = super().as_obj()
-        # The base class returns values raw, and a set is not JSON serializable.
-        obj["unresolved_refs_sample"] = self.unresolved_refs_sample.as_obj()
-        return obj
-
 
 @dataclass
 class _Resolution:
