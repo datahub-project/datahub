@@ -13,6 +13,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine
 from sqlalchemy.dialects import mysql
+from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.engine import Connection
 
 from datahub.ingestion.source.sqlalchemy_profiler import (
@@ -895,6 +896,12 @@ class TestFlattenPath:
         # Tagged: an untagged query is rejected on the empty allowlist before
         # the clause gate runs, which would make every assertion below pass
         # even with the gate deleted.
+        #
+        # Deliberately no dialect. Under SQLite, for_update and an unscoped
+        # with_hint render identically to the bare rebuild (no row locking, no
+        # hints), so they would flatten and two families would fail here for a
+        # non-reason. Dialect-scoped behaviour is pinned separately in
+        # test_dialect_scoped_constructs_are_rejected.
         for label, q in non_flattenable.items():
             assert not SQLAlchemyQueryCombiner._is_flattenable(flattenable_query(q)), (
                 f"_is_flattenable should reject {label!r}"
@@ -1070,6 +1077,21 @@ class TestFlattenPath:
             sa.select(sa.func.count().label("c")).select_from(test_table)
         )
         assert SQLAlchemyQueryCombiner._is_flattenable(plain, dialect)
+
+    def test_uncompilable_query_is_rejected_not_counted_as_a_gate_error(
+        self, test_table
+    ):
+        # PostgreSQL raises CompileError on an unscoped with_hint. That is not
+        # an InvalidRequestError, so without a specific catch it would land in
+        # flatten_gate_errors -- the counter documented as the only defect
+        # signal.
+        hinted = flattenable_query(
+            sa.select(sa.func.count().label("c"))
+            .select_from(test_table)
+            .with_hint(test_table, "USE INDEX (PRIMARY)")
+        )
+        verdict = SQLAlchemyQueryCombiner._flatten_verdict(hinted, PGDialect())
+        assert verdict is _FlattenVerdict.REJECTED
 
     @pytest.mark.parametrize(
         "agg,names",

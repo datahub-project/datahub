@@ -635,7 +635,15 @@ class SQLAlchemyQueryCombiner:
             rebuilt = sqlalchemy.select(get_query_columns(query))
             for f in query.get_final_froms():
                 rebuilt.append_from(f)
-            if _render(query, dialect) != _render(rebuilt, dialect):
+            try:
+                original_sql = _render(query, dialect)
+                rebuilt_sql = _render(rebuilt, dialect)
+            except sqlalchemy.exc.CompileError:
+                # The dialect refuses to render it -- an unscoped with_hint on
+                # PostgreSQL, for instance. Equivalence cannot be proven, so
+                # this is a designed rejection rather than a broken gate.
+                return _FlattenVerdict.REJECTED
+            if original_sql != rebuilt_sql:
                 return _FlattenVerdict.REJECTED
             # Adapter's allowlist; absent means empty, so nothing flattens.
             # Matched on name, not type -- upper(v) is also a FunctionElement
