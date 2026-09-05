@@ -125,9 +125,12 @@ class FilterBuilder:
             )
 
         # Escape backslashes first (BigQuery treats '\' as an escape char in string
-        # literals), then double single quotes, so a legitimate value containing either
-        # is encoded rather than rejected or emitted as broken SQL.
-        escaped_val = str_val.replace("\\", "\\\\").replace("'", "''")
+        # literals), then backslash-escape single quotes. BigQuery GoogleSQL does NOT
+        # treat a doubled quote ('') as an escaped quote — it reads it as two adjacent
+        # string literals and rejects the query — so a quote must be emitted as \'. The
+        # security validator's literal masking already honours \', so the predicate both
+        # passes validation and parses in BigQuery.
+        escaped_val = str_val.replace("\\", "\\\\").replace("'", "\\'")
         return f"`{col_name}` = '{escaped_val}'"
 
     @staticmethod
