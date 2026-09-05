@@ -1,7 +1,7 @@
 import logging
 import sys
 import time
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,6 +11,7 @@ import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import StructuredLogLevel
+from datahub.ingestion.source.powerbi import powerbi
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
@@ -19,7 +20,7 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser
+from datahub.ingestion.source.powerbi.m_query import parser, shared_expressions
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataPlatformTable,
     Lineage,
@@ -32,6 +33,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
 )
+from datahub.utilities.threading_timeout import TimeoutException
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -2285,3 +2287,724 @@ def test_mutually_referencing_steps_do_not_recurse():
     )
 
     assert combine_upstreams_from_lineage(lineages) == []
+
+
+# A query with "Enable load" switched off is not a table in the model; it lives
+# only in the dataset's shared expressions. Names below are generic stand-ins for
+# the reported shape: one loaded table over three hidden queries.
+_HIDDEN_BASE_EXPRESSION: str = (
+    "let\n"
+    f"    Source = {_DATABRICKS_CONNECTOR},\n"
+    '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+    '    sch = db{[Name="my_schema",Kind="Schema"]}[Data],\n'
+    '    tbl = sch{[Name="my_table",Kind="Table"]}[Data]\n'
+    "in\n"
+    "    tbl"
+)
+
+_DATABRICKS_EXPECTED_UPSTREAM: str = (
+    "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.my_table,PROD)"
+)
+
+
+def _lineage_and_report(
+    q: str, expressions: dict, parameters: Optional[dict] = None
+) -> Tuple[List[Lineage], PowerBiDashboardSourceReport]:
+    """Resolve `q` against `expressions`, returning the report as well so tests can
+    assert on what the operator is told, not only on the lineage."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="loaded_table",
+        full_name="MyDataSet.loaded_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        parameters=parameters or {},
+        expressions=expressions,
+    )
+    return lineages, reporter
+
+
+def _lineage_with_expressions(q: str, expressions: dict) -> List[Lineage]:
+    return _lineage_and_report(q, expressions)[0]
+
+
+def _warning_titles(reporter: PowerBiDashboardSourceReport) -> List[str]:
+    return [w.title or "" for w in reporter.warnings]
+
+
+@pytest.mark.integration
+def test_shared_expression_provides_lineage():
+    """A table whose only reference is a query that is not loaded into the model
+    still resolves, by following that query's own expression."""
+    lineages = _lineage_with_expressions(
+        'let Source = #"Base Query", out = Table.SelectRows(Source, each true) in out',
+        {"Base Query": _HIDDEN_BASE_EXPRESSION},
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_UPSTREAM
+
+
+@pytest.mark.integration
+def test_parenthesized_step_still_reaches_a_hidden_query():
+    """Parentheses and hidden queries compose: the walk has to carry the shared
+    queries through the parenthesized branch, not just the scope chain."""
+    lineages = _lineage_with_expressions(
+        'let Source = (#"Base Query") in Source',
+        {"Base Query": _HIDDEN_BASE_EXPRESSION},
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_UPSTREAM
+
+
+@pytest.mark.integration
+def test_shared_expression_chain_resolves_through_diamond():
+    """The reported shape: one loaded table combining two hidden queries that both
+    read a third hidden query, which holds the connector. The shared upstream is
+    reported once, not once per path."""
+    lineages = _lineage_with_expressions(
+        'let Source = Table.Combine({#"Only", #"Excluded"}) in Source',
+        {
+            "Only": 'let s = #"Base Query",'
+            ' f = Table.SelectRows(s, each [c] = "x") in f',
+            "Excluded": 'let s = #"Base Query",'
+            ' f = Table.SelectRows(s, each [c] <> "x") in f',
+            "Base Query": _HIDDEN_BASE_EXPRESSION,
+        },
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    # Both branches legitimately reach the same table, so the walk finds it on
+    # each path; collapsing that into one upstream is the mapper's job and is
+    # covered by the golden test.
+    assert {t.urn for t in data_platform_tables} == {_DATABRICKS_EXPECTED_UPSTREAM}
+
+
+@pytest.mark.integration
+def test_shared_expression_cycle_does_not_recurse():
+    """Two queries referencing each other must stop rather than be followed
+    forever."""
+    lineages = _lineage_with_expressions(
+        'let Source = #"A" in Source',
+        {
+            "A": 'let s = #"B" in s',
+            "B": 'let s = #"A" in s',
+        },
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+def test_parameter_query_is_not_followed_as_a_source():
+    """A shared expression holding a parameter value is not a query, so following
+    it leads to a literal rather than a data source."""
+    lineages, reporter = _lineage_and_report(
+        'let Source = #"Server Name" in Source',
+        {
+            "Server Name": '"adb-123.azuredatabricks.net"'
+            ' meta [IsParameterQuery=true, Type="Text",'
+            " IsParameterQueryRequired=true]"
+        },
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    # Without the marker check the parameter is followed, found to be a bare
+    # literal, and reported as a query that came up short -- a false alarm on
+    # every dataset that has parameters, which is nearly all of them.
+    assert _warning_titles(reporter) == []
+
+
+@pytest.mark.integration
+def test_shared_expression_reference_is_matched_case_insensitively():
+    """M identifier lookup folds case elsewhere, so a reference whose casing
+    differs from the query name still resolves."""
+    lineages = _lineage_with_expressions(
+        'let Source = #"base query" in Source',
+        {"Base Query": _HIDDEN_BASE_EXPRESSION},
+    )
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_UPSTREAM
+
+
+@pytest.mark.integration
+def test_native_query_opt_out_applies_to_shared_expressions():
+    """native_query_parsing=False has to hold for a native query reached through
+    another query, not just one written on the table itself."""
+    connector = (
+        'Snowflake.Databases("srv.snowflakecomputing.com","wh")'
+        '{[Name="MYDB",Kind="Database"]}[Data]'
+    )
+    hidden = (
+        f"let q = Value.NativeQuery({connector},"
+        ' "select a from MYDB.SCH.TBL", null, [EnableFolding=true]) in q'
+    )
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression='let Source = #"Hidden",'
+        " o = Table.SelectRows(Source, each true) in o",
+        name="t",
+        full_name="MyDataSet.t",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": False,
+            "enable_advance_lineage_sql_construct": False,
+            "extract_column_level_lineage": False,
+        }
+    )
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        expressions={"Hidden": hidden},
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+
+
+@pytest.mark.integration
+def test_shared_expression_without_a_let_is_reported():
+    """A hidden query written as a bare expression yields no lineage -- the root
+    path declines those too -- but the operator is told which query it was rather
+    than being left with a table that is quietly short of lineage."""
+    table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression='let Source = #"Bare Query" in Source',
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+    config.enable_advance_lineage_sql_construct = True
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        expressions={"Bare Query": 'Sql.Database("server", "db")'},
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    titles = [w.title for w in reporter.warnings]
+    assert any("referenced query" in (t or "").lower() for t in titles), titles
+
+
+@pytest.mark.integration
+def test_unparseable_shared_expression_is_reported():
+    """A query that cannot be parsed leaves the table short of lineage, so it has
+    to be named rather than dropped at debug level."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression='let Source = #"Broken" in Source',
+        name="t",
+        full_name="MyDataSet.t",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        expressions={"Broken": "let %%% not valid m ((("},
+    )
+
+    titles = [entry.title for entry in reporter.warnings]
+    assert any("referenced query" in (t or "") for t in titles), (
+        f"Expected the unparseable query to be reported; got: {titles}"
+    )
+
+
+@pytest.mark.integration
+def test_reference_cycle_is_reported_as_a_loop_not_a_depth_limit():
+    """Two queries referencing each other stop at the cycle, and the operator is
+    told it was a loop. Asserting the reason distinguishes this guard from the
+    depth cap, which would otherwise absorb the same input ten hops later."""
+    lineages, reporter = _lineage_and_report(
+        'let Source = #"A" in Source',
+        {
+            "A": 'let s = #"B" in s',
+            "B": 'let s = #"A" in s',
+        },
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert shared_expressions.StopReason.CYCLE.title in _warning_titles(reporter)
+    assert reporter.m_query_referenced_query_not_followed == 1
+
+
+@pytest.mark.integration
+def test_reference_chain_past_the_cap_is_reported_as_too_long():
+    """A linear chain longer than the cap stops and says so. Linear, so the cycle
+    guard cannot fire -- this pins the cap on its own."""
+    depth = shared_expressions.MAX_REFERENCE_DEPTH + 2
+    chain = {f"q{i}": f'let s = #"q{i + 1}" in s' for i in range(depth)}
+    chain[f"q{depth}"] = _HIDDEN_BASE_EXPRESSION
+
+    lineages, reporter = _lineage_and_report('let Source = #"q0" in Source', chain)
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert shared_expressions.StopReason.TOO_DEEP.title in _warning_titles(reporter)
+
+
+@pytest.mark.integration
+def test_reference_chain_within_the_cap_still_resolves():
+    """The other side of the cap: a chain one hop short of the limit resolves, so
+    the limit is pinned from both directions rather than only 'deep things fail'."""
+    depth = shared_expressions.MAX_REFERENCE_DEPTH - 1
+    chain = {f"q{i}": f'let s = #"q{i + 1}" in s' for i in range(depth)}
+    chain[f"q{depth}"] = _HIDDEN_BASE_EXPRESSION
+
+    lineages, reporter = _lineage_and_report('let Source = #"q0" in Source', chain)
+
+    data_platform_tables = combine_upstreams_from_lineage(lineages)
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].urn == _DATABRICKS_EXPECTED_UPSTREAM
+    assert _warning_titles(reporter) == []
+
+
+@pytest.mark.integration
+def test_a_query_reached_by_two_routes_is_parsed_once():
+    """The parse cache is a cost guarantee, not a nicety -- a failing query would
+    otherwise re-pay the full m_query_parse_timeout per route. Count the parses."""
+    seen: List[str] = []
+    real = parser._parse_with_bridge
+
+    def counting(expression: str, timeout: int) -> Dict[int, dict]:
+        seen.append(expression)
+        return real(expression, timeout)
+
+    with patch.object(parser, "_parse_with_bridge", side_effect=counting):
+        lineages = _lineage_with_expressions(
+            'let Source = Table.Combine({#"Only", #"Excluded"}) in Source',
+            {
+                "Only": 'let s = #"Base Query",'
+                ' f = Table.SelectRows(s, each [c] = "x") in f',
+                "Excluded": 'let s = #"Base Query",'
+                ' f = Table.SelectRows(s, each [c] <> "x") in f',
+                "Base Query": _HIDDEN_BASE_EXPRESSION,
+            },
+        )
+
+    # Both routes legitimately reach the same table, so the parser reports it
+    # twice and the mapper dedupes; what matters here is the parse count.
+    assert {u.urn for u in combine_upstreams_from_lineage(lineages)} == {
+        _DATABRICKS_EXPECTED_UPSTREAM
+    }
+    assert seen.count(_HIDDEN_BASE_EXPRESSION) == 1, (
+        f"the shared base was parsed {seen.count(_HIDDEN_BASE_EXPRESSION)} times"
+    )
+
+
+def _dataset(dataset_id: str, expressions: dict) -> powerbi_data_classes.PowerBIDataset:
+    return powerbi_data_classes.PowerBIDataset(
+        id=dataset_id,
+        name=dataset_id,
+        description="",
+        webUrl=None,
+        workspace_id="w",
+        workspace_name="w",
+        parameters={},
+        tables=[],
+        tags=[],
+        configuredBy=None,
+        expressions=expressions,
+    )
+
+
+def _workspace(datasets: dict) -> powerbi_data_classes.Workspace:
+    return powerbi_data_classes.Workspace(
+        id="w",
+        name="w",
+        type="Workspace",
+        datasets=datasets,
+        dashboards={},
+        reports={},
+        report_endorsements={},
+        dashboard_endorsements={},
+        scan_result={},
+        independent_datasets={},
+        app=None,
+    )
+
+
+def _table_of(
+    dataset: powerbi_data_classes.PowerBIDataset, name: str, q: str
+) -> powerbi_data_classes.Table:
+    table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name=name,
+        full_name=f"{dataset.id}.{name}",
+    )
+    table.dataset = dataset
+    return table
+
+
+@pytest.mark.integration
+def test_the_mapper_shares_one_parse_cache_across_a_datasets_tables():
+    """Exercises the wiring, not just the contract: two tables of one dataset go
+    through Mapper.extract_lineage, which is where the per-dataset cache is held.
+    Passing a cache in by hand would pass even if that wiring regressed."""
+    seen: List[str] = []
+    real = parser._parse_with_bridge
+
+    def counting(expression: str, timeout: int) -> Dict[int, dict]:
+        seen.append(expression)
+        return real(expression, timeout)
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+    mapper = powerbi.Mapper(
+        ctx, config, PowerBiDashboardSourceReport(), platform_instance_resolver
+    )
+    dataset = powerbi_data_classes.PowerBIDataset(
+        id="one-dataset",
+        name="one-dataset",
+        description="",
+        webUrl=None,
+        workspace_id="w",
+        workspace_name="w",
+        parameters={},
+        tables=[],
+        tags=[],
+        configuredBy=None,
+        expressions={"Base Query": _HIDDEN_BASE_EXPRESSION},
+    )
+    workspace = powerbi_data_classes.Workspace(
+        id="w",
+        name="w",
+        type="Workspace",
+        datasets={},
+        dashboards={},
+        reports={},
+        report_endorsements={},
+        dashboard_endorsements={},
+        scan_result={},
+        independent_datasets={},
+        app=None,
+    )
+
+    with patch.object(parser, "_parse_with_bridge", side_effect=counting):
+        for i in range(3):
+            table = powerbi_data_classes.Table(
+                columns=[],
+                measures=[],
+                expression='let Source = #"Base Query" in Source',
+                name=f"loaded_table_{i}",
+                full_name=f"one-dataset.loaded_table_{i}",
+            )
+            table.dataset = dataset
+            mapper.extract_lineage(
+                table,
+                f"urn:li:dataset:(urn:li:dataPlatform:powerbi,one-dataset.t{i},PROD)",
+                workspace,
+            )
+
+    assert seen.count(_HIDDEN_BASE_EXPRESSION) == 1, (
+        f"the referenced query was parsed {seen.count(_HIDDEN_BASE_EXPRESSION)} times "
+        "across 3 tables of one dataset"
+    )
+
+
+@pytest.mark.integration
+def test_every_table_hitting_a_cached_failure_is_still_warned():
+    """The dataset-wide parse cache must not silence the report. Sharing it means
+    the second table to reference a broken query gets a cache hit rather than a
+    parse -- it still has to be told, or only the table that happened to pay for
+    the parse learns its lineage is short."""
+    cache = shared_expressions.ExpressionCache()
+    broken = 'let Source = Sql.Database("s","d") in Source[[[unclosed'
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    warned = []
+    for i in range(2):
+        reporter = PowerBiDashboardSourceReport()
+        parser.get_upstream_tables(
+            powerbi_data_classes.Table(
+                columns=[],
+                measures=[],
+                expression='let Source = #"Broken" in Source',
+                name=f"loaded_table_{i}",
+                full_name=f"MyDataSet.loaded_table_{i}",
+            ),
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+            expressions={"Broken": broken},
+            cache=cache,
+        )
+        warned.append(
+            (
+                _warning_titles(reporter),
+                reporter.m_query_referenced_query_failures,
+            )
+        )
+
+    assert warned[0] == ([shared_expressions.StopReason.PARSE_ERROR.title], 1)
+    # The second table hits the cache, so this is the one that regresses quietly.
+    assert warned[1] == ([shared_expressions.StopReason.PARSE_ERROR.title], 1)
+
+
+@pytest.mark.integration
+def test_two_datasets_do_not_share_a_referenced_query_cache():
+    """The cache keys on query name alone, and referenced-query names are scoped to
+    a dataset -- two datasets each defining `Base Query` differently is ordinary in
+    Power BI. Sharing one cache between them would hand the second dataset the
+    first's parse tree, which is wrong lineage with no warning at all."""
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+    mapper = powerbi.Mapper(
+        ctx, config, PowerBiDashboardSourceReport(), platform_instance_resolver
+    )
+
+    def base_for(table_name: str) -> str:
+        return (
+            "let\n"
+            f"    Source = {_DATABRICKS_CONNECTOR},\n"
+            '    db = Source{[Name="my_catalog",Kind="Database"]}[Data],\n'
+            '    sch = db{[Name="my_schema",Kind="Schema"]}[Data],\n'
+            f'    tbl = sch{{[Name="{table_name}",Kind="Table"]}}[Data]\n'
+            "in\n    tbl"
+        )
+
+    # Same query name in both datasets, different M behind it.
+    ds_a = _dataset("dataset-a", {"Base Query": base_for("table_a")})
+    ds_b = _dataset("dataset-b", {"Base Query": base_for("table_b")})
+    workspace = _workspace({"dataset-a": ds_a, "dataset-b": ds_b})
+
+    resolved = {}
+    for ds, expected in ((ds_a, "table_a"), (ds_b, "table_b")):
+        mcps = mapper.extract_lineage(
+            _table_of(ds, "loaded", 'let Source = #"Base Query" in Source'),
+            f"urn:li:dataset:(urn:li:dataPlatform:powerbi,{ds.id}.loaded,PROD)",
+            workspace,
+        )
+        upstreams = [
+            u.dataset for mcp in mcps for u in getattr(mcp.aspect, "upstreams", [])
+        ]
+        resolved[ds.id] = (upstreams, expected)
+
+    for dataset_id, (upstreams, expected) in resolved.items():
+        assert len(upstreams) == 1, f"{dataset_id}: {upstreams}"
+        assert expected in upstreams[0], (
+            f"{dataset_id} resolved to {upstreams[0]}, expected {expected} -- "
+            "the referenced-query cache leaked across datasets"
+        )
+
+
+@pytest.mark.integration
+def test_a_finished_workspaces_caches_are_released():
+    """These hold whole M-Query parse trees. The workspace loop drops a workspace
+    once emitted; the caches have to go with it or they accumulate for every
+    dataset in the tenant for the life of the run.
+
+    Includes a dataset from another workspace, because a report or tile can be
+    built on one -- its cache is keyed by its own id, so releasing only the
+    emitted workspace's ids would leave it behind."""
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+    mapper = powerbi.Mapper(
+        ctx, config, PowerBiDashboardSourceReport(), platform_instance_resolver
+    )
+    own = _dataset("dataset-own", {"Base Query": _HIDDEN_BASE_EXPRESSION})
+    foreign = _dataset("dataset-foreign", {"Base Query": _HIDDEN_BASE_EXPRESSION})
+    # The workspace being emitted owns only one of them.
+    workspace = _workspace({"dataset-own": own})
+
+    for ds in (own, foreign):
+        mapper.extract_lineage(
+            _table_of(ds, "loaded", 'let Source = #"Base Query" in Source'),
+            f"urn:li:dataset:(urn:li:dataPlatform:powerbi,{ds.id}.loaded,PROD)",
+            workspace,
+        )
+        assert mapper.expression_cache_for(ds).parsed, f"{ds.id} was not cached"
+
+    mapper.release_expression_caches()
+
+    for ds in (own, foreign):
+        assert not mapper.expression_cache_for(ds).parsed, (
+            f"{ds.id}'s parse trees should be released once the workspace is emitted"
+        )
+
+
+@pytest.mark.integration
+def test_a_referenced_query_timeout_does_not_inflate_the_parse_timeout_counter():
+    """m_query_parse_timeouts sizes m_query_parse_timeout, so it has to count
+    timeouts. A referenced query is parsed once per dataset but reported once per
+    table that reaches it, so charging that counter would report one timeout as
+    many. The warning still fires per table under the documented title."""
+    referenced = (
+        'let S = Sql.Database("s","d"), t = S{[Schema="a",Item="b"]}[Data] in t'
+    )
+    real = parser._parse_with_bridge
+
+    def timing_out(expression: str, timeout: int) -> Dict[int, dict]:
+        if expression == referenced:
+            raise TimeoutException("simulated")
+        return real(expression, timeout)
+
+    cache = shared_expressions.ExpressionCache()
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    with patch.object(parser, "_parse_with_bridge", side_effect=timing_out):
+        for i in range(3):
+            parser.get_upstream_tables(
+                powerbi_data_classes.Table(
+                    columns=[],
+                    measures=[],
+                    expression='let Source = #"Slow" in Source',
+                    name=f"loaded_{i}",
+                    full_name=f"MyDataSet.loaded_{i}",
+                ),
+                reporter,
+                ctx=ctx,
+                config=config,
+                platform_instance_resolver=platform_instance_resolver,
+                expressions={"Slow": referenced},
+                cache=cache,
+            )
+
+    assert reporter.m_query_parse_timeouts == 0
+    assert reporter.m_query_referenced_query_failures == 3
+
+    # The report groups on title+message and collects one context per occurrence,
+    # so all three tables appear under the single documented title.
+    timed_out = [
+        w
+        for w in reporter.warnings
+        if w.title == shared_expressions.StopReason.TIMEOUT.title
+    ]
+    assert len(timed_out) == 1
+    assert len(list(timed_out[0].context)) == 3
+
+
+@pytest.mark.integration
+def test_a_real_failure_outranks_a_route_dependent_stop():
+    """Hitting a query at the depth cap down one branch says nothing about the
+    query itself, so it must not mask a parse error found on a shorter route.
+    Reasons that are properties of the query text keep first-wins."""
+    SR = shared_expressions.StopReason
+    shared = shared_expressions.SharedExpressions(texts={}, parse=lambda text: {})
+
+    # route-dependent first, then the truth about the query
+    shared.stopped("Base", SR.TOO_DEEP, "q0 -> ... -> base")
+    shared.stopped("Base", SR.PARSE_ERROR, "boom")
+    assert shared.stops["base"][0] is SR.PARSE_ERROR
+
+    # and not the other way round
+    shared.stopped("Other", SR.PARSE_ERROR, "boom")
+    shared.stopped("Other", SR.CYCLE, "a -> other")
+    assert shared.stops["other"][0] is SR.PARSE_ERROR
+
+    # two reasons about the query text: the first stands
+    shared.stopped("Third", SR.NO_LET)
+    shared.stopped("Third", SR.PARSE_ERROR, "boom")
+    assert shared.stops["third"][0] is SR.NO_LET
+
+
+@pytest.mark.integration
+def test_one_query_referenced_in_two_casings_is_reported_once():
+    """M identifiers are case-insensitive and every other lookup here casefolds,
+    so `#"A"` and `#"a"` are one query. Keying the stop record on the raw name
+    reported it twice and counted it twice."""
+    lineages, reporter = _lineage_and_report(
+        'let Source = Table.Combine({#"A", #"a"}) in Source',
+        {"A": 'Sql.Database("server", "db")'},
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert _warning_titles(reporter) == [shared_expressions.StopReason.NO_LET.title]
+    assert reporter.m_query_referenced_query_not_followed == 1
+
+
+@pytest.mark.integration
+def test_an_unexpected_error_parsing_a_referenced_query_is_reported_not_raised():
+    """`parsed()` catches only parse, bridge and timeout failures, so anything else
+    is a defect and propagates out of it. It does not leave get_upstream_tables:
+    the pre-existing broad handler there catches it, so one bad table does not end
+    the ingestion. Pinned because the title it reports under is a diagnosis
+    ("Unknown M-Query Pattern") that is wrong for a defect -- narrowing that
+    handler is a change worth making deliberately, and this test will say so."""
+    referenced = (
+        'let S = Sql.Database("s","d"), t = S{[Schema="a",Item="b"]}[Data] in t'
+    )
+    real = parser._parse_with_bridge
+
+    def boom(expression: str, timeout: int) -> Dict[int, dict]:
+        if expression == referenced:
+            raise ValueError("a defect, not bad input")
+        return real(expression, timeout)
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={"enable_advance_lineage_sql_construct": True}
+    )
+
+    with patch.object(parser, "_parse_with_bridge", side_effect=boom):
+        lineages = parser.get_upstream_tables(
+            powerbi_data_classes.Table(
+                columns=[],
+                measures=[],
+                expression='let Source = #"Slow" in Source',
+                name="loaded",
+                full_name="MyDataSet.loaded",
+            ),
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+            expressions={"Slow": referenced},
+        )
+
+    assert lineages == []
+    assert reporter.m_query_resolver_errors == 1
+    assert "Unknown M-Query Pattern" in _warning_titles(reporter)
