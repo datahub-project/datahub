@@ -24,7 +24,6 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationHandler,
     classification_workunit_processor,
 )
-from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     DatasetContainerSubTypes,
@@ -78,6 +77,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
     SnowsightUrlBuilder,
+    make_snowflake_external_urn,
     split_qualified_name,
 )
 from datahub.ingestion.source.sql.sql_utils import (
@@ -2973,16 +2973,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
                 if key not in discovered_tables:
                     continue
-                if db_row["location"].startswith("s3://"):
+                upstream_urn = make_snowflake_external_urn(
+                    db_row["location"], self.config
+                )
+                if upstream_urn:
                     yield KnownLineageMapping(
-                        upstream_urn=make_s3_urn_for_lineage(
-                            db_row["location"], self.config.env
-                        ),
+                        upstream_urn=upstream_urn,
                         downstream_urn=self.identifiers.gen_dataset_urn(key),
                     )
+                    # Counts edges actually emitted, not rows seen: a location on an
+                    # unsupported scheme yields nothing, so counting it here would report
+                    # lineage that does not exist.
                     self.report.num_external_table_edges_scanned += 1
-
-                self.report.num_external_table_edges_scanned += 1
         except Exception as e:
             self.structured_reporter.warning(
                 "External table ddl lineage extraction failed",
