@@ -175,6 +175,15 @@ class QueryMetadata:
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
 
+    # When true, this query's lineage/operations are still recorded (so downstream
+    # tables get UpstreamLineage aspects and Operation aspects), but the Query
+    # entity itself is not emitted and per-Query URN references (in
+    # UpstreamClass.query and OperationClass.queries) are suppressed. Used for
+    # queries whose SQL text isn't meaningful (e.g. Databricks masks it to
+    # "<REDACTED>" for non-account-admins) to avoid polluting the catalog with
+    # placeholder Query entities while preserving lineage and operation signals.
+    redacted_query_text: bool = False
+
     @property
     def usage_query_id(self) -> QueryId:
         """Usage counts are keyed by raw statement fingerprint. For a composite
@@ -322,6 +331,14 @@ class PreparsedQuery:
     # Use this to store additional key-value information about the query for debugging.
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
+
+    # When true, feed the usage aggregator so table-level stats (totalSqlQueries,
+    # userCounts, etc.) still land, but skip emitting a Query entity and any
+    # per-Query URN usage counters. Use for sources that know lineage/timestamps
+    # but can't provide meaningful SQL text (e.g. Databricks masks query text to
+    # "<REDACTED>" for non-account-admins outside databricks_pii_access), to
+    # avoid polluting the catalog with placeholder Query entities.
+    redacted_query_text: bool = False
 
 
 @dataclasses.dataclass
@@ -1034,7 +1051,17 @@ class SqlParsingAggregator(Closeable):
                     count=parsed.query_count,
                 )
 
-        if self._query_usage_counts is not None and parsed.timestamp is not None:
+        # For redacted_query_text entries, skip per-Query URN usage counters (those
+        # would reference a Query entity we won't emit) but still register the
+        # query in _query_map and _lineage_map below so lineage aspects and
+        # operation MCPs can be generated for the downstream table. Query-entity
+        # emission and dangling Query URN references are suppressed downstream
+        # via QueryMetadata.redacted_query_text.
+        if (
+            not parsed.redacted_query_text
+            and self._query_usage_counts is not None
+            and parsed.timestamp is not None
+        ):
             assert self.usage_config is not None
             bucket = get_time_bucket(
                 parsed.timestamp, self.usage_config.bucket_duration
@@ -1059,6 +1086,7 @@ class SqlParsingAggregator(Closeable):
                 used_temp_tables=session_has_temp_tables,
                 extra_info=parsed.extra_info,
                 origin=parsed.origin,
+                redacted_query_text=parsed.redacted_query_text,
             )
         )
 
@@ -1539,11 +1567,7 @@ class SqlParsingAggregator(Closeable):
                 models.UpstreamClass(
                     dataset=upstream_urn,
                     type=queries_map[query_id].lineage_type,
-                    query=(
-                        self._query_urn(query_id)
-                        if self.can_generate_query(query_id)
-                        else None
-                    ),
+                    query=self._query_urn_if_emitted(queries_map[query_id]),
                     created=query.make_created_audit_stamp(),
                     auditStamp=models.AuditStampClass(
                         time=get_sys_time(),
@@ -1579,11 +1603,7 @@ class SqlParsingAggregator(Closeable):
                         downstreams=[
                             SchemaFieldUrn(downstream_urn, downstream_column).urn()
                         ],
-                        query=(
-                            self._query_urn(query_id)
-                            if self.can_generate_query(query_id)
-                            else None
-                        ),
+                        query=self._query_urn_if_emitted(query),
                         confidenceScore=query.confidence_score,
                         transformOperation=(
                             (
@@ -1682,11 +1702,55 @@ class SqlParsingAggregator(Closeable):
     def can_generate_query(self, query_id: QueryId) -> bool:
         return self.generate_queries and not self._is_known_lineage_query_id(query_id)
 
+    def _query_urn_if_emitted(self, query: QueryMetadata) -> Optional[str]:
+        """Return the Query URN when a Query entity will be emitted for this
+        query, or ``None`` otherwise.
+
+        This is the single point of truth for the invariant "if we won't
+        emit a Query entity for X, we must not reference X's Query URN
+        anywhere else". A Query entity is suppressed when either:
+
+        - :meth:`can_generate_query` is false — the aggregator has
+          Query-entity generation disabled, or ``query.query_id`` is a
+          known-lineage sentinel; or
+        - ``query.redacted_query_text`` is true — the query is tracked purely for
+          table-level lineage/usage but its SQL text isn't meaningful
+          (e.g. Databricks masks it to ``"<REDACTED>"`` for
+          non-account-admins outside ``databricks_pii_access``), so
+          emitting the entity would only pollute the catalog with a
+          placeholder.
+
+        Every emission path that populates a per-Query URN on another
+        aspect (:attr:`UpstreamClass.query`,
+        :attr:`FineGrainedLineageClass.query`,
+        :attr:`OperationClass.queries`) MUST go through this helper
+        rather than calling :meth:`_query_urn` directly, so a new
+        emission path can't create a dangling URN by remembering only
+        one of the two checks.
+
+        Note: we take a ``QueryMetadata`` (not just a ``QueryId``) because
+        composite queries synthesised in
+        :meth:`_resolve_query_with_temp_tables` don't live in
+        ``self._query_map`` — they exist only in the per-downstream
+        ``queries_map`` local. Passing the metadata explicitly keeps
+        those paths working while still centralising the policy.
+        """
+        if not self.can_generate_query(query.query_id):
+            return None
+        if query.redacted_query_text:
+            return None
+        return self._query_urn(query.query_id)
+
     def _gen_query(
         self, query: QueryMetadata, downstream_urn: Optional[str] = None
     ) -> Iterable[MetadataChangeProposalWrapper]:
         query_id = query.query_id
-        if not self.can_generate_query(query_id):
+        # Single source of truth for "is this query emittable?" — the same
+        # helper that gates per-Query URN references on other aspects. A
+        # count-only query (e.g. Databricks "<REDACTED>") is tracked purely
+        # to bump table-level lineage/usage; no Query entity or per-Query
+        # usage counter is emitted because the SQL text isn't meaningful.
+        if self._query_urn_if_emitted(query) is None:
             return
 
         # If a query doesn't involve any allowed tables, skip it.
@@ -2003,16 +2067,13 @@ class SqlParsingAggregator(Closeable):
             return
 
         self.report.num_operations_generated += 1
+        query_urn = self._query_urn_if_emitted(query)
         aspect = models.OperationClass(
             timestampMillis=make_ts_millis(datetime.now(tz=timezone.utc)),
             operationType=operation_type,
             lastUpdatedTimestamp=make_ts_millis(query.latest_timestamp),
             actor=query.actor.urn() if query.actor else None,
             sourceType=models.OperationSourceTypeClass.DATA_PLATFORM,
-            queries=(
-                [self._query_urn(query.query_id)]
-                if self.can_generate_query(query.query_id)
-                else None
-            ),
+            queries=[query_urn] if query_urn else None,
         )
         yield MetadataChangeProposalWrapper(entityUrn=downstream_urn, aspect=aspect)
