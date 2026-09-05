@@ -6,7 +6,7 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 - Only models which are used in a Story or an Application will be ingested because there is no dedicated API to retrieve models (only for Stories and Applications).
 - Browse Paths for models cannot be created because the folder where the models are saved is not returned by the API.
-- Schema metadata is only ingested for Import Data Models because there is no possibility to get the schema metadata of the other model types.
+- Schema metadata is ingested for Import Data Models and for acquired (SAC-stored) models via the Data Export Service `$metadata` document (controlled by `ingest_acquired_data_model_schema_metadata`, enabled by default). Live Data Models (e.g. BW/HANA/DWC) keep their schema in the source system, so it cannot be retrieved from SAC.
 - Lineages for Import Data Models cannot be ingested because the API is not providing any information about it.
 - Currently, only SAP BW and SAP HANA are supported for ingesting the upstream lineages of Live Data Models - a warning is logged for all other connection types, please feel free to open an [issue on GitHub](https://github.com/datahub-project/datahub/issues/new/choose) with the warning message to have this fixed.
 - For some models (e.g., builtin models) it cannot be detected whether the models are Live Data or Import Data Models. Therefore, these models will be ingested only with the `Story` subtype.
