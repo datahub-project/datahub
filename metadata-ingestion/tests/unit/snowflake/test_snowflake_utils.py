@@ -7,7 +7,51 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
+    split_quoted_name_list,
 )
+
+
+def test_split_quoted_name_list():
+    assert split_quoted_name_list("") == [""]
+    assert split_quoted_name_list("ROLE_A,ROLE_B") == ["ROLE_A", "ROLE_B"]
+    assert split_quoted_name_list('"Role,With,Commas",ROLE_B') == [
+        '"Role,With,Commas"',
+        "ROLE_B",
+    ]
+    assert split_quoted_name_list('"Mixed_Case",ROLE_B') == ['"Mixed_Case"', "ROLE_B"]
+    # An embedded quote is escaped by doubling it.
+    assert split_quoted_name_list('"Quote""InName",ROLE_B') == [
+        '"Quote""InName"',
+        "ROLE_B",
+    ]
+    # A quoted element may also close the list, or be the whole of it.
+    assert split_quoted_name_list('ROLE_A,"Trailing,Quoted"') == [
+        "ROLE_A",
+        '"Trailing,Quoted"',
+    ]
+    assert split_quoted_name_list('"Only,One"') == ['"Only,One"']
+
+
+def test_split_quoted_name_list_only_honors_well_formed_quoting():
+    # A quote that does not open a quoted element must not swallow delimiters,
+    # otherwise distinct names get merged into one.
+    assert split_quoted_name_list('my"role,ROLE_B') == ['my"role', "ROLE_B"]
+    # Unterminated quoting is not a quoted list - fall back to a plain split.
+    assert split_quoted_name_list('"unterminated,ROLE_B') == [
+        '"unterminated',
+        "ROLE_B",
+    ]
+
+
+def test_get_quoted_identifier_for_role():
+    quote = SnowflakeIdentifierBuilder.get_quoted_identifier_for_role
+    assert quote("TEST_ROLE") == '"TEST_ROLE"'
+    assert quote('Quote"InName') == '"Quote""InName"'
+    # `show grants` already quotes names that need it - don't quote them twice.
+    assert quote('"Mixed_Case_Role"', already_rendered=True) == '"Mixed_Case_Role"'
+    # A raw name is escaped even when its own edge characters are quotes, since
+    # there the quotes are part of the name rather than SQL quoting around it.
+    assert quote('"weird"') == '"""weird"""'
 
 
 class TestSnowflakeIdentifierBuilderMarketplace:
