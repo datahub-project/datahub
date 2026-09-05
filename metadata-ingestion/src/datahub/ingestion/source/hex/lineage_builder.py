@@ -2,18 +2,22 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
-from datahub.emitter.mce_builder import (
-    make_dataset_urn_with_platform_instance,
-    make_schema_field_urn,
-)
+import sqlglot
+from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
+
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.hex.model import HexConnection, SqlCell
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str
-from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.sql_parsing.sqlglot_lineage import (
+    _table_name_from_sqlglot_table,
+    sqlglot_lineage,
+)
 from datahub.utilities.lossy_collections import LossyList
 
 _MAX_SAMPLE_MISMATCHES = 5
+
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -50,9 +54,18 @@ class SkippedCell:
     cell_id: str
     cell_label: Optional[str]
     connection_id: str
-    # "missing_connection_id"  — cell had no dataConnectionId
-    # "unresolved_platform"    — connection_id present but no platform mapping
+    # "missing_connection_id"    — cell had no dataConnectionId
+    # "unresolved_platform"      — connection_id present but no platform mapping
+    # "unparseable_table_name"   — queriedTables entry had no sqlglot dialect for
+    #                              the platform (db2, vertica, synapse, ...) or the
+    #                              tableName itself failed to parse
     reason: str
+    # "<ExceptionClass>: <message>" for reasons that come from a caught exception
+    # (currently "unparseable_table_name"). None for reasons derived purely from
+    # control flow. Overall report size is bounded by the enclosing skipped_cells
+    # LossyList — no per-entry truncation, so operators see the full sqlglot
+    # error text on triage.
+    detail: Optional[str] = None
 
 
 @dataclass
@@ -147,14 +160,20 @@ class HexLineageBuilder:
         Build upstream URN strings from queriedTables API response.
 
         {dataConnectionId, dataConnectionName, tableName} — tableName's level
-        of qualification is not guaranteed by Hex, so under-qualified names
-        are padded with the connection's default_database / default_schema
-        before URN construction. Only emits URNs for connections whose
-        platform can be confidently resolved.
+        of qualification is not guaranteed by Hex, so under-qualified names are
+        padded with the connection's default_database / default_schema,
+        dialect-normalized, then resolved through the same ``SchemaResolver``
+        the SQL-cell path uses — so tier-1 and tier-2 URNs agree by
+        construction. Only emits URNs for connections whose platform can be
+        confidently resolved.
+
+        Bad inputs (a platform sqlglot has no dialect for — db2, vertica,
+        synapse, greenplum, impala, netezza, cockroachdb — or a tableName that
+        fails to parse) are skipped and recorded rather than aborting the run,
+        so one bad entry does not cost every project not yet emitted.
         """
         seen: Set[str] = set()
         result: List[str] = []
-
         for item in queried_tables:
             connection_id = item.get("dataConnectionId")
             table_name = item.get("tableName")
@@ -176,11 +195,36 @@ class HexLineageBuilder:
                 default_database=connection.default_database,
                 default_schema=connection.default_schema,
             )
-            urn = make_dataset_urn_with_platform_instance(
-                platform=connection.platform,
-                name=qualified_name,
-                platform_instance=connection.platform_instance,
-                env=self._env,
+            try:
+                # get_dialect_str passes unmapped platforms through verbatim, so
+                # a connection_platform_map entry naming a platform sqlglot has
+                # no dialect for (db2, vertica, synapse, ...) raises here rather
+                # than returning. Parse errors come from tableName itself, which
+                # Hex does not guarantee is a well-formed identifier.
+                dialect = sqlglot.Dialect.get_or_raise(
+                    get_dialect_str(connection.platform)
+                )
+                tbl = normalize_identifiers(
+                    sqlglot.to_table(qualified_name, dialect=dialect),
+                    dialect=dialect,
+                )
+            except (ValueError, sqlglot.ParseError, sqlglot.TokenError) as e:
+                self._record_skip(
+                    connection_id=connection_id or "",
+                    cell_id="queriedTables",
+                    cell_label=table_name,
+                    reason="unparseable_table_name",
+                    detail=f"{type(e).__name__}: {e}",
+                )
+                continue
+
+            tn = _table_name_from_sqlglot_table(tbl, dialect)
+            urn, _ = self._get_resolver(
+                connection.platform, connection.platform_instance
+            ).resolve_table_parts(
+                database=tn.database,
+                db_schema=tn.db_schema,
+                table=tn.table,
             )
             if urn not in seen:
                 seen.add(urn)
@@ -247,23 +291,35 @@ class HexLineageBuilder:
         self,
         sql_cells: List[SqlCell],
         queried_table_urns: List[str],
-    ) -> List[str]:
+    ) -> Tuple[List[str], bool]:
         """
         Extract column-level lineage from SQL cells, cross-validated against
         the queriedTables result set.
 
-        For ENTERPRISE workspaces: queriedTables provides runtime-proven dataset
-        URNs. SQL parsing may produce table URNs that differ (unqualified names,
-        view references, dynamic SQL). A column reference is only emitted if its
-        parent dataset URN appears in queriedTables — otherwise the SchemaFieldUrn
-        would dangle (pointing to a dataset that may not exist in DataHub or that
-        represents a different entity than intended).
+        queriedTables provides runtime-proven dataset URNs; SQL parsing may
+        produce table URNs that differ (unqualified names, view references,
+        dynamic SQL). A column reference is only emitted if its parent
+        dataset URN appears in queriedTables — otherwise the SchemaFieldUrn
+        would dangle. Mismatches are recorded in the report with sample cells.
 
-        Mismatches are recorded in the report with sample cells for diagnostics.
+        Both tiers resolve through the same ``SchemaResolver``, so a parsed
+        parent and a queriedTables URN for the same table are identical
+        strings — the comparison is a plain set membership test.
+
+        Returns ``(validated_fields, saw_mismatch)``. ``saw_mismatch`` is
+        ``True`` only when at least one cell produced SQL-parsed field URNs
+        whose parent didn't appear in ``queried_table_urns`` — i.e. a real
+        cross-validation failure. Callers that raise a "Column lineage
+        dropped" warning should gate it on this signal so an empty result
+        caused by unrelated reasons (SELECT * with a missing schema,
+        DDL-only cells, or ``_parse_cell`` returning no fields) doesn't
+        misreport as a mismatch.
         """
-        queried_set = set(queried_table_urns)
+        queried_set: Set[str] = set(queried_table_urns)
+
         validated_fields: List[str] = []
         seen_fields: Set[str] = set()
+        saw_mismatch = False
 
         for cell in sql_cells:
             connection, _ = self._lookup_connection(cell.data_connection_id)
@@ -288,6 +344,7 @@ class HexLineageBuilder:
                         exc_info=True,
                     )
                     continue
+
                 if parent_urn in queried_set:
                     matched.append(furn)
                 else:
@@ -295,6 +352,7 @@ class HexLineageBuilder:
                     unmatched_field_count += 1
 
             if unmatched_tables:
+                saw_mismatch = True
                 self._report.enterprise_cells_with_mismatch += 1
                 self._report.enterprise_column_fields_skipped_mismatch += (
                     unmatched_field_count
@@ -320,7 +378,7 @@ class HexLineageBuilder:
                     validated_fields.append(furn)
 
         self._report.enterprise_column_fields_emitted += len(validated_fields)
-        return validated_fields
+        return validated_fields, saw_mismatch
 
     def _lookup_connection(
         self, connection_id: Optional[str]
@@ -414,6 +472,7 @@ class HexLineageBuilder:
         cell_id: str,
         cell_label: Optional[str],
         reason: str,
+        detail: Optional[str] = None,
     ) -> None:
         self._report.skipped_cells.append(
             SkippedCell(
@@ -422,13 +481,15 @@ class HexLineageBuilder:
                 cell_label=cell_label,
                 connection_id=connection_id,
                 reason=reason,
+                detail=detail,
             )
         )
         logger.debug(
-            "Skipping lineage for cell %s in project %s — %s "
+            "Skipping lineage for cell %s in project %s — %s%s "
             "(add connection_id %r to connection_platform_map to recover)",
             cell_id,
             self._project_id,
             reason,
+            f" [{detail}]" if detail else "",
             connection_id,
         )

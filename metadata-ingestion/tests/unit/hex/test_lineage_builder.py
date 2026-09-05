@@ -1,5 +1,12 @@
 from typing import Dict, Optional
 
+import pytest
+
+from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
+)
 from datahub.ingestion.source.hex.lineage_builder import (
     HexLineageBuilder,
     LineageBuilderReport,
@@ -7,6 +14,7 @@ from datahub.ingestion.source.hex.lineage_builder import (
     _qualify_table_name,
 )
 from datahub.ingestion.source.hex.model import HexConnection, SqlCell
+from datahub.metadata.urns import SchemaFieldUrn
 
 SNOWFLAKE_CONN = "conn-snowflake-1"
 BIGQUERY_CONN = "conn-bq-1"
@@ -17,6 +25,35 @@ CONNECTIONS: Dict[str, HexConnection] = {
     SNOWFLAKE_CONN: HexConnection(name="Analytics", platform="snowflake"),
     BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery"),
 }
+
+
+@pytest.fixture(autouse=True)
+def _pin_dataset_urn_case_global(monkeypatch):
+    """Pin DATASET_URN_TO_LOWER to False so case-preservation assertions
+    don't depend on DATAHUB_DATASET_URN_TO_LOWER in the env."""
+    monkeypatch.setattr(mce_builder, "DATASET_URN_TO_LOWER", False)
+
+
+@pytest.fixture(autouse=True)
+def _pin_bigquery_shard_suffix(monkeypatch):
+    """Defend against a known pollution vector for BigQuery shard normalization.
+
+    ``BigQueryIdentifierBuilder.__init__`` in ``bigquery_v2/common.py`` mutates the
+    class attribute ``BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX`` to ``""``
+    when ``enable_legacy_sharded_table_support=True`` and never restores it. Under
+    CI-wide random test ordering that leak flips shard folding off for every
+    subsequent test in the same worker, so our
+    ``test_build_from_queried_tables_bigquery_normalizes_date_shard`` assertion
+    ends up comparing against ``proj.dataset.events`` instead of the expected
+    ``proj.dataset.events_yyyymmdd``. Pin the suffix per-test to make Hex tests
+    hermetic regardless of collection order."""
+    from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
+        BigqueryTableIdentifier,
+    )
+
+    monkeypatch.setattr(
+        BigqueryTableIdentifier, "_BQ_SHARDED_TABLE_SUFFIX", "_yyyymmdd"
+    )
 
 
 def _builder(
@@ -163,6 +200,117 @@ def test_build_from_queried_tables_empty_table_name_skipped():
     assert urns == []
 
 
+def test_build_from_queried_tables_unknown_dialect_skipped():
+    """A connection_platform_map entry naming a platform sqlglot has no dialect
+    for (db2, vertica, synapse, greenplum, impala, netezza, cockroachdb) must
+    be recorded as skipped rather than aborting the whole ingestion run."""
+    report = LineageBuilderReport()
+    b = _builder(
+        report=report,
+        connections={"conn-db2": HexConnection(name="D", platform="db2")},
+    )
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": "conn-db2", "tableName": "orders"}]
+    )
+    assert urns == []
+    assert len(report.skipped_cells) == 1
+    assert report.skipped_cells[0].reason == "unparseable_table_name"
+
+
+def test_build_from_queried_tables_unparseable_table_name_skipped():
+    """A malformed tableName (trailing dot, empty part, etc.) is recorded as
+    skipped instead of raising through the pipeline."""
+    report = LineageBuilderReport()
+    b = _builder(report=report)
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.schema."}]
+    )
+    assert urns == []
+    assert len(report.skipped_cells) == 1
+    assert report.skipped_cells[0].reason == "unparseable_table_name"
+
+
+def test_build_from_queried_tables_skip_captures_exception_detail():
+    """`unparseable_table_name` skips must carry the underlying sqlglot
+    exception in `detail` so operators can triage without re-running with
+    debug logging. Both failure classes (unknown dialect via ValueError and
+    malformed tableName via ParseError) are exercised."""
+    report = LineageBuilderReport()
+    b = _builder(
+        report=report,
+        connections={"conn-db2": HexConnection(name="D", platform="db2")},
+    )
+    b.build_from_queried_tables(
+        [{"dataConnectionId": "conn-db2", "tableName": "orders"}]
+    )
+    assert len(report.skipped_cells) == 1
+    detail = report.skipped_cells[0].detail
+    assert detail is not None
+    assert detail.startswith("ValueError:")
+    assert "db2" in detail
+
+    report2 = LineageBuilderReport()
+    b2 = _builder(report=report2)
+    b2.build_from_queried_tables(
+        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.schema."}]
+    )
+    assert len(report2.skipped_cells) == 1
+    detail2 = report2.skipped_cells[0].detail
+    assert detail2 is not None
+    assert "ParseError" in detail2 or "TokenError" in detail2
+
+
+def test_build_from_queried_tables_bad_entry_does_not_drop_neighbors():
+    """A single bad entry must not sink the run — the good entries on either
+    side of it still produce URNs."""
+    b = _builder()
+    urns = b.build_from_queried_tables(
+        [
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.schema.good_one"},
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.schema."},
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.schema.good_two"},
+        ]
+    )
+    assert len(urns) == 2
+    assert any("good_one" in u for u in urns)
+    assert any("good_two" in u for u in urns)
+
+
+def test_build_from_queried_tables_four_part_name_preserved():
+    """4-part names (a.b.c.d) must not silently drop a component — the shared
+    _table_name_from_sqlglot_table helper preserves ``a.b.c.d`` end-to-end
+    where the previous hand-rolled construction dropped the third part."""
+    b = _builder(
+        connections={SNOWFLAKE_CONN: HexConnection(name="A", platform="snowflake")},
+    )
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "a.b.c.d"}]
+    )
+    assert len(urns) == 1
+    assert ",a.b.c.d," in urns[0]
+
+
+def test_build_from_queried_tables_mssql_preserves_temp_prefix():
+    """MSSQL temp table prefixes (``#tmp``, ``##tmp``) are stripped by sqlglot
+    during parsing; the shared helper restores them so the URN points at the
+    same temp table the warehouse would emit."""
+    b = _builder(
+        connections={
+            "conn-mssql": HexConnection(
+                name="M",
+                platform="mssql",
+                default_database="db",
+                default_schema="dbo",
+            ),
+        },
+    )
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": "conn-mssql", "tableName": "#tmp"}]
+    )
+    assert len(urns) == 1
+    assert ",db.dbo.#tmp," in urns[0]
+
+
 def test_qualify_table_name_already_three_parts_unchanged():
     assert (
         _qualify_table_name("db.schema.t", "DEFAULT_DB", "DEFAULT_SCHEMA")
@@ -196,7 +344,8 @@ def test_qualify_table_name_no_defaults_returns_unchanged():
 
 
 def test_build_from_queried_tables_pads_unqualified_name():
-    """Hex returns just `orders` — connection defaults qualify it to db.schema.orders."""
+    """Hex returns just `orders` — connection defaults qualify it to db.schema.orders.
+    Snowflake lowercases by default, so the padded db/schema are lowercased too."""
     b = _builder(
         connections={
             SNOWFLAKE_CONN: HexConnection(
@@ -211,11 +360,12 @@ def test_build_from_queried_tables_pads_unqualified_name():
         [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "orders"}]
     )
     assert len(urns) == 1
-    assert "ANALYTICS.PUBLIC.orders" in urns[0]
+    assert "analytics.public.orders" in urns[0]
 
 
 def test_build_from_queried_tables_pads_two_part_name():
-    """Hex returns `schema.orders` — connection's default_database qualifies it."""
+    """Hex returns `schema.orders` — connection's default_database qualifies it.
+    Snowflake lowercases by default, so the padded db/schema are lowercased too."""
     b = _builder(
         connections={
             SNOWFLAKE_CONN: HexConnection(
@@ -230,11 +380,12 @@ def test_build_from_queried_tables_pads_two_part_name():
         [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "RAW.orders"}]
     )
     assert len(urns) == 1
-    assert "ANALYTICS.RAW.orders" in urns[0]
+    assert "analytics.raw.orders" in urns[0]
 
 
 def test_build_from_queried_tables_three_part_name_not_padded():
-    """Fully qualified names are passed through verbatim, even when defaults exist."""
+    """Fully qualified names are passed through verbatim, even when defaults exist.
+    Snowflake lowercases by default."""
     b = _builder(
         connections={
             SNOWFLAKE_CONN: HexConnection(
@@ -254,8 +405,8 @@ def test_build_from_queried_tables_three_part_name_not_padded():
         ]
     )
     assert len(urns) == 1
-    assert "OTHER_DB.OTHER_SCHEMA.orders" in urns[0]
-    assert "ANALYTICS" not in urns[0]
+    assert "other_db.other_schema.orders" in urns[0]
+    assert "analytics" not in urns[0]
 
 
 def test_build_from_queried_tables_mixed_connections():
@@ -487,11 +638,12 @@ def test_validated_cll_emits_when_table_matches():
     orders_urn = _make_dataset_urn("db.schema.orders")
     queried = [orders_urn]
     sql = "SELECT order_id, customer_id FROM db.schema.orders"
-    fields = b.build_validated_column_lineage([_cell(sql)], queried)
+    fields, saw_mismatch = b.build_validated_column_lineage([_cell(sql)], queried)
     assert len(fields) > 0
     assert any("order_id" in f for f in fields)
     assert report.enterprise_column_fields_emitted > 0
     assert report.enterprise_cells_with_mismatch == 0
+    assert saw_mismatch is False
 
 
 def test_validated_cll_skips_when_table_not_in_queried():
@@ -500,10 +652,11 @@ def test_validated_cll_skips_when_table_not_in_queried():
     # queriedTables has no entry for the table SQL parsing finds
     queried = [_make_dataset_urn("db.schema.other_table")]
     sql = "SELECT order_id FROM db.schema.orders"
-    fields = b.build_validated_column_lineage([_cell(sql)], queried)
+    fields, saw_mismatch = b.build_validated_column_lineage([_cell(sql)], queried)
     assert fields == []
     assert report.enterprise_cells_with_mismatch == 1
     assert report.enterprise_column_fields_skipped_mismatch > 0
+    assert saw_mismatch is True
 
 
 def test_validated_cll_partial_match_emits_matched_columns_only():
@@ -514,13 +667,14 @@ def test_validated_cll_partial_match_emits_matched_columns_only():
     # orders is NOT in queriedTables
     queried = [customers_urn]
     sql = "SELECT a.id, b.name FROM db.s.customers a JOIN db.s.orders b ON a.id = b.cid"
-    fields = b.build_validated_column_lineage([_cell(sql)], queried)
+    fields, saw_mismatch = b.build_validated_column_lineage([_cell(sql)], queried)
     # columns from customers should be emitted; columns from orders should be skipped
     assert any("customers" in f for f in fields)
     assert not any("orders" in f for f in fields)
     assert report.enterprise_cells_with_mismatch == 1
     assert report.enterprise_column_fields_skipped_mismatch > 0
     assert report.enterprise_column_fields_emitted > 0
+    assert saw_mismatch is True
 
 
 def test_validated_cll_mismatch_sample_stored():
@@ -554,25 +708,32 @@ def test_validated_cll_deduplicates_fields_across_cells():
     queried = [orders_urn]
     sql = "SELECT order_id FROM db.schema.orders"
     # same SQL twice — same field should not be emitted twice
-    fields = b.build_validated_column_lineage([_cell(sql), _cell(sql)], queried)
+    fields, _ = b.build_validated_column_lineage([_cell(sql), _cell(sql)], queried)
     assert len(fields) == len(set(fields))
 
 
 def test_validated_cll_empty_sql_cells_returns_empty():
     b = _builder()
-    fields = b.build_validated_column_lineage([], [_make_dataset_urn("db.s.t")])
+    fields, saw_mismatch = b.build_validated_column_lineage(
+        [], [_make_dataset_urn("db.s.t")]
+    )
     assert fields == []
+    # No cells parsed → no mismatch signal. This is the exact case that would
+    # otherwise trigger the "Column lineage dropped" warning spuriously; the
+    # tuple's second element gates it correctly.
+    assert saw_mismatch is False
 
 
 def test_validated_cll_unknown_connection_skipped_silently():
     report = LineageBuilderReport()
     b = _builder(report=report)
     queried = [_make_dataset_urn("db.s.t")]
-    fields = b.build_validated_column_lineage(
+    fields, saw_mismatch = b.build_validated_column_lineage(
         [_cell("SELECT id FROM db.s.t", conn_id=UNKNOWN_CONN)], queried
     )
     assert fields == []
     assert report.enterprise_cells_with_mismatch == 0  # skipped before parsing
+    assert saw_mismatch is False  # skipped cells never produce mismatch signal
 
 
 # ------------------------------------------------------------------
@@ -634,3 +795,237 @@ def test_explicit_table_qualifier_overrides_defaults():
     )
     assert len(datasets) == 1
     assert "other_db.other_schema.orders" in datasets[0].lower()
+
+
+def test_build_from_queried_tables_snowflake_lowercases_by_default():
+    """Case-insensitive platforms (snowflake) are lowercased automatically —
+    no config needed. This mirrors the SQL-cell path's SchemaResolver rule."""
+    b = _builder(
+        connections={
+            SNOWFLAKE_CONN: HexConnection(
+                name="A", platform="snowflake", platform_instance="prod_sf"
+            ),
+        },
+    )
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "MY_DB.MY_SCHEMA.MY_TABLE"}]
+    )
+    expected = make_dataset_urn_with_platform_instance(
+        platform="snowflake",
+        name="my_db.my_schema.my_table",
+        platform_instance="prod_sf",
+        env="PROD",
+    )
+    assert urns == [expected]
+
+
+def test_build_from_queried_tables_bigquery_preserves_case_by_default():
+    """Case-sensitive platforms (bigquery) preserve author case automatically —
+    no config needed. Guard against the mixed-platform bug: lowercasing for one
+    Snowflake connection must not dangle a sibling BigQuery connection."""
+    b = _builder(
+        connections={
+            BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery"),
+        },
+    )
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": BIGQUERY_CONN, "tableName": "Proj.DataSet.Tbl"}]
+    )
+    expected = make_dataset_urn_with_platform_instance(
+        platform="bigquery",
+        name="Proj.DataSet.Tbl",
+        platform_instance=None,
+        env="PROD",
+    )
+    assert urns == [expected]
+
+
+def test_build_from_queried_tables_bigquery_normalizes_date_shard():
+    """BigQuery shard suffixes are normalized by the resolver — a queriedTables
+    entry for ``proj.dataset.events_20240101`` resolves to the same URN as the
+    partitioned table ``proj.dataset.events_yyyymmdd`` that the warehouse
+    ingestion emits, so the lineage edge lands on the right dataset."""
+    b = _builder(
+        connections={BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery")},
+    )
+    urns = b.build_from_queried_tables(
+        [
+            {
+                "dataConnectionId": BIGQUERY_CONN,
+                "tableName": "proj.dataset.events_20240101",
+            }
+        ]
+    )
+    expected = make_dataset_urn_with_platform_instance(
+        platform="bigquery",
+        name="proj.dataset.events_yyyymmdd",
+        platform_instance=None,
+        env="PROD",
+    )
+    assert urns == [expected]
+
+
+def test_build_from_queried_tables_mssql_lowercases_by_default():
+    """MSSQL is case-insensitive — the resolver lowercases the qualified name,
+    matching a warehouse ingested with convert_urns_to_lowercase=true."""
+    b = _builder(
+        connections={
+            "conn-mssql": HexConnection(name="M", platform="mssql"),
+        },
+    )
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": "conn-mssql", "tableName": "MY_DB.dbo.MY_TABLE"}]
+    )
+    expected = make_dataset_urn_with_platform_instance(
+        platform="mssql",
+        name="my_db.dbo.my_table",
+        platform_instance=None,
+        env="PROD",
+    )
+    assert urns == [expected]
+
+
+def test_build_from_queried_tables_dedup_collapses_case_variants():
+    """The same table referenced with different casing collapses to a single
+    URN on a case-insensitive platform (snowflake)."""
+    b = _builder(
+        connections={
+            SNOWFLAKE_CONN: HexConnection(name="A", platform="snowflake"),
+        },
+    )
+    urns = b.build_from_queried_tables(
+        [
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "DB.SCHEMA.T"},
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.schema.t"},
+        ]
+    )
+    expected = make_dataset_urn_with_platform_instance(
+        platform="snowflake",
+        name="db.schema.t",
+        platform_instance=None,
+        env="PROD",
+    )
+    assert urns == [expected]
+
+
+def test_validated_cll_instanced_snowflake_matches_between_tiers():
+    """Both tiers route through the same SchemaResolver, so an instanced
+    Snowflake connection yields identical URNs from queriedTables and from
+    SQL-cell parsing — column lineage matches without a hand-rolled key."""
+    report = LineageBuilderReport()
+    b = _builder(
+        report=report,
+        connections={
+            SNOWFLAKE_CONN: HexConnection(
+                name="A",
+                platform="snowflake",
+                platform_instance="Prod_SF",
+            ),
+        },
+    )
+    queried = b.build_from_queried_tables(
+        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "DB.SCHEMA.ORDERS"}]
+    )
+    sql = "SELECT order_id FROM DB.SCHEMA.ORDERS"
+    fields, _ = b.build_validated_column_lineage([_cell(sql)], queried)
+    assert len(fields) == 1
+    assert SchemaFieldUrn.from_string(fields[0]).parent == queried[0]
+    assert report.enterprise_column_fields_skipped_mismatch == 0
+
+
+def test_validated_cll_snowflake_emits_on_case_match():
+    """On a case-insensitive platform (snowflake), the parsed parent (author
+    case) is matched to the queriedTables URN by a lowercased-name key, and the
+    emitted SchemaField URN is rebuilt against the *exact* queried URN — so
+    column lineage points at the same (lowercased) dataset as datasetEdges, not
+    an author-case parent that would dangle."""
+    report = LineageBuilderReport()
+    b = _builder(report=report)
+    # queried URNs reflect what build_from_queried_tables would emit for
+    # snowflake: the db.schema.table portion is lowercased.
+    queried = [
+        make_dataset_urn_with_platform_instance(
+            platform="snowflake",
+            name="db.schema.orders",
+            platform_instance=None,
+            env="PROD",
+        )
+    ]
+    sql = "SELECT order_id, customer_id FROM DB.SCHEMA.ORDERS"
+    fields, _ = b.build_validated_column_lineage([_cell(sql)], queried)
+    expected_parent = queried[0]
+    expected = {
+        make_schema_field_urn(expected_parent, "order_id"),
+        make_schema_field_urn(expected_parent, "customer_id"),
+    }
+    assert set(fields) == expected
+    # Each emitted field's parent must equal the lowercased queried URN,
+    # not the author-case parent the SQL parser produced.
+    for furn in fields:
+        assert SchemaFieldUrn.from_string(furn).parent == expected_parent
+    assert report.enterprise_column_fields_emitted == len(expected)
+    assert report.enterprise_column_fields_skipped_mismatch == 0
+    assert report.enterprise_cells_with_mismatch == 0
+
+
+def test_validated_cll_mismatch_still_reported():
+    """Case normalization helps, but a genuine table-not-in-queriedTables
+    mismatch is still reported."""
+    report = LineageBuilderReport()
+    b = _builder(report=report)
+    queried = [
+        make_dataset_urn_with_platform_instance(
+            platform="snowflake",
+            name="other.db.schema.t",
+            platform_instance=None,
+            env="PROD",
+        )
+    ]
+    sql = "SELECT id FROM DB.SCHEMA.ORDERS"
+    fields, saw_mismatch = b.build_validated_column_lineage([_cell(sql)], queried)
+    assert fields == []
+    assert report.enterprise_column_fields_skipped_mismatch > 0
+    assert report.enterprise_cells_with_mismatch == 1
+    assert saw_mismatch is True
+
+
+def test_validated_cll_bigquery_matches_by_exact_urn_not_lowercase():
+    """Case-sensitive connections (bigquery) match by exact URN, not the
+    lowercase key — ``Proj.DataSet.Tbl`` and ``proj.dataset.tbl`` are
+    different tables on BigQuery and must not collapse."""
+    report = LineageBuilderReport()
+    b = _builder(
+        report=report,
+        connections={BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery")},
+    )
+    queried = [
+        make_dataset_urn_with_platform_instance(
+            platform="bigquery",
+            name="Proj.DataSet.Tbl",
+            platform_instance=None,
+            env="PROD",
+        )
+    ]
+    # Same casing → matches.
+    sql_match = "SELECT id FROM Proj.DataSet.Tbl"
+    fields_match, _ = b.build_validated_column_lineage(
+        [_cell(sql_match, conn_id=BIGQUERY_CONN)], queried
+    )
+    assert len(fields_match) == 1
+    assert SchemaFieldUrn.from_string(fields_match[0]).parent == queried[0]
+    assert report.enterprise_column_fields_skipped_mismatch == 0
+
+    # Different casing only → distinct table on BigQuery → mismatch, not stitched.
+    report2 = LineageBuilderReport()
+    b2 = _builder(
+        report=report2,
+        connections={BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery")},
+    )
+    sql_nomatch = "SELECT id FROM proj.dataset.tbl"
+    fields_nomatch, saw_mismatch = b2.build_validated_column_lineage(
+        [_cell(sql_nomatch, conn_id=BIGQUERY_CONN)], queried
+    )
+    assert fields_nomatch == []
+    assert report2.enterprise_column_fields_skipped_mismatch > 0
+    assert report2.enterprise_cells_with_mismatch == 1
+    assert saw_mismatch is True
