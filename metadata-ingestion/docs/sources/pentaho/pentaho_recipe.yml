@@ -1,0 +1,27 @@
+source:
+  type: pentaho
+  config:
+    # Required: root folder, scanned recursively
+    base_folder: "/path/to/pentaho/files"
+
+    # Optional: platform instance
+    # platform_instance: "production"
+
+    # Optional: URN environment (default: PROD)
+    # env: "PROD"
+
+    # Optional: owner for every DataJob (default: pentaho_admin)
+    # default_owner: "pentaho_admin"
+
+    # Optional: skip files larger than this, in MB (default: 50)
+    # file_size_limit_mb: 50
+
+    # Optional: connection type to platform. Replaces the defaults.
+    # platform_mappings:
+    #   googlebigquery: bigquery
+    #   postgresql: postgres
+    #   mssqlnative: mssql
+    #   mysql: mysql
+
+sink:
+  # config sinks

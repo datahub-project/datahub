@@ -1270,6 +1270,10 @@ oracle = [
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
+pentaho = [
+    { name = "defusedxml" },
+    { name = "sqlglot", extra = ["c"] },
+]
 pinecone = [
     { name = "pinecone-client" },
 ]
@@ -1892,6 +1896,7 @@ requires-dist = [
     { name = "defusedxml", marker = "extra == 'hana'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'informatica'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'integration-tests'", specifier = ">=0.7.1,<0.8.0" },
+    { name = "defusedxml", marker = "extra == 'pentaho'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'sap-datasphere'", specifier = ">=0.7.1,<0.8.0" },
     { name = "deltalake", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'all'", specifier = ">=0.6.3,!=0.6.4,!=0.18.0,<1.0.0" },
     { name = "deltalake", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'delta-lake'", specifier = ">=0.6.3,!=0.6.4,!=0.18.0,<1.0.0" },
@@ -2646,6 +2651,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'mssql-odbc'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'mysql'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'oracle'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'pentaho'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'postgres'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'powerbi'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'preset'", specifier = "==30.12.0" },
@@ -2893,7 +2899,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "informix", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "montecarlo", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-datasphere", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "informix", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "montecarlo", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "oracle", "pentaho", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-datasphere", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-cloud"
