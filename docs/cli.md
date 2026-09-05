@@ -1093,6 +1093,7 @@ Options:
 - `--skip-on-error`: Continue migrating remaining entities when one fails, instead of aborting.
 - `--entity-types`: Comma-separated list of entity types to migrate (default: all). Available: `dataset`, `chart`, `dashboard`, `dataFlow`, `dataJob`.
 - `--checkpoint-file`: Path to a checkpoint file for resumable migrations. Already-migrated source URNs are read from this file and skipped; newly migrated URNs are appended on success. The file is created automatically on first write. Not written during `--dry-run`; errored pairs (under `--skip-on-error`) are not checkpointed, so they retry on resume.
+- `--pipeline-name`: Only migrate entities whose `systemMetadata.pipelineName` matches this value. Use this to scope migration to a single ingestion pipeline when multiple pipelines write to the same platform without a platform instance. Each candidate entity's systemMetadata is checked, so a progress bar is shown during filtering.
 
 **_Note_**: Timeseries aspects such as Usage Statistics and Dataset Profiles are not migrated over to the new entity instances, you will get new data points created when you re-run ingestion using the `usage` or sources with profiling turned on.
 
@@ -1133,6 +1134,23 @@ Num entities created = 4
 Num entities affected = 0
 Num entities migrated = 4
 ```
+
+##### Scoped Migration (filter by pipeline name)
+
+When multiple ingestion pipelines write to the same platform without a platform instance, use `--pipeline-name` to migrate only the entities produced by a specific pipeline:
+
+```console
+datahub migrate dataplatform2instance --platform dbt --instance my_project --pipeline-name "my_dbt_pipeline" --dry-run
+Starting migration: platform:dbt, instance=my_project, force=False, dry-run=True, pipeline-name=my_dbt_pipeline
+This command will migrate DATASET, CHART, DASHBOARD, DATAFLOW, DATAJOB and CONTAINERS.
+Filtering 500 entities by pipeline 'my_dbt_pipeline'...
+Checking pipeline ownership  [####################################]  100%
+  120/500 entities match pipeline 'my_dbt_pipeline'.
+Found 120 dataset entities to migrate.
+...
+```
+
+The pipeline name is set by the `pipeline_name` field in your ingestion recipe. You can check an entity's pipeline name via `datahub get --urn <urn>` and inspecting the `systemMetadata.pipelineName` field.
 
 #### instance2instance
 
@@ -1180,6 +1198,7 @@ Options:
 - `--skip-on-error`: Continue migrating remaining entities when one fails, instead of aborting.
 - `--entity-types`: Comma-separated list of entity types to migrate (default: all). Available: `dataset`, `chart`, `dashboard`, `dataFlow`, `dataJob`.
 - `--checkpoint-file`: Path to a checkpoint file for resumable migrations (see `dataplatform2instance` above).
+- `--pipeline-name`: Only migrate entities produced by a specific ingestion pipeline (see `dataplatform2instance` above).
 
 **⚠️ Note**: `dataFlow` and `dataJob` should always be migrated together. DataJob URNs embed their parent DataFlow URN — migrating one without the other creates orphaned references. The CLI will prompt for confirmation if you attempt to separate them.
 
