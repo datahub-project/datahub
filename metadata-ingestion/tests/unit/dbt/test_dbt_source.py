@@ -2172,9 +2172,51 @@ def test_make_assertion_from_test_emits_custom_structured_fields() -> None:
     assert mcp.aspect.customAssertion.fields == [field_urn]
     assert mcp.aspect.customAssertion.nativeType == "not_null_id"
     assert mcp.aspect.customAssertion.nativeParameters == {"column_name": "id"}
+    # No description was set on the dbt test node, so none should be emitted.
+    assert mcp.aspect.description is None
     assert mcp.aspect.source is not None
     assert mcp.aspect.source.created is not None
     assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
+
+
+def test_make_assertion_from_test_includes_node_description() -> None:
+    node = DBTNode(
+        database="raw_db",
+        schema="raw",
+        name="not_null_id",
+        alias=None,
+        comment="",
+        description="Every user must have an id.",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="test.test.not_null_id",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="test",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    node.test_info = DBTTest(
+        qualified_test_name="not_null",
+        column_name="id",
+        kw_args={"column_name": "id"},
+    )
+    upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,raw.users,PROD)"
+
+    mcp = make_assertion_from_test(
+        {"dbt_unique_id": node.dbt_name},
+        node,
+        "urn:li:assertion:test",
+        upstream_urn,
+    )
+
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionInfoClass)
+    assert mcp.aspect.description == "Every user must have an id."
 
 
 @pytest.mark.parametrize(
