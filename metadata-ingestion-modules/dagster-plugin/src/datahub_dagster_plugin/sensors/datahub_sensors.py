@@ -49,7 +49,7 @@ from dagster._core.execution.stats import RunStepKeyStatsSnapshot
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.graph.config import ClientMode
-from datahub.metadata.schema_classes import SubTypesClass
+from datahub.metadata.schema_classes import SiblingsClass, SubTypesClass
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_sql_parsed_result,
@@ -378,6 +378,7 @@ class DatahubSensors:
             downstreams,
             dataset_inputs,
             dataset_outputs,
+            asset_downstream_urn,
         )
 
     def _is_valid_asset_materialization(self, log: EventLogEntry) -> bool:
@@ -483,6 +484,7 @@ class DatahubSensors:
         downstreams: Set[str],
         dataset_inputs: Dict[str, Set[DatasetUrn]],
         dataset_outputs: Dict[str, Set[DatasetUrn]],
+        asset_downstream_urn: DatasetUrn,
     ) -> None:
         if self.config.emit_assets:
             context.log.info("Emitting asset metadata...")
@@ -499,6 +501,8 @@ class DatahubSensors:
             )
             if log.step_key:
                 dataset_outputs[log.step_key].add(dataset_urn)
+            if self.config.emit_siblings:
+                self._emit_siblings(context, dataset_urn, asset_downstream_urn)
         else:
             context.log.info(
                 "Not emitting assets but connecting materialized dataset to DataJobs"
@@ -525,6 +529,35 @@ class DatahubSensors:
                 context.log.info(
                     f"Dataset Inputs: {dataset_inputs[log.step_key]} Dataset Outputs: {dataset_outputs[log.step_key]}"
                 )
+
+    def _emit_siblings(
+        self,
+        context: RunStatusSensorContext,
+        dagster_urn: DatasetUrn,
+        table_urn: DatasetUrn,
+    ) -> None:
+        # Link the Dagster asset to the warehouse table it materializes. The two
+        # render as a single merged entity in DataHub.
+        if dagster_urn.urn() == table_urn.urn():
+            return
+        dagster_primary = bool(self.config.dagster_is_primary_sibling)
+        self.graph.emit_mcp(
+            MetadataChangeProposalWrapper(
+                entityUrn=dagster_urn.urn(),
+                aspect=SiblingsClass(
+                    siblings=[table_urn.urn()], primary=dagster_primary
+                ),
+            )
+        )
+        self.graph.emit_mcp(
+            MetadataChangeProposalWrapper(
+                entityUrn=table_urn.urn(),
+                aspect=SiblingsClass(
+                    siblings=[dagster_urn.urn()], primary=not dagster_primary
+                ),
+            )
+        )
+        context.log.info(f"Emitted siblings: {dagster_urn.urn()} <-> {table_urn.urn()}")
 
     def process_asset_observation(
         self,
