@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnClause, ColumnElement, Label
 
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -16,6 +16,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    flattenable_query,
     single_row_query,
 )
 
@@ -40,12 +41,31 @@ class ProfilingConnection:
     def __init__(self, conn: Connection) -> None:
         self._conn = conn
 
-    def execute_single_row(self, query: Any) -> Any:
-        """Execute a statement that returns exactly one row.
+    def execute_aggregate(self, table: Any, expr: ColumnElement[Any]) -> Any:
+        """Execute one aggregate over a whole table.
 
-        Tags the statement so the query combiner may batch it. Only valid for a
-        bare aggregate with no GROUP BY, no LIMIT/OFFSET and no row-filtering
-        WHERE -- see SINGLE_ROW_EXECUTION_OPTION.
+        The query is built here, so it cannot carry a WHERE, GROUP BY or LIMIT.
+        That is what makes it safe to merge with other aggregates over the same
+        table into a single flat SELECT.
+        """
+        # A plain column merged with real aggregates emits
+        # `SELECT count(*), v FROM t`, which returns one row on MySQL and
+        # SQLite and silently drops the rest. literal_column is allowed --
+        # several adapters build their median that way, often labelled.
+        inner = expr.element if isinstance(expr, Label) else expr
+        if isinstance(inner, ColumnClause) and not inner.is_literal:
+            raise ValueError(
+                f"execute_aggregate needs an aggregate, got a plain column: {expr}"
+            )
+        query = sa.select([expr]).select_from(table)
+        return self._conn.execute(flattenable_query(single_row_query(query)))
+
+    def execute_single_row(self, query: Any) -> Any:
+        """Execute a query you built yourself that returns exactly one row.
+
+        Batchable into a CTE, which preserves every clause. Not flattenable --
+        flattening keeps only the select list and the FROM, so any clause you
+        added would be silently dropped.
         """
         return self._conn.execute(single_row_query(query))
 
@@ -366,10 +386,16 @@ class PlatformAdapter(ABC):
             result = self.get_estimated_row_count(table, conn)
             return int(result) if result is not None else 0
 
-        query = sa.select([sa.func.count()]).select_from(table)
         if sample_clause:
-            query = query.suffix_with(sample_clause)
-        count_result: Any = conn.execute_single_row(query).scalar()
+            # The sample clause must survive, so this one cannot be flattened.
+            query = (
+                sa.select([sa.func.count()])
+                .select_from(table)
+                .suffix_with(sample_clause)
+            )
+            count_result: Any = conn.execute_single_row(query).scalar()
+        else:
+            count_result = conn.execute_aggregate(table, sa.func.count()).scalar()
         # scalar() can return Any | None, so we need to handle None
         if count_result is None:
             return 0
@@ -391,8 +417,9 @@ class PlatformAdapter(ABC):
         Returns:
             Non-null count
         """
-        query = sa.select([sa.func.count(sa.column(column))]).select_from(table)
-        result = conn.execute_single_row(query).scalar()
+        result = conn.execute_aggregate(
+            table, sa.func.count(sa.column(column))
+        ).scalar()
         return int(result) if result is not None else 0
 
     def get_column_min(
@@ -409,8 +436,7 @@ class PlatformAdapter(ABC):
         Returns:
             Minimum value
         """
-        query = sa.select([sa.func.min(sa.column(column))]).select_from(table)
-        return conn.execute_single_row(query).scalar()
+        return conn.execute_aggregate(table, sa.func.min(sa.column(column))).scalar()
 
     def get_column_max(
         self, table: sa.Table, column: str, conn: ProfilingConnection
@@ -426,8 +452,7 @@ class PlatformAdapter(ABC):
         Returns:
             Maximum value
         """
-        query = sa.select([sa.func.max(sa.column(column))]).select_from(table)
-        return conn.execute_single_row(query).scalar()
+        return conn.execute_aggregate(table, sa.func.max(sa.column(column))).scalar()
 
     def get_column_mean(
         self, table: sa.Table, column: str, conn: ProfilingConnection
@@ -450,8 +475,7 @@ class PlatformAdapter(ABC):
         # (e.g., Redshift needs CAST to preserve precision)
         avg_expr = self.get_mean_expr(column)
 
-        query = sa.select([avg_expr]).select_from(table)
-        result = conn.execute_single_row(query).scalar()
+        result = conn.execute_aggregate(table, avg_expr).scalar()
 
         # Return raw result to preserve database-native formatting (like GE does)
         return result
@@ -472,8 +496,9 @@ class PlatformAdapter(ABC):
         # GE uses stddev_samp (sample stddev, Bessel-corrected). Some dialects' bare
         # `stddev()` defaults to STDDEV_POP (MySQL, Doris) — calling stddev_samp
         # explicitly keeps semantics consistent across dialects.
-        query = sa.select([sa.func.stddev_samp(sa.column(column))]).select_from(table)
-        result = conn.execute_single_row(query).scalar()
+        result = conn.execute_aggregate(
+            table, sa.func.stddev_samp(sa.column(column))
+        ).scalar()
         if result is None:
             non_null_count = self.get_column_non_null_count(table, column, conn)
             if non_null_count == 1:
@@ -518,8 +543,7 @@ class PlatformAdapter(ABC):
         else:
             expr = sa.func.count(sa.func.distinct(sa.column(column)))
 
-        query = sa.select([expr]).select_from(table)
-        result = conn.execute_single_row(query).scalar()
+        result = conn.execute_aggregate(table, expr).scalar()
         return int(result) if result is not None else 0
 
     def get_column_median(
@@ -539,9 +563,8 @@ class PlatformAdapter(ABC):
         expr = self.get_median_expr(column)
         if expr is not None:
             try:
-                query = sa.select([expr]).select_from(table)
                 # Return raw result to preserve database-native formatting.
-                return conn.execute_single_row(query).scalar()
+                return conn.execute_aggregate(table, expr).scalar()
             except SQLAlchemyError as e:
                 logger.debug(
                     f"Native MEDIAN expression failed for column {column}; "

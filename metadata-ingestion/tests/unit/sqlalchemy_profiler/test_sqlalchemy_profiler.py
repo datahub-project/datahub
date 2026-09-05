@@ -2,7 +2,7 @@
 
 import logging
 import sqlite3
-from typing import Any, List
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1297,3 +1297,46 @@ class TestIgnoreSamplingColumnNames:
             == []
         )
         adapter.field_path_for.assert_not_called()
+
+
+class TestQueryCombinerWiring:
+    """The flatten knobs are useless if the config never reaches the combiner."""
+
+    def _combiner_kwargs(
+        self, sqlite_engine: Any, mock_report: Any, config: ProfilingConfig
+    ) -> Dict[str, Any]:
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler"
+            ".SQLAlchemyQueryCombiner"
+        ) as combiner_cls:
+            list(profiler.generate_profiles(requests=[], max_workers=1))
+        return dict(combiner_cls.call_args.kwargs)
+
+    def test_flatten_knobs_reach_the_combiner(
+        self, sqlite_engine: Any, mock_report: Any
+    ) -> None:
+        config = ProfilingConfig(
+            enabled=True,
+            query_combiner_flatten_enabled=True,
+            max_distinct_per_statement=3,
+        )
+        kwargs = self._combiner_kwargs(sqlite_engine, mock_report, config)
+
+        assert kwargs["flatten_enabled"] is True
+        assert kwargs["max_distinct_per_statement"] == 3
+
+    def test_defaults_leave_flattening_off(
+        self, sqlite_engine: Any, mock_report: Any
+    ) -> None:
+        kwargs = self._combiner_kwargs(
+            sqlite_engine, mock_report, ProfilingConfig(enabled=True)
+        )
+
+        assert kwargs["flatten_enabled"] is False

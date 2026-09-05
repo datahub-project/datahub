@@ -72,8 +72,9 @@ class MSSQLAdapter(PlatformAdapter):
         the base adapter: single value → None, multiple-equal rows → 0.0,
         all-null → adapter-specific `get_stdev_null_value()` hook.
         """
-        query = sa.select([sa.func.stdev(sa.column(column))]).select_from(table)
-        result = conn.execute_single_row(query).scalar()
+        result = conn.execute_aggregate(
+            table, sa.func.stdev(sa.column(column))
+        ).scalar()
         if result is None:
             non_null_count = self.get_column_non_null_count(table, column, conn)
             if non_null_count == 1:

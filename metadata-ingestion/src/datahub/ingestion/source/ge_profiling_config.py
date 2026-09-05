@@ -7,7 +7,12 @@ import pydantic
 from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    HiddenFromDocs,
+    SupportedSources,
+)
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source_config.operation_config import OperationConfig
 from datahub.utilities.str_enum import StrEnum
@@ -16,6 +21,7 @@ _PROFILING_FLAGS_TO_REPORT = {
     "turn_off_expensive_profiling_metrics",
     "profile_table_level_only",
     "query_combiner_enabled",
+    "query_combiner_flatten_enabled",
     # all include_field_ flags are reported.
 }
 
@@ -187,6 +193,23 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="*This feature is still experimental and can be disabled if it causes issues.* Reduces the total number of queries issued and speeds up profiling by dynamically combining SQL queries where possible.",
     )
 
+    # Merges same-table aggregates into one flat SELECT instead of one CTE
+    # each, turning N table scans into one. Requires query_combiner_enabled.
+    # Off by default; flip in a follow-up after validation.
+    query_combiner_flatten_enabled: bool = Field(
+        default=False,
+        description="*Experimental.* Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. COUNT(DISTINCT) columns are capped per statement to bound server memory.",
+    )
+
+    # Hidden: cap on COUNT(DISTINCT) columns per flat statement, exposed so
+    # it can be measured without a release. Duplicated from
+    # DEFAULT_MAX_DISTINCT_PER_STATEMENT rather than imported, because kafka /
+    # cassandra / excel configs import this module without sqlalchemy.
+    max_distinct_per_statement: HiddenFromDocs[pydantic.PositiveInt] = Field(
+        default=5,
+        description="",
+    )
+
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = Field(default=True, description="")
 
@@ -279,6 +302,19 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         "Lower values prevent recursion errors but may truncate deeply nested data. "
         "Applies to connectors that process dynamic JSON content (e.g., Kafka, MongoDB, Elasticsearch).",
     )
+
+    @model_validator(mode="after")
+    def warn_if_flatten_without_query_combiner(self) -> "GEProfilingConfig":
+        # Warn rather than raise: disabling the combiner is a legitimate way to
+        # troubleshoot a profiling run, and that should not start failing just
+        # because the flatten flag was left on.
+        if self.query_combiner_flatten_enabled and not self.query_combiner_enabled:
+            logger.warning(
+                "query_combiner_flatten_enabled has no effect while "
+                "query_combiner_enabled is false: the combiner short-circuits "
+                "before the flatten path runs, so no queries will be flattened."
+            )
+        return self
 
     @model_validator(mode="before")
     @classmethod

@@ -1,6 +1,7 @@
 import collections
 import contextlib
 import dataclasses
+import enum
 import itertools
 import logging
 import random
@@ -23,7 +24,12 @@ from typing import (
 import greenlet
 import sqlalchemy
 import sqlalchemy.engine
+import sqlalchemy.exc
 import sqlalchemy.sql
+import sqlalchemy.sql.elements
+import sqlalchemy.sql.functions
+import sqlalchemy.sql.operators
+import sqlalchemy.sql.visitors
 from packaging import version
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
@@ -65,6 +71,21 @@ queries -- to be re-issued serially.
 Tagging is therefore a correctness claim, not a hint. When in doubt, do not tag:
 an untagged statement is simply executed on its own.
 """
+
+
+FLATTENABLE_EXECUTION_OPTION = "datahub_flattenable"
+"""Marks a statement the flatten path may merge with others over the same table.
+
+Set only by ProfilingConnection.execute_aggregate, which builds the query itself, so
+the tag cannot be attached to something carrying a clause. Absent means no flattening.
+"""
+
+
+def flattenable_query(query: _StatementT) -> _StatementT:
+    """Tag a statement as safe to merge into a flat SELECT."""
+    return query.execution_options(  # type: ignore[attr-defined,no-any-return]
+        **{FLATTENABLE_EXECUTION_OPTION: True}
+    )
 
 
 def single_row_query(query: _StatementT) -> _StatementT:
@@ -118,6 +139,49 @@ def is_single_row_query(query: Any) -> bool:
     if not isinstance(query, sqlalchemy.sql.Executable):
         return False
     return bool(query.get_execution_options().get(SINGLE_ROW_EXECUTION_OPTION, False))
+
+
+# Max COUNT(DISTINCT) columns per flat statement: each builds a distinct-value
+# tree on the server, so letting all of them coexist trades a scan problem for
+# a memory problem. Not yet measured; overridable via a hidden config knob.
+DEFAULT_MAX_DISTINCT_PER_STATEMENT = 5
+
+
+def _render(query: Any, dialect: Any) -> str:
+    # str(query) uses SQLAlchemy's default dialect, which omits anything scoped
+    # to a real one. Compiling under the connection's dialect keeps those
+    # visible to the gate.
+    return str(query) if dialect is None else str(query.compile(dialect=dialect))
+
+
+class _FlattenVerdict(enum.Enum):
+    # REJECTED and GATE_ERROR both fall back to the CTE path, but only
+    # GATE_ERROR means the gate itself broke. Kept apart so a gate that throws
+    # on everything is not mistaken for a workload with nothing to flatten.
+    FLATTENABLE = "flattenable"
+    REJECTED = "rejected"
+    GATE_ERROR = "gate_error"
+
+
+def _chunk_by_distinct_budget(
+    members: List[Tuple[str, "_QueryFuture", int]], budget: int
+) -> Iterator[List[Tuple[str, "_QueryFuture"]]]:
+    # A single future over budget still gets its own statement rather than
+    # being dropped. budget < 1 raises so a misconfigured cap re-routes through
+    # the CTE path instead of silently yielding nothing.
+    if budget < 1:
+        raise ValueError(f"distinct budget must be >= 1, got {budget}")
+    chunk: List[Tuple[str, "_QueryFuture"]] = []
+    used = 0
+    for k, fut, n in members:
+        if chunk and used + n > budget:
+            yield chunk
+            chunk = []
+            used = 0
+        chunk.append((k, fut))
+        used += n
+    if chunk:
+        yield chunk
 
 
 # We need to make sure that only one query combiner attempts to patch
@@ -238,6 +302,21 @@ class SQLAlchemyQueryCombinerReport(Report):
     # contrast, raises MisTaggedQueryError rather than landing here.
     uncombined_queries_in_greenlet: int = 0
 
+    # Flat statements attempted; incremented before execution, so a failed one
+    # still counts. scans_avoided is the success signal.
+    flat_queries_issued: int = 0
+
+    # Table scans avoided: sum(len(members) - 1) per flat statement. Read with
+    # combined_queries_issued -- flattening trades round trips for scans, so
+    # that counter can rise while scans fall.
+    scans_avoided: int = 0
+
+    # Why queued queries did not flatten. Only gate_errors is a defect
+    # signal; rejected and singletons are the gate working as designed.
+    flatten_rejected: int = 0
+    flatten_gate_errors: int = 0
+    flatten_singletons: int = 0
+
     query_exceptions: int = 0
 
 
@@ -256,6 +335,11 @@ class SQLAlchemyQueryCombiner:
     enabled: bool
     catch_exceptions: bool
     serial_execution_fallback_enabled: bool
+    # Partition the queue by FROM signature and emit one flat SELECT per
+    # group instead of one CTE per query. Off for everyone by default.
+    flatten_enabled: bool = False
+    # See DEFAULT_MAX_DISTINCT_PER_STATEMENT.
+    max_distinct_per_statement: int = DEFAULT_MAX_DISTINCT_PER_STATEMENT
 
     # The Python GIL ensures that modifications to the report's counters
     # are safe.
@@ -459,74 +543,330 @@ class SQLAlchemyQueryCombiner:
         )
 
         if pending_queue:
-            queue_item = next(iter(pending_queue.values()))
+            if self.flatten_enabled:
+                self._execute_queue_flattened(pending_queue)
+            else:
+                self._execute_cte_combine(pending_queue)
 
-            # Actually combine these queries together. We do this by (1) putting
-            # each query into its own CTE, (2) selecting all the columns we need
-            # and (3) extracting the results once the query finishes.
+    def _execute_cte_combine(self, pending_queue: Dict[str, _QueryFuture]) -> None:
+        # One CTE per query, cross-joined. Unchanged from before the flatten
+        # path; also the fallback for queries flattening cannot handle.
+        queue_item = next(iter(pending_queue.values()))
 
-            ctes = {
-                k: query_future.query.cte(k)
-                for k, query_future in pending_queue.items()
-            }
+        # Actually combine these queries together. We do this by (1) putting
+        # each query into its own CTE, (2) selecting all the columns we need
+        # and (3) extracting the results once the query finishes.
 
-            combined_cols = itertools.chain(
-                *[
-                    [
-                        col  # .label(self._generate_sql_safe_identifier())
-                        for col in get_query_columns(cte)
-                    ]
-                    for _, cte in ctes.items()
+        ctes = {
+            k: query_future.query.cte(k) for k, query_future in pending_queue.items()
+        }
+
+        combined_cols = itertools.chain(
+            *[
+                [
+                    col  # .label(self._generate_sql_safe_identifier())
+                    for col in get_query_columns(cte)
                 ]
+                for _, cte in ctes.items()
+            ]
+        )
+        combined_query = sqlalchemy.select(combined_cols)
+        for cte in ctes.values():
+            combined_query.append_from(cte)
+
+        query_id = SQLAlchemyQueryCombiner._generate_query_id()
+        self.report.combined_queries_issued += 1
+        logger.info(
+            f"[{query_id}] Executing combined query ({len(pending_queue)} queries combined)"
+        )
+        logger.debug(f"[{query_id}] SQL: {str(combined_query)}")
+        with PerfTimer() as timer:
+            sa_res = _sa_execute_underlying_method(queue_item.conn, combined_query)
+
+        logger.info(
+            f"[{query_id}] Combined query executed in {timer.elapsed_seconds():.3f}s"
+        )
+
+        # Fetch the results and ensure that exactly one row is returned.
+        results = sa_res.fetchall()
+        assert len(results) == 1
+        row = results[0]
+
+        # Extract the results into a result for each query.
+        index = 0
+        for _, query_future in pending_queue.items():
+            query = query_future.query
+            if IS_SQLALCHEMY_1_4:
+                # On 1.4, it prints a warning if we don't call subquery.
+                query = query.subquery()  # type: ignore
+            cols = query.columns
+
+            data = {}
+            for col in cols:
+                data[col.name] = row[index]
+                index += 1
+
+            res = _ResultProxyFake([_RowProxyFake(data)])
+
+            query_future.res = res
+
+        # Assert before marking done: a wrong-but-done future is skipped by
+        # the recovery paths' `if not fut.done` filters.
+        assert index == len(row)
+        for _, query_future in pending_queue.items():
+            query_future.done = True
+
+    # -- flatten path -------------------------------------------------------
+
+    @staticmethod
+    def _is_flattenable(query: Any, dialect: Any = None) -> bool:
+        return (
+            SQLAlchemyQueryCombiner._flatten_verdict(query, dialect)
+            is _FlattenVerdict.FLATTENABLE
+        )
+
+    @staticmethod
+    def _flatten_verdict(query: Any, dialect: Any = None) -> "_FlattenVerdict":
+        # Fail closed: rebuild a bare `SELECT <cols> FROM <froms>` and require
+        # an identical render, so an unknown clause is rejected by default.
+        # HAVING is the dangerous one -- the flat path would drop it and
+        # fabricate a row.
+        #
+        # Rendered under the connection's dialect, not the default one. A
+        # construct scoped to a dialect -- with_hint(dialect_name="mysql") --
+        # renders as nothing by default, so it would pass the compare and then
+        # be silently dropped from the flat statement.
+        try:
+            rebuilt = sqlalchemy.select(get_query_columns(query))
+            for f in query.get_final_froms():
+                rebuilt.append_from(f)
+            try:
+                original_sql = _render(query, dialect)
+                rebuilt_sql = _render(rebuilt, dialect)
+            except sqlalchemy.exc.CompileError:
+                # The dialect refuses to render it -- an unscoped with_hint on
+                # PostgreSQL, for instance. Equivalence cannot be proven, so
+                # this is a designed rejection rather than a broken gate.
+                return _FlattenVerdict.REJECTED
+            if original_sql != rebuilt_sql:
+                return _FlattenVerdict.REJECTED
+            # Only execute_aggregate sets this, and it builds the query itself.
+            if not query.get_execution_options().get(
+                FLATTENABLE_EXECUTION_OPTION, False
+            ):
+                return _FlattenVerdict.REJECTED
+            # Duplicate explicit .label() names make .columns raise. Caught
+            # here rather than by the outer handler, because that one counts
+            # gate errors and this rejection is by design.
+            try:
+                _ = query.subquery().columns
+            except sqlalchemy.exc.InvalidRequestError:
+                return _FlattenVerdict.REJECTED
+            return _FlattenVerdict.FLATTENABLE
+        except Exception as e:
+            # The gate broke, which is not the same as refusing the query.
+            # Counted apart so a gate throwing on everything is visible.
+            logger.debug(
+                "flatten gate raised; treating query as unflattenable", exc_info=e
             )
-            combined_query = sqlalchemy.select(combined_cols)
-            for cte in ctes.values():
-                combined_query.append_from(cte)
+            return _FlattenVerdict.GATE_ERROR
 
-            query_id = SQLAlchemyQueryCombiner._generate_query_id()
-            self.report.combined_queries_issued += 1
-            logger.info(
-                f"[{query_id}] Executing combined query ({len(pending_queue)} queries combined)"
+    @staticmethod
+    def _flatten_signature(fut: "_QueryFuture") -> Tuple[Tuple[Any, ...], Any]:
+        # FROM objects plus the connection, by identity (not id(), which is
+        # only unique among live objects). Two same-named tables must not
+        # merge, or the flat SELECT becomes `FROM t, t`. The connection is in
+        # the key because the group runs on members[0].conn.
+        return (tuple(fut.query.get_final_froms()), fut.conn)
+
+    @staticmethod
+    def _count_distinct_columns(query: Any) -> int:
+        # COUNT(DISTINCT) has three SQLAlchemy spellings -- func.distinct(c) is
+        # a FunctionElement, sa.distinct(c) and c.distinct() are
+        # UnaryExpressions. Missing one bypasses the cap silently.
+        total = 0
+        for col in get_query_columns(query):
+            for elem in sqlalchemy.sql.visitors.iterate(col):
+                if (
+                    isinstance(elem, sqlalchemy.sql.functions.FunctionElement)
+                    and elem.name.lower() == "distinct"
+                ) or (
+                    isinstance(elem, sqlalchemy.sql.elements.UnaryExpression)
+                    and elem.operator is sqlalchemy.sql.operators.distinct_op
+                ):
+                    total += 1
+                    break
+        return total
+
+    def _execute_queue_flattened(self, pending_queue: Dict[str, _QueryFuture]) -> None:
+        # Partition the capped pending queue into flatten groups (by FROM
+        # signature) plus an unmatched subset.
+        groups: Dict[Any, List[Tuple[str, _QueryFuture]]] = collections.defaultdict(
+            list
+        )
+        unmatched: Dict[str, _QueryFuture] = {}
+        for k, fut in pending_queue.items():
+            verdict = self._flatten_verdict(fut.query, fut.conn.dialect)
+            if verdict is _FlattenVerdict.FLATTENABLE:
+                groups[self._flatten_signature(fut)].append((k, fut))
+            else:
+                if verdict is _FlattenVerdict.GATE_ERROR:
+                    self.report.flatten_gate_errors += 1
+                else:
+                    self.report.flatten_rejected += 1
+                unmatched[k] = fut
+
+        # A one-member group saves no scans and costs a round trip per group
+        # where the CTE path needs one for all (measured: 40 tables -> 1
+        # statement flag-off, 40 flag-on).
+        for sig in [sig for sig, members in groups.items() if len(members) == 1]:
+            k, fut = groups.pop(sig)[0]
+            self.report.flatten_singletons += 1
+            unmatched[k] = fut
+
+        # Each unit recovers independently: flat -> CTE re-route -> serial.
+        # Scoped, not the global _execute_queue_fallback, which would demote
+        # futures never attempted (measured: scans_avoided 4 -> 0).
+        for members in groups.values():
+            try:
+                self._execute_flat_group(members)
+            except Exception as e:
+                if not self.serial_execution_fallback_enabled:
+                    raise
+                self.report.query_exceptions += 1
+                logger.warning(
+                    f"Failed to execute flat group of {len(members)} queries "
+                    f"over {members[0][1].query.get_final_froms()} "
+                    f"({type(e).__name__}); will attempt CTE re-route."
+                )
+                logger.debug("Failed to execute flat group", exc_info=e)
+                group_queue = {k: fut for k, fut in members if not fut.done}
+                if group_queue:
+                    try:
+                        self._execute_cte_combine(group_queue)
+                    except Exception as e2:
+                        # Warning, not debug: the first failure already warned,
+                        # so a silent second one reads as a successful recovery.
+                        logger.warning(
+                            f"Flat-group CTE re-route also failed for "
+                            f"{len(group_queue)} queries ({type(e2).__name__}); "
+                            f"running them serially."
+                        )
+                        logger.debug(
+                            "Flat-group CTE re-route also failed",
+                            exc_info=e2,
+                        )
+                        self._execute_futures_serially(
+                            [fut for _, fut in members if not fut.done]
+                        )
+
+        if unmatched:
+            try:
+                self._execute_cte_combine(unmatched)
+            except Exception as e:
+                if not self.serial_execution_fallback_enabled:
+                    raise
+                self.report.query_exceptions += 1
+                logger.warning(
+                    f"Failed to execute unmatched CTE combine "
+                    f"({type(e).__name__}); will fallback its futures."
+                )
+                logger.debug("Failed to execute unmatched CTE combine", exc_info=e)
+                self._execute_futures_serially(
+                    [fut for fut in unmatched.values() if not fut.done]
+                )
+
+    def _execute_flat_group(self, members: List[Tuple[str, _QueryFuture]]) -> None:
+        # One flat SELECT for the cheap aggregates, plus enough more that no
+        # statement exceeds max_distinct_per_statement distinct trees.
+        cheap: List[Tuple[str, _QueryFuture]] = []
+        distinct_heavy: List[Tuple[str, _QueryFuture, int]] = []
+        for k, fut in members:
+            n_distinct = self._count_distinct_columns(fut.query)
+            if n_distinct:
+                distinct_heavy.append((k, fut, n_distinct))
+            else:
+                cheap.append((k, fut))
+
+        if cheap:
+            self._execute_flat_select(cheap)
+        for chunk in _chunk_by_distinct_budget(
+            distinct_heavy, self.max_distinct_per_statement
+        ):
+            self._execute_flat_select(chunk)
+
+    def _execute_flat_select(self, members: List[Tuple[str, _QueryFuture]]) -> None:
+        # Map back BY POSITION -- labels collide across anonymous aggregates.
+        # Keys come from subquery().columns, as on the CTE path, so flipping
+        # the flag cannot change result keys.
+        labeled_cols: List[Any] = []
+        # plan: (future, [original col.name from subquery().columns, ...])
+        plan: List[Tuple[_QueryFuture, List[str]]] = []
+        for _, fut in members:
+            emit_cols = get_query_columns(fut.query)
+            # Names from subquery().columns, which anon-labels duplicates;
+            # emission still from get_query_columns, so order is unchanged.
+            name_cols = fut.query.subquery().columns
+            assert len(emit_cols) == len(name_cols), (
+                "emit/name column count mismatch; this group re-routes to the CTE path"
             )
-            logger.debug(f"[{query_id}] SQL: {str(combined_query)}")
-            with PerfTimer() as timer:
-                sa_res = _sa_execute_underlying_method(queue_item.conn, combined_query)
+            names: List[str] = []
+            for col in emit_cols:
+                uid = self._generate_sql_safe_identifier()
+                labeled_cols.append(col.label(uid))
+            for col in name_cols:
+                names.append(col.name)
+            plan.append((fut, names))
 
-            logger.info(
-                f"[{query_id}] Combined query executed in {timer.elapsed_seconds():.3f}s"
-            )
+        # All members share the same FROM by signature; use one representative
+        # so we append exactly one table and avoid a cross-join.
+        rep_froms = members[0][1].query.get_final_froms()
+        combined_query = sqlalchemy.select(labeled_cols)
+        for f in rep_froms:
+            combined_query.append_from(f)
 
-            # Fetch the results and ensure that exactly one row is returned.
-            results = sa_res.fetchall()
-            assert len(results) == 1
-            row = results[0]
+        query_id = SQLAlchemyQueryCombiner._generate_query_id()
+        self.report.combined_queries_issued += 1
+        self.report.flat_queries_issued += 1
+        logger.info(
+            f"[{query_id}] Executing flat query ({len(members)} queries flattened)"
+        )
+        logger.debug(f"[{query_id}] SQL: {str(combined_query)}")
+        with PerfTimer() as timer:
+            sa_res = _sa_execute_underlying_method(members[0][1].conn, combined_query)
 
-            # Extract the results into a result for each query.
-            index = 0
-            for _, query_future in pending_queue.items():
-                query = query_future.query
-                if IS_SQLALCHEMY_1_4:
-                    # On 1.4, it prints a warning if we don't call subquery.
-                    query = query.subquery()  # type: ignore
-                cols = query.columns
+        logger.info(
+            f"[{query_id}] Flat query executed in {timer.elapsed_seconds():.3f}s"
+        )
 
-                data = {}
-                for col in cols:
-                    data[col.name] = row[index]
-                    index += 1
+        results = sa_res.fetchall()
+        assert len(results) == 1
+        row = results[0]
 
-                res = _ResultProxyFake([_RowProxyFake(data)])
+        index = 0
+        for fut, names in plan:
+            data = {}
+            for name in names:
+                data[name] = row[index]
+                index += 1
+            fut.res = _ResultProxyFake([_RowProxyFake(data)])
 
-                query_future.res = res
-                query_future.done = True
+        # Verify that we consumed all the columns before marking futures
+        # done — a failing assert would otherwise leave wrong-but-done
+        # futures that the `if not fut.done` re-route filter then skips.
+        assert index == len(row)
+        for fut, _ in plan:
+            fut.done = True
 
-            # Verify that we consumed all the columns.
-            assert index == len(row)
+        # N queued aggregates collapsed into one scan over the same table.
+        self.report.scans_avoided += len(members) - 1
 
-    def _execute_queue_fallback(self, main_greenlet: greenlet.greenlet) -> None:
-        full_queue = self._get_queue(main_greenlet)
-
-        for _, query_future in full_queue.items():
+    def _execute_futures_serially(self, futures: List["_QueryFuture"]) -> None:
+        # Scoped to specific futures, so a failed flat group resolves only its
+        # own. The skip-done guard is load-bearing for the whole-queue caller,
+        # which can be handed an already-done queue -- do not delete it as
+        # redundant just because the flatten path pre-filters.
+        for query_future in futures:
             if query_future.done:
                 continue
 
@@ -561,6 +901,13 @@ class SQLAlchemyQueryCombiner:
                     )
                 finally:
                     query_future.done = True
+
+    def _execute_queue_fallback(self, main_greenlet: greenlet.greenlet) -> None:
+        # flush() calls this when the entire _execute_queue raises; it falls
+        # back the whole queue. Per-unit recovery in the flatten path uses the
+        # scoped _execute_futures_serially directly.
+        full_queue = self._get_queue(main_greenlet)
+        self._execute_futures_serially(list(full_queue.values()))
 
     def flush(self) -> None:
         """Executes until the queue and pool are empty."""

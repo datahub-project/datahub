@@ -39,7 +39,10 @@ from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
     SnowflakeAdapter,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.trino import TrinoAdapter
-from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import DEFAULT_QUANTILES
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    DEFAULT_QUANTILES,
+    ProfilingConnection,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
@@ -481,13 +484,13 @@ class TestMSSQLAdapter:
         mock_conn = MagicMock()
         mock_result = MagicMock()
         mock_result.scalar.return_value = 1.5
-        mock_conn.execute_single_row.return_value = mock_result
+        mock_conn.execute_aggregate.return_value = mock_result
 
         adapter.get_column_stdev(real_table, "value_col", mock_conn)
 
-        assert mock_conn.execute_single_row.called
-        executed_query = mock_conn.execute_single_row.call_args[0][0]
-        sql = compile_expr_to_sql(executed_query, mock_mssql_engine.dialect)
+        assert mock_conn.execute_aggregate.called
+        executed_expr = mock_conn.execute_aggregate.call_args[0][1]
+        sql = compile_expr_to_sql(executed_expr, mock_mssql_engine.dialect)
 
         # Must use STDEV (MSSQL's sample stddev function), never stddev_samp.
         assert_sql_matches_pattern(sql, r"\bstdev\s*\(")
@@ -505,7 +508,7 @@ class TestMSSQLAdapter:
         stdev_result.scalar.return_value = None
         count_result = MagicMock()
         count_result.scalar.return_value = 1
-        mock_conn.execute_single_row.side_effect = [stdev_result, count_result]
+        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result is None
@@ -520,7 +523,7 @@ class TestMSSQLAdapter:
         stdev_result.scalar.return_value = None
         count_result = MagicMock()
         count_result.scalar.return_value = 5
-        mock_conn.execute_single_row.side_effect = [stdev_result, count_result]
+        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result == 0.0
@@ -535,7 +538,7 @@ class TestMSSQLAdapter:
         stdev_result.scalar.return_value = None
         count_result = MagicMock()
         count_result.scalar.return_value = 0
-        mock_conn.execute_single_row.side_effect = [stdev_result, count_result]
+        mock_conn.execute_aggregate.side_effect = [stdev_result, count_result]
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result is None
@@ -1598,12 +1601,12 @@ class TestClickHouseAdapter:
     ):
         """stddevSamp() result is returned directly when ClickHouse returns a number."""
         mock_conn = MagicMock()
-        mock_conn.execute_single_row.return_value.scalar.return_value = 12.5
+        mock_conn.execute_aggregate.return_value.scalar.return_value = 12.5
 
         result = adapter.get_column_stdev(real_table, "score", mock_conn)
 
         assert result == 12.5
-        executed = mock_conn.execute_single_row.call_args[0][0]
+        executed = mock_conn.execute_aggregate.call_args[0][1]
         sql = compile_expr_to_sql(executed, mock_clickhouse_engine.dialect)
         assert_sql_matches_pattern(sql, r"\bstddevSamp\s*\(\s*score\s*\)")
 
@@ -1612,7 +1615,7 @@ class TestClickHouseAdapter:
     ):
         """stddevSamp returns NULL with ≤1 non-null row → None (mathematically undefined)."""
         mock_conn = MagicMock()
-        mock_conn.execute_single_row.return_value.scalar.side_effect = [
+        mock_conn.execute_aggregate.return_value.scalar.side_effect = [
             None,  # stddevSamp result
             1,  # non-null count
         ]
@@ -1626,7 +1629,7 @@ class TestClickHouseAdapter:
     ):
         """stddevSamp returns NULL with >1 non-null row → 0.0 (no variance)."""
         mock_conn = MagicMock()
-        mock_conn.execute_single_row.return_value.scalar.side_effect = [None, 10]
+        mock_conn.execute_aggregate.return_value.scalar.side_effect = [None, 10]
 
         result = adapter.get_column_stdev(mock_table, "score", mock_conn)
 
@@ -1637,7 +1640,7 @@ class TestClickHouseAdapter:
     ):
         """SQLAlchemyError surfaces via SQLSourceReport.warning, not silent logger."""
         mock_conn = MagicMock()
-        mock_conn.execute_single_row.side_effect = sa.exc.SQLAlchemyError(
+        mock_conn.execute_aggregate.side_effect = sa.exc.SQLAlchemyError(
             "permission denied"
         )
 
@@ -1844,7 +1847,7 @@ class TestClickHouseAdapter:
     ):
         """If the inner non_null_count query fails, the failure is still reported."""
         mock_conn = MagicMock()
-        mock_conn.execute_single_row.side_effect = [
+        mock_conn.execute_aggregate.side_effect = [
             MagicMock(scalar=MagicMock(return_value=None)),  # stddev → NULL
             sa.exc.SQLAlchemyError("count denied"),  # non-null lookup fails
         ]
@@ -1857,7 +1860,7 @@ class TestClickHouseAdapter:
     ):
         """Successful stdev should not pollute the report."""
         mock_conn = MagicMock()
-        mock_conn.execute_single_row.return_value.scalar.return_value = 7.5
+        mock_conn.execute_aggregate.return_value.scalar.return_value = 7.5
 
         adapter.get_column_stdev(real_table, "score", mock_conn)
 
@@ -1960,3 +1963,26 @@ class TestClickHouseAdapter:
         t3.schema = None
         t3.name = None
         assert _format_context(t3) == "<unknown>"
+
+
+class TestExecuteAggregateGuard:
+    def test_plain_column_is_rejected(self) -> None:
+        # A plain column merged with real aggregates returns one row on MySQL
+        # and SQLite, silently dropping the rest.
+        conn = ProfilingConnection(MagicMock())
+        table = sa.table("t", sa.column("v"))
+
+        with pytest.raises(ValueError):
+            conn.execute_aggregate(table, sa.column("v"))
+        # Labelling must not smuggle one past the guard.
+        with pytest.raises(ValueError):
+            conn.execute_aggregate(table, sa.column("v").label("x"))
+
+    def test_aggregates_and_literal_columns_are_accepted(self) -> None:
+        # literal_column is how several adapters build their median.
+        conn = ProfilingConnection(MagicMock())
+        table = sa.table("t", sa.column("v"))
+
+        conn.execute_aggregate(table, sa.func.count())
+        conn.execute_aggregate(table, sa.literal_column("MEDIAN(v)"))
+        conn.execute_aggregate(table, sa.literal_column("MEDIAN(v)").label("median"))
