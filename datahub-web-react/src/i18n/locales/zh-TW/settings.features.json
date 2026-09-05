@@ -1,0 +1,21 @@
+{
+    "cloudLabel": "DataHub Cloud",
+    "docPropagation.assetLevelDescription": "根據資料血緣關係，將新增文件從上游資料資產傳播到下游資料資產。",
+    "docPropagation.assetLevelTitle": "資料資產層級傳播",
+    "docPropagation.backfillButton": "初始化",
+    "docPropagation.backfillTitle": "將既有文件內容從上游回填至下游欄位／資料資產",
+    "docPropagation.columnLevelDescription": "根據欄級資料血緣關係，將新增文件從上游欄位傳播到下游欄位。",
+    "docPropagation.columnLevelTitle": "欄位層級傳播",
+    "docPropagation.comingSoon": "即將推出！",
+    "docPropagation.description": "自動將文件內容從上游傳播至下游欄位與資料資產。",
+    "docPropagation.rollbackButton": "復原",
+    "docPropagation.rollbackTitle": "復原傳播變更",
+    "docPropagation.title": "文件傳播",
+    "docPropagation.updateError": "無法更新文件傳播設定",
+    "docPropagation.updateSuccess": "已成功更新文件傳播設定",
+    "learnMore": "深入了解",
+    "newLabel": "新功能！",
+    "onlyOnCloud": "僅適用於 DataHub Cloud",
+    "pageSubTitle": "探索及設定特定功能",
+    "pageTitle": "功能"
+}

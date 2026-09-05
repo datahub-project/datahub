@@ -34,7 +34,7 @@ type Props = {
     children: React.ReactNode;
 };
 
-// Prefer full BCP-47 tag (e.g. zh-CN, pt-BR) before primary subtag.
+// Prefer full BCP-47 tag (e.g. zh-CN, zh-TW, pt-BR) before primary subtag.
 export function resolveRemirrorLocale(language: string): string {
     if (REMIRROR_SUPPORTED_LOCALES.includes(language)) {
         return language;

@@ -7,6 +7,8 @@ describe('isSupportedLanguage', () => {
         expect(isSupportedLanguage('en')).toBe(true);
         expect(isSupportedLanguage('de')).toBe(true);
         expect(isSupportedLanguage('es')).toBe(true);
+        expect(isSupportedLanguage('zh-CN')).toBe(true);
+        expect(isSupportedLanguage('zh-TW')).toBe(true);
     });
 
     it('returns false for unsupported languages', () => {
@@ -57,9 +59,15 @@ describe('detectBrowserLanguage', () => {
         expect(detectBrowserLanguage()).toBe('ja');
     });
 
-    it('returns undefined when no preferred language is supported', () => {
-        stubLanguages(['ko-KR', 'th-TH']);
-        expect(detectBrowserLanguage()).toBeUndefined();
+    it('maps Traditional Chinese tags to zh-TW', () => {
+        stubLanguages(['zh-TW']);
+        expect(detectBrowserLanguage()).toBe('zh-TW');
+        stubLanguages(['zh-Hant']);
+        expect(detectBrowserLanguage()).toBe('zh-TW');
+        stubLanguages(['zh-HK']);
+        expect(detectBrowserLanguage()).toBe('zh-TW');
+        stubLanguages(['zh-MO']);
+        expect(detectBrowserLanguage()).toBe('zh-TW');
     });
 
     it('maps Simplified Chinese tags to zh-CN', () => {
@@ -73,14 +81,8 @@ describe('detectBrowserLanguage', () => {
         expect(detectBrowserLanguage()).toBe('zh-CN');
     });
 
-    it('does not map Traditional Chinese tags to zh-CN', () => {
-        stubLanguages(['zh-TW']);
-        expect(detectBrowserLanguage()).toBeUndefined();
-        stubLanguages(['zh-Hant']);
-        expect(detectBrowserLanguage()).toBeUndefined();
-        stubLanguages(['zh-HK']);
-        expect(detectBrowserLanguage()).toBeUndefined();
-        stubLanguages(['zh-MO']);
+    it('returns undefined when no preferred language is supported', () => {
+        stubLanguages(['ko-KR', 'th-TH']);
         expect(detectBrowserLanguage()).toBeUndefined();
     });
 
