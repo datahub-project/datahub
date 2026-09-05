@@ -9,6 +9,7 @@ import { IdentitiesContent } from '@app/settingsV2/IdentitiesContent';
 import { Preferences } from '@app/settingsV2/Preferences';
 import { Features } from '@app/settingsV2/features/Features';
 import ManagePosts from '@app/settingsV2/posts/ManagePosts';
+import { AIAssistantSettings } from '@app/settingsV2/AIAssistantSettings';
 
 /**
  * URL Paths for each settings page.
@@ -23,6 +24,7 @@ export const PATHS = [
     { path: 'ownership', content: <ManageOwnership /> },
     { path: 'posts', content: <ManagePosts /> },
     { path: 'features', content: <Features /> },
+    { path: 'ai-assistant', content: <AIAssistantSettings /> },
 ];
 
 export const DEFAULT_PATH = PATHS[0];

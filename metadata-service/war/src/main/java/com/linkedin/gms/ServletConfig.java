@@ -58,7 +58,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Order(1)
 @EnableWebMvc
 @ComponentScan(
-    basePackages = {"io.datahubproject.openapi.schema.registry.config", "com.linkedin.gms.servlet"})
+    basePackages = {
+      "io.datahubproject.openapi.schema.registry.config",
+      "com.linkedin.gms.servlet",
+      "io.datahubproject.aiassistant.servlet"
+    })
 @Slf4j
 public class ServletConfig implements WebMvcConfigurer {
   @Autowired private TracingInterceptor tracingInterceptor;
