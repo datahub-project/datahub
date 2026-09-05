@@ -128,6 +128,9 @@ class ViewDefinition:
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
     override_dialect: Optional[DialectOrStr] = None
+    # Motivating case: Snowflake CUSTOM_INCREMENTAL dynamic tables, whose MERGE-INTO-SELF DDL is
+    # unparseable but whose base tables are known from a catalog graph. See add_view_definition.
+    table_level_fallback_upstreams: Optional[List[UrnStr]] = None
 
 
 @dataclasses.dataclass
@@ -874,6 +877,7 @@ class SqlParsingAggregator(Closeable):
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
         override_dialect: Optional[DialectOrStr] = None,
+        table_level_fallback_upstreams: Optional[List[UrnStr]] = None,
     ) -> None:
         """Add a view definition to the aggregator.
 
@@ -887,6 +891,11 @@ class SqlParsingAggregator(Closeable):
         of the aggregator's platform default — useful for catalogs whose views span
         multiple dialects (e.g. Glue/Hive catalogs holding both Presto/Trino and
         Hive views).
+
+        ``table_level_fallback_upstreams`` is used only when the definition is present
+        but unparseable (``table_error``): the given URNs are emitted as table-level
+        upstreams so lineage survives even without column-level detail. It is ignored
+        when the definition parses successfully.
         """
 
         self.report.num_view_definitions += 1
@@ -896,6 +905,7 @@ class SqlParsingAggregator(Closeable):
             default_db=default_db,
             default_schema=default_schema,
             override_dialect=override_dialect,
+            table_level_fallback_upstreams=table_level_fallback_upstreams,
         )
 
     def add_observed_query(
@@ -1238,7 +1248,11 @@ class SqlParsingAggregator(Closeable):
             )
         if parsed.debug_info.table_error:
             self.report.num_views_failed += 1
-            return  # we can't do anything with this query
+            if view_definition.table_level_fallback_upstreams:
+                self._add_table_level_fallback_lineage(
+                    view_urn, view_definition.table_level_fallback_upstreams
+                )
+            return  # table_error: only the table-level fallback (if any) is emitted
         elif isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
             self.report.num_views_column_timeout += 1
         elif parsed.debug_info.column_error:
@@ -1267,6 +1281,30 @@ class SqlParsingAggregator(Closeable):
         )
 
         # Register the query's lineage.
+        self._lineage_map.for_mutation(view_urn, OrderedSet()).add(query_fingerprint)
+
+    def _add_table_level_fallback_lineage(
+        self, view_urn: UrnStr, upstreams: List[UrnStr]
+    ) -> None:
+        # "known_" prefix: can_generate_query() skips known-lineage ids, so no spurious Query entity is
+        # emitted (as with add_known_lineage_mapping); hashed on the URN to stay deterministic.
+        query_fingerprint = f"known_{generate_hash(view_urn)}"
+        self._add_to_query_map(
+            QueryMetadata(
+                query_id=query_fingerprint,
+                formatted_query_string="-skip-",
+                session_id=_MISSING_SESSION_ID,
+                query_type=QueryType.CREATE_VIEW,
+                lineage_type=models.DatasetLineageTypeClass.VIEW,
+                latest_timestamp=None,
+                actor=None,
+                upstreams=list(upstreams),
+                # Table-level only: identity CLL from INPUTS would be wrong for aliased/aggregated columns.
+                column_lineage=[],
+                column_usage={},
+                confidence_score=1.0,
+            )
+        )
         self._lineage_map.for_mutation(view_urn, OrderedSet()).add(query_fingerprint)
 
     def _run_sql_parser(

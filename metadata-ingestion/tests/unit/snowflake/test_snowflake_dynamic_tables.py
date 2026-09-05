@@ -303,6 +303,49 @@ def test_get_dynamic_tables_with_definitions_inputs_non_list_json(
     assert result["PUBLIC"][0].upstream_tables == []
 
 
+def test_get_dynamic_tables_with_definitions_null_kind(mock_snowflake_data_dictionary):
+    """An INPUTS entry with an explicit null (or missing) kind must not crash the scan;
+    kind falls back to "Table" so downstream domain resolution stays safe."""
+    mock_snowflake_data_dictionary.get_dynamic_table_graph_info = MagicMock(
+        return_value={
+            "TEST_DB.PUBLIC.DYNAMIC_TABLE1": {
+                "inputs": [
+                    {"name": "TEST_DB.PUBLIC.SRC_NULL", "kind": None},
+                    {"name": "TEST_DB.PUBLIC.SRC_MISSING"},
+                ],
+            }
+        }
+    )
+
+    mock_cursor = MagicMock()
+    mock_cursor.__iter__.return_value = [
+        {
+            "name": "DYNAMIC_TABLE1",
+            "schema_name": "PUBLIC",
+            "database_name": "TEST_DB",
+            "owner": "TEST_USER",
+            "comment": "",
+            "created_on": "2024-01-01 00:00:00",
+            "text": "SELECT 1",
+            "target_lag": "1 minute",
+            "warehouse": "TEST_WH",
+            "bytes": 0,
+            "rows": 0,
+        }
+    ]
+    mock_snowflake_data_dictionary.connection.query.return_value = mock_cursor
+
+    result = mock_snowflake_data_dictionary.get_dynamic_tables_with_definitions(
+        "TEST_DB"
+    )
+
+    dt = result["PUBLIC"][0]
+    assert dt.upstream_tables == [
+        SnowflakeDynamicTableInput("TEST_DB.PUBLIC.SRC_NULL", "Table"),
+        SnowflakeDynamicTableInput("TEST_DB.PUBLIC.SRC_MISSING", "Table"),
+    ]
+
+
 @pytest.mark.parametrize(
     "kind,expected_domain",
     [
@@ -582,3 +625,198 @@ def test_dynamic_table_invalid_response_handling(mock_snowflake_data_dictionary)
     table_info = result.get("TEST_DB.PUBLIC.DYNAMIC_TABLE1", {})
     assert table_info.get("target_lag_type") is None
     assert table_info.get("scheduling_state") is None
+
+
+def test_dynamic_table_input_urns_filtered_by_pattern():
+    """An INPUTS source outside the dataset pattern is excluded; others kept."""
+    gen = SnowflakeSchemaGenerator.__new__(SnowflakeSchemaGenerator)
+    gen.identifiers = MagicMock()
+    gen.identifiers.get_dataset_identifier_from_qualified_name = lambda n: n.lower()
+    gen.identifiers.gen_dataset_urn = lambda ident: f"urn:{ident}"
+    gen.filters = MagicMock()
+    gen.filters.is_dataset_pattern_allowed = lambda ident, domain: "src_b" not in ident
+
+    table = SnowflakeDynamicTable(
+        name="DT",
+        created=None,
+        last_altered=None,
+        size_in_bytes=0,
+        rows_count=0,
+        comment="",
+        is_dynamic=True,
+        type="DYNAMIC TABLE",
+        upstream_tables=[
+            SnowflakeDynamicTableInput("DB.SCHEMA.SRC_A", "Table"),
+            SnowflakeDynamicTableInput("DB.SCHEMA.SRC_B", "Table"),
+        ],
+    )
+
+    assert gen._dynamic_table_input_urns(table) == ["urn:db.schema.src_a"]
+
+
+def _make_gen_with_mocks():
+    gen = SnowflakeSchemaGenerator.__new__(SnowflakeSchemaGenerator)
+    gen.aggregator = MagicMock()
+    gen.report = MagicMock()
+    gen.identifiers = MagicMock()
+    gen.identifiers.get_dataset_identifier = lambda name, schema, db: (
+        f"{db}.{schema}.{name}".lower()
+    )
+    gen.identifiers.gen_dataset_urn = lambda ident: f"urn:{ident}"
+    gen.identifiers.get_dataset_identifier_from_qualified_name = lambda n: n.lower()
+    gen.filters = MagicMock()
+    gen.filters.is_dataset_pattern_allowed = lambda ident, domain: True
+    return gen
+
+
+def _dt(definition):
+    return SnowflakeDynamicTable(
+        name="DT",
+        created=None,
+        last_altered=None,
+        size_in_bytes=0,
+        rows_count=0,
+        comment="",
+        is_dynamic=True,
+        type="DYNAMIC TABLE",
+        definition=definition,
+        upstream_tables=[
+            SnowflakeDynamicTableInput("DB.SCHEMA.SRC_A", "Table"),
+            SnowflakeDynamicTableInput("DB.SCHEMA.SRC_B", "Table"),
+        ],
+    )
+
+
+def test_dynamic_table_with_definition_wires_inputs_as_fallback():
+    """A dynamic table WITH a definition passes its INPUTS to add_view_definition as the table-level
+    fallback (the schema-gen -> aggregator wiring for the parse-failure path)."""
+    gen = _make_gen_with_mocks()
+    gen._register_dynamic_table_upstreams(_dt("merge into self ..."), "DB", "SCHEMA")
+
+    gen.aggregator.add_view_definition.assert_called_once()
+    kwargs = gen.aggregator.add_view_definition.call_args.kwargs
+    assert kwargs["table_level_fallback_upstreams"] == [
+        "urn:db.schema.src_a",
+        "urn:db.schema.src_b",
+    ]
+    gen.aggregator.add_known_lineage_mapping.assert_not_called()
+
+
+def test_dynamic_table_without_definition_wires_inputs_as_known_lineage():
+    """A dynamic table WITHOUT a definition emits its INPUTS via add_known_lineage_mapping and does
+    not call add_view_definition."""
+    gen = _make_gen_with_mocks()
+    gen._register_dynamic_table_upstreams(_dt(None), "DB", "SCHEMA")
+
+    gen.aggregator.add_view_definition.assert_not_called()
+    got = [
+        c.kwargs["upstream_urn"]
+        for c in gen.aggregator.add_known_lineage_mapping.call_args_list
+    ]
+    assert got == ["urn:db.schema.src_a", "urn:db.schema.src_b"]
+
+
+def test_process_tables_collects_dynamic_table_identifiers():
+    """_process_tables records dynamic-table identifiers (handed to the queries extractor to suppress
+    their query-log lineage), and does so regardless of include_technical_schema."""
+    gen = _make_gen_with_mocks()
+    gen.config = MagicMock()
+    gen.config.include_technical_schema = (
+        False  # skip the gated body; only collection runs
+    )
+    gen.dynamic_table_identifiers = set()
+
+    dynamic = _dt("select 1")  # SnowflakeDynamicTable named "DT"
+    regular = MagicMock()  # not a SnowflakeDynamicTable
+
+    list(
+        gen._process_tables(
+            [dynamic, regular],
+            snowflake_schema=MagicMock(),
+            db_name="DB",
+            schema_name="SCH",
+        )
+    )
+
+    assert gen.dynamic_table_identifiers == {"db.sch.dt"}
+
+
+def test_process_tables_registers_lineage_without_technical_schema():
+    """Dynamic-table definition/INPUTS lineage is registered even when include_technical_schema is
+    False (mirroring views). Otherwise a lineage-only run suppresses the DT's query-log rows but gives
+    it no upstreams at all."""
+    gen = _make_gen_with_mocks()
+    gen.config = MagicMock()
+    gen.config.include_technical_schema = False
+    gen.dynamic_table_identifiers = set()
+
+    list(
+        gen._process_tables(
+            [_dt("select 1")],
+            snowflake_schema=MagicMock(),
+            db_name="DB",
+            schema_name="SCHEMA",
+        )
+    )
+
+    # Lineage was registered despite the technical-schema gate being off.
+    gen.aggregator.add_view_definition.assert_called_once()
+
+
+def test_source_wires_dynamic_table_identifiers_into_queries_extractor():
+    """The source hands schema-gen's collected dynamic_table_identifiers to the queries extractor as
+    dynamic_table_names, the seam that connects dynamic-table discovery to query-log suppression. A
+    refactor that drops or renames this kwarg would pass every other unit test and silently disable
+    suppression, so pin it here."""
+    from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
+
+    src = SnowflakeV2Source.__new__(SnowflakeV2Source)
+    src.connection = MagicMock()
+    src.config = MagicMock()
+    src.report = MagicMock()
+    src.filters = MagicMock()
+    src.identifiers = MagicMock()
+    src.discovered_datasets = []
+    src.ctx = MagicMock()
+
+    schema_extractor = MagicMock()
+    schema_extractor.dynamic_table_identifiers = {"db.schema.dt"}
+
+    base = "datahub.ingestion.source.snowflake.snowflake_v2"
+    with (
+        patch(f"{base}.SnowflakeQueriesExtractor") as mock_qe,
+        patch(f"{base}.SnowflakeQueriesExtractorConfig"),
+        patch(f"{base}.BaseTimeWindowConfig"),
+    ):
+        src._create_queries_extractor(MagicMock(), None, schema_extractor)
+
+    assert mock_qe.call_args.kwargs["dynamic_table_names"] == {"db.schema.dt"}
+
+
+def test_register_dynamic_table_excludes_self_from_inputs():
+    """INPUTS that list the dynamic table itself (e.g. a MERGE INTO SELF definition) must not become a
+    self-loop upstream, the exact edge this path exists to remove."""
+    gen = _make_gen_with_mocks()
+    table = SnowflakeDynamicTable(
+        name="DT",
+        created=None,
+        last_altered=None,
+        size_in_bytes=0,
+        rows_count=0,
+        comment="",
+        is_dynamic=True,
+        type="DYNAMIC TABLE",
+        definition="select 1",
+        upstream_tables=[
+            SnowflakeDynamicTableInput("DB.SCHEMA.DT", "Table"),  # the table itself
+            SnowflakeDynamicTableInput("DB.SCHEMA.SRC_A", "Table"),
+        ],
+    )
+
+    gen._register_dynamic_table_upstreams(table, db_name="DB", schema_name="SCHEMA")
+
+    fallback = gen.aggregator.add_view_definition.call_args.kwargs[
+        "table_level_fallback_upstreams"
+    ]
+    assert "urn:db.schema.dt" not in fallback
+    assert fallback == ["urn:db.schema.src_a"]
