@@ -153,6 +153,115 @@ def test_authoritative_empty_columns_skips_probe():
     assert filters == []
 
 
+def test_date_components_without_year_marked_incomplete():
+    """A month/day component without a year can't pin a single partition, so the
+    hierarchy must be flagged incomplete (not silently dropped as a complete empty set).
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        raise AssertionError("no query should run when year is absent")
+
+    result = discovery._process_date_components_hierarchically(
+        {"year": None, "month": "month", "day": None},
+        "`p`.`d`.`t`",
+        execute,
+        {},
+        {},
+    )
+
+    assert result.filters == []
+    assert result.incomplete is True
+
+
+def test_value_filter_ranges_for_temporal_columns():
+    """A discovered MAX value on a DATETIME/TIMESTAMP column must produce a half-open
+    range covering its whole partition unit, not an equality to a single instant. This
+    is the shared range logic that _test_date_candidate's strategic path also delegates
+    to, so the exact-bounds assertions here guard both discovery paths.
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(partition_info=PartitionInfo(fields=("ts",), type="DAY"))
+
+    ts_filter = discovery._value_filter(
+        table, "ts", datetime(2025, 1, 15, 23, 59, 58), "TIMESTAMP"
+    )
+    assert ts_filter == (
+        "`ts` >= TIMESTAMP('2025-01-15 00:00:00') "
+        "AND `ts` < TIMESTAMP('2025-01-16 00:00:00')"
+    )
+
+    # A DATE column floors to the day and bounds the next day exclusively.
+    date_filter = discovery._value_filter(
+        table, "d", datetime(2025, 1, 15, 12, 0, 0), "DATE"
+    )
+    assert date_filter == "`d` >= '2025-01-15' AND `d` < '2025-01-16'"
+
+    # A non-temporal column keeps a plain equality.
+    region_filter = discovery._value_filter(table, "region", "emea", "STRING")
+    assert region_filter == "`region` = 'emea'"
+
+
+def test_strategic_candidate_path_emits_half_open_range_for_timestamp():
+    """The strategic-candidate discovery path (_test_date_candidate) must delegate a
+    TIMESTAMP partition column to the same half-open range logic as direct discovery, so
+    a candidate date yields a full-day range rather than an equality to a single instant.
+    """
+
+    class NoEnhanceDiscovery(PartitionDiscovery):
+        def _verify_partition_has_data(self, *args: Any, **kwargs: Any) -> bool:
+            return True
+
+        def _enhance_partition_filters_with_actual_values(
+            self, table, project, schema, required_columns, filters, *args, **kwargs
+        ):
+            # Isolate the candidate-filter construction from the co-occurrence enhancement.
+            return filters
+
+    discovery = NoEnhanceDiscovery(make_config())
+    table = make_table(partition_info=PartitionInfo(fields=("event_ts",), type="DAY"))
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return []
+
+    result = discovery._test_date_candidate(
+        table,
+        "test-project-123456",
+        "ds",
+        datetime(2025, 1, 15, 8, 30, 0, tzinfo=timezone.utc),
+        "today",
+        ["event_ts"],
+        {"event_ts": "TIMESTAMP"},
+        execute,
+    )
+
+    assert result == [
+        "`event_ts` >= TIMESTAMP('2025-01-15 00:00:00+00:00') "
+        "AND `event_ts` < TIMESTAMP('2025-01-16 00:00:00+00:00')"
+    ]
+
+
+def test_ingestion_time_partition_datetime_override_applies():
+    """_PARTITIONTIME is absent from INFORMATION_SCHEMA.COLUMNS, so column_types is empty;
+    the configured partition_datetime must still apply by inferring the pseudo-column type.
+    """
+    discovery = PartitionDiscovery(
+        make_config(partition_datetime=datetime(2025, 1, 15))
+    )
+    table = make_table(
+        partition_info=PartitionInfo(fields=("_PARTITIONTIME",), type="DAY")
+    )
+
+    filters = discovery._get_partition_datetime_override_filters(
+        table, {"_PARTITIONTIME"}, {}
+    )
+
+    assert filters is not None
+    assert len(filters) == 1
+    assert "_PARTITIONTIME" in filters[0]
+    assert ">=" in filters[0]
+
+
 def test_failed_columns_lookup_with_clean_probe_skips_table():
     """When the COLUMNS lookup fails but the fallback probe runs cleanly (no
     require_partition_filter error), the partition state is still unknown: a partitioned
@@ -213,6 +322,17 @@ def test_partition_filter_validation_rejects_injection():
         assert expr not in result
     for expr in safe:
         assert expr in result
+
+
+def test_partition_discovery_strategic_dates():
+    discovery = PartitionDiscovery(make_config())
+    dates = discovery._get_strategic_candidate_dates()
+
+    assert len(dates) == 2
+    assert dates[0][0] >= dates[1][0]
+    descriptions = [d for _, d in dates]
+    assert any("today" in d.lower() for d in descriptions)
+    assert any("yesterday" in d.lower() for d in descriptions)
 
 
 def test_range_partition_uses_max_bucket_not_most_recently_modified():

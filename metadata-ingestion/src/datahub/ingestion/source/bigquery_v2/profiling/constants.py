@@ -111,6 +111,14 @@ TEMPORAL_PARTITION_TYPES: Set[str] = {
     "TIMESTAMP",
 }
 
+# Ingestion-time partitioned tables are partitioned on a pseudo-column that is absent
+# from INFORMATION_SCHEMA.COLUMNS, so its type must be inferred by name.
+# _PARTITIONTIME is a TIMESTAMP and _PARTITIONDATE is a DATE.
+PSEUDO_PARTITION_COLUMN_TYPES: Dict[str, str] = {
+    "_PARTITIONTIME": "TIMESTAMP",
+    "_PARTITIONDATE": "DATE",
+}
+
 # Time-unit partition granularities (BigQuery TimePartitioningType values).
 PARTITION_GRANULARITY_HOUR = "HOUR"
 PARTITION_GRANULARITY_DAY = "DAY"
