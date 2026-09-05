@@ -174,7 +174,7 @@ class CloudMember(BaseModel):
     agg_type: Optional[str] = Field(default=None, alias="aggType")
     is_primary_key: bool = False
     column_references: List[CloudColumnRef] = Field(default_factory=list)
-    member_references: List[str] = Field(default_factory=list)
+    member_references: List[Dict[str, str]] = Field(default_factory=list)
     meta: Optional[Dict[str, object]] = None
     public: Optional[bool] = None
     is_visible: Optional[bool] = Field(default=None, alias="isVisible")
@@ -192,7 +192,7 @@ class CloudEntity(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     table_references: List[CloudTableRef] = Field(default_factory=list)
-    cube_references: List[str] = Field(default_factory=list)
+    cube_references: List[Dict[str, str]] = Field(default_factory=list)
     measures: List[CloudMember] = Field(default_factory=list)
     dimensions: List[CloudMember] = Field(default_factory=list)
     public: Optional[bool] = None
@@ -213,12 +213,8 @@ class CloudPagination(BaseModel):
     total: int = 0
 
 
-class CloudEntitiesPayload(BaseModel):
-    entities: List[CloudEntity] = Field(default_factory=list)
-
-
 class CloudEntitiesResponse(BaseModel):
-    data: CloudEntitiesPayload = Field(default_factory=CloudEntitiesPayload)
+    data: List[CloudEntity] = Field(default_factory=list)
     pagination: Optional[CloudPagination] = None
 
 
@@ -550,7 +546,11 @@ class CubeEntity(BaseModel):
                 is_measure=is_measure,
                 title=member.title,
                 is_primary_key=member.is_primary_key,
-                member_references=list(member.member_references),
+                member_references=[
+                    f"{r['cube']}.{r['member']}" if r.get("cube") else r["member"]
+                    for r in member.member_references
+                    if r.get("member")
+                ],
                 column_references=[
                     CubeColumnReference(
                         schema_name=ref.schema_name,
@@ -575,7 +575,9 @@ class CubeEntity(BaseModel):
                 CubeTableReference(schema_name=ref.schema_name, table=ref.table)
                 for ref in entity.table_references
             ],
-            cube_references=list(entity.cube_references),
+            cube_references=[
+                r["cube"] for r in entity.cube_references if r.get("cube")
+            ],
             joins=_build_joins(entity.joins),
             hierarchies=_build_hierarchies(entity.hierarchies),
             folders=_build_folders(entity.folders, entity.nested_folders),
