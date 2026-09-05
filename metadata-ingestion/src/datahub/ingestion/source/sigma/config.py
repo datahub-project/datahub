@@ -209,6 +209,17 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # dangling InputField rather than being caught. Non-zero means the chart
     # path needs the same candidate-split resolution as the DM path.
     chart_input_fields_multi_segment_ref: int = 0
+    # Workbook elements dropped before indexing because their type is neither
+    # "table" nor "visualization", keyed by type. These never enter the workbook
+    # element index, so a chart formula naming one can never resolve and falls
+    # back to a self-reference. Types such as pivot-table and input-table carry
+    # real data, so a large count here is a candidate explanation for the size
+    # of chart_input_fields_self_ref_unresolved_refs.
+    workbook_elements_skipped_by_type: Dict[str, int] = field(default_factory=dict)
+    # Chart formula ref sources that missed the workbook element index but DO
+    # match an indexed element after case/whitespace normalization -- i.e. the
+    # element is present and the lookup is simply too strict.
+    chart_ref_source_near_miss: int = 0
     # Column whose formula refs are exclusively parameter refs (e.g. [P_*]).
     chart_input_fields_skipped_parameter: int = 0
     # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).

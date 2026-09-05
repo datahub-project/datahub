@@ -3728,10 +3728,29 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 return None
             else:
+                # Say WHY the name missed, not just that it did. This is the
+                # single largest unexplained bucket in the report
+                # (chart_input_fields_self_ref_unresolved_refs, ~51k), and the
+                # ref source alone cannot distinguish "the element exists but
+                # the lookup is too strict" from "the element was never indexed
+                # at all" (e.g. dropped for being a pivot-table or input-table).
+                normalized = ref.source.strip().replace("\xa0", " ").casefold()
+                near = [
+                    name
+                    for name in wb_element_index
+                    if name.strip().replace("\xa0", " ").casefold() == normalized
+                ]
+                if near:
+                    self.reporter.chart_ref_source_near_miss += 1
                 logger.debug(
-                    "No exact-case workbook element match for formula ref source %r; "
-                    "falling back to warehouse-table resolution.",
+                    "No exact-case workbook element match for formula ref source "
+                    "%r (normalized=%r); near_matches=%r; index_size=%d "
+                    "index_sample=%r; falling back to warehouse-table resolution.",
                     ref.source,
+                    normalized,
+                    near,
+                    len(wb_element_index),
+                    sorted(wb_element_index)[:15],
                 )
 
         if candidates:

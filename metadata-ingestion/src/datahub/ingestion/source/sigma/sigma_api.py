@@ -732,8 +732,24 @@ class SigmaAPI:
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
                 # only element of table and visualization type have lineage and sql query supported
                 if element_dict.get("type") not in ["table", "visualization"]:
+                    # Skipped elements never enter the workbook element index, so
+                    # any chart formula referencing one can never resolve and
+                    # falls back to a self-reference. Log the elementId (always
+                    # present) as well as the name, which is frequently absent
+                    # here -- without it a self-ref miss cannot be matched
+                    # against the element that caused it.
+                    el_type = str(element_dict.get("type"))
+                    self.report.workbook_elements_skipped_by_type[el_type] = (
+                        self.report.workbook_elements_skipped_by_type.get(el_type, 0)
+                        + 1
+                    )
                     logger.debug(
-                        f"Skipping lineage and sql query extraction for element {element_dict.get('name')} of type {element_dict.get('type')} of workbook '{workbook.name}'"
+                        "Skipping lineage and sql query extraction for element "
+                        "name=%r elementId=%r of type %r of workbook %r",
+                        element_dict.get("name"),
+                        element_dict.get(Constant.ELEMENTID),
+                        el_type,
+                        workbook.name,
                     )
                     continue
 
