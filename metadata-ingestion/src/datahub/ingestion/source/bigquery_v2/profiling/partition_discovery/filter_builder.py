@@ -1,4 +1,5 @@
 import logging
+import math
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
@@ -65,10 +66,12 @@ class FilterBuilder:
 
         if col_type and col_type.upper() in BIGQUERY_NUMERIC_TYPES:
             try:
-                if "." in str_val:
-                    float(str_val)
-                else:
-                    int(str_val)
+                # float() validates plain integers, decimals, and scientific notation
+                # (e.g. 1e+20, 1e-10) that str(float) and BigQuery emit and that a bare
+                # int() would reject. Guard against inf/nan, which parse as float but are
+                # not valid BigQuery numeric literals.
+                if not math.isfinite(float(str_val)):
+                    raise ValueError
                 return f"`{col_name}` = {str_val}"
             except ValueError:
                 # A YYYY-MM-DD date string for an integer column likely stores dates as
