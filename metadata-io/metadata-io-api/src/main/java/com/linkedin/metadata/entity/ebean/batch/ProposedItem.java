@@ -7,9 +7,11 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -116,10 +118,33 @@ public class ProposedItem implements MCPItem {
         @Nonnull MetadataChangeProposal metadataChangeProposal,
         AuditStamp auditStamp,
         @Nonnull EntityRegistry entityRegistry) {
+      return buildInternal(metadataChangeProposal, auditStamp, entityRegistry, true);
+    }
 
-      // Validation includes: Urn, Entity, Aspect
-      this.metadataChangeProposal =
-          ValidationApiUtils.validateMCP(entityRegistry, metadataChangeProposal);
+    /**
+     * Same as {@link #build} but does not require the aspect to be registered on the entity type.
+     * Used by alternate MCP validation so unknown aspects can reach {@code IgnoreUnknownMutator}.
+     */
+    public ProposedItem buildAllowingUnknownAspect(
+        @Nonnull MetadataChangeProposal metadataChangeProposal,
+        AuditStamp auditStamp,
+        @Nonnull EntityRegistry entityRegistry) {
+      return buildInternal(metadataChangeProposal, auditStamp, entityRegistry, false);
+    }
+
+    private ProposedItem buildInternal(
+        @Nonnull MetadataChangeProposal metadataChangeProposal,
+        AuditStamp auditStamp,
+        @Nonnull EntityRegistry entityRegistry,
+        boolean requireRegisteredAspect) {
+
+      if (requireRegisteredAspect) {
+        this.metadataChangeProposal =
+            ValidationApiUtils.validateMCP(entityRegistry, metadataChangeProposal);
+      } else {
+        this.metadataChangeProposal =
+            validateMcpWithoutAspect(entityRegistry, metadataChangeProposal);
+      }
       this.auditStamp = auditStamp;
       SystemMetadata systemMetadata =
           SystemMetadataUtils.setAspectModified(
@@ -128,19 +153,47 @@ public class ProposedItem implements MCPItem {
               auditStamp);
       this.metadataChangeProposal.setSystemMetadata(systemMetadata);
 
-      this.urn = metadataChangeProposal.getEntityUrn(); // validation ensures existence
+      this.urn = this.metadataChangeProposal.getEntityUrn();
       log.debug("entity type = {}", this.urn.getEntityType());
 
-      entitySpec(entityRegistry.getEntitySpec(this.urn.getEntityType())); // prior validation
+      entitySpec(entityRegistry.getEntitySpec(this.urn.getEntityType()));
       log.debug("entity spec = {}", this.entitySpec);
 
-      aspectSpec(
-          entitySpec.getAspectSpec(
-              this.metadataChangeProposal.getAspectName())); // prior validation
+      aspectSpec(entitySpec.getAspectSpec(this.metadataChangeProposal.getAspectName()));
       log.debug("aspect spec = {}", this.aspectSpec);
 
       return new ProposedItem(
           this.urn, this.metadataChangeProposal, this.auditStamp, this.entitySpec, this.aspectSpec);
+    }
+
+    private static MetadataChangeProposal validateMcpWithoutAspect(
+        @Nonnull EntityRegistry entityRegistry, MetadataChangeProposal mcp) {
+      if (mcp == null) {
+        throw new UnsupportedOperationException("MetadataChangeProposal is required.");
+      }
+
+      final EntitySpec entitySpec;
+      final Urn urn;
+      if (mcp.getEntityUrn() != null) {
+        urn = mcp.getEntityUrn();
+        entitySpec = ValidationApiUtils.validateEntity(entityRegistry, urn.getEntityType());
+      } else {
+        entitySpec = ValidationApiUtils.validateEntity(entityRegistry, mcp.getEntityType());
+        urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
+        mcp.setEntityUrn(urn);
+      }
+
+      if (mcp.getEntityType().equalsIgnoreCase(urn.getEntityType())) {
+        mcp.setEntityType(urn.getEntityType());
+      } else {
+        throw new ValidationException(
+            String.format(
+                "URN entity type does not match MCP entity type. %s != %s",
+                urn.getEntityType(), mcp.getEntityType()));
+      }
+
+      ValidationApiUtils.validateUrn(entityRegistry, urn);
+      return mcp;
     }
   }
 }

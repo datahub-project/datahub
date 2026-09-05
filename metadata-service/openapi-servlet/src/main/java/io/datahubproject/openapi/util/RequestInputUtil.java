@@ -18,7 +18,34 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class RequestInputUtil {
+  /**
+   * Keys that live on the same JSON object as aspect names in OpenAPI v3 entity documents. They are
+   * not aspects and must not be treated as unknown-aspect writes.
+   */
+  public static final Set<String> ENTITY_DOCUMENT_METADATA_KEYS = Set.of("urn", "scrollId");
+
   private RequestInputUtil() {}
+
+  public static boolean isEntityDocumentMetadataKey(@Nullable String key) {
+    return key != null && ENTITY_DOCUMENT_METADATA_KEYS.contains(key);
+  }
+
+  /**
+   * Resolve an aspect for a write. Unknown names fail loudly rather than being dropped.
+   *
+   * @throws IllegalArgumentException if the aspect is not registered on the entity type
+   */
+  @Nonnull
+  public static AspectSpec requireAspectSpec(
+      @Nullable EntitySpec entitySpec, @Nonnull String aspectName) {
+    return lookupAspectSpec(entitySpec, aspectName)
+        .orElseThrow(
+            () ->
+                new IllegalArgumentException(
+                    String.format(
+                        "Unknown aspect %s for entity %s",
+                        aspectName, entitySpec != null ? entitySpec.getName() : "unknown")));
+  }
 
   public static Collection<String> resolveEntityNames(
       @Nonnull EntityRegistry entityRegistry, @Nullable Set<String> entityNames) {
